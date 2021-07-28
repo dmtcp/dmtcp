@@ -39,7 +39,6 @@
  *   processes a per-client special request, or continues the protocol      *
  *   for a checkpoint or restart sequence (see below).                      *
  *                                                                          *
- * updateMinimumState() is responsible for keeping track of states.         *
  * The coordinator keeps a ComputationStatus, with minimumState and         *
  *   maximumState for states of all workers, accessed through getStatus()   *
  *   or through minimumState()                                              *
@@ -641,7 +640,7 @@ DmtcpCoordinator::processPreSuspendClientMsg(CoordClient *client,
                                              const DmtcpMessage& msg,
                                              const void *extraData)
 {
-  // Calls startCheckpoint() again after first time (DMT_PRE_SUSPEND_RESPONSE).
+  // This was invoked by two-hase-algo.cpp:preSuspendBarrier(extraData)
   processPreSuspendClientMsgHelper(this, client, workersAtCurrentBarrier,
                                    msg, extraData);
 }
@@ -676,7 +675,7 @@ DmtcpCoordinator::onData(CoordClient *client)
   }
 
 #ifdef MPI
-  case DMT_PRE_SUSPEND_RESPONSE:
+  case DMT_MPI_PRESUSPEND_RESPONSE:
   {
     if (!mpiMode) {
       JWARNING(false)(msg.from)(msg.state)
@@ -684,11 +683,13 @@ DmtcpCoordinator::onData(CoordClient *client)
               "but --mpi flag was not specified");
       break;
     }
-    JTRACE("got DMT_PRE_SUSPEND_RESPONSE message")
+    JTRACE("got DMT_MPI_PRESUSPEND_RESPONSE message")
           (client->state()) (msg.from) (msg.state);
     client->setState(msg.state);
     workersAtCurrentBarrier++;
-    updateMinimumState();
+    // If numPeers reached barrier, next function sends DMT_MPI_PRESUSPEND
+    //   to clients, or else sends SAFE_TO_CHECKPOINT, and clients will
+    //   stop sending DMT_MPI_PRESUSPEND_RESPONSE.
     processPreSuspendClientMsg(client, msg, extraData);
     // If numPeers reached barrier, release barrier
     maybeClearWorkersAtCurrentBarrier();
@@ -1231,6 +1232,10 @@ bool
 DmtcpCoordinator::startCheckpoint()
 {
 #ifdef MPI
+# if 0
+  // In the latest DMTCP, DMT_DO_CHECKPOINT, below, will actually invoke
+  //   dmtcpworker.cpp:waitForPreSuspendMessage()
+  //   So, we don't need this code any more.
   static bool sentIntentMsg = false;
 
   // When this gets called for the first time, we simply send the intent
@@ -1240,7 +1245,7 @@ DmtcpCoordinator::startCheckpoint()
   if (mpiMode && !sentIntentMsg) {
     ComputationStatus s = getStatus();
     if ((s.minimumState == WorkerState::RUNNING ||
-         s.minimumState == WorkerState::PRE_SUSPEND) &&
+         s.minimumState == WorkerState::MPI_PRESUSPEND) &&
         s.minimumStateUnanimous &&
         !workersRunningAndSuspendMsgSent) {
       sendCkptIntentMsg(this);
@@ -1249,8 +1254,9 @@ DmtcpCoordinator::startCheckpoint()
     } // else fall through, and return 'false' (can't checkpoint now)
   }
   sentIntentMsg = false; // Reset the intent msg for the subsequent call
-#endif
 
+# endif
+#endif
   ComputationStatus s = getStatus();
   if (s.minimumState == WorkerState::RUNNING && s.minimumStateUnanimous
       && !workersRunningAndSuspendMsgSent) {
@@ -1269,6 +1275,11 @@ DmtcpCoordinator::startCheckpoint()
 JWARNING(false).Text("sendindg DMT_DO_CHECKPOINT");
 printf("printf: sendindg DMT_DO_CHECKPOINT\n");
     broadcastMessage(DMT_DO_CHECKPOINT);
+    // On worker side, after receiving DMT_DO_CHECKPOINT, the plugin manager
+    // sends out DMTCP_EVENT_PRESUSPEND followed by DMTCP_EVENT_CHECKPOINT
+    // to each plugin.  The callbacks for those events may call
+    // dmtcp_global_barrier(), which sends back a DMT_BARRIER msg before
+    // the workers do the actual checkpoint.
 
     // Suspend Message has been sent but the workers are still in running
     // state.  If the coordinator receives another checkpoint request from user

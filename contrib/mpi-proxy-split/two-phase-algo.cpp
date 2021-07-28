@@ -31,10 +31,10 @@ void commStateHistoryAdd(struct twoPhaseHistory item) {
   commStateHistory[++commStateHistoryLast % commStateHistoryLength] = item;
 }
 
-void
-drainMpiCollectives(const void *data)
+rank_state_t
+drainMpiCollectives(query_t query)
 {
-  TwoPhaseAlgo::instance().preSuspendBarrier(data);
+  return TwoPhaseAlgo::instance().preSuspendBarrier(query);
 }
 
 void
@@ -190,20 +190,26 @@ TwoPhaseAlgo::replayTrivialBarrier()
   }
 }
 
-void
-TwoPhaseAlgo::preSuspendBarrier(const void *data)
+rank_state_t
+TwoPhaseAlgo::preSuspendBarrier(query_t query)
 {
-  JASSERT(data).Text("Pre-suspend barrier called with NULL data!");
-  DmtcpMessage msg(DMT_PRE_SUSPEND_RESPONSE);
+  JASSERT(query != Q_FAILED).Text("Pre-suspend barrier called with Q_FAILED!");
+#if 0
+  // FIXME:  Delete this code when MANA is stable.
+  DmtcpMessage msg(DMT_MPI_PRESUSPEND_RESPONSE);
+#endif
 
   phase_t st = getCurrState();
-  query_t query = *(query_t*)data;
   static int procRank = -1;
 
+#if 0
   if (procRank == -1) {
     JASSERT(MPI_Comm_rank(MPI_COMM_WORLD, &procRank) == MPI_SUCCESS &&
             procRank != -1);
   }
+#else
+  procRank = 0;
+#endif
 
   switch (query) {
     case INTENT:
@@ -258,9 +264,14 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
     {.lineNo = __LINE__, ._comm = _comm, .comm = gid,
      .state = st, .currState = getCurrState()});
   _commAndStateMutex.unlock();
-  JTRACE("Sending DMT_PRE_SUSPEND_RESPONSE message")(procRank)(gid)(st);
+  JTRACE("Sending DMT_MPI_PRESUSPEND_RESPONSE message")(procRank)(gid)(st);
+#if 0
+  // FIXME:  Delete this code when MANA is stable.
   msg.extraBytes = sizeof state;
   informCoordinatorOfCurrState(msg, &state);
+#else
+  return state;
+#endif
 }
 
 

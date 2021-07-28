@@ -106,7 +106,6 @@ class DmtcpCoordinator
 
     void addDataSocket(CoordClient *client);
     void updateCheckpointInterval(uint32_t timeout);
-    void updateMinimumState();
     void initializeComputation();
     void broadcastMessage(DmtcpMessageType type,
                           size_t extraBytes = 0,

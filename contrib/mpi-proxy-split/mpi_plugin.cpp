@@ -3,6 +3,8 @@
 #define MPI
 #include "config.h"
 #include "dmtcp.h"
+#include "coordinatorapi.h"
+#include "dmtcpmessagetypes.h"
 #include "util.h"
 #include "jassert.h"
 #include "jfilesystem.h"
@@ -123,6 +125,70 @@ updateLhEnviron()
   fnc(__environ);
 }
 
+// This is a generalization of coordinatorapi.cpp:waitForBarrier().
+query_t
+waitForMpiPresuspendBarrier(rank_state_t data_to_coord)
+{
+  DmtcpMessage barrierMsg(DMT_MPI_PRESUSPEND_RESPONSE);
+  const char comment[] = "MANA coordinator plugin: PRESUSPEND barrier";
+  JASSERT(sizeof(comment) < sizeof(barrierMsg.barrier)) (comment);
+  strcpy(barrierMsg.barrier, comment);
+
+  // This is a weird API.. doesn't return success or failure
+  CoordinatorAPI::sendMsgToCoordinator(barrierMsg,
+                                       &data_to_coord, sizeof(data_to_coord));
+  JTRACE("waiting for DMT_MPI_PRESUSPEND message") (comment);
+
+  query_t *extraData = NULL;
+  DmtcpMessage msg;
+  CoordinatorAPI::recvMsgFromCoordinator(&msg, (void**)&extraData);
+  // Before validating message; make sure we are not exiting.
+  if (!msg.isValid()) {
+    return Q_FAILED;
+  }
+  msg.assertValid();
+  query_t query = *extraData;
+  // recvMsgFromCoordinator() calls JALLOC_MALLOC.
+  // We could avoid the malloc/free by keeping a static buf for short extraData
+  //   and then testing msg.extraBytes here to see if it's a short extraData.
+  JALLOC_FREE(extraData);
+
+  JASSERT(msg.type == DMT_MPI_PRESUSPEND) (msg.type);
+  JASSERT(query != Q_FAILED);
+  JASSERT(query < Q_MAX) (comment) (query);
+
+#if 0
+  // OPTIONAL: Augment to report numPeers, as in waitForBarrier()
+  if (numPeers != NULL) {
+    *numPeers = msg.numPeers;
+  }
+#endif
+
+  return query;
+}
+
+// This is a generalization of dmtcpplugin.cpp:dmtcp_global_barrier().
+// FIXME: In a full generalization, the barrier would take two arguments:
+//        (i) the string name of a coordinator plugin
+//        (ii) the data_to_coord argument
+//        The coordinator plugin named there would then reply back with
+//        a coordinator message, which would be the return value of this fnc.
+EXTERNC query_t
+mpi_presuspend_barrier(rank_state_t data_to_coord)
+{
+  JTRACE("Waiting for next MPI presuspend barrier")
+        (data_to_coord.rank) (data_to_coord.comm) (data_to_coord.st);
+  query_t response = waitForMpiPresuspendBarrier(data_to_coord);
+  if (response == Q_FAILED) {
+    JTRACE("Failed to read message from coordinator; process exiting?");
+    JASSERT(false).Text("... aborting and exiting");
+  }
+  // FIXME: extract important info from data_to_coord
+  JTRACE("MPI Presuspend Barrier Received")
+        (data_to_coord.rank) (data_to_coord.comm) (data_to_coord.st);
+  return response;
+}
+
 static void
 mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -135,7 +201,24 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
     }
     case DMTCP_EVENT_PRESUSPEND:
-      drainMpiCollectives(data); // two-phase-algo.cpp
+      // drainMpiCollectives() will send worker state and get coord response.
+      // Unfortunately, dmtcp_global_barrier()/DMT_BARRIER can't send worker
+      // state and get a coord responds.  So, drainMpiCollective() will use the
+      // special messages:  DMT_MPI_PRESUSPEND and DMT_MPI_PRESUSPEND_RESPONSE
+      // 'INTENT' (intend to ckpt) acts as the first corodinator response.
+      // * drainMpiCollective() calls preSuspendBarrier()
+      // * mpi_presuspend_barrier() calls waitForMpiPresuspendBarrier()
+      // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
+      query_t coord_response = INTENT;
+      while (1) {
+        // FIXME: see informCoordinator...() for the 2pc_data that we send
+        //       to the coordinator.  Now, return it and use it below.
+        rank_state_t data_to_coord = drainMpiCollectives(coord_response);
+        coord_response = mpi_presuspend_barrier(data_to_coord);
+        if (coord_response == SAFE_TO_CHECKPOINT) {
+          break;
+        }
+      }
       break;
 
     case DMTCP_EVENT_PRECHECKPOINT:

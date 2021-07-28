@@ -29,9 +29,12 @@ typedef enum __query_t
 {
   NONE = -1,
   Q_UNKNOWN, /* State 0 shouldn't be confused with a state used in the algo. */
+  Q_FAILED, /* Coordinator failed to respond (e.g., noCoordinator mode) */
   INTENT,
   FREE_PASS,
   WAIT_STRAGGLER,
+  SAFE_TO_CHECKPOINT,
+  Q_MAX
 } query_t;
 
 // Struct to encapsulate the checkpointing state of a rank

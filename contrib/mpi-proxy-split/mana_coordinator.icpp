@@ -180,6 +180,32 @@ getClientState(CoordClient *client)
 #endif
 
 void
+sendQueryMsgsToClients(const ClientToStateMap& clientStates, query_t *queries)
+{
+  for (RankKVPair c : clientStates) {
+    DmtcpMessage msg(DMT_MPI_PRESUSPEND);
+    query_t q;
+    if (queries != NULL) {
+      q = queries[c.second.rank];
+    } else {
+      q = SAFE_TO_CHECKPOINT;
+    }
+    printf("Sending %d to rank %d\n", q, c.second.rank);
+    fflush(stdout);
+    JTRACE("Sending query to client")(q)
+      (c.second.rank)(c.second.comm)(c.second.st);
+    msg.extraBytes = sizeof q;
+    c.first->sock() << msg;
+    c.first->sock().writeAll((const char*)&q, msg.extraBytes);
+  }
+}
+void
+sendSafeToCkptMsg(const ClientToStateMap& clientStates)
+{
+  sendQueryMsgsToClients(clientStates, NULL);
+}
+
+void
 processPreSuspendClientMsgHelper(DmtcpCoordinator *coord,
                                  CoordClient *client,
                                  int &workersAtCurrentBarrier,
@@ -220,15 +246,29 @@ processPreSuspendClientMsgHelper(DmtcpCoordinator *coord,
   printf("%s\n", prog.printList().c_str());
 
   JTRACE("Checking if we can send the checkpoint message");
-  // We are ready! If all clients responded with IN_READY, inform the
+  // We are ready! If all clients responded with IS_READY, inform the
   // ranks of the imminent checkpoint msg and wait for their final approvals...
   if (allRanksReady(clientStates, status.numPeers)) {
     // JTRACE("All ranks ready for checkpoint; broadcasting ckpt msg...");
     // query_t q(CKPT);
-    // coord->broadcastMessage(DMT_DO_PRE_SUSPEND, sizeof q, &q);
+    // coord->broadcastMessage(DMT_MPI_PRESUSPEND, sizeof q, &q);
     JTRACE("All ranks ready for checkpoint; broadcasting suspend msg...");
     JTIMER_STOP(twoPc);
+    // In the newest DMTCP, once startCheckpoint() was called the first time,
+    // then the plugin manager handles presuspend/precheckpoint barriers,
+    // and then releases the control to start the checkpoint.
+    // So, we don't need to do anything except return when everything is safe.
+#if 0
+    // FIXME: Delete this when code is stable.
+    // We don't need this second call to startCheckpoint().  There was
+    // already a first call to startCheckpoint(), which sent us the original
+    // DMT_DO_CHECKPOINT message, which resulted in DMT_EVENT_PRESUSPEND,
+    // which called us here.  When the plugin manager finishes, it will
+    // automatically direct control to writing the checkpoint images.
     coord->startCheckpoint();
+#else
+    sendSafeToCkptMsg(clientStates);
+#endif
     goto done;
   }
   JTRACE("Checking if some ranks are in critical section");
@@ -240,15 +280,17 @@ processPreSuspendClientMsgHelper(DmtcpCoordinator *coord,
   // executing in critical section.
   unblockRanks(clientStates, status.numPeers);
 done:
-  workersAtCurrentBarrier = 0;
   clientStates.clear();
 }
 
+// FIXME:  Is this function still used?  When DMTCP_EVENT_PRESUSPEND
+//         is sent to MPI plugin, the callback function can replace data
+//         by 'INTENT' directly?  If not used, remove this function.
 void
 sendCkptIntentMsg(dmtcp::DmtcpCoordinator *coord)
 {
   query_t q(INTENT);
-  coord->broadcastMessage(DMT_DO_PRE_SUSPEND, sizeof q, &q);
+  coord->broadcastMessage(DMT_MPI_PRESUSPEND, sizeof q, &q);
 }
 
 static std::ostream&
@@ -300,16 +342,18 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
     }
   }
 
-  // other ranks just wait for a iteration.
+  // other ranks just wait for an iteration.
   for (RankKVPair c : clientStates) {
     if (queries[c.second.rank] == NONE) {
       queries[c.second.rank] = WAIT_STRAGGLER;
     }
   }
 
-  // send all queires
+  // send all queries
+#if 0
+  // FIXME:  Delete this code when MANA is stable.
   for (RankKVPair c : clientStates) {
-    DmtcpMessage msg(DMT_DO_PRE_SUSPEND);
+    DmtcpMessage msg(DMT_MPI_PRESUSPEND);
     query_t q = queries[c.second.rank];
     printf("Sending %d to rank %d\n", q, c.second.rank);
     fflush(stdout);
@@ -319,5 +363,8 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
     c.first->sock() << msg;
     c.first->sock().writeAll((const char*)&q, msg.extraBytes);
   }
+#else
+  sendQueryMsgsToClients(clientStates, queries);
+#endif
   free(queries);
 }

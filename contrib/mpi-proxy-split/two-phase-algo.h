@@ -68,7 +68,9 @@ namespace dmtcp_mpi
 
       // Implements the pre-suspend checkpointing protocol for coordination
       // between DMTCP coordinator and peers
-      void preSuspendBarrier(const void *);
+      // The query is sent by the coordinator, the worker takes action based
+      //   on the query, and the next rank_state_t returned.
+      rank_state_t preSuspendBarrier(query_t query);
 
       // Log the MPI_Ibarrier call if we checkpoint in trivial barrier or phase1
       void logIbarrierIfInTrivBarrier();
@@ -130,7 +132,10 @@ namespace dmtcp_mpi
       {
         lock_t lock(_ckptPendingMutex);
         _ckptPending = true;
-        setCurrentState(WorkerState::PRE_SUSPEND);
+#if 0
+        // Delete this when MANA works with latest DMTCP.
+        setCurrentState(WorkerState::PRESUSPEND);
+#endif
       }
 
       // Stopping point before entering and after exiting the actual MPI
@@ -201,7 +206,7 @@ namespace dmtcp_mpi
 
 // Forces the current process to synchronize with the coordinator in order to
 // get to a globally safe state for checkpointing
-extern void drainMpiCollectives(const void* );
+extern rank_state_t drainMpiCollectives(query_t);
 
 // Clears the pending checkpoint state for the two-phase checkpointing algo
 extern void clearPendingCkpt();
