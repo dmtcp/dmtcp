@@ -125,7 +125,7 @@ endif
 all: default
 
 mana: mana_prereqs
-	$(MAKE) mana_part2
+	MANACFLAGS=-DMPI=1 $(MAKE) mana_part2
 mana_part2: default \
 	bin/mana_launch bin/mana_restart bin/mana_coordinator bin/mana_status
 	cd contrib/mpi-proxy-split && make install && make -j tests

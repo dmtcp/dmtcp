@@ -26,8 +26,8 @@ else
 endif
 
 PICFLAGS=-fPIC
-AM_CFLAGS = $(PICFLAGS)
-AM_CXXFLAGS = $(PICFLAGS) $(JALLOC_ATOMIC_128_CXXFLAG)
+AM_CFLAGS = $(PICFLAGS) $(MANACFLAGS)
+AM_CXXFLAGS = $(PICFLAGS) $(JALLOC_ATOMIC_128_CXXFLAG) $(MANACFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
 
 if CONFIG_M32
@@ -216,6 +216,16 @@ __d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a 		\
 				  libnohijack.a			\
 				  -lpthread -lrt -ldl
 
+
+dmtcp_coordinator.o: dmtcp_coordinator.cpp
+	if test "${MTCP}" = mtcp-mpi; then \
+	  cd $(top_srcdir)/contrib/mpi-proxy-split; \
+	  make dmtcp_coordinator_object_in_src; \
+	else \
+	  $(AM_V_CXX)depbase=`echo $@| sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+	  $(CXXCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< && \
+	  $(am__mv) $$depbase.Tpo $$depbase.Po; \
+	fi
 
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
