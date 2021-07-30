@@ -1,5 +1,4 @@
 test/*.exe
-unit-test/*.exe
+test/*.mana.exe
+unit-test/
 proxy
-mpi-wrappers/*.c*
-mpi-wrappers/*.so*

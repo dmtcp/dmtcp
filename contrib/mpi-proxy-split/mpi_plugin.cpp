@@ -104,7 +104,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     {
       JTRACE("*** DMTCP_EVENT_INIT");
       initialize_segv_handler();
-      JASSERT(!splitProcess()).Text("Failed to create, initialize lower haf");
+      JASSERT(!splitProcess()).Text("Failed to create, initialize lower half");
       break;
     }
     case DMTCP_EVENT_EXIT:

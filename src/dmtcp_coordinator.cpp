@@ -126,8 +126,10 @@ static const char *theUsage =
   "  --timeout seconds\n"
   "      Coordinator exits after <seconds> even if jobs are active\n"
   "      (Useful during testing to prevent runaway coordinator processes)\n"
+#ifdef MPI
   "  --mpi\n"
   "      Run in MPI mode (required for MANA/MPI)\n"
+#endif
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent "
   "process.\n"
@@ -455,10 +457,12 @@ DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
     << "NUM_PEERS=" << numPeers << std::endl
     << "RUNNING=" << (isRunning ? "yes" : "no") << std::endl;
   printf("%s", o.str().c_str());
+#ifdef MPI
   if (mpiMode) {
     printNonReadyRanks();
     printMpiDrainStatus(lookupService);
   }
+#endif
   fflush(stdout);
 }
 
@@ -485,9 +489,11 @@ DmtcpCoordinator::printList()
       << ", " << clients[i]->identity()
       << ", " << clients[i]->state()
       << ", " << clients[i]->barrier();
+#ifdef MPI
       if (mpiMode) {
         o << getClientState(clients[i]);
       }
+#endif
       o << '\n';
   }
   return o.str();
@@ -667,7 +673,8 @@ DmtcpCoordinator::onData(CoordClient *client)
   {
     if (!mpiMode) {
       JWARNING(false)(msg.from)(msg.state)
-           .Text("Received PRE_SUSPEND msg but --mpi switch was not specified");
+        .Text("Received MPI_PRESUSPEND_RESPONSE msg, "
+              "but --mpi flag was not specified");
       break;
     }
     JTRACE("got DMT_PRE_SUSPEND_RESPONSE message")
@@ -1252,6 +1259,8 @@ DmtcpCoordinator::startCheckpoint()
       (s.numPeers) (compId.computationGeneration());
 
     // Pass number of connected peers to all clients
+JWARNING(false).Text("sendindg DMT_DO_CHECKPOINT");
+printf("printf: sendindg DMT_DO_CHECKPOINT\n");
     broadcastMessage(DMT_DO_CHECKPOINT);
 
     // Suspend Message has been sent but the workers are still in running

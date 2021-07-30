@@ -19,9 +19,10 @@ dmtcplibdir = $(pkglibdir)
 
 SUBDIRS = mtcp plugin
 
-JALLOC_ATOMIC_128_CXXFLAG =
 if X86_64_HOST
- JALLOC_ATOMIC_128_CXXFLAG = -mcx16
+  JALLOC_ATOMIC_128_CXXFLAG = -mcx16
+else
+  JALLOC_ATOMIC_128_CXXFLAG =
 endif
 
 PICFLAGS=-fPIC

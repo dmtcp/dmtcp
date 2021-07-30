@@ -77,7 +77,6 @@ namespace dmtcp_mpi
       void replayTrivialBarrier();
 
     private:
-
       // Private constructor
       TwoPhaseAlgo()
         : _currState(IS_READY),

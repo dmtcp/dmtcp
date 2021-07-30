@@ -250,7 +250,7 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
     {.lineNo = __LINE__, ._comm = _comm, .comm = gid,
      .state = st, .currState = getCurrState()});
   JASSERT(state.comm != MPI_COMM_NULL || state.st == IS_READY)
-	 (state.comm)(state.st)(gid)(_currState)(query);
+         (state.comm)(state.st)(gid)(_currState)(query);
   commStateHistoryAdd(
     {.lineNo = __LINE__, ._comm = _comm, .comm = gid,
      .state = st, .currState = getCurrState()});

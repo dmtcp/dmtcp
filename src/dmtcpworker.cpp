@@ -396,7 +396,9 @@ DmtcpWorker::waitForPreSuspendMessage()
   JTRACE("waiting for CHECKPOINT message");
 
   DmtcpMessage msg;
+JWARNING(false).Text("waiting for CHECKPOINT (PRESUSPEND) message");
   CoordinatorAPI::recvMsgFromCoordinator(&msg);
+JWARNING(false).Text("Done waiting for CHECKPOINT (PRESUSPEND) message");
 
   // Before validating message; make sure we are not exiting.
   if (exitInProgress) {

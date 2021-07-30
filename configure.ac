@@ -5,8 +5,7 @@ AC_INIT([DMTCP],
         [http://dmtcp.sourceforge.net])
 
 AC_PREREQ([2.60])
-# TODO(kapil): Add 'subdir-objects after automake 1.16 has been released.
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([1.13 foreign subdir-objects])
 AM_MAINTAINER_MODE
 AC_CANONICAL_HOST
 AC_PROG_INSTALL
