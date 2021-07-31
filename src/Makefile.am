@@ -17,7 +17,9 @@ jalibdir=$(top_srcdir)/jalib
 dmtcpincludedir=$(top_srcdir)/include
 dmtcplibdir = $(pkglibdir)
 
-SUBDIRS = mtcp plugin
+# Don't declare mtcp or mtcp-mpi as subdirs.  Automake would try to
+#   recursively make _both_.  We use 'all-local', below, to only make ${MTCP}.
+SUBDIRS = plugin
 
 if X86_64_HOST
   JALLOC_ATOMIC_128_CXXFLAG = -mcx16
@@ -86,9 +88,9 @@ nobase_noinst_HEADERS =						\
 			tokenize.h				\
 			uniquepid.h				\
 			workerstate.h				\
-			mtcp/ldt.h				\
-			mtcp/restore_libc.h			\
-			mtcp/tlsutil.h
+			${MTCP}/ldt.h				\
+			${MTCP}/restore_libc.h			\
+			${MTCP}/tlsutil.h
 
 nobase_noinst_HEADERS += $(jalibdir)/jalib.h			\
 			 $(jalibdir)/jalloc.h			\
@@ -176,7 +178,7 @@ __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 __d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a 		\
 				 libjalib.a 			\
 				 libsyscallsreal.a 		\
-				 mtcp/libmtcp.a			\
+				 ${MTCP}/libmtcp.a		\
 				 -ldl -lpthread -lrt
 
 
@@ -217,6 +219,21 @@ __d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a 		\
 				  -lpthread -lrt -ldl
 
 
+# DMTCP_ROOT/Makefile might have set 'MTCP=mtcp-mpi' in 'mana' target
+MTCP ?= mtcp
+
+all-local: ${MTCP}/all
+
+${MTCP}/all:
+	cd ${MTCP} && ${MAKE} all
+
+clean-local: mtcp/clean mtcp-mpi/clean
+
+mtcp/clean:
+	cd mtcp && ${MAKE} clean
+mtcp-mpi/clean:
+	cd mtcp-mpi && ${MAKE} clean
+
 dmtcp_coordinator.o: dmtcp_coordinator.cpp
 	if test "${MTCP}" = mtcp-mpi; then \
 	  cd $(top_srcdir)/contrib/mpi-proxy-split; \
@@ -227,15 +244,15 @@ dmtcp_coordinator.o: dmtcp_coordinator.cpp
 	  $(am__mv) $$depbase.Tpo $$depbase.Po; \
 	fi
 
-mtcp/libmtcp.a:
-	cd mtcp && ${MAKE} libmtcp.a
+${MTCP}/libmtcp.a:
+	cd ${MTCP} && ${MAKE} libmtcp.a
 
 install-libs: install-dmtcplibPROGRAMS
-	(cd mtcp && ${MAKE} install-libs)
+	(cd ${MTCP} && ${MAKE} install-libs)
 	(cd plugin && ${MAKE} install-libs)
 
 uninstall-libs: uninstall-dmtcplibPROGRAMS
-	(cd mtcp && ${MAKE} uninstall-libs)
+	(cd ${MTCP} && ${MAKE} uninstall-libs)
 	(cd plugin && ${MAKE} uninstall-libs)
 
 .PHONY: install-libs uninstall-libs

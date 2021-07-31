@@ -41,6 +41,7 @@ AC_CONFIG_FILES([Makefile \
                  plugin/Makefile \
                  src/Makefile \
                  src/mtcp/Makefile \
+                 src/mtcp-mpi/Makefile \
                  src/plugin/Makefile \
                  include/dmtcp/version.h \
                  test/Makefile \

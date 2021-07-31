@@ -95,8 +95,9 @@ default: build
 libs: build
 build: $(targetdir)/bin/$(MTCP_RESTART) libmtcp.a
 
-$(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o mtcp_split_process.o getcontext.o
-	${ARM_BINARIES} ${LINK} -fPIC -g -O0 -nodefaultlibs $^
+$(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o mtcp_split_process.o \
+        getcontext.o ${ARM_BINARIES}
+	${LINK} -fPIC -g -O0 -nodefaultlibs $^
 
 # We need to compile mtcp_restart.c with "-fno-stack-protector" to avoid
 # runtime stack smashing detection.

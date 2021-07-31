@@ -125,7 +125,7 @@ endif
 all: default
 
 mana: mana_prereqs
-	MANACFLAGS=-DMPI=1 $(MAKE) mana_part2
+	MANACFLAGS=-DMPI=1 MTCP=mtcp-mpi $(MAKE) mana_part2
 mana_part2: default \
 	bin/mana_launch bin/mana_restart bin/mana_coordinator bin/mana_status
 	cd contrib/mpi-proxy-split && make install && make -j tests
@@ -214,9 +214,13 @@ ${_hooksdir}/%: util/hooks/%
 # If the developer accidentally leaves an old src/config.h in place (e.g.,
 #   after examining an old revision when this really existed), then some
 #   source code would pull in src/config.h in preference to include/config.h
+# MTCP can be mtcp-mpi.  Else set to mtcp.
 dmtcp: mkdirs
 	rm -f src/config.h
-	cd src && $(MAKE)
+	if test -z ${MTCP}; then \
+	  export MTCP=mtcp; \
+	fi && \
+	  cd src && $(MAKE)
 
 plugin: dmtcp
 	cd plugin && $(MAKE)

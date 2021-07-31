@@ -529,7 +529,11 @@ Util::runMtcpRestore(int is32bitElf,
                      size_t argvSize,
                      size_t envSize)
 {
+#ifdef MPI
+  static string mtcprestart = Util::getPath("mtcp_restart-mpi");
+#else
   static string mtcprestart = Util::getPath("mtcp_restart");
+#endif
 
   if (is32bitElf) {
     mtcprestart = Util::getPath("mtcp_restart-32", is32bitElf);

@@ -48,7 +48,7 @@ ifeq ($(M32),1)
   # For mixed mode, 32-bit packages must be installed in the 64-bit libdir.
   targetdir = $(top_builddir)/lib/$(PACKAGE)/32
 else
-  MTCP_RESTART=mtcp_restart
+  MTCP_RESTART=mtcp_restart-mpi
 endif
 
 # We currently use two files, procmapsarea.h and protectedfds.h, from the

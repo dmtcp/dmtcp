@@ -203,7 +203,7 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 __d_libdir__libdmtcp_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_so_OBJECTS)
 __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
-	libsyscallsreal.a mtcp/libmtcp.a
+	libsyscallsreal.a ${MTCP}/libmtcp.a
 __d_libdir__libdmtcp_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(__d_libdir__libdmtcp_so_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
@@ -524,7 +524,10 @@ AUTOMAKE_OPTIONS = foreign
 jalibdir = $(top_srcdir)/jalib
 dmtcpincludedir = $(top_srcdir)/include
 dmtcplibdir = $(pkglibdir)
-SUBDIRS = mtcp plugin
+
+# Don't declare mtcp or mtcp-mpi as subdirs.  Automake would try to
+#   recursively make _both_.  We use 'all-local', below, to only make ${MTCP}.
+SUBDIRS = plugin
 @X86_64_HOST_FALSE@JALLOC_ATOMIC_128_CXXFLAG = 
 @X86_64_HOST_TRUE@JALLOC_ATOMIC_128_CXXFLAG = -mcx16
 PICFLAGS = -fPIC
@@ -557,7 +560,7 @@ nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 	lookup_service.h plugininfo.h pluginmanager.h processinfo.h \
 	restartscript.h siginfo.h syscallwrappers.h threadinfo.h \
 	threadlist.h threadsync.h tokenize.h uniquepid.h workerstate.h \
-	mtcp/ldt.h mtcp/restore_libc.h mtcp/tlsutil.h \
+	${MTCP}/ldt.h ${MTCP}/restore_libc.h ${MTCP}/tlsutil.h \
 	$(jalibdir)/jalib.h $(jalibdir)/jalloc.h $(jalibdir)/jassert.h \
 	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h \
 	$(jalibdir)/jfilesystem.h $(jalibdir)/jserialize.h \
@@ -636,7 +639,7 @@ __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 __d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a 		\
 				 libjalib.a 			\
 				 libsyscallsreal.a 		\
-				 mtcp/libmtcp.a			\
+				 ${MTCP}/libmtcp.a		\
 				 -ldl -lpthread -lrt
 
 __d_bindir__dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
@@ -1138,7 +1141,7 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-recursive
-all-am: Makefile $(LIBRARIES) $(PROGRAMS) $(HEADERS)
+all-am: Makefile $(LIBRARIES) $(PROGRAMS) $(HEADERS) all-local
 installdirs: installdirs-recursive
 installdirs-am:
 	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dmtcplibdir)" "$(DESTDIR)$(includedir)"; do \
@@ -1181,7 +1184,7 @@ maintainer-clean-generic:
 clean: clean-recursive
 
 clean-am: clean-binPROGRAMS clean-dmtcplibPROGRAMS clean-generic \
-	clean-noinstLIBRARIES mostlyclean-am
+	clean-local clean-noinstLIBRARIES mostlyclean-am
 
 distclean: distclean-recursive
 	-rm -rf $(jalibdir)/$(DEPDIR) ./$(DEPDIR)
@@ -1251,10 +1254,10 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 
 .MAKE: $(am__recursive_targets) install-am install-strip
 
-.PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am check \
-	check-am clean clean-binPROGRAMS clean-dmtcplibPROGRAMS \
-	clean-generic clean-noinstLIBRARIES cscopelist-am ctags \
-	ctags-am distclean distclean-compile distclean-generic \
+.PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am all-local \
+	check check-am clean clean-binPROGRAMS clean-dmtcplibPROGRAMS \
+	clean-generic clean-local clean-noinstLIBRARIES cscopelist-am \
+	ctags ctags-am distclean distclean-compile distclean-generic \
 	distclean-tags distdir dvi dvi-am html html-am info info-am \
 	install install-am install-binPROGRAMS install-data \
 	install-data-am install-dmtcplibPROGRAMS install-dvi \
@@ -1271,6 +1274,21 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 .PRECIOUS: Makefile
 
 
+# DMTCP_ROOT/Makefile might have set 'MTCP=mtcp-mpi' in 'mana' target
+MTCP ?= mtcp
+
+all-local: ${MTCP}/all
+
+${MTCP}/all:
+	cd ${MTCP} && ${MAKE} all
+
+clean-local: mtcp/clean mtcp-mpi/clean
+
+mtcp/clean:
+	cd mtcp && ${MAKE} clean
+mtcp-mpi/clean:
+	cd mtcp-mpi && ${MAKE} clean
+
 dmtcp_coordinator.o: dmtcp_coordinator.cpp
 	if test "${MTCP}" = mtcp-mpi; then \
 	  cd $(top_srcdir)/contrib/mpi-proxy-split; \
@@ -1281,15 +1299,15 @@ dmtcp_coordinator.o: dmtcp_coordinator.cpp
 	  $(am__mv) $$depbase.Tpo $$depbase.Po; \
 	fi
 
-mtcp/libmtcp.a:
-	cd mtcp && ${MAKE} libmtcp.a
+${MTCP}/libmtcp.a:
+	cd ${MTCP} && ${MAKE} libmtcp.a
 
 install-libs: install-dmtcplibPROGRAMS
-	(cd mtcp && ${MAKE} install-libs)
+	(cd ${MTCP} && ${MAKE} install-libs)
 	(cd plugin && ${MAKE} install-libs)
 
 uninstall-libs: uninstall-dmtcplibPROGRAMS
-	(cd mtcp && ${MAKE} uninstall-libs)
+	(cd ${MTCP} && ${MAKE} uninstall-libs)
 	(cd plugin && ${MAKE} uninstall-libs)
 
 .PHONY: install-libs uninstall-libs
