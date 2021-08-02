@@ -1,7 +1,10 @@
+#define MPI
 #include <ucontext.h>
 #include "dmtcp.h"
 #include "coordinatorapi.h"
 
+// Must undefine MPI. This may include mpi.h, which can define MPI type/symbol.
+#undef MPI
 #include "record-replay.h"
 #include "two-phase-algo.h"
 #include "virtual-ids.h"

@@ -8,7 +8,11 @@
 #include <sys/types.h>
 #include <ucontext.h>
 #include <unistd.h>
-#include "mtcp/restore_libc.h"
+#ifdef MPI
+# include "mtcp-mpi/restore_libc.h"
+#else
+# include "mtcp/restore_libc.h"
+#endif
 #include "protectedfds.h"
 #include "syscallwrappers.h" /* for _real_syscall */
 

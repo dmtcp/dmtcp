@@ -1,12 +1,6 @@
 #include <signal.h>
 
-#include "lower_half_api.h"
-#include "split_process.h"
-#include "p2p_log_replay.h"
-#include "p2p_drain_send_recv.h"
-#include "record-replay.h"
-#include "two-phase-algo.h"
-
+#define MPI
 #include "config.h"
 #include "dmtcp.h"
 #include "util.h"
@@ -14,6 +8,16 @@
 #include "jfilesystem.h"
 #include "protectedfds.h"
 #include "procselfmaps.h"
+#undef MPI
+
+// Must undefine MPI. This may include mpi.h, which can define MPI type/symbol.
+#undef MPI
+#include "lower_half_api.h"
+#include "split_process.h"
+#include "p2p_log_replay.h"
+#include "p2p_drain_send_recv.h"
+#include "record-replay.h"
+#include "two-phase-algo.h"
 
 using namespace dmtcp;
 

@@ -18,7 +18,11 @@
 #include "ckptserializer.h"
 #include "dmtcpalloc.h"
 #include "dmtcpworker.h"
-#include "mtcp/mtcp_header.h"
+#ifdef MPI
+# include "mtcp-mpi/mtcp_header.h"
+#else
+# include "mtcp/mtcp_header.h"
+#endif
 #include "pluginmanager.h"
 #include "procselfmaps.h" // for MPI
 #include "shareddata.h"
