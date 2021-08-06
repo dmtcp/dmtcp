@@ -58,13 +58,17 @@ restore_rlimit_float_settings()
 
   struct rlimit rlim = {0, 0};
 
-#define RESTORE_RLIMIT(_RLIMIT, _rlim_cur) \
-  if (_rlim_cur != RLIM_INFINITY) { \
-    getrlimit(_RLIMIT, &rlim); \
-    JWARNING(_rlim_cur <= rlim.rlim_max) (_rlim_cur) (rlim.rlim_max) \
-      .Text("Prev. soft limit of " #_RLIMIT " lowered to new hard limit"); \
-    rlim.rlim_cur = _rlim_cur; \
-    JASSERT(setrlimit(_RLIMIT, &rlim) == 0) (JASSERT_ERRNO); \
+#define RESTORE_RLIMIT(_RLIMIT, _rlim_cur)                                   \
+  if (_rlim_cur != RLIM_INFINITY) {                                          \
+    getrlimit(_RLIMIT, &rlim);                                               \
+    if (_rlim_cur <= rlim.rlim_max) {                                        \
+      rlim.rlim_cur = _rlim_cur;                                             \
+      JASSERT(setrlimit(_RLIMIT, &rlim) == 0) (JASSERT_ERRNO);               \
+    } else {                                                                 \
+      JTRACE("Prev. soft limit of " #_RLIMIT " lowered to new hard limit")   \
+        (_rlim_cur) (rlim.rlim_max);                                         \
+      _rlim_cur = rlim.rlim_max;                                             \
+    }                                                                        \
   }
 
   RESTORE_RLIMIT(RLIMIT_AS, rlim_cur_as);
