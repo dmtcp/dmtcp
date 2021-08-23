@@ -227,4 +227,8 @@ uninstall-libs: uninstall-dmtcplibPROGRAMS
 	(cd mtcp && ${MAKE} uninstall-libs)
 	(cd plugin && ${MAKE} uninstall-libs)
 
+
+# In gcc 9.2.0 and 10.3.0, the -O2 flag has a bug for "string == string_literal" 
+dmtcp_coordinator.o: dmtcp_coordinator.cpp
+	$(CXX) -std=c++11 -DHAVE_CONFIG_H -I. -I../include -I../include -I../jalib -fPIC -mcx16 -g -O0 -MT dmtcp_coordinator.o -MD -MP -MF .deps/dmtcp_coordinator.Tpo -c -o dmtcp_coordinator.o dmtcp_coordinator.cpp
 .PHONY: install-libs uninstall-libs
