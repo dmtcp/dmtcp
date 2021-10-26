@@ -1,5 +1,5 @@
 # Allow containerized builds.
-sudo: false
+os: linux
 dist: focal
 
 addons:
