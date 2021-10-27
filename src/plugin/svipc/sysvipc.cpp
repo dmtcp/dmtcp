@@ -27,7 +27,6 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
-#include <iostream>
 
 #include "jassert.h"
 #include "jconvert.h"
