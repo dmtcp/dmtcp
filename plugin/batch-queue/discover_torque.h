@@ -31,7 +31,6 @@
 #include <iostream>
 #include <map>
 #include <string>
-#include <string>
 #include <vector>
 
 #include "discover_resources.h"

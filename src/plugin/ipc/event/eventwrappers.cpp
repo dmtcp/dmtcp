@@ -20,7 +20,6 @@
  ****************************************************************************/
 
 #include <poll.h>
-#include <sys/select.h>
 
 /* According to POSIX.1-2001 */
 #include <sys/select.h>
