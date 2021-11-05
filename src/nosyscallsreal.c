@@ -276,17 +276,19 @@ _real_tcsetpgrp(int fd, pid_t pgrp)
   REAL_FUNC_PASSTHROUGH(tcsetpgrp) (fd, pgrp);
 }
 
-int
+pid_t
 _real_tcgetpgrp(int fd)
 {
-  REAL_FUNC_PASSTHROUGH(tcgetpgrp) (fd);
+  REAL_FUNC_PASSTHROUGH_PID_T(tcgetpgrp) (fd);
 }
 
+#if 0
 pid_t
 _real_getpgrp(void)
 {
   REAL_FUNC_PASSTHROUGH_PID_T(getpgrp) ();
 }
+#endif
 
 pid_t
 _real_setpgrp(void)
