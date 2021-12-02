@@ -118,6 +118,10 @@
 
 #define ENV_VAR_REMOTE_SHELL_CMD        "DMTCP_REMOTE_SHELL_CMD"
 
+// for spades plugin
+#define ENV_VAR_SPADES_OUTDIR           "DMTCP_SPADES_OUTDIR"
+#define ENV_VAR_SPADES_TMPDIR           "DMTCP_SPADES_TMPDIR"
+
 // this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL                  \
   ENV_VAR_NAME_HOST,                  \

@@ -670,3 +670,13 @@ Util::allowGdbDebug(int currentDebugLevel)
     }
   }
 }
+
+char *
+Util::abspath(const char * relative_path)
+{
+  char *real_path = NULL;
+  real_path = (char *)malloc(PATH_MAX + 1);
+  realpath(relative_path, real_path);
+  JASSERT (real_path != NULL)("realpath failed!") (relative_path) (real_path);
+  return real_path;
+}
