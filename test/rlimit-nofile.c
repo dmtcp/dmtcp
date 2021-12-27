@@ -16,9 +16,9 @@ int main(int argc, char* argv[])
     while (1);
   }
 
-  // Parent DMTCP  lib was already initizlied using default RLIMIT_NOFILE.
+  // Parent DMTCP lib was already initialized using default RLIMIT_NOFILE.
   // This fd_limit should cause the child to initialize with different limits.
-  // Verify that this does not create inconcsistency in DMTCP protectedFdBase.
+  // Verify that this does not create inconsistency in DMTCP protectedFdBase.
   struct rlimit fd_limit = {4096/2, 4096/2} ;
   int retStatus = getrlimit(RLIMIT_NOFILE, &fd_limit) ;
   if( retStatus == -1 ) {

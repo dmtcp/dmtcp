@@ -754,6 +754,8 @@ main(int argc, char **argv)
   char *tmpdir_arg = NULL;
   char *ckptdir_arg = NULL;
 
+  Util::setProtectedFdBase();
+
   initializeJalib();
 
   if (!getenv(ENV_VAR_QUIET)) {

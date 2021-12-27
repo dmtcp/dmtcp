@@ -1562,6 +1562,7 @@ void set_long_cmdline(char *argv0, const char *port) {
 int
 main(int argc, char **argv)
 {
+  Util::setProtectedFdBase();
   initializeJalib();
 
   // parse port
