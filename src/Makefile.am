@@ -153,6 +153,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  dmtcpworker.cpp 		\
 				  execwrappers.cpp 		\
 				  glibcsystem.cpp 		\
+				  kvdb.cpp              \
 				  miscwrappers.cpp 		\
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\

@@ -190,7 +190,7 @@ __d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	ckptserializer.$(OBJEXT) dmtcpplugin.$(OBJEXT) \
 	dmtcpworker.$(OBJEXT) execwrappers.$(OBJEXT) \
-	glibcsystem.$(OBJEXT) miscwrappers.$(OBJEXT) \
+	glibcsystem.$(OBJEXT) kvdb.$(OBJEXT) miscwrappers.$(OBJEXT) \
 	plugininfo.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) \
 	rlimitfloatenv.$(OBJEXT) signalwrappers.$(OBJEXT) \
 	siginfo.$(OBJEXT) syslogwrappers.$(OBJEXT) terminal.$(OBJEXT) \
@@ -232,21 +232,22 @@ am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/jassert.Po ./$(DEPDIR)/jbuffer.Po \
 	./$(DEPDIR)/jfilesystem.Po ./$(DEPDIR)/jserialize.Po \
 	./$(DEPDIR)/jsocket.Po ./$(DEPDIR)/jtimer.Po \
-	./$(DEPDIR)/lookup_service.Po ./$(DEPDIR)/miscwrappers.Po \
-	./$(DEPDIR)/mutex.Po ./$(DEPDIR)/nosyscallsreal.Po \
-	./$(DEPDIR)/plugininfo.Po ./$(DEPDIR)/pluginmanager.Po \
-	./$(DEPDIR)/popen.Po ./$(DEPDIR)/processinfo.Po \
-	./$(DEPDIR)/procselfmaps.Po ./$(DEPDIR)/restartscript.Po \
-	./$(DEPDIR)/rlimitfloatenv.Po ./$(DEPDIR)/rwlock.Po \
-	./$(DEPDIR)/shareddata.Po ./$(DEPDIR)/siginfo.Po \
-	./$(DEPDIR)/signalwrappers.Po ./$(DEPDIR)/syscallsreal.Po \
-	./$(DEPDIR)/syslogwrappers.Po ./$(DEPDIR)/terminal.Po \
-	./$(DEPDIR)/threadlist.Po ./$(DEPDIR)/threadsync.Po \
-	./$(DEPDIR)/threadwrappers.Po ./$(DEPDIR)/tokenize.Po \
-	./$(DEPDIR)/trampolines.Po ./$(DEPDIR)/uniquepid.Po \
-	./$(DEPDIR)/util_exec.Po ./$(DEPDIR)/util_init.Po \
-	./$(DEPDIR)/util_misc.Po ./$(DEPDIR)/workerstate.Po \
-	./$(DEPDIR)/wrappers.Po ./$(DEPDIR)/writeckpt.Po
+	./$(DEPDIR)/kvdb.Po ./$(DEPDIR)/lookup_service.Po \
+	./$(DEPDIR)/miscwrappers.Po ./$(DEPDIR)/mutex.Po \
+	./$(DEPDIR)/nosyscallsreal.Po ./$(DEPDIR)/plugininfo.Po \
+	./$(DEPDIR)/pluginmanager.Po ./$(DEPDIR)/popen.Po \
+	./$(DEPDIR)/processinfo.Po ./$(DEPDIR)/procselfmaps.Po \
+	./$(DEPDIR)/restartscript.Po ./$(DEPDIR)/rlimitfloatenv.Po \
+	./$(DEPDIR)/rwlock.Po ./$(DEPDIR)/shareddata.Po \
+	./$(DEPDIR)/siginfo.Po ./$(DEPDIR)/signalwrappers.Po \
+	./$(DEPDIR)/syscallsreal.Po ./$(DEPDIR)/syslogwrappers.Po \
+	./$(DEPDIR)/terminal.Po ./$(DEPDIR)/threadlist.Po \
+	./$(DEPDIR)/threadsync.Po ./$(DEPDIR)/threadwrappers.Po \
+	./$(DEPDIR)/tokenize.Po ./$(DEPDIR)/trampolines.Po \
+	./$(DEPDIR)/uniquepid.Po ./$(DEPDIR)/util_exec.Po \
+	./$(DEPDIR)/util_init.Po ./$(DEPDIR)/util_misc.Po \
+	./$(DEPDIR)/workerstate.Po ./$(DEPDIR)/wrappers.Po \
+	./$(DEPDIR)/writeckpt.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -642,6 +643,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  dmtcpworker.cpp 		\
 				  execwrappers.cpp 		\
 				  glibcsystem.cpp 		\
+				  kvdb.cpp              \
 				  miscwrappers.cpp 		\
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\
@@ -903,6 +905,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jserialize.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jsocket.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jtimer.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/kvdb.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lookup_service.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/miscwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mutex.Po@am__quote@ # am--include-marker
@@ -1329,6 +1332,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/jserialize.Po
 	-rm -f ./$(DEPDIR)/jsocket.Po
 	-rm -f ./$(DEPDIR)/jtimer.Po
+	-rm -f ./$(DEPDIR)/kvdb.Po
 	-rm -f ./$(DEPDIR)/lookup_service.Po
 	-rm -f ./$(DEPDIR)/miscwrappers.Po
 	-rm -f ./$(DEPDIR)/mutex.Po
@@ -1429,6 +1433,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/jserialize.Po
 	-rm -f ./$(DEPDIR)/jsocket.Po
 	-rm -f ./$(DEPDIR)/jtimer.Po
+	-rm -f ./$(DEPDIR)/kvdb.Po
 	-rm -f ./$(DEPDIR)/lookup_service.Po
 	-rm -f ./$(DEPDIR)/miscwrappers.Po
 	-rm -f ./$(DEPDIR)/mutex.Po

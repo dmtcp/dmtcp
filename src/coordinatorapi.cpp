@@ -471,6 +471,7 @@ void sendMsgToCoordinator(const DmtcpMessage &msg, const string &data)
 
 void recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
 {
+  msg->poison();
   recvMsgFromCoordinatorRaw(coordinatorSocket, msg, extraData);
 }
 

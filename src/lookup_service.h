@@ -82,6 +82,10 @@ class LookupService
     ~LookupService() { reset(); }
 
     void reset();
+
+    void get64(jalib::JSocket &remote, const DmtcpMessage &msg);
+    void set64(const DmtcpMessage &msg);
+
     void registerData(const DmtcpMessage &msg, const void *data);
     void respondToQuery(jalib::JSocket &remote,
                         const DmtcpMessage &msg,
@@ -99,11 +103,15 @@ class LookupService
   private:
     typedef map<KeyValue, KeyValue *>KeyValueMap;
     typedef map<string, KeyValueMap>::iterator MapIterator;
+
+    typedef map<int64_t, int64_t>KeyValueMap64;
+    typedef map<string, KeyValueMap64>::iterator MapIterator64;
     void addKeyValue(string id,
                      const void *key,
                      size_t keyLen,
                      const void *val,
                      size_t valLen);
+
     void query(string id,
                const void *key,
                size_t keyLen,
@@ -112,6 +120,8 @@ class LookupService
 
   private:
     map<string, KeyValueMap>_maps;
+    map<string, KeyValueMap64>_maps64;
+
     map<string, uint64_t>_lastUniqueIds;
     map<string, uint64_t>_offsets;
 };

@@ -687,6 +687,20 @@ DmtcpCoordinator::onData(CoordClient *client)
     break;
   }
 
+  case DMT_KVDB64_GET:
+  {
+    JTRACE("received DMT_KVDB_GET64 msg") (client->identity());
+    lookupService.get64(client->sock(), msg);
+    break;
+  }
+
+  case DMT_KVDB64_OP:
+  {
+    JTRACE("received DMT_KVDB_OP64 msg") (client->identity());
+    lookupService.set64(msg);
+    break;
+  }
+
   case DMT_NULL:
     JWARNING(false) (msg.type).Text(
       "unexpected message from worker. Closing connection");
@@ -1499,7 +1513,7 @@ DmtcpCoordinator::addDataSocket(CoordClient *client)
     (JASSERT_ERRNO);
 }
 
-#define min(x,y) ((x)<(y) ? (x) : (y))
+#define min(x, y) ((x) < (y) ? (x) : (y))
 
 // Copy name+suffix into short_buf of length len, and truncate name to fit.
 // This keeps only the last component of name (after last '/')
