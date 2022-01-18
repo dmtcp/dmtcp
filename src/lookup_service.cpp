@@ -131,6 +131,8 @@ LookupService::set64(const DmtcpMessage &msg)
     return;
   }
 
+  // If a key doesn't exist, we assume the default value (0) for all operations, 
+  // except for AND where we set it to the incoming value.
   switch (msg.kvdb.op)
   {
   case DMTCP_KVDB_INCRBY:
@@ -150,11 +152,13 @@ LookupService::set64(const DmtcpMessage &msg)
     break;
 
   case DMTCP_KVDB_AND:
+    // If key isn't found, set the key to the given value.
     if (kvmap.find(msg.kvdb.key) == kvmap.end()) {
       kvmap[msg.kvdb.key] = msg.kvdb.value;
+      break;
     }
 
-    kvmap[msg.kvdb.key] &= kvmap[msg.kvdb.key];
+    kvmap[msg.kvdb.key] &= msg.kvdb.value;
     break;
 
   default:
