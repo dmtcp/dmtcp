@@ -112,6 +112,7 @@ LookupService::get64(jalib::JSocket &remote,
   if (kvmap.find(msg.kvdb.key) == kvmap.end()) {
     JTRACE("Lookup Failed, Key not found.");
     remote << DmtcpMessage(DMT_KVDB64_GET_FAILED);
+    return;
   }
 
   DmtcpMessage reply(DMT_KVDB64_GET_RESPONSE);
