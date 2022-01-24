@@ -379,6 +379,30 @@ int dmtcp_get_unique_id_from_coordinator(const char *id,
  */
 int dmtcp_send_query_all_to_coordinator(const char *id, void **buf, int *len);
 
+/*
+ *
+ */
+
+typedef enum eDmtcpKVDBOperation {
+  DMTCP_KVDB_INVALID,
+  DMTCP_KVDB_SET,
+  DMTCP_KVDB_INCRBY,
+  DMTCP_KVDB_AND,
+  DMTCP_KVDB_OR,
+  DMTCP_KVDB_XOR,
+  DMTCP_KVDB_NOT
+} DmtcpKVDBOperation_t;
+
+int dmtcp_kvdb64(DmtcpKVDBOperation_t op,
+                 const char *id,
+                 int64_t key,
+                 int64_t val);
+
+int dmtcp_kvdb64_get(const char *id,
+                     int64_t key,
+                     int64_t *val);
+
+
 void dmtcp_get_local_ip_addr(struct in_addr *in) __attribute((weak));
 
 const char *dmtcp_get_tmpdir(void);

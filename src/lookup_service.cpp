@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "dmtcp.h"
 #include "lookup_service.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jsocket.h"
@@ -43,6 +44,7 @@ LookupService::reset()
     kvmap.clear();
   }
   _maps.clear();
+  _maps64.clear();
   _lastUniqueIds.clear();
   _offsets.clear();
 }
@@ -99,6 +101,69 @@ LookupService::registerData(const DmtcpMessage &msg, const void *data)
   size_t keyLen = msg.keyLen;
   size_t valLen = msg.valLen;
   addKeyValue(msg.nsid, key, keyLen, val, valLen);
+}
+
+void
+LookupService::get64(jalib::JSocket &remote,
+                     const DmtcpMessage &msg)
+{
+  KeyValueMap64 &kvmap = _maps64[msg.kvdbId];
+
+  if (kvmap.find(msg.kvdb.key) == kvmap.end()) {
+    JTRACE("Lookup Failed, Key not found.");
+    remote << DmtcpMessage(DMT_KVDB64_GET_FAILED);
+    return;
+  }
+
+  DmtcpMessage reply(DMT_KVDB64_GET_RESPONSE);
+  reply.kvdb.value = kvmap[msg.kvdb.key];
+
+  remote << reply;
+}
+
+void
+LookupService::set64(const DmtcpMessage &msg)
+{
+  KeyValueMap64 &kvmap = _maps64[msg.kvdbId];
+
+  if (msg.kvdb.op == DMTCP_KVDB_SET) {
+    kvmap[msg.kvdb.key] = msg.kvdb.value;
+    return;
+  }
+
+  // If a key doesn't exist, we assume the default value (0) for all operations, 
+  // except for AND where we set it to the incoming value.
+  switch (msg.kvdb.op)
+  {
+  case DMTCP_KVDB_INCRBY:
+    kvmap[msg.kvdb.key] += msg.kvdb.value;
+    break;
+
+  case DMTCP_KVDB_OR:
+    kvmap[msg.kvdb.key] |= msg.kvdb.value;
+    break;
+
+  case DMTCP_KVDB_XOR:
+    kvmap[msg.kvdb.key] ^= msg.kvdb.value;
+    break;
+
+  case DMTCP_KVDB_NOT:
+    kvmap[msg.kvdb.key] = ~kvmap[msg.kvdb.key];
+    break;
+
+  case DMTCP_KVDB_AND:
+    // If key isn't found, set the key to the given value.
+    if (kvmap.find(msg.kvdb.key) == kvmap.end()) {
+      kvmap[msg.kvdb.key] = msg.kvdb.value;
+      break;
+    }
+
+    kvmap[msg.kvdb.key] &= msg.kvdb.value;
+    break;
+
+  default:
+    JASSERT(false).Text("Invalid operation");
+  }
 }
 
 void
