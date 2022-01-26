@@ -768,8 +768,13 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
   }
   mtcp_sys_close(mapsfd);
 
-  if ((vdsoStart == vvarEnd && rinfo->vdsoStart != rinfo->vvarEnd) ||
-      (vvarStart == vdsoEnd && rinfo->vvarStart != rinfo->vdsoEnd)) {
+  // If the vvar (or vdso) segment does not exist, then rinfo->vvarStart and
+  // rinfo->vvarEnd are both 0 (or the vdso equivalents). We check for those to
+  // ensure we don't get a false positive here.
+  if ((vdsoStart == vvarEnd && rinfo->vdsoStart != rinfo->vvarEnd &&
+       rinfo->vvarStart != 0 && rinfo->vvarEnd != 0) ||
+      (vvarStart == vdsoEnd && rinfo->vvarStart != rinfo->vdsoEnd &&
+       rinfo->vdsoStart != 0 && rinfo->vdsoEnd != 0)) {
     MTCP_PRINTF("***Error: vdso/vvar order was different during ckpt.\n");
     mtcp_abort();
   }
@@ -1255,7 +1260,8 @@ doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2)
   VA end1 = (char *)addr1 + size1;
   VA end2 = (char *)addr2 + size2;
 
-  return (addr1 >= addr2 && addr1 < end2) || (addr2 >= addr1 && addr2 < end1);
+  return (size1 > 0 && addr1 >= addr2 && addr1 < end2) ||
+         (size2 > 0 && addr2 >= addr1 && addr2 < end1);
 }
 
 NO_OPTIMIZE
