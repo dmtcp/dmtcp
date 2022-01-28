@@ -165,19 +165,17 @@ void initialize(const char *tmpDir = NULL,
                 const char *installDir = NULL,
                 DmtcpUniqueProcessId *compId = NULL,
                 CoordinatorInfo *coordInfo = NULL,
-                struct in_addr *localIPAddr = NULL,
-                uint32_t numPeers = 0);
+                struct in_addr *localIPAddr = NULL);
 void initializeHeader(const char *tmpDir,
                       const char *installDir,
                       DmtcpUniqueProcessId *compId,
                       CoordinatorInfo *coordInfo,
-                      struct in_addr *localIP,
-                      uint32_t numPeers);
+                      struct in_addr *localIP);
 
 bool isSharedDataRegion(void *addr);
-void initializeBarrier(uint32_t numPeers);
+void initializeBarrier();
 void resetBarrierInfo();
-void prepareForCkpt(uint32_t numPeers);
+void prepareForCkpt();
 void postRestart();
 void waitForBarrier(const string &barrierId);
 
