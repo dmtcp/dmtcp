@@ -757,10 +757,13 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
         (theCheckpointInterval);
     }
   } else {
-    // If all other workers are at currentBarrier, release it.
-    if (!currentBarrier.empty() &&
-        (client->barrier().empty() || client->barrier() == currentBarrier)) {
-      --workersAtCurrentBarrier;
+    // If the coordinator waits at currentBarrier, try to release it.
+    if (!currentBarrier.empty()) {
+      // If already registered as a worker at current barrier,
+      // decrement the worker counter before try to release the barrier.
+      if (client->barrier() == currentBarrier) {
+        --workersAtCurrentBarrier;
+      }
       releaseBarrier(currentBarrier);
     }
   }
