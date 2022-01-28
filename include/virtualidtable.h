@@ -306,6 +306,11 @@ class VirtualIdTable
       printMaps();
     }
 
+    const string& getTypeStr()
+    {
+      return _typeStr;
+    }
+
   private:
     string _typeStr;
     DmtcpMutex tblLock;
