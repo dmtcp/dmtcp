@@ -114,6 +114,8 @@ static const char *theUsage =
   "  --port-file filename\n"
   "      File to write listener port number.\n"
   "      (Useful with '--port 0', which is used to assign a random port)\n"
+  "  --status-file filename\n"
+  "      File to write host, port, pid, etc., info.\n"
   "  --ckptdir (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "      Directory to store dmtcp_restart_script.sh (default: ./)\n"
   "  --tmpdir (environment variable DMTCP_TMPDIR):\n"
@@ -149,6 +151,7 @@ static const char *theUsage =
 
 static int thePort = -1;
 static string thePortFile;
+static string theStatusFile;
 
 static bool exitOnLast = false;
 static bool blockUntilDone = false;
@@ -396,6 +399,30 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
       reply->coordCmdStatus = CoordCmdStatus::ERROR_INVALID_COMMAND;
     }
   }
+}
+
+void
+DmtcpCoordinator::writeStatusToFile()
+{
+  ofstream o;
+  o.open(theStatusFile.c_str(), std::ios::out | std::ios::trunc);
+  JASSERT(!o.fail()) (theStatusFile)
+    .Text("Failed to truncate and open status file");
+
+  o << "Status..." << std::endl
+    << "Host: " << coordHostname
+    << " (" << inet_ntoa(localhostIPAddr) << ")" << std::endl
+    << "Port: " << thePort << std::endl
+    << "PID: " << getpid() << std::endl
+    << "Checkpoint Interval: ";
+
+  if (theCheckpointInterval == 0) {
+    o << "disabled (checkpoint manually instead)" << std::endl;
+  } else {
+    o << theCheckpointInterval << std::endl;
+  }
+
+  o.close();
 }
 
 void
@@ -1165,6 +1192,11 @@ DmtcpCoordinator::startCheckpoint()
 
     // Pass number of connected peers to all clients
     broadcastMessage(DMT_DO_CHECKPOINT);
+    // On worker side, after receiving DMT_DO_CHECKPOINT, the plugin manager
+    // sends out DMTCP_EVENT_PRESUSPEND followed by DMTCP_EVENT_CHECKPOINT
+    // to each plugin.  The callbacks for those events may call
+    // dmtcp_global_barrier(), which sends back a DMT_BARRIER msg before
+    // the workers do the actual checkpoint.
 
     // Suspend Message has been sent but the workers are still in running
     // state.  If the coordinator receives another checkpoint request from user
@@ -1666,6 +1698,9 @@ main(int argc, char **argv)
     } else if (argc > 1 && s == "--port-file") {
       thePortFile = argv[1];
       shift; shift;
+    } else if (argc > 1 && s == "--status-file") {
+      theStatusFile = argv[1];
+      shift; shift;
     } else if (argc > 1 && (s == "-c" || s == "--ckptdir")) {
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
       shift; shift;
@@ -1829,6 +1864,10 @@ main(int argc, char **argv)
 
     // sigprocmask is only per-thread; but the coordinator is single-threaded.
     sigprocmask(SIG_BLOCK, &set, NULL);
+  }
+
+  if (!theStatusFile.empty()) {
+    prog.writeStatusToFile();
   }
 
   prog.eventLoop(daemon);
