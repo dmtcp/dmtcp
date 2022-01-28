@@ -456,13 +456,16 @@ DmtcpWorker::preCheckpoint()
     SharedData::getCompId()._computation_generation;
   ProcessInfo::instance().set_generation(computationGeneration);
 
+  // initialize local number of peers on this node:
+  //   sharedDataHeader->barrierInfo.numCkptPeers
+  SharedData::prepareForCkpt();
+
   uint32_t numPeers;
   JTRACE("Waiting for DMT_CHECKPOINT barrier");
   CoordinatorAPI::waitForBarrier("DMT:CHECKPOINT", &numPeers);
   JTRACE("Computation information") (numPeers);
 
-  SharedData::prepareForCkpt(numPeers);
-
+  // initialize global number of peers:
   ProcessInfo::instance().numPeers(numPeers);
 
   WorkerState::setCurrentState(WorkerState::CHECKPOINTING);
