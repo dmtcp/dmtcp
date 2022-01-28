@@ -119,6 +119,7 @@ class DmtcpCoordinator
     void recordCkptFilename(CoordClient *client, const char *barrierList);
 
     void handleUserCommand(char cmd, DmtcpMessage *reply = NULL);
+    void writeStatusToFile();
     void printStatus(size_t numPeers, bool isRunning);
     string printList();
 
