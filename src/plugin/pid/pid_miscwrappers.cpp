@@ -160,42 +160,27 @@ struct ThreadArg {
   sem_t sem;
 };
 
-// Invoked via __clone
-LIB_PRIVATE
-int
-clone_start(void *arg)
-{
-  struct ThreadArg *threadArg = (struct ThreadArg *)arg;
-
-  int (*fn) (void *) = threadArg->fn;
-  void *thread_arg = threadArg->arg;
-  pid_t virtualTid = threadArg->virtualTid;
-
-  if (dmtcp_is_running_state()) {
-    dmtcpResetTid(virtualTid);
-  }
-
-  VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
-  sem_post(&threadArg->sem);
-
-  JTRACE("Calling user function") (virtualTid);
-  return (*fn)(thread_arg);
-}
-
 typedef int (*clone_fptr_t)(int (*fn)(void *arg), void *child_stack, int
                             flags, void *arg, int *parent_tidptr,
                             struct user_desc *newtls, int *child_tidptr);
 
-// need to forward user clone
+/**************************************************
+ * FIXME:  When this is validated, remove REFACTOR_CLONE, and remove
+ *         the #else branch.
+ **************************************************/
+#define REFACTOR_CLONE
+// The caller of this function allocates threadArg.
+// dmtcp_clone_pre() initializes threadArg and returns a virtualTid
+/* // We have to use DMTCP-specific memory allocator because using glibc:malloc
+ * // can interfere with user threads.
+ * // We use JALLOC_HELPER_FREE to free this memory in two places:
+ * // 1.  later in this function in case of failure on call to __clone; and
+ * // 2.  near the beginnging of clone_start (wrapper for start_routine).
+ * struct ThreadArg *threadArg =
+ *   (struct ThreadArg *)JALLOC_HELPER_MALLOC(sizeof(struct ThreadArg));
+ */
 extern "C" int
-__clone(int (*fn)(void *arg),
-        void *child_stack,
-        int flags,
-        void *arg,
-        int *parent_tidptr,
-        struct user_desc *newtls,
-        int *child_tidptr)
-{
+dmtcp_clone_pre(int (*fn)(void *arg), void *arg, struct ThreadArg *threadArg) {
   pid_t virtualTid = -1;
   struct MtcpRestartThreadArg *mtcpRestartThreadArg;
 
@@ -210,22 +195,15 @@ __clone(int (*fn)(void *arg),
     virtualTid = VirtualPidTable::instance().getNewVirtualTid();
   }
 
-  // We have to use DMTCP-specific memory allocator because using glibc:malloc
-  // can interfere with user threads.
-  // We use JALLOC_HELPER_FREE to free this memory in two places:
-  // 1.  later in this function in case of failure on call to __clone; and
-  // 2.  near the beginnging of clone_start (wrapper for start_routine).
-  struct ThreadArg *threadArg =
-    (struct ThreadArg *)JALLOC_HELPER_MALLOC(sizeof(struct ThreadArg));
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->virtualTid = virtualTid;
   sem_init(&threadArg->sem, 0, 0);
+  return virtualTid;
+}
 
-  JTRACE("Calling libc:__clone");
-  pid_t tid = _real_clone(clone_start, child_stack, flags, threadArg,
-                          parent_tidptr, newtls, child_tidptr);
-
+extern "C" int
+dmtcp_clone_post_parent(int tid, int virtualTid, struct ThreadArg *threadArg) {
   if (tid > 0) {
     JTRACE("New thread created") (tid);
 
@@ -245,6 +223,125 @@ __clone(int (*fn)(void *arg),
 
   // Free memory previously allocated by calling JALLOC_HELPER_MALLOC
   JALLOC_HELPER_FREE(threadArg);
+
+  return virtualTid;
+}
+
+extern "C" int
+dmtcp_clone_post_child(void *arg) {
+  struct ThreadArg *threadArg = (struct ThreadArg *)arg;
+
+  int (*fn) (void *) = threadArg->fn;
+  void *thread_arg = threadArg->arg;
+  pid_t virtualTid = threadArg->virtualTid;
+
+  if (dmtcp_is_running_state()) {
+    dmtcpResetTid(virtualTid);
+  }
+
+  VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
+  sem_post(&threadArg->sem);
+
+  JTRACE("Calling user function") (virtualTid);
+  return (*fn)(thread_arg);
+}
+
+// Invoked via __clone
+LIB_PRIVATE
+int
+clone_start(void *arg)
+{
+#ifdef REFACTOR_CLONE
+  return dmtcp_clone_post_child(arg);
+#else
+  struct ThreadArg *threadArg = (struct ThreadArg *)arg;
+
+  int (*fn) (void *) = threadArg->fn;
+  void *thread_arg = threadArg->arg;
+  pid_t virtualTid = threadArg->virtualTid;
+
+  if (dmtcp_is_running_state()) {
+    dmtcpResetTid(virtualTid);
+  }
+
+  VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
+  sem_post(&threadArg->sem);
+
+  JTRACE("Calling user function") (virtualTid);
+  return (*fn)(thread_arg);
+#endif
+}
+
+// need to forward user clone
+extern "C" int
+__clone(int (*fn)(void *arg),
+        void *child_stack,
+        int flags,
+        void *arg,
+        int *parent_tidptr,
+        struct user_desc *newtls,
+        int *child_tidptr)
+{
+  // We have to use DMTCP-specific memory allocator because using glibc:malloc
+  // can interfere with user threads.
+  // We use JALLOC_HELPER_FREE to free this memory in two places:
+  // 1.  later in this function in case of failure on call to __clone; and
+  // 2.  near the beginnging of clone_start (wrapper for start_routine).
+  struct ThreadArg *threadArg =
+    (struct ThreadArg *)JALLOC_HELPER_MALLOC(sizeof(struct ThreadArg));
+#ifdef REFACTOR_CLONE
+  pid_t virtualTid = dmtcp_clone_pre(fn, arg, threadArg);
+#else
+  pid_t virtualTid = -1;
+  struct MtcpRestartThreadArg *mtcpRestartThreadArg;
+
+  if (!dmtcp_is_running_state()) {
+    mtcpRestartThreadArg = (struct MtcpRestartThreadArg *)arg;
+    arg = mtcpRestartThreadArg->arg;
+    virtualTid = mtcpRestartThreadArg->virtualTid;
+    if (virtualTid != VIRTUAL_TO_REAL_PID(virtualTid)) {
+      VirtualPidTable::instance().postRestart();
+    }
+  } else {
+    virtualTid = VirtualPidTable::instance().getNewVirtualTid();
+  }
+
+  threadArg->fn = fn;
+  threadArg->arg = arg;
+  threadArg->virtualTid = virtualTid;
+  sem_init(&threadArg->sem, 0, 0);
+#endif
+
+  JTRACE("Calling libc:__clone");
+  pid_t tid = _real_clone(clone_start, child_stack, flags, threadArg,
+                          parent_tidptr, newtls, child_tidptr);
+
+#ifdef REFACTOR_CLONE
+  // Free threadArg after sem_wait() on child:
+  // The new tid is either captured from clone() or discovered directly:
+  //   int tid = dmtcp_gettid();
+  virtualTid = dmtcp_clone_post_parent(tid, virtualTid, threadArg);
+#else
+  if (tid > 0) {
+    JTRACE("New thread created") (tid);
+
+    /* Wait for child thread to finish initializing.
+     * We must let the child thread insert original->current tid in the
+     * virtualpidtable. If we don't wait for the child thread and update the
+     * pidtable ourselves, there is a possible race if the child thread is
+     * short lived. In that case, the parent thread might insert
+     * original->current mapping well after the child thread has exited causing
+     * stale entries in the virtualpidtable.
+     */
+    sem_wait(&threadArg->sem);
+    sem_destroy(&threadArg->sem);
+  } else {
+    virtualTid = tid;
+  }
+
+  // Free memory previously allocated by calling JALLOC_HELPER_MALLOC
+  JALLOC_HELPER_FREE(threadArg);
+#endif
   return virtualTid;
 }
 
