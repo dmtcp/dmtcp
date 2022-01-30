@@ -336,6 +336,7 @@ struct linux_dirent {
                                       mtcp_inline_syscall(rt_sigaction, \
                       4,                                                \
                       args)
+# define mtcp_sys_kill(args ...)  mtcp_inline_syscall(kill, 2, args)
 # define mtcp_sys_set_tid_address(args ...) \
   mtcp_inline_syscall(set_tid_address, 1, args)
 
@@ -346,6 +347,9 @@ struct linux_dirent {
 # define mtcp_sys_personality(args ...)                                 \
                                     mtcp_inline_syscall(personality, 1, \
                       args)
+# define mtcp_sys_process_vm_readv(args ...)                                 \
+                                    mtcp_inline_syscall(process_vm_readv, 6, \
+                                                        args)
 # if defined(__aarch64__)
 
 // As of glibc-2.18, readlink() has been replaced by readlinkat()
