@@ -143,6 +143,9 @@ const int ENDLIST = -1;
 #define FAILURE   -1
 #define UNDEFINED -2
 
+#define print_error(format, args...) \
+  printf("\033[0;31m%s():%d " format "\033[0m", __FUNCTION__, __LINE__, ##args);
+
 /* a really generic way of spitting out analysis that isn't the important one
    in the test, used in the block test code.  Also, it is marked as
    comparing against SUCCESS, which is what the specific test should always
@@ -151,7 +154,7 @@ const int ENDLIST = -1;
    then the expected result is a success. :) */
 #define EXPECTED_RESP                                                  \
   if (passed != SUCCESS) {                                             \
-    printf("\tFailed Phase 2: This call did something unexpected.\n"); \
+    print_error("\tFailed Phase 2: This call did something unexpected.\n"); \
     fflush(NULL);                                                      \
     block = FAILURE;                                                   \
   }
@@ -162,7 +165,7 @@ const int ENDLIST = -1;
 
 #define ABORT_TEST                                                             \
   {                                                                            \
-    printf("\tFail Phase 2: Aborting test because of catastrophic failure\n"); \
+    print_error("\tFail Phase 2: Aborting test because of catastrophic failure\n"); \
     fflush(NULL);                                                              \
     return passed;                                                             \
   }
@@ -178,16 +181,7 @@ char passage[] = "This is tedious and lonely code. There is no salvation "
                  "in writing this code.";
 
 /* Print a spacer at the debug level */
-void
-testbreak(void)
-{
-  int i;
-
-  for (i = 0; i < 3; i++) {
-    printf("-");
-  }
-  printf("\n");
-}
+#define testbreak() printf("\n--- Line %d: %s() --- \n", __LINE__, __FUNCTION__);
 
 /* a simple utility routine */
 void *
@@ -459,8 +453,8 @@ is_errno_valid(int err, ...)
   va_end(ap);
 
   if (found == 0) {
-    printf("\tFailed: OS returned errno(%s) that is not in the valid "
-           "set for function!\n", strerror(err));
+    print_error("\tFailed: OS returned errno(%s) that is not in the valid "
+                "set for function!\n", strerror(err));
   }
 }
 
@@ -480,8 +474,8 @@ freopen_test(char *file, char *type, FILE *stream)
 
   switch (passed) {
   case FAILURE:
-    printf("\tFailed Phase 1: returned 0x%p, expected 0x%pn",
-           newfp, stream);
+    print_error("Failed Phase 1: returned 0x%p, expected 0x%pn",
+                newfp, stream);
     fflush(NULL);
     break;
   case SUCCESS:
@@ -489,8 +483,8 @@ freopen_test(char *file, char *type, FILE *stream)
     fflush(NULL);
 
     if (newfp != stream) {
-      printf("\tFailed Phase 1: returned 0x%p, expected 0x%p\n",
-             newfp, stream);
+      print_error("\tFailed Phase 1: returned 0x%p, expected 0x%p\n",
+                  newfp, stream);
       fflush(NULL);
     } else {
       printf("\tSucceeded Phase 1\n");
@@ -498,8 +492,8 @@ freopen_test(char *file, char *type, FILE *stream)
     }
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: undefined return code 0x%p\n",
-           newfp);
+    print_error("\tFailed Phase 1: undefined return code 0x%p\n",
+                newfp);
     fflush(NULL);
     break;
   default:
@@ -542,8 +536,8 @@ access_test(char *file, int mode)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -585,8 +579,8 @@ chmod_test(char *file, mode_t mode)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -628,8 +622,8 @@ chown_test(char *file, uid_t owner, gid_t group)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -670,8 +664,8 @@ chdir_test(char *dir)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -712,8 +706,8 @@ close_test(int fd)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -755,8 +749,8 @@ creat_test(const char *path, mode_t mode)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "fd = %d\n", fd);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "fd = %d\n", fd);
     fflush(NULL);
     break;
   default:
@@ -814,8 +808,8 @@ dup_test(int fd)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "newfd = %d\n", newfd);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "newfd = %d\n", newfd);
     fflush(NULL);
     break;
   default:
@@ -856,8 +850,8 @@ fchdir_test(int fd)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                 "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -898,8 +892,8 @@ fchmod_test(int fd, mode_t mode)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -940,8 +934,8 @@ fchown_test(int fd, uid_t owner, gid_t group)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1113,8 +1107,8 @@ fcntl_test(int fd, int cmd, ...)
     }
 
     if (ret < arg) {
-      printf("\tFailed Phase 1: returned ret less than arg! "
-             "ret = %d, arg = %d\n", ret, arg);
+      print_error("\tFailed Phase 1: returned ret less than arg! "
+                  "ret = %d, arg = %d\n", ret, arg);
       fflush(NULL);
 
       errno = save_errno;
@@ -1158,7 +1152,7 @@ fcntl_test(int fd, int cmd, ...)
     }
 
     if (ret != arg) {
-      printf("\tFailed: did not return ret == arg!\n");
+      print_error("\tFailed: did not return ret == arg!\n");
       fflush(NULL);
     } else {
       printf("\t\tret = %d\n", ret);
@@ -1207,8 +1201,8 @@ fcntl_test(int fd, int cmd, ...)
       fflush(NULL);
       break;
     default:
-      printf("\tFailed Phase 1: returned undefined value! "
-             "ret = %d\n", ret);
+      print_error("\tFailed Phase 1: returned undefined value! "
+                  "ret = %d\n", ret);
       fflush(NULL);
       break;
     }
@@ -1226,8 +1220,8 @@ fcntl_test(int fd, int cmd, ...)
     #endif
   */
   default:
-    printf("\tFailed Phase 1: Unknown fcntl command, "
-           "returning failure with EINVAL\n");
+    print_error("\tFailed Phase 1: Unknown fcntl command, "
+                "returning failure with EINVAL\n");
     errno = EINVAL;
     return -1;
   }
@@ -1282,8 +1276,8 @@ fstat_test(int fd, struct stat *buf)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1324,8 +1318,8 @@ fsync_test(int fd)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1372,8 +1366,8 @@ getgroups_test(int ngroups, gid_t *grouplist)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1423,8 +1417,8 @@ getrlimit_test(struct rlimit *rlp)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1504,8 +1498,8 @@ rename_test(char *old, char *newf)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1570,8 +1564,8 @@ statfs_test(char *path, struct statfs *buf)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1635,8 +1629,8 @@ fstatfs_test(int fd, struct statfs *buf)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1674,8 +1668,8 @@ getdomainname_test(char *name, int namelen)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1721,8 +1715,8 @@ gettimeofday_test(struct timeval *tv, struct timezone *tz)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1765,8 +1759,8 @@ lchown_test(char *path, uid_t owner, gid_t group)     /* link chown... */
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1809,8 +1803,8 @@ link_test(char *existing, char *newf)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed: OS returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed: OS returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1850,8 +1844,8 @@ lseek_test(int fd, off_t off, int whence)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed: OS returned undefined value! "
-           "ret = %u\n", ret);
+    print_error("\tFailed: OS returned undefined value! "
+                "ret = %u\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1892,8 +1886,8 @@ fseek_test(FILE *fp, int off, int whence)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1950,8 +1944,8 @@ lstat_test(char *path, struct stat *buf)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1993,8 +1987,8 @@ mkdir_test(char *dir, mode_t mode)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2035,8 +2029,8 @@ getcwd_test(char *buf, size_t size)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %p\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %p\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2079,8 +2073,8 @@ mknod_test(char *path, mode_t mode, dev_t dev)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2139,8 +2133,8 @@ open_test(char *path, int oflags, /* mode_t mode */ ...)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2181,8 +2175,8 @@ fopen_test(char *file, char *mode)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "fp = 0x%p\n", fp);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "fp = 0x%p\n", fp);
     fflush(NULL);
     break;
     break;
@@ -2231,8 +2225,8 @@ utimes_test(char *filename, struct timeval tvp[2])
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2273,8 +2267,8 @@ fclose_test(FILE *fp)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2316,8 +2310,8 @@ read_test(int fd, char *buf, size_t len)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2348,8 +2342,8 @@ fread_test(void *ptr, size_t size, size_t nitems, FILE *stream)
      weird behavior of fread(). Notice the check in SUCCESS. */
   switch (passed) {
   case FAILURE:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   case SUCCESS:
@@ -2367,8 +2361,8 @@ fread_test(void *ptr, size_t size, size_t nitems, FILE *stream)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2407,8 +2401,8 @@ ftell_test(FILE *fp)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %ld\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %ld\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2456,8 +2450,8 @@ readlink_test(char *path, char *buf, size_t bufsiz)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2500,8 +2494,8 @@ readv_test(int fd, struct iovec *iov, int iovcnt)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2543,8 +2537,8 @@ rmdir_test(char *path)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2584,8 +2578,8 @@ setregid_test(gid_t rgid, gid_t egid)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2624,8 +2618,8 @@ setreuid_test(uid_t ruid, uid_t euid)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2674,8 +2668,8 @@ setrlimit_test(struct rlimit *rlp)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2732,8 +2726,8 @@ stat_test(char *path, struct stat *buf)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2774,8 +2768,8 @@ symlink_test(char *old, char *newf)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2817,8 +2811,8 @@ truncate_test(char *file, size_t size)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2858,8 +2852,8 @@ ftruncate_test(int fd, size_t size)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2918,8 +2912,8 @@ unlink_test(char *path)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2962,8 +2956,8 @@ gethostname_test(char *name, size_t len)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -3009,8 +3003,8 @@ utime_test(char *file, struct utimbuf *times)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -3073,8 +3067,8 @@ uname_test(struct utsname *name)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -3119,8 +3113,8 @@ write_test(int fd, char *buf, size_t count)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -3148,8 +3142,8 @@ fwrite_test(char *ptr, size_t size, size_t nitems, FILE *stream)
 
   switch (passed) {
   case FAILURE:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   case SUCCESS:
@@ -3167,8 +3161,8 @@ fwrite_test(char *ptr, size_t size, size_t nitems, FILE *stream)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -3208,8 +3202,8 @@ tmpfile_test(void)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = 0x%p\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = 0x%p\n", ret);
     fflush(NULL);
     break;
   default:
@@ -3252,8 +3246,8 @@ writev_test(int fd, struct iovec *iov, int iovcnt)
     fflush(NULL);
     break;
   case UNDEFINED:
-    printf("\tFailed Phase 1: returned undefined value! "
-           "ret = %d\n", ret);
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -3280,17 +3274,17 @@ gettid_test(void)
   pid_t pid = getpid();
   pid_t sys_getpid = syscall(SYS_getpid);
   if (pid != sys_getpid) {
-    printf("\tFailed Phase 1: getpid() returned %d, "
-           "while syscall(SYS_getpid) returned %d!\n",
-           pid, sys_getpid);
+    print_error("\tFailed Phase 1: getpid() returned %d, "
+                "while syscall(SYS_getpid) returned %d!\n",
+                pid, sys_getpid);
     return FAILURE;
   }
 
   pid_t tid = gettid();
   if (tid != pid) {
-    printf("\tFailed Phase 1: getpid() returned %d, "
-           "while syscall(SYS_gettid) returned %d!\n",
-           pid, tid);
+    print_error("\tFailed Phase 1: getpid() returned %d, "
+                "while syscall(SYS_gettid) returned %d!\n",
+                pid, tid);
     return FAILURE;
   }
 
@@ -3434,7 +3428,7 @@ expect_uid(int expected, uid_t ret)
   fflush(NULL);
 
   if (expected == FAILURE) {
-    printf("\tFailed Phase 2: You may not expect failure on a uid_t.\n");
+    print_error("\tFailed Phase 2: You may not expect failure on a uid_t.\n");
     fflush(NULL);
   }
   return SUCCESS;
@@ -3449,7 +3443,7 @@ expect_gid(int expected, gid_t ret)
   fflush(NULL);
 
   if (expected == FAILURE) {
-    printf("\tFailed Phase 2: You may not expect failure on a gid_t.\n");
+    print_error("\tFailed Phase 2: You may not expect failure on a gid_t.\n");
     fflush(NULL);
   }
   return SUCCESS;
@@ -3464,7 +3458,7 @@ expect_msk(int expected, mode_t ret)
   fflush(NULL);
 
   if (expected == FAILURE) {
-    printf("\tFailed Phase 2: You may not expect failure on a mode_t.\n");
+    print_error("\tFailed Phase 2: You may not expect failure on a mode_t.\n");
     fflush(NULL);
   }
   return SUCCESS;
@@ -3569,7 +3563,7 @@ BasicFileIO(void)
   passed = expect_gez(SUCCESS, read_test(fd, readbuf, strlen(passage)));
   EXPECTED_RESP;
   if (strncmp(passage, readbuf, strlen(passage)) != 0) {
-    printf("\tFailed Phase 2: read() returned garbage in buffer\n");
+    print_error("\tFailed Phase 2: read() returned garbage in buffer\n");
     fflush(NULL);
     block = FAILURE;
   }
@@ -3594,7 +3588,7 @@ BasicFileIO(void)
   passed = expect_gez(SUCCESS, fread_test(readbuf, 20, 1, fp));
   EXPECTED_RESP;
   if (strncmp(&passage[40], readbuf, 20) != 0) {
-    printf("\tFailed Phase 2: fread() returned garbage in buffer\n");
+    print_error("\tFailed Phase 2: fread() returned garbage in buffer\n");
     fflush(NULL);
     block = FAILURE;
   }
@@ -3619,7 +3613,7 @@ BasicFileIO(void)
   passed = expect_gez(SUCCESS, fread_test(readbuf, strlen(passage), 1, fp));
   EXPECTED_RESP;
   if (strncmp(passage, readbuf, strlen(passage)) != 0) {
-    printf("\tFailed Phase 2: fread() returned garbage in buffer\n");
+    print_error("\tFailed Phase 2: fread() returned garbage in buffer\n");
     fflush(NULL);
     block = FAILURE;
   }
@@ -3862,7 +3856,7 @@ BasicDup(void)
   passed = expect_gez(SUCCESS, read_test(fd, readbuf, 20));
   EXPECTED_RESP;
   if (strncmp(&passage[40], readbuf, 20) != 0) {
-    printf("\tFailed Phase 2: fread() returned garbage for fd\n");
+    print_error("\tFailed Phase 2: fread() returned garbage for fd\n");
     fflush(NULL);
     block = FAILURE;
   }
@@ -3875,7 +3869,7 @@ BasicDup(void)
   passed = expect_gez(SUCCESS, read_test(fd2, readbuf, strlen(passage)));
   EXPECTED_RESP;
   if (strncmp(passage, readbuf, strlen(passage)) != 0) {
-    printf("\tFailed Phase 2: fread() returned garbage for fd2\n");
+    print_error("\tFailed Phase 2: fread() returned garbage for fd2\n");
     fflush(NULL);
     block = FAILURE;
   }
@@ -3924,7 +3918,7 @@ BasicFcntlDup(void)
   passed = expect_gez(SUCCESS, read_test(fd, readbuf, 20));
   EXPECTED_RESP;
   if (strncmp(&passage[40], readbuf, 20) != 0) {
-    printf("\tFailed Phase 2: fread() returned garbage for fd\n");
+    print_error("\tFailed Phase 2: fread() returned garbage for fd\n");
     fflush(NULL);
     block = FAILURE;
   }
@@ -3937,7 +3931,7 @@ BasicFcntlDup(void)
   passed = expect_gez(SUCCESS, read_test(fd2, readbuf, strlen(passage)));
   EXPECTED_RESP;
   if (strncmp(passage, readbuf, strlen(passage)) != 0) {
-    printf("\tFailed Phase 2: fread() returned garbage for fd2\n");
+    print_error("\tFailed Phase 2: fread() returned garbage for fd2\n");
     fflush(NULL);
     block = FAILURE;
   }
@@ -3970,7 +3964,7 @@ BasicDir(void)
   passed = expect_zng(SUCCESS, stat_test(tf, &buf));
   EXPECTED_RESP
   if (!(S_ISDIR(buf.st_mode))) {
-    printf("\tFailed Phase 2: mkdir() something that wasn't a directory\n");
+    print_error("\tFailed Phase 2: mkdir() something that wasn't a directory\n");
     fflush(NULL);
     block = FAILURE;
   }
@@ -4017,7 +4011,7 @@ BasicChdir(void)
     ABORT_TEST;
   }
   if ((strcmp(cwd, cwd_chdir) == 0)) {
-    printf("\tFailed Phase 2: chdir() did not change directories\n");
+    print_error("\tFailed Phase 2: chdir() did not change directories\n");
     fflush(NULL);
     block = FAILURE;
   }
@@ -4095,7 +4089,7 @@ BasicFchdir(void)
     ABORT_TEST;
   }
   if (strcmp(cwd, cwd_chdir) == 0) {
-    printf("\tFailed Phase 2: fchdir() did not change directories\n");
+    print_error("\tFailed Phase 2: fchdir() did not change directories\n");
     fflush(NULL);
     block = FAILURE;
   }
@@ -4143,6 +4137,7 @@ BasicMknod(void)
   char tf[NAMEBUF] = { 0 };
   int passed;
   int block = SUCCESS;
+  int expected = FAILURE;
 
   xtmpnam(tf);
 
@@ -4156,15 +4151,18 @@ BasicMknod(void)
   EXPECTED_RESP;
 
   // This fails when run as root:
-  if (getuid() != 0) {
-    testbreak();
-    passed = expect_zng(FAILURE, mknod_test(tf, S_IFCHR | S_IRWXU, 0));
-    EXPECTED_RESP; IF_FAILED ABORT_TEST;
-    passed = expect_zng(FAILURE, access_test(tf, F_OK));
-    EXPECTED_RESP;
-    passed = expect_zng(FAILURE, unlink_test(tf));
-    EXPECTED_RESP;
+  testbreak();
+  expected = FAILURE;
+  passed = FAILURE;
+  if (mknod_test(tf, S_IFCHR | S_IRWXU, 0) == 0) {
+    passed = SUCCESS;
+    expected = SUCCESS;
   }
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_zng(expected, access_test(tf, F_OK));
+  EXPECTED_RESP;
+  passed = expect_zng(expected, unlink_test(tf));
+  EXPECTED_RESP;
 
   testbreak();
   passed = expect_zng(FAILURE, mknod_test(tf, S_IFDIR | S_IRWXU, 0));
@@ -4175,15 +4173,22 @@ BasicMknod(void)
   EXPECTED_RESP;
 
   // This fails when run as root:
-  if (getuid() != 0) {
-    testbreak();
-    passed = expect_zng(FAILURE, mknod_test(tf, S_IFBLK | S_IRWXU, 0));
-    EXPECTED_RESP; IF_FAILED ABORT_TEST;
-    passed = expect_zng(FAILURE, access_test(tf, F_OK));
-    EXPECTED_RESP;
-    passed = expect_zng(FAILURE, unlink_test(tf));
-    EXPECTED_RESP;
+  testbreak();
+  expected = FAILURE;
+  passed = FAILURE;
+  if (mknod_test(tf, S_IFBLK | S_IRWXU, 0) == 0) {
+    passed = SUCCESS;
+    expected = SUCCESS;
+  } else if (errno == EPERM) {
+    expected = FAILURE;
+    passed = SUCCESS;
   }
+
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_zng(expected, access_test(tf, F_OK));
+  EXPECTED_RESP;
+  passed = expect_zng(expected, unlink_test(tf));
+  EXPECTED_RESP;
 
   /* It should be that only root can perform this test and have it succeed.
      However glibc 2.2.2 will let a normal user use this function and
@@ -4512,21 +4517,21 @@ BasicIOV(void)
   EXPECTED_RESP;
 
   if (strncmp(snd1, rcv1, strlen(passage)) != 0) {
-    printf("\tFailed Phase 2: 1st iov_base read buffer is garbage\n");
+    print_error("\tFailed Phase 2: 1st iov_base read buffer is garbage\n");
     printf("\t\tExpected: [%.31s...]\n", STR(snd1));
     printf("\t\tGot:\t[%.31s...]\n", STR(rcv1));
     fflush(NULL);
     block = FAILURE;
   }
   if (strncmp(snd2, rcv2, strlen(passage)) != 0) {
-    printf("\tFailed Phase 2: 2nd iov_base read buffer is garbage\n");
+    print_error("\tFailed Phase 2: 2nd iov_base read buffer is garbage\n");
     printf("\t\tExpected: [%.31s...]\n", STR(snd2));
     printf("\t\tGot:\t[%.31s...]\n", STR(rcv2));
     fflush(NULL);
     block = FAILURE;
   }
   if (strncmp(snd3, rcv3, strlen(passage)) != 0) {
-    printf("\tFailed Phase 2: 3rd iov_base read buffer is garbage\n");
+    print_error("\tFailed Phase 2: 3rd iov_base read buffer is garbage\n");
     printf("\t\tExpected: [%.31s...]\n", STR(snd3));
     printf("\t\tGot:\t[%.31s...]\n", STR(rcv3));
     fflush(NULL);
@@ -4781,7 +4786,7 @@ BasicTime(void)
 
   /* be aware that gettimeofday might not be correct */
   if (buf.st_mtime < ftv[1].tv_sec) {
-    printf("\tFailed Phase 2: utimes() gave strange timestamp on file\n");
+    print_error("\tFailed Phase 2: utimes() gave strange timestamp on file\n");
     fflush(NULL);
     block = FAILURE;
   }
@@ -4796,7 +4801,7 @@ BasicTime(void)
 
   /* be aware that gettimeof day might not be correct */
   if (buf.st_mtime < tv.tv_sec) {
-    printf("\tFailed Phase 2: utime() gave strange timestamp on file\n");
+    print_error("\tFailed Phase 2: utime() gave strange timestamp on file\n");
     fflush(NULL);
     block = FAILURE;
   }
@@ -4894,17 +4899,22 @@ testall()
       printf("Succeeded Phase 3\n");
       fflush(NULL);
     } else {
-      printf("Failed Phase 3\n");
+      print_error("Failed Phase 3\n");
       fflush(NULL);
       whole_test = FAILURE;
     }
 
     printf("Ending Test: [%s]\n", STR(tests[i].desc));
+    printf("-------------------------------------------------------------\n\n");
     printf("\n");
     fflush(NULL);
   }
 
-  printf("%s Phase 4\n", whole_test == SUCCESS ? "Succeeded" : "Failed");
+  if (whole_test == SUCCESS) {
+    printf("Succeeded Phase 4\n");
+  } else {
+    print_error("Failed Phase 4\n");
+  }
 
   fflush(NULL);
   return whole_test;
