@@ -495,7 +495,16 @@ bool waitForBarrier(const string& barrier,
     return false;
   }
 
-  msg.assertValid();
+  // Coordinator sends a duplicate DMTCP_DO_CHECKPOINT msg if we reconnected
+  // after exec. It's safe to ignore. We'll wait again for the Barrier msg.
+  if (msg.type == DMT_DO_CHECKPOINT) {
+    recvMsgFromCoordinator(&msg, (void**)&extraData);
+
+    // Before validating message; make sure we are not exiting.
+    if (!msg.isValid()) {
+      return false;
+    }
+  }
 
   JASSERT(msg.type == DMT_BARRIER_RELEASED) (msg.type);
   JASSERT(extraData != NULL);

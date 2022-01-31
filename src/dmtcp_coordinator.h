@@ -133,6 +133,7 @@ class DmtcpCoordinator
                                          jalib::JSocket &remote,
                                          const struct sockaddr_storage *addr,
                                          socklen_t len);
+    void ResendDoCheckpointMsgToWorker(CoordClient *client);
 
     ComputationStatus getStatus() const;
     WorkerState::eWorkerState minimumState() const

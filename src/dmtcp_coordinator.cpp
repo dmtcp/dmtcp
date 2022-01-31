@@ -205,7 +205,7 @@ static string currentBarrier;
 static string prevBarrier;
 
 static UniquePid compId;
-static int numPeers = -1;
+static int numRestartPeers = -1;
 static time_t curTimeStamp = -1;
 static time_t ckptTimeStamp = -1;
 
@@ -484,9 +484,9 @@ DmtcpCoordinator::releaseBarrier(const string &barrier)
   ComputationStatus status = getStatus();
 
   if (workersAtCurrentBarrier == status.numPeers) {
-    if (numPeers > 0 && status.numPeers != numPeers) {
+    if (numRestartPeers > 0 && status.numPeers != numRestartPeers) {
       JNOTE("Waiting for all restarting processes to connect.")
-        (numPeers) (status.numPeers);
+        (numRestartPeers) (status.numPeers);
       return;
     }
 
@@ -711,6 +711,30 @@ DmtcpCoordinator::onData(CoordClient *client)
     client->setState(msg.state);
     client->progname(progname);
     client->identity(msg.from);
+    if (workersRunningAndSuspendMsgSent) {
+      // If we received this message from the worker _after_ we broadcasted
+      // DMT_DO_CHECKPOINT message to workers, there are two possible scenarios:
+      // 1. User thread called exec before ckpt-thread had a chance to read the
+      //    DMT_DO_CHECKPOINT message from the coordinator-socket. In this case,
+      //    once the exec completes and a new ckpt-thread is created, that
+      //    thread will read the pending DMT_DO_CHECKPOINT message and proceed
+      //    as expected.
+      // 2. The ckpt-thread read the DMT_DO_CHECKPOINT message, but before it
+      //    could quiesce user threads, one of them called exec. After
+      //    completing exec, the new ckpt-thread won't know that the coordinator
+      //    had requested a checkpoint via DMT_DO_CHECKPOINT message. The
+      //    ckpt-thread will block until it gets a DMT_DO_CHECKPOINT message
+      //    while the coordinator is waiting for this process to respond to the
+      //    earlier DMT_DO_CHECKPOINT message, leading to a deadlocked
+      //    computation.
+      //
+      // In order to handle case (2) above, we send a second DMT_DO_CHECKPOINT
+      // message to this worker. If this worker already processed the previous
+      // DMT_DO_CHECKPOINT message as in case (1) above, it will ignore this
+      // duplicate message.
+
+      ResendDoCheckpointMsgToWorker(client);
+    }
     break;
   }
 
@@ -825,7 +849,7 @@ DmtcpCoordinator::initializeComputation()
   // drop current computation group to 0
   compId = UniquePid(0, 0, 0);
   curTimeStamp = 0; // Drop timestamp to 0
-  numPeers = -1; // Drop number of peers to unknown
+  numRestartPeers = -1; // Drop number of peers to unknown
   blockUntilDone = false;
   killAfterCkptOnce = false;
   workersAtCurrentBarrier = 0;
@@ -1028,10 +1052,10 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
 
     // Coordinator is free at this moment - set up all the things
     compId = hello_remote.compGroup;
-    numPeers = hello_remote.numPeers;
+    numRestartPeers = hello_remote.numPeers;
     curTimeStamp = getCurrTimestamp();
-    JNOTE("FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp")
-      (numPeers) (curTimeStamp) (compId);
+    JNOTE("FIRST restart connection. Set numRestartPeers. Generate timestamp")
+      (numRestartPeers) (curTimeStamp) (compId);
     JTIMER_START(restart);
   } else if (minimumState() != WorkerState::RESTARTING) {
     JNOTE("Computation not in RESTARTING state."
@@ -1085,6 +1109,28 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
   return true;
 }
 
+void
+DmtcpCoordinator::ResendDoCheckpointMsgToWorker(CoordClient *client)
+{
+  JASSERT(workersRunningAndSuspendMsgSent);
+  /* Worker trying to connect after SUSPEND message has been sent.
+    * This happens if the worker process is executing a fork() or exec() system
+    * call when the DMT_DO_SUSPEND is broadcast. We need to make sure that the
+    * child process is allowed to participate in the current checkpoint.
+    */
+  ComputationStatus s = getStatus();
+  JASSERT(s.numPeers > 0) (s.numPeers);
+  JASSERT(s.minimumState != WorkerState::SUSPENDED) (s.minimumState);
+
+  JNOTE("Sending DMT_DO_CHECKPOINT msg to worker") (client->identity());
+
+  // Now send DMT_DO_CHECKPOINT message so that this process can also
+  // participate in the current checkpoint
+  DmtcpMessage suspendMsg(DMT_DO_CHECKPOINT);
+  suspendMsg.compGroup = compId;
+  client->sock() << suspendMsg;
+}
+
 bool
 DmtcpCoordinator::validateNewWorkerProcess(
   DmtcpMessage &hello_remote,
@@ -1104,25 +1150,11 @@ DmtcpCoordinator::validateNewWorkerProcess(
           hello_remote.state == WorkerState::UNKNOWN) (hello_remote.state);
 
   if (workersRunningAndSuspendMsgSent == true) {
-    /* Worker trying to connect after SUSPEND message has been sent.
-     * This happens if the worker process is executing a fork() system call
-     * when the DMT_DO_SUSPEND is broadcast. We need to make sure that the
-     * child process is allowed to participate in the current checkpoint.
-     */
-    JASSERT(s.numPeers > 0) (s.numPeers);
-    JASSERT(s.minimumState != WorkerState::SUSPENDED) (s.minimumState);
-
     // Handshake
     hello_local.compGroup = compId;
     remote << hello_local;
 
-    // Now send DMT_DO_CHECKPOINT message so that this process can also
-    // participate in the current checkpoint
-    // TODO(Kapil): Make sure to walk the new worker through all the
-    // already-processed pre-suspend barriers.
-    DmtcpMessage suspendMsg(DMT_DO_CHECKPOINT);
-    suspendMsg.compGroup = compId;
-    remote << suspendMsg;
+    ResendDoCheckpointMsgToWorker(client);
   } else if (s.numPeers > 0 && s.minimumState != WorkerState::RUNNING &&
              s.minimumState != WorkerState::UNKNOWN) {
     // If some of the processes are not in RUNNING state
@@ -1154,7 +1186,7 @@ DmtcpCoordinator::validateNewWorkerProcess(
 
       // Get the resolution down to 100 mili seconds.
       curTimeStamp = getCurrTimestamp();
-      numPeers = -1;
+      numRestartPeers = -1;
       JTRACE("First process connected.  Creating new computation group.")
         (compId);
     } else {
@@ -1183,6 +1215,7 @@ DmtcpCoordinator::startCheckpoint()
     time(&ckptTimeStamp);
     JTIMER_START(checkpoint);
     _numRestartFilenames = 0;
+    numRestartPeers = -1;
     _restartFilenames.clear();
     _rshCmdFileNames.clear();
     _sshCmdFileNames.clear();
@@ -1267,9 +1300,10 @@ DmtcpCoordinator::getStatus() const
   status.minimumStateUnanimous = unanimous;
   status.minimumState = (min == INITIAL_MIN ? WorkerState::UNKNOWN
                          : (WorkerState::eWorkerState)min);
-  if (status.minimumState == WorkerState::RESTARTING && count < numPeers) {
+  if (status.minimumState == WorkerState::RESTARTING &&
+      count < numRestartPeers) {
     JTRACE("minimal state counted as RESTARTING but not all processes"
-           " are connected yet.  So we wait.") (numPeers) (count);
+           " are connected yet.  So we wait.") (numRestartPeers) (count);
     status.minimumState = WorkerState::RESTARTING;
     status.minimumStateUnanimous = false;
   }
