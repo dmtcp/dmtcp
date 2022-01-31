@@ -413,14 +413,14 @@ DmtcpWorker::waitForCheckpointRequest()
   JTRACE("Procesing pre-suspend barriers");
   PluginManager::eventHook(DMTCP_EVENT_PRESUSPEND);
 
+  JTRACE("Preparing to acquire locks before DMT:SUSPEND barrier");
+  ThreadSync::acquireLocks();
+
   JTRACE("Waiting for DMT:SUSPEND barrier");
   if (!CoordinatorAPI::waitForBarrier("DMT:SUSPEND")) {
     JASSERT(exitInProgress);
     ckptThreadPerformExit();
   }
-
-  JTRACE("DMT:SUSPEND barrier lifted, preparing to acquire locks");
-  ThreadSync::acquireLocks();
 
   JTRACE("Starting checkpoint, suspending threads...");
 }
