@@ -1287,7 +1287,8 @@ signalHandler(int signum)
     prog.handleUserCommand('q');
   } else if (signum == SIGALRM) {
     timerExpired = true;
-    if (timeout && time(NULL) - start_time >= timeout - 1) { // -1 for roundoff
+    if (timeout &&
+        (time(NULL) - start_time) >= (timeout - 1)) { // -1 for roundoff
       exit(1);
     }
   } else {

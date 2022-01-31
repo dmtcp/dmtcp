@@ -152,7 +152,7 @@ pid_real_to_virtual_filepath(DmtcpEventData_t *data)
   char newPath[PATH_MAX];
   pid_t virtualPid = REAL_TO_VIRTUAL_PID(realPid);
   sprintf(newPath, "/proc/%d%s", virtualPid, rest);
-  strncpy(data->realToVirtualPath.path, newPath, sizeof(newPath));
+  strncpy(data->realToVirtualPath.path, newPath, PATH_MAX);
 }
 
 
