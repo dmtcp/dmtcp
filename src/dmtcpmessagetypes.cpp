@@ -45,7 +45,7 @@ DmtcpMessage::DmtcpMessage(DmtcpMessageType t /*= DMT_NULL*/)
   // struct sockaddr_storage _addr;
   // socklen_t _addrlen;
   memset(&barrier, 0, sizeof(barrier));
-  memset(&compGroup, 0, sizeof(compGroup));
+  compGroup = UniquePid();
   memset(&ipAddr, 0, sizeof ipAddr);
   memset(nsid, 0, sizeof nsid);
   strncpy(_magicBits, DMTCP_MAGIC_STRING, sizeof(_magicBits));
