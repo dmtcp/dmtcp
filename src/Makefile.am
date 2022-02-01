@@ -123,6 +123,7 @@ libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
 			     procselfmaps.cpp			\
 			     rwlock.cpp 			\
 			     shareddata.cpp 			\
+			     threadsync.cpp			\
 			     tokenize.cpp			\
 			     uniquepid.cpp			\
 			     util_exec.cpp			\
@@ -153,7 +154,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  dmtcpworker.cpp 		\
 				  execwrappers.cpp 		\
 				  glibcsystem.cpp 		\
-				  kvdb.cpp              \
+				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\
@@ -164,7 +165,6 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  syslogwrappers.cpp 		\
 				  terminal.cpp 			\
 				  threadlist.cpp 		\
-				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\
 				  wrappers.cpp 			\
 				  writeckpt.cpp
