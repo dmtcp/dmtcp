@@ -23,9 +23,11 @@
 #include "siginfo.h"
 #include "syscallwrappers.h"
 #include "threadlist.h"
+#include "tls.h"
 #include "threadsync.h"
 #include "uniquepid.h"
 #include "util.h"
+#include "shareddata.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
@@ -51,7 +53,6 @@ pid_t motherpid = 0;
 sigset_t sigpending_global;
 Thread *activeThreads = NULL;
 void *saved_sysinfo;
-MYINFO_GS_T myinfo_gs __attribute__((visibility("hidden")));
 
 static const char *DMTCP_PRGNAME_PREFIX = "DMTCP:";
 
@@ -65,6 +66,7 @@ static __thread Thread *curThread = NULL;
 static Thread *ckptThread = NULL;
 static int numUserThreads = 0;
 static bool originalstartup;
+static int restartPauseLevel = 0;
 
 extern bool sem_launch_first_time;
 extern sem_t sem_launch; // allocated in coordinatorapi.cpp
@@ -175,7 +177,7 @@ ThreadList::init()
    */
 
   /* libc/getpid can lie if we had used kernel fork() instead of libc fork(). */
-  motherpid = THREAD_REAL_TID();
+  motherpid = dmtcp_get_real_tid();
   TLSInfo_VerifyPidTid(motherpid, motherpid);
 
   SigInfo::setupCkptSigHandler(&stopthisthread);
@@ -302,13 +304,6 @@ prepareMtcpHeader(MtcpHeader *mtcpHdr)
   mtcpHdr->vvarEnd = (void *)ProcessInfo::instance().vvarEnd();
 
   mtcpHdr->post_restart = &ThreadList::postRestart;
-  mtcpHdr->post_restart_debug = &ThreadList::postRestartDebug;
-  memcpy(&mtcpHdr->motherofall_tls_info,
-         &motherofall->tlsInfo,
-         sizeof(motherofall->tlsInfo));
-  mtcpHdr->tls_pid_offset = TLSInfo_GetPidOffset();
-  mtcpHdr->tls_tid_offset = TLSInfo_GetTidOffset();
-  mtcpHdr->myinfo_gs = myinfo_gs;
 }
 
 /*************************************************************************
@@ -387,7 +382,7 @@ checkpointhread(void *dummy)
   }
 
   Thread_SaveSigState(ckptThread);
-  TLSInfo_SaveTLSState(&ckptThread->tlsInfo);
+  TLSInfo_SaveTLSState(ckptThread);
 
   /* Set up our restart point.  I.e., we get jumped to here after a restore. */
 #ifdef SETJMP
@@ -581,7 +576,7 @@ stopthisthread(int signum)
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
     Thread_SaveSigState(curThread); // save sig state (and block sig delivery)
-    TLSInfo_SaveTLSState(&curThread->tlsInfo); // save thread local storage
+    TLSInfo_SaveTLSState(curThread); // save thread local storage
                                                // state
 
     /* Set up our restart point, ie, we get jumped to here after a restore */
@@ -698,25 +693,11 @@ ThreadList::waitForAllRestored(Thread *thread)
     sem_post(&semNotifyCkptThread);
     sem_wait(&semWaitForCkptThreadSignal);
   }
+
   Thread_RestoreSigState(thread);
 
   if (thread == motherofall) {
-    /* If DMTCP_RESTART_PAUSE==4, wait for gdb attach.*/
-    char * pause_param = getenv("DMTCP_RESTART_PAUSE");
-    if (pause_param == NULL) {
-      pause_param = getenv("MTCP_RESTART_PAUSE");
-    }
-    if (pause_param != NULL && pause_param[0] == '4' &&
-        pause_param[1] == '\0') {
-#ifdef HAS_PR_SET_PTRACER
-      prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
-#endif // ifdef HAS_PR_SET_PTRACER
-      volatile int dummy = 1;
-      while (dummy);
-#ifdef HAS_PR_SET_PTRACER
-      prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
-#endif // ifdef HAS_PR_SET_PTRACER
-    }
+    DMTCP_RESTART_PAUSE(4);
   }
 }
 
@@ -724,57 +705,33 @@ ThreadList::waitForAllRestored(Thread *thread)
  *
  *****************************************************************************/
 void
-ThreadList::postRestartDebug(double readTime, int restartPause)
-{ // Don't try to print before debugging.  Who knows what is working yet?
-#ifndef DEBUG
-  // printf may fail, but we'll risk it to let user know this:
-  printf("\n** DMTCP: It appears DMTCP not configured with '--enable-debug'\n");
-  printf("**        If GDB doesn't show source, re-configure and re-compile\n");
-#endif
-  if (restartPause == 1) {
-    // If we're here, user set env. to DMTCP_RESTART_PAUSE==1; is expecting this
-    volatile int dummy = 1;
-    while (dummy);
-    // User should have done GDB attach if we're here.
-#ifdef HAS_PR_SET_PTRACER
-    prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert to default: no ptracer
-#endif
-  }
-  static char restartPauseStr[2];
-  restartPauseStr[0] = '0' + restartPause;
-  restartPauseStr[1] = '\0';
-  setenv("DMTCP_RESTART_PAUSE", restartPauseStr, 1);
-  postRestart(readTime);
+ThreadList::postRestart(double readTime, int restartPause)
+{
+  // This function and related ones are defined in src/mtcp/restore_libc.c
+  TLSInfo_RestoreTLSState(motherofall);
+
+  restartPauseLevel = restartPause;
+  DMTCP_RESTART_PAUSE(1);
+
+  postRestartWork(readTime);
 }
 
-// FIXME:  Is this comment still true?
-//   threadlist.h sets these as default arguments: readTime=0.0, restartPause=0
+/*****************************************************************************
+ *
+ *****************************************************************************/
 void
-ThreadList::postRestart(double readTime)
+ThreadList::postRestartWork(double readTime)
 {
   Thread *thread;
   sigset_t tmp;
 
-  /* If DMTCP_RESTART_PAUSE==2, wait for gdb attach. */
-  char * pause_param = getenv("DMTCP_RESTART_PAUSE");
-  if (pause_param == NULL) {
-    pause_param = getenv("MTCP_RESTART_PAUSE");
+  if (TLSInfo_HaveThreadSysinfoOffset()) {
+    TLSInfo_SetThreadSysinfo(saved_sysinfo);
   }
-  if (pause_param != NULL && pause_param[0] == '2' && pause_param[1] == '\0') {
-#ifdef HAS_PR_SET_PTRACER
-    prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // Allow 'gdb attach'
-#endif // ifdef HAS_PR_SET_PTRACER
-    // In src/mtcp_restart.c, we printed to user:
-    // "Stopping due to env. var DMTCP_RESTART_PAUSE or MTCP_RESTART_PAUSE ..."
-    volatile int dummy = 1;
-    while (dummy);
-#ifdef HAS_PR_SET_PTRACER
-    prctl(PR_SET_PTRACER, 0, 0, 0, 0);   // Revert permission to default.
-#endif // ifdef HAS_PR_SET_PTRACER
-  }
+
+  DMTCP_RESTART_PAUSE(2);
 
   SharedData::postRestart();
-
   /* Fill in the new mother process id */
   motherpid = THREAD_REAL_TID();
   motherofall->tid = motherpid;
@@ -835,34 +792,17 @@ restarthread(void *threadv)
 {
   Thread *thread = (Thread *)threadv;
 
-  thread->tid = THREAD_REAL_TID();
-
   // This function and related ones are defined in src/mtcp/restore_libc.c
-  TLSInfo_RestoreTLSState(&thread->tlsInfo);
+  TLSInfo_RestoreTLSState(thread);
 
   if (TLSInfo_HaveThreadSysinfoOffset()) {
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
   }
 
+  thread->tid = THREAD_REAL_TID();
+
   if (thread == motherofall) { // if this is a user thread
-    /* If DMTCP_RESTART_PAUSE==3, wait for gdb attach.*/
-    char * pause_param = getenv("DMTCP_RESTART_PAUSE");
-    if (pause_param == NULL) {
-      pause_param = getenv("MTCP_RESTART_PAUSE");
-    }
-    if (pause_param != NULL && pause_param[0] == '3' &&
-        pause_param[1] == '\0') {
-#ifdef HAS_PR_SET_PTRACER
-      prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
-#endif // ifdef HAS_PR_SET_PTRACER
-      // In src/mtcp_restart.c, we printed to user:
-      // "Stopping due to env. var DMTCP_RESTART_PAUSE or MTCP_RESTART_PAUSE .."
-      volatile int dummy = 1;
-      while (dummy);
-#ifdef HAS_PR_SET_PTRACER
-      prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
-#endif // ifdef HAS_PR_SET_PTRACER
-    }
+    DMTCP_RESTART_PAUSE(3);
   }
 
   /* Jump to the stopthisthread routine just after sigsetjmp/getcontext call.

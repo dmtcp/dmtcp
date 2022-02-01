@@ -78,13 +78,13 @@ ifeq ($(FAST_RST_VIA_MMAP),yes)
   CFLAGS += -DFAST_RST_VIA_MMAP
 endif
 
-HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h ldt.h \
+HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h \
 	  $(srcdir)/../membarrier.h $(DMTCP_INCLUDE_PATH)/procmapsarea.h
 
 all: default
 default: build
 libs: build
-build: $(targetdir)/bin/$(MTCP_RESTART) libmtcp.a
+build: $(targetdir)/bin/$(MTCP_RESTART)
 
 $(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o ${ARM_BINARIES}
 	${LINK} -fPIC -g -O0 -nodefaultlibs $^
@@ -107,14 +107,6 @@ mtcp_check_vdso.o: mtcp_check_vdso.ic mtcp_sys.h mtcp_util.h \
 	$(DMTCP_INCLUDE_PATH)/procmapsarea.h
 	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
 
-libmtcp.a: restore_libc.o ${ARM_BINARIES}
-	ar cr $@ $^
-# FIXME:  This is a low-level file.  Yet it draws from two directories.
-#    Part of the problem is that restore_libc.h copies DPRINTF from mtcp_util.h
-#    and uses protectedfds.h, which is in ../../include
-#    Do we need protectedfds.h for low-level, where there is no JASSERT?
-restore_libc.o: restore_libc.c $(HEADERS) $(DMTCP_INCLUDE_PATH)/protectedfds.h
-	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
 syscall-arm.o: syscall-arm.S
 	${CC} ${CFLAGS} -c $<
 syscall-aarch64.o: syscall-aarch64.S
@@ -126,7 +118,7 @@ check: $(targetdir)/bin/$(MTCP_RESTART) ckpt_dmtcp1_test.dmtcp
         @echo 'Expected result: "Error 99" (MTCP transfered to DMTCP correctly)'
 	$(targetdir)/bin/$(MTCP_RESTART) ckpt_dmtcp1_test.dmtcp
 
-ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1 restore_libc.o
+ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1
 	../../bin/dmtcp_launch -i3 ../../test/dmtcp1 &
 	sleep 8 && ../../bin/dmtcp_command --quit
 	rm -f `ls -t dmtcp_restart_script*.sh`
