@@ -79,6 +79,8 @@ static bool _checkpointThreadInitialized = false;
 
 static DmtcpMutex preResumeThreadCountLock = DMTCP_MUTEX_INITIALIZER;
 
+static DmtcpMutex presuspendEventHookLock = DMTCP_MUTEX_INITIALIZER;
+
 static __thread int _wrapperExecutionLockLockCount = 0;
 static __thread int _threadCreationLockLockCount = 0;
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
@@ -179,7 +181,7 @@ ThreadSync::releaseLocks()
 }
 
 void
-ThreadSync::resetLocks()
+ThreadSync::resetLocks(bool resetPresuspendEventHookLock)
 {
   DmtcpRWLockInit(&_wrapperExecutionLock);
   DmtcpRWLockInit(&_threadCreationLock);
@@ -202,6 +204,10 @@ ThreadSync::resetLocks()
   _checkpointThreadInitialized = false;
   _wrapperExecutionLockAcquiredByCkptThread = false;
   _threadCreationLockAcquiredByCkptThread = false;
+
+  if (resetPresuspendEventHookLock) {
+    DmtcpMutexInit(&presuspendEventHookLock, DMTCP_MUTEX_NORMAL);
+  }
 }
 
 bool
@@ -585,4 +591,18 @@ ThreadSync::threadFinishedInitialization()
   _hasThreadFinishedInitialization = false;
   decrementUninitializedThreadCount();
   _hasThreadFinishedInitialization = true;
+}
+
+void
+ThreadSync::presuspendEventHookLockLock()
+{
+  JTRACE("Acquiring event-hook lock");
+  JASSERT(DmtcpMutexLock(&presuspendEventHookLock) == 0);
+}
+
+void
+ThreadSync::presuspendEventHookLockUnlock()
+{
+  JTRACE("Releasing event-hook lock");
+  JASSERT(DmtcpMutexUnlock(&presuspendEventHookLock) == 0);
 }

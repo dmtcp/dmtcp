@@ -231,6 +231,8 @@ vfork()
 
   JASSERT (!isPerformingCkptRestart());
 
+  ThreadSync::presuspendEventHookLockLock();
+
   /* Acquire all locks here. */
   ThreadSync::acquireLocks();
 
@@ -269,7 +271,7 @@ vfork()
     JALLOC_FREE(newStackAddr);
   }
 
-  ThreadSync::resetLocks();
+  ThreadSync::resetLocks(false);
 
   if (vforkPid == -1) {
     PluginManager::eventHook(DMTCP_EVENT_VFORK_FAILED, NULL);
@@ -290,6 +292,7 @@ vfork()
   }
 
   if (vforkPid != 0) {
+    ThreadSync::presuspendEventHookLockUnlock();
     ThreadList::vforkResumeThreads();
   }
   return vforkPid;

@@ -919,8 +919,19 @@ runTest("environ",       1, ["./test/environ"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
-runTest("vfork1",        [1,2,3] , ["./test/vfork1"])
-runTest("vfork2",        [2,3,4] , ["./test/vfork1 \"sh -c 'while true; do date; sleep 1; done'\" "])
+# vfork1 test creates a child process using vfork. The child executes the
+# command passed via command line using "sh -c".
+
+# The child process will exit and a new child process will be forked at the end
+# of each "ls | wc" execution. Thus, at the time of checkpoint, either:
+# a. only vfork1 process is active, or
+# b. vfork1 and sh processes are active, or
+# c. vfork1, sh, and either or both of ls and wc processes are active.
+runTest("vfork1",        [1,2,3,4] , ["./test/vfork1 'ls | wc'"])
+
+# The sh process is permanent, but the number of sh's child processes active at
+# the time of checkpoint varies. Either or both of date and sleep might be active.
+runTest("vfork2",        [2,3,4] , ["./test/vfork1 'while true; do date; sleep 1; done' "])
 
 runTest("realpath",      1, ["./test/realpath"])
 runTest("pthread1",      1, ["./test/pthread1"])

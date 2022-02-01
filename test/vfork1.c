@@ -86,6 +86,7 @@ int main(int argc, char *argv[])
       printf("%c", buf);
       fflush(stdout);
     }
+    sn_simple_pclose_r(fp);
     sleep(1);
   }
 
