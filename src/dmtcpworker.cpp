@@ -410,8 +410,17 @@ DmtcpWorker::waitForCheckpointRequest()
 
   WorkerState::setCurrentState(WorkerState::PRESUSPEND);
 
+  // Here we want to prevent any race with a user thread calling vfork(). In
+  // vfork, we call acquireLocks(), but the child process later calls
+  // resetLocks(). The parent ckpt-thread can then go ahead and acquire locks,
+  // leading to memory corruption. These locks ensure that the ckpt-thread
+  // doesn't get to acquireLocks until the vfork child has exec'd.
+  // Further, we also want to prevent any overlap between an event-hook call
+  // made here vs. an event-hook call made by the user thread in vfork().
+  ThreadSync::presuspendEventHookLockLock();
   JTRACE("Procesing pre-suspend barriers");
   PluginManager::eventHook(DMTCP_EVENT_PRESUSPEND);
+  ThreadSync::presuspendEventHookLockUnlock();
 
   JTRACE("Preparing to acquire locks before DMT:SUSPEND barrier");
   ThreadSync::acquireLocks();

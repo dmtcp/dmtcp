@@ -56,7 +56,7 @@ namespace ThreadSync
 {
 void acquireLocks();
 void releaseLocks();
-void resetLocks();
+void resetLocks(bool resetPresuspendEventHookLock = true);
 void initThread();
 void initMotherOfAll();
 
@@ -80,6 +80,9 @@ void waitForThreadsToFinishInitialization();
 void incrementUninitializedThreadCount();
 void decrementUninitializedThreadCount();
 void threadFinishedInitialization();
+
+void presuspendEventHookLockLock();
+void presuspendEventHookLockUnlock();
 
 bool isOkToGrabLock();
 void setOkToGrabLock();
