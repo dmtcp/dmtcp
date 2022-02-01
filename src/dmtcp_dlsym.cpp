@@ -70,6 +70,7 @@
 #include "dmtcp.h"
 #include "jassert.h"
 #include "config.h"
+#include "threadsync.h"
 
 // ***** NOTE:  link.h invokes elf.h, which:
 // *****        expands ElfW(Word)  to  Elf64_Word; and then defines:
@@ -545,12 +546,9 @@ print_debug_messages(dt_tag tags,
 EXTERNC void *
 dmtcp_dlsym(void *handle, const char *symbol)
 {
-  // Acquire checkpoint lock. We need to release it before returning it from the
-  // function. Ideally, we would use the WrapperLock class to avoid calling
-  // dmtcp_enable_ckpt multiple times within the same function but that would
-  // require removing this file's dependency from dmtcp_restart.cpp and
-  // adjusting Makefile.am.
-  dmtcp_disable_ckpt();
+  // Acquire checkpoint lock. Released on return from this function as part of
+  // object destructor.
+  dmtcp::WrapperLock wrapperExecutionLock;
 
   dt_tag tags;
   Elf32_Word default_symbol_index = 0;
@@ -566,7 +564,6 @@ dmtcp_dlsym(void *handle, const char *symbol)
                                                        return_address, &tags,
                                                        &default_symbol_index);
     print_debug_messages(tags, default_symbol_index, symbol);
-    dmtcp_enable_ckpt();
     return result;
   }
 #endif /* ifdef __USE_GNU */
@@ -575,15 +572,15 @@ dmtcp_dlsym(void *handle, const char *symbol)
                                                         NULL, &tags,
                                                         &default_symbol_index);
   print_debug_messages(tags, default_symbol_index, symbol);
-  dmtcp_enable_ckpt();
   return result;
 }
 
 EXTERNC void *
 dmtcp_dlvsym(void *handle, char *symbol, const char *version)
 {
-  // Acquire checkpoint lock.
-  dmtcp_disable_ckpt();
+  // Acquire checkpoint lock. Released on return from this function as part of
+  // object destructor.
+  dmtcp::WrapperLock wrapperExecutionLock;
 
   dt_tag tags;
   Elf32_Word default_symbol_index = 0;
@@ -597,7 +594,6 @@ dmtcp_dlvsym(void *handle, char *symbol, const char *version)
                                                        version,
                                                        return_address, &tags,
                                                        &default_symbol_index);
-    dmtcp_enable_ckpt();
     return result;
   }
 #endif
@@ -605,15 +601,15 @@ dmtcp_dlvsym(void *handle, char *symbol, const char *version)
   void *result = dlsym_default_internal_library_handler(handle, symbol, version,
                                                         &tags,
                                                         &default_symbol_index);
-  dmtcp_enable_ckpt();
   return result;
 }
 
 EXTERNC void *
 dmtcp_dlsym_lib(const char *libname, const char *symbol)
 {
-  // Acquire checkpoint lock.
-  dmtcp_disable_ckpt();
+  // Acquire checkpoint lock. Released on return from this function as part of
+  // object destructor.
+  dmtcp::WrapperLock wrapperExecutionLock;
 
   dt_tag tags;
   Elf32_Word default_symbol_index = 0;
@@ -624,7 +620,6 @@ dmtcp_dlsym_lib(const char *libname, const char *symbol)
                                                      NULL,
                                                      return_address, &tags,
                                                      &default_symbol_index);
-  dmtcp_enable_ckpt();
   return result;
 }
 

@@ -135,8 +135,9 @@ am_libdmtcpinternal_a_OBJECTS = coordinatorapi.$(OBJEXT) \
 	dmtcpmessagetypes.$(OBJEXT) dmtcp_dlsym.$(OBJEXT) \
 	jalibinterface.$(OBJEXT) mutex.$(OBJEXT) processinfo.$(OBJEXT) \
 	procselfmaps.$(OBJEXT) rwlock.$(OBJEXT) shareddata.$(OBJEXT) \
-	tokenize.$(OBJEXT) uniquepid.$(OBJEXT) util_exec.$(OBJEXT) \
-	util_init.$(OBJEXT) util_misc.$(OBJEXT) workerstate.$(OBJEXT)
+	threadsync.$(OBJEXT) tokenize.$(OBJEXT) uniquepid.$(OBJEXT) \
+	util_exec.$(OBJEXT) util_init.$(OBJEXT) util_misc.$(OBJEXT) \
+	workerstate.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libjalib_a_AR = $(AR) $(ARFLAGS)
 libjalib_a_LIBADD =
@@ -194,9 +195,8 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	plugininfo.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) \
 	rlimitfloatenv.$(OBJEXT) signalwrappers.$(OBJEXT) \
 	siginfo.$(OBJEXT) syslogwrappers.$(OBJEXT) terminal.$(OBJEXT) \
-	threadlist.$(OBJEXT) threadsync.$(OBJEXT) \
-	threadwrappers.$(OBJEXT) wrappers.$(OBJEXT) \
-	writeckpt.$(OBJEXT)
+	threadlist.$(OBJEXT) threadwrappers.$(OBJEXT) \
+	wrappers.$(OBJEXT) writeckpt.$(OBJEXT)
 __d_libdir__libdmtcp_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_so_OBJECTS)
 __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
@@ -612,6 +612,7 @@ libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
 			     procselfmaps.cpp			\
 			     rwlock.cpp 			\
 			     shareddata.cpp 			\
+			     threadsync.cpp			\
 			     tokenize.cpp			\
 			     uniquepid.cpp			\
 			     util_exec.cpp			\
@@ -643,7 +644,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  dmtcpworker.cpp 		\
 				  execwrappers.cpp 		\
 				  glibcsystem.cpp 		\
-				  kvdb.cpp              \
+				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\
@@ -654,7 +655,6 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  syslogwrappers.cpp 		\
 				  terminal.cpp 			\
 				  threadlist.cpp 		\
-				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\
 				  wrappers.cpp 			\
 				  writeckpt.cpp
