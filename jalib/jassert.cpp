@@ -107,7 +107,11 @@ jassert_internal::JAssert::JAssert(bool exitWhenDone)
   : JASSERT_CONT_A(*this)
   , JASSERT_CONT_B(*this)
   , _exitWhenDone(exitWhenDone)
-{}
+{
+  if (exitWhenDone) {
+    Print("\033[0;31m");
+  }
+}
 
 jassert_internal::JAssert::~JAssert()
 {
@@ -116,6 +120,7 @@ jassert_internal::JAssert::~JAssert()
     Print(" (");
     Print(getpid());
     Print("): Terminating...\n");
+    Print("\033[0m");
     jassert_safe_print(ss.str().c_str());
     ss.str("");
 
