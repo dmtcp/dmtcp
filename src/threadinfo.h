@@ -8,8 +8,6 @@
 #include <sys/types.h>
 #include <ucontext.h>
 #include <unistd.h>
-#include "mtcp/restore_libc.h"
-#include "protectedfds.h"
 #include "syscallwrappers.h" /* for _real_syscall */
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
@@ -25,17 +23,12 @@
 # include <ucontext.h>
 #endif // ifdef SETJMP
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif // ifdef __cplusplus
-
 #define GETTID()              (pid_t)_real_syscall(SYS_gettid)
 #define TGKILL(pid, tid, sig) _real_syscall(SYS_tgkill, pid, tid, sig)
 
-pid_t dmtcp_get_real_tid() __attribute((weak));
-pid_t dmtcp_get_real_pid() __attribute((weak));
-int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig) __attribute((weak));
+EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
+EXTERNC pid_t dmtcp_get_real_pid() __attribute((weak));
+EXTERNC int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig)__attribute((weak));
 
 #define THREAD_REAL_PID() \
   (dmtcp_get_real_pid != NULL ? dmtcp_get_real_pid() : getpid())
@@ -48,6 +41,27 @@ int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig) __attribute((weak));
                              : TGKILL(pid, tid, sig))
 
 typedef int (*fptr)(void *);
+
+#ifdef __i386__
+typedef struct _ThreadTLSInfo {
+  unsigned short fs;
+  unsigned short gs;  // thread local storage pointers
+  struct user_desc gdtentrytls;
+} ThreadTLSInfo;
+#endif
+
+#if __x86_64__
+typedef struct _ThreadTLSInfo {
+  unsigned long int fs;
+  unsigned long int gs;
+} ThreadTLSInfo;
+#endif
+
+#if defined(__arm__) || defined(__aarch64__)
+typedef struct _ThreadTLSInfo {
+  struct user_desc gdtentrytls[2];
+} ThreadTLSInfo;
+#endif // ifdef __i386__
 
 typedef enum ThreadState {
   ST_RUNNING,
@@ -79,6 +93,7 @@ struct Thread {
   void *saved_sp; // at restart, we use a temporary stack just
                   // beyond original stack (red zone)
 
+  void *pthreadSelf;
   ThreadTLSInfo tlsInfo;
 
   // JA: new code ported from v54b
@@ -98,7 +113,4 @@ struct Thread {
   Thread *prev;
 };
 
-#ifdef __cplusplus
-}
-#endif // ifdef __cplusplus
 #endif // ifndef THREADINFO_H
