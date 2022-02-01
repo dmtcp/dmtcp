@@ -223,7 +223,7 @@ ThreadList::initThread(Thread *th, int (*fn)(
                          void *), void *arg, int flags, int *ptid, int *ctid)
 {
   /* Save exactly what the caller is supplying */
-  th->fn = fn;
+  th->fn = fn; // NOT USED
   th->arg = arg;
   th->flags = flags;
   th->ptid = ptid;

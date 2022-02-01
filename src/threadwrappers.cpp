@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include <sys/syscall.h>
+#include <semaphore.h> // Added only for 'sem_t' in definition struct ThreadArg
 #include "../jalib/jalloc.h"
 #include "../jalib/jassert.h"
 #include "constants.h"
@@ -35,15 +36,42 @@
 
 using namespace dmtcp;
 
+// pthread_create() in this file used to call __clone() in
+//   src/plugin/pid/pid_miscwrappers.cpp.  At that time, we had two
+//   independent definition of 'struct ThreadArg' (which were unfortunately
+//   called by the same name).  Now pthread_create() does not call
+//   pid_miscwrappers.cpp:__clone(), but the dmtcp_clone_XXX() functions
+//   are shared between the two files.  This is forced upon us, because
+//   dmtcp_clone_XXX() is needed here for pthread_create(), and it needs
+//   to use the virtualPidTable of the pid plugin.
+// FIXME:  Surely, there is a better architecture between this libdmtcp.so
+//   plugin and the libdmtcp_pid.so plugin.
+// These declarations could be added to src/plugin/pid/virtualpidtable.h,
+//   but it seems bad style to mix the two plugins.  Which is better.
+// This struct must be kept in sync with src/plugin/pid/pid_miscwrappers.cpp
 struct ThreadArg {
   union {
-    int (*fn) (void *arg);
-    void *(*pthread_fn) (void *arg);  // pthread_create calls fn -> void *
+    int (*fn) (void *arg);  // clone() calls fn returning int
+    void *(*pthread_fn) (void *arg);  // pthread_create calls fn returning void*
   };
-  void *arg;
-  void *mtcpArg;
-  pid_t virtualTid;
+  union {
+    void *arg;              // used for clone()
+    void *pthread_arg;      // used for pthread_create()
+  };
+  void *pthread_fn_retval;  // used for pthread_create()
+  pid_t virtualTid;         // used by dmtcp_clone_XXX()
+  sem_t sem;
 };
+extern "C" pid_t dmtcp_clone_pre(int (*fn)(void *arg), void *arg,
+                                  struct ThreadArg *threadArg);
+extern "C" int dmtcp_clone_post_parent(int tid, int virtualTid,
+                                         struct ThreadArg *threadArg);
+extern "C" int dmtcp_clone_post_child(int (*fn)(void *), void *arg);
+extern "C" int
+dmtcp_libc_clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg,
+               int *parent_tidptr, struct user_desc *newtls, int *child_tidptr);
+
+static __thread int inside_pthread_create = 0;
 
 // Invoked via __clone
 LIB_PRIVATE
@@ -102,6 +130,11 @@ __clone(int (*fn)(void *arg),
         struct user_desc *tls,
         int *ctid)
 {
+  if (inside_pthread_create) {
+    return dmtcp_libc_clone(clone_start, child_stack, flags, arg,
+                            ptid, tls, ctid);
+  }
+
   WRAPPER_EXECUTION_DISABLE_CKPT();
   ThreadSync::incrementUninitializedThreadCount();
 
@@ -138,18 +171,32 @@ asm (".global clone ; .type clone,%function ; clone = __clone");
 # endif // if defined(__i386__) || defined(__x86_64__)
 #endif // if 0
 
-// Invoked via pthread_create as start_routine
-// On return, it calls mtcp_threadiszombie()
+// We need to split pthread_start into pthread_start/pthread_start2
+//   because dmtcp_clone_post_child() expects a function returning
+//   an int, as required by clone().  This allows us to reuse
+//   dmtcp_clone_post_child() both for clone() and for pthread_create().
+static int pthread_start2(void *arg);
 static void *
-pthread_start(void *arg)
+pthread_start(void *arg) {
+  // arg is same as the threadArg that was passed into _real_pthread_create()
+  dmtcp_clone_post_child(&pthread_start2, arg);
+  void *retval = ((struct ThreadArg *)arg)->pthread_fn_retval;
+  JALLOC_HELPER_FREE(arg); // Was allocated in caller thread in pthread_create()
+  inside_pthread_create = 0;
+  return retval;
+}
+
+// Invoked via pthread_start as start_routine
+// On return, it calls mtcp_threadiszombie()
+static int
+pthread_start2(void *arg)
 {
   struct ThreadArg *threadArg = (struct ThreadArg *)arg;
-  void *thread_arg = threadArg->arg;
+  void *thread_arg = threadArg->pthread_arg;
   void *(*pthread_fn) (void *) = threadArg->pthread_fn;
   pid_t virtualTid = threadArg->virtualTid;
 
   JASSERT(pthread_fn != 0x0);
-  JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
 
   // Unblock ckpt signal (unblocking a non-blocked signal has no effect).
   // Normally, DMTCP wouldn't allow the ckpt signal to be blocked. However, in
@@ -163,6 +210,7 @@ pthread_start(void *arg)
 
   ThreadSync::threadFinishedInitialization();
   void *result = (*pthread_fn)(thread_arg);
+  threadArg->pthread_fn_retval = result;
   JTRACE("Thread returned") (virtualTid);
   WRAPPER_EXECUTION_DISABLE_CKPT();
   ThreadList::threadExit();
@@ -176,7 +224,8 @@ pthread_start(void *arg)
   PluginManager::eventHook(DMTCP_EVENT_PTHREAD_RETURN, NULL);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   ThreadSync::unsetOkToGrabLock();
-  return result;
+  threadArg->pthread_fn_retval = result;
+  return 0; // success
 }
 
 extern "C" int
@@ -186,6 +235,7 @@ pthread_create(pthread_t *thread,
                void *arg)
 {
   int retval;
+  inside_pthread_create = 1;
 
   // We have to use DMTCP-specific memory allocator because using glibc:malloc
   // can interfere with user threads.
@@ -200,7 +250,7 @@ pthread_create(pthread_t *thread,
     (struct ThreadArg *)JALLOC_HELPER_MALLOC(sizeof(struct ThreadArg));
 
   threadArg->pthread_fn = start_routine;
-  threadArg->arg = arg;
+  threadArg->pthread_arg = arg;
 
   /* pthread_create() should acquire the thread-creation lock. Not doing so can
    * result in a deadlock in the following scenario:
@@ -223,14 +273,75 @@ pthread_create(pthread_t *thread,
    */
   bool threadCreationLockAcquired = ThreadSync::threadCreationLockLock();
   ThreadSync::incrementUninitializedThreadCount();
+#define REFACTOR_CLONE
+#ifdef REFACTOR_CLONE
+  // Copy of __clone in this file:
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  ThreadSync::incrementUninitializedThreadCount();
+
+  Thread *threadEntry = ThreadList::getNewThread();
+  // We pass NULL for fn.  DMTCP saves fn, but never uses it.
+  int flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD |
+    CLONE_SYSVSEM | CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID;
+  // NOTE: initThread saves ptid and ctid as 'int *' in Thread data structure,
+  //       but we never actually use them.  This is useful when implementing
+  //       clone(), which makes ptdi/ctid into 'out' parameters.  But for
+  //       pthread_create, we can store a NULL pointer in threadEntry instead.
+  ThreadList::initThread(threadEntry, NULL, arg, flags,
+                         NULL /*ptid*/, NULL /*ctid*/);
+
+  // if (ckpthread == NULL) {
+  // ckptthread = threadEntry;
+  // threadEntry->stateInit(ST_CKPNTHREAD);
+  // }
+
+#if 0
+  // from __clone of this file:
+  //   pthread_create calls libc:pthread_create, which calls this __clone,
+  //   The argument thread here is used both on input and output.
+  pid_t tid = _real_clone(pthread_start, child_stack, flags, thread,
+                          ptid, tls, ctid);
+#else
+  // This simulates the call to clone() without actually using clone().
+  // This is important, because glibc-2.34 defines pthread_create() to
+  //   call clone3(), and clone3() is a library-private symbol of glibc.
+  //   So, we can't longer interpose on clone3.
+  // Similarly, musl libc defines pthread_create() directly, and does
+  //   not factor it through any variant of clone().
+
+  // The function pointerr for pthread_start2
+  pid_t virtualTid = dmtcp_clone_pre(pthread_start2, arg, threadArg);
+
   retval = _real_pthread_create(thread, attr, pthread_start, threadArg);
+
+  // Since we did not go through a wrapper around clone(), we must
+  //   set ptid and ctid here, directly.
+  // FXIME:  Set ptid and ctid.  (We could set ptid in advance.)
+  int tid = dmtcp_gettid();
+  dmtcp_clone_post_parent(tid, virtualTid, threadArg);
+#endif
+
+  // FIXME:  set ptid, ctid, check for failure, and remove threadEntry from list
+  if (tid == -1) {
+    JTRACE("Clone call failed")(JASSERT_ERRNO);
+    ThreadSync::decrementUninitializedThreadCount();
+    ThreadList::threadIsDead(threadEntry);
+  }
+
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+#else
+  retval = _real_pthread_create(thread, attr, pthread_start, threadArg);
+#endif
   if (threadCreationLockAcquired) {
     ThreadSync::threadCreationLockUnlock();
   }
   if (retval == 0) {
+    // new pthread created; we will 'JALLOC_HELPER_FREE(threadArg)'
+    //   and do 'inside_pthread_create = 0' at end of pthread_start().
     ProcessInfo::instance().clearPthreadJoinState(*thread);
   } else { // if we failed to create new pthread
     JALLOC_HELPER_FREE(threadArg);
+    inside_pthread_create = 0;
     ThreadSync::decrementUninitializedThreadCount();
   }
   return retval;

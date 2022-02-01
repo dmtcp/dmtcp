@@ -153,10 +153,18 @@ vfork()
   return vforkPid;
 }
 
+// This struct must be kept in sync with src/threadwrappers.cpp
 struct ThreadArg {
-  int (*fn) (void *arg);  // clone() calls fn that returns int
-  void *arg;
-  pid_t virtualTid;
+  union {
+    int (*fn) (void *arg);  // clone() calls fn returning int
+    void *(*pthread_fn) (void *arg);  // pthread_create calls fn returning void*
+  };
+  union {
+    void *arg;              // used for clone()
+    void *pthread_arg;      // used for pthread_create()
+  };
+  void *pthread_fn_retval;  // used for pthread_create()
+  pid_t virtualTid;         // used by dmtcp_clone_XXX()
   sem_t sem;
 };
 
@@ -179,7 +187,7 @@ typedef int (*clone_fptr_t)(int (*fn)(void *arg), void *child_stack, int
  * struct ThreadArg *threadArg =
  *   (struct ThreadArg *)JALLOC_HELPER_MALLOC(sizeof(struct ThreadArg));
  */
-extern "C" int
+extern "C" pid_t
 dmtcp_clone_pre(int (*fn)(void *arg), void *arg, struct ThreadArg *threadArg) {
   pid_t virtualTid = -1;
   struct MtcpRestartThreadArg *mtcpRestartThreadArg;
@@ -217,7 +225,7 @@ dmtcp_clone_post_parent(int tid, int virtualTid, struct ThreadArg *threadArg) {
      */
     sem_wait(&threadArg->sem);
     sem_destroy(&threadArg->sem);
-  } else {
+  } else { // Else tid was -1 (clone() failed)
     virtualTid = tid;
   }
 
@@ -228,10 +236,11 @@ dmtcp_clone_post_parent(int tid, int virtualTid, struct ThreadArg *threadArg) {
 }
 
 extern "C" int
-dmtcp_clone_post_child(void *arg) {
+dmtcp_clone_post_child(int (*fn)(void *), void *arg) {
   struct ThreadArg *threadArg = (struct ThreadArg *)arg;
 
-  int (*fn) (void *) = threadArg->fn;
+  // The caller may wish to directly pass in pthread_start for fn.
+  // int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
   pid_t virtualTid = threadArg->virtualTid;
 
@@ -252,7 +261,7 @@ int
 clone_start(void *arg)
 {
 #ifdef REFACTOR_CLONE
-  return dmtcp_clone_post_child(arg);
+  return dmtcp_clone_post_child(((struct ThreadArg *)arg)->fn, arg);
 #else
   struct ThreadArg *threadArg = (struct ThreadArg *)arg;
 
@@ -272,6 +281,20 @@ clone_start(void *arg)
 #endif
 }
 
+// Used by pthread_create->threadwrappers.cpp:__clone() to avoid DMTCP __clone()
+extern "C" int
+dmtcp_libc_clone(int (*fn)(void *arg),
+                 void *child_stack,
+                 int flags,
+                 void *arg,
+                 int *parent_tidptr,
+                 struct user_desc *newtls,
+                 int *child_tidptr)
+{
+  pid_t tid = _real_clone(fn, child_stack, flags, arg,
+                          parent_tidptr, newtls, child_tidptr);
+}
+
 // need to forward user clone
 extern "C" int
 __clone(int (*fn)(void *arg),
@@ -287,6 +310,8 @@ __clone(int (*fn)(void *arg),
   // We use JALLOC_HELPER_FREE to free this memory in two places:
   // 1.  later in this function in case of failure on call to __clone; and
   // 2.  near the beginnging of clone_start (wrapper for start_routine).
+  // This threadArg pointer is used to communicate between
+  //   dmtcp_clone_pre() and dmtcp_clone_post_parent()
   struct ThreadArg *threadArg =
     (struct ThreadArg *)JALLOC_HELPER_MALLOC(sizeof(struct ThreadArg));
 #ifdef REFACTOR_CLONE
@@ -309,6 +334,11 @@ __clone(int (*fn)(void *arg),
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->virtualTid = virtualTid;
+  /*************************************************************************
+   * FIXME: This semaphore has a count of only 0 or 1, and it only involves
+   *        two threads. It can be made more efficient by using a futex.
+   *        (Note that a mutex would have to be unlocked by the original mutex.)
+   *************************************************************************/
   sem_init(&threadArg->sem, 0, 0);
 #endif
 
