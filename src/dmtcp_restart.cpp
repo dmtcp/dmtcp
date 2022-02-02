@@ -416,6 +416,9 @@ class RestoreTarget
       JASSERT(false).Text("unreachable");
     }
 
+    const map<string, string>& getKeyValueMap() const
+      { return _pInfo.getKeyValueMap(); }
+
   private:
     string _path;
     ProcessInfo _pInfo;

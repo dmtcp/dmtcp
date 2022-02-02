@@ -599,3 +599,9 @@ dmtcp_local_barrier(const char *barrier)
   JTRACE("Waiting for local barrier") (barrier);
   SharedData::waitForBarrier(barrier);
 }
+
+EXTERNC void
+dmtcp_add_to_ckpt_header(const char *key, const char *value)
+{
+  ProcessInfo::instance().addKeyValuePairToCkptHeader(key, value);
+}
