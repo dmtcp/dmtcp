@@ -222,6 +222,22 @@ Util::skipBytes(int fd, size_t count)
   return totalSkipped;
 }
 
+ssize_t
+Util::readAll(const char *path, void *buf, size_t count)
+{
+  JASSERT(path != nullptr);
+
+  int fd = _real_open(path, O_RDONLY);
+  if (fd == -1) {
+    return fd;
+  }
+
+  ssize_t ret = readAll(fd, buf, count);
+  _real_close(fd);
+
+  return ret;
+}
+
 int
 Util::changeFd(int oldfd, int newfd)
 {
