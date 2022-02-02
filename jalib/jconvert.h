@@ -40,7 +40,7 @@ StdLibEC(const dmtcp::string &s, bool strict)
 {
   const char *begin = s.c_str();
   char *end = 0;
-  T v = (*strtoT)(begin, &end, 10);
+  T v = (*strtoT)(begin, &end, 0);
 
   JASSERT(end != 0 && end != begin &&
           (!strict || *end == '\0')) (end) (begin) (strict)
@@ -66,12 +66,24 @@ StdLibEC(const dmtcp::string &s, bool strict)
 
 template<typename X>
 inline dmtcp::string
-XToString(const X &x)
+XToString(const X &x, bool hexOutput = false)
 {
   dmtcp::ostringstream tmp;
 
-  tmp << x;
+  if (hexOutput) {
+    tmp << "0x" << std::hex << x;
+  } else {
+    tmp << x;
+  }
+
   return tmp.str();
+}
+
+template<typename X>
+inline dmtcp::string
+XToHexString(const X &x)
+{
+  return XToString(x, true);
 }
 
 template<typename X>
