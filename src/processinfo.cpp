@@ -470,7 +470,7 @@ ProcessInfo::restart()
 
   restoreProcessGroupInfo();
   // Closing PROTECTED_ENVIRON_FD here breaks dmtcp_get_restart_env()
-  //_real_close(PROTECTED_ENVIRON_FD);
+  // _real_close(PROTECTED_ENVIRON_FD);
 }
 
 void
@@ -616,6 +616,24 @@ ProcessInfo::vdsoOffsetMismatch(uint64_t f1, uint64_t f2,
          (f3 != _gettimeofday_offset) || (f4 != _time_offset);
 }
 
+// NOTE: ProcessInfo object acts as the checkpoint header for DMTCP.
+void
+ProcessInfo::addKeyValuePairToCkptHeader(const string &key, const string &value)
+{
+  kvmap[key] = value;
+}
+
+const string&
+ProcessInfo::getValue(const string &key)
+{
+  static string *empty = new string();
+  if (kvmap.find(key) != kvmap.end()) {
+    return kvmap[key];
+  }
+
+  return *empty;
+}
+
 void
 ProcessInfo::serialize(jalib::JBinarySerializer &o)
 {
@@ -639,6 +657,7 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
   o & _restoreBufAddr & _savedHeapStart & _savedBrk;
   o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd & _endOfStack;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
+  o & kvmap;
 
   JTRACE("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid) (_isRootOfProcessTree)

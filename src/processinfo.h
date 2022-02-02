@@ -149,7 +149,14 @@ class ProcessInfo
     void setCkptFilename(const char *);
     void updateCkptDirFileSubdir(string newCkptDir = "");
 
+    void addKeyValuePairToCkptHeader(const string &key, const string &value);
+    const string& getValue(const string &key);
+
+    const map<string, string>& getKeyValueMap() const { return kvmap; }
+
   private:
+    map<string, string>kvmap;
+
     map<pthread_t, pthread_t>_pthreadJoinId;
     typedef map<pid_t, UniquePid>::iterator iterator;
 

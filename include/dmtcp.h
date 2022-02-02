@@ -564,6 +564,7 @@ void dmtcp_plugin_enable_ckpt(void);
 #define DMTCP_PLUGIN_ENABLE_CKPT() \
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
 
+void dmtcp_add_to_ckpt_header(const char *key, const char *value);
 
 void *dmtcp_dlsym(void *handle, const char *symbol) __attribute((weak));
 void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
