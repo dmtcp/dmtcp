@@ -36,13 +36,12 @@ pid_t _real_tid();
 int _real_tgkill(pid_t tgid, pid_t tid, int sig);
 
 void init();
-void initThread(Thread *th, int (*fn)(
-                  void *), void *arg, int flags, int *ptid, int *ctid);
-void updateTid(Thread *);
+Thread *getNewThread(void *(*fn)(void *), void *arg);
+void initThread(Thread *);
 void resetOnFork();
 void threadExit();
 
-Thread *getNewThread();
+Thread *allocNewThread();
 void addToActiveList(Thread *th);
 void threadIsDead(Thread *thread);
 void emptyFreeList();

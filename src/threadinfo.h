@@ -28,7 +28,10 @@
 
 EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
 EXTERNC pid_t dmtcp_get_real_pid() __attribute((weak));
-EXTERNC int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig)__attribute((weak));
+EXTERNC int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig)
+  __attribute((weak));
+EXTERNC void dmtcp_update_virtual_to_real_tid(pid_t tid) __attribute((weak));
+EXTERNC void dmtcp_init_virtual_tid() __attribute((weak));
 
 #define THREAD_REAL_PID() \
   (dmtcp_get_real_pid != NULL ? dmtcp_get_real_pid() : getpid())
@@ -80,7 +83,7 @@ struct Thread {
 
   char procname[17];
 
-  int (*fn)(void *);
+  void *(*fn)(void *);
   void *arg;
   int flags;
   pid_t *ptid;
@@ -108,6 +111,8 @@ struct Thread {
    * image. This is only used when configured with --enable-timing.
    */
   double ckptReadTime;
+
+  bool processingPthreadCreate;
 
   Thread *next;
   Thread *prev;
