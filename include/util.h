@@ -121,6 +121,7 @@ bool isIBShmArea(const ProcMapsArea &area);
 ssize_t writeAll(int fd, const void *buf, size_t count);
 ssize_t readAll(int fd, void *buf, size_t count);
 ssize_t skipBytes(int fd, size_t count);
+ssize_t readAll(const char *path, void *buf, size_t count);
 
 int safeMkdir(const char *pathname, mode_t mode);
 int safeSystem(const char *command);
