@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include "dmtcp.h"
+#include "util.h"
 #include "lookup_service.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jsocket.h"
@@ -131,7 +132,17 @@ LookupService::set64(const DmtcpMessage &msg)
     return;
   }
 
-  // If a key doesn't exist, we assume the default value (0) for all operations, 
+  // If key isn't found, set the key to the given value.
+  if (kvmap.find(msg.kvdb.key) == kvmap.end()) {
+    if (msg.kvdb.op == DMTCP_KVDB_NOT) {
+      JWARNING("Key not found for NOT operation.") (msg.kvdbId) (msg.kvdb.key);
+    } else {
+      kvmap[msg.kvdb.key] = msg.kvdb.value;
+    }
+    return;
+  }
+
+  // If a key doesn't exist, we assume the default value (0) for all operations,
   // except for AND where we set it to the incoming value.
   switch (msg.kvdb.op)
   {
@@ -152,13 +163,15 @@ LookupService::set64(const DmtcpMessage &msg)
     break;
 
   case DMTCP_KVDB_AND:
-    // If key isn't found, set the key to the given value.
-    if (kvmap.find(msg.kvdb.key) == kvmap.end()) {
-      kvmap[msg.kvdb.key] = msg.kvdb.value;
-      break;
-    }
-
     kvmap[msg.kvdb.key] &= msg.kvdb.value;
+    break;
+
+  case DMTCP_KVDB_MIN:
+    kvmap[msg.kvdb.key] = MIN(msg.kvdb.value, kvmap[msg.kvdb.key]);
+    break;
+
+  case DMTCP_KVDB_MAX:
+    kvmap[msg.kvdb.key] = MAX(msg.kvdb.value, kvmap[msg.kvdb.key]);
     break;
 
   default:

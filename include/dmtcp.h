@@ -390,7 +390,9 @@ typedef enum eDmtcpKVDBOperation {
   DMTCP_KVDB_AND,
   DMTCP_KVDB_OR,
   DMTCP_KVDB_XOR,
-  DMTCP_KVDB_NOT
+  DMTCP_KVDB_NOT,
+  DMTCP_KVDB_MIN,
+  DMTCP_KVDB_MAX
 } DmtcpKVDBOperation_t;
 
 int dmtcp_kvdb64(DmtcpKVDBOperation_t op,
