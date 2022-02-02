@@ -129,6 +129,18 @@ getpid()
   return _dmtcp_pid;
 }
 
+// glibc-2.30 added support for gettid()
+#if !__GLIBC_PREREQ(2, 30)
+pid_t
+gettid(void)
+{
+  if (_dmtcp_thread_tid == -1) {
+    _dmtcp_thread_tid = dmtcp_gettid();
+  }
+  return _dmtcp_thread_tid;
+}
+#endif // if !__GLIBC_PREREQ(2, 30)
+
 extern "C" pid_t
 getppid()
 {
