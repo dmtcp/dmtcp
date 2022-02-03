@@ -169,6 +169,9 @@ dmtcp4: dmtcp4.c
 dmtcp5: dmtcp5.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
+gettid: gettid.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
 pthread%: pthread%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
