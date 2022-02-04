@@ -153,11 +153,6 @@ void initializeLogFile(const char *tmpDir,
                        const char *preLogPath = "");
 
 void adjustRlimitStack();
-void runMtcpRestore(int is32bitElf,
-                    const char *path,
-                    int fd,
-                    size_t argvSize,
-                    size_t envSize);
 
 char readDec(int fd, VA *value);
 char readHex(int fd, VA *value);

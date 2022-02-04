@@ -65,8 +65,6 @@ void connectToCoordOnRestart(CoordinatorMode  mode,
                              UniquePid compGroup,
                              int np,
                              CoordinatorInfo *coordInfo,
-                             const char *host,
-                             int port,
                              struct in_addr *localIP);
 
 void sendMsgToCoordinator(DmtcpMessage msg,
