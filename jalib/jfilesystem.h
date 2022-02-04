@@ -50,6 +50,7 @@ namespace Filesystem
 // true if a given file exists
 bool FileExists(const dmtcp::string &str);
 
+dmtcp::vector<dmtcp::string> ListDirEntries(const dmtcp::string& dir);
 dmtcp::string GetCWD();
 dmtcp::string GetProgramDir();
 dmtcp::string GetProgramName();

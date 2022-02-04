@@ -266,19 +266,23 @@ jalib::Filesystem::FileExists(const dmtcp::string &str)
   }
 }
 
-dmtcp::vector<int>
-jalib::Filesystem::ListOpenFds()
+dmtcp::vector<dmtcp::string>
+ListDirEntriesInternal(const dmtcp::string& dir, int *procSelfFd = nullptr)
 {
-  int fd = jalib::open("/proc/self/fd", O_RDONLY | O_NDELAY |
-                       O_LARGEFILE | O_DIRECTORY, 0);
+  int fd = jalib::open(dir.c_str(),
+                       O_RDONLY | O_NDELAY | O_LARGEFILE | O_DIRECTORY);
 
   JASSERT(fd >= 0);
+
+  if (procSelfFd != nullptr) {
+    *procSelfFd = fd;
+  }
 
   const size_t allocation = (4 * BUFSIZ < sizeof(struct dirent64)
                              ? sizeof(struct dirent64) : 4 * BUFSIZ);
   char *buf = (char *)JALLOC_HELPER_MALLOC(allocation);
 
-  dmtcp::vector<int> fdVec;
+  dmtcp::vector<dmtcp::string> result;
 
   while (true) {
     int nread = jalib::syscall(SYS_getdents, fd, buf, allocation);
@@ -287,13 +291,9 @@ jalib::Filesystem::ListOpenFds()
     }
     JASSERT(nread > 0);
     for (int pos = 0; pos < nread;) {
-      struct linux_dirent *d = (struct linux_dirent *)(&buf[pos]);
+      struct jalib::linux_dirent *d = (struct jalib::linux_dirent *)(&buf[pos]);
       if (d->d_ino > 0) {
-        char *ch;
-        int fdnum = strtol(d->d_name, &ch, 10);
-        if (*ch == 0 && fdnum >= 0 && fdnum != fd) {
-          fdVec.push_back(fdnum);
-        }
+        result.push_back(d->d_name);
       }
       pos += d->d_reclen;
     }
@@ -301,8 +301,32 @@ jalib::Filesystem::ListOpenFds()
 
   jalib::close(fd);
 
-  std::sort(fdVec.begin(), fdVec.end());
   JALLOC_HELPER_FREE(buf);
+  return result;
+}
+
+dmtcp::vector<dmtcp::string>
+jalib::Filesystem::ListDirEntries(const dmtcp::string& dir)
+{
+  return ListDirEntriesInternal(dir);
+}
+
+dmtcp::vector<int>
+jalib::Filesystem::ListOpenFds()
+{
+  dmtcp::vector<int> fdVec;
+  int procSelfFd = -1;
+  const dmtcp::vector<dmtcp::string>& list = ListDirEntriesInternal("/proc/self/fd", &procSelfFd);
+
+  for (const dmtcp::string& entry : list) {
+    char *ch;
+    int fd = strtol(entry.c_str(), &ch, 10);
+    if (*ch == 0 && fd >= 0 && fd != procSelfFd) {
+      fdVec.push_back(fd);
+    }
+  }
+
+  std::sort(fdVec.begin(), fdVec.end());
   return fdVec;
 }
 
