@@ -746,8 +746,6 @@ connectToCoordOnRestart(CoordinatorMode  mode,
                         UniquePid compGroup,
                         int np,
                         CoordinatorInfo *coordInfo,
-                        const char *host,
-                        int port,
                         struct in_addr  *localIP)
 {
   if (mode & COORD_NONE) {

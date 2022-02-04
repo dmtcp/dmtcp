@@ -32,6 +32,7 @@
 #endif  // ifdef HAS_PR_SET_PTRACER
 
 #include "../jalib/jassert.h"
+#include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "constants.h"
 #include "coordinatorapi.h"
@@ -51,8 +52,6 @@ using namespace dmtcp;
 #ifdef HBICT_DELTACOMP
 # define HBICT_FIRST      'H'
 #endif // ifdef HBICT_DELTACOMP
-
-static void setEnvironFd();
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -128,16 +127,26 @@ RestoreTargetMap independentProcessTreeRoots;
 bool noStrictChecking = false;
 
 string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
-string coord_host = "";
+string ckptdir_arg;
+CoordinatorMode allowedModes = COORD_ANY;
+string coord_host;
 int coord_port = UNINITIALIZED_PORT;
 string thePortFile;
 
-CoordinatorMode allowedModes = COORD_ANY;
+vector<string> ckptImages;
+
+string mtcp_restart;
+string mtcp_restart_32;
+string fdBuf;
+string stderrFd;
+char *pause_param;
+
 
 static void setEnvironFd();
-static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo);
+static void runMtcpRestart(int fd, ProcessInfo *pInfo);
 static int readCkptHeader(const string &path, ProcessInfo *pInfo);
 static int openCkptFileToRead(const string &path);
+static int processCkptImages();
 
 class RestoreTarget
 {
@@ -197,6 +206,79 @@ class RestoreTarget
 
     bool noCoordinator() { return _pInfo.noCoordinator(); }
 
+    void initialize()
+    {
+      UniquePid::ThisProcess() = _pInfo.upid();
+      UniquePid::ParentProcess() = _pInfo.uppid();
+
+      DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
+      CoordinatorInfo coordInfo;
+      struct in_addr localIPAddr;
+      if (_pInfo.noCoordinator()) {
+        allowedModes = COORD_NONE;
+      }
+
+      // FIXME:  We will use the new HOST and PORT here, but after restart,
+      // we will use the old HOST and PORT from the ckpt image.
+      CoordinatorAPI::connectToCoordOnRestart(allowedModes,
+                                              _pInfo.procname(),
+                                              _pInfo.compGroup(),
+                                              _pInfo.numPeers(),
+                                              &coordInfo,
+                                              &localIPAddr);
+
+      // If port was 0, we'll get new random port when coordinator starts up.
+      CoordinatorAPI::getCoordHostAndPort(allowedModes,
+                                          &coord_host,
+                                          &coord_port);
+      Util::writeCoordPortToFile(coord_port, thePortFile.c_str());
+
+      string installDir =
+        jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
+
+#if defined(__i386__) || defined(__arm__)
+      if (Util::strEndsWith(installDir.c_str(), "/lib/dmtcp/32")) {
+        // If dmtcp_launch was compiled for 32 bits in 64-bit O/S, then note:
+        // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
+        // DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
+        // GetProgramDir() followed the link.  So, need to remove the suffix.
+        char *str = const_cast<char *>(installDir.c_str());
+        str[strlen(str) - strlen("/lib/dmtcp/32")] = '\0';
+        installDir = str;
+      }
+#endif // if defined(__i386__) || defined(__arm__)
+
+      /* We need to initialize SharedData here to make sure that it is
+       * initialized with the correct coordinator timestamp.  The coordinator
+       * timestamp is updated only during postCkpt callback. However, the
+       * SharedData area may be initialized earlier (for example, while
+       * recreating threads), causing it to use *older* timestamp.
+       */
+      SharedData::initialize(tmpDir.c_str(),
+                             installDir.c_str(),
+                             &compId,
+                             &coordInfo,
+                             &localIPAddr);
+
+      Util::initializeLogFile(SharedData::getTmpDir().c_str(),
+                              _pInfo.procname().c_str(),
+                              NULL);
+
+      if (ckptdir_arg.empty()) {
+        // Create the ckpt-dir fd so that the restarted process can know about
+        // the abs-path of ckpt-image.
+        string dirName = jalib::Filesystem::DirName(_path);
+        int dirfd = open(dirName.c_str(), O_RDONLY);
+        JASSERT(dirfd != -1) (JASSERT_ERRNO);
+        if (dirfd != PROTECTED_CKPT_DIR_FD) {
+          JASSERT(dup2(dirfd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD);
+          close(dirfd);
+        }
+      }
+
+      setEnvironFd();
+    }
+
     void restoreGroup()
     {
       if (_pInfo.isGroupLeader()) {
@@ -254,69 +336,7 @@ class RestoreTarget
 
     void createProcess(bool createIndependentRootProcesses = false)
     {
-      UniquePid::ThisProcess() = _pInfo.upid();
-      UniquePid::ParentProcess() = _pInfo.uppid();
-
-      if (createIndependentRootProcesses) {
-        DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
-        CoordinatorInfo coordInfo;
-        struct in_addr localIPAddr;
-        if (_pInfo.noCoordinator()) {
-          allowedModes = COORD_NONE;
-        }
-
-        CoordinatorAPI::getCoordHostAndPort(allowedModes,
-                                            &coord_host,
-                                            &coord_port);
-
-        // FIXME:  We will use the new HOST and PORT here, but after restart,,
-        // we will use the old HOST and PORT from the ckpt image.
-        CoordinatorAPI::connectToCoordOnRestart(allowedModes,
-                                                _pInfo.procname(),
-                                                _pInfo.compGroup(),
-                                                _pInfo.numPeers(),
-                                                &coordInfo,
-                                                coord_host.c_str(),
-                                                coord_port,
-                                                &localIPAddr);
-
-        // If port was 0, we'll get new random port when coordinator starts up.
-        CoordinatorAPI::getCoordHostAndPort(allowedModes,
-                                            &coord_host,
-                                            &coord_port);
-        Util::writeCoordPortToFile(coord_port, thePortFile.c_str());
-
-        string installDir =
-          jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
-
-#if defined(__i386__) || defined(__arm__)
-        if (Util::strEndsWith(installDir.c_str(), "/lib/dmtcp/32")) {
-          // If dmtcp_launch was compiled for 32 bits in 64-bit O/S, then note:
-          // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
-          // DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
-          // GetProgramDir() followed the link.  So, need to remove the suffix.
-          char *str = const_cast<char *>(installDir.c_str());
-          str[strlen(str) - strlen("/lib/dmtcp/32")] = '\0';
-          installDir = str;
-        }
-#endif // if defined(__i386__) || defined(__arm__)
-
-        /* We need to initialize SharedData here to make sure that it is
-         * initialized with the correct coordinator timestamp.  The coordinator
-         * timestamp is updated only during postCkpt callback. However, the
-         * SharedData area may be initialized earlier (for example, while
-         * recreating threads), causing it to use *older* timestamp.
-         */
-        SharedData::initialize(tmpDir.c_str(),
-                               installDir.c_str(),
-                               &compId,
-                               &coordInfo,
-                               &localIPAddr);
-
-        Util::initializeLogFile(SharedData::getTmpDir().c_str(),
-                                _pInfo.procname().c_str(),
-                                NULL);
-      }
+      initialize();
 
       JTRACE("Creating process during restart") (upid()) (_pInfo.procname());
 
@@ -373,44 +393,7 @@ class RestoreTarget
         }
       }
 
-      string ckptDir = jalib::Filesystem::GetDeviceName(PROTECTED_CKPT_DIR_FD);
-      if (ckptDir.length() == 0) {
-        // Create the ckpt-dir fd so that the restarted process can know about
-        // the abs-path of ckpt-image.
-        string dirName = jalib::Filesystem::DirName(_path);
-        int dirfd = open(dirName.c_str(), O_RDONLY);
-        JASSERT(dirfd != -1) (JASSERT_ERRNO);
-        if (dirfd != PROTECTED_CKPT_DIR_FD) {
-          JASSERT(dup2(dirfd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD);
-          close(dirfd);
-        }
-      }
-
-      if (!createIndependentRootProcesses) {
-        CoordinatorAPI::getCoordHostAndPort(allowedModes,
-                                            &coord_host,
-                                            &coord_port);
-        CoordinatorAPI::connectToCoordOnRestart(allowedModes,
-                                                _pInfo.procname(),
-                                                _pInfo.compGroup(),
-                                                _pInfo.numPeers(),
-                                                NULL,
-                                                coord_host.c_str(),
-                                                coord_port,
-                                                NULL);
-      }
-
-      setEnvironFd();
-      int is32bitElf = 0;
-
-#if defined(__x86_64__) || defined(__aarch64__)
-      is32bitElf = (_pInfo.elfType() == ProcessInfo::Elf_32);
-#elif defined(__i386__) || defined(__arm__)
-      is32bitElf = true;
-#endif // if defined(__x86_64__) || defined(__aarch64__)
-
-
-      runMtcpRestart(is32bitElf, _fd, &_pInfo);
+      runMtcpRestart(_fd, &_pInfo);
 
       JASSERT(false).Text("unreachable");
     }
@@ -421,15 +404,8 @@ class RestoreTarget
     int _fd;
 };
 
-static void
-runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
+char *get_pause_param()
 {
-  char fdBuf[8];
-  char stderrFdBuf[8];
-
-  sprintf(fdBuf, "%d", fd);
-  sprintf(stderrFdBuf, "%u", (unsigned int)PROTECTED_STDERR_FD);
-
 #ifdef HAS_PR_SET_PTRACER
   if (getenv("DMTCP_GDB_ATTACH_ON_RESTART")) {
     JNOTE("\n     *******************************************************\n"
@@ -444,18 +420,51 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
   }
 #endif // ifdef HAS_PR_SET_PTRACER
 
-  static string mtcprestart = Util::getPath("mtcp_restart");
-
-#if defined(__x86_64__) || defined(__aarch64__) || defined(CONFIG_M32)
-
-  // FIXME: This is needed for CONFIG_M32 only because getPath("mtcp_restart")
-  // fails to return the absolute path for mtcprestart.  We should fix
-  // the bug in Util::getPath() and remove CONFIG_M32 condition in #if.
-  if (is32bitElf) {
-    mtcprestart = Util::getPath("mtcp_restart-32", is32bitElf);
+  char * pause_param = getenv("DMTCP_RESTART_PAUSE");
+  if (pause_param == NULL) {
+    pause_param = getenv("MTCP_RESTART_PAUSE");
   }
-#endif // if defined(__x86_64__) || defined(__aarch64__) || defined(CONFIG_M32)
 
+  if (pause_param == NULL) {
+    return NULL;
+  }
+
+  if (pause_param[0] < '1' || pause_param[0] > '4' || pause_param[1] != '\0') {
+    return NULL;
+  }
+
+#ifdef HAS_PR_SET_PTRACER
+  prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
+#endif // ifdef HAS_PR_SET_PTRACER
+
+  // If pause_param is not NULL, mtcp_restart will invoke
+  //     postRestartDebug() in the checkpoint image instead of postRestart().
+  return pause_param;
+}
+
+static vector<char *>
+getMtcpArgs()
+{
+  vector<char *> mtcpArgs;
+  mtcp_restart = Util::getPath("mtcp_restart");
+  pause_param = get_pause_param();
+  stderrFd = jalib::XToString(PROTECTED_STDERR_FD);
+
+  mtcpArgs.push_back((char *) mtcp_restart.c_str());
+  mtcpArgs.push_back((char *) "--stderr-fd");
+  mtcpArgs.push_back((char *) stderrFd.c_str());
+
+  if (pause_param) {
+    mtcpArgs.push_back((char *) "--mtcp-restart-pause");
+    mtcpArgs.push_back(pause_param);
+  }
+
+  return mtcpArgs;
+}
+
+static void
+runMtcpRestart(int fd, ProcessInfo *pInfo)
+{
   if (requestedDebugLevel > 0) {
     int debugPipe[2];
     socketpair(AF_UNIX, SOCK_STREAM, 0, debugPipe);
@@ -493,34 +502,26 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
     }
   }
 
-  /* If DMTCP_RESTART_PAUSE>1, mtcp_restart will loop until gdb attach.*/
-  int mtcp_restart_pause = 0;
-  char * pause_param = getenv("DMTCP_RESTART_PAUSE");
-  if (pause_param == NULL) {
-    pause_param = getenv("MTCP_RESTART_PAUSE");
-  }
-  if (pause_param != NULL && pause_param[0] >= '1' && pause_param[0] <= '4'
-                          && pause_param[1] == '\0') {
-#ifdef HAS_PR_SET_PTRACER
-    prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
-#endif // ifdef HAS_PR_SET_PTRACER
-    mtcp_restart_pause = pause_param[0] - '0';
-    // If mtcp_restart_pause == true, mtcp_restart will invoke
-    //     postRestartDebug() in the checkpoint image instead of postRestart().
-  }
+  vector<char *> mtcpArgs = getMtcpArgs();
 
-  char *const newArgs[] = {
-    (char *)mtcprestart.c_str(),
-    const_cast<char *>("--fd"), fdBuf,
-    const_cast<char *>("--stderr-fd"), stderrFdBuf,
-    // These two flag must be last, since they may become NULL
-    ( mtcp_restart_pause ? const_cast<char *>("--mtcp-restart-pause") : NULL ),
-    ( mtcp_restart_pause ? pause_param : NULL ),
-    NULL
-  };
+#if defined(__x86_64__) || defined(__aarch64__)
+  // FIXME: This is needed for CONFIG_M32 only because getPath("mtcp_restart")
+  // fails to return the absolute path for mtcp_restart.  We should fix
+  // the bug in Util::getPath() and remove CONFIG_M32 condition in #if.
+  if (pInfo->elfType() == ProcessInfo::Elf_32) {
+    mtcp_restart_32 = Util::getPath("mtcp_restart-32", true);
+    mtcpArgs[0] = (char *) mtcp_restart_32.c_str();
+  }
+#endif // if defined(__x86_64__) || defined(__aarch64__) || defined(CONFIG_M32)
 
-  execve(newArgs[0], newArgs, environ);
-  JASSERT(false) (newArgs[0]) (newArgs[1]) (JASSERT_ERRNO)
+  fdBuf = jalib::XToString(fd);
+  mtcpArgs.push_back((char *) "--fd");
+  mtcpArgs.push_back((char *) fdBuf.c_str());
+
+  mtcpArgs.push_back(NULL);
+  execvpe(mtcpArgs[0], &mtcpArgs[0], environ);
+
+  JASSERT(false) (mtcpArgs[0]) (mtcpArgs[1]) (JASSERT_ERRNO)
   .Text("exec() failed");
 }
 
@@ -721,21 +722,21 @@ setEnvironFd()
 }
 
 static void
-setNewCkptDir(char *path)
+setNewCkptDir(const string& path)
 {
   struct stat st;
 
-  if (stat(path, &st) == -1) {
-    JASSERT(mkdir(path, S_IRWXU) == 0 || errno == EEXIST)
+  if (stat(path.c_str(), &st) == -1) {
+    JASSERT(mkdir(path.c_str(), S_IRWXU) == 0 || errno == EEXIST)
       (JASSERT_ERRNO) (path)
     .Text("Error creating checkpoint directory");
-    JASSERT(0 == access(path, X_OK | W_OK)) (path)
+    JASSERT(0 == access(path.c_str(), X_OK | W_OK)) (path)
     .Text("ERROR: Missing execute- or write-access to checkpoint dir");
   } else {
     JASSERT(S_ISDIR(st.st_mode)) (path).Text("ckptdir not a directory");
   }
 
-  int fd = open(path, O_RDONLY);
+  int fd = open(path.c_str(), O_RDONLY);
   JASSERT(fd != -1) (path);
   JASSERT(dup2(fd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD)
     (fd) (path);
@@ -751,7 +752,6 @@ int
 main(int argc, char **argv)
 {
   char *tmpdir_arg = NULL;
-  char *ckptdir_arg = NULL;
 
   initializeJalib();
 
@@ -864,7 +864,8 @@ main(int argc, char **argv)
   }
 
   tmpDir = Util::calcTmpDir(tmpdir_arg);
-  if (ckptdir_arg) {
+
+  if (!ckptdir_arg.empty()) {
     setNewCkptDir(ckptdir_arg);
   }
 
@@ -883,41 +884,48 @@ main(int argc, char **argv)
 
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
 
-  bool doAbort = false;
   for (; argc > 0; shift) {
     string restorename(argv[0]);
     struct stat buf;
-    int rc = stat(restorename.c_str(), &buf);
+    JASSERT(stat(restorename.c_str(), &buf) != -1);
+
     if (Util::strEndsWith(restorename.c_str(), "_files")) {
       continue;
     } else if (!Util::strEndsWith(restorename.c_str(), ".dmtcp")) {
       JNOTE("File doesn't have .dmtcp extension. Check Usage.") (restorename);
-
       // Don't test for --quiet here.  We're aborting.  We need to say why.
       JASSERT_STDERR << theUsage;
-      doAbort = true;
-    } else if (rc == -1) {
-      char error_msg[1024];
-      sprintf(error_msg, "\ndmtcp_restart: ckpt image %s", restorename.c_str());
-      perror(error_msg);
-      doAbort = true;
+      exit(DMTCP_FAIL_RC);
     } else if (buf.st_uid != getuid() && !noStrictChecking) {
       /*Could also run if geteuid() matches*/
-      printf("\nProcess uid (%d) doesn't match uid (%d) of\n"            \
-             "checkpoint image (%s).\n"                                  \
-             "This is dangerous.  Aborting for security reasons.\n"      \
-             "If you still want to do this, then re-run dmtcp_restart\n" \
-             "  with the --no-strict-checking flag.\n",
-             getuid(), buf.st_uid, restorename.c_str());
-      doAbort = true;
-    }
-    if (doAbort) {
-      exit(DMTCP_FAIL_RC);
+      JASSERT(false) (getuid()) (buf.st_uid) (restorename)
+        .Text("Process uid doesn't match uid of checkpoint image.\n"      \
+              "This is dangerous.  Aborting for security reasons.\n"      \
+              "If you still want to do this, then re-run dmtcp_restart\n" \
+              "  with the --no-strict-checking flag.\n");
     }
 
     JTRACE("Will restart ckpt image") (argv[0]);
-    RestoreTarget *t = new RestoreTarget(argv[0]);
-    targets[t->upid()] = t;
+    ckptImages.push_back(argv[0]);
+  }
+
+  // Can't specify ckpt images with --restart-dir flag.
+  if (ckptImages.size() == 0) {
+    JASSERT_STDERR << theUsage;
+    exit(DMTCP_FAIL_RC);
+  }
+
+  CoordinatorAPI::getCoordHostAndPort(allowedModes, &coord_host, &coord_port);
+
+  return processCkptImages();
+}
+
+static int
+processCkptImages()
+{
+  for (const string& ckptImage : ckptImages) {
+      RestoreTarget *t = new RestoreTarget(ckptImage);
+      targets[t->upid()] = t;
   }
 
   // Prepare list of independent process tree roots
