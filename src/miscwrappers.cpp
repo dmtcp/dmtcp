@@ -74,6 +74,13 @@ using namespace dmtcp;
 
 EXTERNC int dmtcp_is_popen_fp(FILE *fp) __attribute((weak));
 
+extern "C" int
+on_exit(void (*function)(int, void *), void *arg)
+{
+  WrapperLock lock;
+  return NEXT_FNC(on_exit)(function, arg);
+}
+
 // Linux prlimit() could also be wrapped for protected fd, but it's a rare case.
 extern "C" int
 setrlimit (int resource, const struct rlimit *rlim) {

@@ -54,6 +54,8 @@ static int childCoordinatorSocket = -1;
 
 // Shared between getCoordHostAndPort() and setCoordPort()
 static int _cachedPort = 0;
+static string *_cachedHost = nullptr;
+
 
 void init();
 void restart();
@@ -147,37 +149,30 @@ restart()
 void
 getCoordHostAndPort(CoordinatorMode mode, string *host, int *port)
 {
-  static bool _firstTime = true;
-  // FIXME:  Could make _cachedHost a 'char[]'.  But then, would
-  //         "*host = _cachedHost;"  replace the string inside *host as needed?
-  //         In particular, if the _cachedHost string object gets destroyed,
-  //         e.g., by a destructor during exit, then this could be a problem.
-  static string _cachedHost;
-
   if (SharedData::initialized()) {
     *host = SharedData::coordHost();
     *port = SharedData::coordPort();
     return;
   }
 
-  if (_firstTime) {
+  if (_cachedHost == nullptr) {
     // Set host to cmd line (if --cord-host) or env var or DEFAULT_HOST
     if (*host == "") {
       if (getenv(ENV_VAR_NAME_HOST)) {
         *host = getenv(ENV_VAR_NAME_HOST);
-        _cachedHost = getenv(ENV_VAR_NAME_HOST);
+        _cachedHost = new string(getenv(ENV_VAR_NAME_HOST));
       } else if (getenv("DMTCP_HOST")) { // deprecated
         *host = getenv("DMTCP_HOST");
-        _cachedHost = getenv("DMTCP_HOST");
+        _cachedHost = new string(getenv("DMTCP_HOST"));
       } else {
         *host = DEFAULT_HOST;
-        _cachedHost = DEFAULT_HOST;
+        _cachedHost = new string(DEFAULT_HOST);
       }
     } else {
       // The caller's string object needs to be valid across
       // multiple calls to this function, or else, the _cachedHost
       // pointer will become a dangling pointer.
-      _cachedHost = host->c_str();
+      _cachedHost = new string(*host);
     }
 
     // Set port to cmd line (if --coord-port) or env var
@@ -195,14 +190,13 @@ getCoordHostAndPort(CoordinatorMode mode, string *host, int *port)
     }
 
     _cachedPort = *port;
-    _firstTime = false;
   } else {
     // We might have gotten a user-requested port of 0 (random port) before,
     // and now the user is passing in the actual coordinator port.
     if (*port > 0 && _cachedPort == 0) {
       _cachedPort = *port;
     }
-    *host = _cachedHost;
+    *host = *_cachedHost;
     *port = _cachedPort;
   }
 }
