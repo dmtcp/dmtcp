@@ -85,9 +85,9 @@ dmtcp_Syslog_PluginDescr()
 static string&
 _ident()
 {
-  static string t;
+  static string *t = new string();
 
-  return t;
+  return *t;
 }
 
 void

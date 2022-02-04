@@ -277,7 +277,7 @@ vfork()
   } else if (vforkPid == 0) { /* child process */
     PluginManager::eventHook(DMTCP_EVENT_VFORK_CHILD, NULL);
 
-    static string child_name =
+    string child_name =
       jalib::Filesystem::GetProgramName() + "_(forked)";
     Util::initializeLogFile(dmtcp_get_tmpdir(), child_name.c_str(), NULL);
 

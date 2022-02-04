@@ -169,10 +169,8 @@ dmtcp_get_tmpdir(void)
 EXTERNC const char *
 dmtcp_get_ckpt_dir()
 {
-  static string tmpdir;
-
-  tmpdir = ProcessInfo::instance().getCkptDir();
-  return tmpdir.c_str();
+  static string *tmpdir = new string(ProcessInfo::instance().getCkptDir());
+  return tmpdir->c_str();
 }
 
 EXTERNC int
@@ -187,8 +185,8 @@ dmtcp_set_ckpt_dir(const char *dir)
 EXTERNC const char *
 dmtcp_get_coord_ckpt_dir(void)
 {
-  static string dir = CoordinatorAPI::getCoordCkptDir();
-  return dir.c_str();
+  static string *dir = new string(CoordinatorAPI::getCoordCkptDir());
+  return dir->c_str();
 }
 
 EXTERNC int
@@ -209,19 +207,17 @@ dmtcp_set_ckpt_file(const char *filename)
 EXTERNC const char *
 dmtcp_get_ckpt_filename(void)
 {
-  static string filename;
-
-  filename = ProcessInfo::instance().getCkptFilename();
-  return filename.c_str();
+  static string *filename =
+    new string(ProcessInfo::instance().getCkptFilename());
+  return filename->c_str();
 }
 
 EXTERNC const char *
 dmtcp_get_ckpt_files_subdir(void)
 {
-  static string tmpdir;
-
-  tmpdir = ProcessInfo::instance().getCkptFilesSubDir();
-  return tmpdir.c_str();
+  static string *tmpdir =
+    new string(ProcessInfo::instance().getCkptFilesSubDir());
+  return tmpdir->c_str();
 }
 
 EXTERNC void
@@ -309,9 +305,7 @@ dmtcp_get_executable_path(void)
 EXTERNC const char *
 dmtcp_get_uniquepid_str(void)
 {
-  static string *uniquepid_str = NULL;
-
-  uniquepid_str =
+  static string *uniquepid_str =
     new string(UniquePid::ThisProcess(true).toString());
   return uniquepid_str->c_str();
 }
