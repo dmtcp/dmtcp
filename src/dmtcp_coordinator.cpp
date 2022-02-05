@@ -57,7 +57,6 @@
  *   DmtcpCoordinator::broadcastMessage                                     *
  ****************************************************************************/
 
-#include "dmtcp_coordinator.h"
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <limits.h>  // for HOST_NAME_MAX
@@ -73,6 +72,7 @@
 #include <unistd.h>
 #include <algorithm>
 #include <iomanip>
+#include "dmtcp_coordinator.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
@@ -159,7 +159,7 @@ static bool killAfterCkpt = false;
 static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
 static time_t timeout = 0;
-static size_t start_time; // used with timeout
+static time_t start_time; // used with timeout
 
 static DmtcpCoordinator prog;
 
@@ -1588,12 +1588,8 @@ DmtcpCoordinator::addDataSocket(CoordClient *client)
 // Copy name+suffix into short_buf of length len, and truncate name to fit.
 // This keeps only the last component of name (after last '/')
 char *short_name(char short_buf[], char *name, unsigned int len, char *suffix) {
-  // char *name_copy = malloc(strlen(name)+1);
   char name_copy[strlen(name)+1];
-#pragma GCC diagnostic ignored "-Wstringop-overflow"
-  // gcc bad warning: complains 'sizeof(name_copy)' depends on 'strlen(name)'
-  strncpy(name_copy, name, sizeof(name_copy));
-#pragma GCC diagnostic pop
+  memcpy(name_copy, name, strlen(name)+1);
   char *base_name = strrchr(name_copy, '/') == NULL ?
                     name_copy : strrchr(name_copy, '/') + 1;
   int suffix_len = strlen(suffix);
