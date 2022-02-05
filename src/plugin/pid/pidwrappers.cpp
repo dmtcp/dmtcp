@@ -130,7 +130,7 @@ getpid()
 }
 
 // glibc-2.30 added support for gettid()
-#if !__GLIBC_PREREQ(2, 30)
+#if __GLIBC_PREREQ(2, 30)
 pid_t
 gettid(void)
 {
