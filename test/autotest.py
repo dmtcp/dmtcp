@@ -1149,8 +1149,11 @@ if HAS_SCRIPT == "yes":
     #  to 25 MB _per process_ under gzip, but this can be slow at ckpt time.
     # On some systems, the script test has two `script` processes, while on some
     # other systems, there is only a single `script` process.
+    # Newer versions of Bash don't fork when executing a simple command
+    # specified with "-c" flag. Instead, the bash process execs into the given
+    # command.
     POST_LAUNCH_SLEEP = 2  # Don't checkpoint until script cmd has launched
-    runTest("script",    [3,4],  ["/usr/bin/script -f" +
+    runTest("script",    [2,3,4],  ["/usr/bin/script -f" +
                               " -c 'bash -c \"ls; sleep 30\"'" +
                               " dmtcp-test-typescript.tmp"])
     POST_LAUNCH_SLEEP = DEFAULT_POST_LAUNCH_SLEEP
