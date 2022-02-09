@@ -28,6 +28,11 @@
 #include <sys/msg.h>
 #include <sys/shm.h>
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+#include <link.h>
+
 #undef msgrcv
 
 #include "jassert.h"
@@ -40,18 +45,18 @@ using namespace dmtcp;
 static struct timespec ts_100ms = { 0, 100 * 1000 * 1000 };
 
 /*
- * In Open MPI 2.0, shmdt() is intercepted by modifying libraries' global offset
- * table, meaning that _real_shmdt() will be redirected into OpenMPI's hook
- * function, instead of libc's shmdt(). The hook function finally calls syscall()
- * with the corresponding syscall number. The inside_shmdt variable indicates
- * if the code is inside our shmdt() wrapper. If so, our syscall wrapper simply
- * calls _real_syscall(), avoiding the recursive call to the shmdt() wrapper.
- * See the wrapper of syscall() in miscwrappers.cpp and pid_miscwrappers.cpp.
- *
- * FIXME: for the long term, we need to think about the case where user code
- * modifies its own global offset table.
- *
- * */
+ * In Open MPI 2.0, shmdt() is intercepted by modifying libraries' global
+ * offset table, meaning that _real_shmdt() will be redirected into
+ * OpenMPI's hook function, instead of libc's shmdt(). The hook function
+ * finally calls syscall() with the corresponding syscall number. The
+ * inside_shmdt variable indicates if the code is inside our shmdt()
+ * wrapper. If so, our syscall wrapper simply calls _real_syscall(),
+ * avoiding the recursive call to the shmdt() wrapper.  See the wrapper
+ * of syscall() in miscwrappers.cpp and pid_miscwrappers.cpp.
+
+ * FIXME: for the long term, we need to think about the case where user
+ * code modifies its own global offset table.
+ */
 static __thread bool inside_shmdt = false;
 
 /******************************************************************************
@@ -183,9 +188,73 @@ shmdt(const void *shmaddr)
 // in order to install its own hooks. For us, shmdt() is the only interesting
 // one. Instead of giving the address of our wrapper to the hook library, we
 // want to return the address in libc. See PR #472 for details.
+static int dlsym_addr_instance = 0;
+static const char *dlsym_symbol = NULL;
+static void *dlsym_retval;
+// extern "C"
+static int
+callback(struct dl_phdr_info *info, size_t size, void *data) {
+  void *handle = dlopen(info->dlpi_name, RTLD_LAZY);
+  dlerror(); // Clear any old errors; will return non-null only on new error
+  void *address = dlsym(handle, dlsym_symbol);
+  if (address == NULL && dlerror() != NULL) {
+    dlsym_retval = dlsym(handle, dlsym_symbol); // Set dlerror to error string
+    dlclose(handle);
+    return 0;
+  } else {
+    dlclose(handle);
+  }
+  // Turn on JTRACE for an overview of this logic in action.
+  if (address != NULL) {
+    dlsym_addr_instance++;
+    JTRACE("Symbol dlsym_symbol in info->dlpi_name; found at address")
+          (dlsym_symbol) (info->dlpi_name) (address);
+  }
+  if (dlsym_addr_instance == 1) {
+    JTRACE("Caller of dlsym_symbol() in info->dlpi_name; wrapper fnc. address")
+          (dlsym_symbol) (info->dlpi_name) (address);
+  }
+  if (dlsym_addr_instance == 2) {
+    JTRACE("RTLD_NEXT") (address);
+    dlsym_retval = address;
+  }
+  return 0;
+}
+
+// extern "C"
+static void *
+dlsym_with_rtld_next(const char *symbol) {
+  dlsym_symbol = symbol;
+  dlsym_addr_instance = 0;
+  dlsym_retval = NULL;
+  dl_iterate_phdr(callback, NULL);
+  return dlsym_retval;
+}
+
+//   We need to wrap dlsym to disable and re-enable ckpt.  But then,
+// dlsym(RTLD_NEXT, ...) no longer works, since glibc:dlsym() looks up
+// the stack to find the caller's library, and discovers a DMTCP library
+// instead of the original target library.
+//   It was originally placed in the svipc plugin so that RTLD_NEXT would
+// point to glibc.  But some targets want RTLD_NEXT to point to a library
+// before glibc.  This happened when ompt_start_tool called dlsym()
+// to see if there was a preferred definition later in the search path.
+// By default, dlsym() should return NULL.  But now, dlsym is called by
+// DMTCP, and so dlsysm discovers the Intel OpenMP library (libiomp5.so)
+// later in the search path.
+// FIXME:  This code belongs in 'src' in libdmtcp.so, and not here.
+// FIXME:  This code searches from the beginning of the link map, using
+//         dl_iterate_phdr().  It assumes that the first match of symbol
+//         is the wrapper function, and that RTLD_NEXT should assume that
+//         the caller starts with that library, in order to find the next
+//         match.  This does not have to be the case.
 extern "C"
-void *dlsym(void *handle, const char *symbol)
+void *
+dlsym(void *handle, const char *symbol)
 {
+  if (handle == RTLD_NEXT) {
+    return dlsym_with_rtld_next(symbol);
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *ret = _real_dlsym(handle, symbol);
   DMTCP_PLUGIN_ENABLE_CKPT();
