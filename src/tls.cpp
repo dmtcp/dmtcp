@@ -420,7 +420,7 @@ tls_set_thread_area(Thread *thread)
 static void
 tls_get_thread_area(Thread *thread)
 {
-  unsigned int addr;
+  unsigned long int addr;
   asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t"
                 : "=r" (addr));
 
