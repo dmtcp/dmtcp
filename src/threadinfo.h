@@ -59,7 +59,7 @@ typedef struct _ThreadTLSInfo {
 
 #if defined(__arm__) || defined(__aarch64__)
 typedef struct _ThreadTLSInfo {
-  struct user_desc gdtentrytls[2];
+  unsigned long int tlsAddr;
 } ThreadTLSInfo;
 #endif // ifdef __i386__
 
