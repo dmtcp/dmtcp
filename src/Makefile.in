@@ -193,15 +193,14 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	dmtcpworker.$(OBJEXT) execwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) kvdb.$(OBJEXT) miscwrappers.$(OBJEXT) \
 	plugininfo.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) \
-	tls.$(OBJEXT) rlimitfloatenv.$(OBJEXT) \
-	signalwrappers.$(OBJEXT) siginfo.$(OBJEXT) \
-	syslogwrappers.$(OBJEXT) terminal.$(OBJEXT) \
+	rlimitfloatenv.$(OBJEXT) signalwrappers.$(OBJEXT) \
+	siginfo.$(OBJEXT) syslogwrappers.$(OBJEXT) terminal.$(OBJEXT) \
 	threadlist.$(OBJEXT) threadwrappers.$(OBJEXT) \
 	wrappers.$(OBJEXT) writeckpt.$(OBJEXT)
 __d_libdir__libdmtcp_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_so_OBJECTS)
 __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
-	libsyscallsreal.a
+	libsyscallsreal.a mtcp/libmtcp.a
 __d_libdir__libdmtcp_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(__d_libdir__libdmtcp_so_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
@@ -244,11 +243,11 @@ am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/syscallsreal.Po ./$(DEPDIR)/syslogwrappers.Po \
 	./$(DEPDIR)/terminal.Po ./$(DEPDIR)/threadlist.Po \
 	./$(DEPDIR)/threadsync.Po ./$(DEPDIR)/threadwrappers.Po \
-	./$(DEPDIR)/tls.Po ./$(DEPDIR)/tokenize.Po \
-	./$(DEPDIR)/trampolines.Po ./$(DEPDIR)/uniquepid.Po \
-	./$(DEPDIR)/util_exec.Po ./$(DEPDIR)/util_init.Po \
-	./$(DEPDIR)/util_misc.Po ./$(DEPDIR)/workerstate.Po \
-	./$(DEPDIR)/wrappers.Po ./$(DEPDIR)/writeckpt.Po
+	./$(DEPDIR)/tokenize.Po ./$(DEPDIR)/trampolines.Po \
+	./$(DEPDIR)/uniquepid.Po ./$(DEPDIR)/util_exec.Po \
+	./$(DEPDIR)/util_init.Po ./$(DEPDIR)/util_misc.Po \
+	./$(DEPDIR)/workerstate.Po ./$(DEPDIR)/wrappers.Po \
+	./$(DEPDIR)/writeckpt.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -584,11 +583,11 @@ include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
 # headers:
 nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h dmtcpworker.h \
-	lookup_service.h ldt.h plugininfo.h pluginmanager.h \
-	processinfo.h restartscript.h tls.h siginfo.h \
-	syscallwrappers.h threadinfo.h threadlist.h threadsync.h \
-	tokenize.h uniquepid.h workerstate.h $(jalibdir)/jalib.h \
-	$(jalibdir)/jalloc.h $(jalibdir)/jassert.h \
+	lookup_service.h plugininfo.h pluginmanager.h processinfo.h \
+	restartscript.h siginfo.h syscallwrappers.h threadinfo.h \
+	threadlist.h threadsync.h tokenize.h uniquepid.h workerstate.h \
+	mtcp/ldt.h mtcp/restore_libc.h mtcp/tlsutil.h \
+	$(jalibdir)/jalib.h $(jalibdir)/jalloc.h $(jalibdir)/jassert.h \
 	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h \
 	$(jalibdir)/jfilesystem.h $(jalibdir)/jserialize.h \
 	$(jalibdir)/jsocket.h $(jalibdir)/jtimer.h \
@@ -650,7 +649,6 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\
 				  popen.cpp 			\
-				  tls.cpp			\
 				  rlimitfloatenv.cpp 		\
 				  signalwrappers.cpp 		\
 				  siginfo.cpp 			\
@@ -668,6 +666,7 @@ __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 __d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a 		\
 				 libjalib.a 			\
 				 libsyscallsreal.a 		\
+				 mtcp/libmtcp.a			\
 				 -ldl -lpthread -lrt
 
 __d_bindir__dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
@@ -928,7 +927,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadlist.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadsync.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadwrappers.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tls.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tokenize.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trampolines.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uniquepid.Po@am__quote@ # am--include-marker
@@ -1356,7 +1354,6 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/threadlist.Po
 	-rm -f ./$(DEPDIR)/threadsync.Po
 	-rm -f ./$(DEPDIR)/threadwrappers.Po
-	-rm -f ./$(DEPDIR)/tls.Po
 	-rm -f ./$(DEPDIR)/tokenize.Po
 	-rm -f ./$(DEPDIR)/trampolines.Po
 	-rm -f ./$(DEPDIR)/uniquepid.Po
@@ -1458,7 +1455,6 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/threadlist.Po
 	-rm -f ./$(DEPDIR)/threadsync.Po
 	-rm -f ./$(DEPDIR)/threadwrappers.Po
-	-rm -f ./$(DEPDIR)/tls.Po
 	-rm -f ./$(DEPDIR)/tokenize.Po
 	-rm -f ./$(DEPDIR)/trampolines.Po
 	-rm -f ./$(DEPDIR)/uniquepid.Po

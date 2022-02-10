@@ -59,6 +59,7 @@
 #include "mtcp_sys.h"
 #include "mtcp_util.ic"
 #include "procmapsarea.h"
+#include "tlsutil.h"
 
 /* The use of NO_OPTIMIZE is deprecated and will be removed, since we
  * compile mtcp_restart.c with the -O0 flag already.
@@ -103,6 +104,7 @@ typedef struct RestoreInfo {
   VA vvarEnd;
   VA endOfStack;
   fnptr_t post_restart;
+  fnptr_t post_restart_debug;
   // NOTE: Update the offset when adding fields to the RestoreInfo struct
   // See note below in the restart_fast_path() function.
   fnptr_t restorememoryareas_fptr;
@@ -113,13 +115,18 @@ typedef struct RestoreInfo {
   size_t stack_offset;
 
   // void (*post_restart)();
+  // void (*post_restart_debug)();
   // void (*restorememoryareas_fptr)();
   int use_gdb;
   VA mtcp_restart_text_addr;
+  ThreadTLSInfo motherofall_tls_info;
+  int tls_pid_offset;
+  int tls_tid_offset;
 #ifdef TIMING
   struct timeval startValue;
 #endif
-  int restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE
+  MYINFO_GS_T myinfo_gs;
+  int mtcp_restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE
 } RestoreInfo;
 static RestoreInfo rinfo;
 
@@ -135,6 +142,10 @@ static int hasOverlappingMapping(VA addr, size_t size);
 static int mremap_move(void *dest, void *src, size_t size);
 static void remapMtcpRestartToReservedArea(RestoreInfo *rinfo);
 static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr);
+void restore_libc(ThreadTLSInfo *tlsInfo,
+                  int tls_pid_offset,
+                  int tls_tid_offset,
+                  MYINFO_GS_T myinfo_gs);
 static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo);
 
 
@@ -230,7 +241,7 @@ main(int argc, char *argv[], char **environ)
 #endif /* ifdef ENABLE_VDSO_CHECK */
 
   rinfo.fd = -1;
-  rinfo.restart_pause = 0; /* false */
+  rinfo.mtcp_restart_pause = 0; /* false */
   rinfo.use_gdb = 0;
   shift;
   while (argc > 0) {
@@ -245,7 +256,7 @@ main(int argc, char *argv[], char **environ)
       rinfo.stderr_fd = mtcp_strtol(argv[1]);
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--mtcp-restart-pause") == 0) {
-      rinfo.restart_pause = argv[1][0] - '0'; /* true */
+      rinfo.mtcp_restart_pause = argv[1][0] - '0'; /* true */
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--simulate") == 0) {
       simulate = 1;
@@ -309,6 +320,11 @@ main(int argc, char *argv[], char **environ)
   rinfo.vvarEnd = mtcpHdr.vvarEnd;
   rinfo.endOfStack = mtcpHdr.end_of_stack;
   rinfo.post_restart = mtcpHdr.post_restart;
+  rinfo.post_restart_debug = mtcpHdr.post_restart_debug;
+  rinfo.motherofall_tls_info = mtcpHdr.motherofall_tls_info;
+  rinfo.tls_pid_offset = mtcpHdr.tls_pid_offset;
+  rinfo.tls_tid_offset = mtcpHdr.tls_tid_offset;
+  rinfo.myinfo_gs = mtcpHdr.myinfo_gs;
 
   restore_brk(rinfo.saved_brk, rinfo.restore_addr,
               rinfo.restore_addr + rinfo.restore_size);
@@ -658,20 +674,25 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
 
   IMB; /* flush instruction cache, since mtcp_restart.c code is now gone. */
 
+  /* Restore libc */
+  DPRINTF("Memory is now restored.  Will next restore libc internals.\n");
+  restore_libc(&restore_info.motherofall_tls_info, restore_info.tls_pid_offset,
+               restore_info.tls_tid_offset, restore_info.myinfo_gs);
+
   /* System calls and libc library calls should now work. */
 
   DPRINTF("MTCP restore is now complete.  Continuing by jumping to\n"
           "  ThreadList::postRestart() back inside libdmtcp.so: %p...\n",
           restore_info.post_restart);
 
-  if (restore_info.restart_pause) {
+  if (restore_info.mtcp_restart_pause) {
     MTCP_PRINTF(
       "\nStopping due to env. var DMTCP_RESTART_PAUSE or MTCP_RESTART_PAUSE\n"
       "(DMTCP_RESTART_PAUSE can be set after creating the checkpoint image.)\n"
       "Attach to the computation with GDB from another window:\n"
       "(This won't work well unless you configure DMTCP with --enable-debug)\n"
       "  gdb PROGRAM_NAME %d\n"
-      "You should now be in 'ThreadList::postRestart()'\n"
+      "You should now be in 'ThreadList::postRestartDebug()'\n"
       "  (gdb) list\n"
       "  (gdb) p dummy = 0\n"
       "  # In some recent Linuxes/glibc/gdb, you may also need to do:\n"
@@ -679,8 +700,12 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
       "  (gdb) add-symbol-files-all\n",
       mtcp_sys_getpid()
     );
+    restore_info.post_restart_debug(readTime, restore_info.mtcp_restart_pause);
+    // int dummy = 1;
+    // while (dummy);
+  } else {
+    restore_info.post_restart(readTime);
   }
-  restore_info.post_restart(readTime, restore_info.restart_pause);
   // NOTREACHED
 }
 
@@ -818,9 +843,9 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     }
 #if defined(__i386__)
     // FIXME: For clarity of code, move this i386-specific code toa function.
-    void *vvar = mtcp_sys_mmap(vvarStart, vvarEnd - vvarStart,
-                               PROT_EXEC | PROT_WRITE | PROT_READ,
-                               MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    vvar = mtcp_sys_mmap(vvarStart, vvarEnd - vvarStart,
+                         PROT_EXEC | PROT_WRITE | PROT_READ,
+                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
     if (vvar == MAP_FAILED) {
       MTCP_PRINTF("***Error: failed to mremap vvar; errno: %d\n",
                   mtcp_sys_errno);
@@ -861,9 +886,9 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     // Since vdso will use randomized addresses (unlike the standard practice
     // for vsyscall), this implies that kernel calls on __x86__ can go through
     // randomized addresses, and so they need special treatment.
-    void *vdso = mtcp_sys_mmap(vdsoStart, vdsoEnd - vdsoStart,
-                               PROT_EXEC | PROT_WRITE | PROT_READ,
-                               MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    vdso = mtcp_sys_mmap(vdsoStart, vdsoEnd - vdsoStart,
+                         PROT_EXEC | PROT_WRITE | PROT_READ,
+                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 
     // The new vdso was remapped to the location of the old vdso, since the
     // restarted application code remembers the old vdso address.
@@ -1154,6 +1179,79 @@ adjust_for_smaller_file_size(Area *area, int fd)
   }
 }
 #endif /* if 0 */
+
+
+/*****************************************************************************
+ *
+ *  Restore the GDT entries that are part of a thread's state
+ *
+ *  The kernel provides set_thread_area system call for a thread to alter a
+ *  particular range of GDT entries, and it switches those entries on a
+ *  per-thread basis.  So from our perspective, this is per-thread state that is
+ *  saved outside user addressable memory that must be manually saved.
+ *
+ *****************************************************************************/
+void
+restore_libc(ThreadTLSInfo *tlsInfo,
+             int tls_pid_offset,
+             int tls_tid_offset,
+             MYINFO_GS_T myinfo_gs)
+{
+  int mtcp_sys_errno;
+
+  /* Every architecture needs a register to point to the current
+   * TLS (thread-local storage).  This is where we set it up.
+   */
+
+  /* Patch 'struct user_desc' (gdtentrytls) of glibc to contain the
+   * the new pid and tid.
+   */
+  *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
+             + tls_pid_offset) = mtcp_sys_getpid();
+  if (mtcp_sys_kernel_gettid() == mtcp_sys_getpid()) {
+    *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
+               + tls_tid_offset) = mtcp_sys_getpid();
+  }
+
+  /* Now pass this to the kernel, so it can adjust the segment descriptor.
+   *   i386, x86_65: tls_set_thread_areaa() uses arg1 for fs and arg2 for gs.
+   * This will make different kernel calls according to the CPU architecture. */
+#if defined(__i386__) || defined(__x86_64__)
+  if (tls_set_thread_area(&(tlsInfo->gdtentrytls[0]),
+                          &(tlsInfo->gdtentrytls[1])) != 0)
+#elif defined(__arm__) || defined(__aarch64__)
+  // FIXME: ARM uses tls_get_thread_area with incompatible syntax,
+  //        setting global variable myinfo_gs.  Fix this to work
+  //        for per-thread storage (multiple threads).
+  //        See commit 591a1631 (2.6.0), 7d02a2e0 (3.0):  PR #609
+  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0]), myinfo_gs) != 0)
+#endif
+  {
+    MTCP_PRINTF("Error restoring GDT TLS entry; errno: %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  /* Finally, if this is i386, we need to set %gs to refer to the segment
+   * descriptor that we're using above.  We restore the original pointer.
+   * For the other architectures (not i386), the kernel call above
+   * already did the equivalent work of setting up thread registers.
+   */
+#ifdef __i386__
+  asm volatile ("movw %0,%%fs" : : "m" (tlsInfo->fs));
+  asm volatile ("movw %0,%%gs" : : "m" (tlsInfo->gs));
+#elif __x86_64__
+
+  /* Don't directly set fs.  It would only set 32 bits, and we just
+   *  set the full 64-bit base of fs, using sys_set_thread_area,
+   *  which called arch_prctl.
+   *asm volatile ("movl %0,%%fs" : : "m" (tlsInfo->fs));
+   *asm volatile ("movl %0,%%gs" : : "m" (tlsInfo->gs));
+   */
+#elif defined(__arm__) || defined(__aarch64__)
+
+  /* ARM treats this same as x86_64 above. */
+#endif /* ifdef __i386__ */
+}
 
 NO_OPTIMIZE
 static int

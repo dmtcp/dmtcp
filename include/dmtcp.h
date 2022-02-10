@@ -660,22 +660,8 @@ uint64_t dmtcp_dlsym_lib_fnc_offset(const char *libname, const char *symbol);
 /// Pointer to a "void foo();" function
 typedef void (*dmtcp_fnptr_t)(void);
 
-#ifdef HAS_PR_SET_PTRACER
-#define DMTCP_SETUP_PTRACE() prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
-#else
-#define DMTCP_SETUP_PTRACE()
-#endif // ifdef HAS_PR_SET_PTRACER
-
-#define DMTCP_RESTART_PAUSE(level)                                             \
-  do {                                                                         \
-    if (restartPauseLevel == level) {                                          \
-      DMTCP_SETUP_PTRACE();                                                    \
-      volatile int dummy = 1;                                                  \
-      while (dummy);                                                           \
-    }                                                                          \
-  } while (0)
-
 #ifdef __cplusplus
 } // extern "C" {
 #endif // ifdef __cplusplus
+
 #endif // ifndef DMTCP_H

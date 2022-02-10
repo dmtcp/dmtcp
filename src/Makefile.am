@@ -73,12 +73,10 @@ nobase_noinst_HEADERS =						\
 			dmtcpmessagetypes.h			\
 			dmtcpworker.h				\
 			lookup_service.h			\
-			ldt.h					\
 			plugininfo.h				\
 			pluginmanager.h				\
 			processinfo.h				\
 			restartscript.h				\
-			tls.h					\
 			siginfo.h				\
 			syscallwrappers.h			\
 			threadinfo.h				\
@@ -86,7 +84,10 @@ nobase_noinst_HEADERS =						\
 			threadsync.h				\
 			tokenize.h				\
 			uniquepid.h				\
-			workerstate.h
+			workerstate.h				\
+			mtcp/ldt.h				\
+			mtcp/restore_libc.h			\
+			mtcp/tlsutil.h
 
 nobase_noinst_HEADERS += $(jalibdir)/jalib.h			\
 			 $(jalibdir)/jalloc.h			\
@@ -158,7 +159,6 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\
 				  popen.cpp 			\
-				  tls.cpp			\
 				  rlimitfloatenv.cpp 		\
 				  signalwrappers.cpp 		\
 				  siginfo.cpp 			\
@@ -176,6 +176,7 @@ __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 __d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a 		\
 				 libjalib.a 			\
 				 libsyscallsreal.a 		\
+				 mtcp/libmtcp.a			\
 				 -ldl -lpthread -lrt
 
 

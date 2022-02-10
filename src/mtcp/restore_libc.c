@@ -16,7 +16,10 @@
  * License along with DMTCP.  If not, see <http://www.gnu.org/licenses/>.    *
  *****************************************************************************/
 
-#include "tls.h"
+#include "mtcp_sys.h"
+#include "restore_libc.h"
+#include "tlsutil.h"
+#include "config.h" // define WSL if present
 #include <pthread.h> // for pthread_self(), needed for WSL
 #include <elf.h>
 #include <errno.h>
@@ -29,9 +32,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "config.h" // define WSL if present
-#include "jassert.h"
-#include "mtcp/mtcp_sys.h"
+int mtcp_sys_errno;
 
 #if defined(__x86_64__) || defined(__aarch64__)
 # define ELF_AUXV_T Elf64_auxv_t
@@ -43,14 +44,14 @@
 # define UINT_T     uint32_t
 #endif /* if defined(__x86_64__) || defined(__aarch64__) */
 
-const char *tlsErrorMsg = "*** DMTCP: Error restoring TLS information\n.";
+extern MYINFO_GS_T myinfo_gs;
 
 static int glibcMajorVersion()
 {
   static int major = 0;
   if (major == 0) {
     major = (int) strtol(gnu_get_libc_version(), NULL, 10);
-    JASSERT(major == 2);
+    ASSERT (major == 2);
   }
   return major;
 }
@@ -61,7 +62,7 @@ static int glibcMinorVersion()
   if (minor == 0) {
     char *ptr;
     int major = (int) strtol(gnu_get_libc_version(), &ptr, 10);
-    JASSERT(major == 2);
+    ASSERT (major == 2);
     minor = (int) strtol(ptr+1, NULL, 10);
   }
   return minor;
@@ -207,6 +208,8 @@ STATIC_TLS_TID_OFFSET()
 /* Can remove the unused attribute when this __GLIBC_PREREQ is the only one. */
 static char *memsubarray(char *array, char *subarray, size_t len)
 __attribute__((unused));
+static uint64_t get_tls_segreg(void);
+static void *get_tls_base_addr(void);
 extern void **motherofall_saved_sp;
 extern ThreadTLSInfo *motherofall_tlsInfo;
 
@@ -225,8 +228,8 @@ TLSInfo_GetTidOffset(void)
      * Try to find at what offset that bit patttern occurs in struct pthread.
      */
     char *tmp;
-    tid_pid.tid = THREAD_REAL_TID();
-    tid_pid.pid = THREAD_REAL_PID();
+    tid_pid.tid = mtcp_sys_getpid();
+    tid_pid.pid = mtcp_sys_getpid();
 
     /* Get entry number of current thread descriptor from its segment register:
      * Segment register / 8 is the entry_number for the "thread area", which
@@ -239,7 +242,7 @@ TLSInfo_GetTidOffset(void)
      * Then use the filled in base_address field to get the 'struct pthread'.
      * The function get_tls_base_addr() returns this 'struct pthread' addr.
      */
-    void *pthread_desc = (void*) pthread_self();
+    void *pthread_desc = get_tls_base_addr();
 
     /* A false hit for tid_offset probably can't happen since a new
      * 'struct pthread' is zeroed out before adding tid and pid.
@@ -251,29 +254,29 @@ TLSInfo_GetTidOffset(void)
       // starting with glibc-2.25 (including 2.24.90 on Fedora), the pid field
       // is deprecated and set to zero.
       tid_pid.pid = 0;
-      tmp = memsubarray((char*)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
+      tmp = memsubarray((char *)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
     }
 
     if (tmp == NULL) {
-      JWARNING(false) (tid_pid.tid)
-        .Text("Couldn't find offsets of tid/pid in thread_area.\n"
-              "  Now relying on the value determined using the\n"
-              "  glibc version with which DMTCP was compiled.");
+      PRINTF("WARNING: Couldn't find offsets of tid/pid in thread_area.\n"
+             "  Now relying on the value determined using the\n"
+             "  glibc version with which DMTCP was compiled.");
       return STATIC_TLS_TID_OFFSET();
 
       // mtcp_abort();
     }
 
     tid_offset = tmp - (char *)pthread_desc;
-    JWARNING (tid_offset == STATIC_TLS_TID_OFFSET()) (tid_offset)
-      .Text("tid_offset (%d) different from expected.\n"
+    if (tid_offset != STATIC_TLS_TID_OFFSET()) {
+      PRINTF("WARNING: tid_offset (%d) different from expected.\n"
              "  It is possible that DMTCP was compiled with a different\n"
              "  glibc version than the one it's dynamically linking to.\n"
-             "  Continuing anyway.  If this fails, please try again.");
-
+             "  Continuing anyway.  If this fails, please try again.",
+             tid_offset);
+    }
+    DPRINTF("DEBUGGING INFO: tid_offset: %d\n", tid_offset);
     if (tid_offset % sizeof(int) != 0) {
-      JWARNING(tid_offset %sizeof(int) == 0) (tid_offset)
-        .Text("tid_offset is not divisible by sizeof(int).\n"
+      PRINTF("WARNING: tid_offset is not divisible by sizeof(int).\n"
              "  Now relying on the value determined using the\n"
              "  glibc version with which DMTCP was compiled.");
       return tid_offset = STATIC_TLS_TID_OFFSET();
@@ -301,7 +304,7 @@ TLSInfo_GetPidOffset(void)
   if (pid_offset == -1) {
     int tid_offset = TLSInfo_GetTidOffset();
     pid_offset = tid_offset + (char *)&(tid_pid.pid) - (char *)&tid_pid;
-    JTRACE("") (pid_offset);
+    DPRINTF("DEBUGGING_INFO: pid_offset: %d\n", pid_offset);
   }
   return pid_offset;
 }
@@ -314,7 +317,7 @@ memsubarray(char *array, char *subarray, size_t len)
   int word1 = *(int *)subarray;
 
   // Assume subarray length is at least sizeof(int) and < 2048.
-  JASSERT(len >= sizeof(int));
+  ASSERT(len >= sizeof(int));
   for (i_ptr = array; i_ptr < array + 2048; i_ptr++) {
     if (*(int *)i_ptr == word1) {
       for (j = 0; j < len; j++) {
@@ -330,152 +333,76 @@ memsubarray(char *array, char *subarray, size_t len)
   return NULL;
 }
 
-/*****************************************************************************
- *
- *****************************************************************************/
-#ifdef __x86_64__
-# include <asm/prctl.h>
-# include <sys/prctl.h>
-static void
-tls_get_thread_area(Thread *thread)
+static uint64_t
+get_tls_segreg(void)
 {
-  JASSERT(_real_syscall(SYS_arch_prctl, ARCH_GET_FS, &thread->tlsInfo.fs) == 0)
-    (JASSERT_ERRNO);
-  JASSERT(_real_syscall(SYS_arch_prctl, ARCH_GET_GS, &thread->tlsInfo.gs) == 0)
-    (JASSERT_ERRNO);
-}
-
-void
-tls_set_thread_area(Thread *thread)
-{
-  int mtcp_sys_errno __attribute__((unused));
-
-  if (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_FS, thread->tlsInfo.fs)
-      != 0) {
-    printf("\n*** DMTCP: Error restorig TLS.\n\n");
-    abort();
-  };
-
-  if (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_GS, thread->tlsInfo.gs)
-      != 0) {
-    printf("\n*** DMTCP: Error restorig TLS.\n\n");
-    abort();
-  }
-}
-#endif
+  segreg_t tlssegreg;
 
 #ifdef __i386__
-static void
-tls_get_thread_area(Thread *thread)
-{
-  asm volatile ("movw %%fs,%0" : "=m" (thread->tlsInfo.fs));
-  asm volatile ("movw %%gs,%0" : "=m" (thread->tlsInfo.gs));
+  asm volatile ("movw %%gs,%0" : "=g" (tlssegreg)); /* any general register */
+#elif __x86_64__
 
-  memset(&thread->tlsInfo.gdtentrytls, 0, sizeof thread->tlsInfo.gdtentrytls);
-
-  thread->tlsInfo.gdtentrytls.entry_number = thread->tlsInfo.gs / 8;
-
-  JASSERT(_real_syscall(SYS_get_thread_area,
-                        &thread->tlsInfo.gdtentrytls) == 0)
-    (JASSERT_ERRNO);
-}
-
-static void
-tls_set_thread_area(Thread *thread)
-{
-  int mtcp_sys_errno __attribute__((unused));
-
-  if (mtcp_inline_syscall(set_thread_area, 1, &thread->tlsInfo.gdtentrytls)
-        != 0) {
-    printf("\n*** DMTCP: Error restorig TLS.\n\n");
-    abort();
-  };
-
-  /* Finally, if this is i386, we need to set %gs to refer to the segment
-   * descriptor that we're using above.  We restore the original pointer.
-   * For the other architectures (not i386), the kernel call above
-   * already did the equivalent work of setting up thread registers.
-   */
-  asm volatile ("movw %0,%%fs" : : "m" (thread->tlsInfo.fs));
-  asm volatile ("movw %0,%%gs" : : "m" (thread->tlsInfo.gs));
-}
-#endif // ifdef __i386__
-
-#ifdef __arm__
-
-/* This allocation hack will work only if calls to mtcp_sys_get_thread_area
- * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
- * This is all because get_thread_area is not implemented for arm.
- *     For ARM, the thread pointer seems to point to the next slot
- * after the 'struct pthread'.  Why??  So, we subtract that address.
- * After that, tid/pid will be located at  offset 104/108 as expected
- * for glibc-2.13.
- * NOTE:  'struct pthread' defined in glibc/nptl/descr.h
- *     The value below (1216) is current for glibc-2.13.
- *     May have to update 'sizeof(struct pthread)' for new versions of glibc.
- *     We can automate this by searching for negative offset from end
- *     of 'struct pthread' in tls_tid_offset, tls_pid_offset in mtcp.c.
- */
-
-static void
-tls_get_thread_area(Thread *thread)
-{
-  unsigned int addr;
+  /* q = a,b,c,d for i386; 8 low bits of r class reg for x86_64 */
+  asm volatile ("movw %%fs,%0" : "=g" (tlssegreg));
+#elif __arm__
   asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t"
-                : "=r" (addr));
-
-  thread->tlsInfo.tlsAddr = addr - 1216; /* sizeof(struct pthread) = 1216 */  \
+                : "=r" (tlssegreg));
+#elif defined(__aarch64__)
+  asm volatile ("mrs  %0, tpidr_el0" : "=r" (tlssegreg));
+#endif /* ifdef __i386__ */
+  return (uint64_t)tlssegreg;
 }
 
-static void
-tls_set_thread_area(Thread *thread)
+/*
+static int
+tls_get_thread_area(void *uinfo, MYINFO_GS_T dummy)
 {
-  int mtcp_sys_errno __attribute__((unused));
-  if (mtcp_syscall(__ARM_NR_set_thread_area,
-                   &mtcp_sys_errno,
-                   thread->tlsInfo.tlsAddr) != 0) {
-    printf("\n*** DMTCP: Error restorig TLS.\n\n");
-    abort();
-  };
+  asm volatile ("mrs   %0, tpidr_el0" : "=r" (myinfo_gs) );
+  myinfo_gs = myinfo_gs - 1776;
+  *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr) = myinfo_gs;
+   return myinfo_gs;
 }
+
+static int
+tls_set_thread_area(void *uinfo, MYINFO_GS_T dummy)
+{
+  myinfo_gs = *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr);
+  myinfo_gs = myinfo_gs + 1776;
+  asm volatile ("msr     tpidr_el0, %[gs]" : : [gs] "r" (myinfo_gs) );
+}
+*/
+static void *
+get_tls_base_addr()
+{
+  struct user_desc gdtentrytls[2];
+
+  gdtentrytls[0].entry_number = get_tls_segreg() / 8;
+
+#if defined(__i386__) || defined(__x86_64__)
+  if (tls_get_thread_area(&gdtentrytls[0], &gdtentrytls[1]) == -1)
+#elif defined(__arm__) || defined(__aarch64__)
+  // FIXME: ARM uses tls_get_thread_area with incompatible syntax,
+  //        setting global variable myinfo_gs.  Fix this to work
+  //        for per-thread storage (multiple threads).
+  //        See commit 591a1631 (2.6.0), 7d02a2e0 (3.0):  PR #609
+  if (tls_get_thread_area(&gdtentrytls[0], myinfo_gs) == -1)
 #endif
-
-#ifdef __aarch64__
-/* This allocation hack will work only if calls to mtcp_sys_get_thread_area
- * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
- * This is all because get_thread_area is not implemented for aarch64.
- *     For ARM, the thread pointer seems to point to the next slot
- * after the 'struct pthread'.  Why??  So, we subtract that address.
- * After that, tid/pid will be located at offset 208/212 as expected
- * for glibc-2.17.
- * NOTE:  'struct pthread' defined in glibc/nptl/descr.h
- *     The value below (1776) is current for glibc-2.17.
- #     See PORTING file for easy way to compute these numbers.
- *     May have to update 'sizeof(struct pthread)' for new versions of glibc.
- *     We can automate this by searching for negative offset from end
- *     of 'struct pthread' in tls_tid_offset, tls_pid_offset in mtcp.c.
- */
-
-static void
-tls_get_thread_area(Thread *thread)
-{
-  unsigned long int addr;
-  asm volatile ("mrs   %0, tpidr_el0" : "=r" (addr));
-  thread->tlsInfo.tlsAddr = addr - 1776; // sizeof(struct pthread) = 1776
+  {
+    PRINTF("Error getting GDT TLS entry: %d\n", errno);
+    _exit(0);
+  }
+#ifdef WSL
+  // This could be used for regular non-WSL also, although it depends on
+  //   the GNU implementation.  pthread_self() returns thread area.
+  // NOTE:  The syscall arch_prctl(ARCH_GET_FS,...) discovers the base
+  //   address of the thread descriptor for non-WSL, but it returns
+  //   different values when invoked at different call sites in WSL.
+  //   Probably, this is because Windows is also using the $fs register.
+  return (void *)pthread_self();
+#endif
+  return (void *)(*(unsigned long *)&(gdtentrytls[0].base_addr));
 }
 
-static void
-tls_set_thread_area(Thread *thread)
-{
-  unsigned long int addr = thread->tlsInfo.tlsAddr + 1776;
-  asm volatile ("msr     tpidr_el0, %[gs]" : :[gs] "r" (addr));
-}
-#endif /* end __aarch64__ */
-
-
-/*****************************************************************************
- *
- *****************************************************************************/
 // Returns value for AT_SYSINFO in kernel's auxv
 // Ideally:  mtcp_at_sysinfo() == *mtcp_addr_sysinfo()
 // Best if we call this early, before the user makes problems
@@ -492,19 +419,51 @@ get_at_sysinfo()
   if (my_environ == NULL) {
     my_environ = environ;
   }
+#if 0
 
+  // Walk the stack.
+# if defined(__i386__) || defined(__x86_64__)
+  asm volatile (CLEAN_FOR_64_BIT(mov %%ebp, %0 \ n \ t)
+                  : "=g" (stack));
+# else /* if defined(__i386__) || defined(__x86_64__) */
+#  error "current architecture not supported"
+# endif /* if defined(__i386__) || defined(__x86_64__) */
+  MTCP_PRINTF("stack 2: %p\n", stack);
+
+  // When popping stack/%ebp yields zero, that's the ELF loader telling us that
+  // this is "_start", the first call frame, which was created by ELF.
+  for (; *stack != NULL; stack = *stack) {}
+
+  // Go beyond first call frame:
+  // Next look for &(argv[argc]) on stack;  (argv[argc] == NULL)
+  for (i = 1; stack[i] != NULL; i++) {}
+
+  // Do some error checks
+  if (&(stack[i]) - stack > 100000) {
+    MTCP_PRINTF("Error:  overshot stack\n");
+    exit(1);
+  }
+  stack = &stack[i];
+#else /* if 0 */
   stack = (void **)&my_environ[-1];
 
-  JASSERT (*stack == NULL) (*stack)
-    .Text("This should be argv[argc] == NULL and it's not. NO &argv[argc]");
+  if (*stack != NULL) {
+    PRINTF(
+      "Error: This should be argv[argc] == NULL and it's not. NO &argv[argc]");
+    _exit(0);
+  }
+#endif /* if 0 */
 
   // stack[-1] should be argv[argc-1]
-  JASSERT((void **)stack[-1] >= stack && (void **)stack[-1] >= stack + 100000)
-    .Text("Error: candidate argv[argc-1] failed consistency check");
-
+  if ((void **)stack[-1] < stack || (void **)stack[-1] > stack + 100000) {
+    PRINTF("Error: candidate argv[argc-1] failed consistency check");
+    _exit(0);
+  }
   for (i = 1; stack[i] != NULL; i++) {
-    JASSERT ((void **)stack[i] >= stack && (void **)stack[i] <= stack + 10000)
-      .Text("Error: candidate argv[i] failed consistency check");
+    if ((void **)stack[i] < stack || (void **)stack[i] > stack + 10000) {
+      PRINTF("Error: candidate argv[i] failed consistency check");
+      _exit(0);
+    }
   }
   stack = &stack[i + 1];
 
@@ -601,19 +560,24 @@ void
 TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
 {
   pid_t tls_pid, tls_tid;
-  char *addr = (char *) pthread_self();
+  char *addr = (char *)get_tls_base_addr();
 
   tls_pid = *(pid_t *)(addr + TLSInfo_GetPidOffset());
   tls_tid = *(pid_t *)(addr + TLSInfo_GetTidOffset());
 
-  JASSERT (tls_tid == tid) (tls_tid) (tid)
-    .Text("tls tid doesn't match the thread tid");
+  if (tls_tid != tid) {
+    PRINTF("ERROR: tls tid(%d) doesn't match the thread tid (%d)\n",
+           tls_tid, tid);
+    _exit(0);
+  }
 
   // For glibc > 2.24, pid field is unused. Here we do the <24 check to ensure
   // that distros with glibc 2.24-NNN are covered as well.
-  JASSERT((glibcMajorVersion() == 2 && glibcMinorVersion() >= 24)
-          || tls_pid == pid)
-    (tls_pid) (pid) .Text("tls pid doesn't match getpid");
+  if (glibcMajorVersion() == 2 && glibcMinorVersion() < 24 && tls_pid != pid) {
+    PRINTF("ERROR: tls pid (%d) doesn't match getpid (%d)\n",
+           tls_pid, (int)mtcp_sys_getpid());
+    _exit(0);
+  }
 }
 
 void
@@ -622,8 +586,8 @@ TLSInfo_UpdatePid()
   // For glibc > 2.24, pid field is unused.
   if (glibcMajorVersion() == 2 && glibcMinorVersion() <= 24) {
     pid_t *tls_pid =
-      (pid_t *)((char *) pthread_self() + TLSInfo_GetPidOffset());
-    *tls_pid = THREAD_REAL_PID();
+      (pid_t *)((char *)get_tls_base_addr() + TLSInfo_GetPidOffset());
+    *tls_pid = mtcp_sys_getpid();
   }
 }
 
@@ -634,11 +598,44 @@ TLSInfo_UpdatePid()
  *
  *****************************************************************************/
 void
-TLSInfo_SaveTLSState(Thread *thread)
+TLSInfo_SaveTLSState(ThreadTLSInfo *tlsInfo)
 {
-  thread->pthreadSelf = (void*) pthread_self();
-  tls_get_thread_area(thread);
-  return;
+  int i;
+
+#if defined(__i386__)
+  asm volatile ("movw %%fs,%0" : "=m" (tlsInfo->fs));
+  asm volatile ("movw %%gs,%0" : "=m" (tlsInfo->gs));
+#elif defined(__x86_64__)
+  //asm volatile ("movl %%fs,%0" : "=m" (tlsInfo->fs));
+  //asm volatile ("movl %%gs,%0" : "=m" (tlsInfo->gs));
+#elif defined(__arm__) || defined(__aarch64__)
+  // Follow x86_64 for arm.
+#endif /* if defined(__i386__) */
+
+  memset(tlsInfo->gdtentrytls, 0, sizeof tlsInfo->gdtentrytls);
+
+  /* FIXME:  IF %fs IS NOT READ into tlsInfo->fs AT BEGINNING OF THIS
+   *   FUNCTION, HOW CAN WE REFER TO IT AS  tlsInfo->TLSSEGREG?
+   *   WHAT IS THIS CODE DOING?
+   */
+  i = tlsInfo->TLSSEGREG / 8;
+  tlsInfo->gdtentrytls[0].entry_number = i;
+#if defined(__i386__) || defined(__x86_64__)
+  if (tls_get_thread_area(&(tlsInfo->gdtentrytls[0]),
+			  &(tlsInfo->gdtentrytls[1])) == -1)
+#elif defined(__arm__) || defined(__aarch64__)
+  // FIXME: ARM uses tls_get_thread_area with incompatible syntax,
+  //        setting global variable myinfo_gs.  Fix this to work
+  //        for per-thread storage (multiple threads).
+  //        See commit 591a1631 (2.6.0), 7d02a2e0 (3.0):  PR #609
+  if (tls_get_thread_area (&(tlsInfo->gdtentrytls[0]), myinfo_gs) == -1)
+#endif
+  {
+    PRINTF("Error saving GDT TLS entry: %d\n", errno);
+    _exit(0);
+  }
+
+  // PRINTF("TLSINFO base_addr: %p \n\n", tlsInfo->gdtentrytls[0].base_addr);
 }
 
 /*****************************************************************************
@@ -652,18 +649,111 @@ TLSInfo_SaveTLSState(Thread *thread)
  *
  *****************************************************************************/
 void
-TLSInfo_RestoreTLSState(Thread *thread)
+TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
 {
   /* Every architecture needs a register to point to the current
    * TLS (thread-local storage).  This is where we set it up.
    */
-  tls_set_thread_area(thread);
+
+  /* Patch 'struct user_desc' (gdtentrytls) of glibc to contain the
+   * the new pid and tid.
+   */
 
   if (glibcMajorVersion() == 2 && glibcMinorVersion() <= 24) {
-    *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetPidOffset()) =
-      THREAD_REAL_PID();
+    *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
+               + TLSInfo_GetPidOffset()) = mtcp_sys_getpid();
   }
 
-  *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetTidOffset()) =
-     THREAD_REAL_TID();
+  if (mtcp_sys_kernel_gettid() == mtcp_sys_getpid()) {
+    *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
+               + TLSInfo_GetTidOffset()) = mtcp_sys_getpid();
+  }
+
+  /* Now pass this to the kernel, so it can adjust the segment descriptors:
+   *   i386, x86_64: tls_set_thread_areaa() uses arg1 for fs and arg2 for gs.
+   * This will make different kernel calls according to the CPU architecture. */
+#if defined(__i386__) || defined(__x86_64__)
+  if (tls_set_thread_area(&(tlsInfo->gdtentrytls[0]),
+                          &(tlsInfo->gdtentrytls[1])) != 0)
+#elif defined(__arm__) || defined(__aarch64__)
+  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0]), myinfo_gs) != 0)
+#endif
+  {
+    PRINTF("Error restoring GDT TLS entry: %d\n", errno);
+    mtcp_abort();
+  }
+
+  /* Finally, if this is i386, we need to set %gs to refer to the segment
+   * descriptor that we're using above.  We restore the original pointer.
+   * For the other architectures (not i386), the kernel call above
+   * already did the equivalent work of setting up thread registers.
+   */
+#ifdef __i386__
+  asm volatile ("movw %0,%%fs" : : "m" (tlsInfo->fs));
+  asm volatile ("movw %0,%%gs" : : "m" (tlsInfo->gs));
+#elif __x86_64__
+
+  /* Don't directly set fs.  It would only set 32 bits, and we just
+   *  set the full 64-bit base of fs, using sys_set_thread_area,
+   *  which called arch_prctl.
+   *asm volatile ("movl %0,%%fs" : : "m" (tlsInfo->fs));
+   *asm volatile ("movl %0,%%gs" : : "m" (tlsInfo->gs));
+   */
+#elif __arm__
+
+  /* ARM treats this same as x86_64 above. */
+#elif defined(__aarch64__)
+# warning "TODO: Implementation for ARM64?"
+#endif /* ifdef __i386__ */
 }
+
+#if 0
+
+/*****************************************************************************
+ *
+ *  The original program's memory and files have been restored
+ *
+ *****************************************************************************/
+void
+TLSInfo_PostRestart()
+{
+  /* Now we can access all of the memory from the time of the checkpoint.
+   * We will continue to use the temporary stack from mtcp_restart.c, for now.
+   * When we return from the signal handler, this primary thread will
+   *   return to its original stack.
+   */
+
+  /* However, we can only make direct kernel calls, and not libc calls.
+   * TLSInfo_RestoreTLSState will do the following:
+   * Step 1:  Patch 'struct user_desc' (gdtentrytls) of glibc to have
+   *     the new pid and tid.
+   * Step 2:  Make kernel call to set up the corresponding
+   *     segment descriptor and/or set any TLS per-thread register.
+   * Step 3 (for Intel only):  Restore %fs and %gs to refer to the the
+   *     segment descriptor for this primary thread (only %gs needed for i386).
+   */
+
+  // TLSInfo_RestoreTLSState(motherofall_tlsInfo);
+
+# if 0
+
+  /* FOR DEBUGGING:  Now test if we can make a kernel call through libc. */
+  mtcp_sys_write(1, "shell ../../util/gdb-add-libdmtcp-symbol-file.py PID PC\n",
+                 sizeof(
+                   "shell ../../util/gdb-add-libdmtcp-symbol-file.py PID PC\n"));
+#  if defined(__i386__) || defined(__x86_64__)
+  asm volatile ("int3");     // Do breakpoint; send SIGTRAP, caught by gdb
+#  elif defined(__aarch64__)
+  asm ("brk 0");
+#  else /* if defined(__i386__) || defined(__x86_64__) */
+  DPRINTF("IN GDB: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
+  { int x = 1; while (x) {}
+  }                             // Stop execution for user to type command.
+#  endif /* if defined(__i386__) || defined(__x86_64__) */
+  int rc = nice(0);
+# endif /* if 0 */
+
+  // We have now verified that libc functionality is restored.
+  Thread_RestoreAllThreads();
+}
+#endif /* if 0 */

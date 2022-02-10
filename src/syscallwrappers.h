@@ -72,7 +72,7 @@
 #include "config.h"
 #include "constants.h"
 #include "dmtcp.h"
-#include "ldt.h"
+#include "mtcp/ldt.h"
 
 // glibc version 2.33 stopped defining _STAT_VER, which was the 'vers'
 // argument to the xtat family of function.  Now, glibc-2.33 is defining

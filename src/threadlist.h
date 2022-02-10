@@ -55,8 +55,8 @@ void vforkResumeThreads();
 
 void waitForAllRestored(Thread *thisthread);
 void writeCkpt();
-void postRestartWork(double readTime = 0.0);
-void postRestart(double readTime, int restartPause);
+void postRestart(double readTime = 0.0);
+void postRestartDebug(double readTime, int restartPause);
 }
 }
 #endif // ifndef THREADLIST_H
