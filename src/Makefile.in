@@ -1503,9 +1503,6 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 .PRECIOUS: Makefile
 
 
-mtcp/libmtcp.a:
-	cd mtcp && ${MAKE} libmtcp.a
-
 install-libs: install-dmtcplibPROGRAMS
 	(cd mtcp && ${MAKE} install-libs)
 	(cd plugin && ${MAKE} install-libs)

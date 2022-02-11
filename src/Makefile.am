@@ -225,9 +225,6 @@ __d_libdir__libdmtcp_so_LDADD += -latomic
 endif
 
 
-mtcp/libmtcp.a:
-	cd mtcp && ${MAKE} libmtcp.a
-
 install-libs: install-dmtcplibPROGRAMS
 	(cd mtcp && ${MAKE} install-libs)
 	(cd plugin && ${MAKE} install-libs)
