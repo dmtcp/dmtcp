@@ -49,7 +49,7 @@ import textwrap
 #     (gdb) add-symbol-file-at-address MEMORY_ADDRESS
 #                                   (e.g., add-symbol-file-at-address 0x400000)
 
-dmtcp_commands = "dmtcp add-symbol-files-all, " +\
+dmtcp_commands = "add-symbol-files-all, " +\
   "add-symbol-file-from-filename-and-address, " +\
   "add-symbol-file-from-substring, add-symbol-file-at-address, " +\
   "show-filename-at-address (OR: whereis-address), " +\
@@ -57,7 +57,10 @@ dmtcp_commands = "dmtcp add-symbol-files-all, " +\
 
 def print_dmtcp_commands():
   print("GDB commands available for DMTCP:")
-  print("  ** ( NOTE:  help works:  (gdb) help <COMMAND> )")
+  print("  ** USAGE:  'dmtcp' for commands; 'help' on each commend:\n" +
+        "  **   (gdb) dmtcp  # Show this message\n" +
+        "  **   (gdb) help <COMMAND>\n" +
+        "  COMMANDS:")
   print(textwrap.fill(dmtcp_commands, break_on_hyphens=False,
                       initial_indent="    ", subsequent_indent="    "))
 
@@ -131,7 +134,7 @@ class AddSymbolFileFromSubstring(gdb.Command):
     self.dont_repeat()
 
   def invoke(self, filename_substring, from_tty):
-    (filename, base_addr, _) = memory_region(filename_substring)
+    (filename, base_addr, _, _) = memory_region(filename_substring)
     add_symbol_files_from_filename(filename, base_addr)
 # This will add the new gdb command: add-symbol-file-from-substring FILENAME
 AddSymbolFileFromSubstring()
@@ -149,7 +152,7 @@ class AddSymbolFileFromFilenameAndAddress(gdb.Command):
 
   def invoke(self, filename_and_address, from_tty):
     (filename, address) = filename_and_address.split()
-    (_, base_addr, _) = memory_region_at_address(address)
+    (_, base_addr, _, _) = memory_region_at_address(address)
     add_symbol_files_from_filename(filename, base_addr)
 # This will add the new gdb command:
 #   add-symbol-file-from-filename-base-address FILENAME BASE_ADDRESS
@@ -169,7 +172,7 @@ class ShowFilenameAtAddress(gdb.Command):
         if getpid() == 0:
           gdb.execute('print "Process not yet started"', False, False)
         else:
-          memory_region = "%s (r-x): 0x%x-0x%x" % \
+          memory_region = "%s 0x%x-0x%x (%s)" % \
                           memory_region_at_address(memory_address)
           gdb.execute('print "' + memory_region + '"', False, False)
 # This will add the new gdb command: show-filename-at-address MEMORY_ADDRESS
@@ -192,7 +195,7 @@ class AddSymbolFileAtAddress(gdb.Command):
     if getpid() == 0:
       gdb.execute('print "Process not yet started"', False, False)
     else:
-      (filename, base_addr, _) = memory_region_at_address(address)
+      (filename, base_addr, _, _) = memory_region_at_address(address)
       if filename == "NOT_FOUND":
         gdb.execute('print "Memory address not found"', False, False)
       else:
@@ -212,10 +215,10 @@ class AddSymbolFilesAll(gdb.Command):
     def invoke(self, dummy_args, from_tty):
         # Remove existing symbol files
         gdb.execute("symbol-file", False, True)
-        # for (filename, _, _) in memory_regions():
+        # for (filename, _, _, _) in memory_regions():
         #   gdb.execute("add-symbol-file-from-substring " + filename)
-        # This form preferred, in case the same filename appears more than once
-        for (filename, address, _) in memory_regions():
+        # This form preferred, in case the same filename appears more than once:
+        for (filename, address, _, _) in memory_regions_executable():
           gdb.execute("add-symbol-file-at-address " + str(address))
 # This will add the new gdb command: add-symbol-files-all
 AddSymbolFilesAll()
@@ -344,30 +347,35 @@ class Signals(gdb.Command):
       print_signals()
 Signals()
 
-# For /proc/*/maps line: ADDR1-ADDR2 ... FILE; returns (FILE, ADDR1, ADDR2)
+# For /proc/*/maps line: ADDR1-ADDR2 ... FILE,
+#   Returns (FILE, ADDR1, ADDR2, PERMISSIONS)
 def procmap_filename_address(line):
-  triple = line.split()
-  if '/' in triple[-2]:  # if procmaps line ends in "/tmp/a.out (deleted)"
-    triple[-1] = triple[-2] + ' ' + triple[-1]
-  return (triple[-1],) + \
-         tuple([int("0x"+elt, 16) for elt in triple[0].split("-")])
+  quad = line.split()
+  if '/' in quad[-2]:  # if procmaps line ends in "/tmp/a.out (deleted)"
+    quad[-1] = quad[-2] + ' ' + quad[-1]
+  if quad[-1] == "0":
+    quad[-1] = "[NO_LABEL]"
+  return (quad[-1],) + \
+         tuple([int("0x"+elt, 16) for elt in quad[0].split("-")]) + (quad[1],)
 def is_text_segment(procmap_line):
   return "r-x" in procmap_line and \
          (procmap_line == "" or procmap_line.isspace() or '/' in procmap_line)
-def memory_regions():
+def procmap_lines():
   if getpid() == 0:
     sys.stderr.write("\n*** Process not running! ***\n")
     sys.exit(1)
   p = subprocess.Popen(["cat", "/proc/"+str(getpid())+"/maps"],
                        stdout = subprocess.PIPE)
-  procmap_lines = [line.decode("utf-8").strip()
-                   for line in p.stdout.readlines()]
-  return [procmap_filename_address(memory) for memory in procmap_lines
-                                           if is_text_segment(memory)]
+  return (line.decode("utf-8").strip() for line in p.stdout.readlines())
+def memory_regions():
+  return (procmap_filename_address(memory) for memory in procmap_lines())
+def memory_regions_executable():
+  return (procmap_filename_address(memory) for memory in procmap_lines()
+                                           if is_text_segment(memory))
 
 # Returns triple:  (filename, base_address, end_address)
 def memory_region(filename_substring):
-  regions = memory_regions()
+  regions = memory_regions_executable()
   return [region for region in regions if filename_substring in region[0]][0]
 
 
