@@ -108,6 +108,11 @@ bin_PROGRAMS = $(d_bindir)/dmtcp_command$(EXEEXT) \
 	$(d_bindir)/dmtcp_get_libc_offset$(EXEEXT) \
 	$(d_bindir)/dmtcp_restart$(EXEEXT)
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so$(EXEEXT)
+@AARCH64_HOST_TRUE@am__append_2 = -latomic
+@AARCH64_HOST_TRUE@am__append_3 = -latomic
+@AARCH64_HOST_TRUE@am__append_4 = -latomic
+@AARCH64_HOST_TRUE@am__append_5 = -latomic
+@AARCH64_HOST_TRUE@am__append_6 = -latomic
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_cxx_compile_stdcxx.m4 \
@@ -140,7 +145,7 @@ am_libdmtcpinternal_a_OBJECTS = coordinatorapi.$(OBJEXT) \
 	workerstate.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libjalib_a_AR = $(AR) $(ARFLAGS)
-libjalib_a_LIBADD =
+libjalib_a_DEPENDENCIES =
 am_libjalib_a_OBJECTS = jalib.$(OBJEXT) jalloc.$(OBJEXT) \
 	jassert.$(OBJEXT) jbuffer.$(OBJEXT) jfilesystem.$(OBJEXT) \
 	jserialize.$(OBJEXT) jsocket.$(OBJEXT) jtimer.$(OBJEXT)
@@ -158,8 +163,9 @@ libsyscallsreal_a_OBJECTS = $(am_libsyscallsreal_a_OBJECTS)
 am___d_bindir__dmtcp_command_OBJECTS = dmtcp_command.$(OBJEXT)
 __d_bindir__dmtcp_command_OBJECTS =  \
 	$(am___d_bindir__dmtcp_command_OBJECTS)
+am__DEPENDENCIES_1 =
 __d_bindir__dmtcp_command_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
-	libnohijack.a
+	libnohijack.a $(am__DEPENDENCIES_1)
 am__dirstamp = $(am__leading_dot)dirstamp
 am___d_bindir__dmtcp_coordinator_OBJECTS =  \
 	dmtcp_coordinator.$(OBJEXT) lookup_service.$(OBJEXT) \
@@ -167,7 +173,7 @@ am___d_bindir__dmtcp_coordinator_OBJECTS =  \
 __d_bindir__dmtcp_coordinator_OBJECTS =  \
 	$(am___d_bindir__dmtcp_coordinator_OBJECTS)
 __d_bindir__dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a \
-	libjalib.a libnohijack.a
+	libjalib.a libnohijack.a $(am__DEPENDENCIES_1)
 am___d_bindir__dmtcp_get_libc_offset_OBJECTS =  \
 	dmtcp_get_libc_offset.$(OBJEXT)
 __d_bindir__dmtcp_get_libc_offset_OBJECTS =  \
@@ -177,7 +183,7 @@ am___d_bindir__dmtcp_launch_OBJECTS = dmtcp_launch.$(OBJEXT)
 __d_bindir__dmtcp_launch_OBJECTS =  \
 	$(am___d_bindir__dmtcp_launch_OBJECTS)
 __d_bindir__dmtcp_launch_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
-	libnohijack.a
+	libnohijack.a $(am__DEPENDENCIES_1)
 am___d_bindir__dmtcp_nocheckpoint_OBJECTS =  \
 	dmtcp_nocheckpoint.$(OBJEXT)
 __d_bindir__dmtcp_nocheckpoint_OBJECTS =  \
@@ -187,7 +193,7 @@ am___d_bindir__dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT)
 __d_bindir__dmtcp_restart_OBJECTS =  \
 	$(am___d_bindir__dmtcp_restart_OBJECTS)
 __d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
-	libnohijack.a
+	libnohijack.a $(am__DEPENDENCIES_1)
 am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	ckptserializer.$(OBJEXT) dmtcpplugin.$(OBJEXT) \
 	dmtcpworker.$(OBJEXT) execwrappers.$(OBJEXT) \
@@ -441,6 +447,7 @@ HAS_MUTEX_WRAPPERS = @HAS_MUTEX_WRAPPERS@
 HAS_OPENMPI = @HAS_OPENMPI@
 HAS_PS = @HAS_PS@
 HAS_PYTHON = @HAS_PYTHON@
+HAS_PYTHON3 = @HAS_PYTHON3@
 HAS_READLINE = @HAS_READLINE@
 HAS_SCREEN = @HAS_SCREEN@
 HAS_SCRIPT = @HAS_SCRIPT@
@@ -539,6 +546,7 @@ pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
+runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -556,7 +564,7 @@ jalibdir = $(top_srcdir)/jalib
 dmtcpincludedir = $(top_srcdir)/include
 dmtcplibdir = $(pkglibdir)
 SUBDIRS = mtcp plugin
-JALLOC_ATOMIC_128_CXXFLAG =
+@X86_64_HOST_FALSE@JALLOC_ATOMIC_128_CXXFLAG = 
 @X86_64_HOST_TRUE@JALLOC_ATOMIC_128_CXXFLAG = -mcx16
 PICFLAGS = -fPIC
 AM_CFLAGS = $(PICFLAGS)
@@ -665,11 +673,9 @@ __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-__d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a 		\
-				 libjalib.a 			\
-				 libsyscallsreal.a 		\
-				 -ldl -lpthread -lrt
-
+__d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
+	libsyscallsreal.a -ldl -lpthread -lrt \
+	$(am__append_6)
 __d_bindir__dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 __d_bindir__dmtcp_get_libc_offset_SOURCES = dmtcp_get_libc_offset.c
 __d_bindir__dmtcp_get_libc_offset_LDADD = -ldl
@@ -677,29 +683,18 @@ __d_bindir__dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp 	\
 					lookup_service.cpp 	\
 					restartscript.cpp
 
-__d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a 	\
-				      libjalib.a 		\
-				      libnohijack.a		\
-				      -lpthread -lrt
-
+__d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
+	libnohijack.a -lpthread -lrt $(am__append_2)
 __d_bindir__dmtcp_launch_SOURCES = dmtcp_launch.cpp
-__d_bindir__dmtcp_launch_LDADD = libdmtcpinternal.a 		\
-				  libjalib.a			\
-				  libnohijack.a			\
-				  -lpthread -lrt -ldl
-
+__d_bindir__dmtcp_launch_LDADD = libdmtcpinternal.a libjalib.a \
+	libnohijack.a -lpthread -lrt -ldl $(am__append_3)
 __d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp
-__d_bindir__dmtcp_restart_LDADD = libdmtcpinternal.a 		\
-				   libjalib.a 			\
-				   libnohijack.a		\
-				   -lpthread -lrt -ldl
-
+__d_bindir__dmtcp_restart_LDADD = libdmtcpinternal.a libjalib.a \
+	libnohijack.a -lpthread -lrt -ldl $(am__append_4)
 __d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
-__d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a 		\
-				  libjalib.a 			\
-				  libnohijack.a			\
-				  -lpthread -lrt -ldl
-
+__d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a libjalib.a \
+	libnohijack.a -lpthread -lrt -ldl $(am__append_5)
+@AARCH64_HOST_TRUE@libjalib_a_LIBADD = -latomic
 all: all-recursive
 
 .SUFFIXES:
