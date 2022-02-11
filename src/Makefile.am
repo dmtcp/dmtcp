@@ -216,9 +216,6 @@ __d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a 		\
 				  -lpthread -lrt -ldl
 
 
-mtcp/libmtcp.a:
-	cd mtcp && ${MAKE} libmtcp.a
-
 install-libs: install-dmtcplibPROGRAMS
 	(cd mtcp && ${MAKE} install-libs)
 	(cd plugin && ${MAKE} install-libs)
