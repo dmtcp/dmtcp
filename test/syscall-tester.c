@@ -4137,7 +4137,6 @@ BasicMknod(void)
   char tf[NAMEBUF] = { 0 };
   int passed;
   int block = SUCCESS;
-  int expected = FAILURE;
 
   xtmpnam(tf);
 
@@ -4151,18 +4150,15 @@ BasicMknod(void)
   EXPECTED_RESP;
 
   // This fails when run as root:
-  testbreak();
-  expected = FAILURE;
-  passed = FAILURE;
-  if (mknod_test(tf, S_IFCHR | S_IRWXU, 0) == 0) {
-    passed = SUCCESS;
-    expected = SUCCESS;
+  if (getuid() != 0) {
+    testbreak();
+    passed = expect_zng(FAILURE, mknod_test(tf, S_IFCHR | S_IRWXU, 0));
+    EXPECTED_RESP; IF_FAILED ABORT_TEST;
+    passed = expect_zng(FAILURE, access_test(tf, F_OK));
+    EXPECTED_RESP;
+    passed = expect_zng(FAILURE, unlink_test(tf));
+    EXPECTED_RESP;
   }
-  EXPECTED_RESP; IF_FAILED ABORT_TEST;
-  passed = expect_zng(expected, access_test(tf, F_OK));
-  EXPECTED_RESP;
-  passed = expect_zng(expected, unlink_test(tf));
-  EXPECTED_RESP;
 
   testbreak();
   passed = expect_zng(FAILURE, mknod_test(tf, S_IFDIR | S_IRWXU, 0));
@@ -4173,22 +4169,15 @@ BasicMknod(void)
   EXPECTED_RESP;
 
   // This fails when run as root:
-  testbreak();
-  expected = FAILURE;
-  passed = FAILURE;
-  if (mknod_test(tf, S_IFBLK | S_IRWXU, 0) == 0) {
-    passed = SUCCESS;
-    expected = SUCCESS;
-  } else if (errno == EPERM) {
-    expected = FAILURE;
-    passed = SUCCESS;
+  if (getuid() != 0) {
+    testbreak();
+    passed = expect_zng(FAILURE, mknod_test(tf, S_IFBLK | S_IRWXU, 0));
+    EXPECTED_RESP; IF_FAILED ABORT_TEST;
+    passed = expect_zng(FAILURE, access_test(tf, F_OK));
+    EXPECTED_RESP;
+    passed = expect_zng(FAILURE, unlink_test(tf));
+    EXPECTED_RESP;
   }
-
-  EXPECTED_RESP; IF_FAILED ABORT_TEST;
-  passed = expect_zng(expected, access_test(tf, F_OK));
-  EXPECTED_RESP;
-  passed = expect_zng(expected, unlink_test(tf));
-  EXPECTED_RESP;
 
   /* It should be that only root can perform this test and have it succeed.
      However glibc 2.2.2 will let a normal user use this function and
@@ -4860,7 +4849,10 @@ testall()
     // test fails.  Disabling them now until we get a chance to fix it.
     // {BasicChdir, "BasicChdir: Can I validly change directories?"},
     // {BasicFchdir, "BasicFchdir: Can I validly change directories?"},
+#ifndef WSL
+    // WSL does not correctly implement 'mknod()' in Windows 21H1, build 19043..
     { BasicMknod, "BasicMknod: Can I make pipes and not other stuff?" },
+#endif
     { BasicLink, "BasicLink: (Sym|Hard)link testing with lchown/lstat()" },
     { BasicRename, "BasicRename: Does rename() work?" },
     { BasicTruncation, "BasicTruncation: Does f?truncate() work?" },
