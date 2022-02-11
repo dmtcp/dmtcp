@@ -19,9 +19,10 @@ dmtcplibdir = $(pkglibdir)
 
 SUBDIRS = mtcp plugin
 
-JALLOC_ATOMIC_128_CXXFLAG =
 if X86_64_HOST
  JALLOC_ATOMIC_128_CXXFLAG = -mcx16
+else
+ JALLOC_ATOMIC_128_CXXFLAG =
 endif
 
 PICFLAGS=-fPIC
@@ -214,6 +215,14 @@ __d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a 		\
 				  libjalib.a 			\
 				  libnohijack.a			\
 				  -lpthread -lrt -ldl
+if AARCH64_HOST
+__d_bindir__dmtcp_coordinator_LDADD += -latomic
+__d_bindir__dmtcp_launch_LDADD  += -latomic
+__d_bindir__dmtcp_restart_LDADD  += -latomic
+__d_bindir__dmtcp_command_LDADD += -latomic
+libjalib_a_LIBADD = -latomic
+__d_libdir__libdmtcp_so_LDADD += -latomic
+endif
 
 
 mtcp/libmtcp.a:
