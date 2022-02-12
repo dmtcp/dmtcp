@@ -661,6 +661,7 @@ HAS_PYTHON3
 HAS_PS
 HAS_EPOLL_CREATE1
 HAS_CMA
+WSL
 AARCH64_HOST
 AARCH64_HOST_FALSE
 AARCH64_HOST_TRUE
@@ -6535,13 +6536,15 @@ fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking if this is WSL (Windows Subystem for Linux)" >&5
 $as_echo_n "checking if this is WSL (Windows Subystem for Linux)... " >&6; }
-if uname -r | grep Microsoft > /dev/null; then
+if uname -r | grep -i Microsoft > /dev/null; then
   is_wsl='yes'
   wsl_version=`uname -r`
 else
   is_wsl='no'
 fi
 if test "$is_wsl" == "yes"; then
+  WSL=yes
+
 
 cat >>confdefs.h <<_ACEOF
 #define WSL $wsl_version
