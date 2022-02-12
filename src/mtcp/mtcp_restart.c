@@ -100,7 +100,6 @@ static void remapMtcpRestartToReservedArea(RestoreInfo *rinfo);
 static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr);
 static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo);
 
-
 // const char service_interp[] __attribute__((section(".interp"))) =
 // "/lib64/ld-linux-x86-64.so.2";
 
@@ -745,9 +744,10 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     }
 #if defined(__i386__)
     // FIXME: For clarity of code, move this i386-specific code toa function.
-    void *vvar = mtcp_sys_mmap(vvarStart, vvarEnd - vvarStart,
-                               PROT_EXEC | PROT_WRITE | PROT_READ,
-                               MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    void *vvar = mmap_fixed_noreplace(vvarStart, vvarEnd - vvarStart,
+                                      PROT_EXEC | PROT_WRITE | PROT_READ,
+                                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                                      -1, 0);
     if (vvar == MAP_FAILED) {
       MTCP_PRINTF("***Error: failed to mremap vvar; errno: %d\n",
                   mtcp_sys_errno);
@@ -788,9 +788,10 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     // Since vdso will use randomized addresses (unlike the standard practice
     // for vsyscall), this implies that kernel calls on __x86__ can go through
     // randomized addresses, and so they need special treatment.
-    void *vdso = mtcp_sys_mmap(vdsoStart, vdsoEnd - vdsoStart,
-                               PROT_EXEC | PROT_WRITE | PROT_READ,
-                               MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    void *vdso = mmap_fixed_noreplace(vdsoStart, vdsoEnd - vdsoStart,
+                                      PROT_EXEC | PROT_WRITE | PROT_READ,
+                                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                                      -1, 0);
 
     // The new vdso was remapped to the location of the old vdso, since the
     // restarted application code remembers the old vdso address.
@@ -814,26 +815,24 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
  *
  *  Read memory area descriptors from checkpoint file
  *  Read memory area contents and/or mmap original file
- *  Four cases: MAP_ANONYMOUS (if file /proc/.../maps reports file,
- *		   handle it as if MAP_PRIVATE and not MAP_ANONYMOUS,
- *		   but restore from ckpt image: no copy-on-write);
- *		 private, currently assumes backing file exists
- *               shared, but need to recreate file;
- *		 shared and file currently exists
- *		   (if writeable by us and memory map has write
- *		    protection, then write to it from checkpoint file;
- *		    else skip ckpt image and map current data of file)
- *		 NOTE:  Linux option MAP_SHARED|MAP_ANONYMOUS
- *		    currently not supported; result is undefined.
- *		    If there is an important use case, we will fix this.
- *		 (NOTE:  mmap requires that if MAP_ANONYMOUS
- *		   was not set, then mmap must specify a backing store.
- *		   Further, a reference by mmap constitutes a reference
- *		   to the file, and so the file cannot truly be deleted
- *		   until the process no longer maps it.  So, if we don't
- *		   see the file on restart and there is no MAP_ANONYMOUS,
- *		   then we have a responsibility to recreate the file.
- *		   MAP_ANONYMOUS is not currently POSIX.)
+ *  Four cases:
+ *    * MAP_ANONYMOUS (if file /proc/.../maps reports file):
+ *      handle it as if MAP_PRIVATE and not MAP_ANONYMOUS, but restore from ckpt
+ *      image: no copy-on-write);
+ *    * private, currently assumes backing file exists
+ *    * shared, but need to recreate file;
+ *    * shared and file currently exists
+ *      (if writeable by us and memory map has write protection, then write to
+ *      it from checkpoint file; else skip ckpt image and map current data of
+ *      file)
+ * NOTE: Linux option MAP_SHARED|MAP_ANONYMOUS currently not supported; result
+ *       is undefined.  If there is an important use case, we will fix this.
+ * NOTE: mmap requires that if MAP_ANONYMOUS was not set, then mmap must specify
+ *       a backing store.  Further, a reference by mmap constitutes a reference
+ *       to the file, and so the file cannot truly be deleted until the process
+ *       no longer maps it.  So, if we don't see the file on restart and there
+ *       is no MAP_ANONYMOUS, then we have a responsibility to recreate the
+ *       file.  MAP_ANONYMOUS is not currently POSIX.)
  *
  **************************************************************************/
 static void
@@ -905,12 +904,11 @@ read_one_memory_area(int fd, VA endOfStack)
   if ((area.properties & DMTCP_ZERO_PAGE) != 0) {
     DPRINTF("restoring non-rwx anonymous area, %p bytes at %p\n",
             area.size, area.addr);
-    mmappedat = mtcp_sys_mmap(area.addr, area.size,
-                              area.prot,
-                              area.flags | MAP_FIXED, -1, 0);
+    mmappedat = mmap_fixed_noreplace(area.addr, area.size, area.prot,
+                                     area.flags | MAP_FIXED, -1, 0);
 
     if (mmappedat != area.addr) {
-      DPRINTF("error %d mapping %p bytes at %p\n",
+      MTCP_PRINTF("error %d mapping %p bytes at %p\n",
               mtcp_sys_errno, area.size, area.addr);
       mtcp_abort();
     }
@@ -977,8 +975,9 @@ read_one_memory_area(int fd, VA endOfStack)
      * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
      * mtcp_safemmap here to check for address conflicts.
      */
-    mmappedat = mtcp_sys_mmap(area.addr, area.size, area.prot | PROT_WRITE,
-                              area.flags, imagefd, area.offset);t stgit
+    mmappedat =
+      mmap_fixed_noreplace(area.addr, area.size, area.prot | PROT_WRITE,
+                           area.flags, imagefd, area.offset);
 
     if (mmappedat == MAP_FAILED) {
       DPRINTF("error %d mapping %p bytes at %p\n",
@@ -1065,7 +1064,7 @@ adjust_for_smaller_file_size(Area *area, int fd)
     DPRINTF("For %s, current size (%ld) smaller than original (%ld).\n"
             "mmap()'ng the difference as anonymous.\n",
             area->name, curr_size, area->size);
-    VA mmappedat = mtcp_sys_mmap(anon_start_addr, anon_area_size,
+    VA mmappedat = mmap_fixed_noreplace(anon_start_addr, anon_area_size,
                                  area->prot | PROT_WRITE,
                                  MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS,
                                  -1, 0);
@@ -1207,12 +1206,12 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
 
   size_t i;
   for (i = 0; i < num_regions; i++) {
-    void *addr = mtcp_sys_mmap(mem_regions[i].addr + restore_region_offset,
-                               mem_regions[i].size,
-                               mem_regions[i].prot,
-                               MAP_PRIVATE | MAP_FIXED,
-                               mtcp_restart_fd,
-                               mem_regions[i].offset);
+    void *addr = mmap_fixed_noreplace(mem_regions[i].addr + restore_region_offset,
+                                      mem_regions[i].size,
+                                      mem_regions[i].prot,
+                                      MAP_PRIVATE | MAP_FIXED,
+                                      mtcp_restart_fd,
+                                      mem_regions[i].offset);
 
     if (addr == MAP_FAILED) {
       MTCP_PRINTF("mmap failed with error; errno: %d\n", mtcp_sys_errno);
@@ -1232,12 +1231,12 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
   VA guard_page =
     mem_regions[num_regions - 1].endAddr + restore_region_offset;
 
-  MTCP_ASSERT(mtcp_sys_mmap(guard_page,
-                            MTCP_PAGE_SIZE,
-                            PROT_NONE,
-                            MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
-                            -1,
-                            0) == guard_page);
+  MTCP_ASSERT(mmap_fixed_noreplace(guard_page,
+                                   MTCP_PAGE_SIZE,
+                                   PROT_NONE,
+                                   MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
+                                   -1,
+                                   0) == guard_page);
   MTCP_ASSERT(guard_page != MAP_FAILED);
 
   VA guard_page_end_addr = guard_page + MTCP_PAGE_SIZE;
@@ -1267,12 +1266,12 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
   void *new_stack_start_addr = new_stack_end_addr - rinfo->old_stack_size;
 
   rinfo->new_stack_addr =
-    mtcp_sys_mmap(new_stack_start_addr,
-                  rinfo->old_stack_size,
-                  PROT_READ | PROT_WRITE,
-                  MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
-                  -1,
-                  0);
+    mmap_fixed_noreplace(new_stack_start_addr,
+                         rinfo->old_stack_size,
+                         PROT_READ | PROT_WRITE,
+                         MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
+                         -1,
+                         0);
   MTCP_ASSERT(rinfo->new_stack_addr != MAP_FAILED);
 
   rinfo->stack_offset = rinfo->old_stack_addr - rinfo->new_stack_addr;
@@ -1293,7 +1292,7 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
   int rc;
 
   /* Use mmap for this portion of checkpoint image. */
-  addr = mtcp_sys_mmap(buf, size, prot, flags,
+  addr = mmap_fixed_noreplace(buf, size, prot, flags,
                        fd, mtcp_sys_lseek(fd, 0, SEEK_CUR));
   if (addr != buf) {
     if (addr == MAP_FAILED) {
