@@ -817,3 +817,28 @@ char *mtcp_getenv(const char *name, char **environ)
   }
   return NULL;
 }
+
+// This emulates MAP_FIXED_NOREPLACE, which became available only in Linux 4.17
+// FIXME:  This assume that addr is a multiple of PAGESIZE.  We should
+//         check that in the function, and either issue an error in that
+//         case, or else simulate the action of MAP_FIXED_NOREPLACE.
+void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
+                           int fd, off_t offset)
+{
+  int mtcp_sys_errno;  // mtcp_sys_mmap, etc., are macros using this
+  if (flags & MAP_FIXED) {
+    flags ^= MAP_FIXED;
+  }
+  void *addr2 = mtcp_sys_mmap(addr, len, prot, flags, fd, offset);
+  if (addr == addr2) {
+    return addr2;
+  } else if (addr2 != MAP_FAILED) {
+    // undo the mmap
+    mtcp_sys_munmap(addr2, len);
+    mtcp_sys_errno = EEXIST;
+    return MAP_FAILED;
+  } else {
+    // the mmap really did fail
+    return MAP_FAILED;
+  }
+}
