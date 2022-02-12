@@ -5,6 +5,7 @@ OPENMP_CXXFLAGS=@OPENMP_CXXFLAGS@
 CC = @CC@
 M32=@M32@
 MULTILIB=@MULTILIB@
+WSL=@WSL@
 # Unfortunately, there is a name clash for 'DEBUG'.
 # --enable-debug intends to set 'DEBUG' in src, but sets it everywhere.
 # Here in 'test', we use 'DEBUG' for one-off tests.  So, we unset 'DEBUG'.
@@ -117,7 +118,11 @@ else
 endif
 
 syscall-tester: syscall-tester.c
-	$(CC) -o $@ $< $(CFLAGS) -rdynamic
+	if test -n "${WSL}"; then \
+	  $(CC) -o $@ -DWSL $< $(CFLAGS) -rdynamic; \
+	else \
+	  $(CC) -o $@ $< $(CFLAGS) -rdynamic; \
+	fi
 
 timer%: timer%.c
 	$(CC) -o $@ $< $(CFLAGS) -lrt

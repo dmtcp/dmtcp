@@ -458,13 +458,14 @@ else
 fi
 
 AC_MSG_CHECKING([if this is WSL (Windows Subystem for Linux)])
-if uname -r | grep Microsoft > /dev/null; then
+if uname -r | grep -i Microsoft > /dev/null; then
   is_wsl='yes'
   wsl_version=`uname -r`
 else
   is_wsl='no'
 fi
 if test "$is_wsl" == "yes"; then
+  AC_SUBST([WSL], [yes])
   AC_DEFINE_UNQUOTED([WSL],[$wsl_version],[This is WSL (Windows Subsystem for Linux.])
 fi
 AC_MSG_RESULT([$is_wsl])
