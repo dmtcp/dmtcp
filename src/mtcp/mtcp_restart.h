@@ -47,4 +47,12 @@ typedef struct RestoreInfo {
 
 void mtcp_check_vdso(char **environ);
 
+#define DMTCP_RESTART_PAUSE(rinfo, level)                                      \
+  do {                                                                         \
+    if ((rinfo)->restart_pause == (level)) {                                   \
+      volatile int dummy = 1;                                                  \
+      while (dummy);                                                           \
+    }                                                                          \
+  } while (0)
+
 #endif // #ifndef MTCP_RESTART_H

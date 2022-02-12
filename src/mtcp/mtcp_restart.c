@@ -145,8 +145,15 @@ main(int argc, char *argv[], char **environ)
 #endif /* ifdef ENABLE_VDSO_CHECK */
 
   rinfo.fd = -1;
-  rinfo.restart_pause = 0; /* false */
   rinfo.use_gdb = 0;
+
+  char *restart_pause_str = mtcp_getenv("DMTCP_RESTART_PAUSE");
+  if (restart_pause_str == NULL) {
+    rinfo.restart_pause = 0; /* false */
+  } else {
+    rinfo.restart_pause = mtcp_strtol(restart_pause_str);
+  }
+
   shift;
   while (argc > 0) {
     if (mtcp_strcmp(argv[0], "--use-gdb") == 0) {
@@ -180,6 +187,8 @@ main(int argc, char *argv[], char **environ)
     MTCP_PRINTF("***MTCP Internal Error\n");
     mtcp_abort();
   }
+
+  DMTCP_RESTART_PAUSE(&rinfo, 1);
 
 #ifdef TIMING
   mtcp_sys_gettimeofday(&rinfo.startValue, NULL);
