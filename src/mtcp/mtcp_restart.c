@@ -144,6 +144,9 @@ main(int argc, char *argv[], char **environ)
   mtcp_check_vdso(environ);
 #endif /* ifdef ENABLE_VDSO_CHECK */
 
+  rinfo.argc = argc;
+  rinfo.argv = argv;
+  rinfo.environ = environ;
   rinfo.fd = -1;
   rinfo.use_gdb = 0;
 

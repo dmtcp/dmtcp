@@ -43,6 +43,12 @@ typedef struct RestoreInfo {
   struct timeval startValue;
 #endif
   int restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE
+
+  // The following fields are only valid until mtcp_restart memory is unmapped,
+  // and checkpoint image is mapped in.
+  int argc;
+  char **argv;
+  char **environ;
 } RestoreInfo;
 
 void mtcp_check_vdso(char **environ);
