@@ -9,7 +9,7 @@ fi
 trap 'rm -f ckpt_tmp.dmtcp' INT QUIT EXIT
 
 if file $1 | grep gzip > /dev/null; then
-  echo '***' $1 is a gzipped file.  Will uncompress it into ckpt_tmp.dmcp first.
+  echo '***' $1 is a gzipped file. Will uncompress it into ckpt_tmp.dmtcp first.
   gzip -dc $1 > ckpt_tmp.dmtcp
   set ckpt_tmp.dmtcp
 fi
