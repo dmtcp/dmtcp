@@ -3,6 +3,14 @@
 
 #include "procmapsarea.h"
 
+#ifdef MTCP_PLUGIN_HEADER
+#include MTCP_PLUGIN_HEADER
+#else
+#define PluginInfo char
+#define mtcp_plugin_hook(args)
+#define mtcp_plugin_skip_memory_region_munmap(name) 0
+#endif
+
 #define MB                 1024 * 1024
 #define RESTORE_STACK_SIZE 16 * MB
 #define RESTORE_MEM_SIZE   16 * MB
