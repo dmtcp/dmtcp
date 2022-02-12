@@ -37,13 +37,49 @@ using namespace dmtcp;
 
 extern __thread Thread *curThread;
 
-// Invoked via pthread_create as start_routine
-// On return, it calls mtcp_threadiszombie()
-static void *
-pthread_start(void *arg)
+static bool
+prepareThreadCreate()
 {
-  Thread *thread = (Thread *) arg;
+  /* pthread_create() should acquire the thread-creation lock. Not doing so can
+   * result in a deadlock in the following scenario:
+   * 1. user thread: pthread_create() - acquire wrapper-execution lock
+   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exec lock
+   * 3. user thread: __clone() - try to acquire wrapper-execution lock
+   *
+   * We also need to increment the uninitialized-thread-count so that it is
+   * safe to checkpoint the newly created thread.
+   *
+   * There is another possible deadlock situation if we do not grab the
+   * thread-creation lock:
+   * 1. user thread: pthread_create(): waiting on tbl_lock inside libpthread
+   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exec lock
+   * 3. uset thread: a. exiting after returning from user fn.
+   *                 b. grabs tbl_lock()
+   *                 c. tries to call free() to deallocate previously allocated
+   *                 space (stack etc.). The free() wrapper requires
+   *                 wrapper-exec lock, which is not available.
+   */
+  bool threadCreationLockAcquired = ThreadSync::threadCreationLockLock();
+  ThreadSync::incrementUninitializedThreadCount();
 
+  JASSERT(Thread_UpdateState(curThread, ST_THREAD_CREATE, ST_RUNNING));
+
+  return threadCreationLockAcquired;
+}
+
+static void
+postThreadCreate(bool threadCreationLockAcquired)
+{
+  JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_THREAD_CREATE));
+
+  if (threadCreationLockAcquired) {
+    ThreadSync::threadCreationLockUnlock();
+  }
+}
+
+static void
+processChildThread(Thread *thread)
+{
   dmtcp_init_virtual_tid();
 
   ThreadList::initThread(thread);
@@ -58,6 +94,16 @@ pthread_start(void *arg)
   JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0) (JASSERT_ERRNO);
 
   ThreadSync::threadFinishedInitialization();
+}
+
+// Invoked via pthread_create as start_routine
+// On return, it calls mtcp_threadiszombie()
+static void *
+thread_start(void *arg)
+{
+  Thread *thread = (Thread *) arg;
+
+  processChildThread(thread);
 
   void *result = thread->fn(thread->arg);
 
@@ -85,37 +131,12 @@ pthread_create(pthread_t *pth,
 {
   int retval;
 
+  bool threadCreationLockAcquired = prepareThreadCreate();
+
   Thread *thread = ThreadList::getNewThread(start_routine, arg);
+  retval = _real_pthread_create(pth, attr, thread_start, thread);
 
-  /* pthread_create() should acquire the thread-creation lock. Not doing so can
-   * result in a deadlock in the following scenario:
-   * 1. user thread: pthread_create() - acquire wrapper-execution lock
-   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exec lock
-   * 3. user thread: __clone() - try to acquire wrapper-execution lock
-   *
-   * We also need to increment the uninitialized-thread-count so that it is
-   * safe to checkpoint the newly created thread.
-   *
-   * There is another possible deadlock situation if we do not grab the
-   * thread-creation lock:
-   * 1. user thread: pthread_create(): waiting on tbl_lock inside libpthread
-   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exec lock
-   * 3. uset thread: a. exiting after returning from user fn.
-   *                 b. grabs tbl_lock()
-   *                 c. tries to call free() to deallocate previously allocated
-   *                 space (stack etc.). The free() wrapper requires
-   *                 wrapper-exec lock, which is not available.
-   */
-  bool threadCreationLockAcquired = ThreadSync::threadCreationLockLock();
-  ThreadSync::incrementUninitializedThreadCount();
-
-  curThread->processingPthreadCreate = true;
-  retval = _real_pthread_create(pth, attr, pthread_start, thread);
-  curThread->processingPthreadCreate = false;
-
-  if (threadCreationLockAcquired) {
-    ThreadSync::threadCreationLockUnlock();
-  }
+  postThreadCreate(threadCreationLockAcquired);
 
   if (retval == 0) {
     ProcessInfo::instance().clearPthreadJoinState(*pth);
@@ -135,17 +156,54 @@ __clone(int (*fn)(void *arg),
         struct user_desc *newtls,
         int *child_tidptr)
 {
-  JASSERT(curThread->processingPthreadCreate)
-    .Text("__clone called without pthread_create");
-  return _real_clone(
-    fn, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr);
+  if (curThread->state == ST_THREAD_CREATE) {
+    return _real_clone(
+      fn, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr);
+  }
+
+  JNOTE("__clone called without pthread_create");
+  bool threadCreationLockAcquired = prepareThreadCreate();
+
+  Thread *thread = ThreadList::getNewThread((void*(*)(void*))fn, arg);
+  int retval = _real_clone(
+      (int(*)(void*))thread_start, child_stack, flags, thread, parent_tidptr,
+      newtls, child_tidptr);
+
+  postThreadCreate(threadCreationLockAcquired);
+
+  if (retval == -1) {
+    // if we failed to create new pthread
+    ThreadSync::decrementUninitializedThreadCount();
+  }
+
+  return retval;
 }
 
 extern "C" long
 clone3(struct clone_args *cl_args, size_t size)
 {
-  JASSERT(false) .Text("Unexpected clone3 call intercepted.");
-  return NEXT_FNC(clone3)(cl_args, size);
+  if (curThread->state == ST_THREAD_CREATE) {
+    return NEXT_FNC(clone3)(cl_args, size);
+  }
+
+  JNOTE("clone3() called without pthread_create");
+  bool threadCreationLockAcquired = prepareThreadCreate();
+
+  Thread *thread = ThreadList::getNewThread(NULL, NULL);
+  int retval = NEXT_FNC(clone3)(cl_args, size);
+
+  if (retval == 0) {
+    // Child thread
+    processChildThread(thread);
+  } else {
+    postThreadCreate(threadCreationLockAcquired);
+    if (retval == -1) {
+      // if we failed to create new thread
+      ThreadSync::decrementUninitializedThreadCount();
+    }
+  }
+
+  return retval;
 }
 
 extern "C" void

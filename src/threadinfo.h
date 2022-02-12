@@ -72,7 +72,8 @@ typedef enum ThreadState {
   ST_SUSPINPROG,
   ST_SUSPENDED,
   ST_ZOMBIE,
-  ST_CKPNTHREAD
+  ST_CKPNTHREAD,
+  ST_THREAD_CREATE
 } ThreadState;
 
 typedef struct Thread Thread;
@@ -112,10 +113,10 @@ struct Thread {
    */
   double ckptReadTime;
 
-  bool processingPthreadCreate;
-
   Thread *next;
   Thread *prev;
 };
+
+int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval);
 
 #endif // ifndef THREADINFO_H

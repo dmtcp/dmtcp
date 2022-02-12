@@ -76,8 +76,6 @@ static sem_t semWaitForCkptThreadSignal;
 static void *checkpointhread(void *dummy);
 static void stopthisthread(int sig);
 static int restarthread(void *threadv);
-static int Thread_UpdateState(Thread *th, ThreadState newval,
-                              ThreadState oldval);
 static void Thread_SaveSigState(Thread *th);
 static void Thread_RestoreSigState(Thread *th);
 
@@ -231,7 +229,6 @@ ThreadList::getNewThread(void *(*fn)(void *), void *arg)
   th->next = NULL;
   th->state = ST_RUNNING;
   th->procname[0] = '\0';
-  th->processingPthreadCreate = false;
   return th;
 }
 
