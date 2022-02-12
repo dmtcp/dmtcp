@@ -54,10 +54,10 @@
 
 #include "../membarrier.h"
 #include "config.h"
-#include "mtcp_check_vdso.ic"
 #include "mtcp_header.h"
 #include "mtcp_sys.h"
-#include "mtcp_util.ic"
+#include "mtcp_restart.h"
+#include "mtcp_util.h"
 #include "procmapsarea.h"
 
 /* The use of NO_OPTIMIZE is deprecated and will be removed, since we
@@ -69,7 +69,6 @@
 # define NO_OPTIMIZE __attribute__((optimize(0)))
 #endif /* ifdef __clang__ */
 
-void mtcp_check_vdso(char **environ);
 #ifdef FAST_RST_VIA_MMAP
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
 #endif
@@ -83,44 +82,8 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
  * This is because we will wait until we are in the new call frame and then
  * copy the global data into the new call frame.
  */
-typedef void (*fnptr_t)();
 #define STACKSIZE 4 * 1024 * 1024
 
-// static long long tempstack[STACKSIZE];
-typedef struct RestoreInfo {
-  int fd;
-  int stderr_fd;  /* FIXME:  This is never used. */
-
-  // int mtcp_sys_errno;
-
-  VA saved_brk;
-  VA restore_addr;
-  VA restore_end;
-  size_t restore_size;
-  VA vdsoStart;
-  VA vdsoEnd;
-  VA vvarStart;
-  VA vvarEnd;
-  VA endOfStack;
-  fnptr_t post_restart;
-  // NOTE: Update the offset when adding fields to the RestoreInfo struct
-  // See note below in the restart_fast_path() function.
-  fnptr_t restorememoryareas_fptr;
-
-  VA old_stack_addr;
-  size_t old_stack_size;
-  VA new_stack_addr;
-  size_t stack_offset;
-
-  // void (*post_restart)();
-  // void (*restorememoryareas_fptr)();
-  int use_gdb;
-  VA mtcp_restart_text_addr;
-#ifdef TIMING
-  struct timeval startValue;
-#endif
-  int restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE
-} RestoreInfo;
 static RestoreInfo rinfo;
 
 /* Internal routines */
@@ -138,56 +101,8 @@ static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr);
 static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo);
 
 
-#define MB                 1024 * 1024
-#define RESTORE_STACK_SIZE 16 * MB
-#define RESTORE_MEM_SIZE   16 * MB
-#define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE + RESTORE_MEM_SIZE)
-
 // const char service_interp[] __attribute__((section(".interp"))) =
 // "/lib64/ld-linux-x86-64.so.2";
-
-
-int
-__libc_start_main(int (*main)(int,
-                              char **,
-                              char **), int argc, char **argv, void (*init)(
-                    void), void (*fini)(
-                    void), void (*rtld_fini)(void), void *stack_end)
-{
-  int mtcp_sys_errno;
-  char **envp = argv + argc + 1;
-  int result = main(argc, argv, envp);
-
-  mtcp_sys_exit(result);
-  (void)mtcp_sys_errno; /* Stop compiler warning about unused variable */
-  while (1) {}
-}
-
-void
-__libc_csu_init(int argc, char **argv, char **envp) {}
-
-void
-__libc_csu_fini(void) {}
-
-void __stack_chk_fail(void);   /* defined at end of file */
-void
-abort(void) { mtcp_abort(); }
-
-/* Implement memcpy() and memset() inside mtcp_restart. Although we are not
- * calling memset, the compiler may generate a call to memset() when trying to
- * initialize a large array etc.
- */
-void *
-memset(void *s, int c, size_t n)
-{
-  return mtcp_memset(s, c, n);
-}
-
-void *
-memcpy(void *dest, const void *src, size_t n)
-{
-  return mtcp_memcpy(dest, src, n);
-}
 
 #define shift argv++; argc--;
 NO_OPTIMIZE
@@ -1051,7 +966,7 @@ read_one_memory_area(int fd, VA endOfStack)
      * mtcp_safemmap here to check for address conflicts.
      */
     mmappedat = mtcp_sys_mmap(area.addr, area.size, area.prot | PROT_WRITE,
-                              area.flags, imagefd, area.offset);
+                              area.flags, imagefd, area.offset);t stgit
 
     if (mmappedat == MAP_FAILED) {
       DPRINTF("error %d mapping %p bytes at %p\n",
@@ -1356,71 +1271,6 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
   DPRINTF("For debugging:\n"
           "    (gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
           rinfo->mtcp_restart_text_addr);
-}
-
-// gcc can generate calls to these.
-// Eventually, we'll isolate the PIC code in a library, and this can go away.
-void
-__stack_chk_fail(void)
-{
-  int mtcp_sys_errno;
-
-  MTCP_PRINTF("ERROR: Stack Overflow detected.\n");
-  mtcp_abort();
-}
-
-void
-__stack_chk_fail_local(void)
-{
-  int mtcp_sys_errno;
-
-  MTCP_PRINTF("ERROR: Stack Overflow detected.\n");
-  mtcp_abort();
-}
-
-void
-__stack_chk_guard(void)
-{
-  int mtcp_sys_errno;
-
-  MTCP_PRINTF("ERROR: Stack Overflow detected.\n");
-  mtcp_abort();
-}
-
-void
-_Unwind_Resume(void)
-{
-  int mtcp_sys_errno;
-
-  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
-  mtcp_abort();
-}
-
-void
-__gcc_personality_v0(void)
-{
-  int mtcp_sys_errno;
-
-  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
-  mtcp_abort();
-}
-
-void
-__intel_security_cookie(void)
-{
-  int mtcp_sys_errno;
-
-  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
-  mtcp_abort();
-}
-
-void
-__intel_security_check_cookie(void)
-{
-  int mtcp_sys_errno;
-
-  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
-  mtcp_abort();
 }
 
 #ifdef FAST_RST_VIA_MMAP

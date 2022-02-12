@@ -78,15 +78,17 @@ ifeq ($(FAST_RST_VIA_MMAP),yes)
   CFLAGS += -DFAST_RST_VIA_MMAP
 endif
 
-HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h \
+HEADERS = mtcp_header.h mtcp_restart.h mtcp_sys.h mtcp_util.h \
 	  $(srcdir)/../membarrier.h $(DMTCP_INCLUDE_PATH)/procmapsarea.h
+
+OBJS = mtcp_restart.o stdlibfnc.o mtcp_util.o mtcp_check_vdso.o ${ARM_BINARIES}
 
 all: default
 default: build
 libs: build
 build: $(targetdir)/bin/$(MTCP_RESTART)
 
-$(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o ${ARM_BINARIES}
+$(targetdir)/bin/$(MTCP_RESTART): $(OBJS)
 	${LINK} -fPIC -g -O0 -nodefaultlibs $^
 
 # We need to compile mtcp_restart.c with "-fno-stack-protector" to avoid
@@ -99,12 +101,7 @@ $(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o ${ARM_BINARIES}
 #    That now happens in a different function.
 # IMPORTANT:  Compile with -O2 or higher.  On some 32-bit CPUs
 #   (e.g. ARM/gcc-4.8), the inlining of -O2 avoids bugs when fnc's are copied.
-mtcp_restart.o: mtcp_restart.c $(HEADERS) mtcp_check_vdso.ic
-	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
-
-# procmapssrea.h taken from mtcp_util.h ; Is this necessary?
-mtcp_check_vdso.o: mtcp_check_vdso.ic mtcp_sys.h mtcp_util.h \
-	$(DMTCP_INCLUDE_PATH)/procmapsarea.h
+%.o: %.c $(HEADERS)
 	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
 
 syscall-arm.o: syscall-arm.S

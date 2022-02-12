@@ -25,12 +25,19 @@
  *
  *****************************************************************************/
 
-#include <unistd.h>
-#include <string.h>
 #include <errno.h>
-#include <sys/sysmacros.h>
+#include <fcntl.h>
 #include <limits.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <sys/types.h>
 
+#include "mtcp_sys.h"
 #include "mtcp_util.h"
 #include "../membarrier.h"
 
@@ -556,7 +563,7 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
          */
         MTCP_ASSERT(mtcp_sys_mmap(start_addr, area.size, PROT_READ,
                                   MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED,
-                                  -1, 0) == start_addr);
+                                  -1, 0) == (void*) start_addr);
         guard.start_addr = start_addr; guard.end_addr = end_addr;
         continue;
       } else {
