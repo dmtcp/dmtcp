@@ -192,6 +192,8 @@ main(int argc, char *argv[], char **environ)
 
   DMTCP_RESTART_PAUSE(&rinfo, 1);
 
+  mtcp_plugin_hook(&rinfo);
+
 #ifdef TIMING
   mtcp_sys_gettimeofday(&rinfo.startValue, NULL);
 #endif
@@ -654,6 +656,10 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       // Do not unmap vsyscall.
     } else if (mtcp_strcmp(area.name, "[vectors]") == 0) {
       // Do not unmap vectors.  (used in Linux 3.10 on __arm__)
+    } else if (mtcp_plugin_skip_memory_region_munmap(area.name)) {
+      // Skip memory region reserved by plugin.
+      DPRINTF("***INFO: skipping memory region suggested by plugin (%p..%p)\n",
+              area.addr, area.endAddr);
     } else if (area.size > 0) {
       DPRINTF("***INFO: munmapping (%p..%p)\n", area.addr, area.endAddr);
       if (mtcp_sys_munmap(area.addr, area.size) == -1) {
