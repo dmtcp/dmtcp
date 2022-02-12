@@ -801,3 +801,19 @@ gofish:
 
   rwrite (p, mtcp_strlen (p));
 }
+
+// Copied from mtcp_check_vdso.c with slight update.
+// TODO(kapil): Consolidate with the mtcp_check_vdso.c copy.
+char *mtcp_getenv(const char *name, char **environ)
+{
+  int i = 1;
+  size_t len = mtcp_strlen(name);
+  for (i = 0; environ[i] !=NULL; i++) {
+    if (mtcp_strstartswith(environ[i], name)) {
+      if (mtcp_strlen(environ[i]) > len && environ[i][len] == '=') {
+        return &(environ[i][len+1]);
+      }
+    }
+  }
+  return NULL;
+}

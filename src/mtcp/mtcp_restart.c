@@ -147,7 +147,7 @@ main(int argc, char *argv[], char **environ)
   rinfo.fd = -1;
   rinfo.use_gdb = 0;
 
-  char *restart_pause_str = mtcp_getenv("DMTCP_RESTART_PAUSE");
+  char *restart_pause_str = mtcp_getenv("DMTCP_RESTART_PAUSE", environ);
   if (restart_pause_str == NULL) {
     rinfo.restart_pause = 0; /* false */
   } else {

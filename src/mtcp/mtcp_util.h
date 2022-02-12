@@ -182,4 +182,5 @@ int mtcp_readmapsline(int mapsfd, Area *area);
 void mtcp_sys_memcpy(void *dstpp, const void *srcpp, size_t len);
 void *mtcp_memset(void *s, int c, size_t n);
 void *mtcp_memcpy(void *dstpp, const void *srcpp, size_t len);
+char *mtcp_getenv(const char *name, char **environ);
 #endif // ifndef _MTCP_UTIL_H
