@@ -40,6 +40,7 @@ static int testJava(const char **argv);
 static bool testSetuid(const char *filename);
 static void testStaticallyLinked(const char *filename);
 static bool testScreen(const char **argv, const char ***newArgv);
+static void setLDLibraryPathForMPI(bool is32bitElf);
 static void setLDPreloadLibs(bool is32bitElf);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
@@ -146,6 +147,8 @@ static const char *theUsage =
   "              Skip NOTE messages; if given twice, also skip WARNINGs\n"
   "  --coord-logfile PATH (environment variable DMTCP_COORD_LOG_FILENAME\n"
   "              Coordinator will dump its logs to the given file\n"
+  "  --mpi\n"
+  "              Set it to enable MPI-specific flags.\n"
   "  --help\n"
   "              Print this message and exit.\n"
   "  --version\n"
@@ -216,6 +219,8 @@ static struct PluginInfo pluginInfo[] = {               // Default value
 };
 
 const size_t numLibs = sizeof(pluginInfo) / sizeof(struct PluginInfo);
+
+static bool mpiMode = false;
 
 static CoordinatorMode allowedModes = COORD_ANY;
 string tmpDir = "tmpDir is not set";
@@ -355,6 +360,9 @@ processArgs(int *orig_argc, const char ***orig_argv)
 
       // Just in case a non-standard version of setenv is being used:
       setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
+      shift;
+    } else if (s == "--mpi") {
+      mpiMode = true;
       shift;
     } else if ((s.length() > 2 && s.substr(0, 2) == "--") ||
                (s.length() > 1 && s.substr(0, 1) == "-")) {
@@ -607,6 +615,10 @@ main(int argc, const char **argv)
                          &coordInfo,
                          &localIPAddr);
 
+  if (mpiMode) {
+    setLDLibraryPathForMPI(is32bitElf);
+  }
+
   setLDPreloadLibs(is32bitElf);
 
   // run the user program
@@ -753,6 +765,35 @@ testScreen(const char **argv, const char ***newArgv)
     return true;
   }
   return false;
+}
+
+static void
+setLDLibraryPathForMPI(bool is32bitElf)
+{
+  // If libmpidummy.so found, add it to LD_LIBRARY_PATH and assume we're
+  // running with runMPI.  We don't need an explicit --mpi flag here.
+  // If this DMTCP was configured with libmpidummy.so and yet this is
+  // not running with the mpi-proxy-split plugin, then libmpidummy.so is
+  // never called, and so the extra library is harmless.
+  if (is32bitElf) return;  // exit if 32-bit applications; this shouldn't be MPI
+  string libmpidummy = Util::getPath("libmpidummy.so");
+  if (strcmp(libmpidummy.c_str(), "libmpidummy.so") == 0) {
+    return; // libmpidummy.so was not found.
+  }
+
+  char *last_slash = const_cast <char *>(strrchr(libmpidummy.c_str(), '/'));
+  if (last_slash) {
+    *last_slash = '\0'; // Modify the C string in place
+  }
+  // libmpidummy.so must appear before libmpi.so in library search order.
+  // Let's hope the MPI application is not running as root (no LD_LIBRARY_PATH),
+  // and is not using ELF's rpath.  (But ELF runpath is fine.)
+  string ld_library_path = libmpidummy.c_str(); // Using the modified C string.
+  if (getenv("LD_LIBRARY_PATH") != NULL) {
+    ld_library_path += ":";
+    ld_library_path += getenv("LD_LIBRARY_PATH");
+  }
+  setenv("LD_LIBRARY_PATH", ld_library_path.c_str(), 1);
 }
 
 static void
