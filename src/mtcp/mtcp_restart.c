@@ -668,10 +668,11 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
     MTCP_PRINTF(
       "\nStopping due to env. var DMTCP_RESTART_PAUSE or MTCP_RESTART_PAUSE\n"
       "(DMTCP_RESTART_PAUSE can be set after creating the checkpoint image.)\n"
-      "Attach to the computation with GDB from another window:\n"
+      "Attach to the computation with GDB from another window,\n"
+      "  where PROGRAM_NAME is the original target application:\n"
       "(This won't work well unless you configure DMTCP with --enable-debug)\n"
       "  gdb PROGRAM_NAME %d\n"
-      "You should now be in 'ThreadList::postRestart()'\n"
+      "You will then be in 'ThreadList::postRestart()'\n"
       "  (gdb) list\n"
       "  (gdb) p dummy = 0\n"
       "  # In some recent Linuxes/glibc/gdb, you may also need to do:\n"
