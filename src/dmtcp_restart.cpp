@@ -36,6 +36,7 @@
 #include "../jalib/jfilesystem.h"
 #include "constants.h"
 #include "coordinatorapi.h"
+#include "dmtcp_restart.h"
 #include "processinfo.h"
 #include "shareddata.h"
 #include "uniquepid.h"
@@ -57,7 +58,8 @@ using namespace dmtcp;
 // string has at least one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
 static const char *theUsage =
-  "Usage: dmtcp_restart [OPTIONS] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n\n"
+  "Usage:       dmtcp_restart [OPTIONS] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n"
+  "Usage (MPI): dmtcp_restart [OPTIONS] --restartdir [DIR w/ ckpt_rank_*/ ]\n\n"
   "Restart processes from a checkpoint image.\n\n"
   "Connecting to the DMTCP Coordinator:\n"
   "  -h, --coord-host HOSTNAME (environment variable DMTCP_COORD_HOST)\n"
@@ -147,265 +149,219 @@ static void runMtcpRestart(int fd, ProcessInfo *pInfo);
 static int readCkptHeader(const string &path, ProcessInfo *pInfo);
 static int openCkptFileToRead(const string &path);
 static int processCkptImages();
+static int processMpiProxy();
 
-class RestoreTarget
+RestoreTarget::RestoreTarget(const string &path)
+  : _path(path)
 {
-  public:
-    RestoreTarget(const string &path)
-      : _path(path)
-    {
-      JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
-      .Text("checkpoint file missing");
+  JASSERT(jalib::Filesystem::FileExists(_path))
+  (_path).Text("checkpoint file missing");
 
-      _fd = readCkptHeader(_path, &_pInfo);
-      uint64_t clock_gettime_offset =
-                            dmtcp_dlsym_lib_fnc_offset("linux-vdso",
-                                                       "__vdso_clock_gettime");
-      uint64_t getcpu_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
-                                                           "__vdso_getcpu");
-      uint64_t gettimeofday_offset =
-                              dmtcp_dlsym_lib_fnc_offset("linux-vdso",
-                                                         "__vdso_gettimeofday");
-      uint64_t time_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
-                                                         "__vdso_time");
-      JWARNING(!_pInfo.vdsoOffsetMismatch(clock_gettime_offset, getcpu_offset,
-                                          gettimeofday_offset, time_offset))
-              .Text("The vDSO section on the current system is different than"
-                    " the host where the checkpoint image was generated. "
-                    "Restart may fail if the program calls a function in to"
-                    " vDSO, like, gettimeofday(), clock_gettime(), etc.");
-      JTRACE("restore target") (_path) (_pInfo.numPeers()) (_pInfo.compGroup());
-    }
+  _fd = readCkptHeader(_path, &_pInfo);
+  uint64_t clock_gettime_offset =
+    dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_clock_gettime");
+  uint64_t getcpu_offset =
+    dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_getcpu");
+  uint64_t gettimeofday_offset =
+    dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_gettimeofday");
+  uint64_t time_offset =
+    dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_time");
+  JWARNING(!_pInfo.vdsoOffsetMismatch(clock_gettime_offset, getcpu_offset,
+                                      gettimeofday_offset, time_offset))
+    .Text("The vDSO section on the current system is different than"
+          " the host where the checkpoint image was generated. "
+          "Restart may fail if the program calls a function in to"
+          " vDSO, like, gettimeofday(), clock_gettime(), etc.");
+  JTRACE("restore target")(_path)(_pInfo.numPeers())(_pInfo.compGroup());
+}
 
-    int fd() const { return _fd; }
+void
+RestoreTarget::initialize()
+{
+  UniquePid::ThisProcess() = _pInfo.upid();
+  UniquePid::ParentProcess() = _pInfo.uppid();
 
-    const UniquePid &upid() const { return _pInfo.upid(); }
-    const UniquePid &uppid() const { return _pInfo.uppid(); }
+  DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
+  CoordinatorInfo coordInfo;
+  struct in_addr localIPAddr;
+  if (_pInfo.noCoordinator()) {
+    allowedModes = COORD_NONE;
+  }
 
-    pid_t pid() const { return _pInfo.pid(); }
+  // FIXME:  We will use the new HOST and PORT here, but after restart,
+  // we will use the old HOST and PORT from the ckpt image.
+  CoordinatorAPI::connectToCoordOnRestart(allowedModes, _pInfo.procname(),
+                                          _pInfo.compGroup(), _pInfo.numPeers(),
+                                          &coordInfo, &localIPAddr);
 
-    pid_t sid() const { return _pInfo.sid(); }
+  // If port was 0, we'll get new random port when coordinator starts up.
+  CoordinatorAPI::getCoordHostAndPort(allowedModes, &coord_host, &coord_port);
+  Util::writeCoordPortToFile(coord_port, thePortFile.c_str());
 
-    bool isRootOfProcessTree() const
-    {
-      return _pInfo.isRootOfProcessTree();
-    }
-
-    const string& procSelfExe() const { return _pInfo.procSelfExe(); }
-
-    bool isOrphan()
-    {
-      return _pInfo.isOrphan();
-    }
-
-    string procname() { return _pInfo.procname(); }
-
-    UniquePid compGroup() { return _pInfo.compGroup(); }
-
-    int numPeers() { return _pInfo.numPeers(); }
-
-    bool noCoordinator() { return _pInfo.noCoordinator(); }
-
-    void initialize()
-    {
-      UniquePid::ThisProcess() = _pInfo.upid();
-      UniquePid::ParentProcess() = _pInfo.uppid();
-
-      DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
-      CoordinatorInfo coordInfo;
-      struct in_addr localIPAddr;
-      if (_pInfo.noCoordinator()) {
-        allowedModes = COORD_NONE;
-      }
-
-      // FIXME:  We will use the new HOST and PORT here, but after restart,
-      // we will use the old HOST and PORT from the ckpt image.
-      CoordinatorAPI::connectToCoordOnRestart(allowedModes,
-                                              _pInfo.procname(),
-                                              _pInfo.compGroup(),
-                                              _pInfo.numPeers(),
-                                              &coordInfo,
-                                              &localIPAddr);
-
-      // If port was 0, we'll get new random port when coordinator starts up.
-      CoordinatorAPI::getCoordHostAndPort(allowedModes,
-                                          &coord_host,
-                                          &coord_port);
-      Util::writeCoordPortToFile(coord_port, thePortFile.c_str());
-
-      string installDir =
-        jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
+  string installDir =
+    jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
 
 #if defined(__i386__) || defined(__arm__)
-      if (Util::strEndsWith(installDir.c_str(), "/lib/dmtcp/32")) {
-        // If dmtcp_launch was compiled for 32 bits in 64-bit O/S, then note:
-        // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
-        // DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
-        // GetProgramDir() followed the link.  So, need to remove the suffix.
-        char *str = const_cast<char *>(installDir.c_str());
-        str[strlen(str) - strlen("/lib/dmtcp/32")] = '\0';
-        installDir = str;
-      }
+  if (Util::strEndsWith(installDir.c_str(), "/lib/dmtcp/32")) {
+    // If dmtcp_launch was compiled for 32 bits in 64-bit O/S, then note:
+    // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
+    // DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
+    // GetProgramDir() followed the link.  So, need to remove the suffix.
+    char *str = const_cast<char *>(installDir.c_str());
+    str[strlen(str) - strlen("/lib/dmtcp/32")] = '\0';
+    installDir = str;
+  }
 #endif // if defined(__i386__) || defined(__arm__)
 
-      /* We need to initialize SharedData here to make sure that it is
-       * initialized with the correct coordinator timestamp.  The coordinator
-       * timestamp is updated only during postCkpt callback. However, the
-       * SharedData area may be initialized earlier (for example, while
-       * recreating threads), causing it to use *older* timestamp.
-       */
-      SharedData::initialize(tmpDir.c_str(),
-                             installDir.c_str(),
-                             &compId,
-                             &coordInfo,
-                             &localIPAddr);
+  /* We need to initialize SharedData here to make sure that it is
+   * initialized with the correct coordinator timestamp.  The coordinator
+   * timestamp is updated only during postCkpt callback. However, the
+   * SharedData area may be initialized earlier (for example, while
+   * recreating threads), causing it to use *older* timestamp.
+   */
+  SharedData::initialize(tmpDir.c_str(), installDir.c_str(), &compId,
+                         &coordInfo, &localIPAddr);
 
-      Util::initializeLogFile(SharedData::getTmpDir().c_str(),
-                              _pInfo.procname().c_str(),
-                              NULL);
+  Util::initializeLogFile(SharedData::getTmpDir().c_str(),
+                          _pInfo.procname().c_str(), NULL);
 
-      if (ckptdir_arg.empty()) {
-        // Create the ckpt-dir fd so that the restarted process can know about
-        // the abs-path of ckpt-image.
-        string dirName = jalib::Filesystem::DirName(_path);
-        int dirfd = open(dirName.c_str(), O_RDONLY);
-        JASSERT(dirfd != -1) (JASSERT_ERRNO);
-        if (dirfd != PROTECTED_CKPT_DIR_FD) {
-          JASSERT(dup2(dirfd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD);
-          close(dirfd);
-        }
-      }
-
-      setEnvironFd();
+  if (ckptdir_arg.empty()) {
+    // Create the ckpt-dir fd so that the restarted process can know about
+    // the abs-path of ckpt-image.
+    string dirName = jalib::Filesystem::DirName(_path);
+    int dirfd = open(dirName.c_str(), O_RDONLY);
+    JASSERT(dirfd != -1)(JASSERT_ERRNO);
+    if (dirfd != PROTECTED_CKPT_DIR_FD) {
+      JASSERT(dup2(dirfd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD);
+      close(dirfd);
     }
+  }
 
-    void restoreGroup()
-    {
-      if (_pInfo.isGroupLeader()) {
-        // create new Group where this process becomes a leader
-        JTRACE("Create new Group.");
-        setpgid(0, 0);
+  setEnvironFd();
+}
+
+void
+RestoreTarget::restoreGroup()
+{
+  if (_pInfo.isGroupLeader()) {
+    // create new Group where this process becomes a leader
+    JTRACE("Create new Group.");
+    setpgid(0, 0);
+  }
+}
+
+void
+RestoreTarget::createDependentChildProcess()
+{
+  pid_t pid = fork();
+
+  JASSERT(pid != -1);
+  if (pid != 0) {
+    return;
+  }
+  createProcess();
+}
+
+void
+RestoreTarget::createDependentNonChildProcess()
+{
+  pid_t pid = fork();
+
+  JASSERT(pid != -1);
+  if (pid == 0) {
+    pid_t gchild = fork();
+    JASSERT(gchild != -1);
+    if (gchild != 0) {
+      exit(0);
+    }
+    createProcess();
+  } else {
+    JASSERT(waitpid(pid, NULL, 0) == pid);
+  }
+}
+
+void
+RestoreTarget::createOrphanedProcess(bool createIndependentRootProcesses)
+{
+  pid_t pid = fork();
+
+  JASSERT(pid != -1);
+  if (pid == 0) {
+    pid_t gchild = fork();
+    JASSERT(gchild != -1);
+    if (gchild != 0) {
+      exit(0);
+    }
+    createProcess(createIndependentRootProcesses);
+  } else {
+    JASSERT(waitpid(pid, NULL, 0) == pid);
+    exit(0);
+  }
+}
+
+void
+RestoreTarget::createProcess(bool createIndependentRootProcesses)
+{
+  initialize();
+
+  JTRACE("Creating process during restart")(upid())(_pInfo.procname());
+
+  RestoreTargetMap::iterator it;
+  for (it = targets.begin(); it != targets.end(); it++) {
+    RestoreTarget *t = it->second;
+    if (_pInfo.upid() == t->_pInfo.upid()) {
+      continue;
+    } else if (t->uppid() == _pInfo.upid() && t->_pInfo.sid() != _pInfo.pid()) {
+      t->createDependentChildProcess();
+    }
+  }
+
+  if (createIndependentRootProcesses) {
+    RestoreTargetMap::iterator it;
+    for (it = independentProcessTreeRoots.begin();
+         it != independentProcessTreeRoots.end(); it++) {
+      RestoreTarget *t = it->second;
+      if (t != this) {
+        t->createDependentNonChildProcess();
       }
     }
+  }
 
-    void createDependentChildProcess()
-    {
-      pid_t pid = fork();
-
-      JASSERT(pid != -1);
-      if (pid != 0) {
-        return;
-      }
-      createProcess();
+  // If we were the session leader, become one now.
+  if (_pInfo.sid() == _pInfo.pid()) {
+    if (getsid(0) != _pInfo.pid()) {
+      JWARNING(setsid() != -1)
+      (getsid(0))(JASSERT_ERRNO)
+        .Text("Failed to restore this process as session leader.");
     }
+  }
 
-    void createDependentNonChildProcess()
-    {
-      pid_t pid = fork();
-
-      JASSERT(pid != -1);
-      if (pid == 0) {
-        pid_t gchild = fork();
-        JASSERT(gchild != -1);
-        if (gchild != 0) {
-          exit(0);
-        }
-        createProcess();
-      } else {
-        JASSERT(waitpid(pid, NULL, 0) == pid);
+  // Now recreate processes with sid == _pid
+  for (it = targets.begin(); it != targets.end(); it++) {
+    RestoreTarget *t = it->second;
+    if (_pInfo.upid() == t->_pInfo.upid()) {
+      continue;
+    } else if (t->_pInfo.sid() == _pInfo.pid()) {
+      if (t->uppid() == _pInfo.upid()) {
+        t->createDependentChildProcess();
+      } else if (t->isRootOfProcessTree()) {
+        t->createDependentNonChildProcess();
       }
     }
+  }
 
-    void createOrphanedProcess(bool createIndependentRootProcesses = false)
-    {
-      pid_t pid = fork();
-
-      JASSERT(pid != -1);
-      if (pid == 0) {
-        pid_t gchild = fork();
-        JASSERT(gchild != -1);
-        if (gchild != 0) {
-          exit(0);
-        }
-        createProcess(createIndependentRootProcesses);
-      } else {
-        JASSERT(waitpid(pid, NULL, 0) == pid);
-        exit(0);
-      }
+  // Now close all open fds except _fd;
+  for (it = targets.begin(); it != targets.end(); it++) {
+    RestoreTarget *t = it->second;
+    if (t != this) {
+      close(t->fd());
     }
+  }
 
-    void createProcess(bool createIndependentRootProcesses = false)
-    {
-      initialize();
+  runMtcpRestart(_fd, &_pInfo);
 
-      JTRACE("Creating process during restart") (upid()) (_pInfo.procname());
-
-      RestoreTargetMap::iterator it;
-      for (it = targets.begin(); it != targets.end(); it++) {
-        RestoreTarget *t = it->second;
-        if (_pInfo.upid() == t->_pInfo.upid()) {
-          continue;
-        } else if (t->uppid() == _pInfo.upid() &&
-                   t->_pInfo.sid() != _pInfo.pid()) {
-          t->createDependentChildProcess();
-        }
-      }
-
-      if (createIndependentRootProcesses) {
-        RestoreTargetMap::iterator it;
-        for (it = independentProcessTreeRoots.begin();
-             it != independentProcessTreeRoots.end();
-             it++) {
-          RestoreTarget *t = it->second;
-          if (t != this) {
-            t->createDependentNonChildProcess();
-          }
-        }
-      }
-
-      // If we were the session leader, become one now.
-      if (_pInfo.sid() == _pInfo.pid()) {
-        if (getsid(0) != _pInfo.pid()) {
-          JWARNING(setsid() != -1) (getsid(0)) (JASSERT_ERRNO)
-          .Text("Failed to restore this process as session leader.");
-        }
-      }
-
-      // Now recreate processes with sid == _pid
-      for (it = targets.begin(); it != targets.end(); it++) {
-        RestoreTarget *t = it->second;
-        if (_pInfo.upid() == t->_pInfo.upid()) {
-          continue;
-        } else if (t->_pInfo.sid() == _pInfo.pid()) {
-          if (t->uppid() == _pInfo.upid()) {
-            t->createDependentChildProcess();
-          } else if (t->isRootOfProcessTree()) {
-            t->createDependentNonChildProcess();
-          }
-        }
-      }
-
-      // Now close all open fds except _fd;
-      for (it = targets.begin(); it != targets.end(); it++) {
-        RestoreTarget *t = it->second;
-        if (t != this) {
-          close(t->fd());
-        }
-      }
-
-      runMtcpRestart(_fd, &_pInfo);
-
-      JASSERT(false).Text("unreachable");
-    }
-
-    const map<string, string>& getKeyValueMap() const
-      { return _pInfo.getKeyValueMap(); }
-
-  private:
-    string _path;
-    ProcessInfo _pInfo;
-    int _fd;
-};
+  JASSERT(false).Text("unreachable");
+}
 
 char *get_pause_param()
 {

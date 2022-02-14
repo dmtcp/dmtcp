@@ -71,6 +71,7 @@ nobase_noinst_HEADERS =						\
 			constants.h 				\
 			coordinatorapi.h			\
 			dmtcp_coordinator.h			\
+			dmtcp_restart.h				\
 			dmtcpmessagetypes.h			\
 			dmtcpworker.h				\
 			lookup_service.h			\

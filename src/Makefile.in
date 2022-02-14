@@ -591,9 +591,9 @@ include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
 
 # headers:
 nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
-	dmtcp_coordinator.h dmtcpmessagetypes.h dmtcpworker.h \
-	lookup_service.h ldt.h plugininfo.h pluginmanager.h \
-	processinfo.h restartscript.h tls.h siginfo.h \
+	dmtcp_coordinator.h dmtcp_restart.h dmtcpmessagetypes.h \
+	dmtcpworker.h lookup_service.h ldt.h plugininfo.h \
+	pluginmanager.h processinfo.h restartscript.h tls.h siginfo.h \
 	syscallwrappers.h threadinfo.h threadlist.h threadsync.h \
 	tokenize.h uniquepid.h workerstate.h $(jalibdir)/jalib.h \
 	$(jalibdir)/jalloc.h $(jalibdir)/jassert.h \
