@@ -2,19 +2,32 @@
 #define MTCP_RESTART_H
 
 #include "procmapsarea.h"
+#include <linux/limits.h>
 
-#ifdef MTCP_PLUGIN_HEADER
-#include MTCP_PLUGIN_HEADER
+#ifdef MTCP_PLUGIN_H
+#include MTCP_PLUGIN_H
 #else
 #define PluginInfo char
 #define mtcp_plugin_hook(args)
-#define mtcp_plugin_skip_memory_region_munmap(name) 0
+#define mtcp_plugin_skip_memory_region_munmap(area, rinfo) 0
 #endif
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 #define MB                 1024 * 1024
 #define RESTORE_STACK_SIZE 16 * MB
 #define RESTORE_MEM_SIZE   16 * MB
 #define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE + RESTORE_MEM_SIZE)
+
+/* The use of NO_OPTIMIZE is deprecated and will be removed, since we
+ * compile mtcp_restart.c with the -O0 flag already.
+ */
+#ifdef __clang__
+# define NO_OPTIMIZE __attribute__((optnone)) /* Supported only in late 2014 */
+#else /* ifdef __clang__ */
+# define NO_OPTIMIZE __attribute__((optimize(0)))
+#endif /* ifdef __clang__ */
 
 typedef void (*fnptr_t)();
 
@@ -43,6 +56,11 @@ typedef struct RestoreInfo {
   VA new_stack_addr;
   size_t stack_offset;
 
+  VA minLibsStart;
+  VA maxLibsEnd;
+  VA minHighMemStart;
+  char* restartDir;
+
   // void (*post_restart)();
   // void (*restorememoryareas_fptr)();
   int use_gdb;
@@ -57,6 +75,10 @@ typedef struct RestoreInfo {
   int argc;
   char **argv;
   char **environ;
+
+  PluginInfo pluginInfo;
+
+  char ckptImage[PATH_MAX];
 } RestoreInfo;
 
 void mtcp_check_vdso(char **environ);

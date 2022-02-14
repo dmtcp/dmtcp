@@ -103,6 +103,8 @@ static const char *theUsage =
   "  --ckptdir (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "              Directory to store checkpoint images\n"
   "              (default: use the same dir used in previous checkpoint)\n"
+  "  --restartdir Directory that contains checkpoint image directories\n"
+  "  --mpi       Use as MPI proxy (default: no MPI proxy)\n"
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
   "              Directory to store temp files (default: $TMDPIR or /tmp)\n"
   "  -q, --quiet (or set environment variable DMTCP_QUIET = 0, 1, or 2)\n"
@@ -135,6 +137,8 @@ string coord_host;
 int coord_port = UNINITIALIZED_PORT;
 string thePortFile;
 
+static bool runMpiProxy = 0;
+string restartDir;
 vector<string> ckptImages;
 
 string mtcp_restart;
@@ -401,7 +405,7 @@ char *get_pause_param()
   return pause_param;
 }
 
-static vector<char *>
+vector<char *>
 getMtcpArgs()
 {
   vector<char *> mtcpArgs;
@@ -734,7 +738,7 @@ main(int argc, char **argv)
 
   // process args
   shift;
-  while (true) {
+  while (argc > 0) { // ... -restartdir ./ OR ... ckptImg
     string s = argc > 0 ? argv[0] : "--help";
     if (s == "--help" && argc == 1) {
       printf("%s", theUsage);
@@ -791,9 +795,15 @@ main(int argc, char **argv)
     } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
       tmpdir_arg = argv[1];
       shift; shift;
+    } else if (argc > 1 && (s == "-r" || s == "--restartdir")) {
+      restartDir = string(argv[1]);
+      shift; shift;
     } else if (argc > 1 && (s == "--gdb")) {
       requestedDebugLevel = atoi(argv[1]);
       shift; shift;
+    } else if (s == "--mpi") {
+      runMpiProxy = true;
+      shift;
     } else if (s == "-q" || s == "--quiet") {
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
 
@@ -808,7 +818,7 @@ main(int argc, char **argv)
       shift;
       break;
     } else {
-      break;
+      break; // argv[0] is first ckpt file to be restored; finish parsing later
     }
   }
 
@@ -869,12 +879,16 @@ main(int argc, char **argv)
   }
 
   // Can't specify ckpt images with --restart-dir flag.
-  if (ckptImages.size() == 0) {
+  if (restartDir.empty() ^ ckptImages.size() > 0) {
     JASSERT_STDERR << theUsage;
     exit(DMTCP_FAIL_RC);
   }
 
   CoordinatorAPI::getCoordHostAndPort(allowedModes, &coord_host, &coord_port);
+
+  if (dmtcp_restart_plugin != NULL) {
+    dmtcp_restart_plugin(restartDir, ckptImages);
+  }
 
   return processCkptImages();
 }

@@ -60,15 +60,6 @@
 #include "mtcp_util.h"
 #include "procmapsarea.h"
 
-/* The use of NO_OPTIMIZE is deprecated and will be removed, since we
- * compile mtcp_restart.c with the -O0 flag already.
- */
-#ifdef __clang__
-# define NO_OPTIMIZE __attribute__((optnone)) /* Supported only in late 2014 */
-#else /* ifdef __clang__ */
-# define NO_OPTIMIZE __attribute__((optimize(0)))
-#endif /* ifdef __clang__ */
-
 #ifdef FAST_RST_VIA_MMAP
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
 #endif
@@ -108,10 +99,10 @@ NO_OPTIMIZE
 int
 main(int argc, char *argv[], char **environ)
 {
-  char *ckptImage = NULL;
   MtcpHeader mtcpHdr;
   int mtcp_sys_errno;
   int simulate = 0;
+  int runMpiProxy = 0;
 
   if (argc == 1) {
     MTCP_PRINTF("***ERROR: This program should not be used directly.\n");
@@ -149,6 +140,11 @@ main(int argc, char *argv[], char **environ)
   rinfo.fd = -1;
   rinfo.use_gdb = 0;
 
+  rinfo.restartDir = NULL;
+  rinfo.minLibsStart = NULL;
+  rinfo.maxLibsEnd = NULL;
+  rinfo.minHighMemStart = NULL;
+
   char *restart_pause_str = mtcp_getenv("DMTCP_RESTART_PAUSE", environ);
   if (restart_pause_str == NULL) {
     rinfo.restart_pause = 0; /* false */
@@ -160,6 +156,9 @@ main(int argc, char *argv[], char **environ)
   while (argc > 0) {
     if (mtcp_strcmp(argv[0], "--use-gdb") == 0) {
       rinfo.use_gdb = 1;
+      shift;
+    } else if (mtcp_strcmp(argv[0], "--mpi") == 0) {
+      runMpiProxy = 1;
       shift;
       // Flags for call by dmtcp_restart follow here:
     } else if (mtcp_strcmp(argv[0], "--fd") == 0) {
@@ -174,10 +173,26 @@ main(int argc, char *argv[], char **environ)
     } else if (mtcp_strcmp(argv[0], "--simulate") == 0) {
       simulate = 1;
       shift;
+    } else if (mtcp_strcmp(argv[0], "--restartdir") == 0) {
+      rinfo.restartDir = argv[1];
+      shift; shift;
+    } else if (mtcp_strcmp(argv[0], "--minLibsStart") == 0) {
+      rinfo.minLibsStart = (VA) mtcp_strtol(argv[1]);
+      shift; shift;
+    } else if (mtcp_strcmp(argv[0], "--maxLibsEnd") == 0) {
+      rinfo.maxLibsEnd = (VA) mtcp_strtol(argv[1]);
+      shift; shift;
+    } else if (mtcp_strcmp(argv[0], "--minHighMemStart") == 0) {
+      rinfo.minHighMemStart = (VA) mtcp_strtol(argv[1]);
+      shift; shift;
     } else if (argc == 1) {
       // We would use MTCP_PRINTF, but it's also for output of util/readdmtcp.sh
       mtcp_printf("Considering '%s' as a ckpt image.\n", argv[0]);
-      ckptImage = argv[0];
+      mtcp_strcpy(rinfo.ckptImage, argv[0]);
+      break;
+    } else if (runMpiProxy) {
+      // N.B.: The assumption here is that the user provides the `--mpi` flag
+      // followed by a list of checkpoint images
       break;
     } else {
       MTCP_PRINTF("MTCP Internal Error\n");
@@ -185,7 +200,7 @@ main(int argc, char *argv[], char **environ)
     }
   }
 
-  if ((rinfo.fd != -1) ^ (ckptImage == NULL)) {
+  if ((rinfo.fd != -1) ^ (rinfo.ckptImage == NULL) && !runMpiProxy) {
     MTCP_PRINTF("***MTCP Internal Error\n");
     mtcp_abort();
   }
@@ -201,10 +216,10 @@ main(int argc, char *argv[], char **environ)
     mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof mtcpHdr);
   } else {
     int rc = -1;
-    rinfo.fd = mtcp_sys_open2(ckptImage, O_RDONLY);
+    rinfo.fd = mtcp_sys_open2(rinfo.ckptImage, O_RDONLY);
     if (rinfo.fd == -1) {
       MTCP_PRINTF("***ERROR opening ckpt image (%s); errno: %d\n",
-                  ckptImage, mtcp_sys_errno);
+                  rinfo.ckptImage, mtcp_sys_errno);
       mtcp_abort();
     }
 
@@ -657,7 +672,7 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       // Do not unmap vsyscall.
     } else if (mtcp_strcmp(area.name, "[vectors]") == 0) {
       // Do not unmap vectors.  (used in Linux 3.10 on __arm__)
-    } else if (mtcp_plugin_skip_memory_region_munmap(area.name)) {
+    } else if (mtcp_plugin_skip_memory_region_munmap(&area, rinfo)) {
       // Skip memory region reserved by plugin.
       DPRINTF("***INFO: skipping memory region suggested by plugin (%p..%p)\n",
               area.addr, area.endAddr);
