@@ -709,6 +709,17 @@ else
   fi
 fi
 
+AC_ARG_WITH([mana_helper_dir],
+            [AS_HELP_STRING([--with-mana-helper-dir=manadir],
+                            [Directory containing additional mana-specific helpers.])],
+            [mana_helper_dir=$withval],
+            [mana_helper_dir=no])
+
+AM_CONDITIONAL(CONFIG_MANA_HELPER_DIR, [test "$mana_helper_dir" != "no"])
+if test "$mana_helper_dir" != "no"; then
+  AC_SUBST(MANA_HELPER_DIR, [`realpath $mana_helper_dir`])
+fi
+
 if test "$use_m32" = "yes"; then
   interp=/lib/ld-linux.so.2
 elif test -x /usr/bin/readelf -a -r /usr/bin/readelf; then
