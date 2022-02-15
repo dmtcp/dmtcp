@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#define ATOMIC_SHARED volatile __attribute((aligned))
 
 void reader(int fd);
 void writer(int fd);
@@ -53,7 +54,7 @@ void
 reader(int fd)
 {
   int *sharedMemory;
-  volatile int val;
+  ATOMIC_SHARED int val;
   int i;
 
   sharedMemory = mmap(0, sizeof(int), PROT_READ, MAP_SHARED, fd, 0);

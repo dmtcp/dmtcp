@@ -48,7 +48,10 @@
 extern "C" {
 #endif // ifdef __cplusplus
 
-#define LIB_PRIVATE              __attribute__((visibility("hidden")))
+#define LIB_PRIVATE __attribute__((visibility("hidden")))
+#define ATOMIC_SHARED_GLOBAL volatile __attribute((aligned))
+// Same as global macro, but by convnetion, use this for local variables:
+#define ATOMIC_SHARED volatile __attribute((aligned))
 
 typedef enum eDmtcpEvent {
   DMTCP_EVENT_INIT,

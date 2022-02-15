@@ -38,8 +38,8 @@ extern void dmtcp_get_libc_dlsym_add(void)
 
 // Older versions of GCC support __thread.
 // So, for portability, we won't use the newer C11 keyword, thread_local.
-volatile static int total_num_tasks = 0;
-volatile int in_presuspend = 0;
+ATOMIC_SHARED_GLOBAL static int total_num_tasks = 0;
+ATOMIC_SHARED_GLOBAL  int in_presuspend = 0;
 
 // This information is local to this file (and hence to this library):
 static pid_t plugin_childpid = -1;

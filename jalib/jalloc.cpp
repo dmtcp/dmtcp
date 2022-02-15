@@ -28,6 +28,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#define ATOMIC_SHARED volatile __attribute((aligned))
+
 // Make highest chunk size large; avoid a raw_alloc calling mmap()
 // during /proc/self/maps
 #define MAX_CHUNKSIZE (4 * 1024)
@@ -269,14 +271,14 @@ class JFixedAllocStack
     };
     struct StackHead {
       uintptr_t counter;
-      FreeItem* volatile node;
+      FreeItem* ATOMIC_SHARED node;
     };
 
   private:
     StackHead _top;
     size_t _blockSize = 0;
     char padding[128];
-    int volatile _numExpands;
+    ATOMIC_SHARED int _numExpands;
 };
 } // namespace jalib
 
