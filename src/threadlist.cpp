@@ -45,7 +45,7 @@
 using namespace dmtcp;
 
 // Globals
-volatile bool restoreInProgress = false;
+ATOMIC_SHARED_GLOBAL bool restoreInProgress = false;
 Thread *motherofall = NULL;
 void **motherofall_saved_sp = NULL;
 ThreadTLSInfo *motherofall_tlsInfo = NULL;

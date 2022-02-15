@@ -46,7 +46,7 @@ EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
 /* The following instance of the DmtcpWorker is just to trigger the constructor
  * to allow us to hijack the process
  */
-static volatile bool exitInProgress = false;
+static ATOMIC_SHARED_GLOBAL bool exitInProgress = false;
 static bool exitAfterCkpt = 0;
 
 /* NOTE:  Please keep this function in sync with its copy at:
