@@ -62,7 +62,7 @@ static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
 
 static DmtcpRWLock threadResumeLock;
 
-static __thread Thread *curThread = NULL;
+__thread Thread *curThread = NULL;
 static Thread *ckptThread = NULL;
 static int numUserThreads = 0;
 static bool originalstartup;
@@ -76,8 +76,6 @@ static sem_t semWaitForCkptThreadSignal;
 static void *checkpointhread(void *dummy);
 static void stopthisthread(int sig);
 static int restarthread(void *threadv);
-static int Thread_UpdateState(Thread *th, ThreadState newval,
-                              ThreadState oldval);
 static void Thread_SaveSigState(Thread *th);
 static void Thread_RestoreSigState(Thread *th);
 
@@ -182,16 +180,16 @@ ThreadList::init()
 
   SigInfo::setupCkptSigHandler(&stopthisthread);
 
-  // CONTEXT:  updateTid() resets curThread only if it's non-NULL.
-  // ... -> initializeMtcpEngine() -> ThreadList::init() -> updateTid()
+  // CONTEXT:  initThread() resets curThread only if it's non-NULL.
+  // ... -> initializeMtcpEngine() -> ThreadList::init() -> initThread()
   // See addToActiveList() for more information.
   curThread = NULL;
 
   /* Set up caller as one of our threads so we can work on it */
-  motherofall = ThreadList::getNewThread();
+  motherofall = ThreadList::allocNewThread();
   motherofall_saved_sp = &motherofall->saved_sp;
   motherofall_tlsInfo = &motherofall->tlsInfo;
-  updateTid(motherofall);
+  initThread(motherofall);
 
   sem_init(&sem_launch, 0, 0);
   sem_init(&semNotifyCkptThread, 0, 0);
@@ -218,21 +216,20 @@ ThreadList::init()
 /*****************************************************************************
  *
  *****************************************************************************/
-
-// Called from:  threadwrappers.cpp:__clone()
-void
-ThreadList::initThread(Thread *th, int (*fn)(
-                         void *), void *arg, int flags, int *ptid, int *ctid)
+Thread *
+ThreadList::getNewThread(void *(*fn)(void *), void *arg)
 {
+  Thread *th = ThreadList::allocNewThread();
   /* Save exactly what the caller is supplying */
   th->fn = fn;
   th->arg = arg;
-  th->flags = flags;
-  th->ptid = ptid;
-  th->ctid = ctid;
+  th->flags = 0;
+  th->ptid = NULL;
+  th->ctid = NULL;
   th->next = NULL;
   th->state = ST_RUNNING;
   th->procname[0] = '\0';
+  return th;
 }
 
 /*****************************************************************************
@@ -250,7 +247,7 @@ ThreadList::threadExit()
  *
  *****************************************************************************/
 void
-ThreadList::updateTid(Thread *th)
+ThreadList::initThread(Thread *th)
 {
   if (curThread == NULL) {
     curThread = th;
@@ -258,21 +255,14 @@ ThreadList::updateTid(Thread *th)
   th->tid = THREAD_REAL_TID();
   th->virtual_tid = dmtcp_gettid();
 
-  /* libpthread may recycle the thread stacks after the thread exits (due to
-   * return, pthread_exit, or pthread_cancel) by reusing them for a different
-   * thread created by a subsequent call to pthread_create().
-   *
-   * Part of thread-stack also contains the "struct pthread" with pid and tid
-   * as member fields. While reusing the stack for the new thread, the tid
-   * field is reset but the pid field is left unchanged (under the assumption
-   * that pid never changes). This causes a problem if the thread exited before
-   * checkpoint and the new thread is created after restart and hence the pid
-   * field contains the wrong value (pre-ckpt pid as opposed to current-pid).
-   *
-   * The solution is to put the motherpid in the pid slot every time a new
-   * thread is created to make sure that struct pthread has the correct value.
-   */
-  TLSInfo_UpdatePid();
+  th->flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
+              | CLONE_SIGHAND | CLONE_THREAD
+              | CLONE_SETTLS | CLONE_PARENT_SETTID
+              | CLONE_CHILD_CLEARTID
+              | 0);
+
+  th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
+  th->ctid = th->ptid;
 
   JTRACE("starting thread") (th->tid) (th->virtual_tid);
 
@@ -729,9 +719,12 @@ ThreadList::postRestartWork(double readTime)
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
   }
 
+  dmtcp_update_virtual_to_real_tid(motherofall->virtual_tid);
+
   DMTCP_RESTART_PAUSE(2);
 
   SharedData::postRestart();
+
   /* Fill in the new mother process id */
   motherpid = THREAD_REAL_TID();
   motherofall->tid = motherpid;
@@ -750,21 +743,6 @@ ThreadList::postRestartWork(double readTime)
       continue;
     }
 
-    /* DMTCP needs to know virtual_tid of the thread being recreated by the
-     *  following clone() call.
-     *
-     * Threads are created by using syscall which is intercepted by DMTCP and
-     *  the virtual_tid is sent to DMTCP as a field of MtcpRestartThreadArg
-     *  structure. DMTCP will automatically extract the actual argument
-     *  (clonearg->arg) from clone_arg and will pass it on to the real
-     *  clone call.
-     */
-    void *clonearg = thread;
-    if (dmtcp_real_to_virtual_pid != NULL) {
-      mtcpRestartThreadArg.arg = thread;
-      mtcpRestartThreadArg.virtualTid = thread->virtual_tid;
-      clonearg = &mtcpRestartThreadArg;
-    }
     thread->ckptReadTime = readTime;
 
     /* Create the thread so it can finish restoring itself. */
@@ -776,11 +754,12 @@ ThreadList::postRestartWork(double readTime)
                             /* Don't do CLONE_SETTLS (it'll puke).  We do it
                              * later via restoreTLSState. */
                             thread->flags & ~CLONE_SETTLS,
-                            clonearg, thread->ptid, NULL, thread->ctid);
+                            thread, thread->ptid, NULL, thread->ctid);
 
     JASSERT(tid > 0);  // (JASSERT_ERRNO) .Text("Error recreating thread");
     JTRACE("Thread recreated") (thread->tid) (tid);
   }
+
   restarthread(motherofall);
 }
 
@@ -792,12 +771,13 @@ restarthread(void *threadv)
 {
   Thread *thread = (Thread *)threadv;
 
-  // This function and related ones are defined in src/mtcp/restore_libc.c
   TLSInfo_RestoreTLSState(thread);
 
   if (TLSInfo_HaveThreadSysinfoOffset()) {
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
   }
+
+  dmtcp_update_virtual_to_real_tid(thread->virtual_tid);
 
   thread->tid = THREAD_REAL_TID();
 
@@ -897,7 +877,7 @@ ThreadList::addToActiveList(Thread *th)
   lock_threads();
 
   // CONTEXT:  After fork(), we called:
-  // ... -> initializeMtcpEngine() -> ThreadList::init() -> updateTid()
+  // ... -> initializeMtcpEngine() -> ThreadList::init() -> initThread()
   // -> addToActiveList()
   // NOTE:  After a call to fork(), only the calling thread continues to live.
   // Before initializeMtcpEngine() called init(), it called:
@@ -906,7 +886,7 @@ ThreadList::addToActiveList(Thread *th)
   // Logically, we would have set 'curThread = NULL;; inside
   // ThreadSync::initThread(), but it's inconvenient since curThread
   // is static (file-private).
-  // So, updateTid() created the new thread descriptor.  We make sure
+  // So, initThread() created the new thread descriptor.  We make sure
   // to set curThread to th, the new descriptor, now, in case it wasn't
   // done yet.
   // We had also set curThread to NULL in ThreadList::init().  This also
@@ -998,7 +978,7 @@ ThreadList::threadIsDead(Thread *thread)
  *
  *****************************************************************************/
 Thread *
-ThreadList::getNewThread()
+ThreadList::allocNewThread()
 {
   Thread *thread;
 

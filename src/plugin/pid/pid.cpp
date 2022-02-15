@@ -36,6 +36,7 @@
 using namespace dmtcp;
 
 extern "C" pid_t dmtcp_update_ppid();
+static volatile bool restartInProgress = false;
 
 static string pidMapFile;
 
@@ -88,6 +89,26 @@ int
 dmtcp_real_tgkill(pid_t tgid, pid_t tid, int sig)
 {
   return _real_tgkill(tgid, tid, sig);
+}
+
+extern "C"
+void
+dmtcp_update_virtual_to_real_tid(pid_t tid)
+{
+  if (!restartInProgress) {
+    restartInProgress = true;
+    VirtualPidTable::instance().postRestart();
+  }
+
+  VirtualPidTable::instance().updateMapping(tid, _real_gettid());
+}
+
+extern "C"
+void dmtcp_init_virtual_tid()
+{
+  pid_t virtualTid = VirtualPidTable::instance().getNewVirtualTid();
+  dmtcpResetTid(virtualTid);
+  VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
 }
 
 static void
@@ -328,6 +349,7 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     pidVirt_PostRestart();
     dmtcp_local_barrier("PID:RESTART");
     pidVirt_PostRestartRefill();
+    restartInProgress = false;
     break;
 
   default:

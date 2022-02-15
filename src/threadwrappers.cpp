@@ -35,173 +35,11 @@
 
 using namespace dmtcp;
 
-struct ThreadArg {
-  union {
-    int (*fn) (void *arg);
-    void *(*pthread_fn) (void *arg);  // pthread_create calls fn -> void *
-  };
-  void *arg;
-  void *mtcpArg;
-  pid_t virtualTid;
-};
+extern __thread Thread *curThread;
 
-// Invoked via __clone
-LIB_PRIVATE
-int
-clone_start(void *arg)
+static bool
+prepareThreadCreate()
 {
-  Thread *thread = (Thread *)arg;
-
-  ThreadSync::initThread();
-
-  ThreadList::updateTid(thread);
-
-  /* Thread finished initialization.  It's now safe for this thread to
-   * participate in checkpoint.  Decrement the uninitializedThreadCount in
-   * DmtcpWorker.
-   */
-  ThreadSync::decrementUninitializedThreadCount();
-
-  JTRACE("Calling user function") (dmtcp_gettid());
-  int ret = thread->fn(thread->arg);
-
-  ThreadList::threadExit();
-  return ret;
-}
-
-/*****************************************************************************
- *
- *  This is our clone system call wrapper
- *
- *    Note:
- *
- *      pthread_create eventually calls __clone to create threads
- *      It uses flags = 0x3D0F00:
- *	      CLONE_VM = VM shared between processes
- *	      CLONE_FS = fs info shared between processes (root, cwd, umask)
- *	   CLONE_FILES = open files shared between processes (fd table)
- *	 CLONE_SIGHAND = signal handlers and blocked signals shared
- *	                         (sigaction common to parent and child)
- *	  CLONE_THREAD = add to same thread group
- *	 CLONE_SYSVSEM = share system V SEM_UNDO semantics
- *	  CLONE_SETTLS = create a new TLS for the child from newtls parameter
- *	 CLONE_PARENT_SETTID = set the TID in the parent (before MM copy)
- *	CLONE_CHILD_CLEARTID = clear the TID in the child and do
- *				 futex wake at that address
- *	      CLONE_DETACHED = create clone detached
- *
- *****************************************************************************/
-
-// need to forward user clone
-extern "C" int
-__clone(int (*fn)(void *arg),
-        void *child_stack,
-        int flags,
-        void *arg,
-        int *ptid,
-        struct user_desc *tls,
-        int *ctid)
-{
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  ThreadSync::incrementUninitializedThreadCount();
-
-  Thread *thread = ThreadList::getNewThread();
-  ThreadList::initThread(thread, fn, arg, flags, ptid, ctid);
-
-  // if (ckpthread == NULL) {
-  // ckptthread = thread;
-  // thread->stateInit(ST_CKPNTHREAD);
-  // }
-
-  pid_t tid = _real_clone(clone_start, child_stack, flags, thread,
-                          ptid, tls, ctid);
-
-  if (tid == -1) {
-    JTRACE("Clone call failed")(JASSERT_ERRNO);
-    ThreadSync::decrementUninitializedThreadCount();
-    ThreadList::threadIsDead(thread);
-  }
-
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  return tid;
-}
-
-#if 0
-# if defined(__i386__) || defined(__x86_64__)
-asm (".global clone ; .type clone,@function ; clone = __clone");
-# elif defined(__arm__)
-
-// In arm, '@' is a comment character;  Arm uses '%' in type directive
-asm (".global clone ; .type clone,%function ; clone = __clone");
-# else // if defined(__i386__) || defined(__x86_64__)
-#  error Not implemented on this architecture
-# endif // if defined(__i386__) || defined(__x86_64__)
-#endif // if 0
-
-// Invoked via pthread_create as start_routine
-// On return, it calls mtcp_threadiszombie()
-static void *
-pthread_start(void *arg)
-{
-  struct ThreadArg *threadArg = (struct ThreadArg *)arg;
-  void *thread_arg = threadArg->arg;
-  void *(*pthread_fn) (void *) = threadArg->pthread_fn;
-  pid_t virtualTid = threadArg->virtualTid;
-
-  JASSERT(pthread_fn != 0x0);
-  JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
-
-  // Unblock ckpt signal (unblocking a non-blocked signal has no effect).
-  // Normally, DMTCP wouldn't allow the ckpt signal to be blocked. However, in
-  // some situations (e.g., timer_create), libc would internally block all
-  // signals before calling pthread_create to create a helper thread.  Since,
-  // the child threads inherit parent signal mask, the helper thread has all
-  // signals blocked.
-  sigset_t set;
-  sigaddset(&set, SigInfo::ckptSignal());
-  JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0) (JASSERT_ERRNO);
-
-  ThreadSync::threadFinishedInitialization();
-  void *result = (*pthread_fn)(thread_arg);
-  JTRACE("Thread returned") (virtualTid);
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  ThreadList::threadExit();
-
-  /*
-   * This thread has finished its execution, do some cleanup on our part.
-   *  erasing the virtualTid entry from virtualpidtable
-   *  FIXME: What if the process gets checkpointed after erase() but before the
-   *  thread actually exits?
-   */
-  PluginManager::eventHook(DMTCP_EVENT_PTHREAD_RETURN, NULL);
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  ThreadSync::unsetOkToGrabLock();
-  return result;
-}
-
-extern "C" int
-pthread_create(pthread_t *thread,
-               const pthread_attr_t *attr,
-               void *(*start_routine)(void *),
-               void *arg)
-{
-  int retval;
-
-  // We have to use DMTCP-specific memory allocator because using glibc:malloc
-  // can interfere with user threads.
-  // We use JALLOC_HELPER_FREE to free this memory in two places:
-  // 1. near the beginning of pthread_start (wrapper for start_routine),
-  // providing that the __clone call succeeds with no tid conflict.
-  // 2. if the call to _real_pthread_create fails, then free memory
-  // near the end of this function.
-  // We use MALLOC/FREE so that pthread_create() can be called again, without
-  // waiting for the new thread to give up the buffer in pthread_start().
-  struct ThreadArg *threadArg =
-    (struct ThreadArg *)JALLOC_HELPER_MALLOC(sizeof(struct ThreadArg));
-
-  threadArg->pthread_fn = start_routine;
-  threadArg->arg = arg;
-
   /* pthread_create() should acquire the thread-creation lock. Not doing so can
    * result in a deadlock in the following scenario:
    * 1. user thread: pthread_create() - acquire wrapper-execution lock
@@ -223,16 +61,148 @@ pthread_create(pthread_t *thread,
    */
   bool threadCreationLockAcquired = ThreadSync::threadCreationLockLock();
   ThreadSync::incrementUninitializedThreadCount();
-  retval = _real_pthread_create(thread, attr, pthread_start, threadArg);
+
+  JASSERT(Thread_UpdateState(curThread, ST_THREAD_CREATE, ST_RUNNING));
+
+  return threadCreationLockAcquired;
+}
+
+static void
+postThreadCreate(bool threadCreationLockAcquired)
+{
+  JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_THREAD_CREATE));
+
   if (threadCreationLockAcquired) {
     ThreadSync::threadCreationLockUnlock();
   }
+}
+
+static void
+processChildThread(Thread *thread)
+{
+  dmtcp_init_virtual_tid();
+
+  ThreadList::initThread(thread);
+  // Unblock ckpt signal (unblocking a non-blocked signal has no effect).
+  // Normally, DMTCP wouldn't allow the ckpt signal to be blocked. However, in
+  // some situations (e.g., timer_create), libc would internally block all
+  // signals before calling pthread_create to create a helper thread.  Since,
+  // the child threads inherit parent signal mask, the helper thread has all
+  // signals blocked.
+  sigset_t set;
+  sigaddset(&set, SigInfo::ckptSignal());
+  JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0) (JASSERT_ERRNO);
+
+  ThreadSync::threadFinishedInitialization();
+}
+
+// Invoked via pthread_create as start_routine
+// On return, it calls mtcp_threadiszombie()
+static void *
+thread_start(void *arg)
+{
+  Thread *thread = (Thread *) arg;
+
+  processChildThread(thread);
+
+  void *result = thread->fn(thread->arg);
+
+  JTRACE("Thread returned") (thread->virtual_tid);
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  ThreadList::threadExit();
+
+  /*
+   * This thread has finished its execution, do some cleanup on our part.
+   *  erasing the virtualTid entry from virtualpidtable
+   *  FIXME: What if the process gets checkpointed after erase() but before the
+   *  thread actually exits?
+   */
+  PluginManager::eventHook(DMTCP_EVENT_PTHREAD_RETURN, NULL);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  ThreadSync::unsetOkToGrabLock();
+  return result;
+}
+
+extern "C" int
+pthread_create(pthread_t *pth,
+               const pthread_attr_t *attr,
+               void *(*start_routine)(void *),
+               void *arg)
+{
+  int retval;
+
+  bool threadCreationLockAcquired = prepareThreadCreate();
+
+  Thread *thread = ThreadList::getNewThread(start_routine, arg);
+  retval = _real_pthread_create(pth, attr, thread_start, thread);
+
+  postThreadCreate(threadCreationLockAcquired);
+
   if (retval == 0) {
-    ProcessInfo::instance().clearPthreadJoinState(*thread);
+    ProcessInfo::instance().clearPthreadJoinState(*pth);
   } else { // if we failed to create new pthread
-    JALLOC_HELPER_FREE(threadArg);
     ThreadSync::decrementUninitializedThreadCount();
   }
+  return retval;
+}
+
+// Make sure __clone is not called without pthread_create.
+extern "C" int
+__clone(int (*fn)(void *arg),
+        void *child_stack,
+        int flags,
+        void *arg,
+        int *parent_tidptr,
+        struct user_desc *newtls,
+        int *child_tidptr)
+{
+  if (curThread->state == ST_THREAD_CREATE) {
+    return _real_clone(
+      fn, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr);
+  }
+
+  JNOTE("__clone called without pthread_create");
+  bool threadCreationLockAcquired = prepareThreadCreate();
+
+  Thread *thread = ThreadList::getNewThread((void*(*)(void*))fn, arg);
+  int retval = _real_clone(
+      (int(*)(void*))thread_start, child_stack, flags, thread, parent_tidptr,
+      newtls, child_tidptr);
+
+  postThreadCreate(threadCreationLockAcquired);
+
+  if (retval == -1) {
+    // if we failed to create new pthread
+    ThreadSync::decrementUninitializedThreadCount();
+  }
+
+  return retval;
+}
+
+extern "C" long
+clone3(struct clone_args *cl_args, size_t size)
+{
+  if (curThread->state == ST_THREAD_CREATE) {
+    return NEXT_FNC(clone3)(cl_args, size);
+  }
+
+  JNOTE("clone3() called without pthread_create");
+  bool threadCreationLockAcquired = prepareThreadCreate();
+
+  Thread *thread = ThreadList::getNewThread(NULL, NULL);
+  int retval = NEXT_FNC(clone3)(cl_args, size);
+
+  if (retval == 0) {
+    // Child thread
+    processChildThread(thread);
+  } else {
+    postThreadCreate(threadCreationLockAcquired);
+    if (retval == -1) {
+      // if we failed to create new thread
+      ThreadSync::decrementUninitializedThreadCount();
+    }
+  }
+
   return retval;
 }
 
