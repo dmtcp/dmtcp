@@ -174,8 +174,8 @@ RestoreTarget::RestoreTarget(const string &path)
                                       gettimeofday_offset, time_offset))
     .Text("The vDSO section on the current system is different than"
           " the host where the checkpoint image was generated. "
-          "Restart may fail if the program calls a function in to"
-          " vDSO, like, gettimeofday(), clock_gettime(), etc.");
+          "Restart may fail if the program calls a function in"
+          " vDSO, like gettimeofday(), clock_gettime(), etc.");
   JTRACE("restore target")(_path)(_pInfo.numPeers())(_pInfo.compGroup());
 }
 
