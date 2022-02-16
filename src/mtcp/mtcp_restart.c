@@ -102,7 +102,7 @@ main(int argc, char *argv[], char **environ)
   MtcpHeader mtcpHdr;
   int mtcp_sys_errno;
   int simulate = 0;
-  int runMpiProxy = 0;
+  int mpiMode = 0;
 
   if (argc == 1) {
     MTCP_PRINTF("***ERROR: This program should not be used directly.\n");
@@ -158,7 +158,7 @@ main(int argc, char *argv[], char **environ)
       rinfo.use_gdb = 1;
       shift;
     } else if (mtcp_strcmp(argv[0], "--mpi") == 0) {
-      runMpiProxy = 1;
+      mpiMode = 1;
       shift;
       // Flags for call by dmtcp_restart follow here:
     } else if (mtcp_strcmp(argv[0], "--fd") == 0) {
@@ -190,7 +190,7 @@ main(int argc, char *argv[], char **environ)
       mtcp_printf("Considering '%s' as a ckpt image.\n", argv[0]);
       mtcp_strcpy(rinfo.ckptImage, argv[0]);
       break;
-    } else if (runMpiProxy) {
+    } else if (mpiMode) {
       // N.B.: The assumption here is that the user provides the `--mpi` flag
       // followed by a list of checkpoint images
       break;
@@ -200,7 +200,7 @@ main(int argc, char *argv[], char **environ)
     }
   }
 
-  if ((rinfo.fd != -1) ^ (rinfo.ckptImage == NULL) && !runMpiProxy) {
+  if (((rinfo.fd != -1) ^ (rinfo.ckptImage[0] == '\0')) && !mpiMode) {
     MTCP_PRINTF("***MTCP Internal Error\n");
     mtcp_abort();
   }
