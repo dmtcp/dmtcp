@@ -70,6 +70,9 @@ typedef struct RestoreInfo {
 #endif
   int restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE
 
+  // Set to the value of DMTCP_DEBUG_MTCP_RESTART env var.
+  int skipMremap;
+
   // The following fields are only valid until mtcp_restart memory is unmapped,
   // and checkpoint image is mapped in.
   int argc;
