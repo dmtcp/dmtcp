@@ -147,6 +147,7 @@ main(int argc, char *argv[], char **environ)
   rinfo.argv = argv;
   rinfo.environ = environ;
   rinfo.fd = -1;
+  rinfo.skipMremap = 0;
   rinfo.use_gdb = 0;
 
   char *restart_pause_str = mtcp_getenv("DMTCP_RESTART_PAUSE", environ);
@@ -246,6 +247,14 @@ main(int argc, char *argv[], char **environ)
     mtcp_abort();
     restart_slow_path();
   } else {
+    // Set this environment variable to debug with GDB inside mtcp_restart.c;
+    // Caveat: not as robust as standard mtcp_restart.
+    char *skipMremap = mtcp_getenv("DMTCP_DEBUG_MTCP_RESTART", environ);
+    if (skipMremap != NULL && mtcp_strtol(skipMremap) > 0) {
+      rinfo.skipMremap = 1;
+      restorememoryareas(&rinfo);
+      return 0;
+    }
     restart_fast_path();
   }
   return 0;  /* Will not reach here, but need to satisfy the compiler */
@@ -661,7 +670,7 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       // Skip memory region reserved by plugin.
       DPRINTF("***INFO: skipping memory region suggested by plugin (%p..%p)\n",
               area.addr, area.endAddr);
-    } else if (area.size > 0) {
+    } else if (area.size > 0 && rinfo->skipMremap == 0) {
       DPRINTF("***INFO: munmapping (%p..%p)\n", area.addr, area.endAddr);
       if (mtcp_sys_munmap(area.addr, area.size) == -1) {
         MTCP_PRINTF("***WARNING: %s(%x): munmap(%p, %d) failed; errno: %d\n",
