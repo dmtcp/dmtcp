@@ -231,8 +231,48 @@ mtcp_writememoryareas(int fd)
       continue;
     }
 
-    if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
-        Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
+  if (dmtcp_skip_memory_region_ckpting &&
+      dmtcp_skip_memory_region_ckpting(&area)) {
+    JTRACE("skipping over memory section as suggested by plugin")
+      (area.name) (area.addr) (area.size);
+    continue;
+  } else if (0 == strcmp(area.name, "[vsyscall]") ||
+             0 == strcmp(area.name, "[vectors]") ||
+             0 == strcmp(area.name, "[vvar]")) {
+    // NOTE: We can't trust kernel's "[vdso]" label here.  See below.
+    JTRACE("skipping over memory special section")
+      (area.name) (area.addr) (area.size);
+    continue;
+  } else if ((uint64_t) area.addr == ProcessInfo::instance().vdsoStart()) {
+    //  vDSO issue:
+    //    As always, we never want to save the vdso section.  We will use
+    //  the vdso section code provided by the kernel on restart.  Further,
+    //  the user code on restart has already been initialized and so it
+    //  will continue to use the original vdso section determined during
+    //  program launch.  Luckily, during the DMTCP_INIT event, DMTCP recorded
+    //  this vdso address when it called ProcessInfo::instance().init().
+    //    Now, here's the bad news.  During the first restart, the kernel
+    //  may choose to locate the vdso at a new address.  So, in
+    //  src/mtcp/mtcp_restart, DMTCP will mremap the kernel's vdso back
+    //  to the original address known during program launch.  This is as
+    //  it should be.  But when DMTCP does an mremap of vdso, the kernel
+    //  fails to update its own "[vds0]" label.  This is arguable a bug in the
+    //  Linux kernel.  So, during the second checkpoint (after the first
+    //  restart), we can't trust the "[vdso]" label to tell us where the vdso
+    //  section really is.  And it's even worse.  During mtcp_restart, we may
+    //  have done the mremap, and there may even now be some user data that was
+    //  restored to the address where the kernel thinks the "[vdso]" label
+    //  belongs.  So, we would be saving the original vdso section (which is
+    //  wrong), and we would be failing to save the user's memory that was
+    //  restored into the location labelled by the kernel's "[vdso]" label.
+    //  This last case is even worse, since we have now failed to restore some
+    //  user data.  This was observed to happen in RHEL 6.6.  The solution is
+    //  to trust DMTCP for the vdso location (as in the if condition above),
+    //  and not to trust the kernel's "[vdso]" label.
+    JTRACE("skipping vDSO special section") (area.name) (area.addr) (area.size);
+    continue;
+  } else if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
+             Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
       /* If the process has an area labeled as "/dev/zero (deleted)", we mark
        *   the area as Anonymous and save the contents to the ckpt image file.
        * If this area has a MAP_SHARED attribute, it should be replaced with
@@ -454,41 +494,6 @@ writememoryarea(int fd, Area *area, int stack_was_seen)
     /* Kernel won't let us munmap this.  But we don't need to restore it. */
     JTRACE("skipping over [stack] segment (not the orig stack)")
       (addr) (area->size);
-  } else if (0 == strcmp(area -> name, "[vsyscall]") ||
-             0 == strcmp(area -> name, "[vectors]") ||
-             0 == strcmp(area -> name, "[vvar]"))
-             // NOTE: We can't trust kernel's "[vdso]" label here.  See below.
-  {
-    JTRACE("skipping over memory special section")
-      (area->name) (addr) (area->size);
-  } else if ( area->__addr == ProcessInfo::instance().vdsoStart() ) {
-    //  vDSO issue:
-    //    As always, we never want to save the vdso section.  We will use
-    //  the vdso section code provided by the kernel on restart.  Further,
-    //  the user code on restart has already been initialized and so it
-    //  will continue to use the original vdso section determined during
-    //  program launch.  Luckily, during the DMTCP_INIT event, DMTCP recorded
-    //  this vdso address when it called ProcessInfo::instance().init().
-    //    Now, here's the bad news.  During the first restart, the kernel
-    //  may choose to locate the vdso at a new address.  So, in
-    //  src/mtcp/mtcp_restart, DMTCP will mremap the kernel's vdso back
-    //  to the original address known during program launch.  This is as
-    //  it should be.  But when DMTCP does an mremap of vdso, the kernel
-    //  fails to update its own "[vds0]" label.  So, during the second
-    //  checkpoint (after the first restart), we can't trust the "[vdso]"
-    //  label to tell us where the vdso section really is.  And it's even
-    //  worse.  During mtcp_restart, we may have done the mremap, and there
-    //  may even now be some user data that was restored to the address
-    //  where the kernel thinks the "[vdso]" label belongs.  So, we would
-    //  be saving the original vdso section (which is wrong), and we would
-    //  be failing to save the user's memory that was restored into the
-    //  location labelled by the kernel's "[vdso]" label.  This last
-    //  case is even worse, since we have now failed to restore some user data.
-    //    This was observed to happen in RHEL 6.6.  The solution is to
-    //  trust DMTCP for the vdso location (as in the if condition above),
-    //  and not to trust the kernel's "[vdso]" label.
-    JTRACE("skipping vDSO special section")
-      (area->name) (addr) (area->size);
   } else if (area->prot == 0 ||
              (area->name[0] == '\0' &&
               ((area->flags & MAP_ANONYMOUS) != 0) &&

@@ -24,6 +24,15 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+# ifndef EXTERNC
+# define EXTERNC extern "C"
+# endif
+#else // ifndef EXTERNC
+# define EXTERNC
+#endif // ifdef __cplusplus
+
 // MTCP_PAGE_SIZE must be page-aligned:  multiple of sysconf(_SC_PAGESIZE).
 #define MTCP_PAGE_SIZE        4096
 #define MTCP_PAGE_MASK        (~(MTCP_PAGE_SIZE - 1))
@@ -106,4 +115,12 @@ typedef union ProcMapsArea {
 } ProcMapsArea;
 
 typedef ProcMapsArea Area;
+
+EXTERNC int
+dmtcp_skip_memory_region_ckpting(const Area *area) __attribute((weak));
+
+#ifdef __cplusplus
+} // extern "C" {
+#endif // ifdef __cplusplus
+
 #endif // ifndef PROCMAPSAREA_H
