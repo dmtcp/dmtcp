@@ -271,7 +271,7 @@ class JFixedAllocStack
     };
     struct StackHead {
       uintptr_t counter;
-      FreeItem* ATOMIC_SHARED node;
+      FreeItem* node;
     };
 
   private:
