@@ -90,6 +90,7 @@ static int mremap_move(void *dest, void *src, size_t size);
 static void remapMtcpRestartToReservedArea(RestoreInfo *rinfo);
 static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr);
 static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo);
+static void compute_vdso_vvar_addr(RestoreInfo *rinfo);
 
 // const char service_interp[] __attribute__((section(".interp"))) =
 // "/lib64/ld-linux-x86-64.so.2";
@@ -205,6 +206,8 @@ main(int argc, char *argv[], char **environ)
     MTCP_PRINTF("***MTCP Internal Error\n");
     mtcp_abort();
   }
+
+  compute_vdso_vvar_addr(&rinfo);
 
   DMTCP_RESTART_PAUSE(&rinfo, 1);
 
@@ -641,6 +644,49 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
 
 NO_OPTIMIZE
 static void
+compute_vdso_vvar_addr(RestoreInfo *rinfo)
+{
+  int mtcp_sys_errno;
+  Area area;
+  rinfo->currentVdsoStart = NULL;
+  rinfo->currentVdsoEnd = NULL;
+  rinfo->currentVvarStart = NULL;
+  rinfo->currentVvarEnd = NULL;
+
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+
+  if (mapsfd < 0) {
+    MTCP_PRINTF("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  while (mtcp_readmapsline(mapsfd, &area)) {
+    if (mtcp_strcmp(area.name, "[vdso]") == 0) {
+      // Do not unmap vdso.
+      rinfo->currentVdsoStart = area.addr;
+      rinfo->currentVdsoEnd = area.endAddr;
+      DPRINTF("***INFO: vDSO found (%p..%p)\n original vDSO: (%p..%p)\n",
+              area.addr, area.endAddr, rinfo->vdsoStart, rinfo->vdsoEnd);
+    }
+#if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 18)
+    else if (area.addr == 0xfffe0000 && area.size == 4096) {
+      // It's a vdso page from a time before Linux displayed the annotation.
+      // Do not unmap vdso.
+    }
+#endif /* if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 18)
+          */
+    else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
+      // Do not unmap vvar.
+      rinfo->currentVvarStart = area.addr;
+      rinfo->currentVvarEnd = area.endAddr;
+    }
+  }
+
+  mtcp_sys_close(mapsfd);
+}
+
+NO_OPTIMIZE
+static void
 unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
 {
   /* Unmap everything except this image, vdso, vvar and vsyscall. */
@@ -661,8 +707,9 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
   while (mtcp_readmapsline(mapsfd, &area)) {
     if (area.addr >= rinfo->restore_addr && area.addr < rinfo->restore_end) {
       // Do not unmap this restore image.
-    } else if (mtcp_strcmp(area.name, "[vdso]") == 0) {
+    } else if (area.addr == rinfo->currentVdsoStart) {
       // Do not unmap vdso.
+      MTCP_ASSERT(area.endAddr = rinfo->currentVdsoEnd);
       vdsoStart = area.addr;
       vdsoEnd = area.endAddr;
       DPRINTF("***INFO: vDSO found (%p..%p)\n original vDSO: (%p..%p)\n",
@@ -675,8 +722,9 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     }
 #endif /* if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 18)
           */
-    else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
+    else if (area.addr == rinfo->currentVvarStart) {
       // Do not unmap vvar.
+      MTCP_ASSERT(area.endAddr = rinfo->currentVvarEnd);
       vvarStart = area.addr;
       vvarEnd = area.endAddr;
     } else if (mtcp_strcmp(area.name, "[vsyscall]") == 0) {
