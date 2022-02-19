@@ -207,7 +207,9 @@ main(int argc, char *argv[], char **environ)
 
   DMTCP_RESTART_PAUSE(&rinfo, 1);
 
-  mtcp_plugin_hook(&rinfo);
+  if (!simulate) {
+    mtcp_plugin_hook(&rinfo);
+  }
 
 #ifdef TIMING
   mtcp_sys_gettimeofday(&rinfo.startValue, NULL);
