@@ -201,7 +201,7 @@ __d_bindir__dmtcp_restart_OBJECTS =  \
 __d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libnohijack.a $(am__DEPENDENCIES_1)
 am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
-	ckptserializer.$(OBJEXT) dmtcpplugin.$(OBJEXT) \
+	ckptserializer.$(OBJEXT) dlwrappers.$(OBJEXT) dmtcpplugin.$(OBJEXT) \
 	dmtcpworker.$(OBJEXT) execwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) kvdb.$(OBJEXT) miscwrappers.$(OBJEXT) \
 	plugininfo.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) \
@@ -233,6 +233,7 @@ depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/ckptserializer.Po ./$(DEPDIR)/coordinatorapi.Po \
+	./$(DEPDIR)/dlwrappers.Po \
 	./$(DEPDIR)/dmtcp_command.Po ./$(DEPDIR)/dmtcp_coordinator.Po \
 	./$(DEPDIR)/dmtcp_dlsym.Po \
 	./$(DEPDIR)/dmtcp_get_libc_offset.Po \
@@ -658,6 +659,7 @@ libnohijack_a_SOURCES = dmtcpnohijackstubs.cpp			\
 
 __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  ckptserializer.cpp 		\
+				  dlwrappers.cpp 		\
 				  dmtcpplugin.cpp 		\
 				  dmtcpworker.cpp 		\
 				  execwrappers.cpp 		\
@@ -887,6 +889,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/alarm.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ckptserializer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coordinatorapi.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dlwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_command.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_coordinator.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_dlsym.Po@am__quote@ # am--include-marker
@@ -1330,6 +1333,7 @@ distclean: distclean-recursive
 		-rm -f ./$(DEPDIR)/alarm.Po
 	-rm -f ./$(DEPDIR)/ckptserializer.Po
 	-rm -f ./$(DEPDIR)/coordinatorapi.Po
+	-rm -f ./$(DEPDIR)/dlwrappers.Po
 	-rm -f ./$(DEPDIR)/dmtcp_command.Po
 	-rm -f ./$(DEPDIR)/dmtcp_coordinator.Po
 	-rm -f ./$(DEPDIR)/dmtcp_dlsym.Po
@@ -1433,6 +1437,7 @@ maintainer-clean: maintainer-clean-recursive
 		-rm -f ./$(DEPDIR)/alarm.Po
 	-rm -f ./$(DEPDIR)/ckptserializer.Po
 	-rm -f ./$(DEPDIR)/coordinatorapi.Po
+	-rm -f ./$(DEPDIR)/dlwrappers.Po
 	-rm -f ./$(DEPDIR)/dmtcp_command.Po
 	-rm -f ./$(DEPDIR)/dmtcp_coordinator.Po
 	-rm -f ./$(DEPDIR)/dmtcp_dlsym.Po
