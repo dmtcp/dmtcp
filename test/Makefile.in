@@ -180,6 +180,9 @@ gettid: gettid.c
 pthread%: pthread%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
+clone%: clone%.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
 mutex%: mutex%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
