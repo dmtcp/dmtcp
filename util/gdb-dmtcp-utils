@@ -57,7 +57,7 @@ dmtcp_commands = "add-symbol-files-all, " +\
 
 def print_dmtcp_commands():
   print("GDB commands available for DMTCP:")
-  print("  ** USAGE:  'dmtcp' for commands; 'help' on each commend:\n" +
+  print("  ** USAGE:  'dmtcp' for commands; 'help' on each command:\n" +
         "  **   (gdb) dmtcp  # Show this message\n" +
         "  **   (gdb) help <COMMAND>\n" +
         "  COMMANDS:")
@@ -165,7 +165,7 @@ AddSymbolFileFromFilenameAndAddress()
 
 
 class ShowFilenameAtAddress(gdb.Command):
-    """show-filename-at-address MEMORY_ADDRESS"""
+    """show-filename-at-address/whereis-address MEMORY_ADDRESS"""
 
     def __init__(self):
         super(ShowFilenameAtAddress,
@@ -179,7 +179,11 @@ class ShowFilenameAtAddress(gdb.Command):
         else:
           memory_region = "%s 0x%x-0x%x (%s)" % \
                           memory_region_at_address(memory_address)
-          gdb.execute('print "' + memory_region + '"', False, False)
+          #GDB-8:  For some unknown reason (e.g., after: 'bt' and 'frame 4' in MANA),
+          #  the 'gdb.execute' reports '"' not allowed, and (') doesn't work.
+          #  Perhaps it's an interaction between GDB and the Python API.
+          #WAS: gdb.execute('print "' + memory_region + '"', False, False)
+          print(memory_region)
 # This will add the new gdb command: show-filename-at-address MEMORY_ADDRESS
 ShowFilenameAtAddress()
 try:
@@ -201,7 +205,6 @@ class AddSymbolFileAtAddress(gdb.Command):
       gdb.execute('print "Process not yet started"', False, False)
     else:
       (filename, base_addr, _, _) = memory_region_at_address(address)
-      print(filename, base_addr)
       if filename.startswith("NOT_FOUND"):
         gdb.execute('print "*** Memory address ' + address + ' not found"',
                     False, False)
@@ -226,7 +229,7 @@ class AddSymbolFilesAll(gdb.Command):
         #   gdb.execute("add-symbol-file-from-substring " + filename)
         # This form preferred, in case the same filename appears more than once:
         for (filename, address, _, _) in memory_regions_executable():
-          gdb.execute("add-symbol-file-at-address " + str(address))
+          gdb.execute("add-symbol-file-at-address " + hex(address))
 # This will add the new gdb command: add-symbol-files-all
 AddSymbolFilesAll()
 
@@ -235,7 +238,7 @@ def add_symbol_files_from_filename(filename, base_addr):
   if not os.path.exists(filename):
     return
   if is_executable(filename):
-    base_addr = 0  # ELF executables already hard-wired absolute address
+    base_addr = 0  # ELF executables already have hard-wired absolute address
   (textaddr, sections) = relocatesections(filename)
   cmd = "add-symbol-file %s 0x%x" % (filename, int(textaddr, 16) + base_addr)
   for s in sections:
@@ -249,6 +252,12 @@ def add_symbol_files_from_filename(filename, base_addr):
 def getpid():
   return gdb.selected_inferior().pid
 
+def usingCore():
+  # In Linux 4.12, gdb 8.3, our getpid()==1,
+  #   /proc/1/maps has read permission, but "Permission denied"
+  return (not os.path.exists("/proc/" + str(getpid()) + "/maps" or
+          getpid() != 1))
+
 class Procmaps(gdb.Command):
   """procmaps (same as:  shell cat /proc/INFERIOR_PID/maps)"""
   def __init__(self):
@@ -258,14 +267,11 @@ class Procmaps(gdb.Command):
   def invoke(self, dummy_args, from_tty):
     if getpid() == 0:
       gdb.execute('print "Process not yet started; type \'run\'"', False, False)
-    elif (os.path.exists("/proc/" + str(getpid()) + "/maps") and
-          getpid() != 1):
-      # In Linux 4.12, gdb 8.3, our getpid()==1,
-      #   /proc/1/maps has read permission, but "Permission denied"
-      rc = gdb.execute("shell cat /proc/" + str(getpid()) + "/maps | less",
-                       False, True)
-    else:
+    elif usingCore():
       gdb.execute("info proc mappings")
+    else:
+      gdb.execute("shell cat /proc/" + str(getpid()) + "/maps | less",
+                  False, True)
 Procmaps()
 
 class Procfd(gdb.Command):
@@ -380,37 +386,34 @@ def procmap_filename_address(line):
     quad[-1] = quad[-2] + ' ' + quad[-1]
   return (quad[-1],) + \
          tuple([int("0x"+elt, 16) for elt in quad[0].split("-")]) + (quad[1],)
-def is_text_segment(procmap_line):
-  return "/dev/" not in procmap_line and "r-x" in procmap_line and \
-         (procmap_line == "" or procmap_line.isspace() or '/' in procmap_line)
-def procmap_lines():
+def is_text_segment(memory):
+  (file, _, _, permission) = memory
+  return "/dev/" not in file and "r-x" in permission and '/' in file
+def memory_regions():
   if getpid() == 0:
     sys.stderr.write("\n*** Process not running! ***\n")
     sys.exit(1)
-  p = subprocess.Popen(["cat", "/proc/"+str(getpid())+"/maps"],
-                       stdout = subprocess.PIPE)
-  lines = (line.decode("utf-8").strip()
-                   for line in p.stdout.readlines())
-  if not lines:
+  if usingCore():
     lines = gdb.execute("info proc mappings", False, True).split('\n')
-    lines = [procmap_filename_address(memory) for memory in lines
-                                  if " 0x" in memory and "/dev/" not in memory]
+    lines = [procmap_filename_address(line) for line in lines
+                                  if " 0x" in line and "/dev/" not in line]
+  else:
+    p = subprocess.Popen(["cat", "/proc/"+str(getpid())+"/maps"],
+                         stdout = subprocess.PIPE)
+    lines = (line.decode("utf-8").strip() for line in p.stdout.readlines())
+    lines = [procmap_filename_address(line) for line in lines]
   return lines
-
-  # unique_filenames = []
-  # unique_regions = []
-  # for memory in lines:
-  #   print(memory)
-  #   print("\n")
-  #   if memory[0] not in unique_filenames:
-  #     unique_filenames.append(memory[0])
-  #     unique_regions.append(memory)
-  # return unique_regions
-def memory_regions():
-  return (procmap_filename_address(memory) for memory in procmap_lines())
 def memory_regions_executable():
-  return (procmap_filename_address(memory) for memory in procmap_lines()
-                                           if is_text_segment(memory))
+  if not usingCore():
+    return [memory for memory in memory_regions() if is_text_segment(memory)]
+  else:
+    unique_filenames = []
+    unique_regions = []
+    for memory in memory_regions():
+      if memory[0] not in unique_filenames:
+        unique_filenames.append(memory[0])
+        unique_regions.append(memory)
+    return unique_regions
 
 # Returns quad:  (filename, base_address, end_address, permissions)
 def memory_region(filename_substring):
@@ -423,14 +426,16 @@ def memory_region(filename_substring):
 
 
 def memory_region_at_address(memory_address):
-  if "0x" in hex(int(str(gdb.parse_and_eval(memory_address)))): 
+  if type(memory_address) == int:
+    memory_address = hex(memory_address)  # This converts it to a hex string.
+  if "0x" in memory_address:
     memory_address = hex(int(str(gdb.parse_and_eval(memory_address))))
-    memory_address = "0x" + memory_address.split("0x")[1]
-    memory_address = memory_address.split(" ")[0]
-  elif "0x" not in str(memory_address) and \
-     set(str(memory_address)).issubset("0123456789abcdef"):
-    print("Assuming " + memory_address + " is hexadecimal.")
-    memory_address = "0x" + memory_address
+  elif set(str(memory_address)).issubset("0123456789abcdef"):
+    if set(str(memory_address)) & set("abcdef"):
+      print("Assuming " + memory_address + " is hexadecimal.")
+      memory_address = "0x" + memory_address
+    else:
+      print("Assuming " + memory_address + " is decimal. Prepend '0x' for hex.")
   memory_address = int(memory_address, 0)
   regions = memory_regions()
   match = [region for region in regions
