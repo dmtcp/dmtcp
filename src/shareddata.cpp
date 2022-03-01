@@ -152,10 +152,15 @@ SharedData::initialize(const char *tmpDir,
       JTRACE("Internal error detected! Shared data area already exists.");
       fd = _real_open(o.str().c_str(), O_RDWR, 0600);
     } else {
-      // Extend file to size before 'mmap'
-      JASSERT( truncate(o.str().c_str(), size) == 0);
       needToInitialize = true;
     }
+    // Extend file to size before 'mmap'
+    // If the file pointed to by fd already exists, and its size is less
+    // than 'size', then mmap can succeed even though the backing file is
+    // too small. This can cause a SIGBUS later when we try to read beyond
+    // the end of the file. So we must truncate the file to the correct size
+    // in both the if and else branch, above.
+    JASSERT(truncate(o.str().c_str(), size) == 0);
     JASSERT(fd != -1) (JASSERT_ERRNO);
     JASSERT(_real_dup2(fd, PROTECTED_SHM_FD) == PROTECTED_SHM_FD)
       (JASSERT_ERRNO);
@@ -168,10 +173,6 @@ SharedData::initialize(const char *tmpDir,
                     PROTECTED_SHM_FD, 0);
   JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO)
   .Text("Unable to find shared area.");
-
-#if __arm__
-  WMB;  // Ensure store to memory by kernel mmap call has completed
-#endif // if __arm__
 
   sharedDataHeader = (struct Header *)addr;
 
