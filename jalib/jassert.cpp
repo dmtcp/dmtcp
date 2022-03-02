@@ -136,7 +136,7 @@ jassert_internal::JAssert::~JAssert()
 
   if (_exitWhenDone) {
     /* Generate core-dump for debugging */
-    if (getenv("DMTCP_ABORT_ON_FAILED_ASSERT")) {
+    if (getenv("DMTCP_ABORT_ON_FAILURE")) {
       abort();
     } else {
       _exit(jalib::dmtcp_fail_rc());

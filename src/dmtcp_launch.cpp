@@ -432,6 +432,14 @@ main(int argc, const char **argv)
 
   initializeJalib();
 
+  // FIXME:  This was changed in Mar., 2022.  We can remove this msg in 2 or 3 years.
+  if (getenv("DMTCP_ABORT_ON_FAILED_ASSERT")) {
+    JNOTE("\n\n*********************************************\n"
+              "* DMTCP_ABORT_ON_FAILED_ASSERT is obsolete. *\n"
+              "* Plesae use DMTCP_ABORT_ON_FAILURE instead.*\n"
+              "*********************************************\n");
+  }
+
   UniquePid::ThisProcess(true);
   Util::initializeLogFile(tmpDir.c_str(), NULL, NULL);
 
