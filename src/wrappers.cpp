@@ -141,7 +141,7 @@ realToVirtualPath(char *path)
 
   PluginManager::eventHook(DMTCP_EVENT_REAL_TO_VIRTUAL_PATH, &data);
 
-  return path;
+  return data.realToVirtualPath.path;
 }
 
 static int
