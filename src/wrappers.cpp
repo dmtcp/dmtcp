@@ -766,7 +766,7 @@ ttyname_r_work(int fd, char *buf, size_t buflen)
   WrapperLock wrapperLock;
   char resPath[PATH_MAX] = { 0 };
   int res = _real_ttyname_r(fd, resPath, sizeof(resPath));
-  if (res == -1) {
+  if (res != 0) {
     return res;
   }
 
@@ -786,11 +786,13 @@ extern "C" char *ttyname(int fd)
 {
   static char resPath[64];
 
-  if (ttyname_r_work(fd, resPath, sizeof(resPath)) != 0) {
+  int retval = ttyname_r_work(fd, resPath, sizeof(resPath));
+  if (retval != 0) {
+    errno = retval;
     return NULL;
+  } else {
+    return resPath;
   }
-
-  return resPath;
 }
 
 extern "C" int
