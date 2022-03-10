@@ -179,11 +179,7 @@ class ShowFilenameAtAddress(gdb.Command):
         else:
           memory_region = "%s 0x%x-0x%x (%s)" % \
                           memory_region_at_address(memory_address)
-          #GDB-8:  For some unknown reason (e.g., after: 'bt' and 'frame 4' in MANA),
-          #  the 'gdb.execute' reports '"' not allowed, and (') doesn't work.
-          #  Perhaps it's an interaction between GDB and the Python API.
-          #WAS: gdb.execute('print "' + memory_region + '"', False, False)
-          print(memory_region)
+          gdb.execute('print "' + memory_region + '"', False, False)
 # This will add the new gdb command: show-filename-at-address MEMORY_ADDRESS
 ShowFilenameAtAddress()
 try:
