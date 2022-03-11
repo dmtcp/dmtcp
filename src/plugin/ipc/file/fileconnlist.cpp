@@ -381,7 +381,6 @@ FileConnList::prepareShmList()
       if (strstr(area.name, "ptraceSharedInfo") != NULL ||
           strstr(area.name, "dmtcpPidMap") != NULL ||
           strstr(area.name, "dmtcpSharedArea") != NULL ||
-          strstr(area.name, "dmtcpSharedArea") != NULL ||
           strstr(area.name, "synchronization-log") != NULL ||
           strstr(area.name, "infiniband") != NULL ||
           strstr(area.name, "synchronization-read-log") != NULL) {
@@ -391,6 +390,11 @@ FileConnList::prepareShmList()
       if (Util::isNscdArea(area) ||
           Util::isIBShmArea(area) ||
           Util::isSysVShmArea(area)) {
+        continue;
+      }
+
+      if (dmtcp_skip_memory_region_ckpting &&
+          dmtcp_skip_memory_region_ckpting(&area)) {
         continue;
       }
 
