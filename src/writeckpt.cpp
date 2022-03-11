@@ -78,6 +78,12 @@ static void writememoryarea(int fd, Area *area, int stack_was_seen);
 
 static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
 
+static void writeAreaHeader(int fd, Area *area) {
+  JASSERT(area->addr + area->size == area->endAddr) (area->addr)((int)area->size);
+  int rc = Util::writeAll(fd, area, sizeof(*area));
+  JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
+}
+
 /*****************************************************************************
  *
  *  This routine is called from time-to-time to write a new checkpoint file.
@@ -296,7 +302,7 @@ mtcp_writememoryareas(int fd)
       area.prot = PROT_READ | PROT_WRITE;
       area.properties |= DMTCP_ZERO_PAGE;
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
-      Util::writeAll(fd, &area, sizeof(area));
+      writeAreaHeader(fd, &area);
       continue;
     } else if (Util::isIBShmArea(area)) {
       // TODO: Don't checkpoint infiniband shared area for now.
@@ -444,9 +450,9 @@ mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
 
     a.properties = is_zero ? DMTCP_ZERO_PAGE : 0;
     a.size = size;
+    a.endAddr = a.addr + a.size;
 
-    rc = Util::writeAll(fd, &a, sizeof(a));
-    JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
+    writeAreaHeader(fd, &a);
     if (!is_zero) {
       rc = Util::writeAll(fd, a.addr, a.size);
       JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
@@ -526,12 +532,10 @@ writememoryarea(int fd, Area *area, int stack_was_seen)
 
     if (skipWritingTextSegments && (area->prot & PROT_EXEC)) {
       area->properties |= DMTCP_SKIP_WRITING_TEXT_SEGMENTS;
-      rc = Util::writeAll(fd, area, sizeof(*area));
-      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
+      writeAreaHeader(fd, area);
       JTRACE("Skipping over text segments") (area->name) ((void *)area->addr);
     } else {
-      rc = Util::writeAll(fd, area, sizeof(*area));
-      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
+      writeAreaHeader(fd, area);
       // NOTE: We cannot use lseek(SEEK_CUR) to detect how much data was
       // actually written here. This is because fd might be a pipe to gzip.
       if (!(area->flags & MAP_ANONYMOUS) &&
