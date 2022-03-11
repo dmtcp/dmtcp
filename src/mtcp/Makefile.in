@@ -88,7 +88,7 @@ ifneq ($(MANA_HELPER_DIR),)
   HEADERS += $(MANA_HELPER_DIR)/mtcp_split_process.h \
              $(MANA_HELPER_DIR)/ucontext_i.h
   OBJS += mtcp_restart_plugin.o mtcp_split_process.o getcontext.o
-  CFLAGS += -DMTCP_PLUGIN_H="<mtcp_restart_plugin.h>" -DMANA_USE_LH_FIXED_ADDRESS=1
+  CFLAGS += -DMTCP_PLUGIN_H="<mtcp_restart_plugin.h>"
   INCLUDES += -I$(MANA_HELPER_DIR)
 endif
 
