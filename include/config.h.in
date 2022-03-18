@@ -30,6 +30,9 @@
 /* Define to 1 if you have epoll_create1. */
 #undef HAS_EPOLL_CREATE1
 
+/* Define to 1 if you have FSGSBASE in kernel. */
+#undef HAS_FSGSBASE
+
 /* DT_GNU_HASH is defined (e.g., in elf.h). */
 #undef HAS_GNU_HASH
 

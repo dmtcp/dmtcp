@@ -515,7 +515,7 @@ dnl   libc.so.  So, AC_CHECK_FUNC is not sufficient.  Use AC_TRY_RUN.
 AC_MSG_CHECKING([if process_vm_readv/process_vm_writev (CMA) available])
 dnl AC_CHECK_FUNC(process_vm_readv, [has_cma='yes'], [has_cma='no'])
 AC_TRY_RUN([
-       #define _GNU_SOURCE 
+       #define _GNU_SOURCE
        #include <sys/types.h>
        #include <unistd.h>
        #include <sys/wait.h>
@@ -560,6 +560,53 @@ else
   AC_SUBST([HAS_CMA], [no])
 fi
 AC_MSG_RESULT([$has_cma])
+
+dnl The Linux FSGSBASE commits were pushed in with Linux 5.9.0.
+dnl This allows x86_64 assembly "rdfsbase" to be called in user space.
+dnl However, some earlier Linux kernels
+dnl have backported this feature (e.g., HPE Cray in Linux 5.3.18).
+dnl So, testing the kernel version does not suffice.  Here, we use AC_TRY_RUN.
+AC_MSG_CHECKING([if FSGSBASE for x86_64 (setting fs in user space) is available])
+dnl AC_CANONICAL_HOST
+dnl HOST_OS=""
+dnl AS_CASE([$host_cpu], [x86_64], [ HOST_OS="x86_64" ])
+has_fsgsbase='no'
+if test `uname -m` == x86_64; then
+  AC_TRY_RUN([
+             #include <sys/auxv.h>
+             #include <elf.h>
+
+             /* Will be eventually in asm/hwcap.h */
+             #ifndef HWCAP2_FSGSBASE
+             # define HWCAP2_FSGSBASE (1 << 1)
+             #endif
+
+             int main() {
+               unsigned val = getauxval(AT_HWCAP2);
+               if (val & HWCAP2_FSGSBASE) {
+                 return 0; /* success */
+               } else {
+                 return 1; /* failure */
+               }
+             }
+           /* If FSGSBASE is enabled, then the following user-space versions:
+            *   unsigned long int fsbase;
+            *   asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
+            *   asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
+            * can replace:
+            *   unsigned long int fsbase;
+            *   syscall(SYS_arch_prctl, ARCH_GET_FS, fsbase);
+            *   syscall(SYS_arch_prctl, ARCH_SET_FS, fsbase);
+            */
+       ], [has_fsgsbase='yes'], [has_fsgsbase='no'])
+fi
+if test "$has_fsgsbase" == "yes"; then
+  AC_DEFINE([HAS_FSGSBASE],[1],[Define to 1 if you have FSGSBASE in kernel.])
+  AC_SUBST([HAS_FSGSBASE], [yes])
+else
+  AC_SUBST([HAS_FSGSBASE], [no])
+fi
+AC_MSG_RESULT([$has_fsgsbase])
 
 AC_MSG_CHECKING([if epoll_create1 available])
 AC_CHECK_FUNC(epoll_create1, [has_epoll_create1='yes'], [has_epoll_create1='no'])
