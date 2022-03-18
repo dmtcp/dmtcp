@@ -7038,7 +7038,7 @@ else $as_nop
            #include <stdio.h>
            #include <elf.h>
            int main() {
-             printf("DT_GNU_HASH: %d\n", DT_GNU_HASH);
+             printf("(DT_GNU_HASH: %d) ", DT_GNU_HASH);
              return 0;
            }
 
@@ -7247,8 +7247,6 @@ else
   HAS_EPOLL_CREATE1=no
 
 fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $epoll_create1" >&5
-printf "%s\n" "$epoll_create1" >&6; }
 
 #check for -lreadline -lhistory v5; does not require curses
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for readline in -lreadline" >&5

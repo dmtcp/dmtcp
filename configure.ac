@@ -486,7 +486,7 @@ AC_TRY_RUN([
            #include <stdio.h>
            #include <elf.h>
            int main() {
-             printf("DT_GNU_HASH: %d\n", DT_GNU_HASH);
+             printf("(DT_GNU_HASH: %d) ", DT_GNU_HASH);
              return 0;
            }
            ], [has_gnu_hash='yes'], [has_gnu_hash='no'])
@@ -509,8 +509,8 @@ if test "$has_pr_set_ptracer" == "yes"; then
 fi
 AC_MSG_RESULT([$has_pr_set_ptracer])
 
-dnl CMA brought in with  Linux 3.2.0 and glibc 2.15
-dnl Around Feb., 2018, docker forbids process_vm_readv even though it's in
+dnl CMA (Cross Memory Attach) brought in with  Linux 3.2.0 and glibc 2.15
+dnl Around Feb., 2018, Docker forbids process_vm_readv even though it's in
 dnl   libc.so.  So, AC_CHECK_FUNC is not sufficient.  Use AC_TRY_RUN.
 AC_MSG_CHECKING([if process_vm_readv/process_vm_writev (CMA) available])
 dnl AC_CHECK_FUNC(process_vm_readv, [has_cma='yes'], [has_cma='no'])
@@ -616,7 +616,6 @@ if test "$has_epoll_create1" == "yes"; then
 else
   AC_SUBST([HAS_EPOLL_CREATE1], [no])
 fi
-AC_MSG_RESULT([$epoll_create1])
 
 #check for -lreadline -lhistory v5; does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])
