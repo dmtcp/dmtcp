@@ -688,6 +688,7 @@ HAS_PYTHON3
 HAS_PYTHON
 HAS_PS
 HAS_EPOLL_CREATE1
+HAS_FSGSBASE
 HAS_CMA
 WSL
 AARCH64_HOST
@@ -7171,6 +7172,60 @@ else
 fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $has_cma" >&5
 printf "%s\n" "$has_cma" >&6; }
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if FSGSBASE for x86_64 (setting fs in user space) is available" >&5
+$as_echo_n "checking if FSGSBASE for x86_64 (setting fs in user space) is available... " >&6; }
+has_fsgsbase='no'
+if test `uname -m` == x86_64; then
+  if test "$cross_compiling" = yes; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "cannot run test program while cross compiling
+See \`config.log' for more details" "$LINENO" 5; }
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+             #include <sys/auxv.h>
+             #include <elf.h>
+             
+             /* Will be eventually in asm/hwcap.h */
+             #ifndef HWCAP2_FSGSBASE
+             # define HWCAP2_FSGSBASE (1 << 1)
+             #endif
+             
+             int main() {
+               unsigned val = getauxval(AT_HWCAP2);
+               if (val & HWCAP2_FSGSBASE) {
+                 return 0; /* success */
+               } else {
+                 return 1; /* failure */
+               }
+             }
+
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  has_fsgsbase='yes'
+else
+  has_fsgsbase='no'
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+if test "$has_fsgsbase" == "yes"; then
+
+$as_echo "#define HAS_FSGSBASE 1" >>confdefs.h
+
+  HAS_FSGSBASE=yes
+
+else
+  HAS_FSGSBASE=no
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $has_fsgsbase" >&5
+$as_echo "$has_fsgsbase" >&6; }
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if epoll_create1 available" >&5
 printf %s "checking if epoll_create1 available... " >&6; }
