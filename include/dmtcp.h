@@ -168,13 +168,14 @@ typedef enum eDmtcpMutexType
 
 typedef struct
 {
-  DmtcpMutexType type;
-  int32_t owner;
+  uint32_t futex;
+  uint32_t owner;
   uint32_t count;
+  DmtcpMutexType type;
 } DmtcpMutex;
 
-#define DMTCP_MUTEX_INITIALIZER {DMTCP_MUTEX_NORMAL, 0, 0}
-#define DMTCP_MUTEX_INITIALIZER_RECURSIVE {DMTCP_MUTEX_RECURSIVE, 0, 0}
+#define DMTCP_MUTEX_INITIALIZER {0, 0, 0, DMTCP_MUTEX_NORMAL}
+#define DMTCP_MUTEX_INITIALIZER_RECURSIVE {0, 0, 0, DMTCP_MUTEX_RECURSIVE}
 
 typedef struct
 {
