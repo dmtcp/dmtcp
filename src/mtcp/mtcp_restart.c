@@ -85,6 +85,8 @@ static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end);
 static void restart_fast_path(void);
 static void restart_slow_path(void);
 static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2);
+static int doAreasOverlap2(char *addr, int length,
+               char *vdsoStart, char *vdsoEnd, char *vvarStart, char *vvarEnd);
 static int hasOverlappingMapping(VA addr, size_t size);
 static int mremap_move(void *dest, void *src, size_t size);
 static void remapMtcpRestartToReservedArea(RestoreInfo *rinfo);
@@ -769,61 +771,93 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     mtcp_abort();
   }
 
-  if (vdsoStart == rinfo->vdsoStart) {
-    // If the new vDSO is at the same address as the old one, do nothing.
-    MTCP_ASSERT(vvarStart == rinfo->vvarStart);
-    return;
+  // The functions mremap and mremap_move do not allow overlapping src and dest.
+  // So, we first researve an interim memory region for staging.
+  void *stagingAddr = NULL;
+  int stagingSize = 0;
+  void *stagingVdsoStart = NULL;
+  void *stagingVvarStart = NULL;
+  if (vdsoStart != NULL) {
+    stagingSize += vdsoEnd - vdsoStart;
   }
+  if (vvarStart != NULL) {
+    stagingSize += vvarEnd - vvarStart;
+  }
+  if (stagingSize > 0) {
+    // We mmap three times the memory that we need, so that if the current
+    // vdso/vvar and the original pre-checkpoint vdso/vvar partially overlap,
+    // then we are guaranteed that the _middle_ third of the this new mmap'ed
+    // region cannot overlap with any of the old or new vdso/vvar regions.
+    // Part 1:  Try three staging areas.  At least one of the three will not
+    //          overlap with either the new vdso or the new vvar.
+    void *stagingAddrA = NULL;
+    void *stagingAddrB = NULL;
+    void *stagingAddrC = NULL;
 
-  // Check for overlap between newer and older vDSO/vvar sections.
-  if (
-#if 0
-      doAreasOverlap(vdsoStart, vdsoEnd - vdsoStart,
-                     rinfo->vdsoStart, rinfo->vdsoEnd - rinfo->vdsoStart) ||
-      doAreasOverlap(vdsoStart, vdsoEnd - vdsoStart,
-                     rinfo->vvarStart, rinfo->vvarEnd - rinfo->vvarStart) ||
-      doAreasOverlap(vvarStart, vvarEnd - vvarStart,
-                     rinfo->vdsoStart, rinfo->vdsoEnd - rinfo->vdsoStart) ||
-      doAreasOverlap(vdsoStart, vdsoEnd - vdsoStart,
-                     rinfo->vvarStart, rinfo->vvarEnd - rinfo->vvarStart)
-#else
-      // We will move vvar first, if original vvar doesn't overlap with
-      // current vdso,  After that, it should be possible to move vdso to its
-      // original position.
-      doAreasOverlap(rinfo->vvarStart, vvarEnd - vvarStart,
-                     vdsoStart, vdsoEnd - vdsoStart)
-#endif
-     ) // FIXME:  We can temporarily move vvar or vdso to a third,
-       //         non-conflicting location, if a future kernel causes
-       //         this error condition to happen.
-  { MTCP_PRINTF("*** MTCP Error: Overlapping addresses for older and newer\n"
-                "                vDSO/vvar sections.\n"
-                "      vdsoStart: %p vdsoEnd: %p vvarStart: %p vvarEnd: %p\n"
-                "rinfo:vdsoStart: %p vdsoEnd: %p vvarStart: %p vvarEnd: %p\n"
-                "(SEE FIXME comment in source code for how to fix this.)\n",
-                vdsoStart,
-                vdsoEnd,
-                vvarStart,
-                vvarEnd,
-                rinfo->vdsoStart,
-                rinfo->vdsoEnd,
-                rinfo->vvarStart,
-                rinfo->vvarEnd);
-    mtcp_abort();
+    stagingAddrA = mtcp_sys_mmap(NULL, 3*stagingSize,
+        PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    stagingAddr = stagingAddrA;
+    void *rinfoVdsoEnd = rinfo->vdsoStart + (vdsoEnd - vdsoStart);
+    void *rinfoVvarEnd = rinfo->vvarStart + (vvarEnd - vvarStart);
+    if (doAreasOverlap2(stagingAddrA + stagingSize, stagingSize,
+                        rinfo->vdsoStart, rinfoVdsoEnd,
+                        rinfo->vvarStart, rinfoVvarEnd)) {
+      stagingAddrB = mtcp_sys_mmap(NULL, 3*stagingSize,
+          PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+      stagingAddr = stagingAddrB;
+    }
+    if (doAreasOverlap2(stagingAddrB + stagingSize, stagingSize,
+                        rinfo->vdsoStart, rinfoVdsoEnd,
+                        rinfo->vvarStart, rinfoVvarEnd)) {
+      stagingAddrC = mtcp_sys_mmap(NULL, 3*stagingSize, PROT_NONE,
+                                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+      stagingAddr = stagingAddrC;
+    }
+    if (stagingAddrA != NULL && stagingAddrA != stagingAddr) {
+      mtcp_sys_munmap(stagingAddrA, 3*stagingSize);
+    }
+    if (stagingAddrB != NULL && stagingAddrB != stagingAddr) {
+      mtcp_sys_munmap(stagingAddrB, 3*stagingSize);
+    }
+    MTCP_ASSERT( ! doAreasOverlap2(stagingAddr + stagingSize, stagingSize,
+                                   rinfo->vdsoStart, rinfoVdsoEnd,
+                                   rinfo->vvarStart, rinfoVvarEnd));
+
+    // Part 2:  stagingAddr now has no overlap.  It's safe to mremap.
+    // Unmap the first and last thirds of the staging area to avoid overlaps
+    // between the new vdso/vvar regions and the staging area.
+    stagingAddr = stagingAddr + stagingSize;
+    mtcp_sys_munmap(stagingAddr - stagingSize, stagingSize);
+    mtcp_sys_munmap(stagingAddr + stagingSize, stagingSize);
+
+    stagingVdsoStart = stagingVvarStart = stagingAddr;
+    if (vdsoStart != NULL) {
+      int rc = mremap_move(stagingVdsoStart, vdsoStart, vdsoEnd - vdsoStart);
+      if (rc == -1) {
+        MTCP_PRINTF("***Error: failed to remap vdsoStart to staging area.");
+      }
+      stagingVvarStart = (char *)stagingVdsoStart + (vdsoEnd - vdsoStart);
+    }
+    if (vvarStart != NULL) {
+      int rc = mremap_move(stagingVvarStart, vvarStart, vvarEnd - vvarStart);
+      if (rc == -1) {
+        MTCP_PRINTF("***Error: failed to remap vdsoStart to staging area.");
+      }
+    }
   }
 
   // Move vvar to original location, followed by same for vdso
   if (vvarStart != NULL) {
-    int rc = mremap_move(rinfo->vvarStart, vvarStart, vvarEnd - vvarStart);
+    int rc = mremap_move(rinfo->vvarStart, stagingVvarStart, vvarEnd - vvarStart);
     if (rc == -1) {
-      MTCP_PRINTF("***Error: failed to remap vvarStart to old value "
+      MTCP_PRINTF("***Error: failed to remap stagingVvarStart to old value "
                   "%p -> %p); errno: %d.\n",
-                  vvarStart, rinfo->vvarStart, mtcp_sys_errno);
+                  stagingVvarStart, rinfo->vvarStart, mtcp_sys_errno);
       mtcp_abort();
     }
 #if defined(__i386__)
     // FIXME: For clarity of code, move this i386-specific code toa function.
-    void *vvar = mmap_fixed_noreplace(vvarStart, vvarEnd - vvarStart,
+    void *vvar = mmap_fixed_noreplace(stagingVvarStart, vvarEnd - vvarStart,
                                       PROT_EXEC | PROT_WRITE | PROT_READ,
                                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
                                       -1, 0);
@@ -832,7 +866,7 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
                   mtcp_sys_errno);
       mtcp_abort();
     }
-    MTCP_ASSERT(vvar == vvarStart);
+    MTCP_ASSERT(vvar == stagingVvarStart);
     // On i386, only the first page is readable. Reading beyond that
     // results in a bus error.
     // Arguably, this is a bug in the kernel, since /proc/*/maps indicates
@@ -845,15 +879,15 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
   }
 
   if (vdsoStart != NULL) {
-    int rc = mremap_move(rinfo->vdsoStart, vdsoStart, vdsoEnd - vdsoStart);
+    int rc = mremap_move(rinfo->vdsoStart, stagingVdsoStart, vdsoEnd - vdsoStart);
     if (rc == -1) {
-      MTCP_PRINTF("***Error: failed to remap vdsoStart to old value "
+      MTCP_PRINTF("***Error: failed to remap stagingVdsoStart to old value "
                   "%p -> %p); errno: %d.\n",
-                  vdsoStart, rinfo->vdsoStart, mtcp_sys_errno);
+                  stagingVdsoStart, rinfo->vdsoStart, mtcp_sys_errno);
       mtcp_abort();
     }
 #if defined(__i386__)
-    // FIXME: For clarity of code, move this i386-specific code toa function.
+    // FIXME: For clarity of code, move this i386-specific code to a function.
     // In commit dec2c26c1eb13eb1c12edfdc9e8e811e4cc0e3c2 , the mremap
     // code above was added, and then caused a segfault on restart for
     // __i386__ in CentOS 7.  In that case ENABLE_VDSO_CHECK was not defined.
@@ -867,7 +901,7 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     // Since vdso will use randomized addresses (unlike the standard practice
     // for vsyscall), this implies that kernel calls on __x86__ can go through
     // randomized addresses, and so they need special treatment.
-    void *vdso = mmap_fixed_noreplace(vdsoStart, vdsoEnd - vdsoStart,
+    void *vdso = mmap_fixed_noreplace(statingVdsoStart, vdsoEnd - vdsoStart,
                                       PROT_EXEC | PROT_WRITE | PROT_READ,
                                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
                                       -1, 0);
@@ -884,9 +918,15 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
                   mtcp_sys_errno);
       mtcp_abort();
     }
-    MTCP_ASSERT(vdso == vdsoStart);
+    MTCP_ASSERT(vdso == stagingVdsoStart);
+    // FIXME:  Do we need this logic also for x86_64, etc.?
     mtcp_memcpy(vdsoStart, rinfo->vdsoStart, vdsoEnd - vdsoStart);
 #endif /* if defined(__i386__) */
+  }
+
+  if (stagingSize > 0) {
+    // We're done using this.  Release the remaining staging area.
+    mtcp_sys_munmap(stagingAddr, stagingSize);
   }
 }
 
@@ -1179,6 +1219,14 @@ doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2)
 
 NO_OPTIMIZE
 static int
+doAreasOverlap2(char *addr, int length, char *vdsoStart, char *vdsoEnd,
+                                        char *vvarStart, char *vvarEnd) {
+  return doAreasOverlap(addr, length, vdsoStart, vdsoEnd - vdsoStart) ||
+         doAreasOverlap(addr, length, vvarStart, vvarEnd - vvarStart);
+}
+
+NO_OPTIMIZE
+static int
 hasOverlappingMapping(VA addr, size_t size)
 {
   int mtcp_sys_errno;
@@ -1204,6 +1252,7 @@ hasOverlappingMapping(VA addr, size_t size)
 /* This uses MREMAP_FIXED | MREMAP_MAYMOVE to move a memory segment.
  * Note that we need 'MREMAP_MAYMOVE'.  With only 'MREMAP_FIXED', the
  * kernel can overwrite an existing memory region.
+ * Note that 'mremap' and hence 'mremap_move' do not allow overlapping src and dest.
  */
 NO_OPTIMIZE
 static int
@@ -1212,13 +1261,12 @@ mremap_move(void *dest, void *src, size_t size) {
   if (dest == src) {
     return 0; // Success
   }
-  void *rc = mtcp_sys_mremap(src, size, size, MREMAP_FIXED | MREMAP_MAYMOVE,
-                               dest);
+  void *rc = mtcp_sys_mremap(src, size, size, MREMAP_FIXED | MREMAP_MAYMOVE, dest);
   if (rc == dest) {
     return 0; // Success
   } else if (rc == MAP_FAILED) {
-    MTCP_PRINTF("***Error: failed to mremap; errno: %d.\n",
-                mtcp_sys_errno);
+    MTCP_PRINTF("***Error: failed to mremap; src->dest: %p->%p, size: 0x%x;"
+                " errno: %d.\n", src, dest, size, mtcp_sys_errno);
     return -1; // Error
   } else {
     // Else 'MREMAP_MAYMOVE' forced the remap to the wrong location.  So, the
