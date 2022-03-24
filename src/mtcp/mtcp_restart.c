@@ -901,7 +901,7 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     // Since vdso will use randomized addresses (unlike the standard practice
     // for vsyscall), this implies that kernel calls on __x86__ can go through
     // randomized addresses, and so they need special treatment.
-    void *vdso = mmap_fixed_noreplace(statingVdsoStart, vdsoEnd - vdsoStart,
+    void *vdso = mmap_fixed_noreplace(stagingVdsoStart, vdsoEnd - vdsoStart,
                                       PROT_EXEC | PROT_WRITE | PROT_READ,
                                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
                                       -1, 0);
