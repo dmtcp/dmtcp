@@ -499,7 +499,7 @@ DmtcpCoordinator::releaseBarrier(const string &barrier)
     broadcastMessage(DMT_BARRIER_RELEASED,
                      prevBarrier.length() + 1,
                      prevBarrier.c_str());
-    if (status.minimumState == WorkerState::RUNNING) {
+    if (status.minimumState == WorkerState::CHECKPOINTED) {
       JNOTE("Checkpoint complete; all workers running");
       resetCkptTimer();
     }
