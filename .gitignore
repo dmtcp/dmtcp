@@ -53,3 +53,8 @@ test/testconfig.py
 
 ckpt_*.dmtcp
 dmtcp_restart_script*
+
+am--include-marker
+\#
+*.tmp
+.vscode
