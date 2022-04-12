@@ -25,6 +25,8 @@
 # define __USE_GNU_NOT_SET
 # define __USE_GNU
 #endif // ifndef __USE_GNU
+#include <elf.h>  /* for NEXT_FNC() */
+#include <link.h>  /* for NEXT_FNC() */
 #include <dlfcn.h>  /* for NEXT_FNC() */
 #ifdef __USE_GNU_NOT_SET
 # undef __USE_GNU_NOT_SET
@@ -570,9 +572,41 @@ void dmtcp_plugin_enable_ckpt(void);
 
 void dmtcp_add_to_ckpt_header(const char *key, const char *value);
 
+typedef struct dt_tag {
+  char *base_addr;   /* Base address shared object is loaded at. */
+
+  // ElfW(Sym) *dynsym; // On disk, dynsym would be dynamic symbols only
+  ElfW(Sym) * symtab;  // Same as dynsym, for in-memory symbol table.
+  // ElfW(Word) n_symtab;
+  ElfW(Half) * versym;
+
+  /* elf.h lies.  DT_VERDEF is offset from base_addr, not addr. */
+  ElfW(Verdef) * verdef;
+  ElfW(Word) verdefnum;
+
+  // ElfW(Word) first_ext_def;
+  char *strtab;
+  Elf32_Word *hash;
+  Elf32_Word *gnu_hash;
+} dt_tag;
+
 void *dmtcp_dlsym(void *handle, const char *symbol) __attribute((weak));
 void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
 void *dmtcp_dlsym_lib(const char *libname, const char *symbol);
+void *
+dlsym_default_internal_library_handler(void *handle,
+                                       const char *symbol,
+                                       const char *version,
+                                       dt_tag *tags_p,
+                                       Elf32_Word *default_symbol_index_p);
+void *
+dlsym_default_internal_flag_handler(void *handle,
+                                    const char *libname,
+                                    const char *symbol,
+                                    const char *version,
+                                    void *addr,
+                                    dt_tag *tags_p,
+                                    Elf32_Word *default_symbol_index_p);
 
 /*
  * Returns the offset of the given function within the given shared library
