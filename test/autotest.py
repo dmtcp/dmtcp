@@ -17,6 +17,10 @@ import pwd
 import stat
 import re
 
+disabled_tests = [
+  "vfork1",
+  "vfork2"
+]
 
 # FIX for bad path for Java:  Travis prepended
 #     "/usr/bin:/opt/pyenv/libexec:/opt/pyenv/plugins/python-build/bin:/"
@@ -645,8 +649,12 @@ def runTestRaw(name, numProcs, cmds):
     sys.stdout.flush()
     printFixed(name,15)
 
+    if name in disabled_tests:
+      print("Disabled")
+      return
+
     if not shouldRunTest(name):
-      print("SKIPPED")
+      print("Skipped")
       return
 
     stats[1]+=1
