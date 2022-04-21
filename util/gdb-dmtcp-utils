@@ -255,8 +255,8 @@ def getpid():
 def usingCore():
   # In Linux 4.12, gdb 8.3, our getpid()==1,
   #   /proc/1/maps has read permission, but "Permission denied"
-  return (not os.path.exists("/proc/" + str(getpid()) + "/maps" or
-          getpid() != 1))
+  return (not os.path.exists("/proc/" + str(getpid()) + "/maps") or
+          getpid() == 1)
 
 class Procmaps(gdb.Command):
   """procmaps (same as:  shell cat /proc/INFERIOR_PID/maps)"""
