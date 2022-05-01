@@ -356,7 +356,7 @@ FileConnection::refill(bool isRestart)
           // request with MPI_ANY_SOURCE is actually received. In order to deterministically
           // replay the uncompleted requests from the same source at restart, the requests
           // are also saved after checkpoint. The log file size at restart is larger than
-          // the its size saved in checkpoint image. Just give a warning here and continue. 
+          // its size saved in the checkpoint image. Just give a warning here and continue. 
           JWARNING(false) (_path) (_st_size) (statbuf.st_size)
           .Text("Setting saved size to the current file size");
 	  _st_size = statbuf.st_size;
