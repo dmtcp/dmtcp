@@ -351,6 +351,12 @@ FileConnection::refill(bool isRestart)
         if (statbuf.st_size > _st_size &&
             ((_fcntlFlags & O_WRONLY) || (_fcntlFlags & O_RDWR))) {
           errno = 0;
+          // MANA deterministic p2p saves the p2p requests in a log file.
+          // The log file is used to keep track the source rank from which the
+          // request with MPI_ANY_SOURCE is actually received. In order to deterministically
+          // replay the uncompleted requests from the same source at restart, the requests
+          // are also saved after checkpoint. The log file size at restart is larger than
+          // the its size saved in checkpoint image. Just give a warning here and continue. 
           JWARNING(false) (_path) (_st_size) (statbuf.st_size)
           .Text("Setting saved size to the current file size");
 	  _st_size = statbuf.st_size;
