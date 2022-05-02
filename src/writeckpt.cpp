@@ -79,7 +79,8 @@ static void writememoryarea(int fd, Area *area, int stack_was_seen);
 static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
 
 static void writeAreaHeader(int fd, Area *area) {
-  JASSERT(area->addr + area->size == area->endAddr) (area->addr)((int)area->size);
+  JASSERT(area->addr + area->size == area->endAddr)
+    ((void*)area->addr)((int)area->size);
   int rc = Util::writeAll(fd, area, sizeof(*area));
   JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
 }
@@ -240,14 +241,14 @@ mtcp_writememoryareas(int fd)
   if (dmtcp_skip_memory_region_ckpting &&
       dmtcp_skip_memory_region_ckpting(&area)) {
     JTRACE("skipping over memory section as suggested by plugin")
-      (area.name) (area.addr) (area.size);
+      (area.name) ((void*)area.addr) (area.size);
     continue;
   } else if (0 == strcmp(area.name, "[vsyscall]") ||
              0 == strcmp(area.name, "[vectors]") ||
              0 == strcmp(area.name, "[vvar]")) {
     // NOTE: We can't trust kernel's "[vdso]" label here.  See below.
     JTRACE("skipping over memory special section")
-      (area.name) (area.addr) (area.size);
+      (area.name) ((void*)area.addr) (area.size);
     continue;
   } else if ((uint64_t) area.addr == ProcessInfo::instance().vdsoStart()) {
     //  vDSO issue:
@@ -275,7 +276,8 @@ mtcp_writememoryareas(int fd)
     //  user data.  This was observed to happen in RHEL 6.6.  The solution is
     //  to trust DMTCP for the vdso location (as in the if condition above),
     //  and not to trust the kernel's "[vdso]" label.
-    JTRACE("skipping vDSO special section") (area.name) (area.addr) (area.size);
+    JTRACE("skipping vDSO special section")
+      (area.name) ((void*)area.addr) (area.size);
     continue;
   } else if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
              Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
@@ -432,7 +434,7 @@ mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
   if ((orig_area->prot & PROT_READ) == 0) {
     JASSERT(mprotect(orig_area->addr, orig_area->size,
                      orig_area->prot | PROT_READ) == 0)
-      (JASSERT_ERRNO) (orig_area->size) (orig_area->addr)
+      (JASSERT_ERRNO) (orig_area->size) ((void*)orig_area->addr)
     .Text("error adding PROT_READ to mem region");
   }
 
@@ -470,7 +472,7 @@ mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
   */
   if ((orig_area->prot & PROT_READ) == 0) {
     JASSERT(mprotect(orig_area->addr, orig_area->size, orig_area->prot) == 0)
-      (JASSERT_ERRNO) (orig_area->addr) (orig_area->size)
+      (JASSERT_ERRNO) ((void*)orig_area->addr) (orig_area->size)
     .Text("error removing PROT_READ from mem region.");
   }
 }
