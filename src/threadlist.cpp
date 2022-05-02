@@ -47,8 +47,6 @@ using namespace dmtcp;
 // Globals
 ATOMIC_SHARED_GLOBAL bool restoreInProgress = false;
 Thread *motherofall = NULL;
-void **motherofall_saved_sp = NULL;
-ThreadTLSInfo *motherofall_tlsInfo = NULL;
 pid_t motherpid = 0;
 sigset_t sigpending_global;
 Thread *activeThreads = NULL;
@@ -63,7 +61,8 @@ static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
 static DmtcpRWLock threadResumeLock;
 
 __thread Thread *curThread = NULL;
-static Thread *ckptThread = NULL;
+Thread *ckptThread = NULL;
+
 static int numUserThreads = 0;
 static bool originalstartup;
 static int restartPauseLevel = 0;
@@ -158,6 +157,7 @@ ThreadList::resetOnFork()
   }
   unlk_threads();
   init();
+  createCkptThread();
 }
 
 /*****************************************************************************
@@ -183,14 +183,19 @@ ThreadList::init()
   // CONTEXT:  initThread() resets curThread only if it's non-NULL.
   // ... -> initializeMtcpEngine() -> ThreadList::init() -> initThread()
   // See addToActiveList() for more information.
-  curThread = NULL;
+  curThread = motherofall = NULL;
 
   /* Set up caller as one of our threads so we can work on it */
   motherofall = ThreadList::allocNewThread();
-  motherofall_saved_sp = &motherofall->saved_sp;
-  motherofall_tlsInfo = &motherofall->tlsInfo;
   initThread(motherofall);
+}
 
+/*****************************************************************************
+ *
+ *****************************************************************************/
+void
+ThreadList::createCkptThread()
+{
   sem_init(&sem_launch, 0, 0);
   sem_init(&semNotifyCkptThread, 0, 0);
   sem_init(&semWaitForCkptThreadSignal, 0, 0);
@@ -228,6 +233,7 @@ ThreadList::getNewThread(void *(*fn)(void *), void *arg)
   th->ctid = NULL;
   th->next = NULL;
   th->state = ST_RUNNING;
+  th->wrapperLockCount = 0;
   th->procname[0] = '\0';
   return th;
 }
@@ -735,7 +741,6 @@ ThreadList::postRestartWork(double readTime)
 
   sigfillset(&tmp);
   for (thread = activeThreads; thread != NULL; thread = thread->next) {
-    struct MtcpRestartThreadArg mtcpRestartThreadArg;
     sigandset(&sigpending_global, &tmp, &(thread->sigpending));
     tmp = sigpending_global;
 

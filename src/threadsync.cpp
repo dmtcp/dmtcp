@@ -26,6 +26,7 @@
 
 #include "jassert.h"
 #include "syscallwrappers.h"
+#include "threadinfo.h"
 #include "threadsync.h"
 #include "workerstate.h"
 
@@ -62,32 +63,11 @@ using namespace dmtcp;
 
 // NOTE: PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP is not POSIX.
 static DmtcpRWLock _wrapperExecutionLock;
-static DmtcpRWLock _threadCreationLock;
-
-static bool _wrapperExecutionLockAcquiredByCkptThread = false;
-static bool _threadCreationLockAcquiredByCkptThread = false;
-
-static DmtcpMutex theCkptCanStart = DMTCP_MUTEX_INITIALIZER_RECURSIVE;
-static int ckptCanStartCount = 0;
 
 static DmtcpMutex libdlLock = DMTCP_MUTEX_INITIALIZER;
 static pid_t libdlLockOwner = 0;
 
-static DmtcpMutex uninitializedThreadCountLock = DMTCP_MUTEX_INITIALIZER;
-static int _uninitializedThreadCount = 0;
-static bool _checkpointThreadInitialized = false;
-
-static DmtcpMutex preResumeThreadCountLock = DMTCP_MUTEX_INITIALIZER;
-
 static DmtcpMutex presuspendEventHookLock = DMTCP_MUTEX_INITIALIZER;
-
-static __thread int _wrapperExecutionLockLockCount = 0;
-static __thread int _threadCreationLockLockCount = 0;
-#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-static __thread bool _threadPerformingDlopenDlsym = false;
-#endif // if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-static __thread bool _isOkToGrabWrapperExecutionLock = true;
-static __thread bool _hasThreadFinishedInitialization = false;
 
 
 /* The following two functions dmtcp_libdlLock{Lock,Unlock} are used by dlopen
@@ -106,31 +86,9 @@ dmtcp_libdlLockUnlock()
 }
 
 void
-ThreadSync::initThread()
-{
-  // We initialize these thread-local variables here. If not done here,
-  // there can be a race between checkpoint processing and this
-  // thread trying to initialize some thread-local variable.
-  // Here is a possible calltrace:
-  // pthread_start -> threadFinishedInitialization -> stopthisthread ->
-  // callbackHoldsAnyLocks -> JASSERT().
-  _wrapperExecutionLockLockCount = 0;
-  _threadCreationLockLockCount = 0;
-#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-  _threadPerformingDlopenDlsym = false;
-#endif // if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-  _isOkToGrabWrapperExecutionLock = true;
-  _hasThreadFinishedInitialization = false;
-}
-
-void
 ThreadSync::initMotherOfAll()
 {
   DmtcpRWLockInit(&_wrapperExecutionLock);
-  DmtcpRWLockInit(&_threadCreationLock);
-
-  initThread();
-  _hasThreadFinishedInitialization = true;
 }
 
 void
@@ -142,25 +100,12 @@ ThreadSync::acquireLocks()
    * these locks to prevent future deadlocks due to rank violation.
    */
 
-  JTRACE("Waiting for lock(&theCkptCanStart)");
-  JASSERT(DmtcpMutexLock(&theCkptCanStart) == 0);
-
   JTRACE("Waiting for libdlLock");
   JASSERT(DmtcpMutexLock(&libdlLock) == 0);
 
-  JTRACE("Waiting for threads creation lock");
-  JASSERT(DmtcpRWLockWrLock(&_threadCreationLock) == 0);
-  _threadCreationLockAcquiredByCkptThread = true;
-
   JTRACE("Waiting for other threads to exit DMTCP-Wrappers");
   JASSERT(DmtcpRWLockWrLock(&_wrapperExecutionLock) == 0);
-  _wrapperExecutionLockAcquiredByCkptThread = true;
 
-  JTRACE("Waiting for newly created threads to finish initialization")
-    (_uninitializedThreadCount);
-  waitForThreadsToFinishInitialization();
-
-  unsetOkToGrabLock();
   JTRACE("Done acquiring all locks");
 }
 
@@ -171,139 +116,22 @@ ThreadSync::releaseLocks()
 
   JTRACE("Releasing ThreadSync locks");
   JASSERT(DmtcpRWLockUnlock(&_wrapperExecutionLock) == 0);
-  _wrapperExecutionLockAcquiredByCkptThread = false;
-  JASSERT(DmtcpRWLockUnlock(&_threadCreationLock) == 0);
-  _threadCreationLockAcquiredByCkptThread = false;
   JASSERT(DmtcpMutexUnlock(&libdlLock) == 0);
-  JASSERT(DmtcpMutexUnlock(&theCkptCanStart) == 0);
-
-  setOkToGrabLock();
 }
 
 void
 ThreadSync::resetLocks(bool resetPresuspendEventHookLock)
 {
   DmtcpRWLockInit(&_wrapperExecutionLock);
-  DmtcpRWLockInit(&_threadCreationLock);
+  curThread->wrapperLockCount = 0;
 
-  _wrapperExecutionLockLockCount = 0;
-  _threadCreationLockLockCount = 0;
-#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-  _threadPerformingDlopenDlsym = false;
-#endif // if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-  _isOkToGrabWrapperExecutionLock = true;
-  _hasThreadFinishedInitialization = true;
-
-  DmtcpMutexInit(&uninitializedThreadCountLock, DMTCP_MUTEX_NORMAL);
-  DmtcpMutexInit(&preResumeThreadCountLock, DMTCP_MUTEX_NORMAL);
   DmtcpMutexInit(&libdlLock, DMTCP_MUTEX_NORMAL);
-  DmtcpMutexInit(&theCkptCanStart, DMTCP_MUTEX_NORMAL);
 
   libdlLockOwner = 0;
-
-  _checkpointThreadInitialized = false;
-  _wrapperExecutionLockAcquiredByCkptThread = false;
-  _threadCreationLockAcquiredByCkptThread = false;
 
   if (resetPresuspendEventHookLock) {
     DmtcpMutexInit(&presuspendEventHookLock, DMTCP_MUTEX_NORMAL);
   }
-}
-
-bool
-ThreadSync::isOkToGrabLock()
-{
-  return _isOkToGrabWrapperExecutionLock;
-}
-
-void
-ThreadSync::setOkToGrabLock()
-{
-  _isOkToGrabWrapperExecutionLock = true;
-}
-
-void
-ThreadSync::unsetOkToGrabLock()
-{
-  _isOkToGrabWrapperExecutionLock = false;
-}
-
-#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-extern "C" LIB_PRIVATE
-void
-dmtcp_setThreadPerformingDlopenDlsym()
-{
-  ThreadSync::setThreadPerformingDlopenDlsym();
-}
-
-extern "C" LIB_PRIVATE
-void
-dmtcp_unsetThreadPerformingDlopenDlsym()
-{
-  ThreadSync::unsetThreadPerformingDlopenDlsym();
-}
-
-bool
-ThreadSync::isThreadPerformingDlopenDlsym()
-{
-  return _threadPerformingDlopenDlsym;
-}
-
-void
-ThreadSync::setThreadPerformingDlopenDlsym()
-{
-  _threadPerformingDlopenDlsym = true;
-}
-
-void
-ThreadSync::unsetThreadPerformingDlopenDlsym()
-{
-  _threadPerformingDlopenDlsym = false;
-}
-#endif // if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-
-void
-ThreadSync::delayCheckpointsLock()
-{
-  if (ckptCanStartCount++ == 0) {
-    JASSERT(DmtcpMutexLock(&theCkptCanStart) == 0);
-  }
-}
-
-void
-ThreadSync::delayCheckpointsUnlock()
-{
-  if (--ckptCanStartCount == 0) {
-    JASSERT(DmtcpMutexUnlock(&theCkptCanStart) == 0);
-  }
-}
-
-static void
-incrementWrapperExecutionLockLockCount()
-{
-  _wrapperExecutionLockLockCount++;
-}
-
-static void
-decrementWrapperExecutionLockLockCount()
-{
-  if (_wrapperExecutionLockLockCount <= 0) {
-    JASSERT(false) (_wrapperExecutionLockLockCount)
-    .Text("wrapper-execution lock count can't be negative");
-  }
-  _wrapperExecutionLockLockCount--;
-}
-
-static void
-incrementThreadCreationLockLockCount()
-{
-  _threadCreationLockLockCount++;
-}
-
-static void
-decrementThreadCreationLockLockCount()
-{
-  _threadCreationLockLockCount--;
 }
 
 bool
@@ -337,47 +165,62 @@ ThreadSync::libdlLockUnlock()
   errno = saved_errno;
 }
 
-// XXX: Handle deadlock error code
-// NOTE: Don't do any fancy stuff in this wrapper which can cause the process
-// to go into DEADLOCK
 bool
 ThreadSync::wrapperExecutionLockLock()
 {
   int saved_errno = errno;
   bool lockAcquired = false;
 
-  while (1) {
-    if ((WorkerState::currentState() == WorkerState::RUNNING ||
-         WorkerState::currentState() == WorkerState::PRESUSPEND) &&
-#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-        isThreadPerformingDlopenDlsym() == false &&
-#endif // if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-        isOkToGrabLock() == true &&
-        _wrapperExecutionLockLockCount == 0) {
-      incrementWrapperExecutionLockLockCount();
-      int retVal = DmtcpRWLockTryRdLock(&_wrapperExecutionLock);
-      if (retVal != 0 && retVal == EBUSY) {
-        decrementWrapperExecutionLockLockCount();
-        struct timespec sleepTime = { 0, 100 * 1000 * 1000 };
-        nanosleep(&sleepTime, NULL);
-        continue;
-      }
-      if (retVal != 0 && retVal != EDEADLK) {
+  if (curThread == nullptr) {
+    return lockAcquired;
+  }
+
+  if ((WorkerState::currentState() == WorkerState::RUNNING ||
+       WorkerState::currentState() == WorkerState::PRESUSPEND)) {
+    if (curThread->wrapperLockCount == 0) {
+      // If we don't have a lock, acquire it now.
+      if (DmtcpRWLockRdLock(&_wrapperExecutionLock) != 0) {
         fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
                 errno, __FILE__, __LINE__, __PRETTY_FUNCTION__);
         _exit(DMTCP_FAIL_RC);
       }
-
-      // retVal should always be 0 (success) here.
-      lockAcquired = retVal == 0 ? true : false;
-      if (!lockAcquired) {
-        decrementWrapperExecutionLockLockCount();
-      }
     }
-    break;
+    curThread->wrapperLockCount++;
+    lockAcquired = true;
   }
+
   errno = saved_errno;
   return lockAcquired;
+}
+
+void
+ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
+{
+  JASSERT(thread != nullptr);
+  JASSERT(thread->wrapperLockCount == 0);
+
+  if (DmtcpRWLockRdLockIgnoreQueuedWriter(&_wrapperExecutionLock) != 0) {
+    fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
+            errno, __FILE__, __LINE__, __PRETTY_FUNCTION__);
+    _exit(DMTCP_FAIL_RC);
+  }
+
+  thread->wrapperLockCount++;
+}
+
+void
+ThreadSync::wrapperExecutionLockUnlockForNewThread(Thread *thread)
+{
+  JASSERT(thread != nullptr);
+  JASSERT(thread->wrapperLockCount == 1);
+
+  if (DmtcpRWLockUnlock(&_wrapperExecutionLock) != 0) {
+    fprintf(stderr, "ERROR %d at %s:%d %s: Failed to release lock\n",
+            errno, __FILE__, __LINE__, __PRETTY_FUNCTION__);
+    _exit(DMTCP_FAIL_RC);
+  }
+
+  thread->wrapperLockCount = 0;
 }
 
 /*
@@ -415,28 +258,24 @@ ThreadSync::wrapperExecutionLockLock()
  *    It is wrapped by the epoll_wait wrapper in IPC plugin, which then makes
  *    repeated calls to _real_epoll_wait with smaller timeout.
  */
-bool
+void
 ThreadSync::wrapperExecutionLockLockExcl()
 {
   int saved_errno = errno;
-  bool lockAcquired = false;
+
+  JASSERT(curThread != nullptr);
 
   if (WorkerState::currentState() == WorkerState::RUNNING ||
       WorkerState::currentState() == WorkerState::PRESUSPEND) {
-    incrementWrapperExecutionLockLockCount();
-    int retVal = DmtcpRWLockWrLock(&_wrapperExecutionLock);
-    if (retVal != 0 && retVal != EDEADLK) {
+    if (DmtcpRWLockWrLock(&_wrapperExecutionLock) != 0) {
       fprintf(stderr, "ERROR %s:%d %s: Failed to acquire lock\n",
               __FILE__, __LINE__, __PRETTY_FUNCTION__);
       _exit(DMTCP_FAIL_RC);
     }
-    lockAcquired = retVal == 0 ? true : false;
-    if (!lockAcquired) {
-      decrementWrapperExecutionLockLockCount();
-    }
+    curThread->wrapperLockCount++;
   }
   errno = saved_errno;
-  return lockAcquired;
+  return;
 }
 
 // NOTE: Don't do any fancy stuff in this wrapper which can cause the process
@@ -446,78 +285,20 @@ ThreadSync::wrapperExecutionLockUnlock()
 {
   int saved_errno = errno;
 
-  if (DmtcpRWLockUnlock(&_wrapperExecutionLock) != 0) {
-    fprintf(stderr, "ERROR %s:%d %s: Failed to release lock\n",
+  if (curThread == nullptr) {
+    return;
+  }
+
+  JASSERT(curThread->wrapperLockCount != 0);
+  curThread->wrapperLockCount -= 1;
+
+  if (curThread->wrapperLockCount == 0 &&
+      DmtcpRWLockUnlock(&_wrapperExecutionLock) != 0) {
+    fprintf(stderr, "ERROR %s:%d %s: Failed to release lock.\n",
             __FILE__, __LINE__, __PRETTY_FUNCTION__);
     _exit(DMTCP_FAIL_RC);
-  } else {
-    decrementWrapperExecutionLockLockCount();
   }
-  errno = saved_errno;
-}
 
-bool
-ThreadSync::threadCreationLockLock()
-{
-  int saved_errno = errno;
-  bool lockAcquired = false;
-
-  while (1) {
-    if (WorkerState::currentState() == WorkerState::RUNNING ||
-        WorkerState::currentState() == WorkerState::PRESUSPEND) {
-      incrementThreadCreationLockLockCount();
-      int retVal = DmtcpRWLockTryRdLock(&_threadCreationLock);
-      if (retVal != 1 && retVal == EBUSY) {
-        decrementThreadCreationLockLockCount();
-        struct timespec sleepTime = { 0, 100 * 1000 * 1000 };
-        nanosleep(&sleepTime, NULL);
-        continue;
-      }
-      if (retVal != 0 && retVal != EDEADLK) {
-        fprintf(stderr, "ERROR %s:%d %s: Failed to acquire lock\n",
-                __FILE__, __LINE__, __PRETTY_FUNCTION__);
-        _exit(DMTCP_FAIL_RC);
-      }
-
-      // retVal should always be 0 (success) here.
-      lockAcquired = retVal == 0 ? true : false;
-
-      // If for some reason, the lock was not acquired, decrement the count
-      // that we incremented at the start of this block.
-      if (!lockAcquired) {
-        decrementThreadCreationLockLockCount();
-      }
-    }
-    break;
-  }
-  errno = saved_errno;
-  return lockAcquired;
-}
-
-void
-ThreadSync::threadCreationLockUnlock()
-{
-  int saved_errno = errno;
-
-  if (WorkerState::currentState() != WorkerState::RUNNING &&
-      WorkerState::currentState() != WorkerState::PRESUSPEND) {
-    fprintf(stderr,
-            "DMTCP INTERNAL ERROR: %s:%d %s:\n"
-            "       This process is not in RUNNING state and yet this thread\n"
-            "       managed to acquire the threadCreationLock.\n"
-            "       This should not be happening, something is wrong.",
-            __FILE__,
-            __LINE__,
-            __PRETTY_FUNCTION__);
-    _exit(DMTCP_FAIL_RC);
-  }
-  if (DmtcpRWLockUnlock(&_threadCreationLock) != 0) {
-    fprintf(stderr, "ERROR %s:%d %s: Failed to release lock\n",
-            __FILE__, __LINE__, __PRETTY_FUNCTION__);
-    _exit(DMTCP_FAIL_RC);
-  } else {
-    decrementThreadCreationLockLockCount();
-  }
   errno = saved_errno;
 }
 
@@ -526,73 +307,6 @@ ThreadSync::threadCreationLockUnlock()
 // or delete "__thread" (but if user code calls these routines from multiple
 // threads, it will not be thread-safe).
 // In GCC 4.3 and later, g++ supports -std=c++0x and -std=g++0x.
-extern "C"
-int
-dmtcp_plugin_disable_ckpt()
-{
-  return ThreadSync::wrapperExecutionLockLock();
-}
-
-extern "C"
-void
-dmtcp_plugin_enable_ckpt()
-{
-  ThreadSync::wrapperExecutionLockUnlock();
-}
-
-void
-ThreadSync::waitForThreadsToFinishInitialization()
-{
-  while (_uninitializedThreadCount != 0) {
-    struct timespec sleepTime = { 0, 10 * 1000 * 1000 };
-    JTRACE("sleeping")(sleepTime.tv_nsec);
-    nanosleep(&sleepTime, NULL);
-  }
-}
-
-void
-ThreadSync::incrementUninitializedThreadCount()
-{
-  int saved_errno = errno;
-
-  if (WorkerState::currentState() == WorkerState::RUNNING ||
-      WorkerState::currentState() == WorkerState::PRESUSPEND) {
-    JASSERT(DmtcpMutexLock(&uninitializedThreadCountLock) == 0);
-    _uninitializedThreadCount++;
-
-    // JTRACE(":") (_uninitializedThreadCount);
-    JASSERT(DmtcpMutexUnlock(&uninitializedThreadCountLock) == 0);
-  }
-  errno = saved_errno;
-}
-
-void
-ThreadSync::decrementUninitializedThreadCount()
-{
-  int saved_errno = errno;
-
-  if (WorkerState::currentState() == WorkerState::RUNNING ||
-      WorkerState::currentState() == WorkerState::PRESUSPEND) {
-    JASSERT(DmtcpMutexLock(&uninitializedThreadCountLock) == 0);
-    JASSERT(_uninitializedThreadCount > 0) (_uninitializedThreadCount);
-    _uninitializedThreadCount--;
-
-    // JTRACE(":") (_uninitializedThreadCount);
-    JASSERT(DmtcpMutexUnlock(&uninitializedThreadCountLock) == 0);
-  }
-  errno = saved_errno;
-}
-
-void
-ThreadSync::threadFinishedInitialization()
-{
-  // The following line is to make sure the thread-local data is initialized
-  // before any wrapper call is made.
-  _hasThreadFinishedInitialization = false;
-  decrementUninitializedThreadCount();
-  _hasThreadFinishedInitialization = true;
-}
-
 void
 ThreadSync::presuspendEventHookLockLock()
 {

@@ -24,75 +24,29 @@
 
 #include "dmtcpworker.h"
 
-#define WRAPPER_EXECUTION_DISABLE_CKPT()           \
-  /*JTRACE("Acquiring wrapperExecutionLock");*/    \
-  bool __wrapperExecutionLockAcquired =            \
-    dmtcp::ThreadSync::wrapperExecutionLockLock(); \
-  if (__wrapperExecutionLockAcquired) {            \
-    /*JTRACE("Acquired wrapperExecutionLock"); */  \
-  }
-
-#define WRAPPER_EXECUTION_ENABLE_CKPT()              \
-  if (__wrapperExecutionLockAcquired) {              \
-    /*JTRACE("Releasing wrapperExecutionLock"); */   \
-    dmtcp::ThreadSync::wrapperExecutionLockUnlock(); \
-  }
-
-#define DUMMY_WRAPPER_EXECUTION_DISABLE_CKPT() \
-  bool __wrapperExecutionLockAcquired = false;
-
-#define WRAPPER_EXECUTION_GET_EXCL_LOCK()                \
-  bool __wrapperExecutionLockAcquired                    \
-    = dmtcp::ThreadSync::wrapperExecutionLockLockExcl(); \
-  dmtcp::ThreadSync::unsetOkToGrabLock();
-
-#define WRAPPER_EXECUTION_RELEASE_EXCL_LOCK() \
-  WRAPPER_EXECUTION_ENABLE_CKPT();            \
-  dmtcp::ThreadSync::setOkToGrabLock();
+struct Thread;
 
 namespace dmtcp
 {
+
 namespace ThreadSync
 {
 void acquireLocks();
 void releaseLocks();
 void resetLocks(bool resetPresuspendEventHookLock = true);
-void initThread();
 void initMotherOfAll();
-
-void destroyDmtcpWorkerLockLock();
-void destroyDmtcpWorkerLockUnlock();
-int destroyDmtcpWorkerLockTryLock();
-
-void delayCheckpointsLock();
-void delayCheckpointsUnlock();
 
 bool wrapperExecutionLockLock();
 void wrapperExecutionLockUnlock();
-bool wrapperExecutionLockLockExcl();
-
-bool threadCreationLockLock();
-void threadCreationLockUnlock();
+void wrapperExecutionLockLockExcl();
+void wrapperExecutionLockLockForNewThread(Thread *thread);
+void wrapperExecutionLockUnlockForNewThread(Thread *thread);
 
 bool libdlLockLock();
 void libdlLockUnlock();
-void waitForThreadsToFinishInitialization();
-void incrementUninitializedThreadCount();
-void decrementUninitializedThreadCount();
-void threadFinishedInitialization();
 
 void presuspendEventHookLockLock();
 void presuspendEventHookLockUnlock();
-
-bool isOkToGrabLock();
-void setOkToGrabLock();
-void unsetOkToGrabLock();
-
-#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-bool isThreadPerformingDlopenDlsym();
-void setThreadPerformingDlopenDlsym();
-void unsetThreadPerformingDlopenDlsym();
-#endif // if TRACK_DLOPEN_DLSYM_FOR_LOCKS
 }
 
 class WrapperLock
@@ -102,8 +56,8 @@ class WrapperLock
       : exclusiveLock(_exclusiveLock)
     {
       if (exclusiveLock) {
-        lockAcquired = ThreadSync::wrapperExecutionLockLockExcl();
-        dmtcp::ThreadSync::unsetOkToGrabLock();
+        ThreadSync::wrapperExecutionLockLockExcl();
+        lockAcquired = true;
       } else {
         lockAcquired = ThreadSync::wrapperExecutionLockLock();
       }
@@ -113,9 +67,6 @@ class WrapperLock
     {
       if (lockAcquired) {
         dmtcp::ThreadSync::wrapperExecutionLockUnlock();
-        if (exclusiveLock) {
-          dmtcp::ThreadSync::setOkToGrabLock();
-        }
       }
     }
 

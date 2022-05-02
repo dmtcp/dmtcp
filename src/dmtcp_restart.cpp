@@ -153,7 +153,6 @@ static void runMtcpRestart(int fd, ProcessInfo *pInfo);
 static int readCkptHeader(const string &path, ProcessInfo *pInfo);
 static int openCkptFileToRead(const string &path);
 static int processCkptImages();
-static int processMpiProxy();
 
 RestoreTarget::RestoreTarget(const string &path)
   : _path(path)
@@ -879,7 +878,7 @@ main(int argc, char **argv)
   }
 
   // Can't specify ckpt images with --restart-dir flag.
-  if (restartDir.empty() ^ ckptImages.size() > 0) {
+  if (restartDir.empty() ^ (ckptImages.size() > 0)) {
     JASSERT_STDERR << theUsage;
     exit(DMTCP_FAIL_RC);
   }

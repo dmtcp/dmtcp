@@ -80,6 +80,7 @@ typedef struct Thread Thread;
 
 struct Thread {
   pid_t tid;
+  pid_t virtual_tid;
   int state;
 
   char procname[17];
@@ -90,7 +91,6 @@ struct Thread {
   pid_t *ptid;
   pid_t *ctid;
 
-  pid_t virtual_tid;
   sigset_t sigblockmask; // blocked signals
   sigset_t sigpending;   // pending signals
 
@@ -113,9 +113,15 @@ struct Thread {
    */
   double ckptReadTime;
 
+  uint32_t wrapperLockCount;
+
   Thread *next;
   Thread *prev;
 };
+
+extern __thread Thread *curThread;
+extern Thread *ckptThread;
+extern Thread *motherofall;
 
 int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval);
 

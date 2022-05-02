@@ -119,15 +119,7 @@ dmtcp_atfork_child()
   DmtcpWorker::resetOnFork();
 }
 
-extern "C" int
-__register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(
-                    void), void *dso_handle)
-{
-  /* dmtcp_initialize() must be called before __register_atfork().
-   * NEXT_FNC() guarantees that dmtcp_initialize() is called if
-   * it was not called earlier. */
-  return NEXT_FNC(__register_atfork)(prepare, parent, child, dso_handle);
-}
+static bool dmtcp_atfork_processed = false;
 
 LIB_PRIVATE void
 dmtcp_prepare_atfork(void)
@@ -156,9 +148,24 @@ dmtcp_prepare_atfork(void)
                             __dso_handle) == 0);
 #endif
 
-  JASSERT(pthread_atfork(dmtcp_atfork_prepare,
-                         dmtcp_atfork_parent,
-                         dmtcp_atfork_child) == 0);
+  if (!dmtcp_atfork_processed) {
+    dmtcp_atfork_processed = true;
+    JASSERT(pthread_atfork(dmtcp_atfork_prepare,
+                          dmtcp_atfork_parent,
+                          dmtcp_atfork_child) == 0);
+  }
+}
+
+extern "C" int
+__register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(
+                    void), void *dso_handle)
+{
+  dmtcp_prepare_atfork();
+
+  /* dmtcp_initialize() must be called before __register_atfork().
+   * NEXT_FNC() guarantees that dmtcp_initialize() is called if
+   * it was not called earlier. */
+  return NEXT_FNC(__register_atfork)(prepare, parent, child, dso_handle);
 }
 
 // We re-factor to have fork() call dmtcp_fork().
@@ -178,7 +185,7 @@ dmtcp_fork()
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  WRAPPER_EXECUTION_GET_EXCL_LOCK();
+  WrapperLockExcl *wrapperLockExcl = new WrapperLockExcl();
 
   pid_t childPid = _real_fork();
 
@@ -211,7 +218,7 @@ dmtcp_fork()
   }
 
   if (childPid != 0) {
-    WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
+    delete wrapperLockExcl;
   }
 
   return childPid;
@@ -365,10 +372,6 @@ execShortLivedProcessAndExit(const char *path, const char *argv[])
   buf[bufSize - 1] = '\0'; // NULL terminate in case the last char is not null
 
   pclose(output); // /lib/libXXX process is now done; can checkpoint now
-  // FIXME:  code currently allows wrapper to proceed without lock if
-  // it was busy because of a writer.  The unlock will then fail below.
-  bool __wrapperExecutionLockAcquired = true; // needed for LOCK_UNLOCK macro
-  WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
 
   // We  are now the new /lib/libXXX process, and it's safe for DMTCP to ckpt
   // us.
@@ -814,7 +817,7 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
-  WRAPPER_EXECUTION_GET_EXCL_LOCK();
+  WrapperLockExcl wrapperLock;
 
   // Make a copy of the argv and environ coz it might change after a setenv().
   char filenameCopy[PATH_MAX] = {0};
@@ -876,8 +879,6 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
                              (char*const*) newEnv);
 
   dmtcpProcessFailedExec(data.preExec.filename, newArgv);
-
-  WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
 
   return retVal;
 }

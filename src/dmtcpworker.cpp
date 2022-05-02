@@ -288,11 +288,15 @@ dmtcp_initialize_entry_point()
           "  Please use dmtcp_launch --ib ***\n");
   }
 
+  // Initialize data-structures related to motherofall thread.
+  ThreadSync::initMotherOfAll();
+  ThreadList::init();
+
   // In libdmtcp.so, notify this event for each plugin.
   PluginManager::eventHook(DMTCP_EVENT_INIT, NULL);
 
-  ThreadSync::initMotherOfAll();
-  ThreadList::init();
+  // Create checkpoint-thread at the very end of the initialization process.
+  ThreadList::createCkptThread();
 }
 
 void

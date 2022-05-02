@@ -75,19 +75,18 @@ dmtcp_checkpoint()
   size_t oldNumRestarts, oldNumCheckpoints;
 
   while (1) {
-    WRAPPER_EXECUTION_GET_EXCL_LOCK();
+    {
+      WrapperLockExcl wrapperLockExcl;
 
-    int status;
-    CoordinatorAPI::connectAndSendUserCommand('c', &status);
+      int status;
+      CoordinatorAPI::connectAndSendUserCommand('c', &status);
 
-    if (status != CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
-      oldNumRestarts = ProcessInfo::instance().numRestarts();
-      oldNumCheckpoints = ProcessInfo::instance().numCheckpoints();
-      WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
-      break;
+      if (status != CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
+        oldNumRestarts = ProcessInfo::instance().numRestarts();
+        oldNumCheckpoints = ProcessInfo::instance().numCheckpoints();
+        break;
+      }
     }
-
-    WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
 
     struct timespec t = { 0, 100 * 1000 * 1000 }; // 100ms.
     nanosleep(&t, NULL);
@@ -109,12 +108,11 @@ dmtcp_checkpoint()
 EXTERNC int
 dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
 {
-  WRAPPER_EXECUTION_GET_EXCL_LOCK();
+  WrapperLockExcl wrapperLockExcl;
 
   int status;
   CoordinatorAPI::connectAndSendUserCommand('s', &status, numPeers, isRunning);
 
-  WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   return DMTCP_IS_PRESENT;
 }
 
@@ -129,17 +127,28 @@ dmtcp_get_local_status(int *nCheckpoints, int *nRestarts)
 EXTERNC int
 dmtcp_disable_ckpt()
 {
-  ThreadSync::delayCheckpointsLock();
-
-  return 1;
+  return ThreadSync::wrapperExecutionLockLock();
 }
 
 EXTERNC int
 dmtcp_enable_ckpt()
 {
-  ThreadSync::delayCheckpointsUnlock();
-
+  ThreadSync::wrapperExecutionLockUnlock();
   return 1;
+}
+
+EXTERNC
+int
+dmtcp_plugin_disable_ckpt()
+{
+  return ThreadSync::wrapperExecutionLockLock();
+}
+
+EXTERNC
+void
+dmtcp_plugin_enable_ckpt()
+{
+  ThreadSync::wrapperExecutionLockUnlock();
 }
 
 EXTERNC int

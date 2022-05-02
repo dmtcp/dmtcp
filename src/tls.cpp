@@ -207,8 +207,6 @@ STATIC_TLS_TID_OFFSET()
 /* Can remove the unused attribute when this __GLIBC_PREREQ is the only one. */
 static char *memsubarray(char *array, char *subarray, size_t len)
 __attribute__((unused));
-extern void **motherofall_saved_sp;
-extern ThreadTLSInfo *motherofall_tlsInfo;
 
 /*****************************************************************************
  *
