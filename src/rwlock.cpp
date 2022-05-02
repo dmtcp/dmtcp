@@ -1,4 +1,5 @@
 #include <limits.h>
+#include <atomic>
 
 #include "dmtcp.h"
 #include "futex.h"
@@ -30,8 +31,8 @@ int DmtcpRWLockTryRdLock(DmtcpRWLock *rwlock)
 
   // See if we can acquire the lock.
   if (rwlock->writer == 0 && !rwlock->nWritersQueued) {
-    ++rwlock->nReaders;
-    JASSERT(rwlock->nReaders != 0); // Overflow
+    uint32_t old = __atomic_add_fetch(&rwlock->nReaders, 1, __ATOMIC_SEQ_CST);
+    JASSERT(old != 0); // Overflow
     result = 0;
   }
 
@@ -56,8 +57,8 @@ int DmtcpRWLockRdLock(DmtcpRWLock *rwlock)
 
     // See if we can acquire the lock.
     if (rwlock->writer == 0 && !rwlock->nWritersQueued) {
-      ++rwlock->nReaders;
-      JASSERT(rwlock->nReaders != 0); // Overflow
+      uint32_t old = __atomic_add_fetch(&rwlock->nReaders, 1, __ATOMIC_SEQ_CST);
+      JASSERT(old != 0); // Overflow
       break;
     }
 
@@ -85,6 +86,13 @@ int DmtcpRWLockRdLock(DmtcpRWLock *rwlock)
   return result;
 }
 
+int DmtcpRWLockRdLockIgnoreQueuedWriter(DmtcpRWLock *rwlock)
+{
+  uint32_t old = __atomic_fetch_add(&rwlock->nReaders, 1, __ATOMIC_SEQ_CST);
+  JASSERT(old > 0);
+  JASSERT(old + 1 != 0); // Overflow
+  return 0;
+}
 
 extern "C"
 int DmtcpRWLockWrLock(DmtcpRWLock *rwlock)
@@ -139,7 +147,8 @@ int DmtcpRWLockUnlock(DmtcpRWLock *rwlock)
   } else {
     JASSERT(DmtcpMutexLock(&rwlock->xLock) == 0);
     JASSERT(rwlock->writer == 0) (rwlock->writer);
-    --rwlock->nReaders;
+    uint32_t old = __atomic_fetch_sub(&rwlock->nReaders, 1, __ATOMIC_SEQ_CST);
+    JASSERT(old > 0); // Overflow
   }
 
   // If we are the last reader or the writer, wake a waiting writer.

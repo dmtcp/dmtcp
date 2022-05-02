@@ -198,6 +198,7 @@ int DmtcpMutexUnlock(DmtcpMutex *mutex);
 
 void DmtcpRWLockInit(DmtcpRWLock *rwlock);
 int DmtcpRWLockRdLock(DmtcpRWLock *rwlock);
+int DmtcpRWLockRdLockIgnoreQueuedWriter(DmtcpRWLock *rwlock);
 int DmtcpRWLockTryRdLock(DmtcpRWLock *rwlock);
 int DmtcpRWLockWrLock(DmtcpRWLock *rwlock);
 int DmtcpRWLockUnlock(DmtcpRWLock *rwlock);

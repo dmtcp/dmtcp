@@ -37,46 +37,6 @@ using namespace dmtcp;
 
 extern __thread Thread *curThread;
 
-static bool
-prepareThreadCreate()
-{
-  /* pthread_create() should acquire the thread-creation lock. Not doing so can
-   * result in a deadlock in the following scenario:
-   * 1. user thread: pthread_create() - acquire wrapper-execution lock
-   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exec lock
-   * 3. user thread: __clone() - try to acquire wrapper-execution lock
-   *
-   * We also need to increment the uninitialized-thread-count so that it is
-   * safe to checkpoint the newly created thread.
-   *
-   * There is another possible deadlock situation if we do not grab the
-   * thread-creation lock:
-   * 1. user thread: pthread_create(): waiting on tbl_lock inside libpthread
-   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exec lock
-   * 3. uset thread: a. exiting after returning from user fn.
-   *                 b. grabs tbl_lock()
-   *                 c. tries to call free() to deallocate previously allocated
-   *                 space (stack etc.). The free() wrapper requires
-   *                 wrapper-exec lock, which is not available.
-   */
-  bool threadCreationLockAcquired = ThreadSync::threadCreationLockLock();
-  ThreadSync::incrementUninitializedThreadCount();
-
-  JASSERT(Thread_UpdateState(curThread, ST_THREAD_CREATE, ST_RUNNING));
-
-  return threadCreationLockAcquired;
-}
-
-static void
-postThreadCreate(bool threadCreationLockAcquired)
-{
-  JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_THREAD_CREATE));
-
-  if (threadCreationLockAcquired) {
-    ThreadSync::threadCreationLockUnlock();
-  }
-}
-
 static void
 processChildThread(Thread *thread)
 {
@@ -93,7 +53,8 @@ processChildThread(Thread *thread)
   sigaddset(&set, SigInfo::ckptSignal());
   JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0) (JASSERT_ERRNO);
 
-  ThreadSync::threadFinishedInitialization();
+  // Lock was acquired by the parent thread on our behalf.
+  ThreadSync::wrapperExecutionLockUnlock();
 }
 
 // Invoked via pthread_create as start_routine
@@ -108,7 +69,7 @@ thread_start(void *arg)
   void *result = thread->fn(thread->arg);
 
   JTRACE("Thread returned") (thread->virtual_tid);
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  WrapperLock wrapperLock;
   ThreadList::threadExit();
 
   /*
@@ -118,8 +79,6 @@ thread_start(void *arg)
    *  thread actually exits?
    */
   PluginManager::eventHook(DMTCP_EVENT_PTHREAD_RETURN, NULL);
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  ThreadSync::unsetOkToGrabLock();
   return result;
 }
 
@@ -131,18 +90,24 @@ pthread_create(pthread_t *pth,
 {
   int retval;
 
-  bool threadCreationLockAcquired = prepareThreadCreate();
+  WrapperLock wrapperLock;
 
   Thread *thread = ThreadList::getNewThread(start_routine, arg);
+  ThreadSync::wrapperExecutionLockLockForNewThread(thread);
+
+  JASSERT(Thread_UpdateState(curThread, ST_THREAD_CREATE, ST_RUNNING));
+
   retval = _real_pthread_create(pth, attr, thread_start, thread);
 
-  postThreadCreate(threadCreationLockAcquired);
+  JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_THREAD_CREATE));
 
   if (retval == 0) {
     ProcessInfo::instance().clearPthreadJoinState(*pth);
   } else { // if we failed to create new pthread
-    ThreadSync::decrementUninitializedThreadCount();
+    ThreadSync::wrapperExecutionLockUnlockForNewThread(thread);
+    ThreadList::threadIsDead(thread);
   }
+
   return retval;
 }
 
@@ -183,11 +148,13 @@ clone3(struct clone_args *cl_args, size_t size)
 extern "C" void
 pthread_exit(void *retval)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  ThreadList::threadExit();
-  PluginManager::eventHook(DMTCP_EVENT_PTHREAD_EXIT, NULL);
-  WRAPPER_EXECUTION_ENABLE_CKPT();
-  ThreadSync::unsetOkToGrabLock();
+  {
+    WrapperLock wrapperLock;
+
+    ThreadList::threadExit();
+    PluginManager::eventHook(DMTCP_EVENT_PTHREAD_EXIT, NULL);
+  }
+
   _real_pthread_exit(retval);
   for (;;) { // To hide compiler warning about "noreturn" function
   }
@@ -226,13 +193,10 @@ pthread_join(pthread_t thread, void **retval)
   }
 
   while (1) {
-    WRAPPER_EXECUTION_DISABLE_CKPT();
-    ThreadSync::unsetOkToGrabLock();
+    WrapperLock wrapperLock;
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
     TIMESPEC_ADD(&ts, &ts_100ms, &ts);
     ret = _real_pthread_timedjoin_np(thread, retval, &ts);
-    WRAPPER_EXECUTION_ENABLE_CKPT();
-    ThreadSync::setOkToGrabLock();
     if (ret != ETIMEDOUT) {
       break;
     }
@@ -251,9 +215,10 @@ pthread_tryjoin_np(pthread_t thread, void **retval)
     return EINVAL;
   }
 
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  ret = _real_pthread_tryjoin_np(thread, retval);
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  {
+    WrapperLock wrapperLock;
+    ret = _real_pthread_tryjoin_np(thread, retval);
+  }
 
   ProcessInfo::instance().endPthreadJoin(thread);
   return ret;
@@ -276,7 +241,7 @@ pthread_timedjoin_np(pthread_t thread,
    * the abstime provided by the caller
    */
   while (1) {
-    WRAPPER_EXECUTION_DISABLE_CKPT();
+    WrapperLock wrapperLock;
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
     if (TIMESPEC_CMP(&ts, abstime, <)) {
       TIMESPEC_ADD(&ts, &ts_100ms, &ts);
@@ -284,7 +249,6 @@ pthread_timedjoin_np(pthread_t thread,
     } else {
       ret = ETIMEDOUT;
     }
-    WRAPPER_EXECUTION_ENABLE_CKPT();
 
     if (ret == EBUSY || ret == 0) {
       break;

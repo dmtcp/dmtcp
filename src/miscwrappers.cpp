@@ -652,9 +652,7 @@ vprintf (const char *format, __gnuc_va_list arg)
 extern "C" int
 vfprintf (FILE *s, const char *format, va_list ap)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
   int retVal = _real_vfprintf ( s, format, ap );
-  WRAPPER_EXECUTION_ENABLE_CKPT();
   return retVal;
 }
 

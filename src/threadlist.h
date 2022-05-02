@@ -36,6 +36,7 @@ pid_t _real_tid();
 int _real_tgkill(pid_t tgid, pid_t tid, int sig);
 
 void init();
+void createCkptThread();
 Thread *getNewThread(void *(*fn)(void *), void *arg);
 void initThread(Thread *);
 void resetOnFork();
