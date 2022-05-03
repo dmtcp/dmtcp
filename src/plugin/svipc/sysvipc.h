@@ -307,7 +307,6 @@ class Semaphore : public SysVObj
     static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
 #endif // ifdef JALIB_ALLOCATOR
     Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg);
-    ~Semaphore() { delete _semval; delete _semadj; }
 
     void on_semop(struct sembuf *sops, unsigned nsops);
 
@@ -322,22 +321,13 @@ class Semaphore : public SysVObj
 
     virtual SysVObj* clone() override
     {
-      Semaphore *obj = new Semaphore(*this);
-
-      obj->_semval =
-          (unsigned short *) JALLOC_MALLOC(_nsems * sizeof(unsigned short));
-      memcpy(obj->_semval, _semval, _nsems * sizeof(unsigned short *));
-
-      obj->_semadj = (int*)JALLOC_MALLOC(_nsems * sizeof(int));
-      memcpy(obj->_semadj, _semadj, _nsems * sizeof(int *));
-
-      return obj;
+      return new Semaphore(*this);
     }
 
   private:
     int _nsems;
-    unsigned short *_semval;
-    int *_semadj;
+    vector<unsigned short> _semval;
+    vector<int> _semadj;
 };
 
 class MsgQueue : public SysVObj
