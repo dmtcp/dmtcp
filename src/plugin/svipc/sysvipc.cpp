@@ -899,15 +899,11 @@ Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg)
     _nsems = se.buf->sem_nsems;
     _flags = se.buf->sem_perm.mode;
   }
-  _semval =
-    (unsigned short *)JALLOC_HELPER_MALLOC(_nsems * sizeof(unsigned short));
-  _semadj = (int *)JALLOC_HELPER_MALLOC(_nsems * sizeof(int));
-  for (int i = 0; i < _nsems; i++) {
-    _semval[i] = 0;
-    _semadj[i] = 0;
-  }
-  JTRACE("New Semaphore Segment")
-    (_key) (_nsems) (_flags) (_id) (_isCkptLeader);
+
+  _semval.assign(_nsems, 0);
+  _semadj.assign(_nsems, 0);
+
+  JTRACE("New Semaphore") (_key) (_nsems) (_flags) (_id) (_isCkptLeader);
 }
 
 void
@@ -968,7 +964,7 @@ Semaphore::preCkptDrain()
   _isCkptLeader = false;
   if (getpid() == _real_semctl(_realId, 0, GETPID)) {
     union semun info;
-    info.array = _semval;
+    info.array = &_semval[0];
     JASSERT(_real_semctl(_realId, 0, GETALL, info) != -1);
     _isCkptLeader = true;
   }
@@ -987,7 +983,7 @@ Semaphore::postRestart()
     SysVSem::instance().updateMapping(_id, _realId);
 
     union semun info;
-    info.array = _semval;
+    info.array = &_semval[0];
     JASSERT(_real_semctl(_realId, 0, SETALL, info) != -1);
   }
 }
