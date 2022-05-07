@@ -17,11 +17,6 @@ import pwd
 import stat
 import re
 
-disabled_tests = [
-  "vfork1",
-  "vfork2"
-]
-
 # FIX for bad path for Java:  Travis prepended
 #     "/usr/bin:/opt/pyenv/libexec:/opt/pyenv/plugins/python-build/bin:/"
 # to os.environ['PATH'] on July 31, 2019.  It does this, even though
@@ -67,6 +62,12 @@ args = parser.parse_args()
 # stats[0] is number passed; stats[1] is total number
 stats = [0, 0]
 
+failed_tests = []
+
+disabled_tests = [
+  "vfork1",
+  "vfork2"
+]
 
 # if 'autotest.py --parallel', then initialize tests and test_dict.
 # If '--slow' was also used, background parallel jobs will be in fast
@@ -102,7 +103,7 @@ def parallel_test(name):
       num_jobs += 1  # new job to execute
   if isinstance(tests[test_dict[name]], subprocess.Popen):
     if tests[test_dict[name]].poll() == 0:
-      printFixed(name,15)
+      printFixed(name, DEFAULT_TESTNAME_WIDTH)
       print("ckpt:PASSED; rstr:PASSED -> ckpt:PASSED; rstr:PASSED")
       stats[1] += 1 # one more job done in parallel
       stats[0] += 1 # and this parallel job has passed
@@ -156,6 +157,8 @@ if USE_TEST_SUITE == "no":
 
 #Number of times to try dmtcp_restart
 RETRIES=2
+
+DEFAULT_TESTNAME_WIDTH = 20
 
 #Sleep after each program startup (sec)
 DEFAULT_S=0.3
@@ -282,6 +285,12 @@ if not os.path.isfile('./bin/dmtcp_launch'):
 def printFixed(str, w=1):
   os.write(sys.stdout.fileno(), str.ljust(w).encode("ascii"))
   sys.stdout.flush()
+
+COLOR_RED = "\033[0;31m"
+COLOR_RESET = "\033[0m"
+
+def printError(msg):
+  print(COLOR_RED, msg, COLOR_RESET)
 
 #exception on failed check
 class CheckFailed(Exception):
@@ -647,7 +656,7 @@ def runTestRaw(name, numProcs, cmds):
 
   try:
     sys.stdout.flush()
-    printFixed(name,15)
+    printFixed(name, DEFAULT_TESTNAME_WIDTH)
 
     if name in disabled_tests:
       print("Disabled")
@@ -676,7 +685,7 @@ def runTestRaw(name, numProcs, cmds):
     for i in range(CYCLES):
       if i!=0 and i%2==0:
         printFixed("\n")
-        printFixed("",15)
+        printFixed("", DEFAULT_TESTNAME_WIDTH)
       printFixed("ckpt:")
       # NOTE:  If this faile, it will throw an exception to CheckFailed
       #  of this function:  testRestart
@@ -702,7 +711,7 @@ def runTestRaw(name, numProcs, cmds):
                       "/" + ckptDir)
             raise e
           else:
-            printFixed("FAILED ")
+            printError("Failed ")
             (oldpid, oldstatus) = os.waitpid(procs[-1].pid, os.WNOHANG)
             if oldpid == procs[-1].pid:
               if os.WIFEXITED(oldstatus):
@@ -734,13 +743,14 @@ def runTestRaw(name, numProcs, cmds):
     stats[0]+=1
 
   except CheckFailed as e:
-    print("FAILED")
-    printFixed("",15)
-    print("root-pids:", [x.pid for x in procs], "msg:", e.value)
+    printError("Failed")
+    printFixed("", DEFAULT_TESTNAME_WIDTH)
+    print(COLOR_RED, "root-pids:", [x.pid for x in procs], "msg:", e.value, COLOR_RESET)
+    failed_tests.append(name)
     try:
       testKill()
     except CheckFailed as e:
-      print("CLEANUP ERROR:", e.value)
+      printError("CLEANUP ERROR:", e.value)
       SHUTDOWN()
       saveResultsNMI()
       sys.exit(1)
@@ -1298,6 +1308,9 @@ runTest("nocheckpoint",        1, ["./test/nocheckpoint"])
 
 print("== Summary ==")
 print("%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1]))
+print("Failed Tests:")
+for f in failed_tests:
+  printError("  " + f)
 
 saveResultsNMI()
 
