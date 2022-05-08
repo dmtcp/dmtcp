@@ -161,22 +161,10 @@ __clone(int (*fn)(void *arg),
       fn, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr);
   }
 
-  JNOTE("__clone called without pthread_create");
-  bool threadCreationLockAcquired = prepareThreadCreate();
+  JASSERT(false)
+    .Text("Thread-creation with clone syscall isn't supported.");
 
-  Thread *thread = ThreadList::getNewThread((void*(*)(void*))fn, arg);
-  int retval = _real_clone(
-      (int(*)(void*))thread_start, child_stack, flags, thread, parent_tidptr,
-      newtls, child_tidptr);
-
-  postThreadCreate(threadCreationLockAcquired);
-
-  if (retval == -1) {
-    // if we failed to create new pthread
-    ThreadSync::decrementUninitializedThreadCount();
-  }
-
-  return retval;
+  return 0;
 }
 
 extern "C" long
@@ -186,24 +174,10 @@ clone3(struct clone_args *cl_args, size_t size)
     return NEXT_FNC(clone3)(cl_args, size);
   }
 
-  JNOTE("clone3() called without pthread_create");
-  bool threadCreationLockAcquired = prepareThreadCreate();
+  JASSERT(false)
+    .Text("Thread-creation with clone3 syscall isn't supported.");
 
-  Thread *thread = ThreadList::getNewThread(NULL, NULL);
-  int retval = NEXT_FNC(clone3)(cl_args, size);
-
-  if (retval == 0) {
-    // Child thread
-    processChildThread(thread);
-  } else {
-    postThreadCreate(threadCreationLockAcquired);
-    if (retval == -1) {
-      // if we failed to create new thread
-      ThreadSync::decrementUninitializedThreadCount();
-    }
-  }
-
-  return retval;
+  return 0;
 }
 
 extern "C" void
