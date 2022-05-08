@@ -21,16 +21,17 @@ main()
 {
   void *arg;
   void *stack;
+  size_t stack_size = 2 << 20; /* 2 MB */
 
   sem_init(&sem, 0, 0);
 
   while (1) {
     arg = malloc(10);
     *(int *)arg = 42;
-    stack = malloc(2 << 20 /* 2 MB */);
+    stack = malloc(stack_size);
 
     // Emulate a true thread, but return a SIGCHLD to parent's sig. handler
-    pid_t tid = clone(start_routine, stack + 4096 - 8 /* top of stack */,
+    pid_t tid = clone(start_routine, stack + stack_size /* top of stack */,
            CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM | CLONE_SIGHAND |
            CLONE_THREAD, arg);
 

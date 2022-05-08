@@ -65,8 +65,11 @@ stats = [0, 0]
 failed_tests = []
 
 disabled_tests = [
+  # Vfork is not currently supported.
   "vfork1",
-  "vfork2"
+  "vfork2",
+  # Raw thread creation using clone syscall directly isn't supported.
+  "clone1"
 ]
 
 # if 'autotest.py --parallel', then initialize tests and test_dict.
