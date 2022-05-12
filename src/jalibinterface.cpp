@@ -62,7 +62,7 @@ initializeJalib()
              ELF_INTERPRETER,
              PROTECTED_STDERR_FD,
              PROTECTED_JASSERTLOG_FD,
-             DMTCP_FAIL_RC);
+             DMTCP_FAIL_RC_PARAM);
 
   // To force linkage of jbuffer.cpp
   static jalib::JBuffer *buf = new jalib::JBuffer(0);

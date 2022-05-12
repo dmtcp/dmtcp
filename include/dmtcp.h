@@ -690,12 +690,15 @@ uint64_t dmtcp_dlsym_lib_fnc_offset(const char *libname, const char *symbol);
  * TYPICAL USAGE:  exit(DMTCP_FAIL_RC)
  * Use this to distinguish DMTCP failing versus the target application failing.
  */
+#define DMTCP_FAIL_RC_PARAM                                      \
+   (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC"))     \
+      ? atoi(getenv("DMTCP_FAIL_RC"))                            \
+      : 99)
+
 #define DMTCP_FAIL_RC                                            \
   (getenv("DMTCP_ABORT_ON_FAILURE")                              \
      ? abort(), 99 /* not reached */                             \
-     : (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC")) \
-          ? atoi(getenv("DMTCP_FAIL_RC"))                        \
-          : 99))
+     : DMTCP_FAIL_RC_PARAM)
 
 /// Pointer to a "void foo();" function
 typedef void (*dmtcp_fnptr_t)(void);
