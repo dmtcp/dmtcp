@@ -103,7 +103,7 @@ build: $(targetdir)/bin/$(MTCP_RESTART)
 LINKER_FLAGS= -Wl,-Ttext-segment=11200000 #-Wl,-Trodata-segment=445000000
 
 $(targetdir)/bin/$(MTCP_RESTART): $(OBJS)
-	${LINK} -fPIC -g -O0 -nodefaultlibs ${LINKER_FLAGS} $^
+	${LINK} -fPIC -g -O0 -nodefaultlibs -static ${LINKER_FLAGS} $^
 
 # We need to compile mtcp_restart.c with "-fno-stack-protector" to avoid
 # runtime stack smashing detection.
