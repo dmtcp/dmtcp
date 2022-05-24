@@ -5,23 +5,17 @@
 ### Build instructions
 
 To build, use:
-```
+```bash
   ./configure
   make
-  make check [Optional]
+  # [Optional]
+  make check
 ```
 
 As usual, you may prefer to use `make` with `'-j'` for faster, parallel builds.
 
-`make check2`, and `make check3` will exercise further examples in the
-test subdirectory:
-```
-  check2: readline.c
-  check3: shared-memory.c
-```
-
 This software runs in the original directory, and
-```
+```bash
   make install
 ```
 will install to the install directory based on configure.
@@ -44,16 +38,14 @@ OR:
   # Optionally, change 'make' to 'make install'' if desired.
 ```
 
-When running DMTCP with multilib support, the 64-bit applicationss,
-```
-  dmtcp_launch, dmtcp_restart, and dmtcp_command
-```
+When running DMTCP with multilib support, the 64-bit applications,
+`dmtcp_launch`, `dmtcp_restart`, and `dmtcp_command`
 all inter-operate with both 32- and 64-bit applications.
 
 If your process will create multiple processes, you should use standard DMTCP.
 A brief overview follows.
 The general methodology is:
-```
+```bash
   ./dmtcp_coordinator #in one window: type h to the coordinator to see commands
   ./dmtcp_launch a.out <args,...>
 ```
