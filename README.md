@@ -1,4 +1,5 @@
-# [DMTCP: Distributed MultiThreaded CheckPointing](http://dmtcp.sourceforge.net/) [![Build Status](https://travis-ci.org/dmtcp/dmtcp.png?branch=master)](https://travis-ci.org/dmtcp/dmtcp)
+# [DMTCP: Distributed MultiThreaded CheckPointing](http://dmtcp.sourceforge.net/) 
+[![Build](https://github.com/dmtcp/dmtcp/actions/workflows/make-check.yml/badge.svg)](https://github.com/dmtcp/dmtcp/actions/workflows/make-check.yml)
 
 DMTCP is a tool to transparently checkpoint the state of multiple simultaneous
 applications, including multi-threaded and distributed applications. It
