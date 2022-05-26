@@ -27,6 +27,8 @@
 #include "jassert.h"
 #include "dmtcp.h"
 
+#ifdef ENABLE_DLSYM_WRAPPER
+
 /* NOTE:  'dlsym' is used in DMTCP in two different ways.
  *   CASE A:  Internally, in libdmtcp*.so, we have wrappers around
  *     functions in libc.so.  In order to implement that easily, we use
@@ -149,3 +151,4 @@ dlsym(void *handle, const char *symbol)
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
+#endif // #ifdef ENABLE_DLSYM_WRAPPER
