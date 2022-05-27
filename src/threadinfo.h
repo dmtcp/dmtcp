@@ -71,7 +71,6 @@ typedef enum ThreadState {
   ST_SIGNALED,
   ST_SUSPINPROG,
   ST_SUSPENDED,
-  ST_ZOMBIE,
   ST_CKPNTHREAD,
   ST_THREAD_CREATE
 } ThreadState;
@@ -82,6 +81,7 @@ struct Thread {
   pid_t tid;
   pid_t virtual_tid;
   int state;
+  int exiting;
 
   char procname[17];
 
