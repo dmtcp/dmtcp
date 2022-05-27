@@ -233,6 +233,7 @@ ThreadList::getNewThread(void *(*fn)(void *), void *arg)
   th->ctid = NULL;
   th->next = NULL;
   th->state = ST_RUNNING;
+  th->exiting = 0;
   th->wrapperLockCount = 0;
   th->procname[0] = '\0';
   return th;
@@ -246,7 +247,7 @@ ThreadList::getNewThread(void *(*fn)(void *), void *arg)
 void
 ThreadList::threadExit()
 {
-  curThread->state = ST_ZOMBIE;
+  curThread->exiting = 1;
 }
 
 /*****************************************************************************
@@ -472,14 +473,6 @@ ThreadList::suspendThreads()
           } else {
             needrescan = 1;
           }
-        }
-        break;
-
-      case ST_ZOMBIE:
-        ret = THREAD_TGKILL(motherpid, thread->tid, 0);
-        JASSERT(ret == 0 || errno == ESRCH);
-        if (ret == -1 && errno == ESRCH) {
-          ThreadList::threadIsDead(thread);
         }
         break;
 
@@ -924,7 +917,7 @@ ThreadList::addToActiveList(Thread *th)
      *   early (before reaching a checkpoint) so that the
      *   threadrdescriptor list does not grow too long.
      */
-    if (thread->state == ST_ZOMBIE) {
+    if (thread->exiting) {
       /* if no thread with this tid, then we can remove zombie descriptor */
       if (-1 == THREAD_TGKILL(motherpid, thread->tid, 0)) {
         JTRACE("Killing zombie thread") (thread->tid);
