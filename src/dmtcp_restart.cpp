@@ -741,10 +741,10 @@ main(int argc, char **argv)
     string s = argc > 0 ? argv[0] : "--help";
     if (s == "--help" && argc == 1) {
       printf("%s", theUsage);
-      return DMTCP_FAIL_RC;
+      return 0;
     } else if ((s == "--version") && argc == 1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
-      return DMTCP_FAIL_RC;
+      return 0;
     } else if (s == "-j" || s == "--join-coordinator" || s == "--join") {
       allowedModes = COORD_JOIN;
       shift;

@@ -244,10 +244,10 @@ processArgs(int *orig_argc, const char ***orig_argv)
     string s = argc > 0 ? argv[0] : "--help";
     if ((s == "--help") && argc <= 1) {
       printf("%s", theUsage);
-      exit(DMTCP_FAIL_RC);
+      exit(0);
     } else if ((s == "--version") && argc == 1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
-      exit(DMTCP_FAIL_RC);
+      exit(0);
     } else if (s == "-j" || s == "--join-coordinator" || s == "--join") {
       allowedModes = COORD_JOIN;
       shift;
