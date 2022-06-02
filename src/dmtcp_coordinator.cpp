@@ -1685,10 +1685,10 @@ main(int argc, char **argv)
     string s = argv[0];
     if (s == "-h" || s == "--help") {
       printf("%s", theUsage);
-      return 1;
+      return 0;
     } else if ((s == "--version") && argc == 1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
-      return 1;
+      return 0;
     } else if (s == "-q" || s == "--quiet") {
       quiet = true;
       jassert_quiet++;
