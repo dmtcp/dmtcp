@@ -37,8 +37,8 @@ class RestoreTarget
 
     int fd() const { return _fd; }
 
-    const UniquePid &upid() const { return _pInfo.upid(); }
-    const UniquePid &uppid() const { return _pInfo.uppid(); }
+    const UniquePid &upid() { return _pInfo.upid(); }
+    const UniquePid &uppid() { return _pInfo.uppid(); }
 
     pid_t pid() const { return _pInfo.pid(); }
 

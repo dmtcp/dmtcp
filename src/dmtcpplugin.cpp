@@ -160,10 +160,7 @@ dmtcp_get_ckpt_signal(void)
 EXTERNC const char *
 dmtcp_get_tmpdir(void)
 {
-  static char tmpdir[PATH_MAX];
-
-  JASSERT(SharedData::getTmpDir(tmpdir, sizeof(tmpdir)) != NULL);
-  return tmpdir;
+  return SharedData::getTmpDir();
 }
 
 // EXTERNC void dmtcp_set_tmpdir(const char* dir)
@@ -176,8 +173,7 @@ dmtcp_get_tmpdir(void)
 EXTERNC const char *
 dmtcp_get_ckpt_dir()
 {
-  static string *tmpdir = new string(ProcessInfo::instance().getCkptDir());
-  return tmpdir->c_str();
+  return ProcessInfo::instance().getCkptDir().c_str();
 }
 
 EXTERNC int
@@ -198,17 +194,13 @@ dmtcp_set_ckpt_file(const char *filename)
 EXTERNC const char *
 dmtcp_get_ckpt_filename(void)
 {
-  static string *filename =
-    new string(ProcessInfo::instance().getCkptFilename());
-  return filename->c_str();
+  return ProcessInfo::instance().getCkptFilename().c_str();
 }
 
 EXTERNC const char *
 dmtcp_get_ckpt_files_subdir(void)
 {
-  static string *tmpdir =
-    new string(ProcessInfo::instance().getCkptFilesSubDir());
-  return tmpdir->c_str();
+  return ProcessInfo::instance().getCkptFilesSubDir().c_str();
 }
 
 EXTERNC int
@@ -232,33 +224,25 @@ dmtcp_get_executable_path(void)
 EXTERNC const char *
 dmtcp_get_uniquepid_str(void)
 {
-  static string *uniquepid_str =
-    new string(UniquePid::ThisProcess(true).toString());
-  return uniquepid_str->c_str();
+  return ProcessInfo::instance().upidStr().c_str();
 }
 
 EXTERNC DmtcpUniqueProcessId
 dmtcp_get_uniquepid(void)
 {
-  return UniquePid::ThisProcess().upid();
+  return ProcessInfo::instance().upid().upid();
 }
 
 EXTERNC DmtcpUniqueProcessId
 dmtcp_get_computation_id(void)
 {
-  return SharedData::getCompId();
+  return ProcessInfo::instance().compGroup().upid();
 }
 
 EXTERNC const char *
 dmtcp_get_computation_id_str(void)
 {
-  static string *compid_str = NULL;
-
-  if (compid_str == NULL) {
-    UniquePid compId = SharedData::getCompId();
-    compid_str = new string(compId.toString());
-  }
-  return compid_str->c_str();
+  return ProcessInfo::instance().compGroupStr().c_str();
 }
 
 EXTERNC DmtcpUniqueProcessId

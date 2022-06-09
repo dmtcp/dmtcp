@@ -225,7 +225,7 @@ RestoreTarget::initialize()
   SharedData::initialize(tmpDir.c_str(), installDir.c_str(), &compId,
                          &coordInfo, &localIPAddr);
 
-  Util::initializeLogFile(SharedData::getTmpDir().c_str(),
+  Util::initializeLogFile(SharedData::getTmpDir(),
                           _pInfo.procname().c_str(), NULL);
 
   if (ckptdir_arg.empty()) {

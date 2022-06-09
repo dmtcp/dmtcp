@@ -340,14 +340,14 @@ SharedData::coordPort()
   return ntohs(sin->sin_port);
 }
 
-string
+const char *
 SharedData::getTmpDir()
 {
   if (sharedDataHeader == NULL) {
     initialize();
   }
   JASSERT(sharedDataHeader->tmpDir[0] != '\0');
-  return string(sharedDataHeader->tmpDir);
+  return sharedDataHeader->tmpDir;
 }
 
 char *
