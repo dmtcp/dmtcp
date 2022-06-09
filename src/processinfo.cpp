@@ -398,6 +398,11 @@ ProcessInfo::resetOnFork()
   DmtcpMutexInit(&tblLock, DMTCP_MUTEX_NORMAL);
   _ppid = _pid;
   _pid = getpid();
+
+  _upid = UniquePid();
+  _uppid = UniquePid();
+  _upidStr.clear();
+
   _isRootOfProcessTree = false;
   _pthreadJoinId.clear();
   _ckptFileName.clear();

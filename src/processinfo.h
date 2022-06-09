@@ -70,10 +70,6 @@ class ProcessInfo
 
     void serialize(jalib::JBinarySerializer &o);
 
-    UniquePid compGroup() { return _compGroup; }
-
-    void compGroup(UniquePid cg) { _compGroup = cg; }
-
     uint32_t numPeers() { return _numPeers; }
 
     void numPeers(uint32_t np) { _numPeers = np; }
@@ -106,9 +102,40 @@ class ProcessInfo
 
     const string &hostname() const { return _hostname; }
 
-    const UniquePid &upid() const { return _upid; }
+    const UniquePid &upid() {
+      // Temporary fix until we remove the static members from UniquePid.cpp.
+      if (_upid == UniquePid()) {
+        _upid = UniquePid::ThisProcess(true);
+      }
+      return _upid;
+    }
 
-    const UniquePid &uppid() const { return _uppid; }
+    const string &upidStr() {
+      if (_upidStr.empty()) {
+        _upidStr = upid().toString();
+      }
+      return _upidStr;
+    }
+
+    const UniquePid &uppid() {
+      // Temporary fix until we remove the static members from UniquePid.cpp.
+      if (_uppid == UniquePid()) {
+        _uppid = UniquePid::ParentProcess();
+      }
+      return _uppid;
+    }
+
+    UniquePid compGroup() const { return _compGroup; }
+
+    const string &compGroupStr() {
+      if (_compGroupStr.empty()) {
+        _compGroupStr = _compGroup.toString();
+      }
+      return _compGroupStr;
+    }
+
+    void compGroup(UniquePid cg) { _compGroup = cg; }
+
 
     bool isOrphan() const { return _ppid == 1; }
 
@@ -138,12 +165,12 @@ class ProcessInfo
                             uint64_t f3, uint64_t f4);
     uint64_t endOfStack(void) const { return _endOfStack; }
 
-    string getCkptFilename() const { return _ckptFileName; }
+    string const& getCkptFilename() const { return _ckptFileName; }
     string getTempCkptFilename() const { return _ckptFileName + ".temp"; }
 
-    string getCkptFilesSubDir() const { return _ckptFilesSubDir; }
+    string const& getCkptFilesSubDir() const { return _ckptFilesSubDir; }
 
-    string getCkptDir() const { return _ckptDir; }
+    string const& getCkptDir() const { return _ckptDir; }
 
     void setCkptDir(const char *);
     void setCkptFilename(const char *);
@@ -193,6 +220,9 @@ class ProcessInfo
     UniquePid _upid;
     UniquePid _uppid;
     UniquePid _compGroup;
+
+    string _upidStr;
+    string _compGroupStr;
 
     uint64_t _restoreBufAddr;
     uint64_t _restoreBufLen;
