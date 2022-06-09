@@ -351,40 +351,6 @@ connectAndSendUserCommand(char c,
   return replyData;
 }
 
-string
-getCoordCkptDir(void)
-{
-  // FIXME: Add a test for make-check.
-  char buf[PATH_MAX] = { 0 };
-
-  if (noCoordinator()) {
-    return "";
-  }
-  DmtcpMessage msg(DMT_GET_CKPT_DIR);
-  sendMsgToCoordinator(msg);
-
-  char *extraData = NULL;
-  recvMsgFromCoordinator(&msg, (void **)&extraData);
-  msg.assertValid();
-  JASSERT(msg.type == DMT_GET_CKPT_DIR_RESULT) (msg.type);
-
-  JASSERT(msg.extraBytes > 0 && msg.extraBytes < PATH_MAX);
-  strcpy(buf, extraData);
-  JALLOC_HELPER_FREE(extraData);
-  return buf;
-}
-
-void
-updateCoordCkptDir(const char *dir)
-{
-  if (noCoordinator()) {
-    return;
-  }
-  JASSERT(dir != NULL);
-  DmtcpMessage msg(DMT_UPDATE_CKPT_DIR);
-  sendMsgToCoordinator(msg, dir, strlen(dir) + 1);
-}
-
 void
 sendMsgToCoordinatorRaw(int fd,
                         DmtcpMessage msg,

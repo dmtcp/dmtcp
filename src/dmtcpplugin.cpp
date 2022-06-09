@@ -39,7 +39,6 @@
 #undef dmtcp_get_local_status
 #undef dmtcp_get_uniquepid_str
 #undef dmtcp_get_ckpt_filename
-#undef dmtcp_set_coord_ckpt_dir
 #undef dmtcp_get_coord_ckpt_dir
 #undef dmtcp_set_ckpt_dir
 #undef dmtcp_get_ckpt_dir
@@ -162,10 +161,7 @@ dmtcp_get_ckpt_signal(void)
 EXTERNC const char *
 dmtcp_get_tmpdir(void)
 {
-  static char tmpdir[PATH_MAX];
-
-  JASSERT(SharedData::getTmpDir(tmpdir, sizeof(tmpdir)) != NULL);
-  return tmpdir;
+  return SharedData::getTmpDir();
 }
 
 // EXTERNC void dmtcp_set_tmpdir(const char* dir)
@@ -178,8 +174,7 @@ dmtcp_get_tmpdir(void)
 EXTERNC const char *
 dmtcp_get_ckpt_dir()
 {
-  static string *tmpdir = new string(ProcessInfo::instance().getCkptDir());
-  return tmpdir->c_str();
+  return ProcessInfo::instance().getCkptDir().c_str();
 }
 
 EXTERNC int
@@ -187,22 +182,6 @@ dmtcp_set_ckpt_dir(const char *dir)
 {
   if (dir != NULL) {
     ProcessInfo::instance().setCkptDir(dir);
-  }
-  return DMTCP_IS_PRESENT;
-}
-
-EXTERNC const char *
-dmtcp_get_coord_ckpt_dir(void)
-{
-  static string *dir = new string(CoordinatorAPI::getCoordCkptDir());
-  return dir->c_str();
-}
-
-EXTERNC int
-dmtcp_set_coord_ckpt_dir(const char *dir)
-{
-  if (dir != NULL) {
-    CoordinatorAPI::updateCoordCkptDir(dir);
   }
   return DMTCP_IS_PRESENT;
 }
@@ -216,81 +195,13 @@ dmtcp_set_ckpt_file(const char *filename)
 EXTERNC const char *
 dmtcp_get_ckpt_filename(void)
 {
-  static string *filename =
-    new string(ProcessInfo::instance().getCkptFilename());
-  return filename->c_str();
+  return ProcessInfo::instance().getCkptFilename().c_str();
 }
 
 EXTERNC const char *
 dmtcp_get_ckpt_files_subdir(void)
 {
-  static string *tmpdir =
-    new string(ProcessInfo::instance().getCkptFilesSubDir());
-  return tmpdir->c_str();
-}
-
-EXTERNC void
-dmtcp_get_bin_dir(char dmtcp_bin_dir[]) {
-  char *lib = getenv("DMTCP_HIJACK_LIBS");
-  JASSERT(lib != NULL && *lib != '\0')(lib).Text("Bad DMTCP_HIJACK_LIB");
-
-  char *dmtcp_lib = strstr(lib, "/lib/dmtcp/libdmtcp_");
-  dmtcp_lib[0] = '\0'; // temporarily set to '\0' for sake of strrchr()
-  if (strrchr(lib, ':') != NULL) { // If DMTCP lib is not the first one
-    lib = strrchr(lib, ':') + 1;
-  }
-  dmtcp_lib[0] = '/'; // restore changed character
-
-  // If 'strstr(...) == NULL, then there is only one library.
-  char *lib_end = strchr(lib, ':') ? strchr(lib, ':') : lib;
-  dmtcp_bin_dir[0] = '\0';
-  strncpy(dmtcp_bin_dir, lib, lib_end - lib);
-  dmtcp_bin_dir[lib_end - lib] = '\0';
-  int i = 3;
-  for (i = 3; i > 0; i--) {
-    strrchr(dmtcp_bin_dir, '/')[0] = '\0';
-  }
-  strcat(dmtcp_bin_dir, "/bin");
-}
-
-/* See include/dmtcp.h for examples of using this function.
- */
-#undef dmtcp_get_libc_addr
-EXTERNC void *
-dmtcp_get_libc_addr(const char*libc_fnc) {
-  char dmtcp_bin_dir[10000];
-  JASSERT(strlen(getenv("DMTCP_HIJACK_LIBS")) < sizeof(dmtcp_bin_dir));
-  dmtcp_get_bin_dir(dmtcp_bin_dir);
-  strcat(dmtcp_bin_dir, "/dmtcp_get_libc_offset");
-  char *dmtcp_get_libc_offset = dmtcp_bin_dir;
-
-  int pipefd[2];
-  JASSERT(pipe(pipefd) == 0)(JASSERT_ERRNO);
-  // Use dmtcp_fork() instead of fork() in case a plugin is redefining
-  //   fork() to call:  (*dmtcp_get_libc_addr("fork"))().
-  extern int dmtcp_fork();
-  int childpid = dmtcp_fork();
-  if (childpid) { // if parent
-    long int offset;
-    while (read(pipefd[0], &offset, sizeof(offset)) != sizeof(offset)) {};
-    waitpid(childpid, NULL, 0);
-    // This assumes DMTCP does not wrap "read".  dlsym() returns ptr in libc.
-    return (char *)dlsym(RTLD_NEXT, "read") + offset;
-  } else { // else child
-    // get offset of 'execv' in libc, and write it to parent
-    char *command[] = {NULL, NULL, NULL};
-    command[0] = dmtcp_get_libc_offset;
-    command[1] = const_cast<char*>(libc_fnc);
-    close(0);
-    dup2(pipefd[1], 1); // command will write offset to stdout (fd: 1)
-    // char *ld_preload = getenv("LD_PRELOAD");
-    // char ld_preload_first_char = ld_preload[0]; // Unused; see below;
-    // ld_preload[0] = '\0'; // No LD_PRELOAD on next program.
-    environ[0] = NULL;
-    execvpe(command[0], command, environ);
-    // ld_preload[0] = ld_preload_first_char; // Not needed; never reached.
-    exit(0); // to satisfy the compiler
-  }
+  return ProcessInfo::instance().getCkptFilesSubDir().c_str();
 }
 
 EXTERNC int
@@ -314,33 +225,25 @@ dmtcp_get_executable_path(void)
 EXTERNC const char *
 dmtcp_get_uniquepid_str(void)
 {
-  static string *uniquepid_str =
-    new string(UniquePid::ThisProcess(true).toString());
-  return uniquepid_str->c_str();
+  return ProcessInfo::instance().upidStr().c_str();
 }
 
 EXTERNC DmtcpUniqueProcessId
 dmtcp_get_uniquepid(void)
 {
-  return UniquePid::ThisProcess().upid();
+  return ProcessInfo::instance().upid().upid();
 }
 
 EXTERNC DmtcpUniqueProcessId
 dmtcp_get_computation_id(void)
 {
-  return SharedData::getCompId();
+  return ProcessInfo::instance().compGroup().upid();
 }
 
 EXTERNC const char *
 dmtcp_get_computation_id_str(void)
 {
-  static string *compid_str = NULL;
-
-  if (compid_str == NULL) {
-    UniquePid compId = SharedData::getCompId();
-    compid_str = new string(compId.toString());
-  }
-  return compid_str->c_str();
+  return ProcessInfo::instance().compGroupStr().c_str();
 }
 
 EXTERNC DmtcpUniqueProcessId

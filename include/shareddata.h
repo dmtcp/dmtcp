@@ -185,8 +185,9 @@ void getCoordAddr(struct sockaddr *addr, uint32_t *len);
 void setCoordHost(struct in_addr *in);
 uint64_t getCoordTimeStamp();
 
-string getTmpDir();
 char *getTmpDir(char *buf, uint32_t len);
+const char *getTmpDir();
+
 string getInstallDir();
 uint32_t getCkptInterval();
 void updateGeneration(uint32_t generation);
