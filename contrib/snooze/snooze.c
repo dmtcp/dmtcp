@@ -27,7 +27,6 @@ pre_ckpt()
            dmtcp_get_generation());
 
   dmtcp_set_ckpt_dir(newCkptDir);
-  dmtcp_set_coord_ckpt_dir(newCkptDir);
 }
 
 static void

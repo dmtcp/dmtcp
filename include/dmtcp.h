@@ -206,6 +206,10 @@ int DmtcpRWLockUnlock(DmtcpRWLock *rwlock);
 
 #define   RESTART_ENV_MAXSIZE               12288*10
 
+// Internal usage only. Shouldn't be used directly by the plugin. Use
+// DMTCP_DECL_PLUGIN instead.
+void dmtcp_initialize_plugin(void) __attribute((weak));
+
 #define DMTCP_DECL_PLUGIN(descr)                      \
   EXTERNC void dmtcp_initialize_plugin()              \
   {                                                   \
@@ -280,41 +284,6 @@ int dmtcp_disable_ckpt(void) __attribute__((weak));
 int dmtcp_enable_ckpt(void) __attribute__((weak));
 #define dmtcp_enable_ckpt() \
   (dmtcp_enable_ckpt ? dmtcp_enable_ckpt() : DMTCP_NOT_PRESENT)
-
-/**
- * Example:  dmtcp_get_libc_addr("fork") returns the address of "fork"
- *           in libc at runtime (when loaded in memory).
- * NOTE:  dmtcp_get_libc_addr(fnc) skips any DMTCP wrapper functions around
- *        fnc, and directly calls its definition in libc.  In contrast, the
- *        _real_XX() functions found in DMTCP_ROOT/src are pointers to the
- *        next definition of fnc in library search order.  (This may be in the
- *        next libdmctp_YY.so library in search order, or in libc.so istelf.)
- * EXAMPLE USAGE 1:
- *   static typeof(fork) *libc_fork_ptr = NULL;
- *   if (libc_fork_ptr == NULL) {libc_fork_ptr = dmtcp_get_libc_addr("fork");}
- *   if (libc_fork_ptr != DMTCP_NOT_PRESENT) {
- *     // Skip DMTCP interposition on fork; child doesn't coonect to coord.
- *     (*libc_fork_ptr)();
- *   }
- * EXAMPLE USAGE 2:
- *   static typeof(execvp) *libc_execvp_ptr = NULL;
- *   if (libc_execvp_ptr == NULL) {
- *     libc_execvp_ptr = dmtcp_get_libc_addr("execvp");
- *   }
- *   if (libc_execvp_ptr != DMTCP_NOT_PRESENT) {
- *     // Don't preload DMTCP libraries when you exec to a new program.
- *     char *ld_preload = getenv("LD_PRELOAD");
- *     ld_preload[0] = '\0';
- *     (*libc_execvp_ptr)(...);
- *   }
- */
-void * dmtcp_get_libc_addr(const char* libc_fnc) __attribute__((weak));
-#define dmtcp_get_libc_addr(libc_fnc) \
-  (dmtcp_get_libc_addr? dmtcp_get_libc_addr(libc_fnc) : \
-                        (void *)DMTCP_NOT_PRESENT)
-
-/* FIXME:  Usage: ?? */
-void dmtcp_initialize_plugin(void) __attribute((weak));
 
 /*
  * Global barriers are required when a plugin needs inter-node synchronization,
@@ -423,14 +392,6 @@ const char *dmtcp_get_ckpt_dir(void) __attribute((weak));
 int dmtcp_set_ckpt_dir(const char *) __attribute((weak));
 #define dmtcp_set_ckpt_dir(d) \
   (dmtcp_set_ckpt_dir ? dmtcp_set_ckpt_dir(d) : DMTCP_NOT_PRESENT)
-
-const char *dmtcp_get_coord_ckpt_dir(void) __attribute__((weak));
-#define dmtcp_get_coord_ckpt_dir() \
-  (dmtcp_get_coord_ckpt_dir ? dmtcp_get_coord_ckpt_dir() : "")
-
-int dmtcp_set_coord_ckpt_dir(const char *dir) __attribute__((weak));
-#define dmtcp_set_coord_ckpt_dir(d) \
-  (dmtcp_set_coord_ckpt_dir ? dmtcp_set_coord_ckpt_dir(d) : DMTCP_NOT_PRESENT)
 
 const char *dmtcp_get_ckpt_filename(void) __attribute__((weak));
 const char *dmtcp_get_ckpt_files_subdir(void);
@@ -692,9 +653,9 @@ uint64_t dmtcp_dlsym_lib_fnc_offset(const char *libname, const char *symbol);
  * Use this to distinguish DMTCP failing versus the target application failing.
  */
 #define DMTCP_FAIL_RC_PARAM                                      \
-   (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC"))     \
-      ? atoi(getenv("DMTCP_FAIL_RC"))                            \
-      : 99)
+  (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC"))      \
+    ? atoi(getenv("DMTCP_FAIL_RC"))                              \
+    : 99)
 
 #define DMTCP_FAIL_RC                                            \
   (getenv("DMTCP_ABORT_ON_FAILURE")                              \

@@ -79,9 +79,6 @@ char *connectAndSendUserCommand(char c,
                                 int *isRunning = NULL,
                                 int *ckptInterval = NULL);
 
-void updateCoordCkptDir(const char *dir);
-string getCoordCkptDir(void);
-
 void sendCkptFilename();
 
 int sendKeyValPairToCoordinator(const char *id,

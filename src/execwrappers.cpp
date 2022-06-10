@@ -168,11 +168,8 @@ __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(
   return NEXT_FNC(__register_atfork)(prepare, parent, child, dso_handle);
 }
 
-// We re-factor to have fork() call dmtcp_fork().
-// This is needed by dmtcpplugin.cpp:dmtcp_get_libc_addr() in case it is
-//   called on 'fork':  dmtcp_get_libc_addr("fork")
 extern "C" pid_t
-dmtcp_fork()
+fork()
 {
   if (isPerformingCkptRestart()) {
 #ifndef __aarch64__
@@ -638,12 +635,6 @@ int getLifeboatFd()
   JASSERT(unlink(buf) == 0) (JASSERT_ERRNO);
   Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);
   return PROTECTED_LIFEBOAT_FD;
-}
-
-extern "C" int
-fork()
-{
-  return dmtcp_fork();
 }
 
 extern "C" int
