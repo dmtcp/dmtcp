@@ -388,7 +388,7 @@ SharedData::updateGeneration(uint32_t generation)
   if (sharedDataHeader == NULL) {
     initialize();
   }
-  sharedDataHeader->compId._computation_generation = generation;
+  sharedDataHeader->compId.computation_generation = generation;
 }
 
 DmtcpUniqueProcessId

@@ -181,8 +181,8 @@ RestoreTarget::RestoreTarget(const string &path)
 void
 RestoreTarget::initialize()
 {
-  UniquePid::ThisProcess() = _pInfo.upid();
-  UniquePid::ParentProcess() = _pInfo.uppid();
+  ProcessInfo::instance().setUpid(_pInfo.upid());
+  // ProcessInfo::instance().setUppid(_pInfo.uppid());
 
   DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
   CoordinatorInfo coordInfo;

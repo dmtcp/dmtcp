@@ -30,61 +30,58 @@
 
 namespace dmtcp
 {
-struct UniquePid : private DmtcpUniqueProcessId {
+struct UniquePid : public DmtcpUniqueProcessId {
   public:
-    static UniquePid &ParentProcess();
-    static UniquePid &ThisProcess(bool disableJTrace = false);
-    UniquePid();
+    static UniquePid const& ParentProcess();
+    static UniquePid const& ThisProcess();
+    static uint64_t HostId();
+    static uint64_t Timestamp();
+
+    UniquePid() = default;
 
     UniquePid(const uint64_t &host,
               const pid_t &pd,
               const uint64_t &tm,
               const int &gen = 0)
     {
-      _hostid = host;
-      _pid = pd;
-      _time = tm;
-      _computation_generation = gen;
+      hostid = host;
+      pid = pd;
+      time = tm;
+      computation_generation = gen;
     }
 
     UniquePid(DmtcpUniqueProcessId id)
     {
-      _hostid = id._hostid;
-      _pid = id._pid;
-      _time = id._time;
-      _computation_generation = id._computation_generation;
+      hostid = id.hostid;
+      pid = id.pid;
+      time = id.time;
+      computation_generation = id.computation_generation;
     }
 
-    uint64_t hostid() const { return _hostid; }
-
-    pid_t pid() const { return _pid; }
-
-    int computationGeneration() const { return _computation_generation; }
-
-    uint64_t time() const { return _time; }
+    void resetOnFork()
+    {
+      pid = getpid();
+      time = Timestamp();
+    }
 
     DmtcpUniqueProcessId upid() const
     {
       DmtcpUniqueProcessId up;
 
-      up._hostid = _hostid;
-      up._pid = _pid;
-      up._time = _time;
-      up._computation_generation = _computation_generation;
+      up.hostid = hostid;
+      up.pid = pid;
+      up.time = time;
+      up.computation_generation = computation_generation;
       return up;
     }
 
     void incrementGeneration();
 
-    static void serialize(jalib::JBinarySerializer &o);
-    static void serialize(int fd);
+    void serialize(jalib::JBinarySerializer &o);
 
     bool operator<(const UniquePid &that) const;
     bool operator==(const UniquePid &that) const;
     bool operator!=(const UniquePid &that) const { return !operator==(that); }
-
-    static void restart();
-    static void resetOnFork();
 
     string toString() const;
 

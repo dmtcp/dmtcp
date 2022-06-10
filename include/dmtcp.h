@@ -221,10 +221,10 @@ void dmtcp_initialize_plugin(void) __attribute((weak));
   }
 
 typedef struct DmtcpUniqueProcessId {
-  uint64_t _hostid;  // gethostid()
-  uint64_t _time; // time()
-  pid_t _pid; // getpid()
-  uint32_t _computation_generation; // computationGeneration()
+  uint64_t hostid;  // gethostid()
+  uint64_t time; // time()
+  pid_t pid; // getpid()
+  uint32_t computation_generation; // computationGeneration()
 } DmtcpUniqueProcessId;
 
 int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a, DmtcpUniqueProcessId b);

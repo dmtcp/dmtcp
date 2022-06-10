@@ -465,7 +465,7 @@ DmtcpCoordinator::printList()
   for (size_t i = 0; i < clients.size(); i++) {
     o << clients[i]->clientNumber()
       << ", " << clients[i]->progname()
-      << "[" << clients[i]->identity().pid() << ":" << clients[i]->realPid()
+      << "[" << clients[i]->identity().pid << ":" << clients[i]->realPid()
       << "]@" << clients[i]->hostname()
 #ifdef PRINT_REMOTE_IP
       << "(" << clients[i]->ip() << ")"
@@ -960,7 +960,7 @@ DmtcpCoordinator::onConnect()
                                          &remoteAddr, remoteLen)) {
       return;
     }
-    client->virtualPid(hello_remote.from.pid());
+    client->virtualPid(hello_remote.from.pid);
     _virtualPidToClientMap[client->virtualPid()] = client;
   } else if (hello_remote.type == DMT_NEW_WORKER) {
     // Comping from dmtcp_launch or fork(), ssh(), etc.
@@ -1180,9 +1180,10 @@ DmtcpCoordinator::validateNewWorkerProcess(
     // If first process, create the new computation group
     if (compId == UniquePid(0, 0, 0)) {
       // Connection of new computation.
-      compId = UniquePid(hello_remote.from.hostid(), client->virtualPid(),
-                         hello_remote.from.time(),
-                         hello_remote.from.computationGeneration());
+      compId = UniquePid(hello_remote.from.hostid,
+                         client->virtualPid(),
+                         hello_remote.from.time,
+                         hello_remote.from.computation_generation);
 
       // Get the resolution down to 100 mili seconds.
       curTimeStamp = getCurrTimestamp();
@@ -1221,7 +1222,7 @@ DmtcpCoordinator::startCheckpoint()
     _sshCmdFileNames.clear();
     compId.incrementGeneration();
     JNOTE("starting checkpoint; incrementing generation; suspending all nodes")
-      (s.numPeers) (compId.computationGeneration());
+      (s.numPeers) (compId.computation_generation);
 
     // Pass number of connected peers to all clients
     broadcastMessage(DMT_DO_CHECKPOINT);

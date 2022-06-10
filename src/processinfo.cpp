@@ -36,6 +36,7 @@
 
 namespace dmtcp
 {
+static char pInfoBuf[sizeof(ProcessInfo)] = {0};
 static ProcessInfo *pInfo = NULL;
 static ProcessInfo *vforkBackup = NULL;
 
@@ -102,6 +103,7 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
 
   case DMTCP_EVENT_VFORK_PREPARE:
+    JASSERT(false). Text("Not implemented");
     vforkBackup = pInfo;
     pInfo = NULL;
     break;
@@ -150,42 +152,58 @@ dmtcp_ProcessInfo_PluginDescr()
 }
 
 ProcessInfo::ProcessInfo()
+  : _isRootOfProcessTree(false),
+    _pid(-1),
+    _ppid(-1),
+    _sid(-1),
+    _gid(-1),
+    _fgid(-1),
+    _generation(0),
+    _numCheckpoints(0),
+    _numRestarts(0),
+    _numPeers(0),
+    _noCoordinator(false),
+#ifdef CONFIG_M32
+    _elfType(Elf_32),
+#else // ifdef CONFIG_M32
+    _elfType(Elf_64),
+#endif // ifdef CONFIG_M32
+    _procname(),
+    _hostname(),
+    _ckptCWD(),
+    _ckptDir(),
+    _ckptFileName(),
+    _ckptFilesSubDir(),
+    _upid(),
+    _uppid(),
+    _compGroup(),
+    _upidStr(),
+    _compGroupStr(),
+    _restoreBufAddr(0),
+    _restoreBufLen(0),
+    _savedHeapStart(0),
+    _savedBrk(0),
+    _vdsoStart(0),
+    _vdsoEnd(0),
+    _vvarStart(0),
+    _vvarEnd(0),
+    _endOfStack(0),
+    _clock_gettime_offset(0),
+    _getcpu_offset(0),
+    _gettimeofday_offset(0),
+    _time_offset(0)
 {
   char buf[PATH_MAX];
-
-  _do_lock_tbl();
-  _pid = -1;
-  _ppid = -1;
-  _gid = -1;
-  _sid = -1;
-  _isRootOfProcessTree = false;
-  _noCoordinator = false;
-  _generation = 0;
-
-  // _generation, above, is per-process.
-  // This contrasts with DmtcpUniqueProcessId:_computation_generation, which is
-  // shared among all process on a node; used in variable sharedDataHeader.
-  // _generation is updated when _this_ process begins its checkpoint.
-  _pthreadJoinId.clear();
   _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
-  _uppid = UniquePid();
   JASSERT(getcwd(buf, sizeof buf) != NULL);
   _launchCWD = buf;
-#ifdef CONFIG_M32
-  _elfType = Elf_32;
-#else // ifdef CONFIG_M32
-  _elfType = Elf_64;
-#endif // ifdef CONFIG_M32
-  _restoreBufLen = RESTORE_TOTAL_SIZE;
-  _restoreBufAddr = 0;
-  _do_unlock_tbl();
 }
 
 ProcessInfo&
 ProcessInfo::instance()
 {
   if (pInfo == NULL) {
-    pInfo = new ProcessInfo();
+    pInfo = new (pInfoBuf) ProcessInfo();
   }
   return *pInfo;
 }
@@ -399,8 +417,9 @@ ProcessInfo::resetOnFork()
   _ppid = _pid;
   _pid = getpid();
 
-  _upid = UniquePid();
-  _uppid = UniquePid();
+  _uppid = _upid;
+
+  _upid.resetOnFork();
   _upidStr.clear();
 
   _isRootOfProcessTree = false;

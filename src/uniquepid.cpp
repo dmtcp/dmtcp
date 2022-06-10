@@ -29,14 +29,12 @@
 #include "protectedfds.h"
 #include "shareddata.h"
 #include "syscallwrappers.h"
+#include "processinfo.h"
 
 using namespace dmtcp;
 
-static UniquePid vforkThisProcess;
-static UniquePid vforkParentProcess;
-
-inline static long
-theUniqueHostId()
+uint64_t
+UniquePid::HostId()
 {
 #ifdef USE_GETHOSTID
   return ::gethostid()
@@ -58,85 +56,39 @@ theUniqueHostId()
 #endif // ifdef USE_GETHOSTID
 }
 
-static UniquePid&
-nullProcess()
-{
-  static char buf[sizeof(UniquePid)];
-  static UniquePid *t = NULL;
-
-  if (t == NULL) {
-    t = new (buf)UniquePid(0, 0, 0);
-  }
-  return *t;
-}
-
-static UniquePid&
-theProcess()
-{
-  static char buf[sizeof(UniquePid)];
-  static UniquePid *t = NULL;
-
-  if (t == NULL) {
-    t = new (buf)UniquePid(0, 0, 0);
-  }
-  return *t;
-}
-
-static UniquePid&
-parentProcess()
-{
-  static char buf[sizeof(UniquePid)];
-  static UniquePid *t = NULL;
-
-  if (t == NULL) {
-    t = new (buf)UniquePid(0, 0, 0);
-  }
-  return *t;
-}
-
-// _computation_generation field of return value may later have to be modified.
-// So, it can't return a const UniquePid
-UniquePid&
-UniquePid::ThisProcess(bool disableJTrace /*=false*/)
+uint64_t
+UniquePid::Timestamp()
 {
   struct timespec value;
-  uint64_t nsecs = 0;
 
-  if (theProcess() == nullProcess()) {
-    JASSERT(clock_gettime(CLOCK_MONOTONIC, &value) == 0);
-    nsecs = value.tv_sec * 1000000000L + value.tv_nsec;
-    theProcess() = UniquePid(theUniqueHostId(),
-                             ::getpid(),
-                             nsecs);
-    if (disableJTrace == false) {
-      JTRACE("recalculated process UniquePid...") (theProcess());
-    }
+  JASSERT(clock_gettime(CLOCK_MONOTONIC, &value) == 0);
+  return (uint64_t) value.tv_sec * 1000000000L + value.tv_nsec;
+}
+
+// computation_generation field of return value may later have to be modified.
+// So, it can't return a const UniquePid
+UniquePid const&
+UniquePid::ThisProcess()
+{
+  if (ProcessInfo::instance().upid().isNull()) {
+    ProcessInfo::instance().setUpid(
+      UniquePid(HostId(), getpid(), Timestamp()));
   }
 
-  return theProcess();
+  return ProcessInfo::instance().upid();
 }
 
-UniquePid&
+UniquePid const&
 UniquePid::ParentProcess()
 {
-  return parentProcess();
-}
-
-/*!
-    \fn UniquePid::UniquePid()
- */
-UniquePid::UniquePid()
-{
-  _pid = 0;
-  _hostid = 0;
-  memset(&_time, 0, sizeof(_time));
+  return ProcessInfo::instance().uppid();
 }
 
 // This is called only by the DMTCP coordinator.
 void
 UniquePid::incrementGeneration()
 {
-  _computation_generation++;
+  computation_generation++;
 }
 
 /*!
@@ -149,43 +101,43 @@ UniquePid::operator<(const UniquePid &that) const
   if (this->param != that.param) {   \
     return this->param < that.param; \
   }
-  TRY_LEQ(_hostid);
-  TRY_LEQ(_pid);
-  TRY_LEQ(_time);
+  TRY_LEQ(hostid);
+  TRY_LEQ(pid);
+  TRY_LEQ(time);
   return false;
 }
 
 bool
 UniquePid::operator==(const UniquePid &that) const
 {
-  return _hostid == that.hostid()
-         && _pid == that.pid()
-         && _time == that.time();
+  return hostid == that.hostid
+         && pid == that.pid
+         && time == that.time;
 }
 
 ostream&
 dmtcp::operator<<(dmtcp::ostream &o, const UniquePid &id)
 {
-  o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' <<
-  std::hex << id.time() << std::dec;
+  o << std::hex << id.hostid << '-' << std::dec << id.pid << '-' <<
+  std::hex << id.time << std::dec;
   return o;
 }
 
 ostream&
 dmtcp::operator<<(dmtcp::ostream &o, const DmtcpUniqueProcessId &id)
 {
-  o << std::hex << id._hostid << '-' << std::dec << id._pid << '-' <<
-  std::hex << id._time << std::dec;
+  o << std::hex << id.hostid << '-' << std::dec << id.pid << '-' <<
+  std::hex << id.time << std::dec;
   return o;
 }
 
 bool
 dmtcp::operator==(const DmtcpUniqueProcessId &a, const DmtcpUniqueProcessId &b)
 {
-  return a._hostid == b._hostid &&
-         a._pid == b._pid &&
-         a._time == b._time &&
-         a._computation_generation == b._computation_generation;
+  return a.hostid == b.hostid &&
+         a.pid == b.pid &&
+         a.time == b.time &&
+         a.computation_generation == b.computation_generation;
 }
 
 bool
@@ -204,87 +156,13 @@ UniquePid::toString() const
 }
 
 void
-UniquePid::resetOnFork()
+UniquePid::serialize(jalib::JBinarySerializer &o)
 {
-  uint64_t host = UniquePid::ThisProcess().hostid();
-
-  // parentProcess() is for inspection tools
-  parentProcess() = ThisProcess();
-  theProcess() = UniquePid(host, getpid(), ::time(NULL));
-  JTRACE("Explicitly setting process UniquePid") (ThisProcess());
+  o & hostid & pid & time & computation_generation;
 }
 
 bool
 UniquePid::isNull() const
 {
-  return *this == nullProcess();
-}
-
-void
-UniquePid::serialize(jalib::JBinarySerializer &o)
-{
-  // NOTE: Do not put JTRACE/JNOTE/JASSERT in here
-  UniquePid theCurrentProcess, theParentProcess;
-
-  if (o.isWriter()) {
-    theCurrentProcess = ThisProcess();
-    theParentProcess = ParentProcess();
-  }
-
-  o&theCurrentProcess &theParentProcess;
-
-  if (o.isReader()) {
-    theProcess() = theCurrentProcess;
-    parentProcess() = theParentProcess;
-  }
-}
-
-void
-UniquePid::serialize(int fd)
-{
-  jalib::JBinarySerializeWriterRaw s("", fd);
-  serialize(s);
-}
-
-static void
-UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
-{
-  switch (event) {
-  case DMTCP_EVENT_ATFORK_CHILD:
-  case DMTCP_EVENT_VFORK_CHILD:
-    UniquePid::resetOnFork();
-    break;
-
-  case DMTCP_EVENT_VFORK_PREPARE:
-    vforkThisProcess = UniquePid::ThisProcess();
-    vforkParentProcess = UniquePid::ParentProcess();
-    break;
-
-  case DMTCP_EVENT_VFORK_PARENT:
-  case DMTCP_EVENT_VFORK_FAILED:
-    UniquePid::ThisProcess() = vforkThisProcess;
-    UniquePid::ParentProcess() = vforkParentProcess;
-    UniquePid::resetOnFork();
-    break;
-
-  default:
-    break;
-  }
-}
-
-static DmtcpPluginDescriptor_t UniquePidPlugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "UniquePid",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "processInfo plugin",
-  UniquePid_EventHook
-};
-
-
-DmtcpPluginDescriptor_t
-UniquePid::pluginDescr()
-{
-  return UniquePidPlugin;
+  return !hostid && !pid && !time && !computation_generation;
 }

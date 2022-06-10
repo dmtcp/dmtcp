@@ -103,13 +103,13 @@ class ProcessInfo
 
     const string &hostname() const { return _hostname; }
 
-    const UniquePid &upid() {
-      // Temporary fix until we remove the static members from UniquePid.cpp.
-      if (_upid == UniquePid()) {
-        _upid = UniquePid::ThisProcess(true);
-      }
-      return _upid;
+    void setUpid(UniquePid const& upid)
+    {
+      _upid = upid;
+      _upidStr.clear();
     }
+
+    const UniquePid &upid() const { return _upid; }
 
     const string &upidStr() {
       if (_upidStr.empty()) {
@@ -118,13 +118,7 @@ class ProcessInfo
       return _upidStr;
     }
 
-    const UniquePid &uppid() {
-      // Temporary fix until we remove the static members from UniquePid.cpp.
-      if (_uppid == UniquePid()) {
-        _uppid = UniquePid::ParentProcess();
-      }
-      return _uppid;
-    }
+    const UniquePid &uppid() const { return _uppid; }
 
     UniquePid compGroup() const { return _compGroup; }
 

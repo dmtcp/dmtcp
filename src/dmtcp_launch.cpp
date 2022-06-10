@@ -433,7 +433,7 @@ main(int argc, const char **argv)
               "*********************************************\n");
   }
 
-  UniquePid::ThisProcess(true);
+  UniquePid::ThisProcess();
   Util::initializeLogFile(tmpDir.c_str(), NULL, NULL);
 
 #ifdef FORKED_CHECKPOINTING

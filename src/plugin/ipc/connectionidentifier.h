@@ -48,12 +48,6 @@ class ConnectionIdentifier
 
     static void serialize(jalib::JBinarySerializer &o);
 
-    uint64_t hostid() const { return _upid._hostid; }
-
-    pid_t pid() const { return _upid._pid; }
-
-    uint64_t time() const { return _upid._time; }
-
     int64_t conId() const { return _id; }
 
     // int conId() const;
@@ -65,6 +59,8 @@ class ConnectionIdentifier
       _upid = id;
       _id = -1;
     }
+
+    DmtcpUniqueProcessId const& upid() const { return _upid; }
 
     bool isNull() const { return _id < 0; }
 

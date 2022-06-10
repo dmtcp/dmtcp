@@ -77,9 +77,9 @@ const
     return _upid.param < that._upid.param; \
   }
 
-  TRY_LEQ(_hostid);
-  TRY_LEQ(_pid);
-  TRY_LEQ(_time);
+  TRY_LEQ(hostid);
+  TRY_LEQ(pid);
+  TRY_LEQ(time);
   return _id < that._id;
 }
 
@@ -87,19 +87,19 @@ bool
 ConnectionIdentifier::operator==(const ConnectionIdentifier &that)
 const
 {
-  return _upid._hostid == that._upid._hostid &&
-         _upid._pid == that._upid._pid &&
-         _upid._time == that._upid._time &&
-         _upid._computation_generation == that._upid._computation_generation &&
+  return _upid.hostid == that._upid.hostid &&
+         _upid.pid == that._upid.pid &&
+         _upid.time == that._upid.time &&
+         _upid.computation_generation == that._upid.computation_generation &&
          _id == that._id;
 }
 
 ostream&
 dmtcp::operator<<(ostream &o, const ConnectionIdentifier &id)
 {
-  o << std::hex << id.hostid()
-    << '-' << std::dec << id.pid()
-    << '-' << std::hex << id.time()
+  o << std::hex << id.upid().hostid
+    << '-' << std::dec << id.upid().pid
+    << '-' << std::hex << id.upid().time
     << std::dec << '(' << id.conId() << ')';
   return o;
 }

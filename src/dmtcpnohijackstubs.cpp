@@ -68,14 +68,14 @@ dmtcp_get_uniquepid_str()
 {
   static string uniquepid_str;
 
-  uniquepid_str = UniquePid::ThisProcess(true).toString();
+  uniquepid_str = UniquePid::ThisProcess().toString();
   return uniquepid_str.c_str();
 }
 
 DmtcpUniqueProcessId
 dmtcp_get_uniquepid()
 {
-  return UniquePid::ThisProcess(true).upid();
+  return UniquePid::ThisProcess().upid();
 }
 
 DmtcpUniqueProcessId

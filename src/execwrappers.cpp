@@ -840,8 +840,6 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
   data.preExec.envp = envpCopyCStr;
   data.preExec.serializationFd = getLifeboatFd();
 
-  UniquePid::serialize(data.preExec.serializationFd);
-
   PluginManager::eventHook(DMTCP_EVENT_PRE_EXEC, &data);
 
   programName = jalib::Filesystem::BaseName(data.preExec.filename);

@@ -180,17 +180,17 @@ prepareLogAndProcessdDataFromSerialFile()
 
     jalib::JBinarySerializeReaderRaw rd("", PROTECTED_LIFEBOAT_FD);
     rd.rewind();
-    UniquePid::serialize(rd);
+    DmtcpEventData_t edata;
+    edata.postExec.serializationFd = PROTECTED_LIFEBOAT_FD;
+    PluginManager::eventHook(DMTCP_EVENT_POST_EXEC, &edata);
+    _real_close(PROTECTED_LIFEBOAT_FD);
+
     Util::initializeLogFile(SharedData::getTmpDir(),
                             NULL,
                             prevLogFilePath.c_str());
 
     writeCurrentLogFileNameToPrevLogFile(prevLogFilePath);
 
-    DmtcpEventData_t edata;
-    edata.postExec.serializationFd = PROTECTED_LIFEBOAT_FD;
-    PluginManager::eventHook(DMTCP_EVENT_POST_EXEC, &edata);
-    _real_close(PROTECTED_LIFEBOAT_FD);
   } else {
     // Brand new process (was never under ckpt-control),
     // Initialize the log file
@@ -395,7 +395,7 @@ DmtcpWorker::waitForPreSuspendMessage()
 
   // Coordinator sends some computation information along with the SUSPEND
   // message. Extracting that.
-  SharedData::updateGeneration(msg.compGroup.computationGeneration());
+  SharedData::updateGeneration(msg.compGroup.computation_generation);
   JASSERT(SharedData::getCompId() == msg.compGroup.upid())
     (SharedData::getCompId()) (msg.compGroup);
 
@@ -457,7 +457,7 @@ DmtcpWorker::preCheckpoint()
 
   // Update generation, in case user callback calls dmtcp_get_generation().
   uint32_t computationGeneration =
-    SharedData::getCompId()._computation_generation;
+    SharedData::getCompId().computation_generation;
   ProcessInfo::instance().set_generation(computationGeneration);
 
   // initialize local number of peers on this node:

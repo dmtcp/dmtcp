@@ -1010,11 +1010,11 @@ setupVirtualCoordinator(CoordinatorInfo *coordInfo, struct in_addr *localIP)
   Util::setVirtualPidEnvVar(INITIAL_VIRTUAL_PID, ppid, ppid);
 
   UniquePid coordId = UniquePid(INITIAL_VIRTUAL_PID,
-                                UniquePid::ThisProcess().hostid(),
-                                UniquePid::ThisProcess().time());
+                                UniquePid::ThisProcess().hostid,
+                                UniquePid::ThisProcess().time);
 
   coordInfo->id = coordId.upid();
-  coordInfo->timeStamp = coordId.time();
+  coordInfo->timeStamp = coordId.time;
   coordInfo->addrLen = 0;
   if (getenv(ENV_VAR_CKPT_INTR) != NULL) {
     coordInfo->interval = (uint32_t)strtol(getenv(ENV_VAR_CKPT_INTR), NULL, 0);

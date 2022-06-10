@@ -119,7 +119,7 @@ Util::initializeLogFile(const char *tmpDir,
                         const char *procname,
                         const char *prevLogPath)
 {
-  UniquePid::ThisProcess(true);
+  UniquePid::ThisProcess();
 
 #ifdef LOGGING
 

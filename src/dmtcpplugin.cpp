@@ -255,10 +255,10 @@ dmtcp_get_coord_id(void)
 EXTERNC int
 dmtcp_unique_pids_equal(DmtcpUniqueProcessId a, DmtcpUniqueProcessId b)
 {
-  return a._hostid == b._hostid &&
-         a._pid == b._pid &&
-         a._time == b._time &&
-         a._computation_generation == b._computation_generation;
+  return a.hostid == b.hostid &&
+         a.pid == b.pid &&
+         a.time == b.time &&
+         a.computation_generation == b.computation_generation;
 }
 
 EXTERNC uint64_t
@@ -276,7 +276,7 @@ dmtcp_get_generation(void)
 EXTERNC int
 checkpoint_is_pending(void)
 {
-  return SharedData::getCompId()._computation_generation >
+  return SharedData::getCompId().computation_generation >
          ProcessInfo::instance().get_generation();
 }
 

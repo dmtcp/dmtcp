@@ -357,7 +357,7 @@ writeScript(const string &ckptDir,
     << RESTART_SCRIPT_BASENAME << "_" << compId;
   if (uniqueCkptFilenames) {
     o << "_" << std::setw(5) << std::setfill('0') <<
-        compId.computationGeneration();
+        compId.computation_generation;
   }
   o << "." << RESTART_SCRIPT_EXT;
   uniqueFilename = o.str();
