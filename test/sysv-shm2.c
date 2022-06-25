@@ -4,11 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ipc.h>
+#include <sys/mman.h>
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-#define SIZE 1024
+#define SIZE 4096
 
 void
 parent(int fd)
@@ -32,6 +33,18 @@ parent(int fd)
     abort();
   }
   memset(addr, 0, SIZE);
+
+  void *addr2 = shmat(shmid, NULL, 0);
+  if (addr2 == (void *)-1) {
+    perror("Child: second shmat failed");
+    abort();
+  }
+
+  // Now unmap the second address using munmap.
+  if (munmap(addr2, SIZE) == -1) {
+    perror("Child: munmap failed");
+    abort();
+  }
 
   if (write(fd, &shmid, sizeof(shmid)) != sizeof(shmid)) {
     perror("write");
@@ -65,6 +78,18 @@ child(int fd)
   void *addr = shmat(shmid, NULL, 0);
   if (addr == (void *)-1) {
     perror("Child: shmat");
+    abort();
+  }
+
+  void *addr2 = shmat(shmid, NULL, 0);
+  if (addr2 == (void *)-1) {
+    perror("Child: second shmat failed");
+    abort();
+  }
+
+  // Now unmap the second address using munmap.
+  if (munmap(addr2, SIZE) == -1) {
+    perror("Child: munmap failed");
     abort();
   }
 
