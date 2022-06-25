@@ -753,15 +753,40 @@ ShmSegment::isStale()
 void
 ShmSegment::leaderElection()
 {
-  /* We attach and detach to the shmid object to set the shm_lpid to our pid.
-   * The process who calls the last shmdt() is declared the leader.
-   */
-  void *addr = _real_shmat(_realId, NULL, 0);
+  // Remove stale segments (those that were created with shmat but removed with
+  // munmap instead of shmdt).
+  // As a result of this attach/detach activity, the last process to do a detach
+  // will also be considered leader.
 
-  JASSERT(addr != (void *)-1) (_id) (JASSERT_ERRNO)
-  .Text("_real_shmat() failed");
+  // Make a copy in case there is only SHM segment associated with object.
+  void *savedAddr = _real_shmat(_realId, NULL, 0);
+  JASSERT(savedAddr != (void*) -1) (_id) (JASSERT_ERRNO)
+    .Text("_real_shmat() failed");
 
-  JASSERT(_real_shmdt(addr) == 0) (_id) (addr) (JASSERT_ERRNO);
+  // The kernel can give us one of our previous addresses.
+  if (_shmaddrToFlag.find(savedAddr) != _shmaddrToFlag.end()) {
+    _shmaddrToFlag.erase(savedAddr);
+  }
+
+  ShmaddrToFlagIter i = _shmaddrToFlag.begin();
+  while (i != _shmaddrToFlag.end()) {
+    if (_real_shmdt(i->first) == -1) {
+      // The application might have munmap'd an area; let's stop tracking it.
+      JNOTE("No SHM segment attached at shmaddr; removing it from list.")
+        (_id) (i->first);
+      i = _shmaddrToFlag.erase(i);
+      continue;
+    }
+
+    void *addr = _real_shmat(_realId, i->first, i->second);
+    JASSERT(addr == i->first) (_id) (i->first) (i->second) (JASSERT_ERRNO)
+      .Text("_real_shmat() failed");
+
+    ++i;
+  }
+
+  // Remove the previously-attached segment.
+  JASSERT(_real_shmdt(savedAddr) == 0);
 }
 
 void
@@ -794,13 +819,15 @@ ShmSegment::preCheckpoint()
 
   /* If this process won the leader election, unmap all but the first memory
    * segment, otherwise, unmap all the mappings of this memory-segment.
+   * TODO(kapil): Ensure that the first addr (i->first) is readable.
    */
   if (_isCkptLeader) {
     ++i;
   }
+
   for (; i != _shmaddrToFlag.end(); ++i) {
     JTRACE("Unmapping shared memory segment") (_id)(i->first);
-    JASSERT(_real_shmdt(i->first) == 0);
+    JASSERT(_real_shmdt(i->first) == 0) (_id) (i->first);
 
     // We need to unmap the duplicate shared memory segments to optimize ckpt
     // image size. But we will remap it with zero pages that have no rwx
