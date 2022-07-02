@@ -67,6 +67,9 @@ static int glibcMinorVersion()
   return minor;
 }
 
+/*****************************************************************************
+ *
+ *****************************************************************************/
 /* Offset computed (&x.pid - &x) for
  *   struct pthread x;
  * as found in:  glibc-2.5/nptl/descr.h
@@ -142,8 +145,8 @@ static int glibcMinorVersion()
  *                                                      (char *)pthread_self()
  *  $14 = 720  # So, 720 is the correct offset in this example.
  */
-static int
-STATIC_TLS_TID_OFFSET()
+int
+TLSInfo_GetTidOffset(void)
 {
   static int offset = -1;
 
@@ -151,140 +154,25 @@ STATIC_TLS_TID_OFFSET()
     return offset;
   }
 
+  // tcbhead_t, etc., were introduced in glibc 2.4. We don't support earlier
+  // versions.
+  JASSERT(glibcMajorVersion() == 2) (glibcMajorVersion());
+  JASSERT(glibcMinorVersion() >= 4) (glibcMinorVersion());
+
 #ifdef __x86_64__
-  // NEEDED FOR WSL
-  if (glibcMinorVersion() >= 23) {
-    offset = 720;
+  if (glibcMinorVersion() >= 11) {
+    offset = 720; // sizeof(tcbhead_t) + sizeof(list_t)
     return offset;
   }
 #endif
 
-  if (glibcMinorVersion() >= 11) {
-#ifdef __x86_64__
-    offset = 26 * sizeof(void *) + 512;
-#else /* ifdef __x86_64__ */
-    offset = 26 * sizeof(void *);
-#endif /* ifdef __x86_64__ */
-  } else if (glibcMinorVersion() == 10) {
-    offset = 26 * sizeof(void *);
+  if (glibcMinorVersion() >= 10) {
+    offset = 26 * sizeof(void *); // sizeof(__padding) + sizeof(list_t)
   } else {
-    offset = 18 * sizeof(void *);
+    offset = 18 * sizeof(void *); // sizeof(__padding) + sizeof(list_t)
   }
 
   return offset;
-}
-
-#if 0
-# if __GLIBC_PREREQ(2, 11)
-#  ifdef __x86_64__
-#   define STATIC_TLS_TID_OFFSET() (26 *sizeof(void *) + 512)
-#  else /* ifdef __x86_64__ */
-#   define STATIC_TLS_TID_OFFSET() (26 *sizeof(void *))
-#  endif /* ifdef __x86_64__ */
-
-# elif __GLIBC_PREREQ(2, 10)
-#  define STATIC_TLS_TID_OFFSET() (26 *sizeof(void *))
-
-# else /* if __GLIBC_PREREQ(2, 11) */
-#  define STATIC_TLS_TID_OFFSET() (18 *sizeof(void *))
-# endif /* if __GLIBC_PREREQ(2, 11) */
-#endif /* if 0 */
-
-#define STATIC_TLS_PID_OFFSET() (STATIC_TLS_TID_OFFSET() + sizeof(pid_t))
-
-/* WHEN WE HAVE CONFIDENCE IN THIS VERSION, REMOVE ALL OTHER __GLIBC_PREREQ
- * AND MAKE THIS THE ONLY VERSION.  IT SHOULD BE BACKWARDS COMPATIBLE.
- */
-
-/* These function definitions should succeed independently of the glibc version.
- * They use get_thread_area() to match (tid, pid) and find offset.
- * In other code, on restart, that offset is used to set (tid,pid) to
- *   the latest tid and pid of the new thread, instead of the (tid,pid)
- *   of the original thread.
- * SEE: "struct pthread" in glibc-2.XX/nptl/descr.h for 'struct pthread'.
- */
-
-/* Can remove the unused attribute when this __GLIBC_PREREQ is the only one. */
-static char *memsubarray(char *array, char *subarray, size_t len)
-__attribute__((unused));
-
-/*****************************************************************************
- *
- *****************************************************************************/
-int
-TLSInfo_GetTidOffset(void)
-{
-  static int tid_offset = -1;
-
-  if (tid_offset == -1) {
-    struct { pid_t tid; pid_t pid; } tid_pid;
-
-    /* struct pthread has adjacent fields, tid and pid, in that order.
-     * Try to find at what offset that bit patttern occurs in struct pthread.
-     */
-    char *tmp;
-    tid_pid.tid = THREAD_REAL_TID();
-    tid_pid.pid = THREAD_REAL_PID();
-
-    /* Get entry number of current thread descriptor from its segment register:
-     * Segment register / 8 is the entry_number for the "thread area", which
-     * is of type 'struct user_desc'.   The base_addr field of that struct
-     * points to the struct pthread for the thread with that entry_number.
-     * The tid and pid are contained in the 'struct pthread'.
-     *   So, to access the tid/pid fields, first find the entry number.
-     * Then fill in the entry_number field of an empty 'struct user_desc', and
-     * get_thread_area(struct user_desc *uinfo) will fill in the rest.
-     * Then use the filled in base_address field to get the 'struct pthread'.
-     * The function get_tls_base_addr() returns this 'struct pthread' addr.
-     */
-    void *pthread_desc = (void*) pthread_self();
-
-    /* A false hit for tid_offset probably can't happen since a new
-     * 'struct pthread' is zeroed out before adding tid and pid.
-     * pthread_desc below is defined as 'struct pthread' in glibc:nptl/descr.h
-     */
-    tmp = memsubarray((char *)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
-
-    if (tmp == NULL && glibcMajorVersion() == 2 && glibcMinorVersion() >= 24) {
-      // starting with glibc-2.25 (including 2.24.90 on Fedora), the pid field
-      // is deprecated and set to zero.
-      tid_pid.pid = 0;
-      tmp = memsubarray((char*)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
-    }
-
-    if (tmp == NULL) {
-      JWARNING(false) (tid_pid.tid)
-        .Text("Couldn't find offsets of tid/pid in thread_area.\n"
-              "  Now relying on the value determined using the\n"
-              "  glibc version with which DMTCP was compiled.");
-      return STATIC_TLS_TID_OFFSET();
-
-      // mtcp_abort();
-    }
-
-    tid_offset = tmp - (char *)pthread_desc;
-    JWARNING (tid_offset == STATIC_TLS_TID_OFFSET()) (tid_offset)
-      .Text("tid_offset (%d) different from expected.\n"
-             "  It is possible that DMTCP was compiled with a different\n"
-             "  glibc version than the one it's dynamically linking to.\n"
-             "  Continuing anyway.  If this fails, please try again.");
-
-    if (tid_offset % sizeof(int) != 0) {
-      JWARNING(tid_offset %sizeof(int) == 0) (tid_offset)
-        .Text("tid_offset is not divisible by sizeof(int).\n"
-             "  Now relying on the value determined using the\n"
-             "  glibc version with which DMTCP was compiled.");
-      return tid_offset = STATIC_TLS_TID_OFFSET();
-
-      // mtcp_abort();
-    }
-
-    /* Should we do a double-check, and spawn a new thread and see
-     *  if its TID matches at this tid_offset?  This would give greater
-     *  confidence, but for the reasons above, it's probably not necessary.
-     */
-  }
-  return tid_offset;
 }
 
 /*****************************************************************************
@@ -293,39 +181,9 @@ TLSInfo_GetTidOffset(void)
 int
 TLSInfo_GetPidOffset(void)
 {
-  static int pid_offset = -1;
+  static int pid_offset = TLSInfo_GetTidOffset() + sizeof(pid_t);
 
-  struct { pid_t tid; pid_t pid; } tid_pid;
-  if (pid_offset == -1) {
-    int tid_offset = TLSInfo_GetTidOffset();
-    pid_offset = tid_offset + (char *)&(tid_pid.pid) - (char *)&tid_pid;
-    JTRACE("") (pid_offset);
-  }
   return pid_offset;
-}
-
-static char *
-memsubarray(char *array, char *subarray, size_t len)
-{
-  char *i_ptr;
-  size_t j;
-  int word1 = *(int *)subarray;
-
-  // Assume subarray length is at least sizeof(int) and < 2048.
-  JASSERT(len >= sizeof(int));
-  for (i_ptr = array; i_ptr < array + 2048; i_ptr++) {
-    if (*(int *)i_ptr == word1) {
-      for (j = 0; j < len; j++) {
-        if (i_ptr[j] != subarray[j]) {
-          break;
-        }
-      }
-      if (j == len) {
-        return i_ptr;
-      }
-    }
-  }
-  return NULL;
 }
 
 /*****************************************************************************
