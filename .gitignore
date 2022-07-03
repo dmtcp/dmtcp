@@ -36,6 +36,8 @@ plugin/ipc/dmtcp_ssh*
 dmtcp_discover_rm
 dmtcp_srun_helper
 
+manpages/*.gz
+
 mtcp/libmtcp.so*
 mtcp/mtcp.lis
 mtcp/mtcp.map
