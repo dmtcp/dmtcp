@@ -1756,7 +1756,7 @@ main(int argc, char **argv)
   }
 
   tmpDir = Util::calcTmpDir(tmpdir_arg);
-  Util::initializeLogFile(tmpDir, NULL, NULL);
+  Util::initializeLogFile(tmpDir, "dmtcp_coordinator");
 
   JTRACE("New DMTCP coordinator starting.")
     (UniquePid::ThisProcess());
@@ -1844,7 +1844,7 @@ main(int argc, char **argv)
       JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
     } else {
       fd = open(logFilename.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0666);
-      JASSERT_SET_LOG(logFilename, "", "");
+      JASSERT_SET_LOG(logFilename);
       int nullFd = open("/dev/null", O_RDWR);
       JASSERT(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO);
       close(nullFd);

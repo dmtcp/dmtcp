@@ -139,55 +139,13 @@ DmtcpWorker::determineCkptSignal()
   return sig;
 }
 
-static string
-getLogFilePath()
-{
-#ifdef LOGGING
-  ostringstream o;
-  o << "/proc/self/fd/" << PROTECTED_JASSERTLOG_FD;
-  return jalib::Filesystem::ResolveSymlink(o.str());
-
-#else // ifdef LOGGING
-  return "";
-#endif // ifdef LOGGING
-}
-
-static void
-writeCurrentLogFileNameToPrevLogFile(string &path)
-{
-#ifdef LOGGING
-  ostringstream o;
-  o << "========================================\n"
-    << "This process exec()'d into a new program\n"
-    << "Program Name: " << jalib::Filesystem::GetProgramName() << "\n"
-    << "New JAssertLog Path: " << getLogFilePath() << "\n"
-    << "========================================\n";
-
-  int fd = open(path.c_str(), O_WRONLY | O_APPEND, 0);
-  if (fd != -1) {
-    Util::writeAll(fd, o.str().c_str(), o.str().length());
-  }
-  _real_close(fd);
-#endif // ifdef LOGGING
-}
-
 static void
 prepareLogAndProcessdDataFromSerialFile()
 {
   if (Util::isValidFd(PROTECTED_LIFEBOAT_FD)) {
-    // This process was under ckpt-control and exec()'d into a new program.
-    // Find out path of previous log file so that later, we can write the name
-    // of the new log file into that one.
-    string prevLogFilePath = getLogFilePath();
-
     jalib::JBinarySerializeReaderRaw rd("", PROTECTED_LIFEBOAT_FD);
     rd.rewind();
     UniquePid::serialize(rd);
-    Util::initializeLogFile(SharedData::getTmpDir(),
-                            NULL,
-                            prevLogFilePath.c_str());
-
-    writeCurrentLogFileNameToPrevLogFile(prevLogFilePath);
 
     DmtcpEventData_t edata;
     edata.postExec.serializationFd = PROTECTED_LIFEBOAT_FD;
@@ -195,8 +153,9 @@ prepareLogAndProcessdDataFromSerialFile()
     _real_close(PROTECTED_LIFEBOAT_FD);
   } else {
     // Brand new process (was never under ckpt-control),
+
     // Initialize the log file
-    Util::initializeLogFile(SharedData::getTmpDir(), NULL, NULL);
+    Util::initializeLogFile(SharedData::getTmpDir());
 
     JTRACE("Root of processes tree");
     ProcessInfo::instance().setRootOfProcessTree();

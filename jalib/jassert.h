@@ -104,10 +104,6 @@ class JAssert
     JAssert &Text(const char *msg);
 
     ///
-    /// prints stack backtrace and always returns true
-    JAssert &jbacktrace();
-
-    ///
     /// constructor: sets members
     JAssert(bool exitWhenDone);
 
@@ -128,6 +124,13 @@ class JAssert
     { Print(t); return *this; }
 
   private:
+    void PrintFileContents(int fd);
+    void PrintProcMaps();
+    void PrintBacktrace();
+
+    void writeToConsole(const char *);
+    void writeToLog(const char *);
+
     ///
     /// if set true (on construction) call exit() on destruction
     bool _exitWhenDone;
@@ -137,7 +140,6 @@ class JAssert
 
 const char *jassert_basename(const char *str);
 dmtcp::ostream &jassert_output_stream();
-void jassert_safe_print(const char *);
 void jassert_init();
 void close_stderr();
 
@@ -176,15 +178,13 @@ JAssert::Print(const dmtcp::vector<T> &t)
   return *this;
 }
 
-void set_log_file(const dmtcp::string &path,
-                  const dmtcp::string tmpDir,
-                  const dmtcp::string &uniquePidStr);
+void set_log_file(const dmtcp::string &path);
+void open_log_file();
 }// jassert_internal
 
 #define JASSERT_INIT(p) (jassert_internal::jassert_init());
 
-#define JASSERT_SET_LOG(log, tmpdir, uniquePidStr) \
-  (jassert_internal::set_log_file(log, tmpdir, uniquePidStr));
+#define JASSERT_SET_LOG(log) (jassert_internal::set_log_file(log));
 
 #define JASSERT_CLOSE_STDERR() (jassert_internal::close_stderr());
 
