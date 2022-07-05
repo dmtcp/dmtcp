@@ -29,6 +29,7 @@
 
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
 #include "constants.h"
 #include "coordinatorapi.h"
 #include "dmtcpalloc.h"
@@ -53,12 +54,11 @@ static const SharedData::DMTCP_ARCH_MODE archMode = SharedData::DMTCP_ARCH_64;
 
 void
 SharedData::initializeHeader(const char *tmpDir,
-                             const char *installDir,
                              DmtcpUniqueProcessId *compId,
                              CoordinatorInfo *coordInfo,
                              struct in_addr *localIPAddr)
 {
-  JASSERT(tmpDir && installDir && compId && coordInfo && localIPAddr);
+  JASSERT(tmpDir && compId && coordInfo && localIPAddr);
 
   off_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
   JASSERT(lseek(PROTECTED_SHM_FD, size, SEEK_SET) == size)
@@ -104,9 +104,26 @@ SharedData::initializeHeader(const char *tmpDir,
   JASSERT(strlen(tmpDir) < sizeof(sharedDataHeader->tmpDir) - 1) (tmpDir);
   strcpy(sharedDataHeader->tmpDir, tmpDir);
 
-  JASSERT(strlen(installDir) < sizeof(sharedDataHeader->installDir) - 1)
+  // We reach here via dmtcp_launch or dmtcp_restart.
+  string installDir =
+    jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
+
+#if defined(__i386__) || defined(__arm__)
+  if (Util::strEndsWith(installDir.c_str(), "/lib/dmtcp/32")) {
+    // If dmtcp_launch was compiled for 32 bits in a 64-bit O/S, then note:
+    // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
+    // DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
+    // GetProgramDir() followed the link.  So, we need to remove the suffix.
+    char *str = const_cast<char *>(installDir.c_str());
+    str[strlen(str) - strlen("/lib/dmtcp/32")] = '\0';
+    installDir = str;
+  }
+#endif // if defined(__i386__) || defined(__arm__)
+
+  JASSERT(installDir.length() < sizeof(sharedDataHeader->installDir) - 1)
     (installDir);
-  strcpy(sharedDataHeader->installDir, installDir);
+
+  strcpy(sharedDataHeader->installDir, installDir.c_str());
 }
 
 bool
@@ -117,7 +134,6 @@ SharedData::initialized()
 
 void
 SharedData::initialize(const char *tmpDir,
-                       const char *installDir,
                        DmtcpUniqueProcessId *compId,
                        CoordinatorInfo *coordInfo,
                        struct in_addr *localIPAddr)
@@ -179,7 +195,7 @@ SharedData::initialize(const char *tmpDir,
   if (needToInitialize) {
     Util::lockFile(PROTECTED_SHM_FD);
     initializeHeader(
-      tmpDir, installDir, compId, coordInfo, localIPAddr);
+      tmpDir, compId, coordInfo, localIPAddr);
     Util::unlockFile(PROTECTED_SHM_FD);
   } else {
     struct stat statbuf;

@@ -434,7 +434,31 @@ main(int argc, const char **argv)
   }
 
   UniquePid::ThisProcess(true);
-  Util::initializeLogFile(tmpDir.c_str(), NULL, NULL);
+
+  Util::initializeLogFile(tmpDir.c_str(), "dmtcp_launch");
+
+  DmtcpUniqueProcessId compId;
+  CoordinatorInfo coordInfo;
+  struct in_addr localIPAddr;
+
+  // Initialize host and port now.  Will be used in low-level functions.
+  CoordinatorAPI::getCoordHostAndPort(allowedModes, &coord_host, &coord_port);
+  CoordinatorAPI::connectToCoordOnStartup(allowedModes, argv[0],
+                                          &compId, &coordInfo,
+                                          &localIPAddr);
+
+  // If port was 0, we'll get new random port when coordinator starts up.
+  CoordinatorAPI::getCoordHostAndPort(allowedModes, &coord_host, &coord_port);
+  Util::writeCoordPortToFile(coord_port, thePortFile.c_str());
+
+  /* We need to initialize SharedData here to make sure that it is
+   * initialized with the correct coordinator timestamp.  The coordinator
+   * timestamp is updated only during postCkpt callback. However, the
+   * SharedData area may be initialized earlier (for example, while
+   * recreating threads), causing it to use *older* timestamp.
+   */
+  SharedData::initialize(tmpDir.c_str(), &compId, &coordInfo, &localIPAddr);
+
 
 #ifdef FORKED_CHECKPOINTING
 
@@ -574,47 +598,6 @@ main(int argc, const char **argv)
   // Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
   // from DmtcpWorker constructor, to distinguish the two cases.
   Util::adjustRlimitStack();
-
-  DmtcpUniqueProcessId compId;
-  CoordinatorInfo coordInfo;
-  struct in_addr localIPAddr;
-
-  // Initialize host and port now.  Will be used in low-level functions.
-  CoordinatorAPI::getCoordHostAndPort(allowedModes, &coord_host, &coord_port);
-  CoordinatorAPI::connectToCoordOnStartup(allowedModes, argv[0],
-                                          &compId, &coordInfo,
-                                          &localIPAddr);
-
-  // If port was 0, we'll get new random port when coordinator starts up.
-  CoordinatorAPI::getCoordHostAndPort(allowedModes, &coord_host, &coord_port);
-  Util::writeCoordPortToFile(coord_port, thePortFile.c_str());
-
-  string installDir =
-    jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
-
-#if defined(__i386__) || defined(__arm__)
-  if (Util::strEndsWith(installDir.c_str(), "/lib/dmtcp/32")) {
-    // If dmtcp_launch was compiled for 32 bits in a 64-bit O/S, then note:
-    // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
-    // DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
-    // GetProgramDir() followed the link.  So, we need to remove the suffix.
-    char *str = const_cast<char *>(installDir.c_str());
-    str[strlen(str) - strlen("/lib/dmtcp/32")] = '\0';
-    installDir = str;
-  }
-#endif // if defined(__i386__) || defined(__arm__)
-
-  /* We need to initialize SharedData here to make sure that it is
-   * initialized with the correct coordinator timestamp.  The coordinator
-   * timestamp is updated only during postCkpt callback. However, the
-   * SharedData area may be initialized earlier (for example, while
-   * recreating threads), causing it to use *older* timestamp.
-   */
-  SharedData::initialize(tmpDir.c_str(),
-                         installDir.c_str(),
-                         &compId,
-                         &coordInfo,
-                         &localIPAddr);
 
   setLDPreloadLibs(is32bitElf);
 

@@ -25,6 +25,10 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#include <chrono>
+#include <iomanip>
+
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
@@ -115,55 +119,26 @@ Util::calcTmpDir(const char *tmpdirenv)
 }
 
 void
-Util::initializeLogFile(const char *tmpDir,
-                        const char *procname,
-                        const char *prevLogPath)
+Util::initializeLogFile(const char *tmpDir, const char *prefix)
 {
-  UniquePid::ThisProcess(true);
+  std::time_t ts =
+    std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
-#ifdef LOGGING
-
-  // Initialize JTRACE logging here
   ostringstream o;
-  o << tmpDir;
-  o << "/jassertlog.";
-  o << UniquePid::ThisProcess();
-  o << "_";
-  if (procname == NULL) {
-    o << jalib::Filesystem::GetProgramName();
-  } else {
-    o << procname;
-  }
-
-  JASSERT_SET_LOG(o.str(), tmpDir, UniquePid::ThisProcess().toString());
-
-  ostringstream a;
-  a << "\n========================================";
-  a << "\nProcess Information";
-  a << "\n========================================";
-  a << "\nThis Process: " << UniquePid::ThisProcess()
-    << "\nParent Process: " << UniquePid::ParentProcess();
-
-  if (prevLogPath != NULL) {
-    a << "\nPrev JAssertLog path: " << prevLogPath;
-  }
-
-  a << "\nEnvironment: ";
-  for (size_t i = 0; environ[i] != NULL; i++) {
-    a << " " << environ[i] << ";";
-  }
-  a << "\n========================================\n";
+  o << tmpDir << "/" << prefix
+    << "." << std::put_time(std::localtime(&ts), "%FT%T%z")
+    << "." << UniquePid::ThisProcess()
+    << ".log";
+  JASSERT_SET_LOG(o.str().c_str());
 
   // This causes an error when configure is done with --enable-logging
   //   JLOG(a.str().c_str());
-#else // ifdef LOGGING
-  JASSERT_SET_LOG("", tmpDir, UniquePid::ThisProcess().toString());
-#endif // ifdef LOGGING
   if (getenv(ENV_VAR_QUIET)) {
     jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
   } else {
     // jassert.cpp initializes jassert_quiet to 0
   }
+
 #ifdef QUIET
   jassert_quiet = 2;
 #endif // ifdef QUIET

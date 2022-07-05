@@ -148,9 +148,7 @@ int readLine(int fd, char *buf, int count);
 
 void writeCoordPortToFile(int port, const char *portFile);
 char *calcTmpDir(const char *tmpDir);
-void initializeLogFile(const char *tmpDir,
-                       const char *procname = "",
-                       const char *preLogPath = "");
+void initializeLogFile(const char *tmpDir, const char *prefix = "dmtcpworker");
 
 void adjustRlimitStack();
 

@@ -212,7 +212,7 @@ epoll_create1(int flags)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_create1(flags);
   if (ret != -1) {
-    JNOTE("epoll fd created1") (ret) (flags);
+    JTRACE("epoll fd created1") (ret) (flags);
     EventConnList::instance().add(ret, new EpollConnection(0, flags));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();

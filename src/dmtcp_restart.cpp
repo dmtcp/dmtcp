@@ -201,32 +201,15 @@ RestoreTarget::initialize()
   CoordinatorAPI::getCoordHostAndPort(allowedModes, &coord_host, &coord_port);
   Util::writeCoordPortToFile(coord_port, thePortFile.c_str());
 
-  string installDir =
-    jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
-
-#if defined(__i386__) || defined(__arm__)
-  if (Util::strEndsWith(installDir.c_str(), "/lib/dmtcp/32")) {
-    // If dmtcp_launch was compiled for 32 bits in 64-bit O/S, then note:
-    // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
-    // DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
-    // GetProgramDir() followed the link.  So, need to remove the suffix.
-    char *str = const_cast<char *>(installDir.c_str());
-    str[strlen(str) - strlen("/lib/dmtcp/32")] = '\0';
-    installDir = str;
-  }
-#endif // if defined(__i386__) || defined(__arm__)
-
   /* We need to initialize SharedData here to make sure that it is
    * initialized with the correct coordinator timestamp.  The coordinator
    * timestamp is updated only during postCkpt callback. However, the
    * SharedData area may be initialized earlier (for example, while
    * recreating threads), causing it to use *older* timestamp.
    */
-  SharedData::initialize(tmpDir.c_str(), installDir.c_str(), &compId,
-                         &coordInfo, &localIPAddr);
+  SharedData::initialize(tmpDir.c_str(), &compId, &coordInfo, &localIPAddr);
 
-  Util::initializeLogFile(SharedData::getTmpDir(),
-                          _pInfo.procname().c_str(), NULL);
+  Util::initializeLogFile(SharedData::getTmpDir());
 
   if (ckptdir_arg.empty()) {
     // Create the ckpt-dir fd so that the restarted process can know about
@@ -821,6 +804,11 @@ main(int argc, char **argv)
     }
   }
 
+  tmpDir = Util::calcTmpDir(tmpdir_arg);
+
+  // make sure JASSERT initializes now, rather than during restart
+  Util::initializeLogFile(tmpDir.c_str(), "dmtcp_restart");
+
   if ((getenv(ENV_VAR_NAME_PORT) == NULL ||
        getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
       allowedModes != COORD_NEW) {
@@ -831,17 +819,11 @@ main(int argc, char **argv)
                                                   STRINGIFY(DEFAULT_PORT));
   }
 
-  tmpDir = Util::calcTmpDir(tmpdir_arg);
-
   if (!ckptdir_arg.empty()) {
     setNewCkptDir(ckptdir_arg);
   }
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
-
-  // make sure JASSERT initializes now, rather than during restart
-  Util::initializeLogFile(tmpDir.c_str(), NULL, NULL);
-
   if (!noStrictChecking && jassert_quiet < 2 &&
       (getuid() == 0 || geteuid() == 0)) {
     JASSERT_STDERR <<
