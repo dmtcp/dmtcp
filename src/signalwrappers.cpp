@@ -148,13 +148,12 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
   if (signum == bannedSignalNumber() && act != NULL) {
     static int alreadyWarned = 0;
     if (!alreadyWarned) {
-      JWARNING(false)(
+      JWARNING(false) (stopSignal) .Text(
         "Application trying to use DMTCP's signal for it's own use.\n"
         "  You should employ a different signal by setting the\n"
         "  environment variable DMTCP_SIGCKPT to the number\n"
         "  of the signal that DMTCP should use for checkpointing.\n"
-        "  (Further warnings will be suppressed.)")
-        (stopSignal);
+        "  (Further warnings will be suppressed.)");
       alreadyWarned = 1;
     }
     act = NULL;

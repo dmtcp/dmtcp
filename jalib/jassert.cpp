@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <cxxabi.h>  /* For backtrace() */
 #include <execinfo.h>  /* For backtrace() */
 #include <chrono>
 #include <fstream>
@@ -69,7 +70,7 @@ jassert_internal::JAssert::Text(const char *msg)
   return *this;
 }
 
-jassert_internal::JAssert::JAssert(bool exitWhenDone)
+jassert_internal::JAssert::JAssert(const char* type, bool exitWhenDone)
   : JASSERT_CONT_A(*this)
   , JASSERT_CONT_B(*this)
   , _exitWhenDone(exitWhenDone)
@@ -86,7 +87,7 @@ jassert_internal::JAssert::JAssert(bool exitWhenDone)
   uint64_t ms = duration_cast<milliseconds>(now.time_since_epoch()).count() % 1000;
 
   ss << "[" << std::put_time(std::localtime(&ts), "%F, %T.") << ms << ", "
-     << getpid() << ", " << jalib::gettid() << "] ";
+     << getpid() << ", " << jalib::gettid() << ", " << type << "] ";
 }
 
 jassert_internal::JAssert::~JAssert()
@@ -97,10 +98,9 @@ jassert_internal::JAssert::~JAssert()
     return;
   }
 
+  Print("    ");
   Print(jalib::Filesystem::GetProgramName());
-  Print(" (");
-  Print(getpid());
-  Print("): Terminating...\n");
+  Print(": Terminating...\n");
 
   PrintBacktrace();
 
@@ -208,38 +208,33 @@ jassert_internal::close_stderr()
 }
 
 void
-jassert_internal::JAssert::PrintFileContents(int fd)
-{
-  ssize_t count;
-  char buf[4096] = {0};
-  if (fd == -1) {
-    return;
-  }
-
-  while ((count = jalib::readAll(fd, buf, sizeof(buf) - 1)) > 0) {
-    Print(buf);
-  }
-}
-
-void
 jassert_internal::JAssert::PrintBacktrace()
 {
-  int fd = memfd_create("backtrace", MFD_CLOEXEC);
-  if (fd == -1) {
-    return;
-  }
-
   void *buffer[BT_SIZE];
   int nptrs = backtrace(buffer, BT_SIZE);
-  backtrace_symbols_fd(buffer, nptrs, fd);
 
-  if (lseek(fd, 0, SEEK_SET) == 0) {
-    Print("    Backtrace:\n");
-    PrintFileContents(fd);
-    Print("\n");
-  }
+  Print("    Backtrace:\n");
+  char buf[1024];
 
-  jalib::close(fd);
+  for (int i = 1; i < nptrs; i++) {
+    Dl_info info;
+    ss << "        " << i << ' ' ;
+    if (dladdr1(buffer[i], &info, NULL, 0)) {
+      int status;
+      size_t buflen = sizeof(buf);
+      buf[0] = '\0';
+      if (info.dli_sname) {
+        char *demangled =
+          abi::__cxa_demangle(info.dli_sname, buf, &buflen, &status);
+        if (status != 0) {
+          strncpy(buf, info.dli_sname, sizeof(buf) - 1);
+        }
+      }
+
+      ss << (buf[0] ? buf : "") << " in " << info.dli_fname << " ";
+    }
+    ss << XToHexString(buffer[i]) << "\n";
+	}
 }
 
 // This routine is called when JASSERT triggers.  Something failed.
@@ -248,14 +243,21 @@ jassert_internal::JAssert::PrintBacktrace()
 void
 jassert_internal::JAssert::PrintProcMaps()
 {
+  ssize_t count;
+  char buf[4096] = {0};
   int fd = jalib::open("/proc/self/maps", O_RDONLY, 0);
   if (fd == -1) {
     return;
   }
 
   Print("    Memory maps: \n");
-  PrintFileContents(fd);
+
+  while ((count = jalib::readAll(fd, buf, sizeof(buf) - 1)) > 0) {
+    Print(buf);
+  }
+
   Print("\n");
+
   jalib::close(fd);
 }
 
