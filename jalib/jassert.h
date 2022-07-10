@@ -139,7 +139,7 @@ class JAssert
 
 
 const char *jassert_basename(const char *str);
-dmtcp::ostream &jassert_output_stream();
+dmtcp::ostream &output_stream();
 void jassert_init();
 void close_stderr();
 
@@ -147,11 +147,7 @@ template<typename T>
 inline JAssert&
 JAssert::Print(const T &t)
 {
-#ifdef JASSERT_FAST
-  jassert_output_stream() << t;
-#else // ifdef JASSERT_FAST
   ss << t;
-#endif // ifdef JASSERT_FAST
   return *this;
 }
 
@@ -159,11 +155,7 @@ inline JAssert&
 JAssert::Print(const char *t)
 {
   if (t != NULL) {
-#ifdef JASSERT_FAST
-    jassert_output_stream() << *t;
-#else // ifdef JASSERT_FAST
     ss << t;
-#endif // ifdef JASSERT_FAST
   }
   return *this;
 }
@@ -206,8 +198,7 @@ void open_log_file();
 #define JASSERT_LINE JASSERT_STRINGIFY(__LINE__)
 #define JASSERT_FILE jassert_internal::jassert_basename(__FILE__)
 #define JASSERT_CONTEXT(type, reason)                                           \
-  Print('[').Print(getpid()).Print(                                             \
-    "] " type " at ").Print(JASSERT_FILE).Print(":" JASSERT_LINE " in ").Print( \
+  Print(type " at ").Print(JASSERT_FILE).Print(":" JASSERT_LINE " in ").Print(  \
     JASSERT_FUNC).Print("; REASON='" reason "'\n")
 
 #ifdef LOGGING

@@ -219,6 +219,12 @@ readAll(int fd, void *buf, size_t count)
   REAL_FUNC_PASSTHROUGH(ssize_t, readAll) (fd, buf, count);
 }
 
+pid_t
+gettid()
+{
+  REAL_FUNC_PASSTHROUGH(pid_t, gettid) ();
+}
+
 bool
 strEndsWith(const char *str, const char *pattern)
 {

@@ -50,6 +50,7 @@ typedef struct JalibFuncPtrs {
                     socklen_t optlen);
   ssize_t (*writeAll)(int fd, const void *buf, size_t count);
   ssize_t (*readAll)(int fd, void *buf, size_t count);
+  pid_t (*gettid)();
 } JalibFuncPtrs;
 
 namespace jalib
@@ -82,6 +83,8 @@ int setsockopt(int s,
 
 ssize_t writeAll(int fd, const void *buf, size_t count);
 ssize_t readAll(int fd, void *buf, size_t count);
+
+pid_t gettid();
 
 bool strEndsWith(const char *str, const char *pattern);
 }
