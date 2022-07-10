@@ -696,7 +696,7 @@ __d_bindir__dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp 	\
 					restartscript.cpp
 
 __d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
-	libnohijack.a -lpthread -lrt $(am__append_2)
+	libnohijack.a -lpthread -lrt -ldl $(am__append_2)
 __d_bindir__dmtcp_launch_SOURCES = dmtcp_launch.cpp
 __d_bindir__dmtcp_launch_LDADD = libdmtcpinternal.a libjalib.a \
 	libnohijack.a -lpthread -lrt -ldl $(am__append_3)

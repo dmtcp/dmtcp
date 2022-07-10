@@ -71,7 +71,7 @@ XToString(const X &x, bool hexOutput = false)
   dmtcp::ostringstream tmp;
 
   if (hexOutput) {
-    tmp << "0x" << std::hex << x;
+    tmp << std::hex << x;
   } else {
     tmp << x;
   }
