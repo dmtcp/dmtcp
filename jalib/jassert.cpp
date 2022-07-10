@@ -28,7 +28,9 @@
 #include <unistd.h>
 
 #include <execinfo.h>  /* For backtrace() */
+#include <chrono>
 #include <fstream>
+#include <iomanip>
 
 #include "jalib.h"
 #include "jassert.h"
@@ -72,10 +74,19 @@ jassert_internal::JAssert::JAssert(bool exitWhenDone)
   , JASSERT_CONT_B(*this)
   , _exitWhenDone(exitWhenDone)
 {
+  using namespace std::chrono;
+
   if (exitWhenDone) {
     Print(redEscapeStr);
     Print("\n");
   }
+
+  time_point<system_clock> now = system_clock::now();
+  std::time_t ts = system_clock::to_time_t(now);
+  uint64_t ms = duration_cast<milliseconds>(now.time_since_epoch()).count() % 1000;
+
+  ss << "[" << std::put_time(std::localtime(&ts), "%F, %T.") << ms << ", "
+     << getpid() << ", " << jalib::gettid() << "] ";
 }
 
 jassert_internal::JAssert::~JAssert()
