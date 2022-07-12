@@ -395,6 +395,9 @@ ProcessInfo::postExec()
 void
 ProcessInfo::resetOnFork()
 {
+  // Initialize the log file
+  Util::initializeLogFile(SharedData::getTmpDir());
+
   DmtcpMutexInit(&tblLock, DMTCP_MUTEX_NORMAL);
   _ppid = _pid;
   _pid = getpid();

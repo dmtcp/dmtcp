@@ -109,9 +109,6 @@ dmtcp_atfork_child()
 {
   ThreadSync::resetLocks();
 
-  // Initialize the log file
-  Util::initializeLogFile(SharedData::getTmpDir());
-
   // Some plugins might make calls that require wrapper locks, etc.
   // Therefore, it is better to call this hook after we reset all locks.
   PluginManager::eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
