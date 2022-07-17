@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +39,11 @@ main(int argc, char *argv[])
   } else {
     me = "child";
     while (1) {
+      char buf[128] = {0};
+      sprintf(buf, "/proc/self/task/%d/maps", getpid());
+      int taskFd = open(buf, O_RDONLY);
+      assert(taskFd != -1);
+
       int ret = read(fd, &ch, 1);
       if (ret == 0) {
         lseek(fd, 0, SEEK_SET);
@@ -47,6 +53,7 @@ main(int argc, char *argv[])
 
       // printf("%s: %d\n", me, count++);
       sleep(1);
+      close(taskFd);
     }
   }
 

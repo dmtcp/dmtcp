@@ -31,7 +31,11 @@
 #include "shareddata.h"
 #include "virtualpidtable.h"
 
-#define PROC_PREFIX "/proc/"
+static constexpr const char* PROC_PREFIX = "/proc/";
+static constexpr size_t PROC_PREFIX_LEN = strlen(PROC_PREFIX);
+
+static constexpr const char* PROC_TASK_TOKEN = "/task/";
+static constexpr size_t PROC_TASK_TOKEN_LEN = strlen(PROC_TASK_TOKEN);
 
 using namespace dmtcp;
 
@@ -132,6 +136,30 @@ pidVirt_PostExec(DmtcpEventData_t *data)
   VirtualPidTable::instance().refresh();
 }
 
+static void
+pidVirt_ProcessProcSelfTask(DmtcpEventData_t *data)
+{
+  if (!Util::strStartsWith(data->virtualToRealPath.path, PROC_PREFIX)) {
+    return;
+  }
+
+  char *ptr = strstr(data->virtualToRealPath.path, PROC_TASK_TOKEN);
+  if (ptr == nullptr) {
+    return;
+  }
+
+  char *rest = nullptr;
+  char *tidStr = ptr + PROC_TASK_TOKEN_LEN;
+
+  pid_t virtualTid = strtol(tidStr, &rest, 0);
+  if (virtualTid > 0) {
+    char buf[PATH_MAX];
+    strncpy(buf, rest, PATH_MAX);
+    pid_t realTid = VIRTUAL_TO_REAL_PID(virtualTid);
+    snprintf(tidStr, PATH_MAX, "%d%s", realTid, buf);
+  }
+}
+
 // FIXME:  This function needs third argument newpathsize, or assume PATH_MAX
 static void
 pid_virtual_to_real_filepath(DmtcpEventData_t *data)
@@ -144,14 +172,14 @@ pid_virtual_to_real_filepath(DmtcpEventData_t *data)
   char *rest;
   pid_t virtualPid = strtol(&data->virtualToRealPath.path[index], &rest, 0);
 
-  if (virtualPid <= 0) {
-    return;
+  if (virtualPid > 0) {
+    char newPath[PATH_MAX];
+    pid_t realPid = VIRTUAL_TO_REAL_PID(virtualPid);
+    snprintf(newPath, PATH_MAX, "/proc/%d%s", realPid, rest);
+    strncpy(data->virtualToRealPath.path, newPath, PATH_MAX);
   }
 
-  char newPath[PATH_MAX];
-  pid_t realPid = VIRTUAL_TO_REAL_PID(virtualPid);
-  sprintf(newPath, "/proc/%d%s", realPid, rest);
-  strcpy(data->virtualToRealPath.path, newPath);
+  pidVirt_ProcessProcSelfTask(data);
 }
 
 // FIXME:  This function needs third argument newpathsize, or assume PATH_MAX

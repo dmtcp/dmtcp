@@ -93,16 +93,9 @@ void
 FileConnection::doLocking()
 {
   if (Util::strStartsWith(_path.c_str(), "/proc/")) {
-    int index = 6;
-    char *rest;
-    pid_t proc_pid = strtol(&_path[index], &rest, 0);
-    if (proc_pid > 0 && *rest == '/') {
-      _type = FILE_PROCFS;
-      if (proc_pid != getpid()) {
-        return;
-      }
-    }
+    _type = FILE_PROCFS;
   }
+
   Connection::doLocking();
   _ckpted_file = false;
 }
@@ -351,15 +344,16 @@ FileConnection::refill(bool isRestart)
         if (statbuf.st_size > _st_size &&
             ((_fcntlFlags & O_WRONLY) || (_fcntlFlags & O_RDWR))) {
           errno = 0;
-          // MANA deterministic p2p saves the p2p requests in a log file.
-          // The log file is used to keep track the source rank from which the
-          // request with MPI_ANY_SOURCE is actually received. In order to deterministically
-          // replay the uncompleted requests from the same source at restart, the requests
-          // are also saved after checkpoint. The log file size at restart is larger than
-          // its size saved in the checkpoint image. Just give a warning here and continue. 
+          // MANA deterministic p2p saves the p2p requests in a log file.  The
+          // log file is used to keep track the source rank from which the
+          // request with MPI_ANY_SOURCE is actually received. In order to
+          // deterministically replay the uncompleted requests from the same
+          // source at restart, the requests are also saved after checkpoint.
+          // The log file size at restart is larger than its size saved in the
+          // checkpoint image. Just give a warning here and continue.
           JWARNING(false) (_path) (_st_size) (statbuf.st_size)
           .Text("Setting saved size to the current file size");
-	  _st_size = statbuf.st_size;
+          _st_size = statbuf.st_size;
         } else if (statbuf.st_size < _st_size) {
           JWARNING(false).Text("Size of file smaller than what we expected");
         }
@@ -442,14 +436,7 @@ FileConnection::refreshPath()
         (oldPath) (_path) (_rel_path);
     }
   } else if (_type == FILE_PROCFS) {
-    int index = 6;
-    char *rest;
-    char buf[64];
-    pid_t proc_pid = strtol(&_path[index], &rest, 0);
-    if (proc_pid > 0 && *rest == '/') {
-      sprintf(buf, "/proc/%d/%s", getpid(), rest);
-      _path = buf;
-    }
+    // No need to refresh path. PID plugin will take care of the translation.
   }
 }
 
