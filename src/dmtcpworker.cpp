@@ -48,6 +48,8 @@ EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
  */
 static ATOMIC_SHARED_GLOBAL bool exitInProgress = false;
 static bool exitAfterCkpt = 0;
+static bool dmtcp_initialized = false;
+
 
 /* NOTE:  Please keep this function in sync with its copy at:
  *   dmtcp_nocheckpoint.cpp:restoreUserLDPRELOAD()
@@ -237,13 +239,11 @@ dmtcp_initialize()
 extern "C" void __attribute__((constructor(101)))
 dmtcp_initialize_entry_point()
 {
-  static bool initialized = false;
-
-  if (initialized) {
+  if (dmtcp_initialized) {
     return;
   }
 
-  initialized = true;
+  dmtcp_initialized = true;
 
   dmtcp_initialize();
 
