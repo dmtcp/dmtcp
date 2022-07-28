@@ -24,6 +24,7 @@
 #include "../jalib/jassert.h"
 #include "constants.h"
 #include "dmtcp.h"
+#include "dmtcpworker.h"
 #include "pluginmanager.h"
 #include "processinfo.h"
 #include "siginfo.h"
@@ -89,6 +90,15 @@ pthread_create(pthread_t *pth,
                void *arg)
 {
   int retval;
+
+  // Ensure DMTCP initialization routines are called at this point. Later, we
+  // rely on DmtcpRwLock being initialized and usable along with a valid
+  // curThread ptr.
+  if (curThread == nullptr) {
+    dmtcp_initialize_entry_point();
+  }
+
+  JASSERT(curThread != nullptr);
 
   WrapperLock wrapperLock;
 
