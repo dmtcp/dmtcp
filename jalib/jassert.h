@@ -241,7 +241,7 @@ void open_log_file();
     JASSERT_FUNC).Print("; REASON='" reason "'\n")
 
 #ifdef LOGGING
-# define JTRACE(msg)
+# define JTRACE(msg)                                              \
   jassert_internal::JTrace().JASSERT_CONTEXT(msg).JASSERT_CONT_A
 #else // ifdef LOGGING
 # define JTRACE(msg)                                              \
