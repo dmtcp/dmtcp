@@ -24,12 +24,12 @@
 #include <limits.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include <cxxabi.h>  /* For backtrace() */
 #include <execinfo.h>  /* For backtrace() */
-#include <chrono>
 #include <fstream>
 #include <iomanip>
 
@@ -75,18 +75,19 @@ jassert_internal::JAssert::JAssert(const char* type, bool exitWhenDone)
   , JASSERT_CONT_B(*this)
   , _exitWhenDone(exitWhenDone)
 {
-  using namespace std::chrono;
+  struct timeval tv;
+  struct tm localTime;
+
+  gettimeofday(&tv, NULL);
+  localtime_r(&tv.tv_sec, &localTime);
+  uint64_t ms = tv.tv_usec % 1000;
 
   if (exitWhenDone) {
     Print(redEscapeStr);
     Print("\n");
   }
 
-  time_point<system_clock> now = system_clock::now();
-  std::time_t ts = system_clock::to_time_t(now);
-  uint64_t ms = duration_cast<milliseconds>(now.time_since_epoch()).count() % 1000;
-
-  ss << "[" << std::put_time(std::localtime(&ts), "%F, %T.") << ms << ", "
+  ss << "[" << std::put_time(&localTime, "%F, %T.") << ms << ", "
      << getpid() << ", " << jalib::gettid() << ", " << type << "] ";
 }
 
@@ -320,7 +321,7 @@ jassert_internal::JAssert::writeToLog(const char *str)
 {
   // Lazily open log file.
   if (theLogFileFd == -1) {
-    if (fcntl(jalib::logFd(), F_GETFL, 0) != -1) {
+    if (write(jalib::logFd(), str, 0) != -1) {
       theLogFileFd = jalib::logFd();
     } else if (logFilePath[0] != '\0') {
       open_log_file();
