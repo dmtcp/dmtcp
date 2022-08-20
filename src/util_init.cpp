@@ -24,9 +24,9 @@
 #include <pwd.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 
-#include <chrono>
 #include <iomanip>
 
 #include "../jalib/jassert.h"
@@ -121,12 +121,15 @@ Util::calcTmpDir(const char *tmpdirenv)
 void
 Util::initializeLogFile(const char *tmpDir, const char *prefix)
 {
-  std::time_t ts =
-    std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+  struct timeval tv;
+  struct tm localTime;
+
+  gettimeofday(&tv, NULL);
+  localtime_r(&tv.tv_sec, &localTime);
 
   ostringstream o;
   o << tmpDir << "/" << prefix
-    << "." << std::put_time(std::localtime(&ts), "%FT%T%z")
+    << "." << std::put_time(&localTime, "%FT%T%z")
     << "." << UniquePid::ThisProcess()
     << ".log";
   JASSERT_SET_LOG(o.str().c_str());
