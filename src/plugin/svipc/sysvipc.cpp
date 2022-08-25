@@ -84,8 +84,6 @@ using namespace dmtcp;
  * 11. BARRIER -- RESUME
  */
 
-/* TODO: Handle the case when the segment is marked for removal at ckpt time.
- */
 
 static DmtcpMutex tblLock = DMTCP_MUTEX_INITIALIZER;
 static SysVShm *sysvShmInst = NULL;
@@ -796,7 +794,8 @@ ShmSegment::preCkptDrain()
 
   JASSERT(_real_shmctl(_realId, IPC_STAT, &info) != -1);
 
-  /* If we are the ckptLeader for this object, map it now, if not mapped already.
+  /* If we are the ckptLeader for this object, map it now, if not mapped
+     already.
    */
   _dmtcpMappedAddr = false;
   _isCkptLeader = false;
@@ -808,6 +807,11 @@ ShmSegment::preCkptDrain()
       JASSERT(addr != (void *)-1);
       _shmaddrToFlag[addr] = 0;
       _dmtcpMappedAddr = true;
+    } else {
+      /* Save the mode info; We'll use this info at restart to check whether the
+       * shared memory segment was marked deleted or not.
+       */
+      _mode = info.shm_perm.mode;
     }
   }
 }
@@ -869,6 +873,12 @@ ShmSegment::postRestart()
     .Text("Error remapping shared memory segment on restart");
   }
   JTRACE("Remapping shared memory segment to original address") (_id) (_realId);
+  // Mark the segment as deleted if it was marked deleted at checkpoint.
+  if (_mode & SHM_DEST) {
+    JASSERT(_real_shmctl(_realId, IPC_RMID, NULL) != -1) (_id) (_realId)
+    .Text ("Error in marking the shared memory segment deleted.");
+    JTRACE("Marked shared memory segment as deleted.") (_id) (_realId);
+  }
 }
 
 void
