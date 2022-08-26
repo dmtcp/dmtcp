@@ -169,6 +169,7 @@ shmdt(const void *shmaddr)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   inside_shmdt = true;
+  SysVShm::instance().pre_shmdt(shmaddr);
   int ret = _real_shmdt(shmaddr);
   if (ret != -1) {
     SysVShm::instance().on_shmdt(shmaddr);

@@ -447,6 +447,14 @@ SysVIPC::updateMapping(int virtId, int realId)
   SharedData::setIPCIdMap(_type, virtId, realId);
 }
 
+void
+SysVIPC::removeMappingsByVirtualId(int virtId)
+{
+  delete _map[virtId];
+  _map.erase(virtId);
+   _virtIdTable.erase(virtId);
+}
+
 int
 SysVIPC::getNewVirtualId()
 {
@@ -555,6 +563,20 @@ SysVShm::on_shmdt(const void *shmaddr)
     _map.erase(shmid);
   }
   _do_unlock_tbl();
+}
+
+void
+SysVShm::pre_shmdt(const void* shmaddr)
+{
+  // Update mapping and nattch before calling shmdt, so we know whether or not
+  // to delete the segment from bookeeping after the shmdt call completes
+
+  // Get ID first, if the ID doesn't exist, it's fine because the shmdt call
+  // will fail anyways, so we don't have to worry about updating bookeeping
+  int shmid = shmaddrToShmid(shmaddr);
+  if (shmid == -1) return;
+
+  ((ShmSegment *)_map[shmid])->pre_shmdt();
 }
 
 int
@@ -723,7 +745,12 @@ ShmSegment::on_shmdt(const void *shmaddr)
   JASSERT(isValidShmaddr(shmaddr));
   _shmaddrToFlag.erase((void *)shmaddr);
 
-  // TODO: If num-attached == 0; and marked for deletion, remove this segment
+  // If num-attached == 0; and marked for deletion, remove this segment
+  // We can't use _real_shmctl, because if the segment has nattch=0 and is
+  // marked for deletion, the segment will already have been deleted
+  if ((_nattch == 0) && (_mode & SHM_DEST)) {
+
+  }
 }
 
 bool
@@ -852,6 +879,7 @@ ShmSegment::postRestart()
 
   int tmpShmFlags = (_flags & IPC_CREAT) ? _flags : (_flags | IPC_CREAT);
   key_t realKey = dmtcp_virtual_to_real_pid(getpid());
+  fprintf(stderr, "Restarting with key: %d\n", realKey); fflush(stderr);
   _realId = _real_shmget(realKey, _size, tmpShmFlags);
   JASSERT(_realId != -1);
   SysVShm::instance().updateMapping(_id, _realId);
@@ -915,6 +943,16 @@ ShmSegment::preResume()
 
   // TODO: During Ckpt-resume, if the shm object was mapped by dmtcp
   // (_dmtcpMappedAddr == true), then we should call shmdt() on it.
+}
+
+void
+ShmSegment::pre_shmdt()
+{
+  struct shmid_ds shminfo;
+  int ret = _real_shmctl(_realId, IPC_STAT, &shminfo);
+
+  _nattch = shminfo.shm_nattch;
+  _mode = shminfo.shm_perm.mode;
 }
 
 /******************************************************************************

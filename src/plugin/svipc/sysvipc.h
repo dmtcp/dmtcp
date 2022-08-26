@@ -98,6 +98,7 @@ class SysVIPC
     int virtualToRealId(int virtId);
     int realToVirtualId(int realId);
     void updateMapping(int virtId, int realId);
+    void removeMappingsByVirtualId(int virtId);
     int getNewVirtualId();
     void serialize(jalib::JBinarySerializer &o);
 
@@ -156,6 +157,7 @@ class SysVShm : public SysVIPC
                           int shmflg,
                           void *newaddr) override;
     virtual void on_shmdt(const void *shmaddr) override;
+    void pre_shmdt(const void *shmaddr);
 
     virtual SysVIPC* cloneInstance() override { return new SysVShm(*this); }
 
@@ -272,6 +274,7 @@ class ShmSegment : public SysVObj
     virtual void postRestart() override;
     virtual void refill() override;
     virtual void preResume() override;
+    void pre_shmdt();
 
     virtual SysVObj* clone() override
     {
