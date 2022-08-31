@@ -473,30 +473,58 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
   JASSERT(createDirectoryTree(area.name)) (area.name)
   .Text("Unable to create directory in File Path");
 
-  /* Now try to create the file with O_EXCL. If we fail with EEXIST, there
-   * are two possible scenarios:
-   * - The file was created by a different restarting process with data from
-   *   checkpointed copy. It is possible that the data is "in flight", so we
-   *   should wait until the next barrier to compare the data from our copy.
-   * - The file existed before restart. After the next barrier, abort if the
-   *   contents differ from our checkpointed copy.
-   */
-  int fd = _real_open(area.name, O_CREAT | O_EXCL | O_RDWR,
-                      S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-  JASSERT(fd != -1 || errno == EEXIST) (area.name);
+  // Unlinking /libhugetlbfs.tmp is different from unlinking an ordinary file.
+  // The file is a virtual file.  It is not really unlinked, and the memory
+  // segment was originally backed by this solely to force the use of hugepages.
+  if (strstr(area.name, "/libhugetlbfs.tmp")) {
+    JTRACE("Unlinked huge page region detected") (area.name)
+      ((void *)area.addr);
 
-  if (fd == -1) {
-    fd = _real_open(area.name, O_RDWR);
-    JASSERT(fd != -1) (JASSERT_ERRNO);
+    int fd = _real_openat(AT_FDCWD, area.name, O_RDWR|O_CREAT|O_EXCL, 0600);
+    JASSERT(fd != -1) (JASSERT_ERRNO) (area.name);
+
+    // Unlink (the area was originally unlinked)
+    unlink(area.name);
+
+    // Restore SHM area mapping
+    // The mmap in restoreShmArea will clear the content in the area because the
+    // file has been unlinked, so we have to save the content first into a
+    // temp buffer
+    void *tempbuf = mmap(NULL, area.size, PROT_READ | PROT_WRITE,
+                        MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    JASSERT(tempbuf != MAP_FAILED) (JASSERT_ERRNO) (area.size);
+    memcpy(tempbuf, area.addr, area.size);
+    restoreShmArea(area, fd);
+    // Restore the content from temp buffer
+    memcpy(area.addr, tempbuf, area.size);
+    munmap(tempbuf, area.size);
   }
+  else {
+    /* Now try to create the file with O_EXCL. If we fail with EEXIST, there
+    * are two possible scenarios:
+    * - The file was created by a different restarting process with data from
+    *   checkpointed copy. It is possible that the data is "in flight", so we
+    *   should wait until the next barrier to compare the data from our copy.
+    * - The file existed before restart. After the next barrier, abort if the
+    *   contents differ from our checkpointed copy.
+    */
+    int fd = _real_open(area.name, O_CREAT | O_EXCL | O_RDWR,
+                        S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    JASSERT(fd != -1 || errno == EEXIST) (area.name);
 
-  // Get to the correct offset.
-  JASSERT(lseek(fd, area.offset, SEEK_SET) == area.offset) (JASSERT_ERRNO);
+    if (fd == -1) {
+      fd = _real_open(area.name, O_RDWR);
+      JASSERT(fd != -1) (JASSERT_ERRNO);
+    }
 
-  // Now populate file contents from memory.
-  JASSERT(Util::writeAll(fd, area.addr, area.size) == (ssize_t)area.size)
-    (JASSERT_ERRNO);
-  restoreShmArea(area, fd);
+    // Get to the correct offset
+    JASSERT(lseek(fd, area.offset, SEEK_SET) == area.offset) (JASSERT_ERRNO);
+
+    // Now populate file contents from memory.
+    JASSERT(Util::writeAll(fd, area.addr, area.size) == (ssize_t)area.size)
+      (JASSERT_ERRNO);
+    restoreShmArea(area, fd);
+  }
 }
 
 void
