@@ -129,7 +129,12 @@ Util::initializeLogFile(const char *tmpDir, const char *prefix)
 
   ostringstream o;
   o << tmpDir << "/" << prefix
+#if __GCC__ > 4
+    // put_time introduced in commit b2823e39 (July, 2022)
+    // In CentOS 7 using gcc/g++ 4.8.5, this fails with:
+    //      error: ‘put_time’ is not a member of ‘std’
     << "." << std::put_time(&localTime, "%FT%T%z")
+#endif
     << "." << UniquePid::ThisProcess()
     << ".log";
   JASSERT_SET_LOG(o.str().c_str());
