@@ -831,14 +831,17 @@ void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
   }
   void *addr2 = mtcp_sys_mmap(addr, len, prot, flags, fd, offset);
   if (addr == addr2) {
+    DPRINTF("Mapped %p bytes at %p\n", len, addr);
     return addr2;
   } else if (addr2 != MAP_FAILED) {
     // undo the mmap
+    MTCP_PRINTF("error mapping %p bytes at %p; mapped at %p instead\n", len, addr, addr2);
     mtcp_sys_munmap(addr2, len);
     mtcp_sys_errno = EEXIST;
     return MAP_FAILED;
   } else {
     // the mmap really did fail
+    MTCP_PRINTF("error %d mapping %p bytes at %p, flags: %p, prot :%p\n", mtcp_sys_errno, len, addr, flags, prot);
     return MAP_FAILED;
   }
 }

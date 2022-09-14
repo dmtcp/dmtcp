@@ -1022,7 +1022,7 @@ read_one_memory_area(int fd, VA endOfStack)
 
   /* CASE MAPPED AS ZERO PAGE: */
   if ((area.properties & DMTCP_ZERO_PAGE) != 0) {
-    DPRINTF("restoring non-rwx anonymous area, %p bytes at %p\n",
+    DPRINTF("restoring zero-paged anonymous area, %p bytes at %p\n",
             area.size, area.addr);
     mmappedat = mmap_fixed_noreplace(area.addr, area.size, area.prot,
                                      area.flags | MAP_FIXED, -1, 0);
@@ -1053,7 +1053,7 @@ read_one_memory_area(int fd, VA endOfStack)
    * directly.  So mmap an anonymous area and read the file into it.
    * If file exists, turn off MAP_ANONYMOUS: standard private map
    */
-  else if (area.flags & MAP_ANONYMOUS) {
+  else {
     /* If there is a filename there, though, pretend like we're mapping
      * to it so a new /proc/self/maps will show a filename there like with
      * original process.  We only need read-only access because we don't
@@ -1070,12 +1070,13 @@ read_one_memory_area(int fd, VA endOfStack)
          */
         off_t curr_size = mtcp_sys_lseek(imagefd, 0, SEEK_END);
         MTCP_ASSERT(curr_size != -1);
-        if (curr_size < area.offset + area.size) {
+        if ((curr_size < area.offset + area.size) && (area.prot & PROT_WRITE)) {
+          DPRINTF("restoring non-anonymous area %s as anonymous: %p  bytes at %p\n",
+                  area.name, area.size, area.addr);
           mtcp_sys_close(imagefd);
           imagefd = -1;
           area.offset = 0;
-        } else {
-          area.flags ^= MAP_ANONYMOUS;
+          area.flags |= MAP_ANONYMOUS;
         }
       }
     }
@@ -1084,7 +1085,7 @@ read_one_memory_area(int fd, VA endOfStack)
       DPRINTF("restoring anonymous area, %p  bytes at %p\n",
               area.size, area.addr);
     } else {
-      DPRINTF("restoring to non-anonymous area from anonymous area,"
+      DPRINTF("restoring to non-anonymous area,"
               " %p bytes at %p from %s + 0x%X\n",
               area.size, area.addr, area.name, area.offset);
     }
@@ -1100,16 +1101,9 @@ read_one_memory_area(int fd, VA endOfStack)
                            area.flags, imagefd, area.offset);
 
     if (mmappedat == MAP_FAILED) {
-      DPRINTF("error %d mapping %p bytes at %p\n",
+      MTCP_PRINTF("error %d mapping %p bytes at %p\n",
               mtcp_sys_errno, area.size, area.addr);
-      if (mtcp_sys_errno == ENOMEM) {
-        MTCP_PRINTF(
-          "\n**********************************************************\n"
-          "****** Received ENOMEM.  Trying to continue, but may fail.\n"
-          "****** Please run 'free' to see if you have enough swap space.\n"
-          "**********************************************************\n\n");
-      }
-      try_skipping_existing_segment = 1;
+      mtcp_abort();
     }
     if (mmappedat != area.addr && !try_skipping_existing_segment) {
       MTCP_PRINTF("area at %p got mmapped to %p\n", area.addr, mmappedat);
@@ -1129,7 +1123,7 @@ read_one_memory_area(int fd, VA endOfStack)
 #endif /* if 0 */
 
     /* Close image file (fd only gets in the way) */
-    if (imagefd >= 0 && !(area.flags & MAP_ANONYMOUS)) {
+    if (imagefd >= 0) {
       mtcp_sys_close(imagefd);
     }
 
@@ -1143,7 +1137,7 @@ read_one_memory_area(int fd, VA endOfStack)
 
       /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
       if (area.mmapFileSize > 0 && area.name[0] == '/') {
-        MTCP_PRINTF("restoring shared-memory region %p of %p bytes at %p\n",
+        DPRINTF("restoring memory region %p of %p bytes at %p\n",
                     area.mmapFileSize, area.size, area.addr);
         mtcp_readfile(fd, area.addr, area.mmapFileSize);
       } else {
@@ -1157,13 +1151,6 @@ read_one_memory_area(int fd, VA endOfStack)
         }
       }
     }
-  }
-  /* CASE NOT MAP_ANONYMOUS:
-   * Otherwise, we mmap the original file contents to the area.
-   * This case is now delegated to DMTCP.  Nothing to do for MTCP.
-   */
-  else { /* Internal error. */
-    MTCP_ASSERT(0);
   }
   return 0;
 }

@@ -239,7 +239,9 @@ ProcSelfMaps::getNextArea(ProcMapsArea *area)
   if (sflag == 'p') {
     area->flags |= MAP_PRIVATE;
   }
-  if (area->name[0] == '\0') {
+
+  if (area->name[0] == '\0' ||
+      area->name[0] == '[') { // [heap], [stack], etc.
     area->flags |= MAP_ANONYMOUS;
   }
 
