@@ -87,7 +87,14 @@ jassert_internal::JAssert::JAssert(const char* type, bool exitWhenDone)
     Print("\n");
   }
 
-  ss << "[" << std::put_time(&localTime, "%F, %T.") << ms << ", "
+  ss << "[" 
+#if __GCC__ > 4
+    // put_time introduced in commit b2823e39 (July, 2022)
+    // In CentOS 7 using gcc/g++ 4.8.5, this fails with:
+    //      error: ‘put_time’ is not a member of ‘std’ 
+     << std::put_time(&localTime, "%F, %T.")
+#endif
+     << ms << ", "
      << getpid() << ", " << jalib::gettid() << ", " << type << "] ";
 }
 
