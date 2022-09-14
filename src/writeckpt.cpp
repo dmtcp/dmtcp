@@ -74,7 +74,7 @@ vector<ProcMapsArea> *nscdAreas = NULL;
 /* Internal routines */
 
 // static void sync_shared_mem(void);
-static void writememoryarea(int fd, Area *area, int stack_was_seen);
+static void writememoryarea(int fd, Area *area);
 
 static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
 
@@ -99,9 +99,6 @@ void
 mtcp_writememoryareas(int fd)
 {
   Area area;
-
-  // DeviceInfo dev_info;
-  int stack_was_seen = 0;
 
   if (getenv(ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS) != NULL) {
     skipWritingTextSegments = true;
@@ -329,17 +326,8 @@ mtcp_writememoryareas(int fd)
       area.flags |= MAP_ANONYMOUS;
     }
 
-    /* Only write this image if it is not CS_RESTOREIMAGE.
-     * Skip any mapping for this image - it got saved as CS_RESTOREIMAGE
-     * at the beginning.
-     */
-
-    if (strstr(area.name, "[stack]")) {
-      stack_was_seen = 1;
-    }
-
     // the whole thing comes after the restore image
-    writememoryarea(fd, &area, stack_was_seen);
+    writememoryarea(fd, &area);
   }
 
   // Release the memory.
@@ -478,7 +466,7 @@ mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
 }
 
 static void
-writememoryarea(int fd, Area *area, int stack_was_seen)
+writememoryarea(int fd, Area *area)
 {
   int rc = 0;
   void *addr = area->addr;
