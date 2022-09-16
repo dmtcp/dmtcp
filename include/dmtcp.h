@@ -54,6 +54,7 @@ extern "C" {
 #define ATOMIC_SHARED_GLOBAL volatile __attribute((aligned))
 // Same as global macro, but by convnetion, use this for local variables:
 #define ATOMIC_SHARED volatile __attribute((aligned))
+#define ATTR_TLS_INITIAL_EXEC __attribute__((tls_model("initial-exec")))
 
 typedef enum eDmtcpEvent {
   DMTCP_EVENT_INIT,

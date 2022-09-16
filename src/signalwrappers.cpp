@@ -36,7 +36,8 @@ using namespace dmtcp;
 // gah!!! signals API is redundant
 
 static bool checkpointSignalBlockedForProcess = false;
-static __thread bool checkpointSignalBlockedForThread = false;
+static __thread bool checkpointSignalBlockedForThread ATTR_TLS_INITIAL_EXEC =
+  false;
 static int stopSignal = -1;
 
 

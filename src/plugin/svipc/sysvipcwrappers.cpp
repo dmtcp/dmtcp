@@ -52,7 +52,7 @@ static struct timespec ts_100ms = { 0, 100 * 1000 * 1000 };
  * FIXME: for the long term, we need to think about the case where user
  * code modifies its own global offset table.
  */
-static __thread bool inside_shmdt = false;
+static __thread bool inside_shmdt ATTR_TLS_INITIAL_EXEC = false;
 
 /******************************************************************************
  *
