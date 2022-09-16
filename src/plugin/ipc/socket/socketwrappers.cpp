@@ -48,7 +48,7 @@ using namespace dmtcp;
  * connection. To avoid this problem, we disable socket processing for the
  * thread calling getaddrinfo().
  */
-static __thread bool _doNotProcessSockets = false;
+static __thread bool _doNotProcessSockets ATTR_TLS_INITIAL_EXEC = false;
 
 extern "C" int
 socket(int domain, int type, int protocol)

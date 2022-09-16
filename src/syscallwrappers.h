@@ -129,8 +129,6 @@ LIB_PRIVATE pid_t dmtcp_gettid();
 
 extern int dmtcp_wrappers_initializing;
 
-LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
-
 #ifdef _STAT_VER
 # define FOREACH_DMTCP_STAT_WRAPPER(MACRO)  \
   MACRO(__xstat)                            \

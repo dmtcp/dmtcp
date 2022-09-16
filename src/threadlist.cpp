@@ -60,7 +60,7 @@ static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
 
 static DmtcpRWLock threadResumeLock;
 
-__thread Thread *curThread = NULL;
+__thread Thread *curThread ATTR_TLS_INITIAL_EXEC = NULL;
 Thread *ckptThread = NULL;
 
 static int numUserThreads = 0;

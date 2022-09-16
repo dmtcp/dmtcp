@@ -38,7 +38,7 @@
 
 using namespace dmtcp;
 
-static __thread pid_t _dmtcp_thread_tid = -1;
+static __thread pid_t _dmtcp_thread_tid ATTR_TLS_INITIAL_EXEC = -1;
 
 static pid_t _dmtcp_pid = -1;
 static pid_t _dmtcp_ppid = -1;
