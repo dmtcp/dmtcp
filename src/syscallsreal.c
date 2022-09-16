@@ -53,25 +53,6 @@ typedef int (*funcptr_t) ();
 typedef pid_t (*funcptr_pid_t) ();
 typedef funcptr_t (*signal_funcptr_t) ();
 
-// gettid / tkill / tgkill are not defined in libc.
-LIB_PRIVATE pid_t
-dmtcp_gettid()
-{
-  return _real_syscall(SYS_gettid);
-}
-
-LIB_PRIVATE int
-dmtcp_tkill(int tid, int sig)
-{
-  return _real_syscall(SYS_tkill, tid, sig);
-}
-
-LIB_PRIVATE int
-dmtcp_tgkill(int tgid, int tid, int sig)
-{
-  return _real_syscall(SYS_tgkill, tgid, tid, sig);
-}
-
 /*
  * DMTCP puts wrappers around several libc (also libpthread, libdl etc.)
  * functions in order to work. In these wrappers, DMTCP has to do some work

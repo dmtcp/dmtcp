@@ -23,26 +23,6 @@
 # include <ucontext.h>
 #endif // ifdef SETJMP
 
-#define GETTID()              (pid_t)_real_syscall(SYS_gettid)
-#define TGKILL(pid, tid, sig) _real_syscall(SYS_tgkill, pid, tid, sig)
-
-EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
-EXTERNC pid_t dmtcp_get_real_pid() __attribute((weak));
-EXTERNC int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig)
-  __attribute((weak));
-EXTERNC void dmtcp_update_virtual_to_real_tid(pid_t tid) __attribute((weak));
-EXTERNC void dmtcp_init_virtual_tid() __attribute((weak));
-
-#define THREAD_REAL_PID() \
-  (dmtcp_get_real_pid != NULL ? dmtcp_get_real_pid() : getpid())
-
-#define THREAD_REAL_TID() \
-  (dmtcp_get_real_tid != NULL ? dmtcp_get_real_tid() : GETTID())
-
-#define THREAD_TGKILL(pid, tid, sig)                            \
-  (dmtcp_real_tgkill != NULL ? dmtcp_real_tgkill(pid, tid, sig) \
-                             : TGKILL(pid, tid, sig))
-
 typedef int (*fptr)(void *);
 
 #ifdef __i386__
@@ -124,5 +104,23 @@ extern Thread *ckptThread;
 extern Thread *motherofall;
 
 int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval);
+
+EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
+EXTERNC pid_t dmtcp_get_real_pid() __attribute((weak));
+EXTERNC int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig)
+  __attribute((weak));
+EXTERNC void dmtcp_update_virtual_to_real_tid(pid_t tid) __attribute((weak));
+EXTERNC void dmtcp_init_virtual_tid() __attribute((weak));
+
+#define THREAD_REAL_PID() \
+  (dmtcp_get_real_pid != NULL ? dmtcp_get_real_pid() : getpid())
+
+#define THREAD_REAL_TID() \
+  (dmtcp_get_real_tid != NULL ? dmtcp_get_real_tid()            \
+                              : (pid_t)_real_syscall(SYS_gettid))
+
+#define THREAD_TGKILL(pid, tid, sig)                            \
+  (dmtcp_real_tgkill != NULL ? dmtcp_real_tgkill(pid, tid, sig) \
+                             : _real_syscall(SYS_tgkill, pid, tid, sig))
 
 #endif // ifndef THREADINFO_H
