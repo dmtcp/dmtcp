@@ -38,6 +38,17 @@ using namespace dmtcp;
 
 extern __thread Thread *curThread;
 
+// gettid / tkill / tgkill are not defined in libc.
+LIB_PRIVATE pid_t
+dmtcp_gettid()
+{
+  if (curThread == nullptr) {
+    return _real_syscall(SYS_gettid);
+  }
+
+  return curThread->virtual_tid;
+}
+
 static void
 processChildThread(Thread *thread)
 {

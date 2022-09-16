@@ -126,8 +126,6 @@ extern "C"
 #endif // if defined(__arm__) || defined(__aarch64__)
 
 LIB_PRIVATE pid_t dmtcp_gettid();
-LIB_PRIVATE int dmtcp_tkill(int tid, int sig);
-LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
 
 extern int dmtcp_wrappers_initializing;
 

@@ -242,7 +242,7 @@ ThreadList::initThread(Thread *th)
     curThread = th;
   }
   th->tid = THREAD_REAL_TID();
-  th->virtual_tid = dmtcp_gettid();
+  th->virtual_tid = _real_syscall(SYS_gettid);
 
   th->flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
               | CLONE_SIGHAND | CLONE_THREAD
