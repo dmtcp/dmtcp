@@ -1019,6 +1019,7 @@ os.environ['DMTCP_GZIP'] = GZIP
 S=10*DEFAULT_S
 runTest("shared-memory1", 2, ["./test/shared-memory1"])
 runTest("shared-memory2", 2, ["./test/shared-memory2"])
+#runTest("shared-memory3", 2, ["./test/shared-memory3"])
 S=DEFAULT_S
 
 runTest("sysv-shm1",     2, ["./test/sysv-shm1"])
