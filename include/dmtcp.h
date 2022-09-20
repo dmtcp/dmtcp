@@ -398,6 +398,7 @@ const char *dmtcp_get_ckpt_filename(void) __attribute__((weak));
 const char *dmtcp_get_ckpt_files_subdir(void);
 int dmtcp_should_ckpt_open_files(void);
 int dmtcp_allow_overwrite_with_ckpted_files(void);
+int dmtcp_skip_truncate_file_at_restart(const char* path);
 
 int dmtcp_get_ckpt_signal(void);
 const char *dmtcp_get_uniquepid_str(void) __attribute__((weak));

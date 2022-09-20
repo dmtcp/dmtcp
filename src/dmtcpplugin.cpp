@@ -215,6 +215,12 @@ dmtcp_allow_overwrite_with_ckpted_files(void)
   return getenv(ENV_VAR_ALLOW_OVERWRITE_WITH_CKPTED_FILES) != NULL;
 }
 
+EXTERNC int
+dmtcp_skip_truncate_file_at_restart(const char* path)
+{
+  return getenv(ENV_VAR_SKIP_TRUNCATE_FILE_AT_RESTART) != NULL;
+}
+
 EXTERNC const char *
 dmtcp_get_executable_path(void)
 {
