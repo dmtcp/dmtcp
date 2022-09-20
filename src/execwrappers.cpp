@@ -226,6 +226,9 @@ static void* newStackAddr;
 extern "C" pid_t
 vfork()
 {
+  JTRACE("Simulating vfork with fork");
+  return fork();
+
   char dummy;
   static __typeof__(&vfork) vforkPtr =
     (__typeof__(&vfork)) dmtcp_dlsym(RTLD_NEXT, "vfork");
