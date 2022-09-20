@@ -342,7 +342,9 @@ FileConnection::refill(bool isRestart)
 
       if (stat(_path.c_str(), &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
         if (statbuf.st_size > _st_size &&
-            ((_fcntlFlags & O_WRONLY) || (_fcntlFlags & O_RDWR))) {
+            ((_fcntlFlags & O_APPEND) ||
+             (_fcntlFlags & O_WRONLY) ||
+             (_fcntlFlags & O_RDWR))) {
           errno = 0;
           // MANA deterministic p2p saves the p2p requests in a log file.  The
           // log file is used to keep track the source rank from which the
@@ -351,9 +353,19 @@ FileConnection::refill(bool isRestart)
           // source at restart, the requests are also saved after checkpoint.
           // The log file size at restart is larger than its size saved in the
           // checkpoint image. Just give a warning here and continue.
-          JWARNING(false) (_path) (_st_size) (statbuf.st_size)
-          .Text("Setting saved size to the current file size");
-          _st_size = statbuf.st_size;
+          //
+          // Plugins can use this API to preserve file contents at restart.
+          if (!dmtcp_skip_truncate_file_at_restart(_path.c_str())) {
+            JTRACE("Truncating file to ckpt-size")
+              (_path) (_st_size) (statbuf.st_size);
+            JASSERT(truncate(_path.c_str(), _st_size) == 0)
+              (_path.c_str()) (_st_size) (JASSERT_ERRNO);
+          } else {
+            JWARNING(false)
+            (_path) (_st_size) (statbuf.st_size)
+              .Text("Setting saved size to the current file size");
+            _st_size = statbuf.st_size;
+          }
         } else if (statbuf.st_size < _st_size) {
           JWARNING(false).Text("Size of file smaller than what we expected");
         }
