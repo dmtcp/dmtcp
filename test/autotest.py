@@ -1308,7 +1308,7 @@ if HAS_OPENMPI == "yes":
     del os.environ['PATH']
 
 # Test DMTCP utilities:
-runTest("nocheckpoint",        1, ["./test/nocheckpoint"])
+runTest("nocheckpoint",        [1,2], ["./test/nocheckpoint"])
 
 print("== Summary ==")
 print("%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1]))
