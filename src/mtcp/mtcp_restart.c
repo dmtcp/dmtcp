@@ -1359,6 +1359,9 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
     }
   }
 
+  mtcp_sys_close(mtcp_restart_fd);
+  mtcp_restart_fd = -1;
+
   // Create a guard page without read permissions and use the remaining region
   // for the stack.
 
