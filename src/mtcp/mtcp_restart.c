@@ -980,7 +980,6 @@ read_one_memory_area(int fd, VA endOfStack)
   int mtcp_sys_errno;
   int imagefd;
   void *mmappedat;
-  int try_skipping_existing_segment = 0;
 
   /* Read header of memory area into area; mtcp_readfile() will read header */
   Area area;
@@ -1024,13 +1023,15 @@ read_one_memory_area(int fd, VA endOfStack)
   if ((area.properties & DMTCP_ZERO_PAGE) != 0) {
     DPRINTF("restoring zero-paged anonymous area, %p bytes at %p\n",
             area.size, area.addr);
-    mmappedat = mmap_fixed_noreplace(area.addr, area.size, area.prot,
-                                     area.flags | MAP_FIXED, -1, 0);
-
-    if (mmappedat != area.addr) {
-      MTCP_PRINTF("error %d mapping %p bytes at %p\n",
-              mtcp_sys_errno, area.size, area.addr);
-      mtcp_abort();
+    // No need to mmap since the region has already been mmapped by the parent
+    // header.
+    // Just restore write-protection if needed.
+    if (!(area.prot & PROT_WRITE)) {
+      if (mtcp_sys_mprotect(area.addr, area.size, area.prot) < 0) {
+        MTCP_PRINTF("error %d write-protecting %p bytes at %p\n",
+                    mtcp_sys_errno, area.size, area.addr);
+        mtcp_abort();
+      }
     }
   }
 
@@ -1060,77 +1061,78 @@ read_one_memory_area(int fd, VA endOfStack)
      * want to ever write the file.
      */
 
-    imagefd = -1;
-    if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
-      imagefd = mtcp_sys_open(area.name, O_RDONLY, 0);
-      if (imagefd >= 0) {
-        /* If the current file size is smaller than the original, we map the region
-         * as private anonymous. Note that with this we lose the name of the region
-         * but most applications may not care.
-         */
-        off_t curr_size = mtcp_sys_lseek(imagefd, 0, SEEK_END);
-        MTCP_ASSERT(curr_size != -1);
-        if ((curr_size < area.offset + area.size) && (area.prot & PROT_WRITE)) {
-          DPRINTF("restoring non-anonymous area %s as anonymous: %p  bytes at %p\n",
-                  area.name, area.size, area.addr);
-          mtcp_sys_close(imagefd);
-          imagefd = -1;
-          area.offset = 0;
-          area.flags |= MAP_ANONYMOUS;
+    if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
+      // MMAP only if it's not a child header.
+      imagefd = -1;
+      if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
+        imagefd = mtcp_sys_open(area.name, O_RDONLY, 0);
+        if (imagefd >= 0) {
+          /* If the current file size is smaller than the original, we map the region
+          * as private anonymous. Note that with this we lose the name of the region
+          * but most applications may not care.
+          */
+          off_t curr_size = mtcp_sys_lseek(imagefd, 0, SEEK_END);
+          MTCP_ASSERT(curr_size != -1);
+          if ((curr_size < area.offset + area.size) && (area.prot & PROT_WRITE)) {
+            DPRINTF("restoring non-anonymous area %s as anonymous: %p  bytes at %p\n",
+                    area.name, area.size, area.addr);
+            mtcp_sys_close(imagefd);
+            imagefd = -1;
+            area.offset = 0;
+            area.flags |= MAP_ANONYMOUS;
+          }
         }
       }
-    }
 
-    if (area.flags & MAP_ANONYMOUS) {
-      DPRINTF("restoring anonymous area, %p  bytes at %p\n",
-              area.size, area.addr);
-    } else {
-      DPRINTF("restoring to non-anonymous area,"
-              " %p bytes at %p from %s + 0x%X\n",
-              area.size, area.addr, area.name, area.offset);
-    }
+      if (area.flags & MAP_ANONYMOUS) {
+        DPRINTF("restoring anonymous area, %p  bytes at %p\n",
+                area.size, area.addr);
+      } else {
+        DPRINTF("restoring to non-anonymous area,"
+                " %p bytes at %p from %s + 0x%X\n",
+                area.size, area.addr, area.name, area.offset);
+      }
 
     /* Create the memory area */
 
-    /* POSIX says mmap would unmap old memory.  Munmap never fails if args
-     * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
-     * mtcp_safemmap here to check for address conflicts.
-     */
-    mmappedat =
-      mmap_fixed_noreplace(area.addr, area.size, area.prot | PROT_WRITE,
-                           area.flags, imagefd, area.offset);
+      /* POSIX says mmap would unmap old memory.  Munmap never fails if args
+      * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
+      * mtcp_safemmap here to check for address conflicts.
+      */
+      mmappedat =
+        mmap_fixed_noreplace(area.addr, area.size, area.prot | PROT_WRITE,
+                            area.flags, imagefd, area.offset);
 
-    if (mmappedat == MAP_FAILED) {
-      MTCP_PRINTF("error %d mapping %p bytes at %p\n",
-              mtcp_sys_errno, area.size, area.addr);
-      mtcp_abort();
+      if (mmappedat == MAP_FAILED) {
+        MTCP_PRINTF("error %d mapping %p bytes at %p\n",
+                mtcp_sys_errno, area.size, area.addr);
+        mtcp_abort();
+      }
+      if (mmappedat != area.addr) {
+        MTCP_PRINTF("area at %p got mmapped to %p\n", area.addr, mmappedat);
+        mtcp_abort();
+      }
+
+  #if 0
+      /*
+      * The function is not used but is truer to maintaining the user's
+      * view of /proc/ * /maps. It can be enabled again in the future after
+      * we fix the logic to handle zero-sized files.
+      */
+      if (imagefd >= 0) {
+        adjust_for_smaller_file_size(&area, imagefd);
+      }
+  #endif /* if 0 */
+
+      /* Close image file (fd only gets in the way) */
+      if (imagefd >= 0) {
+        mtcp_sys_close(imagefd);
+      }
     }
-    if (mmappedat != area.addr && !try_skipping_existing_segment) {
-      MTCP_PRINTF("area at %p got mmapped to %p\n", area.addr, mmappedat);
-      mtcp_abort();
-    }
 
-#if 0
-
-    /*
-     * The function is not used but is truer to maintaining the user's
-     * view of /proc/ * /maps. It can be enabled again in the future after
-     * we fix the logic to handle zero-sized files.
-     */
-    if (imagefd >= 0) {
-      adjust_for_smaller_file_size(&area, imagefd);
-    }
-#endif /* if 0 */
-
-    /* Close image file (fd only gets in the way) */
-    if (imagefd >= 0) {
-      mtcp_sys_close(imagefd);
-    }
-
-    if (try_skipping_existing_segment) {
-      // This fails on teracluster.  Presumably extra symbols cause overflow.
-      mtcp_skipfile(fd, area.size);
-    } else if ((area.properties & DMTCP_SKIP_WRITING_TEXT_SEGMENTS) == 0) {
+    if ((area.properties & DMTCP_SKIP_WRITING_TEXT_SEGMENTS) == 0 &&
+        // Parent header doesn't have any follow on data.
+        (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
       /* This mmapfile after prev. mmap is okay; use same args again.
        *  Posix says prev. map will be munmapped.
        */
@@ -1143,6 +1145,7 @@ read_one_memory_area(int fd, VA endOfStack)
       } else {
         mtcp_readfile(fd, area.addr, area.size);
       }
+
       if (!(area.prot & PROT_WRITE)) {
         if (mtcp_sys_mprotect(area.addr, area.size, area.prot) < 0) {
           MTCP_PRINTF("error %d write-protecting %p bytes at %p\n",

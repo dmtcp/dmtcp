@@ -419,6 +419,14 @@ mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
 static void
 mtcp_write_anonymous_pages(int fd, Area area)
 {
+  // Force DMTCP_ZERO_PAGE_PARENT_ENTRY.
+  // Each consecutive zero/non-zero chunk will have a separate header.
+  // On restart, we mmap the region using the parent header, but restore
+  // contents using individual non-parent headers.
+  area.properties |= DMTCP_ZERO_PAGE_PARENT_HEADER;
+  writeAreaHeader(fd, &area);
+  area.properties ^= DMTCP_ZERO_PAGE_PARENT_HEADER;
+
   while (area.size > 0) {
     size_t size;
     int is_zero;
@@ -431,8 +439,10 @@ mtcp_write_anonymous_pages(int fd, Area area)
     }
 
     a.properties = is_zero ? DMTCP_ZERO_PAGE : 0;
+    a.properties |= DMTCP_ZERO_PAGE_CHILD_HEADER;
     a.size = size;
     a.endAddr = a.addr + a.size;
+    a.name[0] = '\0';
 
     writeAreaHeader(fd, &a);
 
@@ -470,18 +480,11 @@ writememoryarea(int fd, Area area)
     }
   }
 
-  if (area.name[0] == '\0') {
-    // Handle pure anonymous pages.
-    mtcp_write_anonymous_pages(fd, area);
-  } else if (Util::strStartsWith(area.name, "[stack") ||
-             Util::strStartsWith(area.name, "[heap")) {
-    writeAreaHeader(fd, &area);
-    JASSERT(Util::writeAll(fd, area.addr, area.size) == (ssize_t) area.size);
-  } else if (!jalib::Filesystem::FileExists(area.name)) {
-    // Handle anonymous pages with labels such as /SYS000, /huge_pages, etc.
-    mtcp_write_anonymous_pages(fd, area);
-  } else if ((area.flags & MAP_ANONYMOUS) != 0) {
+  if ((area.flags & MAP_ANONYMOUS) != 0) {
     // Handle anonymous pages.
+    mtcp_write_anonymous_pages(fd, area);
+  } else if (!jalib::Filesystem::FileExists(area.name)) {
+    // Handle non-existing files
     mtcp_write_anonymous_pages(fd, area);
   } else {
     JASSERT(strlen(area.name) > 0);
@@ -506,8 +509,7 @@ writememoryarea(int fd, Area area)
       writeAreaHeader(fd, &area);
       // NOTE: We cannot use lseek(SEEK_CUR) to detect how much data was
       // actually written here. This is because fd might be a pipe to gzip.
-      if (!(area.flags & MAP_ANONYMOUS) &&
-          area.mmapFileSize > 0) {
+      if (area.mmapFileSize > 0) {
         JASSERT(Util::writeAll(fd, area.addr, area.mmapFileSize) ==
                 (ssize_t)area.mmapFileSize);
       } else {
