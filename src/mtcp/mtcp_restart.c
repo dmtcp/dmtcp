@@ -1093,7 +1093,14 @@ read_one_memory_area(int fd, VA endOfStack)
                 area.size, area.addr, area.name, area.offset);
       }
 
-    /* Create the memory area */
+      /* Create the memory area */
+
+      // If the region is marked as private but without a backing file (i.e.,
+      // the file was deleted on ckpt), restore it as MAP_ANONYMOUS.
+      // TODO: handle huge pages by detecting and passing MAP_HUGETLB in flags.
+      if (imagefd == -1 && (area.flags & MAP_PRIVATE)) {
+        area.flags |= MAP_ANONYMOUS;
+      }
 
       /* POSIX says mmap would unmap old memory.  Munmap never fails if args
       * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
