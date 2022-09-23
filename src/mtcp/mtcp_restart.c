@@ -510,8 +510,10 @@ mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
     if (area.size == -1) {
       break;
     }
+
     if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
-        (area.properties & DMTCP_SKIP_WRITING_TEXT_SEGMENTS) == 0) {
+        (area.properties & DMTCP_SKIP_WRITING_TEXT_SEGMENTS) == 0 &&
+        (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
 
       off_t seekLen = area.size;
       if (!(area.flags & MAP_ANONYMOUS) && area.mmapFileSize > 0) {
@@ -523,19 +525,20 @@ mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
       }
     }
 
-    mtcp_printf("%p-%p %c%c%c%c "
+    if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
+      mtcp_printf("%p-%p %c%c%c%c %s          %s\n",
+                  area.addr, area.endAddr,
+                  ((area.prot & PROT_READ)  ? 'r' : '-'),
+                  ((area.prot & PROT_WRITE) ? 'w' : '-'),
+                  ((area.prot & PROT_EXEC)  ? 'x' : '-'),
+                  ((area.flags & MAP_SHARED)
+                    ? 's'
+                    : ((area.flags & MAP_PRIVATE) ? 'p' : '-')),
+                  ((area.flags & MAP_ANONYMOUS) ? "Anon" : "    "),
 
-                // "%x %u:%u %u"
-                "          %s\n",
-                area.addr, area.endAddr,
-                (area.prot & PROT_READ  ? 'r' : '-'),
-                (area.prot & PROT_WRITE ? 'w' : '-'),
-                (area.prot & PROT_EXEC  ? 'x' : '-'),
-                (area.flags & MAP_SHARED ? 's'
-                 : (area.flags & MAP_ANONYMOUS ? 'p' : '-')),
-
-                // area.offset, area.devmajor, area.devminor, area.inodenum,
-                area.name);
+                  // area.offset, area.devmajor, area.devminor, area.inodenum,
+                  area.name);
+    }
   }
 }
 
