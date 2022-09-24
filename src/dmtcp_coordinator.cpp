@@ -622,6 +622,13 @@ DmtcpCoordinator::onData(CoordClient *client)
       (msg.from) (prevClientState) (msg.state);
 
     client->setBarrier("");
+
+    // A worker is switching from RESTARTING, stop restart timer.
+    // Multiple calls are harmless.
+    if (prevClientState == WorkerState::RESTARTING) {
+      JTIMER_STOP(restart);
+    }
+
     break;
   }
 
