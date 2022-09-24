@@ -982,6 +982,7 @@ read_one_memory_area(int fd, VA endOfStack)
   int mtcp_sys_errno;
   int imagefd;
   void *mmappedat;
+  int try_skipping_existing_segment = 0;
 
   /* Read header of memory area into area; mtcp_readfile() will read header */
   Area area;
@@ -1115,9 +1116,8 @@ read_one_memory_area(int fd, VA endOfStack)
       if (mmappedat == MAP_FAILED) {
         MTCP_PRINTF("error %d mapping %p bytes at %p\n",
                 mtcp_sys_errno, area.size, area.addr);
-        mtcp_abort();
-      }
-      if (mmappedat != area.addr) {
+        try_skipping_existing_segment = 1;
+      } else if (mmappedat != area.addr) {
         MTCP_PRINTF("area at %p got mmapped to %p\n", area.addr, mmappedat);
         mtcp_abort();
       }
@@ -1139,8 +1139,12 @@ read_one_memory_area(int fd, VA endOfStack)
       }
     }
 
-        // Parent header doesn't have any follow on data.
-    if ((area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
+    if (try_skipping_existing_segment) {
+      // This fails on teracluster.  Presumably extra symbols cause overflow.
+      mtcp_skipfile(fd, area.size);
+    } else if ((area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
+      // Parent header doesn't have any follow on data.
+
       /* This mmapfile after prev. mmap is okay; use same args again.
        *  Posix says prev. map will be munmapped.
        */
