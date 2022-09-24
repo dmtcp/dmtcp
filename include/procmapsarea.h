@@ -65,9 +65,8 @@ typedef char *VA;  /* VA = virtual address */
 
 typedef enum ProcMapsAreaProperties {
   DMTCP_ZERO_PAGE                  = 0x0001,
-  DMTCP_SKIP_WRITING_TEXT_SEGMENTS = 0x0002,
-  DMTCP_ZERO_PAGE_PARENT_HEADER    = 0x0004,
-  DMTCP_ZERO_PAGE_CHILD_HEADER     = 0x0008
+  DMTCP_ZERO_PAGE_PARENT_HEADER    = 0x0002,
+  DMTCP_ZERO_PAGE_CHILD_HEADER     = 0x0004
 } ProcMapsAreaProperties;
 
 typedef union ProcMapsArea {

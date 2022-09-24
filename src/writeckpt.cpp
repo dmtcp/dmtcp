@@ -45,17 +45,12 @@
 /* Shared memory regions for Direct Rendering Infrastructure */
 #define DEV_DRI_SHMEM        "/dev/dri/card"
 
-#define DELETED_FILE_SUFFIX  " (deleted)"
-
-
 #define _real_open           NEXT_FNC(open)
 #define _real_close          NEXT_FNC(close)
 
 using namespace dmtcp;
 
 EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
-
-static bool skipWritingTextSegments = false;
 
 // FIXME:  Why do we create two global variable here?  They should at least
 // be static (file-private), and preferably local to a function.
@@ -102,10 +97,6 @@ void
 mtcp_writememoryareas(int fd)
 {
   Area area;
-
-  if (getenv(ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS) != NULL) {
-    skipWritingTextSegments = true;
-  }
 
   JTRACE("Performing checkpoint.");
 
@@ -385,7 +376,6 @@ static void
 mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
 {
   char *pg;
-  char *prevAddr;
   size_t count = 0;
   const size_t one_MB = (1024 * 1024);
 
@@ -396,7 +386,6 @@ mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
   }
   *size = one_MB;
   *is_zero = Util::areZeroPages(area->addr, one_MB / MTCP_PAGE_SIZE);
-  prevAddr = area->addr;
   for (pg = area->addr + one_MB;
        pg < area->addr + area->size;
        pg += one_MB) {
@@ -405,14 +394,6 @@ mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
       break;
     }
     *size += minsize;
-    if (*is_zero && ++count % 10 == 0) { // madvise every 10MB
-      if (madvise(prevAddr, area->addr + *size - prevAddr,
-                  MADV_DONTNEED) == -1) {
-        JNOTE("error doing madvise(..., MADV_DONTNEED)")
-          (JASSERT_ERRNO) ((void *)area->addr) ((int)*size);
-        prevAddr = pg;
-      }
-    }
   }
 }
 
@@ -442,7 +423,6 @@ mtcp_write_anonymous_pages(int fd, Area area)
     a.properties |= DMTCP_ZERO_PAGE_CHILD_HEADER;
     a.size = size;
     a.endAddr = a.addr + a.size;
-    a.name[0] = '\0';
 
     writeAreaHeader(fd, &a);
 
@@ -501,20 +481,14 @@ writememoryarea(int fd, Area area)
       }
     }
 
-    if (skipWritingTextSegments && (area.prot & PROT_EXEC)) {
-      area.properties |= DMTCP_SKIP_WRITING_TEXT_SEGMENTS;
-      writeAreaHeader(fd, &area);
-      JTRACE("Skipping over text segments") (area.name) ((void *)area.addr);
+    writeAreaHeader(fd, &area);
+    // NOTE: We cannot use lseek(SEEK_CUR) to detect how much data was
+    // actually written here. This is because fd might be a pipe to gzip.
+    if (area.mmapFileSize > 0) {
+      JASSERT(Util::writeAll(fd, area.addr, area.mmapFileSize) ==
+              (ssize_t)area.mmapFileSize);
     } else {
-      writeAreaHeader(fd, &area);
-      // NOTE: We cannot use lseek(SEEK_CUR) to detect how much data was
-      // actually written here. This is because fd might be a pipe to gzip.
-      if (area.mmapFileSize > 0) {
-        JASSERT(Util::writeAll(fd, area.addr, area.mmapFileSize) ==
-                (ssize_t)area.mmapFileSize);
-      } else {
-        JASSERT(Util::writeAll(fd, area.addr, area.size) == (ssize_t)area.size);
-      }
+      JASSERT(Util::writeAll(fd, area.addr, area.size) == (ssize_t)area.size);
     }
   }
 }

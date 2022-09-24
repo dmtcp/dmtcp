@@ -512,7 +512,6 @@ mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
     }
 
     if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
-        (area.properties & DMTCP_SKIP_WRITING_TEXT_SEGMENTS) == 0 &&
         (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
 
       off_t seekLen = area.size;
@@ -1140,9 +1139,8 @@ read_one_memory_area(int fd, VA endOfStack)
       }
     }
 
-    if ((area.properties & DMTCP_SKIP_WRITING_TEXT_SEGMENTS) == 0 &&
         // Parent header doesn't have any follow on data.
-        (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
+    if ((area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
       /* This mmapfile after prev. mmap is okay; use same args again.
        *  Posix says prev. map will be munmapped.
        */
