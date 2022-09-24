@@ -18,6 +18,9 @@
 /* Enable dlsym wrapper in libdmtcp.so */
 #undef ENABLE_DLSYM_WRAPPER
 
+/* Override to use FSGSBASE kernel patch */
+#undef ENABLE_FSGSBASE_OVERRIDE
+
 /* Enable pthread_mutex_* wrappers for Open MPI */
 #undef ENABLE_PTHREAD_MUTEX_WRAPPERS
 

@@ -707,6 +707,8 @@ HAS_READLINE
 M32
 CONFIG_M32_FALSE
 CONFIG_M32_TRUE
+ENABLE_FSGSBASE_OVERRIDE_FALSE
+ENABLE_FSGSBASE_OVERRIDE_TRUE
 HAS_MUTEX_WRAPPERS
 ENABLE_PTHREAD_MUTEX_WRAPPERS_FALSE
 ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE
@@ -851,6 +853,7 @@ enable_experts_only_space1
 enable_experts_only
 enable_experts_only_after
 enable_pthread_mutex_wrappers
+enable_fsgsbase_override
 enable_m32
 enable_multilib
 enable_static_libstdcxx
@@ -1545,6 +1548,9 @@ Optional Features:
 
   --enable-pthread-mutex-wrappers
                           Recommended when using Open MPI
+  --enable-fsgsbase-override
+                          Defines HAS_FSGSBASE for cross-configure; The target
+                          computer must have the FSGSBASE kernel patch.
   --enable-m32            Compile in 320bit mode on 64-bit Linux. (Works on
                           most, but not all programs, due to restrictions of
                           32-bit mode.)
@@ -6662,6 +6668,28 @@ else
 
 fi
 
+# Check whether --enable-fsgsbase-override was given.
+if test ${enable_fsgsbase_override+y}
+then :
+  enableval=$enable_fsgsbase_override; use_fsgsbase_override=$enableval
+else $as_nop
+  use_fsgsbase_override=no
+fi
+
+ if test "$use_fsgsbase_override" = "yes"; then
+  ENABLE_FSGSBASE_OVERRIDE_TRUE=
+  ENABLE_FSGSBASE_OVERRIDE_FALSE='#'
+else
+  ENABLE_FSGSBASE_OVERRIDE_TRUE='#'
+  ENABLE_FSGSBASE_OVERRIDE_FALSE=
+fi
+
+if test "$use_fsgsbase_override" = "yes"; then
+
+printf "%s\n" "#define ENABLE_FSGSBASE_OVERRIDE 1" >>confdefs.h
+
+fi
+
 CFLAGS_64="$CFLAGS"
 CXXFLAGS_64="$CXXFLAGS"
 LDFLAGS_64="$LDFLAGS"
@@ -7173,27 +7201,28 @@ fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $has_cma" >&5
 printf "%s\n" "$has_cma" >&6; }
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if FSGSBASE for x86_64 (setting fs in user space) is available" >&5
-$as_echo_n "checking if FSGSBASE for x86_64 (setting fs in user space) is available... " >&6; }
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if FSGSBASE for x86_64 (setting fs in user space) is available" >&5
+printf %s "checking if FSGSBASE for x86_64 (setting fs in user space) is available... " >&6; }
 has_fsgsbase='no'
 if test `uname -m` == x86_64; then
-  if test "$cross_compiling" = yes; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+  if test "$cross_compiling" = yes
+then :
+  { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+printf "%s\n" "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "cannot run test program while cross compiling
 See \`config.log' for more details" "$LINENO" 5; }
-else
+else $as_nop
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
              #include <sys/auxv.h>
              #include <elf.h>
-             
+
              /* Will be eventually in asm/hwcap.h */
              #ifndef HWCAP2_FSGSBASE
              # define HWCAP2_FSGSBASE (1 << 1)
              #endif
-             
+
              int main() {
                unsigned val = getauxval(AT_HWCAP2);
                if (val & HWCAP2_FSGSBASE) {
@@ -7202,11 +7231,21 @@ else
                  return 1; /* failure */
                }
              }
+           /* If FSGSBASE is enabled, then the following user-space versions:
+            *   unsigned long int fsbase;
+            *   asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
+            *   asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
+            * can replace:
+            *   unsigned long int fsbase;
+            *   syscall(SYS_arch_prctl, ARCH_GET_FS, fsbase);
+            *   syscall(SYS_arch_prctl, ARCH_SET_FS, fsbase);
+            */
 
 _ACEOF
-if ac_fn_c_try_run "$LINENO"; then :
+if ac_fn_c_try_run "$LINENO"
+then :
   has_fsgsbase='yes'
-else
+else $as_nop
   has_fsgsbase='no'
 fi
 rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
@@ -7216,7 +7255,7 @@ fi
 fi
 if test "$has_fsgsbase" == "yes"; then
 
-$as_echo "#define HAS_FSGSBASE 1" >>confdefs.h
+printf "%s\n" "#define HAS_FSGSBASE 1" >>confdefs.h
 
   HAS_FSGSBASE=yes
 
@@ -7224,8 +7263,8 @@ else
   HAS_FSGSBASE=no
 
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $has_fsgsbase" >&5
-$as_echo "$has_fsgsbase" >&6; }
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $has_fsgsbase" >&5
+printf "%s\n" "$has_fsgsbase" >&6; }
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if epoll_create1 available" >&5
 printf %s "checking if epoll_create1 available... " >&6; }
@@ -9036,6 +9075,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE}" && test -z "${ENABLE_PTHREAD_MUTEX_WRAPPERS_FALSE}"; then
   as_fn_error $? "conditional \"ENABLE_PTHREAD_MUTEX_WRAPPERS\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${ENABLE_FSGSBASE_OVERRIDE_TRUE}" && test -z "${ENABLE_FSGSBASE_OVERRIDE_FALSE}"; then
+  as_fn_error $? "conditional \"ENABLE_FSGSBASE_OVERRIDE\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${CONFIG_M32_TRUE}" && test -z "${CONFIG_M32_FALSE}"; then

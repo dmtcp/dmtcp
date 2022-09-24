@@ -278,6 +278,20 @@ else
   AC_SUBST([HAS_MUTEX_WRAPPERS], [no])
 fi
 
+AC_ARG_ENABLE([fsgsbase-override],
+            [AS_HELP_STRING([--enable-fsgsbase-override],
+                            [Defines HAS_FSGSBASE for cross-configure; The
+                             target computer must have the FSGSBASE
+                             kernel patch.])],
+            [use_fsgsbase_override=$enableval],
+            [use_fsgsbase_override=no])
+AM_CONDITIONAL(ENABLE_FSGSBASE_OVERRIDE,
+               [test "$use_fsgsbase_override" = "yes"])
+if test "$use_fsgsbase_override" = "yes"; then
+  AC_DEFINE([ENABLE_FSGSBASE_OVERRIDE],[1],[Override to use FSGSBASE
+                                            kernel patch])
+fi
+
 dnl --enable-m32 will use _32 variant, but --enable_multilib uses _64 variant
 CFLAGS_64="$CFLAGS"
 CXXFLAGS_64="$CXXFLAGS"
