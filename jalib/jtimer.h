@@ -98,7 +98,6 @@ class JTimeRecorder
 
     void stop()
     {
-      JWARNING(_isStarted) (_name);
       if (!_isStarted) { return; }
       _isStarted = false;
       _end = JTime::Now();
