@@ -96,8 +96,6 @@
 
 // Keep in sync with plugin/batch-queue/rm_pmi.h
 #define ENV_VAR_EXPLICIT_SRUN       "DMTCP_EXPLICIT_SRUN"
-#define ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS \
-                                    "DMTCP_SKIP_WRITING_TEXT_SEGMENTS"
 
 #define ENV_VAR_COORD_LOGFILE       "DMTCP_COORD_LOG_FILENAME"
 
@@ -141,7 +139,6 @@
   ENV_VAR_SIGCKPT,                    \
   ENV_VAR_SCREENDIR,                  \
   ENV_VAR_VIRTUAL_PID,                \
-  ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS, \
   ENV_DELTACOMPRESSION
 
 #define DMTCP_RESTART_CMD       "dmtcp_restart"
