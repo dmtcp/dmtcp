@@ -431,7 +431,7 @@ mtcp_write_anonymous_pages(int fd, Area area)
         .Text("writeAll failed during ckpt");
     } else {
       if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
-        JNOTE("error doing madvise(..., MADV_DONTNEED)")
+        JTRACE("error doing madvise(..., MADV_DONTNEED)")
           (JASSERT_ERRNO) (a.addr) ((int)a.size);
       }
     }
