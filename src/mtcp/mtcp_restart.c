@@ -988,7 +988,7 @@ read_one_memory_area(int fd, VA endOfStack)
   Area area;
 
   mtcp_readfile(fd, &area, sizeof area);
-  if (area.size <= 0) {
+  if (area.addr == NULL) {
     return -1;
   }
 
