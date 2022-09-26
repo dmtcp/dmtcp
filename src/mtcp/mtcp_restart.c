@@ -982,7 +982,6 @@ read_one_memory_area(int fd, VA endOfStack)
   int mtcp_sys_errno;
   int imagefd;
   void *mmappedat;
-  int try_skipping_existing_segment = 0;
 
   /* Read header of memory area into area; mtcp_readfile() will read header */
   Area area;
@@ -1116,7 +1115,31 @@ read_one_memory_area(int fd, VA endOfStack)
       if (mmappedat == MAP_FAILED) {
         MTCP_PRINTF("error %d mapping %p bytes at %p\n",
                 mtcp_sys_errno, area.size, area.addr);
-        try_skipping_existing_segment = 1;
+        if (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) {
+          size_t parentSize = area.size;
+          while (parentSize > 0) {
+            mtcp_readfile(fd, &area, sizeof area);
+            if (area.properties & DMTCP_ZERO_PAGE) {
+              // Zero page; nothing to do.
+              DPRINTF("Skipping zero page at %p with %p bytes\n", area.addr, area.size);
+            } else {
+              DPRINTF("Skipping non-zero page at %p with %p bytes\n", area.addr, area.size);
+              // Skip this segment.
+              MTCP_ASSERT(area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER);
+              mtcp_skipfile(fd, area.size);
+            }
+            parentSize -= area.size;
+          }
+        } else {
+          DPRINTF("Skipping region at %p with %p bytes\n", area.addr, area.size);
+          mtcp_skipfile(fd, area.size);
+        }
+
+        if (imagefd >= 0) {
+          mtcp_sys_close(imagefd);
+        }
+
+        return 0;
       } else if (mmappedat != area.addr) {
         MTCP_PRINTF("area at %p got mmapped to %p\n", area.addr, mmappedat);
         mtcp_abort();
@@ -1139,10 +1162,7 @@ read_one_memory_area(int fd, VA endOfStack)
       }
     }
 
-    if (try_skipping_existing_segment) {
-      // This fails on teracluster.  Presumably extra symbols cause overflow.
-      mtcp_skipfile(fd, area.size);
-    } else if ((area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
+    if ((area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
       // Parent header doesn't have any follow on data.
 
       /* This mmapfile after prev. mmap is okay; use same args again.
