@@ -613,7 +613,8 @@ nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 	$(jalibdir)/jfilesystem.h $(jalibdir)/jserialize.h \
 	$(jalibdir)/jsocket.h $(jalibdir)/jtimer.h \
 	$(dmtcpincludedir)/dmtcp.h $(dmtcpincludedir)/dmtcpalloc.h \
-	$(dmtcpincludedir)/futex.h $(dmtcpincludedir)/procmapsarea.h \
+	$(dmtcpincludedir)/futex.h $(dmtcpincludedir)/pathbuffer.h \
+	$(dmtcpincludedir)/procmapsarea.h \
 	$(dmtcpincludedir)/procselfmaps.h \
 	$(dmtcpincludedir)/protectedfds.h \
 	$(dmtcpincludedir)/shareddata.h \

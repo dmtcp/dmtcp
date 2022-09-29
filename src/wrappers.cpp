@@ -21,6 +21,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "protectedfds.h"
+#include "pathbuffer.h"
 
 #undef open
 #undef open64
@@ -150,10 +151,10 @@ static int
 dmtcp_openat(int dirfd, const char *path, int flags, mode_t mode)
 {
   WrapperLock wrapperLock;
+  PathBuffer realPath;
 
-  char realPath[PATH_MAX] = { 0 };
-
-  int fd = _real_openat(dirfd, virtualToRealPath(path, realPath), flags, mode);
+  int fd =
+    _real_openat(dirfd, virtualToRealPath(path, realPath.str()), flags, mode);
 
   if (fd != -1) {
     processOpenFd(fd, path, flags, mode);
@@ -221,10 +222,9 @@ extern "C" FILE *
 fopen(const char *path, const char *mode)
 {
   WrapperLock wrapperLock;
+  PathBuffer realPath;
 
-  char realPath[PATH_MAX] = { 0 };
-
-  FILE *fp = _real_fopen(virtualToRealPath(path, realPath), mode);
+  FILE *fp = _real_fopen(virtualToRealPath(path, realPath.str()), mode);
 
   if (fp != NULL) {
     processOpenFd(fileno(fp), path, -1, -1);
@@ -238,10 +238,9 @@ extern "C" FILE *
 fopen64(const char *path, const char *mode)
 {
   WrapperLock wrapperLock;
+  PathBuffer realPath;
 
-  char realPath[PATH_MAX] = { 0 };
-
-  FILE *fp = _real_fopen64(virtualToRealPath(path, realPath), mode);
+  FILE *fp = _real_fopen64(virtualToRealPath(path, realPath.str()), mode);
 
   if (fp != NULL) {
     processOpenFd(fileno(fp), path, -1, -1);
@@ -255,10 +254,10 @@ extern "C" FILE *
 freopen(const char *path, const char *mode, FILE * stream)
 {
   WrapperLock wrapperLock;
+  PathBuffer realPath;
 
-  char realPath[PATH_MAX] = { 0 };
-
-  FILE *fp = _real_freopen(virtualToRealPath(path, realPath), mode, stream);
+  FILE *fp =
+    _real_freopen(virtualToRealPath(path, realPath.str()), mode, stream);
 
   if (fp != NULL) {
     processReopenFd(fileno(fp), path, -1);
@@ -272,10 +271,10 @@ extern "C" FILE *
 freopen64(const char *path, const char *mode, FILE * stream)
 {
   WrapperLock wrapperLock;
+  PathBuffer realPath;
 
-  char realPath[PATH_MAX] = { 0 };
-
-  FILE *fp = _real_freopen64(virtualToRealPath(path, realPath), mode, stream);
+  FILE *fp =
+    _real_freopen64(virtualToRealPath(path, realPath.str()), mode, stream);
 
   if (fp != NULL) {
     processReopenFd(fileno(fp), path, -1);
@@ -575,9 +574,9 @@ mkostemps(char *ttemplate, int suffixlen, int flags)
 extern "C" DIR * opendir(const char *name)
 {
   WrapperLock wrapperLock;
-  char realPath[PATH_MAX] = {0};
+  PathBuffer realPath;
 
-  DIR *d = _real_opendir(virtualToRealPath(name, realPath));
+  DIR *d = _real_opendir(virtualToRealPath(name, realPath.str()));
 
   if (d != NULL) {
     processOpenFd(dirfd(d), name, O_RDWR, 0);
@@ -594,56 +593,56 @@ extern "C" int
 __xstat(int vers, const char *path, struct stat *buf)
 {
   WrapperLock wrapperLock;
+  PathBuffer realPath;
 
-  char realPath[PATH_MAX] = {0};
-  return _real___xstat(vers, virtualToRealPath(path, realPath), buf);
+  return _real___xstat(vers, virtualToRealPath(path, realPath.str()), buf);
 }
 
 extern "C" int
 __xstat64(int vers, const char *path, struct stat64 *buf)
 {
   WrapperLock wrapperLock;
+  PathBuffer realPath;
 
-  char realPath[PATH_MAX] = {0};
-  return _real___xstat64(vers, virtualToRealPath(path, realPath), buf);
+  return _real___xstat64(vers, virtualToRealPath(path, realPath.str()), buf);
 }
 
 extern "C" int
 __lxstat(int vers, const char *path, struct stat *buf)
 {
   WrapperLock wrapperLock;
+  PathBuffer realPath;
 
-  char realPath[PATH_MAX] = {0};
-  return _real___lxstat(vers, virtualToRealPath(path, realPath), buf);
+  return _real___lxstat(vers, virtualToRealPath(path, realPath.str()), buf);
 }
 
 extern "C" int
 __lxstat64(int vers, const char *path, struct stat64 *buf)
 {
   WrapperLock wrapperLock;
+  PathBuffer realPath;
 
-  char realPath[PATH_MAX] = {0};
-  return _real___lxstat64(vers, virtualToRealPath(path, realPath), buf);
+  return _real___lxstat64(vers, virtualToRealPath(path, realPath.str()), buf);
 }
 
 static ssize_t
 readlink_work(const char *path, char *buf, size_t bufsiz)
 {
   WrapperLock wrapperLock;
+  PathBuffer realPath;
+  PathBuffer resPath;
 
-  char realPath[PATH_MAX] = { 0 };
-  char resPath[PATH_MAX] = { 0 };
-
-  ssize_t ret =
-    _real_readlink(virtualToRealPath(path, realPath), resPath, sizeof(resPath));
+  ssize_t ret = _real_readlink(virtualToRealPath(path, realPath.str()),
+                               resPath.str(),
+                               resPath.size());
   if (ret == -1) {
     return ret;
   }
 
-  realToVirtualPath(resPath);
+  realToVirtualPath(resPath.str());
 
-  ret = MIN(bufsiz, strlen(resPath));
-  strncpy(buf, resPath, ret);
+  ret = MIN(bufsiz, strlen(resPath.str()));
+  strncpy(buf, resPath.str(), ret);
 
   return ret;
 }
@@ -664,23 +663,23 @@ static char *
 realpath_work(const char *path, char *resolved_path)
 {
   WrapperLock wrapperLock;
+  PathBuffer realPath;
+  PathBuffer resPath;
 
-  char realPath[PATH_MAX] = { 0 };
-  char resPath[PATH_MAX] = { 0 };
-
-  char *ret = _real_realpath(virtualToRealPath(path, realPath), resPath);
+  char *ret =
+    _real_realpath(virtualToRealPath(path, realPath.str()), resPath.str());
   if (ret == NULL) {
     return ret;
   }
 
-  realToVirtualPath(resPath);
+  realToVirtualPath(resPath.str());
 
   if (!resolved_path) {
     // TODO: Replace with libc::malloc.
-    resolved_path = (char*) malloc(strlen(resPath) + 1);
+    resolved_path = (char*) malloc(strlen(resPath.str()) + 1);
   }
 
-  strcpy(resolved_path, resPath);
+  strcpy(resolved_path, resPath.str());
   return resolved_path;
 }
 
@@ -709,24 +708,22 @@ extern "C" int
 access(const char *path, int mode)
 {
   WrapperLock wrapperLock;
+  PathBuffer realPath;
 
-  char realPath[PATH_MAX] = { 0 };
-
-  return _real_access(virtualToRealPath(path, realPath), mode);
+  return _real_access(virtualToRealPath(path, realPath.str()), mode);
 }
 
 static int
 ptsname_r_work(int fd, char *buf, size_t buflen)
 {
   WrapperLock wrapperLock;
+  PathBuffer resPath;
 
-  char resPath[PATH_MAX] = { 0 };
-
-  int ret = _real_ptsname_r(fd, resPath, sizeof(resPath));
+  int ret = _real_ptsname_r(fd, resPath.str(), resPath.size());
 
   if (ret == 0) {
-    realToVirtualPath(resPath);
-    strncpy(buf, resPath, buflen);
+    realToVirtualPath(resPath.str());
+    strncpy(buf, resPath.str(), buflen);
   }
 
   return ret;
@@ -764,14 +761,14 @@ static int
 ttyname_r_work(int fd, char *buf, size_t buflen)
 {
   WrapperLock wrapperLock;
-  char resPath[PATH_MAX] = { 0 };
-  int res = _real_ttyname_r(fd, resPath, sizeof(resPath));
+  PathBuffer resPath;
+  int res = _real_ttyname_r(fd, resPath.str(), resPath.size());
   if (res != 0) {
     return res;
   }
 
-  realToVirtualPath(resPath);
-  strncpy(buf, resPath, buflen);
+  realToVirtualPath(resPath.str());
+  strncpy(buf, resPath.str(), buflen);
 
   return 0;
 }

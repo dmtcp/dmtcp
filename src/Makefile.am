@@ -103,6 +103,7 @@ nobase_noinst_HEADERS += $(jalibdir)/jalib.h			\
 nobase_noinst_HEADERS += $(dmtcpincludedir)/dmtcp.h		\
 			 $(dmtcpincludedir)/dmtcpalloc.h	\
 			 $(dmtcpincludedir)/futex.h		\
+			 $(dmtcpincludedir)/pathbuffer.h	\
 			 $(dmtcpincludedir)/procmapsarea.h	\
 			 $(dmtcpincludedir)/procselfmaps.h	\
 			 $(dmtcpincludedir)/protectedfds.h	\

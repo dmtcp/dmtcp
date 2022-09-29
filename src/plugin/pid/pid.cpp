@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include <sys/types.h>
+#include "pathbuffer.h"
 #include "jalloc.h"
 #include "jassert.h"
 #include "jconvert.h"
@@ -153,10 +154,9 @@ pidVirt_ProcessProcSelfTask(DmtcpEventData_t *data)
 
   pid_t virtualTid = strtol(tidStr, &rest, 0);
   if (virtualTid > 0) {
-    char buf[PATH_MAX];
-    strncpy(buf, rest, PATH_MAX);
+    string buffer(rest);
     pid_t realTid = VIRTUAL_TO_REAL_PID(virtualTid);
-    snprintf(tidStr, PATH_MAX, "%d%s", realTid, buf);
+    snprintf(tidStr, PATH_MAX, "%d%s", realTid, buffer.c_str());
   }
 }
 
@@ -173,10 +173,10 @@ pid_virtual_to_real_filepath(DmtcpEventData_t *data)
   pid_t virtualPid = strtol(&data->virtualToRealPath.path[index], &rest, 0);
 
   if (virtualPid > 0) {
-    char newPath[PATH_MAX];
+    string restStr(rest);
     pid_t realPid = VIRTUAL_TO_REAL_PID(virtualPid);
-    snprintf(newPath, PATH_MAX, "/proc/%d%s", realPid, rest);
-    strncpy(data->virtualToRealPath.path, newPath, PATH_MAX);
+    char *path = data->virtualToRealPath.path;
+    snprintf(path, PATH_MAX, "/proc/%d%s", realPid, restStr.c_str());
   }
 
   pidVirt_ProcessProcSelfTask(data);
@@ -198,10 +198,10 @@ pid_real_to_virtual_filepath(DmtcpEventData_t *data)
     return;
   }
 
-  char newPath[PATH_MAX];
+  string restStr(rest);
   pid_t virtualPid = REAL_TO_VIRTUAL_PID(realPid);
-  sprintf(newPath, "/proc/%d%s", virtualPid, rest);
-  strncpy(data->realToVirtualPath.path, newPath, PATH_MAX);
+  char *path = data->virtualToRealPath.path;
+  snprintf(path, PATH_MAX, "/proc/%d%s", virtualPid, restStr.c_str());
 }
 
 
