@@ -91,15 +91,6 @@ int sendQueryToCoordinator(const char *id,
                            uint32_t key_len,
                            void *val,
                            uint32_t *val_len);
-int getUniqueIdFromCoordinator(const char *id,
-                               const void *key,
-                               uint32_t key_len,
-                               void *val,
-                               uint32_t *val_len,
-                               uint32_t offset = 1);
-
-int sendQueryAllToCoordinator(const char *id, void **buf, int *len);
-
 } // namespace CoordinatorAPI
 } // namespace dmtcp
 #endif // ifndef COORDINATORAPI_H

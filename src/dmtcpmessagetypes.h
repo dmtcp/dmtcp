@@ -85,16 +85,12 @@ enum DmtcpMessageType {
   DMT_REGISTER_NAME_SERVICE_DATA,
   DMT_NAME_SERVICE_QUERY,
   DMT_NAME_SERVICE_QUERY_RESPONSE,
-  DMT_NAME_SERVICE_QUERY_ALL,
-  DMT_NAME_SERVICE_QUERY_ALL_RESPONSE,
-
-  DMT_NAME_SERVICE_GET_UNIQUE_ID,
-  DMT_NAME_SERVICE_GET_UNIQUE_ID_RESPONSE,
 
   DMT_KVDB64_GET,
   DMT_KVDB64_GET_RESPONSE,
   DMT_KVDB64_GET_FAILED,
   DMT_KVDB64_OP,
+  DMT_KVDB64_OP_RESPONSE,
 };
 
 namespace CoordCmdStatus
@@ -115,7 +111,10 @@ ostream&operator<<(ostream &o, const DmtcpMessageType &s);
 struct DmtcpKVDB64
 {
   union {
-    DmtcpKVDBOperation_t op;
+    struct {
+      DmtcpKVDBOperation_t op;
+      DmtcpKVDBOperationResponse_t responseType;
+    };
     uint64_t _pad;
   };
   uint64_t key;

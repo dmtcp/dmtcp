@@ -39,17 +39,17 @@ class KeyValue
       memcpy(_data, data, len);
     }
 
-    ~KeyValue() {}
-
-    void destroy()
+    ~KeyValue()
     {
-      JASSERT(_data != NULL);
-      JALLOC_HELPER_FREE(_data);
+      if (_data != NULL) {
+        JALLOC_HELPER_FREE(_data);
+        _data = nullptr;
+      }
     }
 
-    void *data() { return _data; }
+    void *data() const { return _data; }
 
-    size_t len() { return _len; }
+    size_t len() const { return _len; }
 
     bool operator<(const KeyValue &that) const
     {
@@ -70,8 +70,8 @@ class KeyValue
     }
 
   private:
-    void *_data;
-    size_t _len;
+    void *_data = nullptr;
+    size_t _len = 0;
 };
 
 class LookupService
@@ -84,46 +84,21 @@ class LookupService
     void reset();
 
     void get64(jalib::JSocket &remote, const DmtcpMessage &msg);
-    void set64(const DmtcpMessage &msg);
+    void set64(jalib::JSocket &remote, const DmtcpMessage &msg);
 
     void registerData(const DmtcpMessage &msg, const void *data);
     void respondToQuery(jalib::JSocket &remote,
                         const DmtcpMessage &msg,
                         const void *data);
-    void getUniqueId(const char *id,    // DB name
-                     const void *key,   // Key: can be hostid, pid, etc.
-                     size_t key_len,  // Length of the key
-                     void **val,        // Result
-                     uint32_t offset,   // Difference in two unique ids
-                     size_t val_len); // Expected value length
-
-    void sendAllMappings(jalib::JSocket &remote,
-                         const DmtcpMessage &msg);
 
   private:
-    typedef map<KeyValue, KeyValue *>KeyValueMap;
-    typedef map<string, KeyValueMap>::iterator MapIterator;
+    void addKeyValue(string id, string key, string val);
 
+    typedef map<string, string>KeyValueMap;
     typedef map<int64_t, int64_t>KeyValueMap64;
-    typedef map<string, KeyValueMap64>::iterator MapIterator64;
-    void addKeyValue(string id,
-                     const void *key,
-                     size_t keyLen,
-                     const void *val,
-                     size_t valLen);
 
-    void query(string id,
-               const void *key,
-               size_t keyLen,
-               void **val,
-               size_t *valLen);
-
-  private:
     map<string, KeyValueMap>_maps;
     map<string, KeyValueMap64>_maps64;
-
-    map<string, uint64_t>_lastUniqueIds;
-    map<string, uint64_t>_offsets;
 };
 }
 #endif // ifndef LOOKUP_SERVICE_H

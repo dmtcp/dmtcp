@@ -40,6 +40,15 @@ dmtcp_kvdb64(DmtcpKVDBOperation_t op,
              int64_t key,
              int64_t val)
 {
+  return dmtcp_kvdb64_r(op, DMTCP_KVDB_RESPONSE_NONE, id, key, val);
+}
+
+uint64_t dmtcp_kvdb64_r(DmtcpKVDBOperation_t op,
+                   DmtcpKVDBOperationResponse_t responseType,
+                   const char *id,
+                   int64_t key,
+                   int64_t val)
+{
   DmtcpMessage msg(DMT_KVDB64_OP);
 
   JWARNING(strlen(id) < sizeof(msg.kvdbId));
@@ -51,5 +60,13 @@ dmtcp_kvdb64(DmtcpKVDBOperation_t op,
 
   CoordinatorAPI::sendMsgToCoordinator(msg);
 
-  return 0;
+  if (responseType != DMTCP_KVDB_RESPONSE_NONE) {
+    return 0;
+  }
+
+  CoordinatorAPI::recvMsgFromCoordinator(&msg);
+  msg.assertValid();
+  JASSERT(msg.type == DMT_KVDB64_OP_RESPONSE);
+
+  return msg.kvdb.value;
 }

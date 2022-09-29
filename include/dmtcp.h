@@ -338,25 +338,6 @@ int dmtcp_get_unique_id_from_coordinator(const char *id,
                                          uint32_t val_len);
 
 /*
- * This function can be used to query all mappings in the given nameservice
- * database, specified by the first argument, id. If a zero-length buffer
- * is passed to the function, i.e., if the len argument is 0, the function
- * will allocate a buffer of required length; it's the caller's responsibility
- * to free the buffer after use. The key-value mappings in the buffer are
- * serialized in the following format:
- *
- *    <int key_length, key, int value_length, value>
- *    <int key_length, key, int value_length, value>
- *    ...
- *
- * The function returns 0 on success and sets the len argument to the size
- * of the buffer. On failure, -1 is returned and errno is set to indicate
- * what went wrong. If the length of the supplied buffer is less than the
- * required size, -1 is returned and errno is set to ERANGE.
- */
-int dmtcp_send_query_all_to_coordinator(const char *id, void **buf, int *len);
-
-/*
  *
  */
 
@@ -372,10 +353,22 @@ typedef enum eDmtcpKVDBOperation {
   DMTCP_KVDB_MAX
 } DmtcpKVDBOperation_t;
 
+typedef enum eDmtcpKVDBOperationResponse {
+  DMTCP_KVDB_RESPONSE_NONE,
+  DMTCP_KVDB_RESPONSE_PREV_VAL,
+  DMTCP_KVDB_RESPONSE_NEW_VAL
+} DmtcpKVDBOperationResponse_t;
+
 int dmtcp_kvdb64(DmtcpKVDBOperation_t op,
                  const char *id,
                  int64_t key,
                  int64_t val);
+
+uint64_t dmtcp_kvdb64_r(DmtcpKVDBOperation_t op,
+                   DmtcpKVDBOperationResponse_t responseType,
+                   const char *id,
+                   int64_t key,
+                   int64_t val);
 
 int dmtcp_kvdb64_get(const char *id,
                      int64_t key,

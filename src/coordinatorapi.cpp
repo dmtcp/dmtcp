@@ -34,6 +34,7 @@
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jsocket.h"
+#include "base64.h"
 #include "dmtcp.h"
 #include "processinfo.h"
 #include "shareddata.h"
@@ -793,13 +794,16 @@ sendKeyValPairToCoordinator(const char *id,
                             uint32_t val_len)
 {
   DmtcpMessage msg(DMT_REGISTER_NAME_SERVICE_DATA);
+  string keyBase64 = base64_encode((unsigned char const*)key, key_len, true);
+  string valBase64 = base64_encode((unsigned char const*)val, val_len, true);
 
   JWARNING(strlen(id) < sizeof(msg.nsid));
   strncpy(msg.nsid, id, sizeof msg.nsid);
-  msg.keyLen = key_len;
-  msg.valLen = val_len;
-  msg.extraBytes = key_len + val_len;
+  msg.keyLen = keyBase64.length() + 1;
+  msg.valLen = valBase64.length() + 1;
+  msg.extraBytes = msg.keyLen + msg.valLen;
   int sock = coordinatorSocket;
+
   if (dmtcp_is_running_state()) {
     if (nsSock == -1) {
       nsSock = createNewSocketToCoordinator(COORD_ANY);
@@ -813,8 +817,10 @@ sendKeyValPairToCoordinator(const char *id,
   }
 
   JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  JASSERT(Util::writeAll(sock, key, key_len) == (ssize_t)key_len);
-  JASSERT(Util::writeAll(sock, val, val_len) == (ssize_t)val_len);
+  JASSERT(Util::writeAll(sock, keyBase64.c_str(), msg.keyLen) ==
+    (ssize_t)msg.keyLen);
+  JASSERT(Util::writeAll(sock, valBase64.c_str(), msg.valLen) ==
+    (ssize_t)msg.valLen);
 
   return 1;
 }
@@ -831,12 +837,13 @@ sendQueryToCoordinator(const char *id,
                        uint32_t *val_len)
 {
   DmtcpMessage msg(DMT_NAME_SERVICE_QUERY);
+  string keyBase64 = base64_encode((unsigned char const*)key, key_len, true);
 
   JWARNING(strlen(id) < sizeof(msg.nsid));
   strncpy(msg.nsid, id, sizeof msg.nsid);
-  msg.keyLen = key_len;
+  msg.keyLen = keyBase64.length() + 1;
   msg.valLen = 0;
-  msg.extraBytes = key_len;
+  msg.extraBytes = msg.keyLen;
   int sock = coordinatorSocket;
 
   if (key == NULL || key_len == 0 || val == NULL || val_len == 0) {
@@ -856,7 +863,8 @@ sendQueryToCoordinator(const char *id,
   }
 
   JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  JASSERT(Util::writeAll(sock, key, key_len) == (ssize_t)key_len);
+  JASSERT(Util::writeAll(sock, keyBase64.c_str(), msg.keyLen) ==
+          (ssize_t)msg.keyLen);
 
   msg.poison();
 
@@ -865,122 +873,17 @@ sendQueryToCoordinator(const char *id,
   JASSERT(msg.type == DMT_NAME_SERVICE_QUERY_RESPONSE &&
           msg.extraBytes == msg.valLen);
 
-  JASSERT(*val_len >= msg.valLen);
-  *val_len = msg.valLen;
-  JASSERT(Util::readAll(sock, val, *val_len) == (ssize_t)*val_len);
+  // Read base64-encoded string.
+  char valBase64[msg.valLen];
+  JASSERT(Util::readAll(sock, valBase64, msg.valLen) ==
+          (ssize_t)msg.valLen);
 
+  string valBinary = dmtcp::base64_decode(valBase64);
+  JASSERT(*val_len >= valBinary.size());
+
+  *val_len = valBinary.size();
+  memcpy(val, valBinary.c_str(), *val_len);
   return *val_len;
-}
-
-int getUniqueIdFromCoordinator(const char *id,
-                               const void *key,
-                               uint32_t key_len,
-                               void *val,
-                               uint32_t *val_len,
-                               uint32_t offset /* = 1 */)
-{
-  DmtcpMessage msg(DMT_NAME_SERVICE_GET_UNIQUE_ID);
-
-  JWARNING(strlen(id) < sizeof(msg.nsid));
-  strncpy(msg.nsid, id, sizeof msg.nsid);
-  msg.keyLen = key_len;
-  msg.valLen = 0;
-  msg.extraBytes = key_len;
-  msg.uniqueIdOffset = offset;
-  msg.valLen = *val_len;
-  int sock = coordinatorSocket;
-
-  if (key == NULL || key_len == 0 || val == NULL || val_len == 0) {
-    return 0;
-  }
-
-  if (dmtcp_is_running_state()) {
-    if (nsSock == -1) {
-      nsSock = createNewSocketToCoordinator(COORD_ANY);
-      JASSERT(nsSock != -1);
-      nsSock = Util::changeFd(nsSock, PROTECTED_NS_FD);
-      JASSERT(nsSock == PROTECTED_NS_FD);
-      DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
-      JASSERT(Util::writeAll(nsSock, &m, sizeof(m)) == sizeof(m));
-    }
-    sock = nsSock;
-  }
-
-  JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  JASSERT(Util::writeAll(sock, key, key_len) == (ssize_t)key_len);
-
-  msg.poison();
-
-  JASSERT(Util::readAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  msg.assertValid();
-  JASSERT(msg.type == DMT_NAME_SERVICE_GET_UNIQUE_ID_RESPONSE &&
-          msg.extraBytes == msg.valLen);
-
-  JASSERT(*val_len >= msg.valLen);
-  *val_len = msg.valLen;
-  JASSERT(Util::readAll(sock, val, *val_len) == *val_len);
-
-  return *val_len;
-}
-
-int
-sendQueryAllToCoordinator(const char *id, void **buf, int *len)
-{
-  DmtcpMessage msg(DMT_NAME_SERVICE_QUERY_ALL);
-
-  JWARNING(strlen(id) < sizeof(msg.nsid));
-  strncpy(msg.nsid, id, sizeof msg.nsid);
-  int sock = coordinatorSocket;
-  if (dmtcp_is_running_state()) {
-    if (nsSock == -1) {
-      nsSock = createNewSocketToCoordinator(COORD_ANY);
-      JASSERT(nsSock != -1);
-      nsSock = Util::changeFd(nsSock, PROTECTED_NS_FD);
-      JASSERT(nsSock == PROTECTED_NS_FD);
-      DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
-      JASSERT(Util::writeAll(nsSock, &m, sizeof(m)) == sizeof(m));
-    }
-    sock = nsSock;
-  }
-
-  JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  msg.poison();
-
-  JASSERT(Util::readAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  msg.assertValid();
-
-  JASSERT(msg.type == DMT_NAME_SERVICE_QUERY_ALL_RESPONSE &&
-          msg.extraBytes == msg.valLen);
-
-  /*
-   * We can't assume anything about the size of the user-specified buffer,
-   * so we read in in a safe, temporary buffer. This way there's no stale
-   * data on the socket for the next reader.
-   */
-  void *tmp = JALLOC_HELPER_MALLOC(msg.extraBytes);
-  JASSERT (Util::readAll(sock, tmp, msg.extraBytes) == msg.extraBytes);
-
-  if (*len > 0) {
-    if ((size_t)*len < msg.extraBytes) {
-      JALLOC_HELPER_FREE(tmp);
-      errno = ERANGE;
-      return -1;
-    } else {
-      memcpy(*buf, tmp, msg.extraBytes);
-      *len = msg.extraBytes;
-      JALLOC_HELPER_FREE(tmp);
-      return 0;
-    }
-  } else if (*len == 0) {
-    // Caller must free this buffer
-    *buf = tmp;
-    *len = msg.extraBytes;
-    return 0;
-  }
-
-  JALLOC_HELPER_FREE(tmp);
-  errno = EINVAL;
-  return -1;
 }
 
 /*
