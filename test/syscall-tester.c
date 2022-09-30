@@ -4833,33 +4833,33 @@ testall()
     int (*func)(void);
     char *desc;
   } tests[] = {
-    { BasicFile, "BasicFile: simple open/close/access/unlink tests." },
-    { BasicFileIO, "BasicFileIO: simple write/read/seek tests." },
-
-    /*            {BasicIOV, "BasicIOV: Basic vector reads and writes"},*/
-    { BasicFreopen, "BasicFreopen: Does freopen return something sensible?" },
-    { BasicStat, "BasicStat: Does [fs]tat return correct simple info?" },
-
-    // This test doesn't behave well with DMTCP as it creates files and then
-    // removes permissions, causing DMTCP to fail with EPERM.
-    // {BasicFilePerm, "BasicFilePerm: stat/chmod/fchmod"},
-    { BasicUid, "BasicUid: validate uid/gid operations" },
-    { BasicDup, "BasicDup: Does dup() work?" },
-    { BasicFcntlDup, "BasicFcntlDup: Does fcntl() with F_DUPFD work?" },
-    { BasicDir, "BasicDir: Can I make and remove a directory?" },
-
-    // The chdir tests are not well written. If the file that is used for test
-    // already exists on the disk prior to the launch of the application, the
-    // test fails.  Disabling them now until we get a chance to fix it.
-    // {BasicChdir, "BasicChdir: Can I validly change directories?"},
-    // {BasicFchdir, "BasicFchdir: Can I validly change directories?"},
-#ifndef WSL
-    // WSL does not correctly implement 'mknod()' in Windows 21H1, build 19043..
-    { BasicMknod, "BasicMknod: Can I make pipes and not other stuff?" },
-#endif
+//     { BasicFile, "BasicFile: simple open/close/access/unlink tests." },
+//     { BasicFileIO, "BasicFileIO: simple write/read/seek tests." },
+// 
+//     /*            {BasicIOV, "BasicIOV: Basic vector reads and writes"},*/
+//     { BasicFreopen, "BasicFreopen: Does freopen return something sensible?" },
+//     { BasicStat, "BasicStat: Does [fs]tat return correct simple info?" },
+// 
+//     // This test doesn't behave well with DMTCP as it creates files and then
+//     // removes permissions, causing DMTCP to fail with EPERM.
+//     // {BasicFilePerm, "BasicFilePerm: stat/chmod/fchmod"},
+//     { BasicUid, "BasicUid: validate uid/gid operations" },
+//     { BasicDup, "BasicDup: Does dup() work?" },
+//     { BasicFcntlDup, "BasicFcntlDup: Does fcntl() with F_DUPFD work?" },
+//     { BasicDir, "BasicDir: Can I make and remove a directory?" },
+// 
+//     // The chdir tests are not well written. If the file that is used for test
+//     // already exists on the disk prior to the launch of the application, the
+//     // test fails.  Disabling them now until we get a chance to fix it.
+//     // {BasicChdir, "BasicChdir: Can I validly change directories?"},
+//     // {BasicFchdir, "BasicFchdir: Can I validly change directories?"},
+// #ifndef WSL
+//     // WSL does not correctly implement 'mknod()' in Windows 21H1, build 19043..
+//     { BasicMknod, "BasicMknod: Can I make pipes and not other stuff?" },
+// #endif
     { BasicLink, "BasicLink: (Sym|Hard)link testing with lchown/lstat()" },
-    { BasicRename, "BasicRename: Does rename() work?" },
-    { BasicTruncation, "BasicTruncation: Does f?truncate() work?" },
+    //{ BasicRename, "BasicRename: Does rename() work?" },
+    //{ BasicTruncation, "BasicTruncation: Does f?truncate() work?" },
 
 #if defined(Solaris)
     { BasicFcntlTruncation, "BasicFcntlTruncation: Does F_FREESP work?" },
@@ -4868,13 +4868,13 @@ testall()
     // This test doesn't behave well with DMTCP as it creates files and then
     // removes permissions, causing DMTCP to fail with EPERM.
     // {BasicUmask, "BasicUmask: Does umask() work?"},
-    { BasicGroups, "BasicGroups: Does getgroups() work?" },
-    { BasicSync, "BasicSync: Can I sync() the disk?" },
-    { BasicName, "BasicName: Do I know my own name?" },
+    //{ BasicGroups, "BasicGroups: Does getgroups() work?" },
+    //{ BasicSync, "BasicSync: Can I sync() the disk?" },
+    //{ BasicName, "BasicName: Do I know my own name?" },
 
     /*            {BasicTime, "BasicTime: Do I know what time it is?"},*/
-    { BasicGetSetlimit, "BasicGetSetLimit: Can I change proc limits?" },
-    { BasicGettid, "BasicGettid: Does gettid() == getpid()?" },
+    //{ BasicGetSetlimit, "BasicGetSetLimit: Can I change proc limits?" },
+    //{ BasicGettid, "BasicGettid: Does gettid() == getpid()?" },
   };
 
   printf("Condor System Call Tester $Revision: 1.5 $\n\n");

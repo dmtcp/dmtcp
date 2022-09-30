@@ -152,6 +152,7 @@ void initializeLogFile(const char *tmpDir, const char *prefix = "dmtcpworker");
 
 void adjustRlimitStack();
 
+int atoi(const char* str, const char **end = NULL);
 char readDec(int fd, VA *value);
 char readHex(int fd, VA *value);
 char readChar(int fd);

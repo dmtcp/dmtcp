@@ -629,7 +629,7 @@ __lxstat64(int vers, const char *path, struct stat64 *buf)
 static ssize_t
 readlink_work(const char *path, char *buf, size_t bufsiz)
 {
-  size_t ret;
+  ssize_t ret;
   if (!isValidAddress(path)) {
     ret = _real_readlink(path, buf, bufsiz);
   } else if (strcmp(path, "/proc/self/exe") == 0 ||

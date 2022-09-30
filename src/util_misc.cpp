@@ -290,6 +290,38 @@ Util::readLine(int fd, char *buf, int count)
   }
 }
 
+int
+Util::atoi(const char* str, const char **end)
+{
+  int ret = 0;
+
+  if (str == NULL) {
+    if (end) {
+      *end = NULL;
+    }
+    return 0;
+  }
+
+  while (*str == ' ') str++;
+
+  while (1) {
+    char c = *str;
+    if ((c >= '0') && (c <= '9')) {
+      c -= '0';
+      ret = ret * 10 + c;
+      str++;
+    } else {
+      break;
+    }
+  }
+
+  if (end != NULL) {
+    *end = str;
+  }
+
+  return ret;
+}
+
 /* Read decimal number, return value and terminating character */
 
 char

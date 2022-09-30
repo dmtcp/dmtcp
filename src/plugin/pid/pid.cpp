@@ -149,10 +149,10 @@ pidVirt_ProcessProcSelfTask(DmtcpEventData_t *data)
     return;
   }
 
-  char *rest = nullptr;
+  const char *rest = nullptr;
   char *tidStr = ptr + PROC_TASK_TOKEN_LEN;
 
-  pid_t virtualTid = strtol(tidStr, &rest, 0);
+  pid_t virtualTid = Util::atoi(tidStr, &rest);
   if (virtualTid > 0) {
     string buffer(rest);
     pid_t realTid = VIRTUAL_TO_REAL_PID(virtualTid);
@@ -169,8 +169,8 @@ pid_virtual_to_real_filepath(DmtcpEventData_t *data)
   }
 
   int index = strlen(PROC_PREFIX);
-  char *rest;
-  pid_t virtualPid = strtol(&data->virtualToRealPath.path[index], &rest, 0);
+  const char *rest;
+  pid_t virtualPid = Util::atoi(&data->virtualToRealPath.path[index], &rest);
 
   if (virtualPid > 0) {
     string restStr(rest);
@@ -191,8 +191,8 @@ pid_real_to_virtual_filepath(DmtcpEventData_t *data)
   }
 
   int index = strlen(PROC_PREFIX);
-  char *rest;
-  pid_t realPid = strtol(&data->realToVirtualPath.path[index], &rest, 0);
+  const char *rest;
+  pid_t realPid = Util::atoi(&data->realToVirtualPath.path[index], &rest);
 
   if (realPid <= 0) {
     return;
