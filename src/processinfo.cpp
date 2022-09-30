@@ -168,6 +168,11 @@ ProcessInfo::ProcessInfo()
   // _generation is updated when _this_ process begins its checkpoint.
   _pthreadJoinId.clear();
   _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+
+  // Initialize /proc/<pid>
+  sprintf(buf, "/proc/%d", getpid());
+  _procPidPath = buf;
+
   _uppid = UniquePid();
   JASSERT(getcwd(buf, sizeof buf) != NULL);
   _launchCWD = buf;
@@ -401,6 +406,11 @@ ProcessInfo::resetOnFork()
   DmtcpMutexInit(&tblLock, DMTCP_MUTEX_NORMAL);
   _ppid = _pid;
   _pid = getpid();
+
+  // Initialize /proc/<pid>
+  char buf[32];
+  sprintf(buf, "/proc/%d", _pid);
+  _procPidPath = buf;
 
   _upid = UniquePid();
   _uppid = UniquePid();
@@ -657,7 +667,8 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
 
   o & _elfType;
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid & _generation;
-  o & _procname & _procSelfExe & _hostname & _launchCWD & _ckptCWD;
+  o & _procname & _procSelfExe & _procPidPath;
+  o & _hostname & _launchCWD & _ckptCWD;
   o & _upid & _uppid;
   o & _clock_gettime_offset & _getcpu_offset
     & _gettimeofday_offset & _time_offset;

@@ -20,6 +20,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "processinfo.h"
 #include "protectedfds.h"
 #include "pathbuffer.h"
 
@@ -628,21 +629,33 @@ __lxstat64(int vers, const char *path, struct stat64 *buf)
 static ssize_t
 readlink_work(const char *path, char *buf, size_t bufsiz)
 {
-  WrapperLock wrapperLock;
-  PathBuffer realPath;
-  PathBuffer resPath;
+  size_t ret;
+  if (!isValidAddress(path)) {
+    ret = _real_readlink(path, buf, bufsiz);
+  } else if (strcmp(path, "/proc/self/exe") == 0 ||
+             (Util::strStartsWith(
+                path,
+                ProcessInfo::instance().procPidPath().c_str()) &&
+              Util::strEndsWith(path, "/exe"))) {
+    string const& procSelfExe = ProcessInfo::instance().procSelfExe();
+    ret = MIN(bufsiz, procSelfExe.length());
+    strncpy(buf, procSelfExe.c_str(), ret);
+  } else {
+    WrapperLock wrapperLock;
+    PathBuffer realPath;
+    PathBuffer resPath;
 
-  ssize_t ret = _real_readlink(virtualToRealPath(path, realPath.str()),
-                               resPath.str(),
-                               resPath.size());
-  if (ret == -1) {
-    return ret;
+    ret = _real_readlink(virtualToRealPath(path, realPath.str()),
+                         resPath.str(), resPath.size());
+    if (ret == -1) {
+      return ret;
+    }
+
+    realToVirtualPath(resPath.str());
+
+    ret = MIN(bufsiz, strlen(resPath.str()));
+    strncpy(buf, resPath.str(), ret);
   }
-
-  realToVirtualPath(resPath.str());
-
-  ret = MIN(bufsiz, strlen(resPath.str()));
-  strncpy(buf, resPath.str(), ret);
 
   return ret;
 }
@@ -662,24 +675,40 @@ __readlink_chk(const char *path, char *buf, size_t bufsiz, size_t buflen)
 static char *
 realpath_work(const char *path, char *resolved_path)
 {
-  WrapperLock wrapperLock;
-  PathBuffer realPath;
-  PathBuffer resPath;
+  if (!isValidAddress(path)) {
+    return _real_realpath(path, resolved_path);
+  } else if (strcmp(path, "/proc/self/exe") == 0 ||
+             (Util::strStartsWith(
+                path,
+                ProcessInfo::instance().procPidPath().c_str()) &&
+              Util::strEndsWith(path, "/exe"))) {
+    string const& procSelfExe = ProcessInfo::instance().procSelfExe();
+    if (!resolved_path) {
+      // TODO: Replace with libc::malloc.
+      resolved_path = (char*) malloc(procSelfExe.length() + 1);
+    }
+    strcpy(resolved_path, procSelfExe.c_str());
+  } else {
+    WrapperLock wrapperLock;
+    PathBuffer realPath;
+    PathBuffer resPath;
 
-  char *ret =
-    _real_realpath(virtualToRealPath(path, realPath.str()), resPath.str());
-  if (ret == NULL) {
-    return ret;
+    char *ret =
+      _real_realpath(virtualToRealPath(path, realPath.str()), resPath.str());
+    if (ret == NULL) {
+      return ret;
+    }
+
+    realToVirtualPath(resPath.str());
+
+    if (!resolved_path) {
+      // TODO: Replace with libc::malloc.
+      resolved_path = (char*) malloc(strlen(resPath.str()) + 1);
+    }
+
+    strcpy(resolved_path, resPath.str());
   }
 
-  realToVirtualPath(resPath.str());
-
-  if (!resolved_path) {
-    // TODO: Replace with libc::malloc.
-    resolved_path = (char*) malloc(strlen(resPath.str()) + 1);
-  }
-
-  strcpy(resolved_path, resPath.str());
   return resolved_path;
 }
 

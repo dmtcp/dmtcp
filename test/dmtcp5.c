@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #define BT_SIZE 1024
@@ -38,13 +39,28 @@ myHandler(int i)
 int
 main(int argc, char *argv[])
 {
-  char cmd_file[256];
+  char proc_pid_exe_sym[64];
+  char proc_pid_exe_filepath[256] = {0};
+  sprintf(proc_pid_exe_sym, "/proc/%d/exe", getpid());
+  int proc_pid_exe_filepath_len = readlink(proc_pid_exe_sym, proc_pid_exe_filepath, 255);
+  if (proc_pid_exe_filepath_len == -1) {
+    printf("WARNING:  Couldn't find /proc/self/exe."
+           "  Trying to continue anyway.\n");
+  }
+
+  char cmd_file[256] = {0};
   int cmd_len = readlink("/proc/self/exe", cmd_file, 255);
 
   if (cmd_len == -1) {
     printf("WARNING:  Couldn't find /proc/self/exe."
            "  Trying to continue anyway.\n");
   } else {
+    if (strcmp(cmd_file, proc_pid_exe_filepath) == 0) {
+      printf("/proc/self/exe (%s) and /proc/pid/exe (%s) returned same values.\n", cmd_file, proc_pid_exe_filepath);
+    } else {
+      printf("WARNING: /proc/self/exe (%s) and /proc/pid/exe (%s) returned different values.\n", cmd_file, proc_pid_exe_filepath);
+    }
+
     cmd_file[cmd_len] = '\0';
     signal(SIGUSR1, &myHandler);
     signal(SIGUSR2, &myHandler); // DMTCP should not enable this.

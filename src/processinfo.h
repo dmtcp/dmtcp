@@ -100,6 +100,8 @@ class ProcessInfo
 
     const string &procSelfExe() const { return _procSelfExe; }
 
+    const string &procPidPath() const { return _procPidPath; }
+
     const string &hostname() const { return _hostname; }
 
     const UniquePid &upid() {
@@ -209,9 +211,11 @@ class ProcessInfo
 
     string _procname;
     string _procSelfExe;
+    string _procPidPath;
     string _hostname;
     string _launchCWD;
     string _ckptCWD;
+
 
     string _ckptDir;
     string _ckptFileName;

@@ -91,9 +91,7 @@ class FileConnection : public Connection
       : Connection(type)
       , _path(path)
       , _fileAlreadyExists(false)
-    {
-      JNOTE("*****") (_path);
-    }
+    { }
 
     virtual void doLocking() override;
     virtual void drain() override;
