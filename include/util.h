@@ -169,6 +169,9 @@ char *findExecutable(char *executable, const char *path_env, char *exec_path);
 char *getPath(const char *cmd, bool is32bit = false);
 char **getDmtcpArgs();
 void allowGdbDebug(int currentDebugLevel);
+
+string getTimestampStr();
+
 }
 }
 #endif // ifdef __cplusplus

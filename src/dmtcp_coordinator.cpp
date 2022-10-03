@@ -203,6 +203,7 @@ JTIMER(restart);
 static int workersAtCurrentBarrier = 0;
 static string currentBarrier;
 static string prevBarrier;
+static ssize_t eventId = 0;
 
 static UniquePid compId;
 static int numRestartPeers = -1;
@@ -224,6 +225,7 @@ static jalib::JSocket *listenSock = NULL;
 
 static void removeStaleSharedAreaFile();
 static void preExitCleanup();
+static uint64_t getCurrTimestamp();
 
 static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
 
@@ -479,6 +481,27 @@ DmtcpCoordinator::printList()
 }
 
 void
+DmtcpCoordinator::recordEvent(string const& event)
+{
+  eventId++;
+  ostringstream o;
+  o << std::setfill('0') << std::setw(5) << eventId << "-" << event;
+
+  lookupService.addKeyValue("Event_Timestamp_Ms",
+                            o.str(),
+                            Util::getTimestampStr());
+}
+
+void
+DmtcpCoordinator::serializeKVDB()
+{
+    ostringstream o;
+    o << tmpDir << "/dmtcp_coordinator_db-" << compId << "-ckpt.json";
+    lookupService.serialize(o.str());
+    JNOTE("Wrote coordinator key-value db") (o.str());
+}
+
+void
 DmtcpCoordinator::releaseBarrier(const string &barrier)
 {
   ComputationStatus status = getStatus();
@@ -490,7 +513,9 @@ DmtcpCoordinator::releaseBarrier(const string &barrier)
       return;
     }
 
+    recordEvent("Barrier-" + barrier);
     JTRACE("Releasing barrier") (barrier);
+
     prevBarrier = currentBarrier;
     currentBarrier.clear();
     workersAtCurrentBarrier = 0;
@@ -567,11 +592,8 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
     JNOTE("Checkpoint complete. Wrote restart script") (restartScriptPath);
 
     JTIMER_STOP(checkpoint);
-
-    ostringstream o;
-    o << tmpDir << "/dmtcp_coordinator_db-" << compId << "-ckpt.json";
-    lookupService.serialize(o.str());
-    JNOTE("Wrote coordinator key-value db") (o.str());
+    recordEvent("Ckpt-Complete");
+    serializeKVDB();
 
     if (blockUntilDone) {
       DmtcpMessage blockUntilDoneReply(DMT_USER_CMD_RESULT);
@@ -631,11 +653,12 @@ DmtcpCoordinator::onData(CoordClient *client)
     // A worker is switching from RESTARTING, stop restart timer.
     // Multiple calls are harmless.
     if (prevClientState == WorkerState::RESTARTING) {
-      JTIMER_STOP(restart);
-      ostringstream o;
-      o << tmpDir << "/dmtcp_coordinator_db-" << compId << "-rst.json";
-      lookupService.serialize(o.str());
-      JNOTE("Wrote coordinator key-value db") (o.str());
+      ComputationStatus s = getStatus();
+      if (s.minimumStateUnanimous && s.minimumState == WorkerState::RUNNING) {
+        JTIMER_STOP(restart);
+        recordEvent("Restart-Complete");
+        serializeKVDB();
+      }
     }
 
     break;
@@ -1046,6 +1069,7 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
     JNOTE("FIRST restart connection. Set numRestartPeers. Generate timestamp")
       (numRestartPeers) (curTimeStamp) (compId);
     JTIMER_START(restart);
+    recordEvent("Restart-Start");
   } else if (minimumState() != WorkerState::RESTARTING) {
     JNOTE("Computation not in RESTARTING state."
           "  Reject incoming computation process requesting restart.")
@@ -1203,6 +1227,7 @@ DmtcpCoordinator::startCheckpoint()
     uniqueCkptFilenames = false;
     time(&ckptTimeStamp);
     JTIMER_START(checkpoint);
+    recordEvent("Ckpt-Start");
     _numRestartFilenames = 0;
     numRestartPeers = -1;
     _restartFilenames.clear();
