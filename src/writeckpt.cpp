@@ -340,10 +340,6 @@ mtcp_writememoryareas(int fd)
     }
   }
 
-  // Release the memory.
-  delete procSelfMaps;
-  procSelfMaps = NULL;
-
   /* It's now safe to do this, since we're done using writememoryarea() */
   remap_nscd_areas(*nscdAreas);
 

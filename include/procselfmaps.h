@@ -26,6 +26,8 @@ class ProcSelfMaps
 
     int getNextArea(ProcMapsArea *area);
 
+    const char* getData() const { return data; }
+
   private:
     unsigned long int readDec();
     unsigned long int readHex();

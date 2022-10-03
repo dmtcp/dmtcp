@@ -28,8 +28,10 @@
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jsocket.h"
 #include "coordinatorapi.h"
+#include "kvdb.h"
 #include "pluginmanager.h"
 #include "processinfo.h"
+#include "procselfmaps.h"
 #include "shareddata.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
@@ -42,6 +44,7 @@ using namespace dmtcp;
 LIB_PRIVATE void dmtcp_prepare_atfork(void);
 
 EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
+EXTERNC ProcSelfMaps *procSelfMaps;
 
 /* The following instance of the DmtcpWorker is just to trigger the constructor
  * to allow us to hijack the process
@@ -438,12 +441,20 @@ DmtcpWorker::preCheckpoint()
 void
 DmtcpWorker::postCheckpoint()
 {
+  {
+    // Send ckpt maps to coordinator.
+    string workerPath("/worker/" + ProcessInfo::instance().upidStr());
+    kvdb::set(
+      workerPath,
+      "ProcSelfMaps_Ckpt",
+      procSelfMaps->getData());
+  }
+
   WorkerState::setCurrentState(WorkerState::CHECKPOINTED);
 
   // TODO: Merge this barrier with the previous `sendCkptFilename` msg.
   JTRACE("Waiting for Write-Ckpt barrier");
   CoordinatorAPI::waitForBarrier("DMT:WriteCkpt");
-
 
   /* Now that temp checkpoint file is complete, rename it over old permanent
    * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
@@ -451,7 +462,6 @@ DmtcpWorker::postCheckpoint()
    */
   JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
                  ProcessInfo::instance().getCkptFilename().c_str()) == 0);
-
 
   CoordinatorAPI::sendCkptFilename();
 
@@ -480,6 +490,16 @@ DmtcpWorker::postRestart(double ckptReadTime)
   PluginManager::eventHook(DMTCP_EVENT_RESTART);
 
   JTRACE("got resume message after restart");
+
+  {
+    // Send ckpt maps to coordinator.
+    string workerPath("/worker/" + ProcessInfo::instance().upidStr());
+    ProcSelfMaps procSelfMaps;
+    kvdb::set(
+      workerPath,
+      "ProcSelfMaps_Rst",
+      procSelfMaps.getData());
+  }
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
