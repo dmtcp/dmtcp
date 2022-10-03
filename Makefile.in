@@ -298,7 +298,7 @@ icheck-32-%: tests-32
 	@ $(targetdir)/bin/dmtcp_coordinator
 
 tidy:
-	rm -rf dmtcp-autotest-* ckpt_*_files
+	rm -rf dmtcp-autotest-* ckpt_*_files dmtcp_coordinator_db*.json
 	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
 	  dmtcp-shared-memory.* dmtcp-test-typescript.tmp core*
 	rm -rf ckpt_*

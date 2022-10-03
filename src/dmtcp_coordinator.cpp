@@ -120,6 +120,8 @@ static const char *theUsage =
   "      Directory to store dmtcp_restart_script.sh (default: ./)\n"
   "  --tmpdir (environment variable DMTCP_TMPDIR):\n"
   "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
+  "  --write-kv-data:\n"
+  "      Writes key-value store data to a json file in the working directory\n"
   "  --exit-on-last\n"
   "      Exit automatically when last client disconnects\n"
   "  --kill-after-ckpt\n"
@@ -203,6 +205,7 @@ JTIMER(restart);
 static int workersAtCurrentBarrier = 0;
 static string currentBarrier;
 static string prevBarrier;
+static ssize_t eventId = 0;
 
 static UniquePid compId;
 static int numRestartPeers = -1;
@@ -210,6 +213,7 @@ static time_t curTimeStamp = -1;
 static time_t ckptTimeStamp = -1;
 
 static LookupService lookupService;
+static bool writeKvData = false;
 
 static string coordHostname;
 static struct in_addr localhostIPAddr;
@@ -224,6 +228,7 @@ static jalib::JSocket *listenSock = NULL;
 
 static void removeStaleSharedAreaFile();
 static void preExitCleanup();
+static uint64_t getCurrTimestamp();
 
 static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
 
@@ -365,6 +370,8 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
     listenSock->close();
     preExitCleanup();
     JTRACE("Exiting ...");
+    recordEvent("Exiting");
+    serializeKVDB();
     exit(0);
     break;
   }
@@ -479,6 +486,30 @@ DmtcpCoordinator::printList()
 }
 
 void
+DmtcpCoordinator::recordEvent(string const& event)
+{
+  eventId++;
+  ostringstream o;
+  o << std::setfill('0') << std::setw(5) << eventId << "-" << event;
+
+  lookupService.set("/Event_Timestamp_Ms", o.str(), Util::getTimestampStr());
+}
+
+void
+DmtcpCoordinator::serializeKVDB()
+{
+  if (!writeKvData) {
+    return;
+  }
+
+  ostringstream o;
+  o << "dmtcp_coordinator_db-" << compId
+    << "-" << Util::getTimestampStr() << ".json";
+  lookupService.serialize(o.str());
+  JNOTE("Wrote coordinator key-value db") (o.str());
+}
+
+void
 DmtcpCoordinator::releaseBarrier(const string &barrier)
 {
   ComputationStatus status = getStatus();
@@ -490,7 +521,9 @@ DmtcpCoordinator::releaseBarrier(const string &barrier)
       return;
     }
 
+    recordEvent("Barrier-" + barrier);
     JTRACE("Releasing barrier") (barrier);
+
     prevBarrier = currentBarrier;
     currentBarrier.clear();
     workersAtCurrentBarrier = 0;
@@ -567,6 +600,8 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
     JNOTE("Checkpoint complete. Wrote restart script") (restartScriptPath);
 
     JTIMER_STOP(checkpoint);
+    recordEvent("Ckpt-Complete");
+    serializeKVDB();
 
     if (blockUntilDone) {
       DmtcpMessage blockUntilDoneReply(DMT_USER_CMD_RESULT);
@@ -626,7 +661,12 @@ DmtcpCoordinator::onData(CoordClient *client)
     // A worker is switching from RESTARTING, stop restart timer.
     // Multiple calls are harmless.
     if (prevClientState == WorkerState::RESTARTING) {
-      JTIMER_STOP(restart);
+      ComputationStatus s = getStatus();
+      if (s.minimumStateUnanimous && s.minimumState == WorkerState::RUNNING) {
+        JTIMER_STOP(restart);
+        recordEvent("Restart-Complete");
+        serializeKVDB();
+      }
     }
 
     break;
@@ -992,6 +1032,7 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
     JNOTE("FIRST restart connection. Set numRestartPeers. Generate timestamp")
       (numRestartPeers) (curTimeStamp) (compId);
     JTIMER_START(restart);
+    recordEvent("Restart-Start");
   } else if (minimumState() != WorkerState::RESTARTING) {
     JNOTE("Computation not in RESTARTING state."
           "  Reject incoming computation process requesting restart.")
@@ -1149,6 +1190,7 @@ DmtcpCoordinator::startCheckpoint()
     uniqueCkptFilenames = false;
     time(&ckptTimeStamp);
     JTIMER_START(checkpoint);
+    recordEvent("Ckpt-Start");
     _numRestartFilenames = 0;
     numRestartPeers = -1;
     _restartFilenames.clear();
@@ -1673,6 +1715,9 @@ main(int argc, char **argv)
     } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
       tmpdir_arg = argv[1];
       shift; shift;
+    } else if (s == "--write-kv-data") {
+      writeKvData = true;
+      shift;
     } else if (argc == 1) { // last arg can be port
       char *endptr;
       long x = strtol(argv[0], &endptr, 10);

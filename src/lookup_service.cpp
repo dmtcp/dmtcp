@@ -19,9 +19,13 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <iomanip>
+#include <iostream>
+#include <fstream>
 #include "dmtcp.h"
 #include "util.h"
 #include "lookup_service.h"
+#include "tokenize.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jsocket.h"
@@ -175,4 +179,72 @@ LookupService::processSet(jalib::JSocket &remote,
 
   sendResponse(remote, oldVal);
   return;
+}
+
+void
+LookupService::serialize(ofstream& o, string const& str)
+{
+  if (str.find('\n') == string::npos) {
+    o << std::quoted(str);
+    return;
+  }
+
+  vector<string> lines = tokenizeString(str, "\n");
+
+  o << " [\n";
+  o << "      " << std::quoted(lines[0]);
+
+  for (size_t i = 1; i < lines.size(); i++) {
+    o << ",\n      " << std::quoted(lines[i]);
+  }
+
+  o << "\n    ]";
+}
+
+void
+LookupService::serialize(ofstream& o, KeyValueMap const& kvmap)
+{
+  KeyValueMap::const_iterator it = kvmap.begin();
+
+  o << "{\n";
+
+  if (it != kvmap.end()) {
+    o << "    " << std::quoted(it->first) << ": ";
+    serialize(o, it->second);
+    it++;
+  }
+
+  for (; it != kvmap.end(); it++) {
+    o << ",\n    " << std::quoted(it->first) << ": ";
+    serialize(o, it->second);
+  }
+
+  o << "\n  }";
+}
+
+void
+LookupService::serialize(string const& file)
+{
+  ofstream o;
+  o.open (file.data());
+
+  JASSERT(o.is_open());
+
+  o << "{\n";
+
+  map<string, KeyValueMap>::iterator it = _maps.begin();
+  if (it != _maps.end()) {
+    o << "  " << std::quoted(it->first) << ": ";
+    serialize(o, it->second);
+    it++;
+
+    for (; it != _maps.end(); it++) {
+      o << ",\n  " << std::quoted(it->first) << ": ";
+      serialize(o, it->second);
+    }
+  }
+
+  o << "\n}";
+
+  o.close();
 }
