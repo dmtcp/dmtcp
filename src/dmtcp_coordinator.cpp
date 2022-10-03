@@ -568,6 +568,11 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 
     JTIMER_STOP(checkpoint);
 
+    ostringstream o;
+    o << tmpDir << "/dmtcp_coordinator_db-" << compId << "-ckpt.json";
+    lookupService.serialize(o.str());
+    JNOTE("Wrote coordinator key-value db") (o.str());
+
     if (blockUntilDone) {
       DmtcpMessage blockUntilDoneReply(DMT_USER_CMD_RESULT);
       JNOTE("replying to dmtcp_command:  we're done");
@@ -627,6 +632,10 @@ DmtcpCoordinator::onData(CoordClient *client)
     // Multiple calls are harmless.
     if (prevClientState == WorkerState::RESTARTING) {
       JTIMER_STOP(restart);
+      ostringstream o;
+      o << tmpDir << "/dmtcp_coordinator_db-" << compId << "-rst.json";
+      lookupService.serialize(o.str());
+      JNOTE("Wrote coordinator key-value db") (o.str());
     }
 
     break;

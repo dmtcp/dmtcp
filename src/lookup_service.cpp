@@ -19,10 +19,15 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <iomanip>
+#include <iostream>
+#include <fstream>
 #include "dmtcp.h"
 #include "util.h"
 #include "lookup_service.h"
+#include "tokenize.h"
 #include "../jalib/jassert.h"
+#include "../jalib/jconvert.h"
 #include "../jalib/jsocket.h"
 
 using namespace dmtcp;
@@ -32,6 +37,17 @@ LookupService::reset()
 {
   _maps.clear();
   _maps64.clear();
+}
+
+void
+LookupService::addKeyValue(string id, string key, int64_t val)
+{
+  KeyValueMap64 &kvmap = _maps64[id];
+
+  if (kvmap.find(key) != kvmap.end()) {
+    JTRACE("Duplicate key");
+  }
+  kvmap[key] = val;
 }
 
 void
@@ -53,8 +69,6 @@ LookupService::registerData(const DmtcpMessage &msg, const void *data)
     (msg.keyLen) (msg.valLen) (msg.extraBytes);
   const char *key = (char*) data;
   const char *val = key + msg.keyLen;
-  size_t keyLen = msg.keyLen;
-  size_t valLen = msg.valLen;
   addKeyValue(msg.nsid, key, val);
 }
 
@@ -93,15 +107,16 @@ LookupService::get64(jalib::JSocket &remote,
                      const DmtcpMessage &msg)
 {
   KeyValueMap64 &kvmap = _maps64[msg.kvdbId];
+  string key = jalib::XToString(msg.kvdb.key);
 
-  if (kvmap.find(msg.kvdb.key) == kvmap.end()) {
+  if (kvmap.find(key) == kvmap.end()) {
     JTRACE("Lookup Failed, Key not found.");
     remote << DmtcpMessage(DMT_KVDB64_GET_FAILED);
     return;
   }
 
   DmtcpMessage reply(DMT_KVDB64_GET_RESPONSE);
-  reply.kvdb.value = kvmap[msg.kvdb.key];
+  reply.kvdb.value = kvmap[key];
 
   remote << reply;
 }
@@ -114,13 +129,14 @@ LookupService::set64(jalib::JSocket &remote,
   reply.kvdb.value = 0;
 
   KeyValueMap64 &kvmap = _maps64[msg.kvdbId];
+  string key = jalib::XToString(msg.kvdb.key);
 
   // If key isn't found, set the key to the given value.
-  if (kvmap.find(msg.kvdb.key) == kvmap.end()) {
+  if (kvmap.find(key) == kvmap.end()) {
     if (msg.kvdb.op == DMTCP_KVDB_NOT) {
       JWARNING("Key not found for NOT operation.") (msg.kvdbId) (msg.kvdb.key);
     } else {
-      kvmap[msg.kvdb.key] = msg.kvdb.value;
+      kvmap[key] = msg.kvdb.value;
     }
 
     if (msg.kvdb.responseType == DMTCP_KVDB_RESPONSE_PREV_VAL) {
@@ -135,7 +151,7 @@ LookupService::set64(jalib::JSocket &remote,
   }
 
   if (msg.kvdb.op == DMTCP_KVDB_SET) {
-    kvmap[msg.kvdb.key] = msg.kvdb.value;
+    kvmap[key] = msg.kvdb.value;
 
     if (msg.kvdb.responseType == DMTCP_KVDB_RESPONSE_PREV_VAL) {
       reply.kvdb.value = 0;
@@ -149,7 +165,7 @@ LookupService::set64(jalib::JSocket &remote,
   }
 
   if (msg.kvdb.responseType == DMTCP_KVDB_RESPONSE_PREV_VAL) {
-    reply.kvdb.value = kvmap[msg.kvdb.key];
+    reply.kvdb.value = kvmap[key];
   }
 
   // If a key doesn't exist, we assume the default value (0) for all operations,
@@ -157,31 +173,31 @@ LookupService::set64(jalib::JSocket &remote,
   switch (msg.kvdb.op)
   {
   case DMTCP_KVDB_INCRBY:
-    kvmap[msg.kvdb.key] += msg.kvdb.value;
+    kvmap[key] += msg.kvdb.value;
     break;
 
   case DMTCP_KVDB_OR:
-    kvmap[msg.kvdb.key] |= msg.kvdb.value;
+    kvmap[key] |= msg.kvdb.value;
     break;
 
   case DMTCP_KVDB_XOR:
-    kvmap[msg.kvdb.key] ^= msg.kvdb.value;
+    kvmap[key] ^= msg.kvdb.value;
     break;
 
   case DMTCP_KVDB_NOT:
-    kvmap[msg.kvdb.key] = ~kvmap[msg.kvdb.key];
+    kvmap[key] = ~kvmap[key];
     break;
 
   case DMTCP_KVDB_AND:
-    kvmap[msg.kvdb.key] &= msg.kvdb.value;
+    kvmap[key] &= msg.kvdb.value;
     break;
 
   case DMTCP_KVDB_MIN:
-    kvmap[msg.kvdb.key] = MIN(msg.kvdb.value, kvmap[msg.kvdb.key]);
+    kvmap[key] = MIN(msg.kvdb.value, kvmap[key]);
     break;
 
   case DMTCP_KVDB_MAX:
-    kvmap[msg.kvdb.key] = MAX(msg.kvdb.value, kvmap[msg.kvdb.key]);
+    kvmap[key] = MAX(msg.kvdb.value, kvmap[key]);
     break;
 
   default:
@@ -189,10 +205,109 @@ LookupService::set64(jalib::JSocket &remote,
   }
 
   if (msg.kvdb.responseType == DMTCP_KVDB_RESPONSE_NEW_VAL) {
-    reply.kvdb.value = kvmap[msg.kvdb.key];
+    reply.kvdb.value = kvmap[key];
   }
 
   if (msg.kvdb.responseType != DMTCP_KVDB_RESPONSE_NONE) {
     remote << reply;
   }
+}
+
+void
+LookupService::serialize(ofstream& o, std::string_view str)
+{
+  if (str.find('\n') == string::npos) {
+    o << std::quoted(str);
+    return;
+  }
+
+  vector<string> lines = tokenizeString(str, "\n");
+
+  o << " [\n";
+  o << "      " << std::quoted(lines[0]);
+
+  for (size_t i = 1; i < lines.size(); i++) {
+    o << ",\n      " << std::quoted(lines[i]);
+  }
+
+  o << "\n    ]";
+}
+
+void
+LookupService::serialize(ofstream& o, KeyValueMap64 const& kvmap64)
+{
+  KeyValueMap64::const_iterator it = kvmap64.begin();
+
+  o << "{\n";
+
+  if (it != kvmap64.end()) {
+    o << "    " << std::quoted(it->first) << ": " << it->second;
+    it++;
+  }
+
+  for (; it != kvmap64.end(); it++) {
+    o << ",\n    " << std::quoted(it->first) << ": " << it->second;
+  }
+
+  o << "\n  }";
+}
+
+void
+LookupService::serialize(ofstream& o, KeyValueMap const& kvmap)
+{
+  KeyValueMap::const_iterator it = kvmap.begin();
+
+  o << "{\n";
+
+  if (it != kvmap.end()) {
+    o << "    " << std::quoted(it->first) << ": ";
+    serialize(o, it->second);
+    it++;
+  }
+
+  for (; it != kvmap.end(); it++) {
+    o << ",\n    " << std::quoted(it->first) << ": ";
+    serialize(o, it->second);
+  }
+
+  o << "\n  }";
+}
+
+void
+LookupService::serialize(std::string_view file)
+{
+  ofstream o;
+  o.open (file.data());
+
+  JASSERT(o.is_open());
+
+  o << "{\n";
+
+  map<string, KeyValueMap>::iterator it = _maps.begin();
+  if (it != _maps.end()) {
+    o << "  " << std::quoted(it->first) << ": ";
+    serialize(o, it->second);
+    it++;
+
+    for (; it != _maps.end(); it++) {
+      o << ",\n  " << std::quoted(it->first) << ": ";
+      serialize(o, it->second);
+    }
+  }
+
+  map<string, KeyValueMap64>::iterator it64 = _maps64.begin();
+  if (it64 != _maps64.end()) {
+    o << ",\n  " << std::quoted(it64->first) << ": ";
+    serialize(o, it64->second);
+    it64++;
+
+    for (; it64 != _maps64.end(); it64++) {
+      o << ",\n  " << std::quoted(it64->first) << ": ";
+      serialize(o, it64->second);
+    }
+  }
+
+  o << "\n}";
+
+  o.close();
 }

@@ -6,7 +6,9 @@ namespace dmtcp
 // Empty tokens will not be included in the result.
 
 vector<string>
-tokenizeString(const string &s, const string &delims, bool allowEmptyTokens)
+tokenizeString(std::string_view s,
+               std::string_view delims,
+               bool allowEmptyTokens)
 {
   size_t offset = -1;
 
@@ -16,7 +18,7 @@ tokenizeString(const string &s, const string &delims, bool allowEmptyTokens)
     offset += 1;
     size_t j = s.find_first_of(delims, offset);
 
-    string token = s.substr(offset, j - offset);
+    string token(s.substr(offset, j - offset));
 
     if (allowEmptyTokens || token.length() > 0) {
       tokens.push_back(token);

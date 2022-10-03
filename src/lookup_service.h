@@ -23,60 +23,21 @@
 #define LOOKUP_SERVICE_H
 
 #include <string.h>
+#include <string_view>
 #include <map>
 #include "../jalib/jsocket.h"
 #include "dmtcpmessagetypes.h"
 
 namespace dmtcp
 {
-class KeyValue
-{
-  public:
-    KeyValue(const void *data, const size_t len)
-    {
-      _data = JALLOC_HELPER_MALLOC(len);
-      _len = len;
-      memcpy(_data, data, len);
-    }
-
-    ~KeyValue()
-    {
-      if (_data != NULL) {
-        JALLOC_HELPER_FREE(_data);
-        _data = nullptr;
-      }
-    }
-
-    void *data() const { return _data; }
-
-    size_t len() const { return _len; }
-
-    bool operator<(const KeyValue &that) const
-    {
-      if (_len == that._len) {
-        return memcmp(_data, that._data, _len) < 0;
-      }
-      return _len < that._len;
-    }
-
-    bool operator==(const KeyValue &that) const
-    {
-      return _len == that._len && memcmp(_data, that._data, _len) == 0;
-    }
-
-    bool operator!=(const KeyValue &that) const
-    {
-      return !operator==(that);
-    }
-
-  private:
-    void *_data = nullptr;
-    size_t _len = 0;
-};
+using std::string_view;
 
 class LookupService
 {
   public:
+    typedef map<string, string>KeyValueMap;
+    typedef map<string, int64_t>KeyValueMap64;
+
     LookupService() {}
 
     ~LookupService() { reset(); }
@@ -86,17 +47,20 @@ class LookupService
     void get64(jalib::JSocket &remote, const DmtcpMessage &msg);
     void set64(jalib::JSocket &remote, const DmtcpMessage &msg);
 
+    void addKeyValue(string id, string key, string val);
+    void addKeyValue(string id, string key, int64_t val);
+
     void registerData(const DmtcpMessage &msg, const void *data);
     void respondToQuery(jalib::JSocket &remote,
                         const DmtcpMessage &msg,
                         const void *data);
 
+    void serialize(ofstream &o, string_view str);
+    void serialize(ofstream &o, KeyValueMap const &kvmap);
+    void serialize(ofstream& o, KeyValueMap64 const& kvmap);
+    void serialize(string_view file);
+
   private:
-    void addKeyValue(string id, string key, string val);
-
-    typedef map<string, string>KeyValueMap;
-    typedef map<int64_t, int64_t>KeyValueMap64;
-
     map<string, KeyValueMap>_maps;
     map<string, KeyValueMap64>_maps64;
 };
