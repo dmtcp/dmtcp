@@ -1,6 +1,8 @@
 #ifndef __DMTCP_PROCSELFMAPS_H__
 #define __DMTCP_PROCSELFMAPS_H__
 
+#include <string_view>
+
 #include "jalloc.h"
 #include "procmapsarea.h"
 
@@ -25,6 +27,8 @@ class ProcSelfMaps
     void getStackInfo(ProcMapsArea *area);
 
     int getNextArea(ProcMapsArea *area);
+
+    std::string_view getData() const { return data; }
 
   private:
     unsigned long int readDec();
