@@ -33,6 +33,8 @@ namespace dmtcp
 class LookupService
 {
   public:
+    typedef map<string, string>KeyValueMap;
+
     LookupService() {}
 
     ~LookupService() { reset(); }
@@ -46,6 +48,10 @@ class LookupService
                         const DmtcpMessage &msg,
                         const void *extraData);
 
+    void serialize(ofstream &o, string const& str);
+    void serialize(ofstream &o, KeyValueMap const &kvmap);
+    void serialize(string const& file);
+
   private:
     void sendResponse(jalib::JSocket &remote, kvdb::KVDBResponse response);
     void sendResponse(jalib::JSocket &remote, string const &val);
@@ -57,7 +63,6 @@ class LookupService
                     const DmtcpMessage &msg,
                     const void *extraData);
 
-    typedef map<string, string> KeyValueMap;
     map<string, KeyValueMap>_maps;
 };
 }

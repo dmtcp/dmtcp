@@ -112,6 +112,9 @@ class DmtcpCoordinator
                           size_t extraBytes = 0,
                           const void *extraData = NULL);
 
+    void recordEvent(string const &event);
+    void serializeKVDB();
+
     void processBarrier(const string &barrier);
     void releaseBarrier(const string &barrier);
 
