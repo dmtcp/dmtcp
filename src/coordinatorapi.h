@@ -22,6 +22,8 @@
 #ifndef COORDINATORAPI_H
 #define COORDINATORAPI_H
 
+#include <string_view>
+
 #include "../jalib/jalloc.h"
 #include "constants.h"
 #include "dmtcpmessagetypes.h"
@@ -41,6 +43,8 @@ enum CoordinatorMode {
 
 namespace CoordinatorAPI
 {
+
+using std::string_view;
 
 void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 DmtcpPluginDescriptor_t pluginDescr();
@@ -91,6 +95,15 @@ int sendQueryToCoordinator(const char *id,
                            uint32_t key_len,
                            void *val,
                            uint32_t *val_len);
+
+int
+sendKeyValPairToCoordinator(string_view id,
+                            string_view key,
+                            string_view val);
+int
+sendQueryToCoordinator(string_view id,
+                       string_view key,
+                       string *val);
 } // namespace CoordinatorAPI
 } // namespace dmtcp
 #endif // ifndef COORDINATORAPI_H

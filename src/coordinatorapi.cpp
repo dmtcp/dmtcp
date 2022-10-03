@@ -46,6 +46,8 @@
 LIB_PRIVATE bool sem_launch_first_time = false;
 LIB_PRIVATE sem_t sem_launch;
 
+using std::string_view;
+
 namespace dmtcp {
 namespace CoordinatorAPI {
 
@@ -787,20 +789,20 @@ sendCkptFilename()
 }
 
 int
-sendKeyValPairToCoordinator(const char *id,
-                            const void *key,
-                            uint32_t key_len,
-                            const void *val,
-                            uint32_t val_len)
+sendKeyValPairToCoordinator(string_view id,
+                            string_view key,
+                            string_view val)
 {
   DmtcpMessage msg(DMT_REGISTER_NAME_SERVICE_DATA);
-  string keyBase64 = base64_encode((unsigned char const*)key, key_len, true);
-  string valBase64 = base64_encode((unsigned char const*)val, val_len, true);
 
-  JWARNING(strlen(id) < sizeof(msg.nsid));
-  strncpy(msg.nsid, id, sizeof msg.nsid);
-  msg.keyLen = keyBase64.length() + 1;
-  msg.valLen = valBase64.length() + 1;
+  if (id.empty() || key.empty() || val.empty()) {
+    return 0;
+  }
+
+  JWARNING(id.length() < sizeof(msg.nsid));
+  strncpy(msg.nsid, id.data(), sizeof msg.nsid);
+  msg.keyLen = key.length() + 1;
+  msg.valLen = val.length() + 1;
   msg.extraBytes = msg.keyLen + msg.valLen;
   int sock = coordinatorSocket;
 
@@ -817,9 +819,9 @@ sendKeyValPairToCoordinator(const char *id,
   }
 
   JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  JASSERT(Util::writeAll(sock, keyBase64.c_str(), msg.keyLen) ==
+  JASSERT(Util::writeAll(sock, key.data(), msg.keyLen) ==
     (ssize_t)msg.keyLen);
-  JASSERT(Util::writeAll(sock, valBase64.c_str(), msg.valLen) ==
+  JASSERT(Util::writeAll(sock, val.data(), msg.valLen) ==
     (ssize_t)msg.valLen);
 
   return 1;
@@ -830,25 +832,22 @@ sendKeyValPairToCoordinator(const char *id,
 // On output, we copy data to val, and set *val_len to the actual buffer size
 //   (to the size of the data that we copied to the user buffer).
 int
-sendQueryToCoordinator(const char *id,
-                       const void *key,
-                       uint32_t key_len,
-                       void *val,
-                       uint32_t *val_len)
+sendQueryToCoordinator(string_view id,
+                       string_view key,
+                       string *val)
 {
   DmtcpMessage msg(DMT_NAME_SERVICE_QUERY);
-  string keyBase64 = base64_encode((unsigned char const*)key, key_len, true);
 
-  JWARNING(strlen(id) < sizeof(msg.nsid));
-  strncpy(msg.nsid, id, sizeof msg.nsid);
-  msg.keyLen = keyBase64.length() + 1;
+  if (id.empty() || key.empty() || val == NULL) {
+    return 0;
+  }
+
+  JWARNING(id.length() < sizeof(msg.nsid));
+  strncpy(msg.nsid, id.data(), sizeof msg.nsid);
+  msg.keyLen = key.length() + 1;
   msg.valLen = 0;
   msg.extraBytes = msg.keyLen;
   int sock = coordinatorSocket;
-
-  if (key == NULL || key_len == 0 || val == NULL || val_len == 0) {
-    return 0;
-  }
 
   if (dmtcp_is_running_state()) {
     if (nsSock == -1) {
@@ -863,7 +862,7 @@ sendQueryToCoordinator(const char *id,
   }
 
   JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  JASSERT(Util::writeAll(sock, keyBase64.c_str(), msg.keyLen) ==
+  JASSERT(Util::writeAll(sock, key.data(), msg.keyLen) ==
           (ssize_t)msg.keyLen);
 
   msg.poison();
@@ -874,9 +873,55 @@ sendQueryToCoordinator(const char *id,
           msg.extraBytes == msg.valLen);
 
   // Read base64-encoded string.
-  char valBase64[msg.valLen];
-  JASSERT(Util::readAll(sock, valBase64, msg.valLen) ==
+  char valBuf[msg.valLen];
+  JASSERT(Util::readAll(sock, valBuf, msg.valLen) ==
           (ssize_t)msg.valLen);
+
+  *val = valBuf;
+  return 1;
+}
+
+int
+sendKeyValPairToCoordinator(const char *id,
+                            const void *key,
+                            uint32_t key_len,
+                            const void *val,
+                            uint32_t val_len)
+{
+  if (id == NULL || key == NULL || key_len == 0 || val == NULL ||
+      val_len == 0) {
+    return 0;
+  }
+
+  string keyBase64 = base64_encode((unsigned char const*)key, key_len, true);
+  string valBase64 = base64_encode((unsigned char const*)val, val_len, true);
+
+  return sendKeyValPairToCoordinator(id, keyBase64, valBase64);
+}
+
+// On input, val points to a buffer in user memory and *val_len is the maximum
+// size of that buffer (the memory allocated by user).
+// On output, we copy data to val, and set *val_len to the actual buffer size
+//   (to the size of the data that we copied to the user buffer).
+int
+sendQueryToCoordinator(const char *id,
+                       const void *key,
+                       uint32_t key_len,
+                       void *val,
+                       uint32_t *val_len)
+{
+  if (id == NULL || key == NULL || key_len == 0 || val == NULL ||
+      val_len == 0) {
+    return 0;
+  }
+
+  string valBase64;
+  string keyBase64 = base64_encode((unsigned char const*)key, key_len, true);
+  int ret = sendQueryToCoordinator(id, keyBase64, &valBase64);
+
+  if (ret == 0) {
+    return ret;
+  }
 
   string valBinary = dmtcp::base64_decode(valBase64);
   JASSERT(*val_len >= valBinary.size());
