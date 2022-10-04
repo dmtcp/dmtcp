@@ -27,8 +27,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <string>
 
 #include <fstream>
+#include "dmtcpalloc.h"
 
 typedef struct JalibFuncPtrs {
   int (*open)(const char *pathname, int flags, ...);
@@ -50,6 +52,7 @@ typedef struct JalibFuncPtrs {
                     socklen_t optlen);
   ssize_t (*writeAll)(int fd, const void *buf, size_t count);
   ssize_t (*readAll)(int fd, void *buf, size_t count);
+  dmtcp::string (*getTimestampStr)();
   pid_t (*gettid)();
 } JalibFuncPtrs;
 
@@ -83,6 +86,7 @@ int setsockopt(int s,
 
 ssize_t writeAll(int fd, const void *buf, size_t count);
 ssize_t readAll(int fd, void *buf, size_t count);
+dmtcp::string getTimestampStr();
 
 pid_t gettid();
 

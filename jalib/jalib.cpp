@@ -219,6 +219,12 @@ readAll(int fd, void *buf, size_t count)
   REAL_FUNC_PASSTHROUGH(ssize_t, readAll) (fd, buf, count);
 }
 
+dmtcp::string
+getTimestampStr()
+{
+  REAL_FUNC_PASSTHROUGH(string, getTimestampStr) ();
+}
+
 pid_t
 gettid()
 {
