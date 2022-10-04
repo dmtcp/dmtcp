@@ -24,6 +24,7 @@
 #include <limits.h>  // for PATH_MAX
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 #include "dmtcp.h"
@@ -685,4 +686,20 @@ Util::allowGdbDebug(int currentDebugLevel)
       sleep(3);
     }
   }
+}
+
+string
+Util::getTimestampStr()
+{
+  struct timeval tv;
+  struct tm localTime;
+  char buf1[128] = {0};
+  char buf2[128] = {0};
+
+  gettimeofday(&tv, NULL);
+  localtime_r(&tv.tv_sec, &localTime);
+  strftime(buf1, sizeof(buf1), "%FT%T", &localTime);
+  sprintf(buf2, "%s.%03d", buf1, tv.tv_usec / 1000);
+
+  return buf2;
 }

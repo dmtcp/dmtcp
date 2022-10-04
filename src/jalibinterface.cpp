@@ -25,6 +25,7 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jbuffer.h"
 #include "dmtcp.h"
+#include "dmtcpalloc.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "util.h"
@@ -40,6 +41,7 @@ initializeJalib()
 
   jalibFuncPtrs.writeAll = Util::writeAll;
   jalibFuncPtrs.readAll = Util::readAll;
+  jalibFuncPtrs.getTimestampStr = Util::getTimestampStr;
 
   INIT_JALIB_FPTR(open);
   INIT_JALIB_FPTR(fopen);
