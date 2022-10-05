@@ -442,52 +442,6 @@ dmtcp_unblock_ckpt_signal(void)
   JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &signals_set, NULL) == 0);
 }
 
-EXTERNC int
-dmtcp_send_key_val_pair_to_coordinator(const char *id,
-                                       const void *key,
-                                       uint32_t key_len,
-                                       const void *val,
-                                       uint32_t val_len)
-{
-  return CoordinatorAPI::sendKeyValPairToCoordinator(id,
-                                                     key,
-                                                     key_len,
-                                                     val,
-                                                     val_len);
-}
-
-// On input, val points to a buffer in user memory and *val_len is the maximum
-// size of that buffer (the memory allocated by user).
-// On output, we copy data to val, and set *val_len to the actual buffer size
-// (to the size of the data that we copied to the user buffer).
-EXTERNC int
-dmtcp_send_query_to_coordinator(const char *id,
-                                const void *key,
-                                uint32_t key_len,
-                                void *val,
-                                uint32_t *val_len)
-{
-  return CoordinatorAPI::sendQueryToCoordinator(id, key, key_len, val, val_len);
-}
-
-EXTERNC int
-dmtcp_get_unique_id_from_coordinator(const char *id,    // DB name
-                                     const void *key,   // hostid, pid, etc.
-                                     uint32_t key_len,  // Length of the key
-                                     void *val,         // Result
-                                     uint32_t offset,   // unique id offset
-                                     uint32_t val_len)  // Expected val length
-{
-  return CoordinatorAPI::getUniqueIdFromCoordinator(id, key, key_len,
-                                                    val, &val_len, offset);
-}
-
-EXTERNC int
-dmtcp_send_query_all_to_coordinator(const char *id, void **buf, int *len)
-{
-  return CoordinatorAPI::sendQueryAllToCoordinator(id, buf, len);
-}
-
 EXTERNC void
 dmtcp_get_local_ip_addr(struct in_addr *in)
 {

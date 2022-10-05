@@ -26,54 +26,10 @@
 #include <map>
 #include "../jalib/jsocket.h"
 #include "dmtcpmessagetypes.h"
+#include "kvdb.h"
 
 namespace dmtcp
 {
-class KeyValue
-{
-  public:
-    KeyValue(const void *data, const size_t len)
-    {
-      _data = JALLOC_HELPER_MALLOC(len);
-      _len = len;
-      memcpy(_data, data, len);
-    }
-
-    ~KeyValue() {}
-
-    void destroy()
-    {
-      JASSERT(_data != NULL);
-      JALLOC_HELPER_FREE(_data);
-    }
-
-    void *data() { return _data; }
-
-    size_t len() { return _len; }
-
-    bool operator<(const KeyValue &that) const
-    {
-      if (_len == that._len) {
-        return memcmp(_data, that._data, _len) < 0;
-      }
-      return _len < that._len;
-    }
-
-    bool operator==(const KeyValue &that) const
-    {
-      return _len == that._len && memcmp(_data, that._data, _len) == 0;
-    }
-
-    bool operator!=(const KeyValue &that) const
-    {
-      return !operator==(that);
-    }
-
-  private:
-    void *_data;
-    size_t _len;
-};
-
 class LookupService
 {
   public:
@@ -83,47 +39,26 @@ class LookupService
 
     void reset();
 
-    void get64(jalib::JSocket &remote, const DmtcpMessage &msg);
-    void set64(const DmtcpMessage &msg);
+    void set(string const& id, string const& key, string const& val);
+    kvdb::KVDBResponse get(string const &id, string const &key, string *val);
 
-    void registerData(const DmtcpMessage &msg, const void *data);
-    void respondToQuery(jalib::JSocket &remote,
+    void processRequest(jalib::JSocket &remote,
                         const DmtcpMessage &msg,
-                        const void *data);
-    void getUniqueId(const char *id,    // DB name
-                     const void *key,   // Key: can be hostid, pid, etc.
-                     size_t key_len,  // Length of the key
-                     void **val,        // Result
-                     uint32_t offset,   // Difference in two unique ids
-                     size_t val_len); // Expected value length
-
-    void sendAllMappings(jalib::JSocket &remote,
-                         const DmtcpMessage &msg);
+                        const void *extraData);
 
   private:
-    typedef map<KeyValue, KeyValue *>KeyValueMap;
-    typedef map<string, KeyValueMap>::iterator MapIterator;
+    void sendResponse(jalib::JSocket &remote, kvdb::KVDBResponse response);
+    void sendResponse(jalib::JSocket &remote, string const &val);
 
-    typedef map<int64_t, int64_t>KeyValueMap64;
-    typedef map<string, KeyValueMap64>::iterator MapIterator64;
-    void addKeyValue(string id,
-                     const void *key,
-                     size_t keyLen,
-                     const void *val,
-                     size_t valLen);
+    void processGet(jalib::JSocket &remote,
+                    const DmtcpMessage &msg,
+                    const void *extraData);
+    void processSet(jalib::JSocket &remote,
+                    const DmtcpMessage &msg,
+                    const void *extraData);
 
-    void query(string id,
-               const void *key,
-               size_t keyLen,
-               void **val,
-               size_t *valLen);
-
-  private:
+    typedef map<string, string> KeyValueMap;
     map<string, KeyValueMap>_maps;
-    map<string, KeyValueMap64>_maps64;
-
-    map<string, uint64_t>_lastUniqueIds;
-    map<string, uint64_t>_offsets;
 };
 }
 #endif // ifndef LOOKUP_SERVICE_H

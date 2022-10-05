@@ -94,6 +94,13 @@ const
          _id == that._id;
 }
 
+string ConnectionIdentifier::toString() const
+{
+  ostringstream o;
+  o << *this;
+  return o.str();
+}
+
 ostream&
 dmtcp::operator<<(ostream &o, const ConnectionIdentifier &id)
 {

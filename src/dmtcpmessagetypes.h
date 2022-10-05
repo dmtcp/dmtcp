@@ -28,6 +28,7 @@
 #include "dmtcpalloc.h"
 #include "uniquepid.h"
 #include "workerstate.h"
+#include "kvdb.h"
 
 namespace dmtcp
 {
@@ -82,19 +83,8 @@ enum DmtcpMessageType {
 
   DMT_KILL_PEER,             // send kill message to peer
 
-  DMT_REGISTER_NAME_SERVICE_DATA,
-  DMT_NAME_SERVICE_QUERY,
-  DMT_NAME_SERVICE_QUERY_RESPONSE,
-  DMT_NAME_SERVICE_QUERY_ALL,
-  DMT_NAME_SERVICE_QUERY_ALL_RESPONSE,
-
-  DMT_NAME_SERVICE_GET_UNIQUE_ID,
-  DMT_NAME_SERVICE_GET_UNIQUE_ID_RESPONSE,
-
-  DMT_KVDB64_GET,
-  DMT_KVDB64_GET_RESPONSE,
-  DMT_KVDB64_GET_FAILED,
-  DMT_KVDB64_OP,
+  DMT_KVDB_REQUEST,
+  DMT_KVDB_RESPONSE
 };
 
 namespace CoordCmdStatus
@@ -112,16 +102,6 @@ ostream&operator<<(ostream &o, const DmtcpMessageType &s);
 #define DMTCPMESSAGE_NUM_PARAMS         2
 #define DMTCPMESSAGE_SAME_CKPT_INTERVAL (~0u) /* default value */
 
-struct DmtcpKVDB64
-{
-  union {
-    DmtcpKVDBOperation_t op;
-    uint64_t _pad;
-  };
-  uint64_t key;
-  int64_t value;
-};
-
 // Make sure the struct is of same size on 32-bit and 64-bit systems.
 struct DmtcpMessage {
   char _magicBits[16];
@@ -130,6 +110,12 @@ struct DmtcpMessage {
     char barrier[64];
     char nsid[64];
     char kvdbId[64];
+  };
+
+  union {
+    kvdb::KVDBRequest kvdbRequest;
+    kvdb::KVDBResponse kvdbResponse;
+    uint64_t _pad;
   };
 
   uint32_t _msgSize;
@@ -159,10 +145,6 @@ struct DmtcpMessage {
 
   uint32_t uniqueIdOffset;
   uint32_t exitAfterCkpt;
-
-  struct DmtcpKVDB64 kvdb;
-
-  // uint32_t padding;
 
   DmtcpMessage(DmtcpMessageType t = DMT_NULL);
   void assertValid() const;

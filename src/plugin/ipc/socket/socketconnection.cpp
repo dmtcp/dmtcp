@@ -37,6 +37,8 @@
 #include "dmtcp.h"
 #include "shareddata.h"
 #include "util.h"
+#include "base64.h"
+#include "kvdb.h"
 
 #include "connectionmessage.h"
 #include "connectionrewirer.h"
@@ -51,6 +53,8 @@ static bool really_verbose = false;
 #endif // ifdef REALLY_VERBOSE_CONNECTION_CPP
 
 using namespace dmtcp;
+
+constexpr char const *PeerDiscoveryDbCkpt = "/plugin/socket/ckpt";
 
 // this function creates a socket that is in an error state
 static int
@@ -456,10 +460,12 @@ TcpConnection::sendPeerInformation()
   default:
     break;
   }
+
   if (sendPeerInfo) {
-    dmtcp_send_key_val_pair_to_coordinator("SCons",
-                                           &key, keysz,
-                                           &value, valuesz);
+    string keyStr = base64::encode((const char*) &key, keysz);
+    string valStr = base64::encode((const char*) &value, valuesz);
+    JASSERT(kvdb::set(PeerDiscoveryDbCkpt, keyStr, valStr) ==
+            kvdb::KVDBResponse::SUCCESS);
   }
 }
 
@@ -467,7 +473,7 @@ void
 TcpConnection::recvPeerInformation()
 {
   struct sockaddr key = {0}, value = {0};
-  socklen_t keylen = 0, vallen = 0;
+  socklen_t keylen = 0;
 
   if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6) ||
       _sockType != SOCK_STREAM) {
@@ -478,12 +484,14 @@ TcpConnection::recvPeerInformation()
       _type == TCP_CONNECT_IN_PROGRESS) {
     keylen = sizeof(key);
     JASSERT(getpeername(_fds[0], &key, &keylen) == 0);
-    vallen = sizeof(value);
-    int ret = dmtcp_send_query_to_coordinator("SCons",
-                                              &key, keylen,
-                                              &value, &vallen);
-    if (ret != 0) {
-      JASSERT(vallen == sizeof(value))(vallen)(sizeof(value));
+
+    string keyStr = base64::encode((const char*) &key, keylen);
+    string valStr;
+    if (kvdb::get(PeerDiscoveryDbCkpt, keyStr, &valStr) ==
+        kvdb::KVDBResponse::SUCCESS) {
+      string valBinary = dmtcp::base64::decode(valStr);
+      JASSERT(valBinary.size() == sizeof(value));
+      memcpy(&value, valBinary.data(), sizeof(value));
     } else {
       JWARNING(false) (_fds[0])
        .Text("DMTCP detected an \"external\" connect socket."

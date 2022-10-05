@@ -29,12 +29,15 @@
 #include "dmtcp.h"
 #include "protectedfds.h"
 #include "util.h"
+#include "base64.h"
+#include "kvdb.h"
 
 #include "connectionrewirer.h"
 #include "socketconnection.h"
 #include "socketwrappers.h"
 
 using namespace dmtcp;
+constexpr char const *PeerDiscoveryDbRestart = "/plugin/socket/rst";
 
 // FIXME: IP6 Support disabled for now. However, we do go through the exercise
 // of creating the restore socket and all.
@@ -294,11 +297,8 @@ ConnectionRewirer::registerNSData(void *addr,
   JASSERT(theRewirer != NULL);
   for (i = conList->begin(); i != conList->end(); ++i) {
     const ConnectionIdentifier &id = i->first;
-    dmtcp_send_key_val_pair_to_coordinator("Socket",
-                                           (const void *)&id,
-                                           (uint32_t)sizeof(id),
-                                           addr,
-                                           (uint32_t)addrLen);
+    string addrStr = dmtcp::base64::encode((const char*) addr, addrLen);
+    dmtcp::kvdb::set(PeerDiscoveryDbRestart, id.toString(), addrStr);
 
     /*
     sockaddr_in *sn = (sockaddr_in*) &_restoreAddr;
@@ -319,13 +319,12 @@ ConnectionRewirer::sendQueries()
   for (i = _pendingOutgoing.begin(); i != _pendingOutgoing.end(); ++i) {
     const ConnectionIdentifier &id = i->first;
     struct RemoteAddr remote;
-    uint32_t len = sizeof(remote.addr);
-    JASSERT(dmtcp_send_query_to_coordinator("Socket",
-                                            (const void *)&id,
-                                            (uint32_t)sizeof(id),
-                                            &remote.addr,
-                                            &len) != 0);
-    remote.len = len;
+    string val;
+    JASSERT(kvdb::get(PeerDiscoveryDbRestart, id.toString(), &val) ==
+            kvdb::KVDBResponse::SUCCESS);
+    string valBinary = dmtcp::base64::decode(val);
+    memcpy(&remote.addr, valBinary.data(), valBinary.size());
+    remote.len = valBinary.size();
 
     /*
     sockaddr_in *sn = (sockaddr_in*) &remote.addr;
