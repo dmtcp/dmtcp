@@ -672,36 +672,6 @@ DmtcpCoordinator::onData(CoordClient *client)
     break;
   }
 
-  case DMT_REGISTER_NAME_SERVICE_DATA:
-  {
-    JTRACE("received REGISTER_NAME_SERVICE_DATA msg") (client->identity());
-    lookupService.registerData(msg, (const void *)extraData);
-    break;
-  }
-
-  case DMT_NAME_SERVICE_QUERY:
-  {
-    JTRACE("received NAME_SERVICE_QUERY msg") (client->identity());
-    lookupService.respondToQuery(client->sock(), msg,
-                                 (const void *)extraData);
-    break;
-  }
-
-  case DMT_NAME_SERVICE_GET_UNIQUE_ID:
-  {
-    JTRACE("received NAME_SERVICE_GET_UNIQUE_ID msg") (client->identity());
-    lookupService.respondToQuery(client->sock(), msg,
-                                 (const void *)extraData);
-    break;
-  }
-
-  case DMT_NAME_SERVICE_QUERY_ALL:
-  {
-    JTRACE("received NAME_SERVICE_QUERY_ALL msg") (client->identity());
-    lookupService.sendAllMappings(client->sock(), msg);
-    break;
-  }
-
   case DMT_UPDATE_PROCESS_INFO_AFTER_FORK:
   {
     JNOTE("Updating process Information after fork()")
@@ -745,17 +715,10 @@ DmtcpCoordinator::onData(CoordClient *client)
     break;
   }
 
-  case DMT_KVDB64_GET:
+  case DMT_KVDB_REQUEST:
   {
-    JTRACE("received DMT_KVDB_GET64 msg") (client->identity());
-    lookupService.get64(client->sock(), msg);
-    break;
-  }
-
-  case DMT_KVDB64_OP:
-  {
-    JTRACE("received DMT_KVDB_OP64 msg") (client->identity());
-    lookupService.set64(msg);
+    JTRACE("received DMT_KVDB_REQUEST msg") (client->identity());
+    lookupService.processRequest(client->sock(), msg, extraData);
     break;
   }
 
@@ -893,41 +856,6 @@ DmtcpCoordinator::onConnect()
                                           hello_remote);
 
     addDataSocket(client);
-    return;
-  }
-  if (hello_remote.type == DMT_NAME_SERVICE_QUERY) {
-    JASSERT(hello_remote.extraBytes > 0) (hello_remote.extraBytes);
-    char *extraData = new char[hello_remote.extraBytes];
-    remote.readAll(extraData, hello_remote.extraBytes);
-
-    JTRACE("received NAME_SERVICE_QUERY msg on running") (hello_remote.from);
-    lookupService.respondToQuery(remote, hello_remote, extraData);
-    delete[] extraData;
-    remote.close();
-    return;
-  }
-  if (hello_remote.type == DMT_NAME_SERVICE_GET_UNIQUE_ID) {
-    JASSERT(hello_remote.extraBytes > 0) (hello_remote.extraBytes);
-    char *extraData = new char[hello_remote.extraBytes];
-    remote.readAll(extraData, hello_remote.extraBytes);
-
-    JTRACE("received NAME_SERVICE_GET_UNIQUE_ID msg on running")
-          (hello_remote.from);
-    lookupService.respondToQuery(remote, hello_remote, extraData);
-    delete[] extraData;
-    remote.close();
-    return;
-  }
-  if (hello_remote.type == DMT_REGISTER_NAME_SERVICE_DATA) {
-    JASSERT(hello_remote.extraBytes > 0) (hello_remote.extraBytes);
-    char *extraData = new char[hello_remote.extraBytes];
-    remote.readAll(extraData, hello_remote.extraBytes);
-
-    JTRACE("received REGISTER_NAME_SERVICE_DATA msg on running") (hello_remote.
-                                                                  from);
-    lookupService.registerData(hello_remote, (const void *)extraData);
-    delete[] extraData;
-    remote.close();
     return;
   }
 

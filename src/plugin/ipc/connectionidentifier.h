@@ -68,6 +68,8 @@ class ConnectionIdentifier
 
     bool isNull() const { return _id < 0; }
 
+    string toString() const;
+
     bool operator==(const ConnectionIdentifier &that) const;
     bool operator<(const ConnectionIdentifier &that) const;
     bool operator!=(const ConnectionIdentifier &that) const

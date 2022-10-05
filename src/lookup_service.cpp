@@ -23,262 +23,156 @@
 #include "util.h"
 #include "lookup_service.h"
 #include "../jalib/jassert.h"
+#include "../jalib/jconvert.h"
 #include "../jalib/jsocket.h"
 
 using namespace dmtcp;
 
+using kvdb::KVDBRequest;
+using kvdb::KVDBResponse;
+
 void
 LookupService::reset()
 {
-  MapIterator i;
-
-  for (i = _maps.begin(); i != _maps.end(); i++) {
-    KeyValueMap &kvmap = i->second;
-    KeyValueMap::iterator it;
-    for (it = kvmap.begin(); it != kvmap.end(); it++) {
-      KeyValue *k = (KeyValue *)&(it->first);
-      KeyValue *v = it->second;
-      k->destroy();
-      v->destroy();
-      delete v;
-    }
-    kvmap.clear();
-  }
   _maps.clear();
-  _maps64.clear();
-  _lastUniqueIds.clear();
-  _offsets.clear();
 }
 
 void
-LookupService::addKeyValue(string id,
-                           const void *key,
-                           size_t keyLen,
-                           const void *val,
-                           size_t valLen)
+LookupService::set(string const& id, string const& key, string const& val)
 {
+  _maps[id][key] = val;
+}
+
+KVDBResponse
+LookupService::get(string const& id, string const& key, string *val)
+{
+  if (_maps.find(id) == _maps.end()) {
+    JTRACE("Lookup Failed, database not found.") (id);
+    return KVDBResponse::DB_NOT_FOUND;
+  }
+
   KeyValueMap &kvmap = _maps[id];
-
-  KeyValue k(key, keyLen);
-  KeyValue *v = new KeyValue(val, valLen);
-
-  if (kvmap.find(k) != kvmap.end()) {
-    JTRACE("Duplicate key");
+  if (kvmap.find(key) == kvmap.end()) {
+    JTRACE("Lookup Failed, Key not found.") (id) (key);
+    return KVDBResponse::KEY_NOT_FOUND;
   }
-  kvmap[k] = v;
+
+  *val = kvmap[key];
+
+  return KVDBResponse::SUCCESS;
 }
 
 void
-LookupService::query(string id,
-                     const void *key,
-                     size_t keyLen,
-                     void **val,
-                     size_t *valLen)
+LookupService::sendResponse(jalib::JSocket &remote,
+                            KVDBResponse response)
 {
-  KeyValueMap &kvmap = _maps[id];
-  KeyValue k(key, keyLen);
-
-  if (kvmap.find(k) == kvmap.end()) {
-    JTRACE("Lookup Failed, Key not found.");
-    *val = NULL;
-    *valLen = 0;
-    return;
-  }
-
-  KeyValue *v = kvmap[k];
-  *valLen = v->len();
-  *val = new char[v->len()];
-  memcpy(*val, v->data(), *valLen);
-}
-
-void
-LookupService::registerData(const DmtcpMessage &msg, const void *data)
-{
-  JASSERT(msg.keyLen > 0 && msg.valLen > 0 &&
-          msg.keyLen + msg.valLen == msg.extraBytes)
-    (msg.keyLen) (msg.valLen) (msg.extraBytes);
-  const void *key = data;
-  const void *val = (char *)key + msg.keyLen;
-  size_t keyLen = msg.keyLen;
-  size_t valLen = msg.valLen;
-  addKeyValue(msg.nsid, key, keyLen, val, valLen);
-}
-
-void
-LookupService::get64(jalib::JSocket &remote,
-                     const DmtcpMessage &msg)
-{
-  KeyValueMap64 &kvmap = _maps64[msg.kvdbId];
-
-  if (kvmap.find(msg.kvdb.key) == kvmap.end()) {
-    JTRACE("Lookup Failed, Key not found.");
-    remote << DmtcpMessage(DMT_KVDB64_GET_FAILED);
-    return;
-  }
-
-  DmtcpMessage reply(DMT_KVDB64_GET_RESPONSE);
-  reply.kvdb.value = kvmap[msg.kvdb.key];
-
+  DmtcpMessage reply(DMT_KVDB_RESPONSE);
+  reply.kvdbResponse = response;
   remote << reply;
 }
 
 void
-LookupService::set64(const DmtcpMessage &msg)
+LookupService::sendResponse(jalib::JSocket &remote,
+                            string const& val)
 {
-  KeyValueMap64 &kvmap = _maps64[msg.kvdbId];
+  DmtcpMessage reply(DMT_KVDB_RESPONSE);
+  reply.kvdbResponse = kvdb::KVDBResponse::SUCCESS;
+  reply.valLen = val.size() + 1;
+  reply.extraBytes = reply.valLen;
 
-  if (msg.kvdb.op == DMTCP_KVDB_SET) {
-    kvmap[msg.kvdb.key] = msg.kvdb.value;
+  remote << reply;
+  remote.writeAll(val.data(), reply.valLen);
+}
+
+void
+LookupService::processRequest(jalib::JSocket &remote,
+                         const DmtcpMessage &msg,
+                         const void *extraData)
+{
+  JASSERT(msg.keyLen > 0 &&
+          msg.valLen > 0 &&
+          (msg.keyLen + msg.valLen) == msg.extraBytes)
+  (msg.keyLen)(msg.valLen)(msg.extraBytes);
+
+  if (msg.kvdbRequest == KVDBRequest::GET) {
+    processGet(remote, msg, extraData);
     return;
   }
 
-  // If key isn't found, set the key to the given value.
-  if (kvmap.find(msg.kvdb.key) == kvmap.end()) {
-    if (msg.kvdb.op == DMTCP_KVDB_NOT) {
-      JWARNING("Key not found for NOT operation.") (msg.kvdbId) (msg.kvdb.key);
-    } else {
-      kvmap[msg.kvdb.key] = msg.kvdb.value;
-    }
+  processSet(remote, msg, extraData);
+  return;
+}
+
+void
+LookupService::processGet(jalib::JSocket &remote,
+                         const DmtcpMessage &msg,
+                         const void *extraData)
+{
+  const char *key = (const char*)extraData;
+  string val;
+
+  KVDBResponse response = get(msg.kvdbId, key, &val);
+
+  if (response == KVDBResponse::SUCCESS) {
+    sendResponse(remote, val);
+  } else {
+    sendResponse(remote, response);
+  }
+  return;
+}
+
+void
+LookupService::processSet(jalib::JSocket &remote,
+                          const DmtcpMessage &msg,
+                          const void *extraData)
+{
+  KeyValueMap &kvmap = _maps[msg.kvdbId];
+  const char *key = (const char*)extraData;
+  const char *val = key + msg.keyLen;
+
+  string oldVal;
+  get(msg.kvdbId, key, &oldVal);
+
+  if (msg.kvdbRequest == KVDBRequest::SET ||
+      kvmap.find(key) == kvmap.end()) {
+    kvmap[key] = val;
+    sendResponse(remote, oldVal);
     return;
   }
 
-  // If a key doesn't exist, we assume the default value (0) for all operations,
-  // except for AND where we set it to the incoming value.
-  switch (msg.kvdb.op)
+  int64_t val64 = jalib::StringToInt64(val);
+  int64_t oldVal64 = jalib::StringToInt64(kvmap[key]);
+
+  switch (msg.kvdbRequest)
   {
-  case DMTCP_KVDB_INCRBY:
-    kvmap[msg.kvdb.key] += msg.kvdb.value;
+  case KVDBRequest::INCRBY:
+    kvmap[key] = jalib::XToString(oldVal64 + val64);
     break;
 
-  case DMTCP_KVDB_OR:
-    kvmap[msg.kvdb.key] |= msg.kvdb.value;
+  case KVDBRequest::OR:
+    kvmap[key] = jalib::XToString(oldVal64 | val64);
     break;
 
-  case DMTCP_KVDB_XOR:
-    kvmap[msg.kvdb.key] ^= msg.kvdb.value;
+  case KVDBRequest::XOR:
+    kvmap[key] = jalib::XToString(oldVal64 ^ val64);
     break;
 
-  case DMTCP_KVDB_NOT:
-    kvmap[msg.kvdb.key] = ~kvmap[msg.kvdb.key];
+  case KVDBRequest::AND:
+    kvmap[key] = jalib::XToString(oldVal64 & val64);
     break;
 
-  case DMTCP_KVDB_AND:
-    kvmap[msg.kvdb.key] &= msg.kvdb.value;
+  case KVDBRequest::MIN:
+    kvmap[key] = jalib::XToString(MIN(oldVal64, val64));
     break;
 
-  case DMTCP_KVDB_MIN:
-    kvmap[msg.kvdb.key] = MIN(msg.kvdb.value, kvmap[msg.kvdb.key]);
-    break;
-
-  case DMTCP_KVDB_MAX:
-    kvmap[msg.kvdb.key] = MAX(msg.kvdb.value, kvmap[msg.kvdb.key]);
+  case KVDBRequest::MAX:
+    kvmap[key] = jalib::XToString(MAX(oldVal64, val64));
     break;
 
   default:
     JASSERT(false).Text("Invalid operation");
   }
-}
 
-void
-LookupService::respondToQuery(jalib::JSocket &remote,
-                              const DmtcpMessage &msg,
-                              const void *key)
-{
-  JASSERT(msg.keyLen > 0 && msg.keyLen == msg.extraBytes)
-    (msg.keyLen) (msg.extraBytes);
-  void *val = NULL;
-  size_t valLen = 0;
-  DmtcpMessage reply;
-
-  if (msg.type == DMT_NAME_SERVICE_GET_UNIQUE_ID) {
-    reply.type = DMT_NAME_SERVICE_GET_UNIQUE_ID_RESPONSE;
-    getUniqueId(msg.nsid, key, msg.keyLen, &val,
-                msg.uniqueIdOffset, msg.valLen);
-    valLen = msg.valLen;
-  } else {
-    reply.type = DMT_NAME_SERVICE_QUERY_RESPONSE;
-    query(msg.nsid, key, msg.keyLen, &val, &valLen);
-  }
-
-  reply.keyLen = 0;
-  reply.valLen = valLen;
-  reply.extraBytes = reply.valLen;
-
-  remote << reply;
-  if (valLen > 0) {
-    remote.writeAll((char *)val, valLen);
-  }
-  delete[] (char *)val;
-}
-
-void
-LookupService::getUniqueId(const char *id,    // DB name
-                           const void *key,   // Key: can be hostid, pid, etc.
-                           size_t key_len,    // Length of the key
-                           void **val,        // Result
-                           uint32_t offset,   // Difference in two unique ids
-                           size_t val_len)    // Expected value length
-{
-  KeyValueMap &kvmap = _maps[id];
-  KeyValue k(key, key_len);
-
-  // if key does not exist in the key-value map, add it
-  if (kvmap.find(k) == kvmap.end()) {
-    if (_lastUniqueIds.find(id) == _lastUniqueIds.end()) {
-      _lastUniqueIds[id] = 1;
-      _offsets[id] = offset;
-    }
-    JTRACE("Assigning a new unique id to client request")
-       (id) (_lastUniqueIds[id]);
-    KeyValue *v = new KeyValue(&_lastUniqueIds[id], val_len);
-    _lastUniqueIds[id] += _offsets[id];
-    kvmap[k] = v;
-  }
-
-  KeyValue *v = kvmap[k];
-  JASSERT(v->len() == val_len);
-  *val = new char[v->len()];
-  memcpy(*val, v->data(), val_len);
-}
-
-void
-LookupService::sendAllMappings(jalib::JSocket &remote,
-                               const DmtcpMessage &msg)
-{
-  void *val = NULL;
-  size_t valLen = 0;
-  ostringstream o;
-
-  DmtcpMessage reply(DMT_NAME_SERVICE_QUERY_ALL_RESPONSE);
-
-  map<KeyValue, KeyValue *>::iterator i;
-  KeyValueMap &kvmap = _maps[msg.nsid];
-
-  for (i = kvmap.begin(); i != kvmap.end(); i++) {
-    KeyValue *k = (KeyValue *)&(i->first);
-    KeyValue *v = i->second;
-    size_t len;
-
-    // insert the key length and key
-    len = k->len();
-    o.write((const char*)(&len), sizeof(len));
-    o.write((const char*)k->data(), len);
-    // insert the value length and value
-    len = v->len();
-    o.write((const char*)(&len), sizeof(len));
-    o.write((const char*)v->data(), len);
-  }
-
-  reply.keyLen = 0;
-  valLen = o.tellp();
-  reply.valLen = valLen;
-  reply.extraBytes = reply.valLen;
-  val = new char[reply.extraBytes];
-  memcpy(val, o.str().c_str(), reply.extraBytes);
-
-  remote << reply;
-  if (valLen > 0) {
-    remote.writeAll((char *)val, valLen);
-  }
-  delete[] (char *)val;
+  sendResponse(remote, oldVal);
+  return;
 }

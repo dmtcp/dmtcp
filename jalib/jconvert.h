@@ -125,6 +125,7 @@ JCONVERT_DECLARE_StringToX(long double, long double, strtold)
 #undef JCONVERT_DECLARE_StringToX
 
 #define StringToInt    StringToX < int >
+#define StringToInt64  StringToX < int64_t >
 #define StringToDouble StringToX < double >
 
 
