@@ -40,6 +40,7 @@ static int testJava(const char **argv);
 static bool testSetuid(const char *filename);
 static void testStaticallyLinked(const char *filename);
 static bool testScreen(const char **argv, const char ***newArgv);
+static void testFsGsBase();
 static void setLDPreloadLibs(bool is32bitElf);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
@@ -528,6 +529,9 @@ main(int argc, const char **argv)
     argv = newArgv;
   }
 
+  // Test and set env var for FSGSBASE. The env var is used by MANA.
+  testFsGsBase();
+
   if (argc > 0) {
     JTRACE("dmtcp_launch starting new program:")(argv[0]);
   }
@@ -745,6 +749,37 @@ testScreen(const char **argv, const char ***newArgv)
     return true;
   }
   return false;
+}
+
+// Test for fsgsbase feature.
+static void
+testFsGsBase()
+{
+  pid_t childPid = fork();
+  JASSERT(childPid != -1);
+
+  if (childPid == 0) {
+    unsigned long fsbase = -1;
+    // On systems without FSGSBASE support (Linux kernel < 5.9, this instruction
+    // fails with SIGILL).
+    asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
+    if (fsbase != -1) {
+      exit(0);
+    }
+
+    // Also test wrfsbase in case it generates SIGILL as well.
+    asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
+    exit(1);
+  }
+
+  int status = 0;
+  JASSERT(waitpid(childPid, &status, 0) == childPid);
+
+  if (status == 0) {
+    setenv(ENV_VAR_FSGSBASE_ENABLED, "1", 1);
+  } else {
+    setenv(ENV_VAR_FSGSBASE_ENABLED, "0", 1);
+  }
 }
 
 static void

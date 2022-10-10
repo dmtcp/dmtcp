@@ -118,6 +118,9 @@
 
 #define ENV_VAR_REMOTE_SHELL_CMD        "DMTCP_REMOTE_SHELL_CMD"
 
+// Set to "1" if the system supports FSGSBASE feature.
+#define ENV_VAR_FSGSBASE_ENABLED        "DMTCP_FSGSBASE_ENABLED"
+
 // this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL                  \
   ENV_VAR_NAME_HOST,                  \
@@ -139,6 +142,7 @@
   ENV_VAR_SIGCKPT,                    \
   ENV_VAR_SCREENDIR,                  \
   ENV_VAR_VIRTUAL_PID,                \
+  ENV_VAR_FSGSBASE_ENABLED,           \
   ENV_DELTACOMPRESSION
 
 #define DMTCP_RESTART_CMD       "dmtcp_restart"
