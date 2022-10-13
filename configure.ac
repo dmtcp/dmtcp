@@ -26,7 +26,7 @@ AC_PROG_CC_STDC
 AC_PROG_CPP
 
 AC_CONFIG_MACRO_DIR([m4])
-AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory])
+AX_CXX_COMPILE_STDCXX([14], [noext], [mandatory])
 
 dnl This sets OPENMP_CFLAGS
 AC_OPENMP
