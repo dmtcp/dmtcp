@@ -134,7 +134,7 @@ LookupService::processSet(jalib::JSocket &remote,
   const char *key = (const char*)extraData;
   const char *val = key + msg.keyLen;
 
-  string oldVal;
+  string oldVal("0");
   get(msg.kvdbId, key, &oldVal);
 
   if (msg.kvdbRequest == KVDBRequest::SET ||
