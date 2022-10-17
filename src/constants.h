@@ -98,6 +98,7 @@
 #define ENV_VAR_EXPLICIT_SRUN       "DMTCP_EXPLICIT_SRUN"
 
 #define ENV_VAR_COORD_LOGFILE       "DMTCP_COORD_LOG_FILENAME"
+#define ENV_VAR_COORD_WRITE_KVDB    "DMTCP_COORD_WRITE_KV_DATA"
 
 // it is not yet safe to change these; these names are hard-wired in the code
 #define ENV_VAR_STDERR_PATH         "JALIB_STDERR_PATH"

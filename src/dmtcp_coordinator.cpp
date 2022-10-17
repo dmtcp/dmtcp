@@ -1754,6 +1754,14 @@ main(int argc, char **argv)
     ckptDir = get_current_dir_name();
   }
 
+  // Check and enable dumping KVDB.
+  {
+    const char *kvdbEnv = getenv(ENV_VAR_COORD_WRITE_KVDB);
+    if (kvdbEnv != NULL && kvdbEnv[0] == '1') {
+      writeKvData = true;
+    }
+  }
+
   /*Test if the listener socket is already open*/
   if (fcntl(PROTECTED_COORD_FD, F_GETFD) != -1) {
     listenSock = new jalib::JServerSocket(PROTECTED_COORD_FD);
