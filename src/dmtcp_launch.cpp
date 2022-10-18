@@ -75,11 +75,6 @@ static const char *theUsage =
   "                and otherwise with the default port: --port "
                                                   STRINGIFY(DEFAULT_PORT) ")\n"
   "              (This is the default.)\n"
-  "  --no-coordinator\n"
-  "              Execute the process in standalone coordinator-less mode.\n"
-  "              Use dmtcp_command or --interval to request checkpoints.\n"
-  "              Note that this is incompatible with calls to fork(), since\n"
-  "              an embedded coordinator runs in the original process only.\n"
   "  -i, --interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
   "              Time in seconds between automatic checkpoints.\n"
   "              0 implies never (manual ckpt only);\n"
@@ -274,9 +269,6 @@ processArgs(int *orig_argc, const char ***orig_argv)
       shift;
     } else if (s == "--any-coordinator") {
       allowedModes = COORD_ANY;
-      shift;
-    } else if (s == "--no-coordinator") {
-      allowedModes = COORD_NONE;
       shift;
     } else if (s == "-i" || s == "--interval") {
       setenv(ENV_VAR_CKPT_INTR, argv[1], 1);

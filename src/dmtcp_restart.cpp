@@ -187,9 +187,6 @@ RestoreTarget::initialize()
   DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
   CoordinatorInfo coordInfo;
   struct in_addr localIPAddr;
-  if (_pInfo.noCoordinator()) {
-    allowedModes = COORD_NONE;
-  }
 
   // FIXME:  We will use the new HOST and PORT here, but after restart,
   // we will use the old HOST and PORT from the ckpt image.
@@ -924,9 +921,6 @@ processCkptImages()
 
   JASSERT(t != NULL);
   JASSERT(t->pid() != 0);
-  JASSERT(!t->noCoordinator() || allowedModes == COORD_ANY)
-  .Text("Process had no coordinator prior to checkpoint;\n"
-        "  but either --join-coordinator or --new-coordinator was specified.");
 
   if (foundNonOrphan) {
     t->createProcess(true);

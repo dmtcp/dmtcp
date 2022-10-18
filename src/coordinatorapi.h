@@ -36,7 +36,6 @@ enum CoordinatorMode {
   COORD_INVALID   = 0x0000,
   COORD_JOIN      = 0x0001,
   COORD_NEW       = 0x0002,
-  COORD_NONE      = 0x0004,
   COORD_ANY       = 0x0010
 };
 
@@ -53,7 +52,6 @@ void vforkChild();
 
 void getCoordHostAndPort(CoordinatorMode mode, string *host, int *port);
 void waitForCheckpointCommand();
-bool noCoordinator();
 
 void connectToCoordOnStartup(CoordinatorMode  mode,
                              string           progname,

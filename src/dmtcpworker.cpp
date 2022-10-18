@@ -331,16 +331,6 @@ DmtcpWorker::waitForPreSuspendMessage()
 {
   SharedData::resetBarrierInfo();
 
-  if (dmtcp_no_coordinator()) {
-    string shmFile = jalib::Filesystem::GetDeviceName(PROTECTED_SHM_FD);
-    JASSERT(!shmFile.empty());
-    unlink(shmFile.c_str());
-    CoordinatorAPI::waitForCheckpointCommand();
-    ProcessInfo::instance().numPeers(1);
-    ProcessInfo::instance().compGroup(SharedData::getCompId());
-    return;
-  }
-
   JTRACE("waiting for CHECKPOINT message");
 
   DmtcpMessage msg;

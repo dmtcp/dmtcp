@@ -526,10 +526,6 @@ TcpConnection::drain()
       (JASSERT_ERRNO) (_fds[0]) (id());
   }
 
-  if (dmtcp_no_coordinator()) {
-    markExternalConnect();
-  }
-
   // Non blocking connect; need to hang around until it is writable.
   if (_type == TCP_CONNECT_IN_PROGRESS) {
     int retval;

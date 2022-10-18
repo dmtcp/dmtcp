@@ -56,8 +56,6 @@ class RestoreTarget
 
     int numPeers() { return _pInfo.numPeers(); }
 
-    bool noCoordinator() { return _pInfo.noCoordinator(); }
-
     void initialize();
 
     void restoreGroup();

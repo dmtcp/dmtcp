@@ -384,9 +384,6 @@ DmtcpGetRestartEnvErr_t dmtcp_get_restart_env(const char *name,
 // Get pathname of target executable under DMTCP control.
 const char *dmtcp_get_executable_path();
 
-// True if dmtcp_launch called with --no-coordinator
-int dmtcp_no_coordinator(void);
-
 /* If your plugin invokes wrapper functions before DMTCP is initialized,
  *   then call this prior to your first wrapper function call.
  */

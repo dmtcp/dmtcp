@@ -448,12 +448,6 @@ dmtcp_get_local_ip_addr(struct in_addr *in)
   SharedData::getLocalIPAddr(in);
 }
 
-EXTERNC int
-dmtcp_no_coordinator(void)
-{
-  return CoordinatorAPI::noCoordinator();
-}
-
 EXTERNC void
 dmtcp_global_barrier(const char *barrier)
 {
