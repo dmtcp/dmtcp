@@ -36,7 +36,6 @@
 
 using namespace jalib;
 
-extern "C" int fred_record_replay_enabled() __attribute__((weak));
 static bool _initialized = false;
 
 #ifdef JALIB_ALLOCATOR
@@ -231,19 +230,6 @@ class JFixedAllocStack
       StackHead origHead = {0};
       StackHead newHead = {0};
       _numExpands++;
-      if (_top.node != NULL &&
-          fred_record_replay_enabled && fred_record_replay_enabled()) {
-        // TODO: why is expand being called? If you see this message, raise lvl2
-        // allocation level.
-        char expand_msg[] = "\n\n\n******* EXPAND IS CALLED *******\n\n\n";
-        int rc = write(2, expand_msg, sizeof(expand_msg));
-        if (rc != sizeof(expand_msg)) {
-          perror("DMTCP(" __FILE__ "): write: ");
-        }
-
-        // jalib::fflush(stderr);
-        abort();
-      }
       FreeItem *bufs = static_cast<FreeItem *>(_alloc_raw(_blockSize));
       int count = _blockSize / sizeof(FreeItem);
       for (int i = 0; i < count - 1; ++i) {
@@ -293,19 +279,10 @@ jalib::JFixedAllocStack<MAX_CHUNKSIZE>lvl4;
 void
 jalib::JAllocDispatcher::initialize(void)
 {
-  if (fred_record_replay_enabled != 0 && fred_record_replay_enabled()) {
-    /* We need a greater arena size to eliminate mmap() calls that could happen
-       at different times for record vs. replay. */
-    lvl1.initialize(1024 * 1024 * 16);
-    lvl2.initialize(1024 * 1024 * 16);
-    lvl3.initialize(1024 * 32 * 16);
-    lvl4.initialize(1024 * 32 * 16);
-  } else {
-    lvl1.initialize(1024 * 16);
-    lvl2.initialize(1024 * 16);
-    lvl3.initialize(1024 * 32);
-    lvl4.initialize(1024 * 32);
-  }
+  lvl1.initialize(1024 * 16);
+  lvl2.initialize(1024 * 16);
+  lvl3.initialize(1024 * 32);
+  lvl4.initialize(1024 * 32);
   _initialized = true;
 }
 
@@ -397,11 +374,6 @@ jalib::JAllocDispatcher::deallocate(void *ptr, size_t)
 void *
 operator new(size_t nbytes)
 {
-  if (fred_record_replay_enabled && fred_record_replay_enabled()) {
-    fprintf(stderr, "*** DMTCP Internal Error: OVERRIDE_GLOBAL_ALLOCATOR not"
-                    " supported with FReD\n\n");
-    abort();
-  }
   size_t *p = (size_t *)jalib::JAllocDispatcher::allocate(
       nbytes + sizeof(size_t));
   *p = nbytes;
@@ -412,11 +384,6 @@ operator new(size_t nbytes)
 void
 operator delete(void *_p)
 {
-  if (fred_record_replay_enabled && fred_record_replay_enabled()) {
-    fprintf(stderr, "*** DMTCP Internal Error: OVERRIDE_GLOBAL_ALLOCATOR not"
-                    " supported with FReD\n\n");
-    abort();
-  }
   size_t *p = (size_t *)_p;
   p -= 1;
   jalib::JAllocDispatcher::deallocate(p, *p + sizeof(size_t));
