@@ -78,19 +78,12 @@ void recvMsgFromCoordinatorRaw(int fd,
                                DmtcpMessage *msg,
                                void **extraData = NULL);
 
-void setupVirtualCoordinator(CoordinatorInfo *coordInfo,
-                             struct in_addr  *localIP);
-
 void startNewCoordinator(CoordinatorMode mode);
 void createNewConnToCoord(CoordinatorMode mode);
 
 void
 eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  if (noCoordinator()) {
-    return;
-  }
-
   switch (event) {
     case DMTCP_EVENT_INIT:
       init();
@@ -358,9 +351,6 @@ sendMsgToCoordinatorRaw(int fd,
                         const void *extraData,
                         size_t len)
 {
-  if (noCoordinator()) {
-    return;
-  }
   if (extraData != NULL) {
     msg.extraBytes = len;
   }
@@ -374,7 +364,6 @@ void
 recvMsgFromCoordinatorRaw(int fd, DmtcpMessage *msg, void **extraData)
 {
   msg->poison();
-  JASSERT(!noCoordinator()).Text("internal error");
   if (sem_launch_first_time) {
     // Release user thread now that we've initialized the checkpoint thread.
     // This code is reached if the --no-coordinator flag is not used.
@@ -439,11 +428,6 @@ void recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
 bool waitForBarrier(const string& barrier,
                     uint32_t *numPeers)
 {
-  if (noCoordinator())
-  {
-    return true;
-  }
-
   DmtcpMessage barrierMsg(DMT_BARRIER);
 
   JASSERT(barrier.length() < sizeof(barrierMsg.barrier)) (barrier);
@@ -650,12 +634,6 @@ connectToCoordOnStartup(CoordinatorMode mode,
 {
   JASSERT(compId != NULL && localIP != NULL && coordInfo != NULL);
 
-  if (mode & COORD_NONE) {
-    setupVirtualCoordinator(coordInfo, localIP);
-    *compId = coordInfo->id;
-    return;
-  }
-
   createNewConnToCoord(mode);
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
   DmtcpMessage hello_local(DMT_NEW_WORKER);
@@ -686,10 +664,6 @@ connectToCoordOnStartup(CoordinatorMode mode,
 int
 createNewConnectionBeforeFork(string& progname)
 {
-  JASSERT(!noCoordinator())
-  .Text("Process attempted to call fork() while in --no-coordinator mode\n"
-        "  Because the coordinator is embedded in a single process,\n"
-        "    DMTCP will not work with multiple processes.");
   struct sockaddr_storage addr;
   uint32_t len;
   SharedData::getCoordAddr((struct sockaddr *)&addr, &len);
@@ -718,11 +692,6 @@ connectToCoordOnRestart(CoordinatorMode  mode,
                         CoordinatorInfo *coordInfo,
                         struct in_addr  *localIP)
 {
-  if (mode & COORD_NONE) {
-    setupVirtualCoordinator(coordInfo, localIP);
-    return;
-  }
-
   createNewConnToCoord(mode);
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
   DmtcpMessage hello_local(DMT_RESTART_WORKER);
@@ -754,10 +723,6 @@ connectToCoordOnRestart(CoordinatorMode  mode,
 void
 sendCkptFilename()
 {
-  if (noCoordinator()) {
-    return;
-  }
-
   // Tell coordinator to record our filename in the restart script
   string ckptFilename = ProcessInfo::instance().getCkptFilename();
   string hostname = jalib::Filesystem::GetCurrentHostname();
@@ -828,48 +793,6 @@ kvdbRequest(DmtcpMessage const& msg,
   }
 
   return reply.kvdbResponse;
-}
-
-/*
- * Setup a virtual coordinator. It's part of the running process (i.e., no
- * separate process is created).
- *
- * FIXME: This is the only place in this file where we use JSocket. May be get
- * rid of it here too?
- */
-void
-setupVirtualCoordinator(CoordinatorInfo *coordInfo, struct in_addr *localIP)
-{
-  string host = "";
-  int port;
-  getCoordHostAndPort(COORD_NONE, &host, &port);
-  jalib::JSocket sock =
-    jalib::JServerSocket(jalib::JSockAddr::ANY, port).sockfd();
-  JASSERT(sock.isValid()) (port) (JASSERT_ERRNO)
-    .Text("Failed to create listen socket.");
-
-  Util::changeFd(sock.sockfd(), PROTECTED_COORD_FD);
-  JASSERT(Util::isValidFd(coordinatorSocket));
-
-  setCoordPort(sock.port());
-
-  pid_t ppid = getppid();
-  Util::setVirtualPidEnvVar(INITIAL_VIRTUAL_PID, ppid, ppid);
-
-  UniquePid coordId = UniquePid(INITIAL_VIRTUAL_PID,
-                                UniquePid::ThisProcess().hostid(),
-                                UniquePid::ThisProcess().time());
-
-  coordInfo->id = coordId.upid();
-  coordInfo->timeStamp = coordId.time();
-  coordInfo->addrLen = 0;
-  if (getenv(ENV_VAR_CKPT_INTR) != NULL) {
-    coordInfo->interval = (uint32_t)strtol(getenv(ENV_VAR_CKPT_INTR), NULL, 0);
-  } else {
-    coordInfo->interval = 0;
-  }
-  memset(&coordInfo->addr, 0, sizeof(coordInfo->addr));
-  memset(localIP, 0, sizeof(*localIP));
 }
 
 void
@@ -978,25 +901,5 @@ waitForCheckpointCommand()
     _real_exit(0);
   }
 }
-
-bool
-noCoordinator()
-{
-  static int virtualCoordinator = -1;
-
-  if (virtualCoordinator == -1) {
-    int optVal = -1;
-    socklen_t optLen = sizeof(optVal);
-    int ret = _real_getsockopt(PROTECTED_COORD_FD, SOL_SOCKET,
-                               SO_ACCEPTCONN, &optVal, &optLen);
-    if (ret == 0 && optVal == 1) {
-      virtualCoordinator = 1;
-    } else {
-      virtualCoordinator = 0;
-    }
-  }
-  return virtualCoordinator;
-}
-
 } // namespace CoordinatorAPI {
 } // namespace dmtcp {

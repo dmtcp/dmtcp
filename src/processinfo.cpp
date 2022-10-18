@@ -159,7 +159,6 @@ ProcessInfo::ProcessInfo()
   _gid = -1;
   _sid = -1;
   _isRootOfProcessTree = false;
-  _noCoordinator = false;
   _generation = 0;
 
   // _generation, above, is per-process.
@@ -607,7 +606,6 @@ ProcessInfo::getState()
   _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
   _hostname = jalib::Filesystem::GetCurrentHostname();
   _upid = UniquePid::ThisProcess();
-  _noCoordinator = dmtcp_no_coordinator();
 
   char buf[PATH_MAX];
   JASSERT(getcwd(buf, sizeof buf) != NULL);
@@ -661,7 +659,7 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
   o & _upid & _uppid;
   o & _clock_gettime_offset & _getcpu_offset
     & _gettimeofday_offset & _time_offset;
-  o & _compGroup & _numPeers & _noCoordinator;
+  o & _compGroup & _numPeers;
   o & _restoreBufAddr & _savedHeapStart & _savedBrk;
   o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd & _endOfStack;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
@@ -670,9 +668,7 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
   JTRACE("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid) (_isRootOfProcessTree)
     (_procname) (_hostname) (_launchCWD) (_ckptCWD) (_upid) (_uppid)
-    (_compGroup) (_numPeers) (_noCoordinator) (_elfType);
-
-  JASSERT(!_noCoordinator || _numPeers == 1) (_noCoordinator) (_numPeers);
+    (_compGroup) (_numPeers) (_elfType);
 
   if (_isRootOfProcessTree) {
     JTRACE("This process is Root of Process Tree");

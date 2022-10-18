@@ -98,10 +98,3 @@ dmtcp_is_protected_fd(int fd)
   JASSERT(false);
   return 0;
 }
-
-int
-dmtcp_no_coordinator()
-{
-  JASSERT(false);
-  return 0;
-}
