@@ -103,6 +103,8 @@ extern __thread Thread *curThread;
 extern Thread *ckptThread;
 extern Thread *motherofall;
 
+static inline bool dmtcp_is_ckpt_thread() { return curThread == ckptThread; }
+
 int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval);
 
 EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
