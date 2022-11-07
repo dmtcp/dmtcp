@@ -755,11 +755,13 @@ kvdb::KVDBResponse
 kvdbRequest(DmtcpMessage const& msg,
             string const& key,
             string const& val,
-            string *oldVal)
+            string *oldVal,
+            // TODO(kapil): Rename to something like useCoordinatorKVSocket.
+            bool useNsSock)
 {
   int sock = coordinatorSocket;
 
-  if (dmtcp_is_running_state()) {
+  if (useNsSock) {
     if (nsSock == -1) {
       nsSock = createNewSocketToCoordinator(COORD_ANY);
       JASSERT(nsSock != -1);

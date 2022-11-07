@@ -5,6 +5,7 @@
 #include "util.h"
 #include "jconvert.h"
 #include "kvdb.h"
+#include "threadinfo.h"
 
 namespace dmtcp
 {
@@ -34,6 +35,10 @@ KVDBResponse request(KVDBRequest request,
   msg.keyLen = key.length() + 1;
   msg.valLen = val.length() + 1;
   msg.extraBytes = msg.keyLen + msg.valLen;
+
+  if (dmtcp_is_running_state() && !dmtcp_is_ckpt_thread()) {
+    return CoordinatorAPI::kvdbRequest(msg, key, val, oldVal, true);
+  }
 
   return CoordinatorAPI::kvdbRequest(msg, key, val, oldVal);
 }
