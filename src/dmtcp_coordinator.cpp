@@ -492,7 +492,7 @@ DmtcpCoordinator::recordEvent(string const& event)
   ostringstream o;
   o << std::setfill('0') << std::setw(5) << eventId << "-" << event;
 
-  lookupService.set("/Event_Timestamp_Ms", o.str(), Util::getTimestampStr());
+  lookupService.set("/Event_Timestamp_Ms", Util::getTimestampStr(), o.str());
 }
 
 void
@@ -1022,6 +1022,7 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
 
   if (compId == UniquePid(0, 0, 0)) {
     lookupService.reset();
+    recordEvent("Restarting-Computation");
     JASSERT(minimumState() == WorkerState::UNKNOWN) (minimumState())
     .Text("Coordinator should be idle at this moment");
 
@@ -1165,6 +1166,7 @@ DmtcpCoordinator::validateNewWorkerProcess(
       numRestartPeers = -1;
       JTRACE("First process connected.  Creating new computation group.")
         (compId);
+      recordEvent("Initializing-Computation");
     } else {
       JTRACE("New process connected")
         (hello_remote.from) (client->virtualPid());
