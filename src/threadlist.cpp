@@ -668,6 +668,8 @@ ThreadList::waitForAllRestored(Thread *thread)
     sem_wait(&semWaitForCkptThreadSignal);
   }
 
+  PluginManager::eventHook(DMTCP_EVENT_THREAD_RESUME);
+
   Thread_RestoreSigState(thread);
 
   if (thread == motherofall) {

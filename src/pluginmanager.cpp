@@ -77,22 +77,31 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   PluginManager::initialize();
 
   switch (event) {
-  // case DMTCP_EVENT_WRAPPER_INIT, // Future Work :-).
+  // The following events are processed in the order of plugin registration.
   case DMTCP_EVENT_INIT:
+  case DMTCP_EVENT_RUNNING:
   case DMTCP_EVENT_PRE_EXEC:
   case DMTCP_EVENT_POST_EXEC:
-
   case DMTCP_EVENT_ATFORK_PREPARE:
   case DMTCP_EVENT_VFORK_PREPARE:
   case DMTCP_EVENT_PTHREAD_START:
-
   case DMTCP_EVENT_OPEN_FD:
   case DMTCP_EVENT_REOPEN_FD:
   case DMTCP_EVENT_CLOSE_FD:
   case DMTCP_EVENT_DUP_FD:
-
   case DMTCP_EVENT_VIRTUAL_TO_REAL_PATH:
+  case DMTCP_EVENT_PRESUSPEND:
+  case DMTCP_EVENT_PRECHECKPOINT:
 
+    // The plugins can be thought of as implementing a layered software
+    // architecture.  All of the events here occur before writing the checkpoint
+    // file.  The plugins are invoked for these events in the natural order.
+    // For the resume/restart events below, the plugins are invoked
+    // in _reverse_ order.  This is required to support layered software.
+    // For an analogous case, see 'man pthread_atfork' with the handlers:
+    // (i) prepare, (ii) parent, and (iii) child.
+    // Those are analogous to our events for:
+    // (i) pre-checkpoint, (ii) resume event, and (iii) restart; respectively.
     for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
       if (pluginManager->pluginInfos[i]->event_hook) {
         pluginManager->pluginInfos[i]->event_hook(event, data);
@@ -101,7 +110,6 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
 
   // The following events are processed in reverse order.
-
   case DMTCP_EVENT_EXIT:
   case DMTCP_EVENT_PTHREAD_EXIT:
   case DMTCP_EVENT_PTHREAD_RETURN:
@@ -111,49 +119,19 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_VFORK_PARENT:
   case DMTCP_EVENT_VFORK_CHILD:
   case DMTCP_EVENT_VFORK_FAILED:
-
   case DMTCP_EVENT_REAL_TO_VIRTUAL_PATH:
-
-    for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
-      if (pluginManager->pluginInfos[i]->event_hook) {
-        pluginManager->pluginInfos[i]->event_hook(event, data);
-      }
-    }
-    break;
-
-  // Process ckpt barriers.
-  case DMTCP_EVENT_PRESUSPEND:
-    for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
-      if (pluginManager->pluginInfos[i]->event_hook) {
-        pluginManager->pluginInfos[i]->event_hook(event, data);
-      }
-    }
-    break;
-
-  case DMTCP_EVENT_PRECHECKPOINT:
-    for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
-      if (pluginManager->pluginInfos[i]->event_hook) {
-        pluginManager->pluginInfos[i]->event_hook(event, data);
-      }
-    }
-    break;
-
-  // Process resume/restart barriers in reverse-order.
   case DMTCP_EVENT_RESUME:
-    for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
-      if (pluginManager->pluginInfos[i]->event_hook) {
-        pluginManager->pluginInfos[i]->event_hook(event, data);
-      }
-    }
-  break;
-
   case DMTCP_EVENT_RESTART:
+  case DMTCP_EVENT_THREAD_RESUME:
+
+    // The plugins are invoked in _reverse_ order during resume/restart.  This
+    // is required to support layered software.  See the related comment, above.
     for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
       if (pluginManager->pluginInfos[i]->event_hook) {
         pluginManager->pluginInfos[i]->event_hook(event, data);
       }
     }
-  break;
+    break;
 
   default:
     JASSERT(false) (event).Text("Not Reachable");
