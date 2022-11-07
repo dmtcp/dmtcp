@@ -1112,38 +1112,7 @@ read_one_memory_area(int fd, VA endOfStack)
         mmap_fixed_noreplace(area.addr, area.size, area.prot | PROT_WRITE,
                             area.flags, imagefd, area.offset);
 
-      if (mmappedat == MAP_FAILED) {
-        MTCP_PRINTF("error %d mapping %p bytes at %p\n",
-                mtcp_sys_errno, area.size, area.addr);
-        if (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) {
-          size_t parentSize = area.size;
-          while (parentSize > 0) {
-            mtcp_readfile(fd, &area, sizeof area);
-            if (area.properties & DMTCP_ZERO_PAGE) {
-              // Zero page; nothing to do.
-              DPRINTF("Skipping zero page at %p with %p bytes\n", area.addr, area.size);
-            } else {
-              DPRINTF("Skipping non-zero page at %p with %p bytes\n", area.addr, area.size);
-              // Skip this segment.
-              MTCP_ASSERT(area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER);
-              mtcp_skipfile(fd, area.size);
-            }
-            parentSize -= area.size;
-          }
-        } else {
-          DPRINTF("Skipping region at %p with %p bytes\n", area.addr, area.size);
-          mtcp_skipfile(fd, area.size);
-        }
-
-        if (imagefd >= 0) {
-          mtcp_sys_close(imagefd);
-        }
-
-        return 0;
-      } else if (mmappedat != area.addr) {
-        MTCP_PRINTF("area at %p got mmapped to %p\n", area.addr, mmappedat);
-        mtcp_abort();
-      }
+      MTCP_ASSERT(mmappedat == area.addr);
 
   #if 0
       /*
