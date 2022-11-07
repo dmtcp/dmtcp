@@ -79,6 +79,7 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   switch (event) {
   // case DMTCP_EVENT_WRAPPER_INIT, // Future Work :-).
   case DMTCP_EVENT_INIT:
+  case DMTCP_EVENT_RUNNING:
   case DMTCP_EVENT_PRE_EXEC:
   case DMTCP_EVENT_POST_EXEC:
 
@@ -93,6 +94,8 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_VIRTUAL_TO_REAL_PATH:
 
+  case DMTCP_EVENT_PRESUSPEND:
+  case DMTCP_EVENT_PRECHECKPOINT:
     for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
       if (pluginManager->pluginInfos[i]->event_hook) {
         pluginManager->pluginInfos[i]->event_hook(event, data);
@@ -114,46 +117,16 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_REAL_TO_VIRTUAL_PATH:
 
-    for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
-      if (pluginManager->pluginInfos[i]->event_hook) {
-        pluginManager->pluginInfos[i]->event_hook(event, data);
-      }
-    }
-    break;
-
-  // Process ckpt barriers.
-  case DMTCP_EVENT_PRESUSPEND:
-    for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
-      if (pluginManager->pluginInfos[i]->event_hook) {
-        pluginManager->pluginInfos[i]->event_hook(event, data);
-      }
-    }
-    break;
-
-  case DMTCP_EVENT_PRECHECKPOINT:
-    for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
-      if (pluginManager->pluginInfos[i]->event_hook) {
-        pluginManager->pluginInfos[i]->event_hook(event, data);
-      }
-    }
-    break;
-
-  // Process resume/restart barriers in reverse-order.
   case DMTCP_EVENT_RESUME:
-    for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
-      if (pluginManager->pluginInfos[i]->event_hook) {
-        pluginManager->pluginInfos[i]->event_hook(event, data);
-      }
-    }
-  break;
-
   case DMTCP_EVENT_RESTART:
+  case DMTCP_EVENT_THREAD_RESUME:
+
     for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
       if (pluginManager->pluginInfos[i]->event_hook) {
         pluginManager->pluginInfos[i]->event_hook(event, data);
       }
     }
-  break;
+    break;
 
   default:
     JASSERT(false) (event).Text("Not Reachable");
