@@ -51,7 +51,6 @@ void atForkChild();
 void vforkChild();
 
 void getCoordHostAndPort(CoordinatorMode mode, string *host, int *port);
-void waitForCheckpointCommand();
 
 void connectToCoordOnStartup(CoordinatorMode  mode,
                              string           progname,
