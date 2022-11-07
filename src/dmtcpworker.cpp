@@ -362,6 +362,8 @@ DmtcpWorker::waitForCheckpointRequest()
 
   WorkerState::setCurrentState(WorkerState::RUNNING);
 
+  PluginManager::eventHook(DMTCP_EVENT_RUNNING);
+
   waitForPreSuspendMessage();
 
   WorkerState::setCurrentState(WorkerState::PRESUSPEND);
