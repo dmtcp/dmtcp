@@ -483,6 +483,9 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
     int fd = _real_openat(AT_FDCWD, area.name, O_RDWR|O_CREAT|O_EXCL, 0600);
     JASSERT(fd != -1) (JASSERT_ERRNO) (area.name);
 
+    // Set the correct offset
+    JASSERT(lseek(fd, area.offset, SEEK_SET) == area.offset) (JASSERT_ERRNO);
+
     // Unlink (the area was originally unlinked)
     unlink(area.name);
 
@@ -498,16 +501,15 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
     // Restore the content from temp buffer
     memcpy(area.addr, tempbuf, area.size);
     munmap(tempbuf, area.size);
-  }
-  else {
+  } else {
     /* Now try to create the file with O_EXCL. If we fail with EEXIST, there
-    * are two possible scenarios:
-    * - The file was created by a different restarting process with data from
-    *   checkpointed copy. It is possible that the data is "in flight", so we
-    *   should wait until the next barrier to compare the data from our copy.
-    * - The file existed before restart. After the next barrier, abort if the
-    *   contents differ from our checkpointed copy.
-    */
+     * are two possible scenarios:
+     * - The file was created by a different restarting process with data from
+     *   checkpointed copy. It is possible that the data is "in flight", so we
+     *   should wait until the next barrier to compare the data from our copy.
+     * - The file existed before restart. After the next barrier, abort if the
+     *   contents differ from our checkpointed copy.
+     */
     int fd = _real_open(area.name, O_CREAT | O_EXCL | O_RDWR,
                         S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     JASSERT(fd != -1 || errno == EEXIST) (area.name);
@@ -532,6 +534,9 @@ FileConnList::restoreShmArea(const ProcMapsArea &area, int fd)
 {
   if (fd == -1) {
     fd = _real_open(area.name, Util::memProtToOpenFlags(area.prot));
+
+    // Set the correct offset
+    JASSERT(lseek(fd, area.offset, SEEK_SET) == area.offset) (JASSERT_ERRNO);
   }
 
   JASSERT(fd != -1) (area.name) (JASSERT_ERRNO);
