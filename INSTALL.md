@@ -2,6 +2,18 @@
 
 ### Prerequisites
 
+On debian, you need to install some prerequisties:
+
+```
+sudo apt install git gcc g++ make -y
+```
+
+And install python3 if you need the tests:
+
+```
+sudo apt install python3 -y
+```
+
 ### Build instructions
 
 To build, use:
