@@ -1110,7 +1110,8 @@ MsgQueue::preCkptDrain()
   struct msgbuf msg;
 
   msg.mtype = getpid();
-  JASSERT(_real_msgsnd(_realId, &msg, 0,
+  msg.mtext[0] = '\0';
+  JASSERT(_real_msgsnd(_realId, &msg, 1,
                        IPC_NOWAIT) == 0) (_id) (JASSERT_ERRNO);
   _isCkptLeader = false;
 }
@@ -1125,19 +1126,22 @@ MsgQueue::preCheckpoint()
 
   if (buf.msg_lspid == getpid()) {
     size_t size = buf.__msg_cbytes;
-    void *msgBuf = JALLOC_HELPER_MALLOC(size);
+    size_t msgBufSize = sizeof(struct msgbuf) + size;
+    struct msgbuf *msgBuf = (struct msgbuf*) JALLOC_MALLOC(msgBufSize);
+
     _isCkptLeader = true;
     _msgInQueue.clear();
     for (size_t i = 0; i < _qnum; i++) {
       ssize_t numBytes = _real_msgrcv(_realId, msgBuf, size, 0, 0);
       JASSERT(numBytes != -1) (_id) (JASSERT_ERRNO);
       _msgInQueue.push_back(jalib::JBuffer((const char *)msgBuf,
-                                           numBytes + sizeof(long)));
+                                           numBytes + sizeof(msgBuf->mtype)));
     }
     JASSERT(_msgInQueue.size() == _qnum) (_qnum);
 
     // Now remove all the messages that were sent during preCkptDrain phase.
     while (_real_msgrcv(_realId, msgBuf, size, 0, IPC_NOWAIT) != -1) {}
+
     JALLOC_HELPER_FREE(msgBuf);
   } else {}
 }
@@ -1159,15 +1163,11 @@ MsgQueue::refill()
   if (_isCkptLeader) {
     struct msqid_ds buf;
     JASSERT(_real_msgctl(_realId, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
-    // Now remove all the messages that were sent during preCkptDrain phase.
-    size_t size = buf.__msg_cbytes;
-    void *msgBuf = JALLOC_HELPER_MALLOC(size);
-    while (_real_msgrcv(_realId, msgBuf, size, 0, IPC_NOWAIT) != -1) {}
-    JALLOC_HELPER_FREE(msgBuf);
 
     for (size_t i = 0; i < _qnum; i++) {
-      JASSERT(_real_msgsnd(_realId, _msgInQueue[i].buffer(),
-                           _msgInQueue[i].size(), IPC_NOWAIT) == 0);
+      struct msgbuf *msgBuf = (struct msgbuf*) _msgInQueue[i].buffer();
+      size_t msgSize = _msgInQueue[i].size() - sizeof(msgBuf->mtype);
+      JASSERT(_real_msgsnd(_realId, msgBuf, msgSize, IPC_NOWAIT) == 0);
     }
   }
   _msgInQueue.clear();
