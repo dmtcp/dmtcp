@@ -153,7 +153,7 @@ class DmtcpAlloc
       // if( p == NULL )
       // throw std::bad_alloc();
       // return pointer(p);
-      return pointer(jalib::JAllocDispatcher::allocate(n * sizeof(T)));
+      return pointer(jalib::JAllocDispatcher::malloc(n * sizeof(T)));
     }
 
     // Free raw memory.
@@ -170,7 +170,7 @@ class DmtcpAlloc
       // if( p == NULL )
       // return;
       // free( p );
-      jalib::JAllocDispatcher::deallocate(p, n * sizeof(T));
+      jalib::JAllocDispatcher::free(p); //, n * sizeof(T));
     }
 
     //// Non-standard Dinkumware hack for Visual C++ 6.0 compiler.
