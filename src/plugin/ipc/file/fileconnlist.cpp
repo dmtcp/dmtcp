@@ -190,11 +190,26 @@ static vector<ProcMapsArea>unlinkedShmAreas;
 static vector<ProcMapsArea>missingUnlinkedShmFiles;
 static vector<FileConnection *>shmAreaConn;
 
+// This hook is called after a successful completion of freopen or freopen64.
+// Since the new path might be different from the old path, and the new
+// connection type might be different from the old connection type, we need to
+// process close on the old connection object and create a new connection object
+// corresponding to the new type.
+// Note that we don't call libc:close on this file descriptor. Instead, we are
+// simply updating our internal data structures.
 void FileConnList::processReopen(int fd, const char *newPath)
 {
-  FileConnection *con = (FileConnection*) getConnection(fd);
-  if (con != NULL) {
-    con->updatePath(newPath);
+  Connection *con = getConnection(fd);
+  if (con == nullptr) {
+    return;
+  }
+
+  processClose(fd);
+
+  if (Util::isPseudoTty(jalib::Filesystem::GetDeviceName(fd).c_str())) {
+    PtyConnList::instance().processPtyConnection(fd, newPath, 0, 0);
+  } else {
+    FileConnList::instance().processFileConnection(fd, newPath, 0, 0);
   }
 }
 
