@@ -73,8 +73,8 @@ Util::Descriptor::Descriptor()
 
     // allocate memory for MAX_DESCRIPTORS that would be stored
     for (int i = 0; i < MAX_DESCRIPTORS; i++) {
-      void *mem_ptr =
-        jalib::JAllocDispatcher::allocate(sizeof(descriptor_types_u));
+      // TODO: Is this a potential memory leak? Should this class be a proper singleton instead?
+      void *mem_ptr = JALLOC_MALLOC(sizeof(descriptor_types_u));
       if (MAP_FAILED == mem_ptr) {
         JTRACE("memory allocation failed!");
         break;
