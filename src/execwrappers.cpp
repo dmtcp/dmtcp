@@ -169,10 +169,14 @@ extern "C" pid_t
 fork()
 {
   if (isPerformingCkptRestart()) {
+    // We shouldn't be using _real_syscall here because that won't reset
+    // internal locks both for libc and DMTCP. If needed, we should have a
+    // slimmed-down version of this fork wrapper which skips connecting to the
+    // coordinator as well as creation of the ckpt thread.
 #ifndef __aarch64__
-    return _real_syscall(SYS_fork);
+    // return _real_syscall(SYS_fork);
 #else
-    return _real_fork();
+    // return _real_fork();
 #endif
   }
 
