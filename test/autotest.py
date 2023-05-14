@@ -308,16 +308,11 @@ class MySubprocess:
     self.stdout = os.open(os.devnull, os.O_WRONLY)
     self.stderr = os.open(os.devnull, os.O_WRONLY)
 
-def master_read(fd):
-  os.read(fd, 4096)
-  return ''
-
 #run a child process
 # NOTE:  Can eventually migrate to Python 2.7:  subprocess.check_output
 devnullFd = os.open(os.devnull, os.O_WRONLY)
 def runCmd(cmd):
   global devnullFd
-  global master_read
   if args.verbose:
     print("Launching... ", cmd)
   cmd = splitWithQuotes(cmd);
@@ -347,7 +342,7 @@ def runCmd(cmd):
       os.closerange(3,1024)
       signal.alarm(300) # pending alarm inherited across exec, but not a fork
       # Problem:  pty.spawn invokes fork.  alarm() will have no effect.
-      pty.spawn(cmd, master_read)
+      pty.spawn(cmd)
       sys.exit(0)
     else:
       return MySubprocess(pid)
