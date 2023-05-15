@@ -25,9 +25,11 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #define JALIB_ALLOCATOR
+#define OVERRIDE_GLOBAL_ALLOCATOR
 
 // This is enabled by default for now to catch memory corruption bugs. We should
 // remove it once we are more comfortable with the state of the code.
@@ -67,6 +69,29 @@ class JAllocDispatcher
 #endif // ifdef JALLOC_DEBUG
 
       return p;
+    }
+
+    static void *realloc(void *p, size_t size)
+    {
+      if (p == nullptr) {
+        return malloc(size);
+      }
+
+      if (size == 0) {
+        free(p);
+        return NULL;
+      }
+
+      size_t *_p = (size_t*)((char*)p - headerSizeInBytes);
+      size_t nbytes = *_p;
+
+      if (size <= nbytes) {
+        return p;
+      }
+
+      void *ret = malloc(size);
+      memcpy(ret, p, nbytes);
+      return ret;
     }
 
     static void free(void *p)
@@ -143,4 +168,5 @@ class JAlloc
 #define JALLOC_DELETE JALLOC_HELPER_DELETE
 #define JALLOC_MALLOC JALLOC_HELPER_MALLOC
 #define JALLOC_FREE   JALLOC_HELPER_FREE
+#define JALLOC_REALLOC(p, size) jalib::JAllocDispatcher::realloc(p, size)
 #endif // ifndef JALLOC_H

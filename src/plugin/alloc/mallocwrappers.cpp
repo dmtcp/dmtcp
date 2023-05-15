@@ -20,27 +20,41 @@
  ****************************************************************************/
 
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+#include "jalloc.h"
 #include "alloc.h"
 #include "dmtcp.h"
+
+#define OVERRIDE_MALLOC 1
 
 EXTERNC int
 dmtcp_alloc_enabled() { return 1; }
 
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
+#ifdef OVERRIDE_MALLOC
+  void * ret = JALLOC_MALLOC(nmemb * size);
+  memset(ret, 0, nmemb * size);
+  return ret;
+#else
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_calloc(nmemb, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
+#endif
 }
 
 extern "C" void *malloc(size_t size)
 {
+#ifdef OVERRIDE_MALLOC
+  return JALLOC_MALLOC(size);
+#else
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_malloc(size);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
+#endif
 }
 
 extern "C" void *memalign(size_t boundary, size_t size)
@@ -71,15 +85,23 @@ extern "C" void *valloc(size_t size)
 extern "C" void
 free(void *ptr)
 {
+#ifdef OVERRIDE_MALLOC
+  return JALLOC_FREE(ptr);
+#else
   DMTCP_PLUGIN_DISABLE_CKPT();
   _real_free(ptr);
   DMTCP_PLUGIN_ENABLE_CKPT();
+#endif
 }
 
 extern "C" void *realloc(void *ptr, size_t size)
 {
+#ifdef OVERRIDE_MALLOC
+  return JALLOC_REALLOC(ptr, size);
+#else
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_realloc(ptr, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
+#endif
 }

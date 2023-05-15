@@ -374,18 +374,12 @@ jalib::JAllocDispatcher::deallocate(void *ptr, size_t)
 void *
 operator new(size_t nbytes)
 {
-  size_t *p = (size_t *)jalib::JAllocDispatcher::allocate(
-      nbytes + sizeof(size_t));
-  *p = nbytes;
-  p += 1;
-  return p;
+  return jalib::JAllocDispatcher::malloc(nbytes);
 }
 
 void
 operator delete(void *_p)
 {
-  size_t *p = (size_t *)_p;
-  p -= 1;
-  jalib::JAllocDispatcher::deallocate(p, *p + sizeof(size_t));
+  jalib::JAllocDispatcher::free(_p);
 }
 #endif // ifdef OVERRIDE_GLOBAL_ALLOCATOR
