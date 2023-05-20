@@ -13,6 +13,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    # Fix python version at 3.8. Changes to pty module
+    # in later version break test/autotest.py. See
+    # issue #1053.
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+    - name: add extra programs for tests
+      run: |
+        sudo apt-get update
+        sudo apt-get install emacs emacs-nox gdb screen tcsh zsh
     - name: configure
       run: ./configure
     - name: make
