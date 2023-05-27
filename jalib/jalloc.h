@@ -35,7 +35,13 @@
 // remove it once we are more comfortable with the state of the code.
 #define JALLOC_DEBUG
 
-static constexpr size_t headerSizeInBytes = 2 * sizeof(size_t);
+struct mallocHdr
+{
+  void *addr;
+  size_t size;
+};
+
+static constexpr size_t headerSizeInBytes = sizeof(struct mallocHdr);
 static constexpr size_t footerSizeInBytes = sizeof(size_t);
 #ifdef JALLOC_DEBUG
 static constexpr size_t headerFooterSizeInBytes = headerSizeInBytes + footerSizeInBytes;
@@ -46,6 +52,7 @@ static constexpr size_t headerFooterSizeInBytes = headerSizeInBytes;
 enum MallocType
 {
   MallocType_Malloc,
+  MallocType_Memalign,
   MallocType_Free,
   MallocType_Realloc
 };
@@ -84,10 +91,11 @@ class JAllocDispatcher
 
     static void *malloc(size_t nbytes)
     {
-      nbytes += 8;
-      size_t *header = (size_t *)JAllocDispatcher::allocate(nbytes + headerFooterSizeInBytes);
+      size_t reqBytes = nbytes + headerFooterSizeInBytes;
+      struct mallocHdr *header = (struct mallocHdr *)JAllocDispatcher::allocate(reqBytes);
 
-      *header = nbytes;
+      header->addr = header;
+      header->size = reqBytes;
 
       void *ret = ((char*)header + headerSizeInBytes);
 
@@ -95,8 +103,8 @@ class JAllocDispatcher
       // Put a canary at the end of the allocated block. The canary is the value
       // of the starting address of the block. Note that the user only see the
       // block after the header.
-      size_t *footerDebug = (size_t*) ((char *)(ret) + nbytes);
-      *footerDebug = (size_t)header;
+      size_t *footerDebug = (size_t*) ((size_t) header->addr + header->size - footerSizeInBytes);
+      *footerDebug = (size_t) header->addr;
 #endif // ifdef JALLOC_DEBUG
 
       record(ret, nbytes, MallocType_Malloc);
@@ -128,6 +136,37 @@ class JAllocDispatcher
       return ret;
     }
 
+    static void *memalign (size_t alignment, size_t bytes)
+    {
+      /* Allocate with worst case padding to hit alignment. */
+      size_t reqBytes = bytes + headerFooterSizeInBytes + alignment;
+
+      size_t ptr = (size_t)JAllocDispatcher::allocate(reqBytes);
+      size_t ret = ptr + headerSizeInBytes;
+
+      if ((ret % alignment) != 0) {
+        ret = ((ret + alignment) / alignment) * alignment;
+      }
+
+      if (ret >= ptr + bytes + footerSizeInBytes) {
+      }
+
+      struct mallocHdr *header = (struct mallocHdr *) (ret - sizeof(headerSizeInBytes));
+      header->addr = (void*) ptr;
+      header->size = reqBytes;
+
+#ifdef JALLOC_DEBUG
+      // Put a canary at the end of the allocated block. The canary is the value
+      // of the starting address of the block. Note that the user only see the
+      // block after the header.
+      size_t *footerDebug = (size_t*) ((size_t) header->addr + header->size - footerSizeInBytes);
+      *footerDebug = (size_t) header->addr;
+#endif // ifdef JALLOC_DEBUG
+
+      record((void*)ret, bytes, MallocType_Memalign);
+      return (void*) ret;
+    }
+
     static void free(void *p)
     {
       if (p == nullptr) {
@@ -135,22 +174,20 @@ class JAllocDispatcher
       }
 
       if (p < mmapHintAddrStart || p > mmapHintAddr) {
-        return;
         char msg[128];
         sprintf(msg, "Freeing non-arena memory: %p\n", p);
         write(2, msg, strlen(msg) + 1);
-        return;
       }
 
 
-      size_t *header = (size_t*)((char*)p - headerSizeInBytes);
-      size_t nbytes = *header;
+      struct mallocHdr *header = (struct mallocHdr*)((char*)p - headerSizeInBytes);
+      size_t nbytes = header->size;
 
 #ifdef JALLOC_DEBUG
       // Check that the canary is intact. If not, then we have a memory corruption bug.
-      size_t *footerDebug = (size_t*)((char*)p + nbytes);
+      size_t *footerDebug = (size_t*) ((size_t) header->addr + header->size - footerSizeInBytes);
 
-      if (*footerDebug != (size_t) header) {
+      if (*footerDebug != (size_t) header->addr) {
         char msg[] = "***DMTCP INTERNAL ERROR: Memory corruption detected\n";
         int rc = write(2, msg, sizeof(msg));
         if (rc != sizeof(msg)) {
@@ -160,7 +197,7 @@ class JAllocDispatcher
       }
 #endif // ifdef JALLOC_DEBUG
 
-      JAllocDispatcher::deallocate(header, nbytes + headerFooterSizeInBytes);
+      JAllocDispatcher::deallocate(header->addr, header->size);
       record(p, nbytes, MallocType_Free);
     }
 
@@ -213,4 +250,5 @@ class JAlloc
 #define JALLOC_MALLOC JALLOC_HELPER_MALLOC
 #define JALLOC_FREE   JALLOC_HELPER_FREE
 #define JALLOC_REALLOC(p, size) jalib::JAllocDispatcher::realloc(p, size)
+#define JALLOC_MEMALIGN(alignment, nbytes) jalib::JAllocDispatcher::memalign(alignment, nbytes)
 #endif // ifndef JALLOC_H

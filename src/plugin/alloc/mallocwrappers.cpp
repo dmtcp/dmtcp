@@ -59,27 +59,44 @@ extern "C" void *malloc(size_t size)
 
 extern "C" void *memalign(size_t boundary, size_t size)
 {
+#ifdef OVERRIDE_MALLOC
+  return JALLOC_MEMALIGN(boundary, size);
+#else
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_memalign(boundary, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
+#endif
 }
 
 extern "C" int
 posix_memalign(void **memptr, size_t alignment, size_t size)
 {
+#ifdef OVERRIDE_MALLOC
+  if (size == 0) {
+    *memptr = nullptr;
+    return 0;
+  }
+  *memptr = JALLOC_MEMALIGN(alignment, size);
+  return 0;
+#else
   DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = _real_posix_memalign(memptr, alignment, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
+#endif
 }
 
 extern "C" void *valloc(size_t size)
 {
+#ifdef OVERRIDE_MALLOC
+  return JALLOC_MEMALIGN(sysconf(_SC_PAGESIZE), size);
+#else
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_valloc(size);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
+#endif
 }
 
 extern "C" void
@@ -104,4 +121,14 @@ extern "C" void *realloc(void *ptr, size_t size)
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 #endif
+}
+
+extern "C" void *aligned_alloc(size_t alignment, size_t size)
+{
+  return JALLOC_MEMALIGN(alignment, size);
+}
+
+extern "C" void *pvalloc(size_t size)
+{
+  return JALLOC_MEMALIGN(sysconf(_SC_PAGESIZE), size + sysconf(_SC_PAGESIZE));
 }

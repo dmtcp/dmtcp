@@ -281,27 +281,6 @@ jalib::JFixedAllocStack<1024>lvl3;
 # endif // if MAX_CHUNKSIZE <= 1024
 jalib::JFixedAllocStack<MAX_CHUNKSIZE>lvl4;
 
-void *dmtcp_malloc_hook(long unsigned int size, const void *caller)
-{
-  return JALLOC_MALLOC(size);
-}
-
-void dmtcp_free_hook(void *ptr, const void *caller)
-{
-  JALLOC_FREE(ptr);
-}
-
-void *dmtcp_realloc_hook(void *ptr, long unsigned int size, const void *caller)
-{
-  return JALLOC_REALLOC(ptr, size);
-}
-
-void *dmtcp_memalign_hook(long unsigned int alignment, long unsigned int size, const void *caller)
-{
-  long unsigned int len = alignment > size ? alignment : size;
-  return JALLOC_MALLOC(len);
-}
-
 void
 jalib::JAllocDispatcher::initialize(void)
 {
@@ -309,13 +288,6 @@ jalib::JAllocDispatcher::initialize(void)
   lvl2.initialize(1024 * 16);
   lvl3.initialize(1024 * 32);
   lvl4.initialize(1024 * 32);
-
-  //old_malloc_hook = __malloc_hook;
-  //old_free_hook = __free_hook;
-  __malloc_hook = dmtcp_malloc_hook;
-  __free_hook = dmtcp_free_hook;
-  __realloc_hook = dmtcp_realloc_hook;
-  // __memalign_hook = dmtcp_memalign_hook;
 
   _initialized = true;
 }
