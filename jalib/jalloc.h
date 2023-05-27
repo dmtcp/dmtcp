@@ -98,7 +98,7 @@ class JAllocDispatcher
       mallocInfo[idx].addr = addr;
       mallocInfo[idx].size = size;
       mallocInfo[idx].type = type;
-      if ((idx % 100000) == 0) print(addr);
+      if ((idx % 1000000) == 0 && type == MallocType_Realloc) print(addr);
     }
 
     static void *malloc(size_t nbytes)
