@@ -35,13 +35,33 @@
 // remove it once we are more comfortable with the state of the code.
 #define JALLOC_DEBUG
 
-static constexpr size_t headerSizeInBytes = sizeof(size_t);
+static constexpr size_t headerSizeInBytes = 2 * sizeof(size_t);
 static constexpr size_t footerSizeInBytes = sizeof(size_t);
 #ifdef JALLOC_DEBUG
 static constexpr size_t headerFooterSizeInBytes = headerSizeInBytes + footerSizeInBytes;
 #else
 static constexpr size_t headerFooterSizeInBytes = headerSizeInBytes;
 #endif // ifdef JALLOC_DEBUG
+
+enum MallocType
+{
+  MallocType_Malloc,
+  MallocType_Free,
+  MallocType_Realloc
+};
+
+struct mallocInfo
+{
+  void *addr;
+  unsigned size;
+  MallocType type;
+};
+
+#define MALLOC_INFO_SIZE 10000000
+extern size_t mallocInfoIdx;
+extern struct mallocInfo mallocInfo[MALLOC_INFO_SIZE];
+extern void *mmapHintAddrStart;
+extern void *mmapHintAddr;
 
 namespace jalib
 {
@@ -53,26 +73,40 @@ class JAllocDispatcher
     static void deallocate(void *ptr, size_t n);
 
   public:
+    static void record(void *addr, unsigned size, MallocType type)
+    {
+      int idx = mallocInfoIdx++;
+      idx = idx % MALLOC_INFO_SIZE;
+      mallocInfo[idx].addr = addr;
+      mallocInfo[idx].size = size;
+      mallocInfo[idx].type = type;
+    }
+
     static void *malloc(size_t nbytes)
     {
-      size_t *p = (size_t *)JAllocDispatcher::allocate(nbytes + headerFooterSizeInBytes);
+      nbytes += 8;
+      size_t *header = (size_t *)JAllocDispatcher::allocate(nbytes + headerFooterSizeInBytes);
 
-      *p = nbytes;
-      p += 1;
+      *header = nbytes;
+
+      void *ret = ((char*)header + headerSizeInBytes);
 
 #ifdef JALLOC_DEBUG
       // Put a canary at the end of the allocated block. The canary is the value
       // of the starting address of the block. Note that the user only see the
       // block after the header.
-      size_t *footerDebug = (size_t*) ((char *)(p) + nbytes);
-      *footerDebug = (size_t)(p - 1);
+      size_t *footerDebug = (size_t*) ((char *)(ret) + nbytes);
+      *footerDebug = (size_t)header;
 #endif // ifdef JALLOC_DEBUG
 
-      return p;
+      record(ret, nbytes, MallocType_Malloc);
+      return ret;
     }
 
     static void *realloc(void *p, size_t size)
     {
+      record(p, size, MallocType_Realloc);
+
       if (p == nullptr) {
         return malloc(size);
       }
@@ -82,8 +116,8 @@ class JAllocDispatcher
         return NULL;
       }
 
-      size_t *_p = (size_t*)((char*)p - headerSizeInBytes);
-      size_t nbytes = *_p;
+      size_t *header = (size_t*)((char*)p - headerSizeInBytes);
+      size_t nbytes = *header;
 
       if (size <= nbytes) {
         return p;
@@ -100,14 +134,23 @@ class JAllocDispatcher
         return;
       }
 
-      size_t *_p = (size_t*)((char*)p - headerSizeInBytes);
-      size_t nbytes = *_p;
+      if (p < mmapHintAddrStart || p > mmapHintAddr) {
+        return;
+        char msg[128];
+        sprintf(msg, "Freeing non-arena memory: %p\n", p);
+        write(2, msg, strlen(msg) + 1);
+        return;
+      }
+
+
+      size_t *header = (size_t*)((char*)p - headerSizeInBytes);
+      size_t nbytes = *header;
 
 #ifdef JALLOC_DEBUG
       // Check that the canary is intact. If not, then we have a memory corruption bug.
       size_t *footerDebug = (size_t*)((char*)p + nbytes);
 
-      if (*footerDebug != (size_t) _p) {
+      if (*footerDebug != (size_t) header) {
         char msg[] = "***DMTCP INTERNAL ERROR: Memory corruption detected\n";
         int rc = write(2, msg, sizeof(msg));
         if (rc != sizeof(msg)) {
@@ -117,7 +160,8 @@ class JAllocDispatcher
       }
 #endif // ifdef JALLOC_DEBUG
 
-      JAllocDispatcher::deallocate(_p, nbytes + headerFooterSizeInBytes);
+      JAllocDispatcher::deallocate(header, nbytes + headerFooterSizeInBytes);
+      record(p, nbytes, MallocType_Free);
     }
 
     static int numExpands();
