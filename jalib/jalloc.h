@@ -80,6 +80,17 @@ class JAllocDispatcher
     static void deallocate(void *ptr, size_t n);
 
   public:
+    static void print(void *addr)
+    {
+      for (size_t i = 0; i < mallocInfoIdx; i++) {
+        if (mallocInfo[i].addr == addr) {
+          char buf[256] = {0};
+          sprintf(buf, "%lu: %u\n", i, mallocInfo[i].size);
+          write(2, buf, strlen(buf) + 1);
+        }
+      }
+    }
+
     static void record(void *addr, unsigned size, MallocType type)
     {
       int idx = mallocInfoIdx++;
