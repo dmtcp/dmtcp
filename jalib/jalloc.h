@@ -124,8 +124,8 @@ class JAllocDispatcher
         return NULL;
       }
 
-      size_t *header = (size_t*)((char*)p - headerSizeInBytes);
-      size_t nbytes = *header;
+      struct mallocHdr *header = (struct mallocHdr*)((char*)p - headerSizeInBytes);
+      size_t nbytes = header->size - headerFooterSizeInBytes;
 
       if (size <= nbytes) {
         return p;
@@ -133,6 +133,7 @@ class JAllocDispatcher
 
       void *ret = malloc(size);
       memcpy(ret, p, nbytes);
+      free(p);
       return ret;
     }
 
