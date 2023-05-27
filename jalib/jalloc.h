@@ -196,7 +196,6 @@ class JAllocDispatcher
         write(2, msg, strlen(msg) + 1);
       }
 
-
       struct mallocHdr *header = (struct mallocHdr*)((char*)p - headerSizeInBytes);
       size_t nbytes = header->size;
 
@@ -210,7 +209,6 @@ class JAllocDispatcher
         if (rc != sizeof(msg)) {
           perror("DMTCP(" __FILE__ "): write: ");
         }
-        while(p != nullptr) sleep(1);
         abort();
       }
 #endif // ifdef JALLOC_DEBUG
