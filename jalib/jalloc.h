@@ -206,6 +206,7 @@ class JAllocDispatcher
         if (rc != sizeof(msg)) {
           perror("DMTCP(" __FILE__ "): write: ");
         }
+        while(p != nullptr) sleep(1);
         abort();
       }
 #endif // ifdef JALLOC_DEBUG
