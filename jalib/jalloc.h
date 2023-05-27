@@ -151,6 +151,9 @@ class JAllocDispatcher
 
     static void *memalign (size_t alignment, size_t bytes)
     {
+      if (bytes == 80 && mallocInfoIdx > 1700000) {
+        while (bytes) sleep(1);
+      }
       /* Allocate with worst case padding to hit alignment. */
       size_t reqBytes = bytes + headerFooterSizeInBytes + alignment;
 
