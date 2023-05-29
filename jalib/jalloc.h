@@ -108,6 +108,14 @@ class JAllocDispatcher
       size_t reqBytes = nbytes + headerFooterSizeInBytes;
       struct mallocHdr *header = (struct mallocHdr *)JAllocDispatcher::allocate(reqBytes);
       size_t ret = ((size_t)header + headerSizeInBytes);
+#ifdef JALLOC_DEBUG
+      size_t *addr = (size_t*) ret;
+      if (*addr != 0) {
+        char msg[] = "***DMTCP INTERNAL ERROR: Memory corruption detected\n";
+        write(2, msg, sizeof(msg));
+        abort();
+      }
+#endif // ifdef JALLOC_DEBUG
 
       header->size = nbytes;
       header->extraBytes = headerFooterSizeInBytes;
@@ -171,7 +179,7 @@ class JAllocDispatcher
 
 #ifdef JALLOC_DEBUG
       // Put a canary at the end of the allocated block. The canary is the value
-      // of the starting address of the block. Note that the user only see the
+      // of the starting address of the block. Note that the user only sees the
       // block after the header.
       size_t *footerDebug = (size_t*) (ret + nbytes);
       *footerDebug = (size_t) header;

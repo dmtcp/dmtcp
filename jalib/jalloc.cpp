@@ -192,6 +192,7 @@ class JFixedAllocStack
     void deallocate(void *ptr)
     {
       if (ptr == NULL) { return; }
+      memset(ptr, 0, N);
       FreeItem *item = static_cast<FreeItem *>(ptr);
       StackHead origHead = {0};
       StackHead newHead = {0};
