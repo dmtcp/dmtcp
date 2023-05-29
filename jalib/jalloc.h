@@ -201,7 +201,7 @@ class JAllocDispatcher
       // Check that the canary is intact. If not, then we have a memory corruption bug.
       size_t *footerDebug = (size_t*) ((size_t) p + header->size);
 
-      if (*footerDebug != blockAddr) {
+      if (*footerDebug != (size_t) header) {
         char msg[] = "***DMTCP INTERNAL ERROR: Memory corruption detected\n";
         int rc = write(2, msg, sizeof(msg));
         if (rc != sizeof(msg)) {
