@@ -600,7 +600,8 @@ patchUserEnv(const char *env[], const char *filename)
   JTRACE("Creating a copy of (non-DMTCP) user env vars...") (out.str());
 
   // pack up our ENV into the new ENV
-  out.str("DMTCP env vars:\n");
+  out.clear();
+  out << "DMTCP env vars:\n";
   for (size_t i = 0; i < ourImportantEnvsCnt; ++i) {
     const char *v = getenv(ourImportantEnvs[i]);
     const string e = ourImportantEnvs[i];

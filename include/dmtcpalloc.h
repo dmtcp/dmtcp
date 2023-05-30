@@ -201,14 +201,29 @@ operator!=(const DmtcpAlloc<T1>&, const DmtcpAlloc<T2>&) throw()
   return false;
 }
 
-typedef std::basic_string<char, std::char_traits<char>,
-                          DmtcpAlloc<char> >string;
-typedef std::basic_stringstream<char, std::char_traits<char>,
-                                DmtcpAlloc<char> >stringstream;
-typedef std::basic_istringstream<char, std::char_traits<char>,
-                                 DmtcpAlloc<char> >istringstream;
-typedef std::basic_ostringstream<char, std::char_traits<char>,
-                                 DmtcpAlloc<char> >ostringstream;
+typedef std::basic_string<char, std::char_traits<char> /*, DmtcpAlloc<char>*/ >string;
+//typedef std::basic_stringstream<char, std::char_traits<char> /*, DmtcpAlloc<char>*/ >stringstream;
+//typedef std::basic_istringstream<char, std::char_traits<char> /*, DmtcpAlloc<char>*/ >istringstream;
+
+class stringstream : public std::basic_stringstream<char, std::char_traits<char> , DmtcpAlloc<char> >
+{
+};
+
+class istringstream : public std::basic_istringstream<char, std::char_traits<char> , DmtcpAlloc<char> >
+{
+};
+
+class ostringstream : public std::basic_ostringstream<char, std::char_traits<char> , DmtcpAlloc<char> >
+{
+  public:
+    string str() const
+    {
+    string out(basic_ostringstream::str().c_str());
+    return out;
+    }
+};
+
+
 typedef std::ostream ostream;
 typedef std::istream istream;
 typedef std::iostream iostream;
