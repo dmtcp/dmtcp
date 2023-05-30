@@ -40,13 +40,15 @@
 #define USE_MPROTECT_ON_DEALLOC
 
 #ifdef USE_MMAP_FOR_ALL
-const size_t ChunkSizeLvl1 = 8;
-const size_t ChunkSizeLvl2 = 8;
-const size_t ChunkSizeLvl3 = 8;
+const size_t ChunkSizeLvl1 = 1;
+const size_t ChunkSizeLvl2 = 1;
+const size_t ChunkSizeLvl3 = 1;
+const size_t ChunkSizeLvl4 = 1;
 #else
 const size_t ChunkSizeLvl1 = 64;
 const size_t ChunkSizeLvl2 = 256;
 const size_t ChunkSizeLvl3 = 1024;
+const size_t ChunkSizeLvl4 = 4096;
 #endif
 
 
@@ -291,7 +293,7 @@ jalib::JFixedAllocStack<ChunkSizeLvl3, 1024 * 32>lvl3;
 # if MAX_CHUNKSIZE <= 1024
 #  error MAX_CHUNKSIZE must be larger
 # endif // if MAX_CHUNKSIZE <= 1024
-jalib::JFixedAllocStack<MAX_CHUNKSIZE, 1024 * 32>lvl4;
+jalib::JFixedAllocStack<ChunkSizeLvl4, 1024 * 32>lvl4;
 
 void *
 jalib::JAllocDispatcher::allocate(size_t n)
