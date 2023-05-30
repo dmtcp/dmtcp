@@ -205,11 +205,11 @@ typedef std::basic_string<char, std::char_traits<char> /*, DmtcpAlloc<char>*/ >s
 //typedef std::basic_stringstream<char, std::char_traits<char> /*, DmtcpAlloc<char>*/ >stringstream;
 //typedef std::basic_istringstream<char, std::char_traits<char> /*, DmtcpAlloc<char>*/ >istringstream;
 
-class stringstream : public std::basic_stringstream<char, std::char_traits<char> , DmtcpAlloc<char> >
+class stringstream : public std::basic_stringstream<char, std::char_traits<char>> ///* , DmtcpAlloc<char> >
 {
 };
 
-class istringstream : public std::basic_istringstream<char, std::char_traits<char> , DmtcpAlloc<char> >
+class istringstream : public std::basic_istringstream<char, std::char_traits<char>> // , DmtcpAlloc<char> >
 {
 };
 
