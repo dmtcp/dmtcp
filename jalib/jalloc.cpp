@@ -285,9 +285,9 @@ class JFixedAllocStack
 };
 } // namespace jalib
 
-jalib::JFixedAllocStack<64, 1024 * 16>lvl1;
-jalib::JFixedAllocStack<256, 1024 * 16>lvl2;
-jalib::JFixedAllocStack<1024, 1024 * 32>lvl3;
+jalib::JFixedAllocStack<ChunkSizeLvl1, 1024 * 16>lvl1;
+jalib::JFixedAllocStack<ChunkSizeLvl2, 1024 * 16>lvl2;
+jalib::JFixedAllocStack<ChunkSizeLvl3, 1024 * 32>lvl3;
 # if MAX_CHUNKSIZE <= 1024
 #  error MAX_CHUNKSIZE must be larger
 # endif // if MAX_CHUNKSIZE <= 1024
