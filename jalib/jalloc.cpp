@@ -28,12 +28,27 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/mman.h>
 
 #define ATOMIC_SHARED volatile __attribute((aligned))
 
 // Make highest chunk size large; avoid a raw_alloc calling mmap()
 // during /proc/self/maps
 #define MAX_CHUNKSIZE (4 * 1024)
+
+#define USE_MMAP_FOR_ALL
+#define USE_MPROTECT_ON_DEALLOC
+
+#ifdef USE_MMAP_FOR_ALL
+const size_t ChunkSizeLvl1 = 8;
+const size_t ChunkSizeLvl2 = 8;
+const size_t ChunkSizeLvl3 = 8;
+#else
+const size_t ChunkSizeLvl1 = 64;
+const size_t ChunkSizeLvl2 = 256;
+const size_t ChunkSizeLvl3 = 1024;
+#endif
+
 
 using namespace jalib;
 
@@ -96,7 +111,11 @@ _dealloc_raw(void *ptr, size_t n)
   if (ptr == 0 || n == 0) {
     return;
   }
+#ifdef USE_MPROTECT_ON_DEALLOC
+  int rv = mprotect(ptr, n, PROT_NONE);
+#else
   int rv = munmap(ptr, n);
+#endif
   if (rv != 0) {
     perror("DMTCP(" __FILE__ "): _dealloc_raw: ");
   }
