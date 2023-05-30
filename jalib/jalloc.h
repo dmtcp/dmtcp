@@ -28,9 +28,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <malloc.h>
 
 #define JALIB_ALLOCATOR
-#define OVERRIDE_GLOBAL_ALLOCATOR
+// #define OVERRIDE_GLOBAL_ALLOCATOR
 
 // This is enabled by default for now to catch memory corruption bugs. We should
 // remove it once we are more comfortable with the state of the code.
@@ -105,6 +106,7 @@ class JAllocDispatcher
 
     static void *malloc(size_t nbytes)
     {
+      //return ::malloc(nbytes);
       size_t reqBytes = nbytes + headerFooterSizeInBytes;
       struct mallocHdr *header = (struct mallocHdr *)JAllocDispatcher::allocate(reqBytes);
       size_t ret = ((size_t)header + headerSizeInBytes);
@@ -194,6 +196,8 @@ class JAllocDispatcher
       if (p == nullptr) {
         return;
       }
+      //::free(p);
+      //return;
 
       if (p < mmapHintAddrStart || p > mmapHintAddr) {
         char msg[128];
@@ -227,7 +231,7 @@ class JAllocDispatcher
     static void preExpand();
 };
 
-class JAlloc
+class JAllocA
 {
   public:
 #ifdef JALIB_ALLOCATOR
@@ -259,18 +263,16 @@ class JAlloc
 };
 }
 
-#define JALLOC_HELPER_NEW(nbytes)                                            \
-                                     return jalib::JAllocDispatcher::malloc( \
-    nbytes)
-#define JALLOC_HELPER_DELETE(p)      jalib::JAllocDispatcher::free(p)
+#define JALLOC_HELPER_NEW(nbytes)    return ::malloc(nbytes)
+#define JALLOC_HELPER_DELETE(p)      ::free(p)
 
-#define JALLOC_HELPER_MALLOC(nbytes) jalib::JAllocDispatcher::malloc(nbytes)
-#define JALLOC_HELPER_FREE(p)        jalib::JAllocDispatcher::free(p)
+#define JALLOC_HELPER_MALLOC(nbytes) ::malloc(nbytes)
+#define JALLOC_HELPER_FREE(p)        ::free(p)
 
 #define JALLOC_NEW    JALLOC_HELPER_NEW
 #define JALLOC_DELETE JALLOC_HELPER_DELETE
 #define JALLOC_MALLOC JALLOC_HELPER_MALLOC
 #define JALLOC_FREE   JALLOC_HELPER_FREE
-#define JALLOC_REALLOC(p, size) jalib::JAllocDispatcher::realloc(p, size)
-#define JALLOC_MEMALIGN(alignment, nbytes) jalib::JAllocDispatcher::memalign(alignment, nbytes)
+#define JALLOC_REALLOC(p, size) ::realloc(p, size)
+#define JALLOC_MEMALIGN(alignment, nbytes) ::memalign(alignment, nbytes)
 #endif // ifndef JALLOC_H
