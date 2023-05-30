@@ -201,29 +201,14 @@ operator!=(const DmtcpAlloc<T1>&, const DmtcpAlloc<T2>&) throw()
   return false;
 }
 
-typedef std::basic_string<char, std::char_traits<char> /*, DmtcpAlloc<char>*/ >string;
-//typedef std::basic_stringstream<char, std::char_traits<char> /*, DmtcpAlloc<char>*/ >stringstream;
-//typedef std::basic_istringstream<char, std::char_traits<char> /*, DmtcpAlloc<char>*/ >istringstream;
-
-class stringstream : public std::basic_stringstream<char, std::char_traits<char>> ///* , DmtcpAlloc<char> >
-{
-};
-
-class istringstream : public std::basic_istringstream<char, std::char_traits<char>> // , DmtcpAlloc<char> >
-{
-};
-
-class ostringstream : public std::basic_ostringstream<char, std::char_traits<char>> // , DmtcpAlloc<char> >
-{
-  public:
-    string str() const
-    {
-    string out(basic_ostringstream::str().c_str());
-    return out;
-    }
-};
-
-
+typedef std::basic_string<char, std::char_traits<char>,
+                          DmtcpAlloc<char> >string;
+typedef std::basic_stringstream<char, std::char_traits<char>,
+                                DmtcpAlloc<char> >stringstream;
+typedef std::basic_istringstream<char, std::char_traits<char>,
+                                 DmtcpAlloc<char> >istringstream;
+typedef std::basic_ostringstream<char, std::char_traits<char>,
+                                 DmtcpAlloc<char> >ostringstream;
 typedef std::ostream ostream;
 typedef std::istream istream;
 typedef std::iostream iostream;
@@ -231,29 +216,24 @@ typedef std::fstream fstream;
 typedef std::ofstream ofstream;
 typedef std::ifstream ifstream;
 
-//typedef std::vector vector;
-//typedef std::list list;
-//typedef std::map map;
-//typedef std::set set;
-
 template<typename T>
-class vector : public std::vector<T>// DmtcpAlloc<T> >
+class vector : public std::vector<T, DmtcpAlloc<T> >
 {
-//  public:
-//    vector(size_t n, const T &v = T()) : std::vector<T, DmtcpAlloc<T> >(n, v) {}
-//
-//    vector() : std::vector<T, DmtcpAlloc<T> >() {}
+  public:
+    vector(size_t n, const T &v = T()) : std::vector<T, DmtcpAlloc<T> >(n, v) {}
+
+    vector() : std::vector<T, DmtcpAlloc<T> >() {}
 };
 
 template<typename T>
-class list : public std::list<T>// DmtcpAlloc<T> >
+class list : public std::list<T, DmtcpAlloc<T> >
 {};
 
 template<typename K, typename V>
 class map : public std::map<K,
                             V,
-                            std::less<K>> //,> //
-                            //DmtcpAlloc<std::pair<const K, V>>>
+                            std::less<K>,
+                            DmtcpAlloc<std::pair<const K, V>>>
 {};
 
 template<typename K, typename V>
@@ -265,7 +245,7 @@ class unordered_map : public std::unordered_map<K,
 {};
 
 template<typename K>
-class set : public std::set<K, std::less<K>> //, DmtcpAlloc<K> >
+class set : public std::set<K, std::less<K>, DmtcpAlloc<K> >
 {};
 
 template<typename K>
