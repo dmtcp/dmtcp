@@ -213,7 +213,7 @@ class istringstream : public std::basic_istringstream<char, std::char_traits<cha
 {
 };
 
-class ostringstream : public std::basic_ostringstream<char, std::char_traits<char> , DmtcpAlloc<char> >
+class ostringstream : public std::basic_ostringstream<char, std::char_traits<char>> // , DmtcpAlloc<char> >
 {
   public:
     string str() const
