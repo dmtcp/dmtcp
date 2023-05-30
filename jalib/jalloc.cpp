@@ -112,7 +112,10 @@ _dealloc_raw(void *ptr, size_t n)
     return;
   }
 #ifdef USE_MPROTECT_ON_DEALLOC
-  int rv = mprotect(ptr, n, PROT_NONE);
+  size_t pageSize = 4096;
+  size_t pageMask = ~(4096 - 1);
+  size_t len = (n + pageSize - 1) & pageMask;
+  int rv = mprotect(ptr, len, PROT_NONE);
 #else
   int rv = munmap(ptr, n);
 #endif
