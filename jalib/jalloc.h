@@ -136,8 +136,8 @@ class JAlloc
     nbytes)
 #define JALLOC_HELPER_DELETE(p)      jalib::JAllocDispatcher::free(p)
 
-#define JALLOC_HELPER_MALLOC(nbytes) jalib::JAllocDispatcher::malloc(nbytes)
-#define JALLOC_HELPER_FREE(p)        jalib::JAllocDispatcher::free(p)
+#define JALLOC_HELPER_MALLOC         jalib::JAllocDispatcher::malloc
+#define JALLOC_HELPER_FREE           jalib::JAllocDispatcher::free
 
 #define JALLOC_NEW    JALLOC_HELPER_NEW
 #define JALLOC_DELETE JALLOC_HELPER_DELETE
