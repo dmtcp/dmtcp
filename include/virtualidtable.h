@@ -23,6 +23,7 @@
 #define VIRTUAL_ID_TABLE_H
 
 #include <sys/types.h>
+#include <unordered_map>
 
 #include "../jalib/jalloc.h"
 #include "../jalib/jassert.h"
@@ -60,11 +61,15 @@ class VirtualIdTable
 
     static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
 #endif // ifdef JALIB_ALLOCATOR
-    VirtualIdTable(string typeStr, IdType base, size_t max = MAX_VIRTUAL_ID)
+    VirtualIdTable(string typeStr,
+                   IdType base,
+                   size_t max = MAX_VIRTUAL_ID,
+                   size_t reserveSize = MAX_VIRTUAL_ID)
     {
       DmtcpMutexInit(&tblLock, DMTCP_MUTEX_LLL);
       _do_lock_tbl();
       _idMapTable.clear();
+      _idMapTable.reserve(reserveSize);
       _do_unlock_tbl();
       _typeStr = typeStr;
       _base = base;
@@ -316,8 +321,8 @@ class VirtualIdTable
     DmtcpMutex tblLock;
 
   protected:
-    typedef typename map<IdType, IdType>::iterator id_iterator;
-    map<IdType, IdType>_idMapTable;
+    typedef typename dmtcp::unordered_map<IdType, IdType>::iterator id_iterator;
+    dmtcp::unordered_map<IdType, IdType>_idMapTable;
     IdType _base;
     size_t _max;
     IdType _nextVirtualId;
