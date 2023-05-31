@@ -28,6 +28,8 @@
 #include <limits>
 #include <list>
 #include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <set>
 #include <sstream>
 #include <string>
@@ -234,8 +236,34 @@ class map : public std::map<K,
                             DmtcpAlloc<std::pair<const K, V>>>
 {};
 
+template<typename K, typename V>
+class unordered_map : public std::unordered_map<K,
+                            V,
+                            std::hash<K>,
+                            std::equal_to<K>,
+                            DmtcpAlloc<std::pair<const K, V>>>
+{};
+
 template<typename K>
 class set : public std::set<K, std::less<K>, DmtcpAlloc<K> >
 {};
+
+template<typename K>
+class unordered_set : public std::unordered_set<K,
+                                                std::hash<K>,
+                                                std::equal_to<K>,
+                                                DmtcpAlloc<K> >
+{};
 }
+
+// custom specialization of std::hash can be injected in namespace std
+template<>
+struct std::hash<dmtcp::string>
+{
+    std::size_t operator()(dmtcp::string const& s) const noexcept
+    {
+        return std::_Hash_impl::hash(s.data(), s.length());
+    }
+};
+
 #endif // ifndef DMTCPALLOC_H
