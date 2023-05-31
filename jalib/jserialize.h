@@ -77,7 +77,7 @@ class JBinarySerializer
     {
       JBinarySerializer &o = *this;
 
-      JSERIALIZE_ASSERT_POINT("dmtcp::vector:");
+      JSERIALIZE_ASSERT_POINT("vector:");
 
       // establish the size
       uint32_t len = t.size();
@@ -93,7 +93,7 @@ class JBinarySerializer
         JSERIALIZE_ASSERT_POINT("]");
       }
 
-      JSERIALIZE_ASSERT_POINT("endvector");
+      JSERIALIZE_ASSERT_POINT("end::vector");
     }
 
     template<typename K, typename V>
@@ -113,7 +113,7 @@ class JBinarySerializer
     {
       JBinarySerializer &o = *this;
 
-      JSERIALIZE_ASSERT_POINT("dmtcp::map:");
+      JSERIALIZE_ASSERT_POINT("map:");
 
       // establish the size
       uint32_t len = t.size();
@@ -135,7 +135,37 @@ class JBinarySerializer
           serializePair(key, val);
         }
       }
-      JSERIALIZE_ASSERT_POINT("endmap");
+      JSERIALIZE_ASSERT_POINT("end::map");
+    }
+
+    template<typename K, typename V>
+    void serialize(dmtcp::unordered_map<K, V> &t)
+    {
+      JBinarySerializer &o = *this;
+
+      JSERIALIZE_ASSERT_POINT("unordered_map:");
+
+      // establish the size
+      uint32_t len = t.size();
+      serialize(len);
+
+      // now serialize all the elements
+      if (isReader()) {
+        K key; V val;
+        for (size_t i = 0; i < len; i++) {
+          serializePair(key, val);
+          t[key] = val;
+        }
+      } else {
+        for (typename dmtcp::unordered_map<K, V>::iterator i = t.begin();
+             i != t.end();
+             ++i) {
+          K key = i->first;
+          V val = i->second;
+          serializePair(key, val);
+        }
+      }
+      JSERIALIZE_ASSERT_POINT("end::unordered_map");
     }
 
     const dmtcp::string &filename() const { return _filename; }
