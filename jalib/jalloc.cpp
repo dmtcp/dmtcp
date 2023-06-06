@@ -21,6 +21,7 @@
 
 #include "jalib.h"
 #include "jalloc.h"
+#include <malloc.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
@@ -46,6 +47,11 @@ static bool _initialized = false;
 
 namespace jalib
 {
+#ifdef ENABLE_MALLOC_RECORD
+  //size_t JAllocDispatcher::MALLOC_INFO_SIZE = 10000000
+  size_t JAllocDispatcher::mallocInfoIdx = 0;
+  struct JAllocDispatcher::MallocRecord JAllocDispatcher::mallocRecords[MALLOC_INFO_SIZE];
+#endif
 
 inline void *
 _alloc_raw(size_t n)

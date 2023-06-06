@@ -61,6 +61,38 @@ class JAllocDispatcher
     static void deallocate(void *ptr, size_t n);
 
   public:
+    enum MallocType
+    {
+      MallocType_Malloc,
+      MallocType_Memalign,
+      MallocType_Free,
+      MallocType_Realloc
+    };
+
+    struct MallocRecord
+    {
+      void *addr;
+      unsigned size;
+      MallocType type;
+    };
+
+#ifdef ENABLE_MALLOC_RECORD
+    static constexpr size_t MALLOC_INFO_SIZE = 10000000;
+    static size_t mallocInfoIdx;
+    static struct MallocRecord mallocRecords[MALLOC_INFO_SIZE];
+
+    static void record(void *addr, unsigned size, MallocType type)
+    {
+      int idx = mallocInfoIdx++;
+      idx = idx % MALLOC_INFO_SIZE;
+      mallocRecords[idx].addr = addr;
+      mallocRecords[idx].size = size;
+      mallocRecords[idx].type = type;
+    }
+#else // #ifdef ENABLE_MALLOC_RECORD
+    static void record(void *addr, unsigned size, MallocType type ){}
+#endif
+
     static void *malloc(size_t nbytes)
     {
       size_t reqBytes = nbytes + headerFooterSizeInBytes;
@@ -79,11 +111,14 @@ class JAllocDispatcher
       *footerDebug = (size_t) header;
 #endif // ifdef JALLOC_DEBUG
 
+      record((void*) ret, nbytes, MallocType_Malloc);
       return (void*) ret;
     }
 
     static void *realloc(void *p, size_t size)
     {
+      record(p, size, MallocType_Realloc);
+
       if (p == nullptr) {
         return malloc(size);
       }
@@ -131,6 +166,7 @@ class JAllocDispatcher
       *footerDebug = (size_t) header;
 #endif // ifdef JALLOC_DEBUG
 
+      record((void*)ret, nbytes, MallocType_Memalign);
       return (void*) ret;
     }
 
@@ -158,6 +194,7 @@ class JAllocDispatcher
       }
 #endif // ifdef JALLOC_DEBUG
 
+      record(p, header->size, MallocType_Free);
       JAllocDispatcher::deallocate((void*) blockAddr, allocSize);
     }
 
