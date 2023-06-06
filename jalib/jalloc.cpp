@@ -131,23 +131,15 @@ bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
   return result != 0;
 }
 
-template<size_t _N>
+template<size_t _N, size_t _blockSize>
 class JFixedAllocStack
 {
   public:
-    enum { N = _N };
+    enum { N = _N, BlockSize = _blockSize };
     JFixedAllocStack()
     {
-      if (_blockSize == 0) {
-        _blockSize = 4 * MAX_CHUNKSIZE;
-      }
       memset(&_top, 0, sizeof(_top));
       _numExpands = 0;
-    }
-
-    void initialize(int blockSize)
-    {
-      _blockSize = blockSize;
     }
 
     size_t chunkSize() { return N; }
@@ -230,8 +222,8 @@ class JFixedAllocStack
       StackHead origHead = {0};
       StackHead newHead = {0};
       _numExpands++;
-      FreeItem *bufs = static_cast<FreeItem *>(_alloc_raw(_blockSize));
-      int count = _blockSize / sizeof(FreeItem);
+      FreeItem *bufs = static_cast<FreeItem *>(_alloc_raw(BlockSize));
+      int count = BlockSize / sizeof(FreeItem);
       for (int i = 0; i < count - 1; ++i) {
         bufs[i].next = bufs + i + 1;
       }
@@ -262,36 +254,22 @@ class JFixedAllocStack
 
   private:
     StackHead _top;
-    size_t _blockSize = 0;
     char padding[128];
     ATOMIC_SHARED int _numExpands;
 };
 } // namespace jalib
 
-jalib::JFixedAllocStack<64>lvl1;
-jalib::JFixedAllocStack<256>lvl2;
-jalib::JFixedAllocStack<1024>lvl3;
+jalib::JFixedAllocStack<64, 1024 * 16>lvl1;
+jalib::JFixedAllocStack<256, 1024 * 16>lvl2;
+jalib::JFixedAllocStack<1024, 1024 * 32>lvl3;
 # if MAX_CHUNKSIZE <= 1024
 #  error MAX_CHUNKSIZE must be larger
 # endif // if MAX_CHUNKSIZE <= 1024
-jalib::JFixedAllocStack<MAX_CHUNKSIZE>lvl4;
-
-void
-jalib::JAllocDispatcher::initialize(void)
-{
-  lvl1.initialize(1024 * 16);
-  lvl2.initialize(1024 * 16);
-  lvl3.initialize(1024 * 32);
-  lvl4.initialize(1024 * 32);
-  _initialized = true;
-}
+jalib::JFixedAllocStack<MAX_CHUNKSIZE, 1024 * 32>lvl4;
 
 void *
 jalib::JAllocDispatcher::allocate(size_t n)
 {
-  if (!_initialized) {
-    initialize();
-  }
   void *retVal;
   if (n <= lvl1.chunkSize()) {
     retVal = lvl1.allocate();
@@ -310,14 +288,6 @@ jalib::JAllocDispatcher::allocate(size_t n)
 void
 jalib::JAllocDispatcher::deallocate(void *ptr, size_t n)
 {
-  if (!_initialized) {
-    char msg[] = "***DMTCP INTERNAL ERROR: Free called before init\n";
-    int rc = write(2, msg, sizeof(msg));
-    if (rc != sizeof(msg)) {
-      perror("DMTCP(" __FILE__ "): write: ");
-    }
-    abort();
-  }
   if (n <= lvl1.N) {
     lvl1.deallocate(ptr);
   } else if (n <= lvl2.N) {
