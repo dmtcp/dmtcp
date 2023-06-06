@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/mman.h>
 
 #define ATOMIC_SHARED volatile __attribute((aligned))
 
@@ -93,7 +94,16 @@ _dealloc_raw(void *ptr, size_t n)
   if (ptr == 0 || n == 0) {
     return;
   }
+
+  if (n % sysconf(_SC_PAGESIZE) != 0) {
+    n = (n + sysconf(_SC_PAGESIZE) - (n % sysconf(_SC_PAGESIZE)));
+  }
+
+#ifdef USE_MPROTECT_ON_DEALLOC
+  int rv = mprotect(ptr, n, PROT_NONE);
+#else
   int rv = munmap(ptr, n);
+#endif
   if (rv != 0) {
     perror("DMTCP(" __FILE__ "): _dealloc_raw: ");
   }
