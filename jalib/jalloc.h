@@ -201,37 +201,6 @@ class JAllocDispatcher
     static int numExpands();
     static void preExpand();
 };
-
-class JAlloc
-{
-  public:
-#ifdef JALIB_ALLOCATOR
-    static void *operator new(size_t nbytes, void *p)
-    {
-      return p;
-    }
-
-    static void *operator new(size_t nbytes)
-    {
-      return JAllocDispatcher::malloc(nbytes);
-    }
-
-    static void *operator new[](size_t nbytes)
-    {
-      return JAllocDispatcher::malloc(nbytes);
-    }
-
-    static void operator delete(void *p)
-    {
-      return JAllocDispatcher::free(p);
-    }
-
-    static void operator delete[](void *p)
-    {
-      return JAllocDispatcher::free(p);
-    }
-#endif // ifdef JALIB_ALLOCATOR
-};
 }
 
 #define JALLOC_NEW(n)               return jalib::JAllocDispatcher::malloc(n)
