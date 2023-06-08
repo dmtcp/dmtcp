@@ -161,7 +161,7 @@ presuspend_eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
   case DMTCP_EVENT_INIT:
-    // Ckpt thread respons to this callback.
+    // Ckpt thread responds to this callback.
     // Primary user thread and ckpt thread synchronize on this barrier.
     pthread_barrier_init(&exit_presuspend_barrier, NULL, 2);
     pthread_barrier_init(&resume_barrier, NULL, 2);

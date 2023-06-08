@@ -2,6 +2,123 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 3.0.0 release notes
+===========================
+For some time, it has been recommended to use the latest github master
+branch for new projects using DMTCP.  This release formalizes that status.
+At this time, the InfiniBand plugin is deprecated and likely doesn't work.
+Further, the DMTCP flag '--no-coordinator' is not currently supported.
+It may be brought back to life if important use cases are seen.
+AARCH64 support may or may not work.  Please write to developers if needed.
+DMTCP now requires C++14.
+
+However, for transparent checkpointing of MPI, please see:
+  https://github.com/mpickpt/mana
+That project is undergoing intensive testing.  Please write to the
+developers for the latest status.
+
+There is also a highly experimental branch to support transparent
+checkpointing of CUDA:
+  https://github.com/DMTCP-CRAC/CRAC-early-development
+Please write to the developers for plans to replace that experimental version.
+
+---
+MAJOR DMTCP ENHANCEMENTS:
+
+* The plugin facility for end users has now been made more flexible.
+  In particular, a plugin can now declare a PRESUSPEND phase.
+  See DMTCP/test/plugin/presuspend/ for an example plugin using presuspend.
+  See the mpi-proxy-split plugin of the MANA project for a real-world example.
+  (a) PRESUSPEND:  checkpoint thread executes arbitrary user code
+                   specified by DMTCP_EVENT_PRESUSPEND.  User threads can
+                   continue to execute.  This allows the checkpoint thread
+                   to monitor when the user threads have reached a safe
+                   state.  When the checkpoint thread code for PRESUSPEND
+                   returns, DMTCP moves to the PRECHECKPOINT event.
+  (b) PRECHECKPOINT:  All user threads are suspended.  The checkpoint
+                   thread executes arbitrary user code specified by
+                   DMTCP_EVENT_PRECHECKPOINT.  When the checkpoint
+                   thread code for PRECHECKPOINT returns, DMTCP then
+                   creates the checkpoint.  DMTCP then moves to
+                   the RESUME event.
+  (c) RESUME:  All user threads resume execution.  The checkpoint thread
+                   does nothing, while waiting for the next PRESUSPEND event.
+                   If the user wishes for the user threads to execute
+                   special code during resume and before normal execution,
+                   then it is the responsibility of the user to create
+                   code for the PRESUSPEND event that forces user threads
+                   to wait on a user-defined barrier before checkpoint,
+                   and then to execute special user code after the barrier
+                   upon receiving the RESUME event.
+  (d) RESTART:  All user threads resume execution, and the behavior is
+                   essentially the same as for RESUME.  This is the first
+                   even seen by user threads after dmtcp_restart is invoked.
+
+  If you wish to write advanced plugins, please write to the developers
+  for suggestions about using:
+ (a) Virtual ids:  a plugin should implement a translation table
+       translating real ids to virtual ids.  Virtual ids are should fit
+       within the same memory size occupied by a real id.  Virtual ids
+       are invariant across the checkpoint-restart barrier.  The table
+       is updated to point to new real ids at the time of restart.
+       The virtual id technique can be used for almost any id (e.g.,
+       socket descriptor, path prefix, hostname, etc.).  The file
+       DMTCP/include/virtualidtable.h may be useful for this purpose.
+  (b) Split processes:  The MANA and CRAC projects were designed around
+       the concept of split processes.  As an example, the number
+       of network interconnects and their extensions is constantly
+       increasing.  It is difficult to transparently checkpoint a network
+       data structure since it is closely tied to the current state of
+       the network hardware.  Split processes use a stable API (e.g, the
+       MPI or CUDA API, or a fixed network API) to distinguish upper-half
+       memory segments (associated with application code calling the
+       API) and lower-half memory segment (associated with applications
+       implementing the API).  The user plugin arranges to save only the
+       upper-half memory segments during checkpoint.  During restart,
+       a small, fresh application launches a new process implementing
+       only the lower half.  The lower-half application then restores
+       the upper-half memory segments from the checkpoint image file.
+
+  DMTCP now includes the ability to create an MTCP restart plugin, for
+  use in split processes (see above). The lower-half application can
+  use the MTCP restart plugin to restore the upper half from its
+  checkpoint image.
+
+  The DMTCP key-value database (KVDB) was extended, for use by user plugins.
+  The database is based on a subset of Redis (an in-memory data store
+  at https://redis.io/), with operators such as AND, OR, MAX, MIN, etc.
+  See DMTCP/include/kvdb.h for the KVDBRequest types supported.
+  See DMTCP/test/plugin/example-db for a limited example of its use.
+  See the MANA project for a real-world example of its use.
+
+  A new GDB utility, DMTCP/util/gdb-dmtcp-utils, is provided.
+  Source this file into GDB when debugging DMTCP or other software.
+  'gdb-dmtcp-utils' does not depend on DMTCP, and can be used more generally.
+
+---
+MINOR DMTCP ENHANCEMENTS AND BUG FIXES:
+  * Much of the DMTCP coordinator was rewritten to be more flexible,
+      and support the new split process model.
+  * DMTCP ordered maps were made more efficient.
+  * Support for Linux Hugepages was added.
+  * DMTCP supports Microsoft Windows WSL
+  * New events, RUNNING and THREAD_RESUME, were added.
+  * Added DMTCP_COORD_WRITE_CKPT environment variable
+  * Improved DMTCP logging for use when debugging DMTCP
+  * DMTCP now simulate vfork using fork.
+  * Added ability to truncate append-only/RW files on restart.
+  * Add './configure --disable-dlsym-wrapper' for special cases
+  * MAP_FIXED_NOREPLACE used for safer execution during restart
+  * Preserving user-requested rlimit across checkpoint-restart
+  * Fixed SysV msg queue logic
+  * Fixed freopen logic
+  * Many smaller bug fixes
+
+
+Version 2.6.0 release notes
+===========================
+TODO:
+
 Version 2.5.0 release notes
 ===========================
 TODO:
@@ -394,7 +511,7 @@ Version 1.2.4 release notes
   compatible with DMTCP.
 - Zero-mapped pages are no longer expanded and saved to the DMTCP checkpoint
   image.  For Java programs (and other programs using zero-mapped pages for
-  their allocation arena or garbage collecotr), the checkpoint image will now
+  their allocation arena or garbage collector), the checkpoint image will now
   be much smaller.  Checkpoint and restart times will also be faster.
 - DMTCP_ROOT/dmtcp/doc directory added with documentation of some DMTCP
   internals.  architecture-of-dmtcp.pdf is a good place to start reading for

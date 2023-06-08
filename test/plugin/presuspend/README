@@ -1,6 +1,9 @@
-In this example, 'dmtcp_launch --interval 5' invokes checkpoint
-every 5 seconds.  This plugin causes the application applic.c to
-respond to the DMTCP PRESUSPEND event by:
+See "OVERVIEW OF 'PRESUSPEND' AND OTHER EVENTS", below, for brief
+documentation of PRESUSPEND and the other events used in this example.
+
+To run this example, execute 'dmtcp_launch --interval 5', which invokes
+a checkpoint every 5 seconds.  This example plugin causes the application
+applic.c to respond to the DMTCP PRESUSPEND event by:
   (a) killing the child process;
   (b) reporting the total number of tasks completed by all user threads
         since the previous checkpoint; and
@@ -35,3 +38,60 @@ then do:
   make -n check
 and copy the last command and do:
   gdb --args PASTED_LAST_COMMAND
+
+====
+OVERVIEW OF 'PRESUSPEND' AND OTHER EVENTS:
+
+  The plugin facility for end users has now been made more flexible.
+  In particular, a plugin can now declare a PRESUSPEND phase.
+  See DMTCP/test/plugin/presuspend/ for an example plugin using presuspend.
+  See the mpi-proxy-split plugin of the MANA project for a real-world example.
+  (a) PRESUSPEND:  checkpoint thread executes arbitrary user code
+                   specified by DMTCP_EVENT_PRESUSPEND.  User threads can
+                   continue to execute.  This allows the checkpoint thread
+                   to monitor when the user threads have reached a safe
+                   state.  When the checkpoint thread code for PRESUSPEND
+                   returns, DMTCP moves to the PRECHECKPOINT event.
+  (b) PRECHECKPOINT:  All user threads are suspended.  The checkpoint
+                   thread executes arbitrary user code specified by
+                   DMTCP_EVENT_PRECHECKPOINT.  When the checkpoint
+                   thread code for PRECHECKPOINT returns, DMTCP then
+                   creates the checkpoint.  DMTCP then moves to
+                   the RESUME event.
+  (c) RESUME:  All user threads resume execution.  The checkpoint thread
+                   does nothing, while waiting for the next PRESUSPEND event.
+                   If the user wishes for the user threads to execute
+                   special code during resume and before normal execution,
+                   then it is the responsibility of the user to create
+                   code for the PRESUSPEND event that forces user threads
+                   to wait on a user-defined barrier before checkpoint,
+                   and then to execute special user code after the barrier
+                   upon receiving the RESUME event.
+  (d) RESTART:  All user threads resume execution, and the behavior is
+                   essentially the same as for RESUME.  This is the first
+                   even seen by user threads after dmtcp_restart is invoked.
+
+  If you wish to write advanced plugins, please write to the developers
+  for suggestions about using:
+ (a) Virtual ids:  a plugin should implement a translation table
+       translating real ids to virtual ids.  Virtual ids are should fit
+       within the same memory size occupied by a real id.  Virtual ids
+       are invariant across the checkpoint-restart barrier.  The table
+       is updated to point to new real ids at the time of restart.
+       The virtual id technique can be used for almost any id (e.g.,
+       socket descriptor, path prefix, hostname, etc.).  The file
+       DMTCP/include/virtualidtable.h may be useful for this purpose.
+  (b) Split processes:  The MANA and CRAC projects were designed around
+       the concept of split processes.  As an example, the number
+       of network interconnects and their extensions is constantly
+       increasing.  It is difficult to transparently checkpoint a network
+       data structure since it is closely tied to the current state of
+       the network hardware.  Split processes use a stable API (e.g, the
+       MPI or CUDA API, or a fixed network API) to distinguish upper-half
+       memory segments (associated with application code calling the
+       API) and lower-half memory segment (associated with applications
+       implementing the API).  The user plugin arranges to save only the
+       upper-half memory segments during checkpoint.  During restart,
+       a small, fresh application launches a new process implementing
+       only the lower half.  The lower-half application then restores
+       the upper-half memory segments from the checkpoint image file.
