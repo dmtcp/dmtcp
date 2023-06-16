@@ -829,6 +829,7 @@ void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
   if (flags & MAP_FIXED) {
     flags ^= MAP_FIXED;
   }
+  flags |= MAP_FIXED_NOREPLACE;
   void *addr2 = mtcp_sys_mmap(addr, len, prot, flags, fd, offset);
   if (addr == addr2) {
     DPRINTF("Mapped %p bytes at %p\n", len, addr);
