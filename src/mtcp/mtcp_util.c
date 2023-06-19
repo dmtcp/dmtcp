@@ -25,6 +25,7 @@
  *
  *****************************************************************************/
 
+#include <linux/version.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -829,6 +830,10 @@ void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
   if (flags & MAP_FIXED) {
     flags ^= MAP_FIXED;
   }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+  // This flag should force: 'addr == addr2' or 'addr2 == MAP_FAILED'
+  flags |= MAP_FIXED_NOREPLACE;
+#endif
   void *addr2 = mtcp_sys_mmap(addr, len, prot, flags, fd, offset);
   if (addr == addr2) {
     DPRINTF("Mapped %p bytes at %p\n", len, addr);
