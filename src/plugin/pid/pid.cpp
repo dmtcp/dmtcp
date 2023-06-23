@@ -206,7 +206,7 @@ pid_real_to_virtual_filepath(DmtcpEventData_t *data)
 
 
 static int
-openSharedFile(string name, int flags)
+openSharedFile(string const& name, int flags)
 {
   int fd;
   int errno_bkp;
@@ -218,18 +218,15 @@ openSharedFile(string name, int flags)
   JTRACE("shared file dir:")(dir);
   jalib::Filesystem::mkdir_r(dir, 0755);
 
-  if ((fd =
-         _real_open(name.c_str(), O_EXCL | O_CREAT | O_TRUNC | flags,
-                    0600)) >= 0) {
+  if ((fd = open(name.c_str(), O_EXCL | O_CREAT | O_TRUNC | flags, 0600)) >=
+      0) {
     return fd;
   }
   errno_bkp = errno;
 
-  JTRACE("_real_open: ")(strerror(errno))(fd)(flags);
-
   if ((fd < 0) && (errno_bkp == EEXIST)) {
     errno = 0;
-    if ((fd = _real_open(name.c_str(), flags, 0600)) >= 0) {
+    if ((fd = open(name.c_str(), flags, 0600)) >= 0) {
       return fd;
     }
   }
@@ -237,28 +234,6 @@ openSharedFile(string name, int flags)
   // unable to create & open OR open
   JASSERT(false)(name)(strerror(errno)).Text("Cannot open file");
   return -1;
-}
-
-static void
-openOriginalToCurrentMappingFiles()
-{
-  int fd;
-  ostringstream o;
-
-  o << dmtcp_get_tmpdir() << "/dmtcpPidMap."
-    << dmtcp_get_computation_id_str() << "."
-    << std::hex << dmtcp_get_coordinator_timestamp();
-  pidMapFile = o.str();
-
-  // Open and create pidMapFile if it doesn't exist.
-  JTRACE("Open dmtcpPidMapFile")(pidMapFile);
-  if (!Util::isValidFd(PROTECTED_PIDMAP_FD)) {
-    fd = openSharedFile(pidMapFile, O_RDWR);
-    JASSERT(fd != -1);
-    JASSERT(_real_dup2(fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
-      (pidMapFile);
-    _real_close(fd);
-  }
 }
 
 static void
@@ -280,8 +255,27 @@ pidVirt_PostRestart()
   // changed yet, and 'screen' will assume that there's nothing to do.
 
   dmtcp_update_ppid();
-  openOriginalToCurrentMappingFiles();
-  VirtualPidTable::instance().writeMapsToFile(PROTECTED_PIDMAP_FD);
+
+  ostringstream o;
+  o << dmtcp_get_tmpdir() << "/dmtcpPidMap."
+    << dmtcp_get_computation_id_str() << "."
+    << std::hex << dmtcp_get_coordinator_timestamp();
+
+  // Open and create pidMapFile if it doesn't exist.
+  JTRACE("Open dmtcpPidMapFile")(o.str());
+  int fd = openSharedFile(o.str(), O_RDWR);
+  JASSERT(fd != -1);
+
+  VirtualPidTable::instance().writeMapsToFile(fd);
+  dmtcp_local_barrier("PID:RESTART");
+  VirtualPidTable::instance().readMapsFromFile(fd);
+
+  close(fd);
+  unlink(pidMapFile.c_str());
+
+#ifdef ENABLE_PTHREAD_MUTEX_WRAPPERS
+  pidVirt_RefillTid();
+#endif
 }
 
 #ifdef ENABLE_PTHREAD_MUTEX_WRAPPERS
@@ -297,18 +291,6 @@ pidVirt_RefillTid()
   }
 }
 #endif
-
-static void
-pidVirt_PostRestartRefill()
-{
-  VirtualPidTable::instance().readMapsFromFile(PROTECTED_PIDMAP_FD);
-
-  dmtcp_close_protected_fd(PROTECTED_PIDMAP_FD);
-  unlink(pidMapFile.c_str());
-#ifdef ENABLE_PTHREAD_MUTEX_WRAPPERS
-  pidVirt_RefillTid();
-#endif
-}
 
 static void
 pidVirt_ThreadExit(DmtcpEventData_t *data)
@@ -375,8 +357,6 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_RESTART:
     pidVirt_PostRestart();
-    dmtcp_local_barrier("PID:RESTART");
-    pidVirt_PostRestartRefill();
     restartInProgress = false;
     break;
 
