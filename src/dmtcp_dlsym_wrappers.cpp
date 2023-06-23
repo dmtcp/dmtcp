@@ -30,11 +30,11 @@ print_debug_messages(dt_tag tags,
     JTRACE("** symbol version: ")
           (version_name(tags.versym[default_symbol_index], &tags));
   }
-#endif /* ifdef VERBOSE */
   if (!default_symbol_index) {
     JTRACE("ERROR:  No default symbol version found"
            "        Extend code to look for hidden symbols?")(symbol);
   }
+#endif /* ifdef VERBOSE */
 }
 
 // Like dlsym but finds the 'default' symbol of a library (the symbol that the
