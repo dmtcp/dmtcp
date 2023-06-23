@@ -192,11 +192,6 @@ typedef funcptr_t (*signal_funcptr_t) ();
  *
  */
 
-#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-LIB_PRIVATE void dmtcp_setThreadPerformingDlopenDlsym();
-LIB_PRIVATE void dmtcp_unsetThreadPerformingDlopenDlsym();
-#endif /* if TRACK_DLOPEN_DLSYM_FOR_LOCKS */
-
 static void *_real_func_addr[numLibcWrappers];
 static int dmtcp_wrappers_initialized = 0;
 
@@ -270,31 +265,6 @@ dmtcp_prepare_wrappers(void)
   (*fn)
 
 typedef void * (*dlsym_fnptr_t) (void *handle, const char *symbol);
-
-LIB_PRIVATE
-void *
-_real_dlsym(void *handle, const char *symbol)
-{
-  static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
-
-  if (_libc_dlsym_fnptr == NULL) {
-    _libc_dlsym_fnptr = dmtcp_dlsym;
-  }
-
-#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-
-  // Avoid calling WRAPPER_EXECUTION_DISABLE_CKPT() in calloc() wrapper. See
-  // comment in miscwrappers for more details.
-  // EDIT: Now that we are using pthread_getspecific trick, calloc will not be
-  // called and so we do not need to disable locking for calloc.
-  dmtcp_setThreadPerformingDlopenDlsym();
-#endif /* if TRACK_DLOPEN_DLSYM_FOR_LOCKS */
-  void *res = (*_libc_dlsym_fnptr)(handle, symbol);
-#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-  dmtcp_unsetThreadPerformingDlopenDlsym();
-#endif /* if TRACK_DLOPEN_DLSYM_FOR_LOCKS */
-  return res;
-}
 
 /* In libdmtcp.so code always use this function instead of unsetenv.
  * Bash has its own implementation of getenv/setenv/unsetenv and keeps its own
