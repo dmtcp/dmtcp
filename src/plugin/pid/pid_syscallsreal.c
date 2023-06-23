@@ -44,7 +44,7 @@ static void *pid_real_func_addr[numPidVirtWrappers];
 static int pid_wrappers_initialized = 0;
 
 #define GET_FUNC_ADDR(name) \
-  pid_real_func_addr[PIDVIRT_ENUM(name)] = _real_dlsym(RTLD_NEXT, # name);
+  pid_real_func_addr[PIDVIRT_ENUM(name)] = dmtcp_dlsym(RTLD_NEXT, # name);
 
 #define GET_FUNC_ADDR_V(name, v)                                               \
   pid_real_func_addr[PIDVIRT_ENUM(name)] = dmtcp_dlvsym(RTLD_NEXT, # name, v); \
@@ -119,19 +119,6 @@ _real_func_addr(PidVirtWrapperOffset func)
 {
   pid_initialize_wrappers();
   return pid_real_func_addr[func];
-}
-
-LIB_PRIVATE
-void *
-_real_dlsym(void *handle, const char *symbol)
-{
-  static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
-
-  if (_libc_dlsym_fnptr == NULL) {
-    _libc_dlsym_fnptr = (dlsym_fnptr_t) dmtcp_dlsym;
-  }
-
-  return (void *)(*_libc_dlsym_fnptr)(handle, symbol);
 }
 
 // Also copied into src/threadlist.cpp, so that libdmtcp.sp

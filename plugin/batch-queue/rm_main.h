@@ -36,7 +36,6 @@
 #define _real_pthread_mutex_lock   NEXT_FNC(pthread_mutex_lock)
 #define _real_pthread_mutex_unlock NEXT_FNC(pthread_mutex_unlock)
 #define _real_dlopen               NEXT_FNC(dlopen)
-#define _real_dlsym                NEXT_FNC(dlsym)
 #define _real_system               NEXT_FNC(system)
 
 #define _real_socket               NEXT_FNC(socket)

@@ -508,7 +508,7 @@ libtorque_init()
     }
 
     dlerror();
-    tm_spawn_ptr = (tm_spawn_t)_real_dlsym(_libtorque_handle, "tm_spawn");
+    tm_spawn_ptr = (tm_spawn_t)dmtcp_dlsym(_libtorque_handle, "tm_spawn");
     if (tm_spawn_ptr == NULL) {
       error = dlerror();
       if (error) {

@@ -27,6 +27,7 @@
 #include "jassert.h"
 #include "dmtcp.h"
 
+#define ENABLE_DLSYM_WRAPPER
 #ifdef ENABLE_DLSYM_WRAPPER
 
 /* NOTE:  'dlsym' is used in DMTCP in two different ways.
@@ -69,8 +70,6 @@
  *     imitate the logic in glibc.  But for simplicity, we should avoid
  *     this for now.
  */
-
-# define _real_dlsym NEXT_FNC(dlsym)
 
 using namespace dmtcp;
 
@@ -147,7 +146,7 @@ dlsym(void *handle, const char *symbol)
   DMTCP_PLUGIN_DISABLE_CKPT();
   // FIXME:  _real_dlsym is currently in src/plugin/pid/pid_syscallsreal.c
   //         Should we move it to src/syscallsreal.c ?
-  void *ret = _real_dlsym(handle, symbol);
+  void *ret = dmtcp_dlsym(handle, symbol);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }

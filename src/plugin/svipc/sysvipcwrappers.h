@@ -40,5 +40,4 @@
 # define _real_msgsnd               NEXT_FNC(msgsnd)
 # define _real_msgrcv               NEXT_FNC(msgrcv)
 
-# define _real_dlsym                NEXT_FNC(dlsym)
 #endif // ifndef SYSVIPC_WRAPPERS_H
