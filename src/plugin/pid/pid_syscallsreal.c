@@ -62,10 +62,8 @@ static int pid_wrappers_initialized = 0;
 // Similarly, for fopen/fclose/fdopen, there is a GLIBC_2.1 in addition to
 // GLIBC_2.0 version.
 # define GET_SYSVIPC_CTL_FUNC_ADDR(name) GET_FUNC_ADDR_V(name, "GLIBC_2.2")
-# define GET_FOPEN_FUNC_ADDR(name)       GET_FUNC_ADDR_V(name, "GLIBC_2.1")
 #else /* ifdef __i386__ */
 # define GET_SYSVIPC_CTL_FUNC_ADDR(name) GET_FUNC_ADDR(name)
-# define GET_FOPEN_FUNC_ADDR(name)       GET_FUNC_ADDR(name)
 #endif /* ifdef __i386__ */
 
 LIB_PRIVATE
@@ -75,7 +73,6 @@ pid_initialize_wrappers()
   if (!pid_wrappers_initialized) {
     FOREACH_PIDVIRT_WRAPPER(GET_FUNC_ADDR);
     FOREACH_SYSVIPC_CTL_WRAPPER(GET_SYSVIPC_CTL_FUNC_ADDR);
-    FOREACH_FOPEN_WRAPPER(GET_FOPEN_FUNC_ADDR);
     FOREACH_SCHED_WRAPPER(GET_FUNC_ADDR);
 #if HAS_CMA
     FOREACH_CMA_WRAPPER(GET_FUNC_ADDR);
@@ -453,126 +450,6 @@ int
 _real_fcntl(int fd, int cmd, void *arg)
 {
   REAL_FUNC_PASSTHROUGH(fcntl) (fd, cmd, arg);
-}
-
-int
-_real_open(const char *path, int flags, ...)
-{
-  mode_t mode = 0;
-
-  // Handling the variable number of arguments
-  if (flags & O_CREAT) {
-    va_list arg;
-    va_start(arg, flags);
-    mode = va_arg(arg, int);
-    va_end(arg);
-  }
-  REAL_FUNC_PASSTHROUGH(open) (path, flags, mode);
-}
-
-int
-_real_open64(const char *path, int flags, ...)
-{
-  mode_t mode = 0;
-
-  // Handling the variable number of arguments
-  if (flags & O_CREAT) {
-    va_list arg;
-    va_start(arg, flags);
-    mode = va_arg(arg, int);
-    va_end(arg);
-  }
-  REAL_FUNC_PASSTHROUGH(open64) (path, flags, mode);
-}
-
-LIB_PRIVATE
-int
-_real_close(int fd)
-{
-  REAL_FUNC_PASSTHROUGH(close) (fd);
-}
-
-LIB_PRIVATE
-int
-_real_dup2(int fd1, int fd2)
-{
-  REAL_FUNC_PASSTHROUGH(dup2) (fd1, fd2);
-}
-
-FILE *
-_real_fopen(const char *path, const char *mode)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(FILE *, fopen) (path, mode);
-}
-
-FILE *
-_real_fopen64(const char *path, const char *mode)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(FILE *, fopen) (path, mode);
-}
-
-int
-_real_fclose(FILE *fp)
-{
-  REAL_FUNC_PASSTHROUGH(fclose) (fp);
-}
-
-LIB_PRIVATE DIR*
-_real_opendir(const char* name)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(DIR*, opendir) (name);
-}
-
-// FIXME:
-//   _real_*stat*() is not called anywhere in plugin/pid/*
-//   _real___*stat*() is defined and called in src/syscall*.*
-//   Therefore, we should delete all of these defs of _real_*stat*() below.
-#ifdef _STAT_VER
-int
-_real_xstat(int vers, const char *path, struct stat *buf)
-{
-  REAL_FUNC_PASSTHROUGH(__xstat) (vers, path, buf);
-}
-
-int
-_real_xstat64(int vers, const char *path, struct stat64 *buf)
-{
-  REAL_FUNC_PASSTHROUGH(__xstat64) (vers, path, buf);
-}
-
-int
-_real_lxstat(int vers, const char *path, struct stat *buf)
-{
-  REAL_FUNC_PASSTHROUGH(__lxstat) (vers, path, buf);
-}
-
-int
-_real_lxstat64(int vers, const char *path, struct stat64 *buf)
-{
-  REAL_FUNC_PASSTHROUGH(__lxstat64) (vers, path, buf);
-}
-#else
-int _real_stat(const char *path, struct stat *buf) {
-  REAL_FUNC_PASSTHROUGH(stat) (path, buf);
-}
-
-int _real_stat64(const char *path, struct stat64 *buf) {
-  REAL_FUNC_PASSTHROUGH(stat64) (path, buf);
-}
-
-int _real_lstat(const char *path, struct stat *buf) {
-  REAL_FUNC_PASSTHROUGH(lstat) (path, buf);
-}
-
-int _real_lstat64(const char *path, struct stat64 *buf) {
-  REAL_FUNC_PASSTHROUGH(lstat64) (path, buf);
-}
-#endif
-
-ssize_t
-_real_readlink(const char *path, char *buf, size_t bufsiz)
-{
-  REAL_FUNC_PASSTHROUGH(readlink) (path, buf, bufsiz);
 }
 
 LIB_PRIVATE
