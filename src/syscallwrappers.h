@@ -88,14 +88,14 @@
 # undef _real_xstat64
 # undef _real_lxstat
 # undef _real_lxstat64
-# define __xstat(vers,path,buf)          stat(path, buf)
-# define __xstat64(vers,path,buf)        stat64(path, buf)
-# define __lxstat(vers,path,buf)         lstat(path, buf)
-# define __lxstat64(vers,path,buf)       lstat64(path, buf)
-# define _real___xstat(vers,path,buf)    _real_stat(path, buf)
-# define _real___xstat64(vers,path,buf)  _real_stat64(path, buf)
-# define _real___lxstat(vers,path,buf)   _real_lstat(path, buf)
-# define _real___lxstat64(vers,path,buf) _real_lstat64(path, buf)
+# define __xstat(vers, path, buf)          stat(path, buf)
+# define __xstat64(vers, path, buf)        stat64(path, buf)
+# define __lxstat(vers, path, buf)         lstat(path, buf)
+# define __lxstat64(vers, path, buf)       lstat64(path, buf)
+# define _real___xstat(vers, path, buf)    _real_stat(path, buf)
+# define _real___xstat64(vers, path, buf)  _real_stat64(path, buf)
+# define _real___lxstat(vers, path, buf)   _real_lstat(path, buf)
+# define _real___lxstat64(vers, path, buf) _real_lstat64(path, buf)
 #endif
 
 #ifdef HAVE_SYS_EPOLL_H
@@ -431,7 +431,6 @@ int _real___xstat(int vers, const char *path, struct stat *buf);
 int _real___xstat64(int vers, const char *path, struct stat64 *buf);
 int _real___lxstat(int vers, const char *path, struct stat *buf);
 int _real___lxstat64(int vers, const char *path, struct stat64 *buf);
-void *_real_dlsym(void *handle, const char *symbol);
 
 void *_real_dlopen(const char *filename, int flag);
 int _real_dlclose(void *handle);
