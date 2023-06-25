@@ -134,6 +134,8 @@ __d_bindir__dmtcp_sshd_SHORTNAME = i
 #
 libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_pid.so
 __d_libdir__libdmtcp_pid_so_SOURCES =                                  \
+	pid/glibc_pthread.cpp                                          \
+	pid/glibc_pthread.h                                            \
 	pid/pid.cpp                                                    \
 	pid/pid_filewrappers.cpp                                       \
 	pid/pid.h                                                      \

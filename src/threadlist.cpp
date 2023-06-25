@@ -169,6 +169,12 @@ ThreadList::resetOnFork()
     ThreadList::threadIsDead(activeThreads); // takes care of updating
                                              // "activeThreads" ptr.
   }
+
+  // CONTEXT:  initThread() resets curThread only if it's non-NULL.
+  // ... -> initializeMtcpEngine() -> ThreadList::init() -> initThread()
+  // See addToActiveList() for more information.
+  curThread = motherofall = nullptr;
+
   init();
   createCkptThread();
 }
@@ -190,14 +196,11 @@ ThreadList::init()
   /* libc/getpid can lie if we had used kernel fork() instead of libc fork(). */
   motherpid = getpid();
 
-  // CONTEXT:  initThread() resets curThread only if it's non-NULL.
-  // ... -> initializeMtcpEngine() -> ThreadList::init() -> initThread()
-  // See addToActiveList() for more information.
-  curThread = motherofall = NULL;
-
-  /* Set up caller as one of our threads so we can work on it */
-  motherofall = ThreadList::getNewThread(NULL, NULL);
-  initThread(motherofall);
+  if (motherofall == nullptr) {
+    /* Set up caller as one of our threads so we can work on it */
+    motherofall = ThreadList::getNewThread(NULL, NULL);
+    initThread(motherofall);
+  }
 }
 
 /*****************************************************************************

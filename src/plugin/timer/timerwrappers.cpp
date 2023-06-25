@@ -21,6 +21,7 @@
 
 #include "timerwrappers.h"
 #include "timerlist.h"
+#include "wrapperlock.h"
 
 using namespace dmtcp;
 
@@ -124,13 +125,14 @@ clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
 extern "C" int
 pthread_getcpuclockid(pthread_t thread, clockid_t *clock_id)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  // We need to acquire an exclusive lock here because the corresponding Pid
+  // plugin wrapper requires an exclusive lock.
+  WrapperLockExcl wrapperLock;
   clockid_t realId;
   int ret = _real_pthread_getcpuclockid(thread, &realId);
   if (ret == 0) {
     *clock_id = TimerList::instance().on_pthread_getcpuclockid(thread, realId);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
