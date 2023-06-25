@@ -34,7 +34,9 @@
 #include "pid.h"
 #include "pidwrappers.h"
 #include "util.h"
+#include "wrapperlock.h"
 #include "virtualpidtable.h"
+#include "glibc_pthread.h"
 
 using namespace dmtcp;
 
@@ -148,6 +150,38 @@ getppid()
   }
   return _dmtcp_ppid;
 }
+
+#ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
+extern "C" int
+pthread_kill(pthread_t th, int sig)
+{
+  WrapperLockExcl wrapperLock;
+
+  /* Disallow sending the signal we use for cancellation, timers,
+     for the setxid implementation.  */
+  if (sig == SIGCANCEL || sig == SIGSETXID) {
+    return EINVAL;
+  }
+
+  if (th == pthread_self()) {
+    /* Use the actual TID from the kernel, so that it refers to the
+       current thread even if called after vfork.  There is no
+       signal blocking in this case, so that the signal is delivered
+       immediately, before __pthread_kill_internal returns. A signal
+       sent to the thread itself needs to be delivered
+       synchronously.  (It is unclear if Linux guarantees the
+       delivery of all pending signals after unblocking in the code
+       below.  POSIX only guarantees delivery of a single signal,
+       which may not be the right one.)  */
+    return _real_tgkill(_real_getpid(), _real_gettid(), sig);
+  }
+
+  pid_t virtTid = dmtcp_pthread_get_tid(th);
+  pid_t realTid = VIRTUAL_TO_REAL_PID(virtTid);
+
+  return tgkill(_dmtcp_pid, realTid, sig);
+}
+#endif // #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
 
 extern "C" pid_t
 tcsetpgrp(int fd, pid_t pgrp)
@@ -631,6 +665,7 @@ extern "C" int setuid(uid_t uid)
 
 // long sys_set_tid_address(int __user *tidptr);
 // extern "C" int   sigqueue(pid_t pid, int signo, const union sigval value)
+// long sys_rt_sigqueueinfo(int pid, int sig, siginfo_t __user *uinfo);
 
 
 // long sys_getuid(void);
@@ -659,7 +694,6 @@ extern "C" int setuid(uid_t uid)
 // long sys_sched_rr_get_interval(pid_t pid,
 //
 //
-// long sys_rt_sigqueueinfo(int pid, int sig, siginfo_t __user *uinfo);
 //
 //
 //

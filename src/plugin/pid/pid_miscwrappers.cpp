@@ -21,6 +21,7 @@
 
 #include <semaphore.h>
 #include <signal.h>  // needed for SIGEV_THREAD_ID
+#include <sys/prctl.h>
 #include <sys/syscall.h>
 #include <linux/version.h>
 
@@ -35,6 +36,7 @@
 #include "shareddata.h"
 #include "util.h"
 #include "virtualpidtable.h"
+#include "glibc_pthread.h"
 
 using namespace dmtcp;
 
@@ -559,3 +561,99 @@ process_vm_writev(pid_t pid,
   return ret;
 }
 #endif // ifdef HAS_CMA
+
+#ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
+extern "C" int
+pthread_getcpuclockid (pthread_t th, clockid_t *clockid)
+{
+  // TODO(kapil): Validate th.
+  pid_t tid = dmtcp_pthread_get_tid(th);
+
+  /* The clockid_t value is a simple computation from the TID.  */
+  const clockid_t tidclock = make_thread_cpuclock (tid, CPUCLOCK_SCHED);
+
+  *clockid = tidclock;
+  return 0;
+}
+
+/* Unfortunately the kernel headers do not export the TASK_COMM_LEN
+   macro.  So we have to define it here.  */
+#define TASK_COMM_LEN 16
+#define TASK_COMM_FMT "/proc/self/task/%u/comm"
+#define TASK_COMM_MAX_LEN strlen("/proc/self/task/18446744073709551615/comm")
+extern "C" int
+pthread_getname_np (pthread_t th, char *buf, size_t len)
+{
+  if (th == pthread_self()) {
+    return prctl (PR_GET_NAME, buf) ? errno : 0;
+  }
+
+  pid_t tid = dmtcp_pthread_get_tid(th);
+
+  // Copied from glibc.
+  if (len < TASK_COMM_LEN)
+    return ERANGE;
+
+  char fname[TASK_COMM_MAX_LEN + 1];
+  snprintf(fname, sizeof(fname), TASK_COMM_FMT, (unsigned int)tid);
+
+  int fd = open(fname, O_RDONLY);
+  if (fd == -1) {
+    return errno;
+  }
+
+  int res = 0;
+  ssize_t n = Util::readAll(fd, buf, len);
+  if (n < 0) {
+    res = errno;
+  } else {
+    if (buf[n - 1] == '\n') {
+      buf[n - 1] = '\0';
+    } else if ((size_t) n == len) {
+      res = ERANGE;
+    } else {
+      buf[n] = '\0';
+    }
+  }
+
+  close(fd);
+  return res;
+}
+
+extern "C" int
+pthread_setname_np (pthread_t th, const char *name)
+{
+  /* Unfortunately the kernel headers do not export the TASK_COMM_LEN
+     macro.  So we have to define it here.  */
+  size_t name_len = strlen (name);
+  if (name_len >= TASK_COMM_LEN)
+    return ERANGE;
+
+  if (th == pthread_self()) {
+    return prctl (PR_SET_NAME, name) ? errno : 0;
+  }
+
+  pid_t tid = dmtcp_pthread_get_tid(th);
+
+  char fname[TASK_COMM_MAX_LEN + 1];
+  snprintf(fname, sizeof(fname), TASK_COMM_FMT, (unsigned int)tid);
+
+  int fd = open(fname, O_RDWR);
+  if (fd == -1) {
+    return errno;
+  }
+
+  int res = 0;
+  ssize_t n = Util::writeAll(fd, name, name_len);
+  if (n < 0) {
+    res = errno;
+  } else if ((size_t) n != name_len) {
+    res = EIO;
+  }
+
+  close(fd);
+
+  return res;
+}
+
+#endif // #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD

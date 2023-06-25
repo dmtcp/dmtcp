@@ -162,10 +162,11 @@ __d_libdir__libdmtcp_ipc_so_OBJECTS =  \
 __d_libdir__libdmtcp_ipc_so_DEPENDENCIES = $(am__DEPENDENCIES_1)
 __d_libdir__libdmtcp_ipc_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(__d_libdir__libdmtcp_ipc_so_LDFLAGS) $(LDFLAGS) -o $@
-am___d_libdir__libdmtcp_pid_so_OBJECTS = pid.$(OBJEXT) \
-	pid_filewrappers.$(OBJEXT) pid_miscwrappers.$(OBJEXT) \
-	pid_syscallsreal.$(OBJEXT) pidwrappers.$(OBJEXT) \
-	sched_wrappers.$(OBJEXT) virtualpidtable.$(OBJEXT)
+am___d_libdir__libdmtcp_pid_so_OBJECTS = glibc_pthread.$(OBJEXT) \
+	pid.$(OBJEXT) pid_filewrappers.$(OBJEXT) \
+	pid_miscwrappers.$(OBJEXT) pid_syscallsreal.$(OBJEXT) \
+	pidwrappers.$(OBJEXT) sched_wrappers.$(OBJEXT) \
+	virtualpidtable.$(OBJEXT)
 __d_libdir__libdmtcp_pid_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_pid_so_OBJECTS)
 __d_libdir__libdmtcp_pid_so_LDADD = $(LDADD)
@@ -234,7 +235,7 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/dlwrappers.Po \
-	./$(DEPDIR)/i-connection.Po \
+	./$(DEPDIR)/glibc_pthread.Po ./$(DEPDIR)/i-connection.Po \
 	./$(DEPDIR)/i-connectionidentifier.Po \
 	./$(DEPDIR)/i-connectionlist.Po \
 	./$(DEPDIR)/i-connectionrewirer.Po ./$(DEPDIR)/i-dmtcp_ssh.Po \
@@ -598,6 +599,8 @@ __d_bindir__dmtcp_sshd_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/ipc
 __d_bindir__dmtcp_sshd_LDADD = libssh.a $(LDADD)
 __d_bindir__dmtcp_sshd_SHORTNAME = i
 __d_libdir__libdmtcp_pid_so_SOURCES = \
+	pid/glibc_pthread.cpp                                          \
+	pid/glibc_pthread.h                                            \
 	pid/pid.cpp                                                    \
 	pid/pid_filewrappers.cpp                                       \
 	pid/pid.h                                                      \
@@ -866,6 +869,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dlwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/glibc_pthread.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-connection.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-connectionidentifier.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-connectionlist.Po@am__quote@ # am--include-marker
@@ -1361,6 +1365,20 @@ i-sshdrainer.obj: ipc/ssh/sshdrainer.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-sshdrainer.obj `if test -f 'ipc/ssh/sshdrainer.cpp'; then $(CYGPATH_W) 'ipc/ssh/sshdrainer.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/ssh/sshdrainer.cpp'; fi`
 
+glibc_pthread.o: pid/glibc_pthread.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT glibc_pthread.o -MD -MP -MF $(DEPDIR)/glibc_pthread.Tpo -c -o glibc_pthread.o `test -f 'pid/glibc_pthread.cpp' || echo '$(srcdir)/'`pid/glibc_pthread.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/glibc_pthread.Tpo $(DEPDIR)/glibc_pthread.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/glibc_pthread.cpp' object='glibc_pthread.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o glibc_pthread.o `test -f 'pid/glibc_pthread.cpp' || echo '$(srcdir)/'`pid/glibc_pthread.cpp
+
+glibc_pthread.obj: pid/glibc_pthread.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT glibc_pthread.obj -MD -MP -MF $(DEPDIR)/glibc_pthread.Tpo -c -o glibc_pthread.obj `if test -f 'pid/glibc_pthread.cpp'; then $(CYGPATH_W) 'pid/glibc_pthread.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/glibc_pthread.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/glibc_pthread.Tpo $(DEPDIR)/glibc_pthread.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/glibc_pthread.cpp' object='glibc_pthread.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o glibc_pthread.obj `if test -f 'pid/glibc_pthread.cpp'; then $(CYGPATH_W) 'pid/glibc_pthread.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/glibc_pthread.cpp'; fi`
+
 pid.o: pid/pid.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid.o -MD -MP -MF $(DEPDIR)/pid.Tpo -c -o pid.o `test -f 'pid/pid.cpp' || echo '$(srcdir)/'`pid/pid.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid.Tpo $(DEPDIR)/pid.Po
@@ -1646,6 +1664,7 @@ clean-am: clean-binPROGRAMS clean-generic clean-libdmtcpPROGRAMS \
 
 distclean: distclean-am
 		-rm -f ./$(DEPDIR)/dlwrappers.Po
+	-rm -f ./$(DEPDIR)/glibc_pthread.Po
 	-rm -f ./$(DEPDIR)/i-connection.Po
 	-rm -f ./$(DEPDIR)/i-connectionidentifier.Po
 	-rm -f ./$(DEPDIR)/i-connectionlist.Po
@@ -1733,6 +1752,7 @@ installcheck-am:
 
 maintainer-clean: maintainer-clean-am
 		-rm -f ./$(DEPDIR)/dlwrappers.Po
+	-rm -f ./$(DEPDIR)/glibc_pthread.Po
 	-rm -f ./$(DEPDIR)/i-connection.Po
 	-rm -f ./$(DEPDIR)/i-connectionidentifier.Po
 	-rm -f ./$(DEPDIR)/i-connectionlist.Po

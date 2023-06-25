@@ -26,6 +26,7 @@
 #include "jfilesystem.h"
 #include "config.h"
 #include "dmtcp.h"
+#include "glibc_pthread.h"
 #include "pidwrappers.h"
 #include "protectedfds.h"
 #include "shareddata.h"
@@ -46,6 +47,10 @@ static string pidMapFile;
 
 static vector<pid_t> *exitedChildTids = NULL;
 static DmtcpMutex exitedChildTidsLock = DMTCP_MUTEX_INITIALIZER_LLL;
+
+#ifndef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
+#define dmtcp_pthread_set_tid(pth, tid) do {} while (0)
+#endif
 
 extern "C"
 pid_t
@@ -94,6 +99,8 @@ dmtcp_update_virtual_to_real_tid(pid_t tid)
   }
 
   VirtualPidTable::instance().updateMapping(tid, _real_gettid());
+
+  dmtcp_pthread_set_tid(pthread_self(), tid);
 }
 
 static
@@ -105,11 +112,11 @@ void removeExitedChildTids()
   for (auto it = exitedChildTids->begin(); it != exitedChildTids->end();) {
     pid_t tid = *it;
     pid_t realTid = VIRTUAL_TO_REAL_PID(tid);
-    if (_real_tgkill(realPid, realTid, 0) != 0) {
+    if (_real_tgkill(realPid, realTid, 0) == 0) {
+      it++;
+    } else {
       it = exitedChildTids->erase(it);
       VirtualPidTable::instance().erase(tid);
-    } else {
-      it++;
     }
   }
   DmtcpMutexUnlock(&exitedChildTidsLock);
@@ -122,6 +129,8 @@ void dmtcp_init_virtual_tid()
   pid_t virtualTid = VirtualPidTable::instance().getNewVirtualTid();
   dmtcpResetTid(virtualTid);
   VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
+
+  dmtcp_pthread_set_tid(pthread_self(), virtualTid);
 }
 
 static void
@@ -307,6 +316,7 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_INIT:
     SharedData::setPidMap(getpid(), _real_getpid());
     exitedChildTids = new vector<pid_t>();
+    dmtcp_pthread_set_tid(pthread_self(), getpid());
     break;
 
   case DMTCP_EVENT_ATFORK_PREPARE:
