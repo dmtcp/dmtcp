@@ -20,6 +20,13 @@
  ****************************************************************************/
 
 #include <sys/resource.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
+# include <sys/personality.h>
+# ifndef ADDR_NO_RANDOMIZE
+#  define ADDR_NO_RANDOMIZE  0x0040000  /* In case of old glibc, not defined */
+# endif
+#endif
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
@@ -142,6 +149,7 @@ static const char *theUsage =
   "              Skip NOTE messages; if given twice, also skip WARNINGs\n"
   "  --coord-logfile PATH (environment variable DMTCP_COORD_LOG_FILENAME\n"
   "              Coordinator will dump its logs to the given file\n"
+  "  --mpi       Use ADDR_NO_RANDOMIZE personality, etc, for MPI applications\n"
   "  --help\n"
   "              Print this message and exit.\n"
   "  --version\n"
@@ -348,6 +356,11 @@ processArgs(int *orig_argc, const char ***orig_argv)
 
       // Just in case a non-standard version of setenv is being used:
       setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
+      shift;
+    } else if (s == "--mpi") {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
+      personality(ADDR_NO_RANDOMIZE);
+#endif
       shift;
     } else if ((s.length() > 2 && s.substr(0, 2) == "--") ||
                (s.length() > 1 && s.substr(0, 1) == "-")) {
