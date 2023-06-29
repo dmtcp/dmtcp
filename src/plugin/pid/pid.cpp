@@ -47,20 +47,6 @@ static string pidMapFile;
 static vector<pid_t> *exitedChildTids = NULL;
 static DmtcpMutex exitedChildTidsLock = DMTCP_MUTEX_INITIALIZER_LLL;
 
-#ifdef ENABLE_PTHREAD_MUTEX_WRAPPERS
-dmtcp::map<pthread_mutex_t *, pid_t>&
-mapMutexVirtTid()
-{
-  static dmtcp::map<pthread_mutex_t *, pid_t> *instance = NULL;
-
-  if (instance == NULL) {
-    void *buffer = JALLOC_MALLOC(1024 * 1024);
-    instance = new (buffer)dmtcp::map<pthread_mutex_t *, pid_t>();
-  }
-  return *instance;
-}
-#endif
-
 extern "C"
 pid_t
 dmtcp_real_to_virtual_pid(pid_t realPid)
@@ -298,25 +284,7 @@ pidVirt_PostRestart()
 
   close(fd);
   unlink(pidMapFile.c_str());
-
-#ifdef ENABLE_PTHREAD_MUTEX_WRAPPERS
-  pidVirt_RefillTid();
-#endif
 }
-
-#ifdef ENABLE_PTHREAD_MUTEX_WRAPPERS
-static void
-pidVirt_RefillTid()
-{
-  map<pthread_mutex_t *, pid_t>::iterator it;
-
-  for (it = mapMutexVirtTid().begin(); it != mapMutexVirtTid().end(); it++) {
-    if (it->first->__data.__owner != 0) {
-      it->first->__data.__owner = VIRTUAL_TO_REAL_PID(it->second);
-    }
-  }
-}
-#endif
 
 static void
 pidVirt_ThreadExit(DmtcpEventData_t *data)
