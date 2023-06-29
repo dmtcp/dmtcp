@@ -98,9 +98,6 @@ libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_alloc.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_pid.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_svipc.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_timer.so$(EXEEXT)
-@ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE@am__append_1 = \
-@ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE@	pid/pid_mutexwrappers.cpp
-
 subdir = src/plugin
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_cxx_compile_stdcxx.m4 \
@@ -165,17 +162,10 @@ __d_libdir__libdmtcp_ipc_so_OBJECTS =  \
 __d_libdir__libdmtcp_ipc_so_DEPENDENCIES = $(am__DEPENDENCIES_1)
 __d_libdir__libdmtcp_ipc_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(__d_libdir__libdmtcp_ipc_so_LDFLAGS) $(LDFLAGS) -o $@
-am____d_libdir__libdmtcp_pid_so_SOURCES_DIST = pid/pid.cpp \
-	pid/pid_filewrappers.cpp pid/pid.h pid/pid_miscwrappers.cpp \
-	pid/pid_syscallsreal.c pid/pidwrappers.cpp pid/pidwrappers.h \
-	pid/sched_wrappers.cpp pid/virtualpidtable.cpp \
-	pid/virtualpidtable.h pid/pid_mutexwrappers.cpp
-@ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE@am__objects_1 = pid_mutexwrappers.$(OBJEXT)
 am___d_libdir__libdmtcp_pid_so_OBJECTS = pid.$(OBJEXT) \
 	pid_filewrappers.$(OBJEXT) pid_miscwrappers.$(OBJEXT) \
 	pid_syscallsreal.$(OBJEXT) pidwrappers.$(OBJEXT) \
-	sched_wrappers.$(OBJEXT) virtualpidtable.$(OBJEXT) \
-	$(am__objects_1)
+	sched_wrappers.$(OBJEXT) virtualpidtable.$(OBJEXT)
 __d_libdir__libdmtcp_pid_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_pid_so_OBJECTS)
 __d_libdir__libdmtcp_pid_so_LDADD = $(LDADD)
@@ -264,7 +254,6 @@ am__depfiles_remade = ./$(DEPDIR)/dlwrappers.Po \
 	./$(DEPDIR)/mmapwrappers.Po ./$(DEPDIR)/pid.Po \
 	./$(DEPDIR)/pid_filewrappers.Po \
 	./$(DEPDIR)/pid_miscwrappers.Po \
-	./$(DEPDIR)/pid_mutexwrappers.Po \
 	./$(DEPDIR)/pid_syscallsreal.Po ./$(DEPDIR)/pidwrappers.Po \
 	./$(DEPDIR)/sched_wrappers.Po ./$(DEPDIR)/sysvipc.Po \
 	./$(DEPDIR)/sysvipcwrappers.Po ./$(DEPDIR)/timer_create.Po \
@@ -313,7 +302,7 @@ DIST_SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
 	$(__d_libdir__libdmtcp_alloc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_dl_so_SOURCES) \
 	$(__d_libdir__libdmtcp_ipc_so_SOURCES) \
-	$(am____d_libdir__libdmtcp_pid_so_SOURCES_DIST) \
+	$(__d_libdir__libdmtcp_pid_so_SOURCES) \
 	$(__d_libdir__libdmtcp_svipc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_timer_so_SOURCES)
 am__can_run_installinfo = \
@@ -386,7 +375,6 @@ HAS_JAVA = @HAS_JAVA@
 HAS_JAVAC = @HAS_JAVAC@
 HAS_MATLAB = @HAS_MATLAB@
 HAS_MPICH = @HAS_MPICH@
-HAS_MUTEX_WRAPPERS = @HAS_MUTEX_WRAPPERS@
 HAS_OPENMPI = @HAS_OPENMPI@
 HAS_PS = @HAS_PS@
 HAS_PYTHON = @HAS_PYTHON@
@@ -609,11 +597,18 @@ __d_bindir__dmtcp_sshd_SOURCES = \
 __d_bindir__dmtcp_sshd_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/ipc
 __d_bindir__dmtcp_sshd_LDADD = libssh.a $(LDADD)
 __d_bindir__dmtcp_sshd_SHORTNAME = i
-__d_libdir__libdmtcp_pid_so_SOURCES = pid/pid.cpp \
-	pid/pid_filewrappers.cpp pid/pid.h pid/pid_miscwrappers.cpp \
-	pid/pid_syscallsreal.c pid/pidwrappers.cpp pid/pidwrappers.h \
-	pid/sched_wrappers.cpp pid/virtualpidtable.cpp \
-	pid/virtualpidtable.h $(am__append_1)
+__d_libdir__libdmtcp_pid_so_SOURCES = \
+	pid/pid.cpp                                                    \
+	pid/pid_filewrappers.cpp                                       \
+	pid/pid.h                                                      \
+	pid/pid_miscwrappers.cpp                                       \
+	pid/pid_syscallsreal.c                                         \
+	pid/pidwrappers.cpp                                            \
+	pid/pidwrappers.h                                              \
+	pid/sched_wrappers.cpp                                         \
+	pid/virtualpidtable.cpp                                        \
+	pid/virtualpidtable.h
+
 __d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_svipc_so_SOURCES = \
 	svipc/sysvipc.cpp                                              \
@@ -902,7 +897,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_filewrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_miscwrappers.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_mutexwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_syscallsreal.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pidwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sched_wrappers.Po@am__quote@ # am--include-marker
@@ -1451,20 +1445,6 @@ virtualpidtable.obj: pid/virtualpidtable.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o virtualpidtable.obj `if test -f 'pid/virtualpidtable.cpp'; then $(CYGPATH_W) 'pid/virtualpidtable.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/virtualpidtable.cpp'; fi`
 
-pid_mutexwrappers.o: pid/pid_mutexwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_mutexwrappers.o -MD -MP -MF $(DEPDIR)/pid_mutexwrappers.Tpo -c -o pid_mutexwrappers.o `test -f 'pid/pid_mutexwrappers.cpp' || echo '$(srcdir)/'`pid/pid_mutexwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_mutexwrappers.Tpo $(DEPDIR)/pid_mutexwrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_mutexwrappers.cpp' object='pid_mutexwrappers.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_mutexwrappers.o `test -f 'pid/pid_mutexwrappers.cpp' || echo '$(srcdir)/'`pid/pid_mutexwrappers.cpp
-
-pid_mutexwrappers.obj: pid/pid_mutexwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_mutexwrappers.obj -MD -MP -MF $(DEPDIR)/pid_mutexwrappers.Tpo -c -o pid_mutexwrappers.obj `if test -f 'pid/pid_mutexwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_mutexwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_mutexwrappers.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_mutexwrappers.Tpo $(DEPDIR)/pid_mutexwrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_mutexwrappers.cpp' object='pid_mutexwrappers.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_mutexwrappers.obj `if test -f 'pid/pid_mutexwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_mutexwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_mutexwrappers.cpp'; fi`
-
 sysvipc.o: svipc/sysvipc.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sysvipc.o -MD -MP -MF $(DEPDIR)/sysvipc.Tpo -c -o sysvipc.o `test -f 'svipc/sysvipc.cpp' || echo '$(srcdir)/'`svipc/sysvipc.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/sysvipc.Tpo $(DEPDIR)/sysvipc.Po
@@ -1697,7 +1677,6 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/pid.Po
 	-rm -f ./$(DEPDIR)/pid_filewrappers.Po
 	-rm -f ./$(DEPDIR)/pid_miscwrappers.Po
-	-rm -f ./$(DEPDIR)/pid_mutexwrappers.Po
 	-rm -f ./$(DEPDIR)/pid_syscallsreal.Po
 	-rm -f ./$(DEPDIR)/pidwrappers.Po
 	-rm -f ./$(DEPDIR)/sched_wrappers.Po
@@ -1785,7 +1764,6 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/pid.Po
 	-rm -f ./$(DEPDIR)/pid_filewrappers.Po
 	-rm -f ./$(DEPDIR)/pid_miscwrappers.Po
-	-rm -f ./$(DEPDIR)/pid_mutexwrappers.Po
 	-rm -f ./$(DEPDIR)/pid_syscallsreal.Po
 	-rm -f ./$(DEPDIR)/pidwrappers.Po
 	-rm -f ./$(DEPDIR)/sched_wrappers.Po
