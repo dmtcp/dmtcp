@@ -174,6 +174,7 @@ typedef enum eDmtcpMutexType
 typedef struct
 {
   uint32_t futex;
+  // 'owner' can't use pid_t.  This must work with 32- and 64-bit processes.
   uint32_t owner;
   uint32_t count;
   DmtcpMutexType type;

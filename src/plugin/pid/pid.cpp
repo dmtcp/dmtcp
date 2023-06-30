@@ -153,9 +153,10 @@ pidVirt_ProcessProcSelfTask(DmtcpEventData_t *data)
 
   pid_t virtualTid = strtol(tidStr, &rest, 0);
   if (virtualTid > 0) {
-    char buf[PATH_MAX];
-    strncpy(buf, rest, PATH_MAX);
+    char buf[PATH_MAX - 20];
+    strncpy(buf, rest, PATH_MAX - 20);
     pid_t realTid = VIRTUAL_TO_REAL_PID(virtualTid);
+    JASSERT(20+strlen(buf) < PATH_MAX); // Reserve char[20] for realTid, below.
     snprintf(tidStr, PATH_MAX, "%d%s", realTid, buf);
   }
 }

@@ -694,12 +694,12 @@ Util::getTimestampStr()
   struct timeval tv;
   struct tm localTime;
   char buf1[128] = {0};
-  char buf2[128] = {0};
+  char buf2[138] = {0}; // Must contain "%s.%03ld"
 
   gettimeofday(&tv, NULL);
   localtime_r(&tv.tv_sec, &localTime);
   strftime(buf1, sizeof(buf1), "%FT%T", &localTime);
-  sprintf(buf2, "%s.%03d", buf1, tv.tv_usec / 1000);
+  snprintf(buf2, sizeof(buf2), "%s.%03ld", buf1, tv.tv_usec / 1000);
 
   return buf2;
 }

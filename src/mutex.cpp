@@ -3,6 +3,7 @@
 #include "jassert.h"
 #include "syscallwrappers.h"
 
+typedef uint32_t mutex_owner_t; // See 'include/dmtcp.h' for why 'uint32_t'
 
 static const uint32_t LOCK_FREE = 0;
 static const uint32_t LOCK_ACQUIRED = 1;
@@ -64,7 +65,8 @@ DmtcpMutexLock(DmtcpMutex *mutex)
                                        LOCK_ACQUIRED_WAITERS_MAY_BE_QUEUED)
            != LOCK_FREE);
 
-  mutex->owner = (mutex->type == DMTCP_MUTEX_LLL) ? 1 : dmtcp_gettid();
+  mutex->owner = (mutex->type == DMTCP_MUTEX_LLL) ? 1
+                                                :(mutex_owner_t) dmtcp_gettid();
   mutex->count = 1;
 
   return 0;
@@ -79,7 +81,7 @@ DmtcpMutexTryLock(DmtcpMutex *mutex)
   if (mutex->type != DMTCP_MUTEX_LLL) {
     owner = dmtcp_gettid();
 
-    if (mutex->owner == owner) {
+    if ((pid_t)(mutex->owner) == owner) {
       if (mutex->type == DMTCP_MUTEX_RECURSIVE) {
         JASSERT(mutex->count + 1 != 0);
         mutex->count++;
@@ -93,7 +95,7 @@ DmtcpMutexTryLock(DmtcpMutex *mutex)
                                    LOCK_FREE,
                                    LOCK_ACQUIRED) == LOCK_FREE) {
     // We successfully acquired the lock.
-    mutex->owner = owner;
+    mutex->owner = (mutex_owner_t)owner;
     mutex->count = 1;
     return 0;
   }
@@ -116,7 +118,7 @@ DmtcpMutexUnlock(DmtcpMutex *mutex)
     owner = dmtcp_gettid();
   }
 
-  JASSERT(mutex->owner == owner);
+  JASSERT((pid_t)(mutex->owner) == owner);
 
   mutex->count--;
 

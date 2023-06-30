@@ -142,7 +142,7 @@ int DmtcpRWLockUnlock(DmtcpRWLock *rwlock)
 {
   if (rwlock->writer == dmtcp_gettid()) {
     // We must already have the lock.
-    JASSERT(rwlock->xLock.owner == dmtcp_gettid());
+    JASSERT((pid_t)(rwlock->xLock.owner) == dmtcp_gettid());
     rwlock->writer = 0;
   } else {
     JASSERT(DmtcpMutexLock(&rwlock->xLock) == 0);
