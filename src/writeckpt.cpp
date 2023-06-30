@@ -372,7 +372,6 @@ static void
 mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
 {
   char *pg;
-  size_t count = 0;
   const size_t one_MB = (1024 * 1024);
 
   if (area->size < one_MB) {

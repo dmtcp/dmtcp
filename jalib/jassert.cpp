@@ -214,15 +214,16 @@ jassert_internal::JAssert::PrintBacktrace()
     Dl_info info;
     ss << "        " << i << ' ' ;
     if (dladdr1(buffer[i], &info, NULL, 0)) {
-      int status;
-      size_t buflen = sizeof(buf);
       buf[0] = '\0';
       if (info.dli_sname) {
-        char *demangled =
-          abi::__cxa_demangle(info.dli_sname, buf, &buflen, &status);
-        if (status != 0) {
-          strncpy(buf, info.dli_sname, sizeof(buf) - 1);
-        }
+        // int status;
+        // size_t buflen = sizeof(buf);
+        // char *demangled =
+        //   abi::__cxa_demangle(info.dli_sname, buf, &buflen, &status);
+        // if (status != 0) {
+        //   strncpy(buf, info.dli_sname, sizeof(buf) - 1);
+        // }
+        strncpy(buf, info.dli_sname, sizeof(buf) - 1);
       }
 
       ss << (buf[0] ? buf : "") << " in " << info.dli_fname << " ";

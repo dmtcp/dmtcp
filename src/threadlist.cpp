@@ -437,7 +437,6 @@ ThreadList::suspendThreads()
     numUserThreads = 0;
     for (thread = activeThreads; thread != NULL; thread = next) {
       next = thread->next;
-      int ret;
 
       if (thread == curThread) {
         continue;
