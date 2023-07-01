@@ -161,7 +161,7 @@ static bool killAfterCkpt = false;
 static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
 static time_t timeout = 0;
-static time_t start_time; // used with timeout
+static time_t start_time = 0; // used with --timeout
 
 static DmtcpCoordinator prog;
 
