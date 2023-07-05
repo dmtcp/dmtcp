@@ -363,6 +363,11 @@ dlsym_default_internal_library_handler(void *handle,
       // If different symbol name
       continue;
     }
+    // In Ubuntu 22.04 (glibc-2.35), tags.versym can be NULL.  Check it.
+    if (tags.versym == NULL) {
+      default_symbol_index = i;
+      break;
+    }
     char *symversion = version_name(tags.versym[i], &tags);
     if (version && symversion && strcmp(symversion, version) == 0) {
       default_symbol_index = i;
