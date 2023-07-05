@@ -275,7 +275,7 @@ def splitWithQuotes(string):
 def shouldRunTest(name):
   return args.tests == [] or name in args.tests
 
-#make sure we are in svn root
+#make sure we are in github root
 if not os.path.isfile('./bin/dmtcp_launch'):
   os.chdir("..")
 
@@ -1049,22 +1049,9 @@ runTest("timer1",   1, ["./test/timer1"])
 ## runTest("timer2",   1, ["./test/timer2"])
 runTest("clock",   1, ["./test/clock"])
 
-old_ld_library_path = os.getenv("LD_LIBRARY_PATH")
-if old_ld_library_path:
-  os.environ['LD_LIBRARY_PATH'] += ':' + os.getenv("PWD") + \
-                                   "/test:" + os.getenv("PWD")
-else:
-  os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD") + "/test:" + os.getenv("PWD")
-runTest("dlopen1",        1, ["./test/dlopen1"])
-# Disable the dlopen2 test until we can figure out a way to handle calls to
-# fork/exec/wait during library intialization with dlopen().
-# This seems to affect Travis CI of github, but not Ubuntu-12.04
-#if not USE_M32:
-#  runTest("dlopen2",        1, ["./test/dlopen2"])
-if old_ld_library_path:
-  os.environ['LD_LIBRARY_PATH'] = old_ld_library_path
-else:
-  del os.environ['LD_LIBRARY_PATH']
+runTest("dlopen1",       1, ["./test/dlopen1"])
+if not USE_M32:
+  runTest("dlopen2",     1, ["./test/dlopen2"])
 
 # Most of the remaining tests are on 64-bit processes.
 if USE_M32:
