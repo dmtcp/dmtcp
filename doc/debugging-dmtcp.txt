@@ -38,6 +38,8 @@ Note that a DMTCP application returns 'return code' 99 or else
 'getenv("DMTCP_FAIL_RC")' when DMTCP fails an assertion.
 If the 'DMTCP_ABORT_ON_FAILURE' environment variable is set, DMTCP attempts
 to create a core dump on a JASSERT failure.
+If the 'DMTCP_SLEEP_ON_FAILURE' environment variable is set, DMTCP goes into
+an infinite loop, and a user can attach to a live process with GDB.
 
 ===
 C. LAUNCHING A PROCESS UNDER DMTCP CONTROL USING GDB
