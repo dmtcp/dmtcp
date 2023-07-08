@@ -47,6 +47,13 @@
 #define DMTCP_PLUGIN_API_VERSION "3"
 
 #ifdef __cplusplus
+namespace dmtcp {
+// Used by 'DMTCP_RESTART_PAUSE_WHILE(cond)', below; Defined in threadlist.cpp.
+extern volatile int restartPauseLevel;
+}
+#endif // ifdef __cplusplus
+
+#ifdef __cplusplus
 extern "C" {
 #endif // ifdef __cplusplus
 
@@ -589,12 +596,12 @@ typedef void (*dmtcp_fnptr_t)(void);
 #define DMTCP_SETUP_PTRACE()
 #endif // ifdef HAS_PR_SET_PTRACER
 
-#define DMTCP_RESTART_PAUSE(level)                                             \
+// Usage:  DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == <LEVEL>);
+#define DMTCP_RESTART_PAUSE_WHILE(condition)                                   \
   do {                                                                         \
-    if (restartPauseLevel == level) {                                          \
+    if (condition) {                                                           \
       DMTCP_SETUP_PTRACE();                                                    \
-      volatile int dummy = 1;                                                  \
-      while (dummy);                                                           \
+      while (condition);                                                       \
     }                                                                          \
   } while (0)
 

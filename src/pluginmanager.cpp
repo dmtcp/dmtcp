@@ -124,6 +124,10 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_RESTART:
   case DMTCP_EVENT_THREAD_RESUME:
 
+    if (event == DMTCP_EVENT_RESTART) {
+      DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 5);
+    }
+
     // The plugins are invoked in _reverse_ order during resume/restart.  This
     // is required to support layered software.  See the related comment, above.
     for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
@@ -132,6 +136,10 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
     }
     break;
+
+    if (event == DMTCP_EVENT_RESTART) {
+      DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 6);
+    }
 
   default:
     JASSERT(false) (event).Text("Not Reachable");

@@ -217,7 +217,11 @@ main(int argc, char *argv[], char **environ)
 
   compute_vdso_vvar_addr(&rinfo);
 
-  DMTCP_RESTART_PAUSE(&rinfo, 1);
+  if (rinfo.restart_pause == 1) {
+    MTCP_PRINTF("*** (gdb) set rinfo.restart_pause=2 # to go to next stmt\n");
+  }
+  // In GDB, 'set rinfo.restart_pause=2' to continue to next statement.
+  DMTCP_RESTART_PAUSE_WHILE(rinfo.restart_pause == 1);
 
   if (!simulate) {
     mtcp_plugin_hook(&rinfo);
@@ -559,6 +563,7 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
           "But we may be lucky if the strings have been cached by the O/S\n"
           "or if compiler uses relative addressing for rodata with -fPIC\n");
 
+  // OBSOLETE:  Remove this when no longer used.
   if (rinfo_ptr->use_gdb) {
     MTCP_PRINTF("Called with --use-gdb.  A useful command is:\n"
                 "    (gdb) info proc mapping\n"
@@ -637,9 +642,9 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
       "  where PROGRAM_NAME is the original target application:\n"
       "(This won't work well unless you configure DMTCP with --enable-debug)\n"
       "  gdb PROGRAM_NAME %d\n"
-      "You will then be in 'ThreadList::postRestart()'\n"
+      "You will then be in 'ThreadList::postRestart()' or later\n"
       "  (gdb) list\n"
-      "  (gdb) p dummy = 0\n"
+      "  (gdb) p restartPauseLevel = 0  # Or set it to next higher level.\n"
       "  # In some recent Linuxes/glibc/gdb, you may also need to do:\n"
       "  (gdb) source DMTCP_ROOT/util/gdb-add-symbol-files-all\n"
       "  (gdb) add-symbol-files-all\n",

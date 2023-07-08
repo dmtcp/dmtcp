@@ -111,8 +111,9 @@ static const char *theUsage =
   "              Skip NOTE messages; if given twice, also skip WARNINGs\n"
   "  --coord-logfile PATH (environment variable DMTCP_COORD_LOG_FILENAME\n"
   "              Coordinator will dump its logs to the given file\n"
-  "  --debug-restart-pause (or set env. var. DMTCP_RESTART_PAUSE =1,2,3 or 4)\n"
+  "  --debug-restart-pause (or set env var DMTCP_RESTART_PAUSE=1,2,... or 7)\n"
   "              dmtcp_restart will pause early to debug with:  GDB attach\n"
+  "              Levels 6 and 7 valid only with DMTCP_EVENT_RESTART in plugin\n"
   "  --help\n"
   "              Print this message and exit.\n"
   "  --version\n"
@@ -371,7 +372,7 @@ char *get_pause_param()
     return NULL;
   }
 
-  if (pause_param[0] < '1' || pause_param[0] > '4' || pause_param[1] != '\0') {
+  if (pause_param[0] < '1' || pause_param[0] > '7' || pause_param[1] != '\0') {
     return NULL;
   }
 
@@ -744,9 +745,9 @@ main(int argc, char **argv)
       setenv(ENV_VAR_COORD_LOGFILE, argv[1], 1);
       shift; shift;
     } else if (s == "--debug-restart-pause") {
-      JASSERT(argv[1] && argv[1][0] >= '1' && argv[1][0] <= '4'
+      JASSERT(argv[1] && argv[1][0] >= '1' && argv[1][0] <= '7'
                       && argv[1][1] == '\0')
-        .Text("--debug-restart-pause requires arg. of '1', '2', '3' or '4'");
+        .Text("--debug-restart-pause requires arg. of '1' or '2' or ...` '7'");
       setenv("DMTCP_RESTART_PAUSE", argv[1], 1);
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'i' &&
