@@ -74,7 +74,7 @@ typedef struct RestoreInfo {
 #ifdef TIMING
   struct timeval startValue;
 #endif
-  int restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE
+  volatile int restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE_WHILE
 
   // Set to the value of DMTCP_DEBUG_MTCP_RESTART env var.
   int skipMremap;
@@ -92,12 +92,10 @@ typedef struct RestoreInfo {
 
 void mtcp_check_vdso(char **environ);
 
-#define DMTCP_RESTART_PAUSE(rinfo, level)                                      \
+// Usage: DMTCP_RESTART_PAUSE_WHILE(*&rinfo)->restart_pause == <LEVEL>);
+#define DMTCP_RESTART_PAUSE_WHILE(condition)                                   \
   do {                                                                         \
-    if ((rinfo)->restart_pause == (level)) {                                   \
-      volatile int dummy = 1;                                                  \
-      while (dummy);                                                           \
-    }                                                                          \
+    while (condition);                                                         \
   } while (0)
 
 #endif // #ifndef MTCP_RESTART_H

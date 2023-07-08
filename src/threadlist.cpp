@@ -65,7 +65,8 @@ Thread *ckptThread = NULL;
 
 static int numUserThreads = 0;
 static bool originalstartup;
-static int restartPauseLevel = 0;
+// Let dmtcp.h:DMTCP_RESTART_PAUSE_WHILE(cond) use (dmtcp::restartPauseLevel
+volatile int dmtcp::restartPauseLevel = 0;
 
 extern bool sem_launch_first_time;
 extern sem_t sem_launch; // allocated in coordinatorapi.cpp
@@ -672,7 +673,7 @@ ThreadList::waitForAllRestored(Thread *thread)
   Thread_RestoreSigState(thread);
 
   if (thread == motherofall) {
-    DMTCP_RESTART_PAUSE(4);
+    DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 7);
   }
 }
 
@@ -686,7 +687,7 @@ ThreadList::postRestart(double readTime, int restartPause)
   TLSInfo_RestoreTLSState(motherofall);
 
   restartPauseLevel = restartPause;
-  DMTCP_RESTART_PAUSE(1);
+  DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 2);
 
   postRestartWork(readTime);
 }
@@ -706,7 +707,7 @@ ThreadList::postRestartWork(double readTime)
 
   dmtcp_update_virtual_to_real_tid(motherofall->virtual_tid);
 
-  DMTCP_RESTART_PAUSE(2);
+  DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 3);
 
   SharedData::postRestart();
 
@@ -766,7 +767,7 @@ restarthread(void *threadv)
   thread->tid = THREAD_REAL_TID();
 
   if (thread == motherofall) { // if this is a user thread
-    DMTCP_RESTART_PAUSE(3);
+    DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 4);
   }
 
   /* Jump to the stopthisthread routine just after sigsetjmp/getcontext call.

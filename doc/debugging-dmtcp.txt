@@ -16,7 +16,7 @@ A. PRINT DEBUGGING
 
 There are several ways to debug.  If you want "print debugging", with
 a trace of the major operations, do:
-  ./configure --enable-debug
+  ./configure --enable-logging
   make -j clean
   make -j check-dmtcp1
 and look in /tmp/dmtcp-USER@HOST for files of the form jassertlog.*,
@@ -31,9 +31,13 @@ B. STOPPING GDB BEFORE JASSERT CAUSES PROCESS EXIT
 
 If debugging under GDB, and the process exits before you can examine
 the cause, try:
- (gdb) break FNC
- [ for FNC among:  exit, _exit, _Exit, mtcp_abort ;
-   The function _exit is used when Jassert() exits. ]
+ (gdb) break _exit
+   [ The function _exit is used when JASSERT() exits. ]
+
+Note that a DMTCP application returns 'return code' 99 or else
+'getenv("DMTCP_FAIL_RC")' when DMTCP fails an assertion.
+If the 'DMTCP_ABORT_ON_FAILURE' environment variable is set, DMTCP attempts
+to create a core dump on a JASSERT failure.
 
 ===
 C. LAUNCHING A PROCESS UNDER DMTCP CONTROL USING GDB
@@ -84,79 +88,26 @@ debugging support.  A convenient recipe from the root directory of DMTCP is:
   make -j clean
   make -j
 
-There are four methods available.  Most users will prefer the first,
-or possibly the second method.  The methods are in order of increasing
-interest for developers of DMTCP.  Make sure that you compiled DMTCP
-with debugging support if you want to also see symbols for DMTCP functions.
-
-1. DMTCP_GDB_ATTACH_ON_RESTART:
-2. DMTCP_RESTART_PAUSE2:
-3. DMTCP_RESTART_PAUSE:
-4. USING GDB WITH MTCP (primarily for developers):
-
-The four methods follow:
-
-1. DMTCP_GDB_ATTACH_ON_RESTART:
 In the past, using 'gdb attach' was as easy as:
        dmtcp_restart ckpt_a.out_*.dmtcp &
        gdb a.out `pgrep -n a.out`
 
+DMTCP ATTACH RESTART:
 Unfortunately, recent Linux distros have forbidden this type of
 'gdb attach' because it can expose security holes.  To get around
 this on a per-process basis, DMTCP provides the special
-environment variable DMTCP_GDB_ATTACH_ON_RESTART:
-       DMTCP_GDB_ATTACH_ON_RESTART=1 dmtcp_restart ckpt_a.out_*.dmtcp &
-       gdb a.out `pgrep -n a.out`
+environment variable DMTCP_RESTART_PAUSE:
+       DMTCP_RESTART_PAUSE=<NUM> dmtcp_restart ckpt_a.out_*.dmtcp &
+       ps uxw  # To find pid of target.
+       gdb -p <PID>
+       (gdb) source gdb-dmtcp-utils
+       (gdb) frame 0
+       (gdb) load-symbols-library <ADDRESS>
+An alternative invocation is:
+       dmtcp_restart --debug-restart-pause ckpt_a.out_*.dmtcp &
 
-2. DMTCP_RESTART_PAUSE2:
-If it's important to attach with GDB early in the restart process, then
-DMTCP provides this and the following alternatives.  First,
-MTCP_RESTART_PAUSE2 pauses DMTCP immediately after all the threads
-(including the checkpoint thread) have been restored:
-       DMTCP_RESTART_PAUSE2=1 bin/dmtcp_launch a.out
-       bin/dmtcp_command --checkpoint
-       dmtcp_restart ckpt_a.out_*.dmtcp &
-       # DMTCP will then pause for 15 seconds, and wait for a GDB attach.
-
-3. DMTCP_RESTART_PAUSE:
-Next, if you need to attach with GDB _very_ early in the restart process
-(usually needed only by DMTCP developers), do:
-       DMTCP_RESTART_PAUSE=1 bin/dmtcp_launch a.out
-       # Continue as above.
-In this case, you will attach at a time when only the primary thread
-exists, and the DMTCP checkpoint thread is not yet distinguished from
-the original user thread executing main().
-
-Note that to attach early, you must set the environment variable during
-dmtcp_launch.  This is needed in order to embed the environment variable
-in the memory that is then saved in ckpt_a.out_*.dmtcp.  If you set the
-environment variable only during restart, then the memory overlay
-of dmtcp_restart will overwrite the environment variable that you set.
-
-*** NOTE:  The above restriction for DMTCP_RESTART_PAUSE / DMTCP_RESTART_PAUSE2
-***        may be relaxed in the future, to allow setting before dmtcp_restart.
-
-4. USING GDB WITH MTCP (primarily for developers):
-For developers only, 'gdb attach' can be useful _very_, _very_ early ---
-during the initial control of MTCP, the lowest layer of DMTCP.
-Here are some instructions for this case.
-
-For low-level debugging on restart, try:
-  cd src/mtcp
-  make tidy
-  // Optionally modify a file in the mtcp directory
-  make -f Makefile.debug
-  make gdb
-  // Follow instructions:  e.g., paste 'add-symbol-file ...' msg into GDB
-  // If the bug is still further, then use the 'hang or crash' trick.  Add:
-  {int x=1; while(x);}
-  // and look for whether it hangs (reaches this far) or crashes
-  // Move the while loop until you locate the bug.
-  // If GDB is fragile, a trick that may work is to run without GDB,
-  //    and then attach at the 'while' loop.  Alternatively, if in GDB:
-  (gdb) detach
-  gdb test/dmtcp1 PID    # for the appropriate pid
-  // GDB should be more robust after this.
+You can set <NUM> from 1 through 7, to stop early or late.
+In GDB, change the restartPauseLevel variable to a later value to continue.
 
 ===
 E. TRICKS FOR DEBUGGING WHILE INSIDE GDB
@@ -168,7 +119,7 @@ before you can attach.  One trick to stop GDB there is to add a line of code
   { int x = 1; while (x) {}; }
 After that, use one of the above techniques for attaching with GDB, and:
   (gdb) where
-  (gdb) print x = 0
+  (gdb) print x = 0 # or: (gdb) set x=0
   (gdb) next
 
     Most of DMTCP is written in C++.  If you want to list or set a breakpoint
