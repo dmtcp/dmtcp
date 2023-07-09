@@ -84,8 +84,7 @@ kvdb::KVDBResponse
 kvdbRequest(DmtcpMessage const& msg,
             string const& key,
             string const& val,
-            string *oldVal,
-            bool newNsSock = false);
+            string *oldVal);
 
 } // namespace CoordinatorAPI
 } // namespace dmtcp

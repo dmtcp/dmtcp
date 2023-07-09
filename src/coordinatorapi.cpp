@@ -39,6 +39,7 @@
 #include "processinfo.h"
 #include "shareddata.h"
 #include "syscallwrappers.h"
+#include "threadinfo.h"
 #include "util.h"
 
 // sem_launch is used in threadlist.cpp
@@ -755,13 +756,13 @@ kvdb::KVDBResponse
 kvdbRequest(DmtcpMessage const& msg,
             string const& key,
             string const& val,
-            string *oldVal,
-            // TODO(kapil): Rename to something like useCoordinatorKVSocket.
-            bool useNsSock)
+            string *oldVal)
 {
   int sock = coordinatorSocket;
 
-  if (useNsSock) {
+  if (dmtcp_is_running_state() &&
+      dmtcp_is_ckpt_thread /* weak symbol */ &&
+      !dmtcp_is_ckpt_thread()) {
     if (nsSock == -1) {
       nsSock = createNewSocketToCoordinator(COORD_ANY);
       JASSERT(nsSock != -1);

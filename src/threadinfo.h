@@ -103,7 +103,9 @@ extern __thread Thread *curThread;
 extern Thread *ckptThread;
 extern Thread *motherofall;
 
-static inline bool dmtcp_is_ckpt_thread() { return curThread == ckptThread; }
+// This symbol is added as weak to allow linkage from dmtcp_launch, etc., via
+// CoordinatorAPI.
+bool dmtcp_is_ckpt_thread() __attribute((weak));
 
 int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval);
 
