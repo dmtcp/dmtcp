@@ -363,6 +363,13 @@ dlsym_default_internal_library_handler(void *handle,
       // If different symbol name
       continue;
     }
+
+    // In modern libc (e.g., glibc-2.35 and higher), tags.versym can be NULL.
+    if (tags.versym == NULL) {
+      default_symbol_index = i;
+      break;
+    }
+
     char *symversion = version_name(tags.versym[i], &tags);
     if (version && symversion && strcmp(symversion, version) == 0) {
       default_symbol_index = i;
