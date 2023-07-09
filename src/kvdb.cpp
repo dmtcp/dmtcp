@@ -36,10 +36,6 @@ KVDBResponse request(KVDBRequest request,
   msg.valLen = val.length() + 1;
   msg.extraBytes = msg.keyLen + msg.valLen;
 
-  if (dmtcp_is_running_state() && !dmtcp_is_ckpt_thread()) {
-    return CoordinatorAPI::kvdbRequest(msg, key, val, oldVal, true);
-  }
-
   return CoordinatorAPI::kvdbRequest(msg, key, val, oldVal);
 }
 
