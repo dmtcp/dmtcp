@@ -80,9 +80,43 @@ extern int jassert_quiet;
 
 namespace jassert_internal
 {
+constexpr const char *redEscapeStr = "\033[0;31m";
+constexpr const char *greenEscapeStr = "\033[0;32m";
+constexpr const char *yellowEscapeStr = "\033[0;33m";
+constexpr const char *clearEscapeStr = "\033[0m";
+
 class JAssert
 {
   public:
+  enum class JAssertType { Error, Warning, Note, Trace, Raw };
+
+  dmtcp::string JAssertTypeToStr(JAssertType type)
+  {
+    switch (type) {
+      case JAssertType::Error:
+        return "Error";
+      case JAssertType::Warning:
+        return "Warning";
+      case JAssertType::Note:
+        return "Note";
+      case JAssertType::Trace:
+        return "Trace";
+    }
+
+    return "";
+  };
+
+  dmtcp::string JAssertTypeToColor(JAssertType type)
+  {
+    switch (type) {
+      case JAssertType::Error:
+        return redEscapeStr;
+      case JAssertType::Warning:
+        return yellowEscapeStr;
+    }
+    return "";
+  }
+
 #ifdef JALIB_ALLOCATOR
     static void *operator new(size_t nbytes, void *p) { return p; }
 
@@ -103,12 +137,7 @@ class JAssert
     /// print out a string in format "Message: msg"
     JAssert &Text(const char *msg);
 
-    ///
-    /// constructor: sets members
-    JAssert(const char* type = "ERROR", bool exitWhenDone = true);
-
-    ///
-    /// destructor: exits program if exitWhenDone is set
+    JAssert(JAssertType type = JAssertType::Error);
     ~JAssert();
 
     ///
@@ -132,7 +161,7 @@ class JAssert
 
     ///
     /// if set true (on construction) call exit() on destruction
-    bool _exitWhenDone;
+    JAssertType _type;
     dmtcp::ostringstream ss;
 };
 
@@ -147,7 +176,7 @@ class JTrace : public JAssert
     static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
 #endif // ifdef JALIB_ALLOCATOR
 
-    JTrace() : JAssert("TRACE", false) {}
+    JTrace() : JAssert(JAssertType::Trace) {}
 };
 
 class JNote : public JAssert
@@ -161,7 +190,7 @@ class JNote : public JAssert
     static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
 #endif // ifdef JALIB_ALLOCATOR
 
-    JNote() : JAssert("NOTE", false) {}
+    JNote() : JAssert(JAssertType::Note) {}
 };
 
 class JWarning : public JAssert
@@ -175,7 +204,7 @@ class JWarning : public JAssert
     static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
 #endif // ifdef JALIB_ALLOCATOR
 
-    JWarning() : JAssert("WARNING", false) {}
+    JWarning() : JAssert(JAssertType::Warning) {}
 };
 
 const char *jassert_basename(const char *str);
@@ -222,7 +251,8 @@ void open_log_file();
 
 #define JASSERT_ERRNO     (strerror(errno))
 
-#define JASSERT_STDERR    jassert_internal::JAssert("", false)
+#define JASSERT_STDERR \
+  jassert_internal::JAssert(jassert_internal::JAssert::JAssertType::Raw)
 #define JASSERT_STDERR_FD (jassert_internal::jassert_console_fd())
 
 #define JASSERT_CONT(AB, term)                                               \
@@ -265,5 +295,33 @@ void open_log_file();
   } else                                                          \
     jassert_internal::JAssert()                                   \
     .JASSERT_CONTEXT("JASSERT(" # term ") failed").JASSERT_CONT_A
+
+#define ASSERT_EQ(expected, term)                                 \
+  if ((expected) == (term)) {                                     \
+  } else                                                          \
+    jassert_internal::JAssert()                                   \
+    .JASSERT_CONTEXT("ASSERT_EQ failed; <" #expected "> == <"     \
+                     #term ">.").JASSERT_CONT_A
+
+#define ASSERT_NE(expected, term)                                           \
+  if ((expected) != (term)) {                                               \
+  } else                                                                    \
+    jassert_internal::JAssert()                                             \
+      .JASSERT_CONTEXT("ASSERT_NE failed; <" #expected "> != <" #term ">.") \
+      .JASSERT_CONT_A
+
+#define ASSERT_NULL(term)                                         \
+  if (nullptr == (term)) {                                        \
+  } else                                                          \
+    jassert_internal::JAssert()                                   \
+    .JASSERT_CONTEXT("ASSERT_NULL failed; <"#term ">.")           \
+    .JASSERT_CONT_A
+
+#define ASSERT_NOT_NULL(term)                                     \
+  if (nullptr != (term)) {                                        \
+  } else                                                          \
+    jassert_internal::JAssert()                                   \
+    .JASSERT_CONTEXT("ASSERT_NOT_NULL failed; <"#term ">.")       \
+    .JASSERT_CONT_A
 
 #endif // ifndef JASSERT_H

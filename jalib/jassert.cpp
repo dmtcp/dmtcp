@@ -43,8 +43,6 @@
 
 using namespace jalib;
 int jassert_quiet = 0;
-const char *redEscapeStr = "\033[0;31m";
-const char *clearEscapeStr = "\033[0m";
 
 namespace jalib
 {
@@ -70,23 +68,21 @@ jassert_internal::JAssert::Text(const char *msg)
   return *this;
 }
 
-jassert_internal::JAssert::JAssert(const char* type, bool exitWhenDone)
-  : JASSERT_CONT_A(*this)
-  , JASSERT_CONT_B(*this)
-  , _exitWhenDone(exitWhenDone)
+jassert_internal::JAssert::JAssert(JAssertType type)
+  : JASSERT_CONT_A(*this), JASSERT_CONT_B(*this), _type(type)
 {
-  if (exitWhenDone) {
-    Print(redEscapeStr);
-    Print("\n");
+  if (type == JAssertType::Raw) {
+    return;
   }
 
-  ss << "[" << jalib::getTimestampStr() << ", "
-     << getpid() << ", " << jalib::gettid() << ", " << type << "]";
+  ss << JAssertTypeToColor(type) << "[" << jalib::getTimestampStr() << ", "
+     << getpid() << ", " << jalib::gettid() << ", " << JAssertTypeToStr(type)
+     << "]";
 }
 
 jassert_internal::JAssert::~JAssert()
 {
-  if (!_exitWhenDone) {
+  if (_type != JAssertType::Error) {
     writeToConsole(ss.str().c_str());
     writeToLog(ss.str().c_str());
     return;
