@@ -96,6 +96,11 @@ unlk_threads(void)
   JASSERT(DmtcpMutexUnlock(&threadlistLock) == 0) (JASSERT_ERRNO);
 }
 
+bool dmtcp_is_ckpt_thread()
+{
+  return ckptThread == curThread;
+}
+
 /*****************************************************************************
  *
  * We will use the region beyond the end of stack for our temporary stack.
