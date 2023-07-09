@@ -266,4 +266,32 @@ void open_log_file();
     jassert_internal::JAssert()                                   \
     .JASSERT_CONTEXT("JASSERT(" # term ") failed").JASSERT_CONT_A
 
+#define ASSERT_EQ(expected, term)                                 \
+  if ((expected) == (term)) {                                     \
+  } else                                                          \
+    jassert_internal::JAssert()                                   \
+    .JASSERT_CONTEXT("ASSERT_EQ failed; <" #expected "> == <"     \
+                     #term ">.").JASSERT_CONT_A
+
+#define ASSERT_NE(expected, term)                                 \
+  if ((expected) == (term)) {                                     \
+  } else                                                          \
+    jassert_internal::JAssert()                                   \
+    .JASSERT_CONTEXT("ASSERT_NE failed; <" #expected "> != <"     \
+                     #term ">.").JASSERT_CONT_A
+
+#define ASSERT_NULL(term)                                         \
+  if (nullptr == (term)) {                                        \
+  } else                                                          \
+    jassert_internal::JAssert()                                   \
+    .JASSERT_CONTEXT("ASSERT_NULL failed; <"#term ">.")           \
+    .JASSERT_CONT_A
+
+#define ASSERT_NOT_NULL(term)                                     \
+  if (nullptr != (term)) {                                        \
+  } else                                                          \
+    jassert_internal::JAssert()                                   \
+    .JASSERT_CONTEXT("ASSERT_NOT_NULL failed; <"#term ">.")       \
+    .JASSERT_CONT_A
+
 #endif // ifndef JASSERT_H
