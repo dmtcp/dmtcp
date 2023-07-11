@@ -648,7 +648,7 @@ connectToCoordOnStartup(CoordinatorMode mode,
   JTRACE("Got virtual pid from coordinator") (hello_remote.virtualPid);
 
   pid_t ppid = getppid();
-  Util::setVirtualPidEnvVar(hello_remote.virtualPid, ppid, ppid);
+  Util::setVirtualPidEnvVar(hello_remote.virtualPid, getpid(), ppid, ppid);
 
   JASSERT(compId != NULL && localIP != NULL && coordInfo != NULL);
   *compId = hello_remote.compGroup.upid();
@@ -680,7 +680,7 @@ createNewConnectionBeforeFork(string& progname)
     JTRACE("Got virtual pid from coordinator") (hello_remote.virtualPid);
     pid_t pid = getpid();
     pid_t realPid = dmtcp_virtual_to_real_pid(pid);
-    Util::setVirtualPidEnvVar(hello_remote.virtualPid, pid, realPid);
+    Util::setVirtualPidEnvVar(hello_remote.virtualPid, 0, pid, realPid);
   }
   return sock;
 }

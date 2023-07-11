@@ -35,7 +35,10 @@
 using namespace dmtcp;
 
 void
-Util::setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid)
+Util::setVirtualPidEnvVar(pid_t virtPid,
+                          pid_t realPid,
+                          pid_t virtPpid,
+                          pid_t realPpid)
 {
   // We want to use setenv() only once. For all later changes, we manipulate
   // the buffer in place. This was done to avoid a bug when using Perl. Perl
@@ -48,7 +51,7 @@ Util::setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid)
   memset(buf2, '#', sizeof(buf2));
   buf2[sizeof(buf2) - 1] = '\0';
 
-  sprintf(buf1, "%d:%d:%d:", pid, virtPpid, realPpid);
+  sprintf(buf1, "%d:%d:%d:%d:", virtPid, realPid, virtPpid, realPpid);
 
   if (getenv(ENV_VAR_VIRTUAL_PID) == NULL) {
     memcpy(buf2, buf1, strlen(buf1));
@@ -60,44 +63,36 @@ Util::setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid)
 }
 
 void
-Util::getVirtualPidFromEnvVar(pid_t *virtPid, pid_t *virtPpid, pid_t *realPpid)
+Util::getVirtualPidFromEnvVar(pid_t *virtPid,
+                              pid_t *realPid,
+                              pid_t *virtPpid,
+                              pid_t *realPpid)
 {
-  pid_t pid;
-  const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
-  char *virtPpidstr = NULL;
-  char *realPpidstr = NULL;
+  pid_t vPid, rPid, vPpid, rPpid;
 
-  if (pidstr == NULL) {
+  const char *str = getenv(ENV_VAR_VIRTUAL_PID);
+  if (str == NULL) {
     fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
             __FILE__, __LINE__);
     _exit(DMTCP_FAIL_RC);
   }
 
-  pid = strtol(pidstr, &virtPpidstr, 10);
+  ASSERT_EQ(4, sscanf(str, "%d:%d:%d:%d:", &vPid, &rPid, &vPpid, &rPpid));
+
   if (virtPid) {
-    *virtPid = pid;
+    *virtPid = vPid;
   }
 
-  if (virtPpidstr[0] != ':' && !isdigit(virtPpidstr[1])) {
-    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
-            __FILE__, __LINE__);
-    _exit(DMTCP_FAIL_RC);
+  if (realPid) {
+    *realPid = rPid;
   }
 
-  pid = strtol(virtPpidstr + 1, &realPpidstr, 10);
   if (virtPpid) {
-    *virtPpid = pid;
+    *virtPpid = vPpid;
   }
 
-  if (realPpidstr[0] != ':' && !isdigit(realPpidstr[1])) {
-    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
-            __FILE__, __LINE__);
-    _exit(DMTCP_FAIL_RC);
-  }
-
-  pid = strtol(realPpidstr + 1, NULL, 10);
   if (realPpid) {
-    *realPpid = pid;
+    *realPpid = rPpid;
   }
 }
 

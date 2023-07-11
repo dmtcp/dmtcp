@@ -59,7 +59,6 @@ typedef struct Thread Thread;
 
 struct Thread {
   pid_t tid;
-  pid_t virtual_tid;
   int state;
   int exiting;
 
@@ -99,9 +98,7 @@ struct Thread {
   Thread *prev;
 };
 
-extern __thread Thread *curThread;
-extern Thread *ckptThread;
-extern Thread *motherofall;
+Thread *dmtcp_get_current_thread();
 
 // This symbol is added as weak to allow linkage from dmtcp_launch, etc., via
 // CoordinatorAPI.
@@ -116,15 +113,6 @@ EXTERNC int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig)
 EXTERNC void dmtcp_update_virtual_to_real_tid(pid_t tid) __attribute((weak));
 EXTERNC void dmtcp_init_virtual_tid() __attribute((weak));
 
-#define THREAD_REAL_PID() \
-  (dmtcp_get_real_pid != NULL ? dmtcp_get_real_pid() : getpid())
-
-#define THREAD_REAL_TID() \
-  (dmtcp_get_real_tid != NULL ? dmtcp_get_real_tid()            \
-                              : (pid_t)_real_syscall(SYS_gettid))
-
-#define THREAD_TGKILL(pid, tid, sig)                            \
-  (dmtcp_real_tgkill != NULL ? dmtcp_real_tgkill(pid, tid, sig) \
-                             : _real_syscall(SYS_tgkill, pid, tid, sig))
+#define THREAD_TGKILL(pid, tid, sig) _real_syscall(SYS_tgkill, pid, tid, sig)
 
 #endif // ifndef THREADINFO_H

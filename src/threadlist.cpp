@@ -100,6 +100,34 @@ bool dmtcp_is_ckpt_thread()
   return ckptThread == curThread;
 }
 
+Thread *
+dmtcp_get_motherofall()
+{
+  if (motherofall != nullptr) {
+    return motherofall;
+  }
+
+  ThreadList::init();
+
+  ASSERT_NOT_NULL(motherofall);
+
+  return motherofall;
+}
+
+Thread *
+dmtcp_get_current_thread()
+{
+  if (curThread != nullptr) {
+    return curThread;
+  }
+
+  ASSERT_NULL(motherofall);
+  ThreadList::init();
+
+  ASSERT_NOT_NULL(curThread);
+  return curThread;
+}
+
 /*****************************************************************************
  *
  * We will use the region beyond the end of stack for our temporary stack.
@@ -137,12 +165,10 @@ save_sp(void **sp)
 void
 ThreadList::resetOnFork()
 {
-  lock_threads();
   while (activeThreads != NULL) {
     ThreadList::threadIsDead(activeThreads); // takes care of updating
                                              // "activeThreads" ptr.
   }
-  unlk_threads();
   init();
   createCkptThread();
 }
@@ -162,10 +188,7 @@ ThreadList::init()
    */
 
   /* libc/getpid can lie if we had used kernel fork() instead of libc fork(). */
-  motherpid = dmtcp_get_real_tid();
-  TLSInfo_VerifyPidTid(motherpid, motherpid);
-
-  SigInfo::setupCkptSigHandler(&stopthisthread);
+  motherpid = getpid();
 
   // CONTEXT:  initThread() resets curThread only if it's non-NULL.
   // ... -> initializeMtcpEngine() -> ThreadList::init() -> initThread()
@@ -186,6 +209,8 @@ ThreadList::createCkptThread()
   sem_init(&sem_launch, 0, 0);
   sem_init(&semNotifyCkptThread, 0, 0);
   sem_init(&semWaitForCkptThreadSignal, 0, 0);
+
+  SigInfo::setupCkptSigHandler(&stopthisthread);
 
   originalstartup = true;
   pthread_t checkpointhreadid;
@@ -246,8 +271,7 @@ ThreadList::initThread(Thread *th)
   if (curThread == NULL) {
     curThread = th;
   }
-  th->tid = THREAD_REAL_TID();
-  th->virtual_tid = _real_syscall(SYS_gettid);
+  th->tid = _real_syscall(SYS_gettid);
 
   th->flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
               | CLONE_SIGHAND | CLONE_THREAD
@@ -258,7 +282,7 @@ ThreadList::initThread(Thread *th)
   th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
   th->ctid = th->ptid;
 
-  JTRACE("starting thread") (th->tid) (th->virtual_tid);
+  JTRACE("starting thread") (th->tid);
 
   // Check and remove any thread descriptor which has the same tid as ours.
   // Also, remove any dead threads from the list.
@@ -371,8 +395,7 @@ checkpointhread(void *dummy)
   JASSERT(getcontext(&ckptThread->savctx) == 0) (JASSERT_ERRNO);
 #endif // ifdef SETJMP
   save_sp(&ckptThread->saved_sp);
-  JTRACE("after sigsetjmp/getcontext")
-    (curThread->tid) (curThread->virtual_tid) (curThread->saved_sp);
+  JTRACE("after sigsetjmp/getcontext") (curThread->tid) (curThread->saved_sp);
 
   if (originalstartup) {
     originalstartup = false;
@@ -565,8 +588,7 @@ stopthisthread(int signum)
     save_sp(&curThread->saved_sp);
 
     JTRACE("Thread after sigsetjmp/getcontext")
-      (curThread->tid) (curThread->virtual_tid)
-      (curThread->saved_sp) (__builtin_return_address(0));
+      (curThread->tid) (curThread->saved_sp) (__builtin_return_address(0));
 
     if (!restoreInProgress) {
       /* We are a user thread and all context is saved.
@@ -688,6 +710,7 @@ ThreadList::postRestart(double readTime, int restartPause)
 {
   // This function and related ones are defined in src/mtcp/restore_libc.c
   TLSInfo_RestoreTLSState(motherofall);
+  TLSInfo_RestoreTLSTidPid(motherofall);
 
   restartPauseLevel = restartPause;
   DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 2);
@@ -708,15 +731,11 @@ ThreadList::postRestartWork(double readTime)
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
   }
 
-  dmtcp_update_virtual_to_real_tid(motherofall->virtual_tid);
+  dmtcp_update_virtual_to_real_tid(motherofall->tid);
 
   DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 3);
 
   SharedData::postRestart();
-
-  /* Fill in the new mother process id */
-  motherpid = THREAD_REAL_TID();
-  motherofall->tid = motherpid;
 
   restoreInProgress = true;
 
@@ -760,14 +779,13 @@ restarthread(void *threadv)
   Thread *thread = (Thread *)threadv;
 
   TLSInfo_RestoreTLSState(thread);
+  TLSInfo_RestoreTLSTidPid(thread);
 
   if (TLSInfo_HaveThreadSysinfoOffset()) {
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
   }
 
-  dmtcp_update_virtual_to_real_tid(thread->virtual_tid);
-
-  thread->tid = THREAD_REAL_TID();
+  dmtcp_update_virtual_to_real_tid(thread->tid);
 
   if (thread == motherofall) { // if this is a user thread
     DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 4);
@@ -777,7 +795,7 @@ restarthread(void *threadv)
    * Note that if this is the restored checkpointhread, it jumps to the
    * checkpointhread routine
    */
-  JTRACE("calling siglongjmp/setcontext") (thread->tid) (thread->virtual_tid);
+  JTRACE("calling siglongjmp/setcontext") (thread->tid);
 #ifdef SETJMP
   siglongjmp(thread->jmpbuf, 1); /* Shouldn't return */
 #else // ifdef SETJMP
@@ -829,7 +847,7 @@ Thread_RestoreSigState(Thread *th)
 {
   int i;
 
-  JTRACE("restoring signal mask for thread") (th->virtual_tid);
+  JTRACE("restoring signal mask for thread") (th->tid);
   JASSERT(pthread_sigmask(SIG_SETMASK, &th->sigblockmask, NULL) == 0);
 
   // Raise the signals which were pending for only this thread at the time of
@@ -890,8 +908,7 @@ ThreadList::addToActiveList(Thread *th)
   for (thread = activeThreads; thread != NULL; thread = next_thread) {
     next_thread = thread->next;
     if (thread != curThread && thread->tid == tid) {
-      JTRACE("Removing duplicate thread descriptor")
-        (thread->tid) (thread->virtual_tid);
+      JTRACE("Removing duplicate thread descriptor") (thread->tid);
 
       // There will be at most one duplicate descriptor.
       threadIsDead(thread);

@@ -123,7 +123,8 @@ void
 ThreadSync::resetLocks(bool resetPresuspendEventHookLock)
 {
   DmtcpRWLockInit(&_wrapperExecutionLock);
-  curThread->wrapperLockCount = 0;
+  Thread *thread = dmtcp_get_current_thread();
+  thread->wrapperLockCount = 0;
 
   DmtcpMutexInit(&libdlLock, DMTCP_MUTEX_NORMAL);
 
@@ -171,13 +172,11 @@ ThreadSync::wrapperExecutionLockLock()
   int saved_errno = errno;
   bool lockAcquired = false;
 
-  if (curThread == nullptr) {
-    return lockAcquired;
-  }
+  Thread *thread = dmtcp_get_current_thread();
 
   if ((WorkerState::currentState() == WorkerState::RUNNING ||
        WorkerState::currentState() == WorkerState::PRESUSPEND)) {
-    if (curThread->wrapperLockCount == 0) {
+    if (thread->wrapperLockCount == 0) {
       // If we don't have a lock, acquire it now.
       if (DmtcpRWLockRdLock(&_wrapperExecutionLock) != 0) {
         fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
@@ -185,7 +184,7 @@ ThreadSync::wrapperExecutionLockLock()
         _exit(DMTCP_FAIL_RC);
       }
     }
-    curThread->wrapperLockCount++;
+    thread->wrapperLockCount++;
     lockAcquired = true;
   }
 
@@ -263,7 +262,7 @@ ThreadSync::wrapperExecutionLockLockExcl()
 {
   int saved_errno = errno;
 
-  JASSERT(curThread != nullptr);
+  Thread *thread = dmtcp_get_current_thread();
 
   if (WorkerState::currentState() == WorkerState::RUNNING ||
       WorkerState::currentState() == WorkerState::PRESUSPEND) {
@@ -272,7 +271,7 @@ ThreadSync::wrapperExecutionLockLockExcl()
               __FILE__, __LINE__, __PRETTY_FUNCTION__);
       _exit(DMTCP_FAIL_RC);
     }
-    curThread->wrapperLockCount++;
+    thread->wrapperLockCount++;
   }
   errno = saved_errno;
   return;
@@ -285,14 +284,12 @@ ThreadSync::wrapperExecutionLockUnlock()
 {
   int saved_errno = errno;
 
-  if (curThread == nullptr) {
-    return;
-  }
+  Thread *thread = dmtcp_get_current_thread();
 
-  JASSERT(curThread->wrapperLockCount != 0);
-  curThread->wrapperLockCount -= 1;
+  JASSERT(thread->wrapperLockCount != 0);
+  thread->wrapperLockCount -= 1;
 
-  if (curThread->wrapperLockCount == 0 &&
+  if (thread->wrapperLockCount == 0 &&
       DmtcpRWLockUnlock(&_wrapperExecutionLock) != 0) {
     fprintf(stderr, "ERROR %s:%d %s: Failed to release lock.\n",
             __FILE__, __LINE__, __PRETTY_FUNCTION__);
