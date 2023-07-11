@@ -394,8 +394,14 @@ dlsym_default_internal_library_handler(void *handle,
       }
     }
   }
-  *tags_p = tags;
-  *default_symbol_index_p = default_symbol_index;
+
+  if (tags_p != NULL) {
+    *tags_p = tags;
+  }
+
+  if (default_symbol_index_p != NULL) {
+    *default_symbol_index_p = default_symbol_index;
+  }
 
   if (default_symbol_index) {
 #if __GLIBC_PREREQ(2, 11)
