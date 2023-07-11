@@ -54,7 +54,6 @@ void *saved_sysinfo;
 
 static const char *DMTCP_PRGNAME_PREFIX = "DMTCP:";
 
-static Thread *threads_freelist = NULL;
 static DmtcpMutex threadlistLock = DMTCP_MUTEX_INITIALIZER;
 static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
 
@@ -174,7 +173,7 @@ ThreadList::init()
   curThread = motherofall = NULL;
 
   /* Set up caller as one of our threads so we can work on it */
-  motherofall = ThreadList::allocNewThread();
+  motherofall = ThreadList::getNewThread(NULL, NULL);
   initThread(motherofall);
 }
 
@@ -212,7 +211,7 @@ ThreadList::createCkptThread()
 Thread *
 ThreadList::getNewThread(void *(*fn)(void *), void *arg)
 {
-  Thread *th = ThreadList::allocNewThread();
+  Thread *th = (Thread*) JALLOC_MALLOC(sizeof(Thread));
   /* Save exactly what the caller is supplying */
   th->fn = fn;
   th->arg = arg;
@@ -300,7 +299,6 @@ void
 ThreadList::writeCkpt()
 {
   // Remove stale threads from activeThreads list.
-  emptyFreeList();
   SigInfo::saveSigHandlers();
 
   /* Do this once, same for all threads.  But restore for each thread. */
@@ -930,15 +928,7 @@ ThreadList::addToActiveList(Thread *th)
 
 /*****************************************************************************
  *
- *  Thread has exited - move it from activeThreads list to freelist.
- *
- *  threadisdead() used to free() the Thread struct before returning. However,
- *  if we do that while in the middle of a checkpoint, the call to free() might
- *  deadlock in JAllocator. For this reason, we put the to-be-removed threads
- *  on this threads_freelist and call free() only when it is safe to do so.
- *
- *  This has an added benefit of reduced number of calls to malloc() as the
- *  Thread structs in the freelist can be recycled.
+ *  Thread has exited - remove it from activeThreads list and release memory.
  *
  *****************************************************************************/
 void
@@ -958,48 +948,5 @@ ThreadList::threadIsDead(Thread *thread)
     activeThreads = activeThreads->next;
   }
 
-  thread->next = threads_freelist;
-  threads_freelist = thread;
-}
-
-/*****************************************************************************
- *
- * Return thread from freelist.
- *
- *****************************************************************************/
-Thread *
-ThreadList::allocNewThread()
-{
-  Thread *thread;
-
-  lock_threads();
-  if (threads_freelist == NULL) {
-    thread = (Thread *)JALLOC_HELPER_MALLOC(sizeof(Thread));
-    JASSERT(thread != NULL);
-  } else {
-    thread = threads_freelist;
-    threads_freelist = threads_freelist->next;
-  }
-  unlk_threads();
-  memset(thread, 0, sizeof(*thread));
-  return thread;
-}
-
-/*****************************************************************************
- *
- * Call free() on all threads_freelist items
- *
- *****************************************************************************/
-void
-ThreadList::emptyFreeList()
-{
-  lock_threads();
-
-  while (threads_freelist != NULL) {
-    Thread *thread = threads_freelist;
-    threads_freelist = threads_freelist->next;
-    JALLOC_HELPER_FREE(thread);
-  }
-
-  unlk_threads();
+  JALLOC_FREE(thread);
 }
