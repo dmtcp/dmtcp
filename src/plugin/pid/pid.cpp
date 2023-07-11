@@ -44,6 +44,9 @@ static volatile bool restartInProgress = false;
 
 static string pidMapFile;
 
+static vector<pid_t> *exitedChildTids = NULL;
+static DmtcpMutex exitedChildTidsLock = DMTCP_MUTEX_INITIALIZER_LLL;
+
 #ifdef ENABLE_PTHREAD_MUTEX_WRAPPERS
 dmtcp::map<pthread_mutex_t *, pid_t>&
 mapMutexVirtTid()
@@ -107,9 +110,29 @@ dmtcp_update_virtual_to_real_tid(pid_t tid)
   VirtualPidTable::instance().updateMapping(tid, _real_gettid());
 }
 
+static
+void removeExitedChildTids()
+{
+  // First remove stale thread ids.
+  pid_t realPid = _real_getpid();
+  DmtcpMutexLock(&exitedChildTidsLock);
+  for (auto it = exitedChildTids->begin(); it != exitedChildTids->end();) {
+    pid_t tid = *it;
+    pid_t realTid = VIRTUAL_TO_REAL_PID(tid);
+    if (_real_tgkill(realPid, realTid, 0) != 0) {
+      it = exitedChildTids->erase(it);
+      VirtualPidTable::instance().erase(tid);
+    } else {
+      it++;
+    }
+  }
+  DmtcpMutexUnlock(&exitedChildTidsLock);
+}
+
 extern "C"
 void dmtcp_init_virtual_tid()
 {
+  removeExitedChildTids();
   pid_t virtualTid = VirtualPidTable::instance().getNewVirtualTid();
   dmtcpResetTid(virtualTid);
   VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
@@ -118,9 +141,11 @@ void dmtcp_init_virtual_tid()
 static void
 pidVirt_PrepareForExec(DmtcpEventData_t *data)
 {
+  pid_t virtPid = getpid();
+  pid_t realPid = VIRTUAL_TO_REAL_PID(virtPid);
   pid_t virtPpid = getppid();
   pid_t realPpid = VIRTUAL_TO_REAL_PID(virtPpid);
-  Util::setVirtualPidEnvVar(getpid(), virtPpid, realPpid);
+  Util::setVirtualPidEnvVar(virtPid, realPid, virtPpid, realPpid);
 
   JASSERT(data != NULL);
   jalib::JBinarySerializeWriterRaw wr("", data->preExec.serializationFd);
@@ -302,7 +327,9 @@ pidVirt_ThreadExit(DmtcpEventData_t *data)
    *  thread actually exits?
    */
   pid_t tid = dmtcp_gettid();
-  VirtualPidTable::instance().erase(tid);
+  DmtcpMutexLock(&exitedChildTidsLock);
+  exitedChildTids->push_back(tid);
+  DmtcpMutexUnlock(&exitedChildTidsLock);
 }
 
 static void
@@ -311,6 +338,7 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   switch (event) {
   case DMTCP_EVENT_INIT:
     SharedData::setPidMap(getpid(), _real_getpid());
+    exitedChildTids = new vector<pid_t>();
     break;
 
   case DMTCP_EVENT_ATFORK_PREPARE:
@@ -351,6 +379,7 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
 
   case DMTCP_EVENT_PRECHECKPOINT:
+    removeExitedChildTids();
     break;
 
   case DMTCP_EVENT_RESUME:
