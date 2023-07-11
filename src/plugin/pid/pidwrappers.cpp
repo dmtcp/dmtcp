@@ -61,26 +61,17 @@ extern "C" LIB_PRIVATE
 void
 dmtcpResetPidPpid()
 {
+  pid_t realPid;
   pid_t realPpid;
 
-  Util::getVirtualPidFromEnvVar(&_dmtcp_pid, &_dmtcp_ppid, &realPpid);
+  Util::getVirtualPidFromEnvVar(&_dmtcp_pid, &realPid, &_dmtcp_ppid, &realPpid);
 
-  VirtualPidTable::instance().updateMapping(_dmtcp_pid, _real_getpid());
-
-  pid_t curRealPpid = _real_getppid();
-  if (realPpid != curRealPpid) {
-    // Parent is dead; we have a new parent (init).
-    _dmtcp_ppid = curRealPpid;
-  } else {
-    // Parent is alive.
-    // We shouldn't need to update mapping for virtual->real ppid. If we are
-    // the same process as dmtcp_launch, then the parent would not be under
-    // DMTCP anyways. Instead, if we were created after a fork, we inherited
-    // the memory maps. However, if we did an exec after a fork, we might not
-    // have had a chance to serialize the maps yet, so we better insert the
-    // mapping here.
-    VirtualPidTable::instance().updateMapping(_dmtcp_ppid, curRealPpid);
+  if (realPid == 0) {
+    realPid = _real_getpid();
   }
+
+  VirtualPidTable::instance().updateMapping(_dmtcp_pid, realPid);
+  VirtualPidTable::instance().updateMapping(_dmtcp_ppid, realPpid);
 }
 
 extern "C" LIB_PRIVATE

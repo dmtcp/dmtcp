@@ -40,17 +40,15 @@ using namespace dmtcp;
 LIB_PRIVATE pid_t
 dmtcp_gettid()
 {
-  if (curThread == nullptr) {
-    return _real_syscall(SYS_gettid);
-  }
-
-  return curThread->virtual_tid;
+  Thread *thread = dmtcp_get_current_thread();
+  return thread->tid;
 }
 
 static void
 processChildThread(Thread *thread)
 {
   dmtcp_init_virtual_tid();
+  JASSERT(thread->wrapperLockCount != 0);
 
   ThreadList::initThread(thread);
   // Unblock ckpt signal (unblocking a non-blocked signal has no effect).
@@ -78,7 +76,7 @@ thread_start(void *arg)
 
   void *result = thread->fn(thread->arg);
 
-  JTRACE("Thread returned") (thread->virtual_tid);
+  JTRACE("Thread returned") (thread->tid);
   WrapperLock wrapperLock;
   ThreadList::threadExit();
 
@@ -98,33 +96,24 @@ pthread_create(pthread_t *pth,
                void *(*start_routine)(void *),
                void *arg)
 {
-  int retval;
-
-  // Ensure DMTCP initialization routines are called at this point. Later, we
-  // rely on DmtcpRwLock being initialized and usable along with a valid
-  // curThread ptr.
-  if (curThread == nullptr) {
-    dmtcp_initialize_entry_point();
-  }
-
-  JASSERT(curThread != nullptr);
-
   WrapperLock wrapperLock;
+  Thread *thread = dmtcp_get_current_thread();
 
-  Thread *thread = ThreadList::getNewThread(start_routine, arg);
-  ThreadSync::wrapperExecutionLockLockForNewThread(thread);
+  Thread *newThread = ThreadList::getNewThread(start_routine, arg);
+  ThreadSync::wrapperExecutionLockLockForNewThread(newThread);
+  JASSERT(newThread->wrapperLockCount != 0);
 
-  JASSERT(Thread_UpdateState(curThread, ST_THREAD_CREATE, ST_RUNNING));
+  JASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING));
 
-  retval = _real_pthread_create(pth, attr, thread_start, thread);
+  int retval = _real_pthread_create(pth, attr, thread_start, newThread);
 
-  JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_THREAD_CREATE));
+  JASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE));
 
   if (retval == 0) {
     ProcessInfo::instance().clearPthreadJoinState(*pth);
   } else { // if we failed to create new pthread
-    ThreadSync::wrapperExecutionLockUnlockForNewThread(thread);
-    ThreadList::threadIsDead(thread);
+    ThreadSync::wrapperExecutionLockUnlockForNewThread(newThread);
+    ThreadList::threadIsDead(newThread);
   }
 
   return retval;
@@ -140,7 +129,8 @@ __clone(int (*fn)(void *arg),
         struct user_desc *newtls,
         int *child_tidptr)
 {
-  if (curThread->state == ST_THREAD_CREATE) {
+  Thread *thread = dmtcp_get_current_thread();
+  if (thread->state == ST_THREAD_CREATE) {
     return _real_clone(
       fn, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr);
   }
@@ -154,7 +144,8 @@ __clone(int (*fn)(void *arg),
 extern "C" long
 clone3(struct clone_args *cl_args, size_t size)
 {
-  if (curThread->state == ST_THREAD_CREATE) {
+  Thread *thread = dmtcp_get_current_thread();
+  if (thread->state == ST_THREAD_CREATE) {
     return NEXT_FNC(clone3)(cl_args, size);
   }
 

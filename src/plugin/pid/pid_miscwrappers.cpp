@@ -40,14 +40,15 @@ using namespace dmtcp;
 
 static pid_t childVirtualPid;
 
-static pid_t vfork_saved_pid;
+static pid_t vfork_saved_virt_pid;
+static pid_t vfork_saved_real_pid;
 static pid_t vfork_saved_ppid;
 static pid_t vfork_saved_tid;
 
 LIB_PRIVATE void
 pidVirt_atfork_prepare()
 {
-  Util::getVirtualPidFromEnvVar(&childVirtualPid, NULL, NULL);
+  Util::getVirtualPidFromEnvVar(&childVirtualPid, NULL, NULL, NULL);
 }
 
 LIB_PRIVATE void
@@ -79,12 +80,13 @@ VirtualPidTable vfork_saved_virtPidTableInst;
 LIB_PRIVATE void
 pidVirt_vfork_prepare()
 {
-  vfork_saved_pid = getpid();
+  vfork_saved_virt_pid = getpid();
+  vfork_saved_real_pid = VIRTUAL_TO_REAL_PID(getpid());
   vfork_saved_ppid = getppid();
   vfork_saved_tid = dmtcp_gettid();
   vfork_saved_virtPidTableInst = *virtPidTableInst;
 
-  Util::getVirtualPidFromEnvVar(&childVirtualPid, NULL, NULL);
+  Util::getVirtualPidFromEnvVar(&childVirtualPid, NULL, NULL, NULL);
 }
 
 static pid_t vforkPid = 0;
@@ -136,7 +138,9 @@ vfork()
   } else { /* Parent Process */
     *virtPidTableInst = vfork_saved_virtPidTableInst;
 
-    Util::setVirtualPidEnvVar(vfork_saved_pid, vfork_saved_ppid,
+    Util::setVirtualPidEnvVar(vfork_saved_virt_pid,
+                              vfork_saved_real_pid,
+                              vfork_saved_ppid,
                               _real_getppid());
     dmtcpResetPidPpid();
     dmtcpResetTid(getpid());

@@ -472,17 +472,6 @@ TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
     (tls_pid) (pid) .Text("tls pid doesn't match getpid");
 }
 
-void
-TLSInfo_UpdatePid()
-{
-  // For glibc > 2.24, pid field is unused.
-  if (glibcMajorVersion() == 2 && glibcMinorVersion() <= 24) {
-    pid_t *tls_pid =
-      (pid_t *)((char *) pthread_self() + TLSInfo_GetPidOffset());
-    *tls_pid = THREAD_REAL_PID();
-  }
-}
-
 /*****************************************************************************
  *
  *  Save state necessary for TLS restore
@@ -514,12 +503,18 @@ TLSInfo_RestoreTLSState(Thread *thread)
    * TLS (thread-local storage).  This is where we set it up.
    */
   tls_set_thread_area(thread);
+}
+
+void
+TLSInfo_RestoreTLSTidPid(Thread *thread)
+{
+  int mtcp_sys_errno __attribute__((unused));
 
   if (glibcMajorVersion() == 2 && glibcMinorVersion() <= 24) {
     *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetPidOffset()) =
-      THREAD_REAL_PID();
+      mtcp_sys_getpid();
   }
 
   *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetTidOffset()) =
-     THREAD_REAL_TID();
+     mtcp_sys_kernel_gettid();
 }

@@ -49,6 +49,7 @@ void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid);
 void TLSInfo_UpdatePid();
 void TLSInfo_SaveTLSState(Thread *thread);
 void TLSInfo_RestoreTLSState(Thread *thread);
+void TLSInfo_RestoreTLSTidPid(Thread *thread);
 void TLSInfo_SetThreadSysinfo(void *sysinfo);
 void *TLSInfo_GetThreadSysinfo();
 int TLSInfo_HaveThreadSysinfoOffset();

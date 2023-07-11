@@ -55,4 +55,7 @@ void postRestartWork(double readTime = 0.0);
 void postRestart(double readTime, int restartPause);
 }
 }
+
+EXTERNC void dmtcp_init_virtual_tid() __attribute((weak));
+
 #endif // ifndef THREADLIST_H

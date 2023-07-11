@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #define JALIB_ALLOCATOR
@@ -92,6 +93,7 @@ class JAllocDispatcher
       }
 #endif // ifdef JALLOC_DEBUG
 
+      memset(_p, 0, nbytes + headerFooterSizeInBytes);
       JAllocDispatcher::deallocate(_p, nbytes + headerFooterSizeInBytes);
     }
 
