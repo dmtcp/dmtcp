@@ -141,9 +141,7 @@ ThreadSync::libdlLockLock()
   int saved_errno = errno;
   bool lockAcquired = false;
 
-  if ((WorkerState::currentState() == WorkerState::RUNNING ||
-       WorkerState::currentState() == WorkerState::PRESUSPEND) &&
-      libdlLockOwner != dmtcp_gettid()) {
+  if (libdlLockOwner != dmtcp_gettid()) {
     JASSERT(DmtcpMutexLock(&libdlLock) == 0);
     libdlLockOwner = dmtcp_gettid();
     lockAcquired = true;
@@ -159,8 +157,6 @@ ThreadSync::libdlLockUnlock()
 
   JASSERT(libdlLockOwner == 0 || libdlLockOwner == dmtcp_gettid())
     (libdlLockOwner) (dmtcp_gettid());
-  JASSERT(WorkerState::currentState() == WorkerState::RUNNING ||
-          WorkerState::currentState() == WorkerState::PRESUSPEND);
   libdlLockOwner = 0;
   JASSERT(DmtcpMutexUnlock(&libdlLock) == 0);
   errno = saved_errno;
@@ -170,26 +166,21 @@ bool
 ThreadSync::wrapperExecutionLockLock()
 {
   int saved_errno = errno;
-  bool lockAcquired = false;
 
   Thread *thread = dmtcp_get_current_thread();
 
-  if ((WorkerState::currentState() == WorkerState::RUNNING ||
-       WorkerState::currentState() == WorkerState::PRESUSPEND)) {
-    if (thread->wrapperLockCount == 0) {
-      // If we don't have a lock, acquire it now.
-      if (DmtcpRWLockRdLock(&_wrapperExecutionLock) != 0) {
-        fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
-                errno, __FILE__, __LINE__, __PRETTY_FUNCTION__);
-        _exit(DMTCP_FAIL_RC);
-      }
+  if (thread->wrapperLockCount == 0) {
+    // If we don't have a lock, acquire it now.
+    if (DmtcpRWLockRdLock(&_wrapperExecutionLock) != 0) {
+      fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
+              errno, __FILE__, __LINE__, __PRETTY_FUNCTION__);
+      _exit(DMTCP_FAIL_RC);
     }
-    thread->wrapperLockCount++;
-    lockAcquired = true;
   }
+  thread->wrapperLockCount++;
 
   errno = saved_errno;
-  return lockAcquired;
+  return true;
 }
 
 void
@@ -264,15 +255,12 @@ ThreadSync::wrapperExecutionLockLockExcl()
 
   Thread *thread = dmtcp_get_current_thread();
 
-  if (WorkerState::currentState() == WorkerState::RUNNING ||
-      WorkerState::currentState() == WorkerState::PRESUSPEND) {
-    if (DmtcpRWLockWrLock(&_wrapperExecutionLock) != 0) {
-      fprintf(stderr, "ERROR %s:%d %s: Failed to acquire lock\n",
-              __FILE__, __LINE__, __PRETTY_FUNCTION__);
-      _exit(DMTCP_FAIL_RC);
-    }
-    thread->wrapperLockCount++;
+  if (DmtcpRWLockWrLock(&_wrapperExecutionLock) != 0) {
+    fprintf(stderr, "ERROR %s:%d %s: Failed to acquire lock\n",
+            __FILE__, __LINE__, __PRETTY_FUNCTION__);
+    _exit(DMTCP_FAIL_RC);
   }
+  thread->wrapperLockCount++;
   errno = saved_errno;
   return;
 }

@@ -43,14 +43,18 @@ typedef void * (*dlsym_fnptr_t) (void *handle, const char *symbol);
 static void *pid_real_func_addr[numPidVirtWrappers];
 static int pid_wrappers_initialized = 0;
 
-#define GET_FUNC_ADDR(name) \
-  pid_real_func_addr[PIDVIRT_ENUM(name)] = dmtcp_dlsym(RTLD_NEXT, # name);
+#define GET_FUNC_ADDR(name)                \
+  pid_real_func_addr[PIDVIRT_ENUM(name)] = \
+    dlsym_default_internal_flag_handler(   \
+      RTLD_NEXT, NULL, #name, NULL, __builtin_return_address(0), NULL, NULL);
 
-#define GET_FUNC_ADDR_V(name, v)                                               \
-  pid_real_func_addr[PIDVIRT_ENUM(name)] = dmtcp_dlvsym(RTLD_NEXT, # name, v); \
-  if (pid_real_func_addr[PIDVIRT_ENUM(name)] == NULL) {                        \
-    /* Symbol version not found, try the default and hope for the best */      \
-    GET_FUNC_ADDR(name);                                                       \
+#define GET_FUNC_ADDR_V(name, v)                                           \
+  pid_real_func_addr[PIDVIRT_ENUM(name)] =                                 \
+    dlsym_default_internal_flag_handler(                                   \
+      RTLD_NEXT, NULL, #name, v, __builtin_return_address(0), NULL, NULL); \
+  if (pid_real_func_addr[PIDVIRT_ENUM(name)] == NULL) {                    \
+    /* Symbol version not found, try the default and hope for the best */  \
+    GET_FUNC_ADDR(name);                                                   \
   }
 
 #ifdef __i386__

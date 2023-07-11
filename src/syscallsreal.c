@@ -196,25 +196,28 @@ static void *_real_func_addr[numLibcWrappers];
 static int dmtcp_wrappers_initialized = 0;
 
 #define GET_FUNC_ADDR(name) \
-  _real_func_addr[ENUM(name)] = dmtcp_dlsym(RTLD_NEXT, #name);
+  _real_func_addr[ENUM(name)] = dlsym_default_internal_flag_handler(RTLD_NEXT, NULL, #name, NULL, __builtin_return_address(0), NULL, NULL);
 
 static void
 initialize_libc_wrappers()
 {
   FOREACH_DMTCP_WRAPPER(GET_FUNC_ADDR);
-#ifdef __i386__
 
   /* On i386 systems, there are two pthread_create symbols. We want the one
    * with GLIBC_2.1 version. On 64-bit machines, there is only one
    * pthread_create symbol (GLIBC_2.2.5), so no worries there.
    */
-  _real_func_addr[ENUM(pthread_create)] = dmtcp_dlvsym(RTLD_NEXT,
-                                                       "pthread_create",
-                                                       "GLIBC_2.1");
+#ifdef __i386__
+  const char *pthread_create_version = "GLIBC_2.1";
+#else
+  /* On some arm machines, the newest pthread_create has version GLIBC_2.4 */
+  const char *pthread_create_version = "GLIBC_2.4";
 #endif
 
-  /* On some arm machines, the newest pthread_create has version GLIBC_2.4 */
-  void *addr = dmtcp_dlvsym(RTLD_NEXT, "pthread_create", "GLIBC_2.4");
+  void *addr = dlsym_default_internal_flag_handler(
+    RTLD_NEXT, NULL, "pthread_create", pthread_create_version,
+    __builtin_return_address(0), NULL, NULL);
+
   if (addr != NULL) {
     _real_func_addr[ENUM(pthread_create)] = addr;
   }
