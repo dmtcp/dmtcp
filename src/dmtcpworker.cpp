@@ -294,7 +294,7 @@ dmtcp_finalize()
   exitInProgress = true;
   PluginManager::eventHook(DMTCP_EVENT_EXIT, NULL);
 
-  ThreadSync::resetLocks();
+//   ThreadSync::resetLocks();
   WorkerState::setCurrentState(WorkerState::UNKNOWN);
 
   JTRACE("Process exiting.");

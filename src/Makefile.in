@@ -209,8 +209,8 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) siginfo.$(OBJEXT) \
 	syslogwrappers.$(OBJEXT) terminal.$(OBJEXT) \
 	threadlist.$(OBJEXT) threadsync.$(OBJEXT) \
-	threadwrappers.$(OBJEXT) wrappers.$(OBJEXT) \
-	writeckpt.$(OBJEXT)
+	threadwrappers.$(OBJEXT) wrapperlock.$(OBJEXT) \
+	wrappers.$(OBJEXT) writeckpt.$(OBJEXT)
 __d_libdir__libdmtcp_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_so_OBJECTS)
 __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
@@ -264,7 +264,8 @@ am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/trampolines.Po ./$(DEPDIR)/uniquepid.Po \
 	./$(DEPDIR)/util_exec.Po ./$(DEPDIR)/util_init.Po \
 	./$(DEPDIR)/util_misc.Po ./$(DEPDIR)/workerstate.Po \
-	./$(DEPDIR)/wrappers.Po ./$(DEPDIR)/writeckpt.Po
+	./$(DEPDIR)/wrapperlock.Po ./$(DEPDIR)/wrappers.Po \
+	./$(DEPDIR)/writeckpt.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -619,6 +620,7 @@ nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 	$(dmtcpincludedir)/shareddata.h \
 	$(dmtcpincludedir)/trampolines.h $(dmtcpincludedir)/util.h \
 	$(dmtcpincludedir)/virtualidtable.h \
+	$(dmtcpincludedir)/wrapperlock.h \
 	$(dmtcpincludedir)/dmtcp/version.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -680,6 +682,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  threadlist.cpp 		\
 				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\
+				  wrapperlock.cpp		\
 				  wrappers.cpp 			\
 				  writeckpt.cpp
 
@@ -947,6 +950,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_init.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_misc.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/workerstate.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wrapperlock.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/writeckpt.Po@am__quote@ # am--include-marker
 
@@ -1391,6 +1395,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/util_init.Po
 	-rm -f ./$(DEPDIR)/util_misc.Po
 	-rm -f ./$(DEPDIR)/workerstate.Po
+	-rm -f ./$(DEPDIR)/wrapperlock.Po
 	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
 	-rm -f Makefile
@@ -1496,6 +1501,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/util_init.Po
 	-rm -f ./$(DEPDIR)/util_misc.Po
 	-rm -f ./$(DEPDIR)/workerstate.Po
+	-rm -f ./$(DEPDIR)/wrapperlock.Po
 	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
 	-rm -f Makefile

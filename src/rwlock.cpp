@@ -15,6 +15,30 @@ void DmtcpRWLockInit(DmtcpRWLock *rwlock)
 }
 
 
+static
+int DmtcpRWLockTryRdLockUnsafe(DmtcpRWLock *rwlock)
+{
+  int result = EBUSY;
+
+  ASSERT_EQ(gettid(), rwlock->xLock.owner);
+
+  // Detect deadlock.
+  if (rwlock->writer == gettid()) {
+    result = EDEADLK;
+  }
+
+  // See if we can acquire the lock.
+  if (rwlock->writer == 0 && !rwlock->nWritersQueued) {
+    uint32_t nReaders =
+        __atomic_add_fetch(&rwlock->nReaders, 1, __ATOMIC_SEQ_CST);
+    JASSERT(nReaders != 0); // Overflow
+    result = 0;
+  }
+
+  return result;
+}
+
+
 extern "C"
 int DmtcpRWLockTryRdLock(DmtcpRWLock *rwlock)
 {
@@ -24,17 +48,7 @@ int DmtcpRWLockTryRdLock(DmtcpRWLock *rwlock)
     return result;
   }
 
-  // Detect deadlock.
-  if (rwlock->writer == gettid()) {
-    result = EDEADLK;
-  }
-
-  // See if we can acquire the lock.
-  if (rwlock->writer == 0 && !rwlock->nWritersQueued) {
-    uint32_t old = __atomic_add_fetch(&rwlock->nReaders, 1, __ATOMIC_SEQ_CST);
-    JASSERT(old != 0); // Overflow
-    result = 0;
-  }
+  result = DmtcpRWLockTryRdLockUnsafe(rwlock);
 
   JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
 
@@ -50,21 +64,15 @@ int DmtcpRWLockRdLock(DmtcpRWLock *rwlock)
   JASSERT(DmtcpMutexLock(&rwlock->xLock) == 0);
 
   while (1) {
-    // Detect deadlock.
-    if (rwlock->writer == gettid()) {
-      result = EDEADLK;
-    }
-
-    // See if we can acquire the lock.
-    if (rwlock->writer == 0 && !rwlock->nWritersQueued) {
-      uint32_t old = __atomic_add_fetch(&rwlock->nReaders, 1, __ATOMIC_SEQ_CST);
-      JASSERT(old != 0); // Overflow
+    result = DmtcpRWLockTryRdLockUnsafe(rwlock);
+    if (result != EBUSY) {
       break;
     }
 
     // Lock was not available. Let's queue ourselves.
-    ++rwlock->nReadersQueued;
-    JASSERT(rwlock->nReadersQueued != 0); // Overflow
+    uint32_t oldReadersQueued =
+        __atomic_add_fetch(&rwlock->nReadersQueued, 1, __ATOMIC_SEQ_CST);
+    JASSERT(oldReadersQueued != 0); // Overflow
 
     // Record writer TID.
     uint64_t waitVal = rwlock->readersFutex;
@@ -102,16 +110,16 @@ int DmtcpRWLockWrLock(DmtcpRWLock *rwlock)
   JASSERT(DmtcpMutexLock(&rwlock->xLock) == 0);
 
   while (1) {
-    // Detect deadlock.
-    if (rwlock->writer == gettid()) {
-      JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
-      result = EDEADLK;
-    }
-
     // See if we can acquire the lock.
     if (rwlock->writer == 0 && rwlock->nReaders == 0) {
       rwlock->writer = gettid();
       break;
+    }
+
+    // Detect deadlock.
+    if (rwlock->writer == gettid()) {
+      JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
+      return EDEADLK;
     }
 
     // Lock was not available. Let's queue ourselves.
@@ -173,4 +181,3 @@ int DmtcpRWLockUnlock(DmtcpRWLock *rwlock)
   JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
   return 0;
 }
-

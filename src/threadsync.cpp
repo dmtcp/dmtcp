@@ -104,7 +104,7 @@ ThreadSync::acquireLocks()
   JASSERT(DmtcpMutexLock(&libdlLock) == 0);
 
   JTRACE("Waiting for other threads to exit DMTCP-Wrappers");
-  JASSERT(DmtcpRWLockWrLock(&_wrapperExecutionLock) == 0);
+  ThreadSync::wrapperExecutionLockLockExcl();
 
   JTRACE("Done acquiring all locks");
 }
@@ -115,7 +115,7 @@ ThreadSync::releaseLocks()
   JASSERT(WorkerState::currentState() == WorkerState::SUSPENDED);
 
   JTRACE("Releasing ThreadSync locks");
-  JASSERT(DmtcpRWLockUnlock(&_wrapperExecutionLock) == 0);
+  ThreadSync::wrapperExecutionLockUnlock();
   JASSERT(DmtcpMutexUnlock(&libdlLock) == 0);
 }
 
@@ -162,7 +162,7 @@ ThreadSync::libdlLockUnlock()
   errno = saved_errno;
 }
 
-bool
+void
 ThreadSync::wrapperExecutionLockLock()
 {
   int saved_errno = errno;
@@ -180,7 +180,6 @@ ThreadSync::wrapperExecutionLockLock()
   thread->wrapperLockCount++;
 
   errno = saved_errno;
-  return true;
 }
 
 void
@@ -262,7 +261,6 @@ ThreadSync::wrapperExecutionLockLockExcl()
   }
   thread->wrapperLockCount++;
   errno = saved_errno;
-  return;
 }
 
 // NOTE: Don't do any fancy stuff in this wrapper which can cause the process
