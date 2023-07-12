@@ -125,7 +125,8 @@ dmtcp_get_local_status(int *nCheckpoints, int *nRestarts)
 EXTERNC int
 dmtcp_disable_ckpt()
 {
-  return ThreadSync::wrapperExecutionLockLock();
+  ThreadSync::wrapperExecutionLockLock();
+  return 1;
 }
 
 EXTERNC int
@@ -139,7 +140,8 @@ EXTERNC
 int
 dmtcp_plugin_disable_ckpt()
 {
-  return ThreadSync::wrapperExecutionLockLock();
+  ThreadSync::wrapperExecutionLockLock();
+  return 1;
 }
 
 EXTERNC

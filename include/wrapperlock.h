@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2012 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2023 by Jason Ansel, Kapil Arya, and Gene Cooperman      *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
@@ -19,36 +19,26 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef THREADSYNC_H
-#define THREADSYNC_H
-
-#include "dmtcpworker.h"
-#include "wrapperlock.h"
-
-struct Thread;
+#ifndef DMTCP_WRAPPER_LOCK_H
+#define DMTCP_WRAPPER_LOCK_H
 
 namespace dmtcp
 {
-
-namespace ThreadSync
+class WrapperLock
 {
-void acquireLocks();
-void releaseLocks();
-void resetLocks(bool resetPresuspendEventHookLock = true);
-void initMotherOfAll();
+  public:
+    WrapperLock(const WrapperLock&) = delete; // no copies
+    WrapperLock& operator=(const WrapperLock&) = delete; // no self-assignments
 
-void wrapperExecutionLockLock();
-void wrapperExecutionLockUnlock();
-void wrapperExecutionLockLockExcl();
-void wrapperExecutionLockLockForNewThread(Thread *thread);
-void wrapperExecutionLockUnlockForNewThread(Thread *thread);
+    WrapperLock(bool _exclusiveLock = false);
+    virtual ~WrapperLock();
+};
 
-bool libdlLockLock();
-void libdlLockUnlock();
-
-void presuspendEventHookLockLock();
-void presuspendEventHookLockUnlock();
-}
+class WrapperLockExcl : public WrapperLock
+{
+  public:
+    WrapperLockExcl() : WrapperLock(true) { }
+};
 
 }
-#endif // ifndef THREADSYNC_H
+#endif // ifndef DMTCP_WRAPPER_LOCK_H

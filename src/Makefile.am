@@ -110,6 +110,7 @@ nobase_noinst_HEADERS += $(dmtcpincludedir)/dmtcp.h		\
 			 $(dmtcpincludedir)/trampolines.h	\
 			 $(dmtcpincludedir)/util.h		\
 			 $(dmtcpincludedir)/virtualidtable.h	\
+			 $(dmtcpincludedir)/wrapperlock.h	\
 			 $(dmtcpincludedir)/dmtcp/version.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -170,6 +171,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  threadlist.cpp 		\
 				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\
+				  wrapperlock.cpp		\
 				  wrappers.cpp 			\
 				  writeckpt.cpp
 

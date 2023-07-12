@@ -451,12 +451,10 @@ void dmtcp_register_plugin(DmtcpPluginDescriptor_t) __attribute((weak));
 
 // These are part of the internal implementation of DMTCP plugins
 int dmtcp_plugin_disable_ckpt(void);
-#define DMTCP_PLUGIN_DISABLE_CKPT() \
-  int __dmtcp_plugin_ckpt_disabled = dmtcp_plugin_disable_ckpt()
+#define DMTCP_PLUGIN_DISABLE_CKPT() dmtcp_plugin_disable_ckpt()
 
 void dmtcp_plugin_enable_ckpt(void);
-#define DMTCP_PLUGIN_ENABLE_CKPT() \
-  if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
+#define DMTCP_PLUGIN_ENABLE_CKPT() dmtcp_plugin_enable_ckpt()
 
 void dmtcp_add_to_ckpt_header(const char *key, const char *value);
 

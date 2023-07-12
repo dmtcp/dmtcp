@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2012 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
@@ -19,36 +19,24 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef THREADSYNC_H
-#define THREADSYNC_H
-
-#include "dmtcpworker.h"
 #include "wrapperlock.h"
-
-struct Thread;
+#include "threadsync.h"
 
 namespace dmtcp
 {
 
-namespace ThreadSync
+WrapperLock::WrapperLock(bool exclusiveLock)
 {
-void acquireLocks();
-void releaseLocks();
-void resetLocks(bool resetPresuspendEventHookLock = true);
-void initMotherOfAll();
+  if (exclusiveLock) {
+    ThreadSync::wrapperExecutionLockLockExcl();
+  } else {
+    ThreadSync::wrapperExecutionLockLock();
+  }
+}
 
-void wrapperExecutionLockLock();
-void wrapperExecutionLockUnlock();
-void wrapperExecutionLockLockExcl();
-void wrapperExecutionLockLockForNewThread(Thread *thread);
-void wrapperExecutionLockUnlockForNewThread(Thread *thread);
-
-bool libdlLockLock();
-void libdlLockUnlock();
-
-void presuspendEventHookLockLock();
-void presuspendEventHookLockUnlock();
+WrapperLock::~WrapperLock()
+{
+  ThreadSync::wrapperExecutionLockUnlock();
 }
 
 }
-#endif // ifndef THREADSYNC_H
