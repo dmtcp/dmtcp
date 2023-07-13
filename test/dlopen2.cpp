@@ -7,6 +7,7 @@
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #if !defined(LIB3) && !defined(LIB4)
@@ -20,6 +21,15 @@ main(int argc, char *argv[])
   int result[2] = { 0, 0 };
   int i, answer;
   int cnt1 = 0, cnt2 = 0;
+
+  // chdir to DMTCP root dir
+  char *char1 = strrchr(argv[0], '/');
+  *char1 = '\0';
+  char *char2 = strrchr(argv[0], '/');
+  *char2 = '\0';
+  int rc = chdir(argv[0]);
+  if (rc != 0) {fprintf(stderr, "Failed to chdir to %s\n", argv[0]); exit(1);}
+  *char1 = *char2 = '/';
 
   printf("0: "); fflush(stdout);
   while (1) {

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# NOTE: .travis.yml at DMTCP_ROOT calls autotest.py for github/travis
+# NOTE: .github/workflows/make-check.yml at DMTCP_ROOT calls autotest.py
 
 from random import randint
 from time   import sleep
@@ -17,7 +17,7 @@ import pwd
 import stat
 import re
 
-# FIX for bad path for Java:  Travis prepended
+# FIX for bad path for Java:  Previously, Travis prepended
 #     "/usr/bin:/opt/pyenv/libexec:/opt/pyenv/plugins/python-build/bin:/"
 # to os.environ['PATH'] on July 31, 2019.  It does this, even though
 # "/usr/bin" occurs later in the path.  /usr/bin/java exists as Java-8.
@@ -1294,9 +1294,10 @@ runTest("nocheckpoint",        [1,2], ["./test/nocheckpoint"])
 
 print("== Summary ==")
 print("%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1]))
-print("Failed Tests:")
-for f in failed_tests:
-  printError("  " + f)
+if failed_tests:
+  print("Failed Tests:")
+  for f in failed_tests:
+    printError("  " + f)
 
 saveResultsNMI()
 
