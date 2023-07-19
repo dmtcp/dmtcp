@@ -625,9 +625,12 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
       "You will then be in 'ThreadList::postRestart()' or later\n"
       "  (gdb) list\n"
       "  (gdb) p restartPauseLevel = 0  # Or set it to next higher level.\n"
-      "  # In some recent Linuxes/glibc/gdb, you may also need to do:\n"
-      "  (gdb) source DMTCP_ROOT/util/gdb-add-symbol-files-all\n"
-      "  (gdb) add-symbol-files-all\n",
+      "  # In most recent Linuxes/glibc/gdb, you will also need to do:\n"
+      "  (gdb) source DMTCP_ROOT/util/gdb-dmtcp-utils\n"
+      "  (gdb) load-symbols # (better for recent GDB: try it)\n"
+      "  (gdb) load-symbols-library ADDR_OR_FILE"
+      "  # Better for newer GDB versions\n"
+      "  (gdb) add-symbol-files-all # (better for GDB-8 and earlier)\n",
       mtcp_sys_getpid()
     );
   }
