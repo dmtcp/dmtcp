@@ -61,6 +61,7 @@
 #include "mtcp_util.h"
 #include "procmapsarea.h"
 
+#define DEBUG_CONFLICT
 #ifdef FAST_RST_VIA_MMAP
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
 #endif
@@ -1108,12 +1109,28 @@ read_one_memory_area(int fd, VA endOfStack)
       * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
       * mtcp_safemmap here to check for address conflicts.
       */
-      mmappedat =
+#ifdef DEBUG_CONFLICT
+     if (area.addr <= 0x7ffff6dcc000) {
+        mmappedat =
         mmap_fixed_noreplace(area.addr, area.size, area.prot | PROT_WRITE,
                             area.flags, imagefd, area.offset);
-
+        MTCP_ASSERT(mmappedat == area.addr);
+      }else{
+        static int dummy = 0;
+        if (dummy == 0) {
+          struct timespec sleep_time, remaining_time;
+          // Set the sleep time to 1 second and 500 milliseconds (1,500,000,000 nanoseconds)
+          sleep_time.tv_sec = 60;
+          // Sleep for the specified time
+          mtcp_sys_nanosleep(&sleep_time, &remaining_time);
+          dummy = 1;
+        }
+      }
+#else
+      mmap_fixed_noreplace(area.addr, area.size, area.prot | PROT_WRITE,
+                            area.flags, imagefd, area.offset);
       MTCP_ASSERT(mmappedat == area.addr);
-
+#endif
   #if 0
       /*
       * The function is not used but is truer to maintaining the user's
