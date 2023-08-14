@@ -427,7 +427,7 @@ mtcp_write_anonymous_pages(int fd, Area area)
     } else {
       if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
         JTRACE("error doing madvise(..., MADV_DONTNEED)")
-          (JASSERT_ERRNO) (a.addr) ((int)a.size);
+          (JASSERT_ERRNO) ((void *)a.addr) ((int)a.size);
       }
     }
     area.addr += size;
