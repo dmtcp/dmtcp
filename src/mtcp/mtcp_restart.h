@@ -65,6 +65,7 @@ typedef struct RestoreInfo {
   VA minLibsStart;
   VA maxLibsEnd;
   VA minHighMemStart;
+  VA maxHighMemEnd;
   char* restartDir;
 
   // void (*post_restart)();

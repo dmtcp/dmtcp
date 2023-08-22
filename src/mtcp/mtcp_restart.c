@@ -149,6 +149,7 @@ main(int argc, char *argv[], char **environ)
   rinfo.minLibsStart = NULL;
   rinfo.maxLibsEnd = NULL;
   rinfo.minHighMemStart = NULL;
+  rinfo.maxHighMemEnd = NULL;
 
   char *restart_pause_str = mtcp_getenv("DMTCP_RESTART_PAUSE", environ);
   if (restart_pause_str == NULL) {
@@ -189,6 +190,9 @@ main(int argc, char *argv[], char **environ)
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--minHighMemStart") == 0) {
       rinfo.minHighMemStart = (VA) mtcp_strtol(argv[1]);
+      shift; shift;
+    } else if (mtcp_strcmp(argv[0], "--maxHighMemEnd") == 0) {
+      rinfo.maxHighMemEnd = (VA) mtcp_strtol(argv[1]);
       shift; shift;
     } else if (argc == 1) {
       // We would use MTCP_PRINTF, but it's also for output of util/readdmtcp.sh
