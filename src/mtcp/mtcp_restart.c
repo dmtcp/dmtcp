@@ -184,6 +184,7 @@ main(int argc, char *argv[], char **environ)
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--minLibsStart") == 0) {
       rinfo.minLibsStart = (VA) mtcp_strtol(argv[1]);
+      MTCP_PRINTF("***mtcp_restart: minLibsStart: %p.\n", rinfo.minLibsStart);
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--maxLibsEnd") == 0) {
       rinfo.maxLibsEnd = (VA) mtcp_strtol(argv[1]);
@@ -1111,12 +1112,17 @@ read_one_memory_area(int fd, VA endOfStack)
       /* POSIX says mmap would unmap old memory.  Munmap never fails if args
       * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
       * mtcp_safemmap here to check for address conflicts.
+      * FIXME: decide the range dynamically
       */
-      mmappedat =
-        mmap_fixed_noreplace(area.addr, area.size, area.prot | PROT_WRITE,
-                            area.flags, imagefd, area.offset);
+     if (area.addr >= (char *)0x11200000 && area.addr <= (char*) 0x11213000) 
+     {
+      mtcp_sys_munmap(area.addr, area.size);
+     }
+    mmappedat =
+      mmap_fixed_noreplace(area.addr, area.size, area.prot | PROT_WRITE,
+                          area.flags, imagefd, area.offset);
+    MTCP_ASSERT(mmappedat == area.addr);
 
-      MTCP_ASSERT(mmappedat == area.addr);
 
   #if 0
       /*
