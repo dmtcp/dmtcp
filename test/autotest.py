@@ -748,7 +748,7 @@ def runTestRaw(name, numProcs, cmds):
     try:
       testKill()
     except CheckFailed as e:
-      printError("CLEANUP ERROR:", e.value)
+      printError("CLEANUP ERROR:" + str(e.value))
       SHUTDOWN()
       saveResultsNMI()
       sys.exit(1)
