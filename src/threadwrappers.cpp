@@ -37,8 +37,8 @@
 using namespace dmtcp;
 
 // gettid / tkill / tgkill are not defined in libc.
-LIB_PRIVATE pid_t
-dmtcp_gettid()
+extern "C" pid_t
+gettid()
 {
   Thread *thread = dmtcp_get_current_thread();
   return thread->tid;

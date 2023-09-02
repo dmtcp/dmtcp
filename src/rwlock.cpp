@@ -25,7 +25,7 @@ int DmtcpRWLockTryRdLock(DmtcpRWLock *rwlock)
   }
 
   // Detect deadlock.
-  if (rwlock->writer == dmtcp_gettid()) {
+  if (rwlock->writer == gettid()) {
     result = EDEADLK;
   }
 
@@ -51,7 +51,7 @@ int DmtcpRWLockRdLock(DmtcpRWLock *rwlock)
 
   while (1) {
     // Detect deadlock.
-    if (rwlock->writer == dmtcp_gettid()) {
+    if (rwlock->writer == gettid()) {
       result = EDEADLK;
     }
 
@@ -103,14 +103,14 @@ int DmtcpRWLockWrLock(DmtcpRWLock *rwlock)
 
   while (1) {
     // Detect deadlock.
-    if (rwlock->writer == dmtcp_gettid()) {
+    if (rwlock->writer == gettid()) {
       JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
       result = EDEADLK;
     }
 
     // See if we can acquire the lock.
     if (rwlock->writer == 0 && rwlock->nReaders == 0) {
-      rwlock->writer = dmtcp_gettid();
+      rwlock->writer = gettid();
       break;
     }
 
@@ -140,9 +140,9 @@ int DmtcpRWLockWrLock(DmtcpRWLock *rwlock)
 extern "C"
 int DmtcpRWLockUnlock(DmtcpRWLock *rwlock)
 {
-  if (rwlock->writer == dmtcp_gettid()) {
+  if (rwlock->writer == gettid()) {
     // We must already have the lock.
-    JASSERT((pid_t)(rwlock->xLock.owner) == dmtcp_gettid());
+    JASSERT((pid_t)(rwlock->xLock.owner) == gettid());
     rwlock->writer = 0;
   } else {
     JASSERT(DmtcpMutexLock(&rwlock->xLock) == 0);

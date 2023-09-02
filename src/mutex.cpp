@@ -66,7 +66,7 @@ DmtcpMutexLock(DmtcpMutex *mutex)
            != LOCK_FREE);
 
   mutex->owner = (mutex->type == DMTCP_MUTEX_LLL) ? 1
-                                                :(mutex_owner_t) dmtcp_gettid();
+                                                :(mutex_owner_t) gettid();
   mutex->count = 1;
 
   return 0;
@@ -79,7 +79,7 @@ DmtcpMutexTryLock(DmtcpMutex *mutex)
   pid_t owner = 1;
 
   if (mutex->type != DMTCP_MUTEX_LLL) {
-    owner = dmtcp_gettid();
+    owner = gettid();
 
     if ((pid_t)(mutex->owner) == owner) {
       if (mutex->type == DMTCP_MUTEX_RECURSIVE) {
@@ -115,7 +115,7 @@ DmtcpMutexUnlock(DmtcpMutex *mutex)
   pid_t owner = 1;
 
   if (mutex->type != DMTCP_MUTEX_LLL) {
-    owner = dmtcp_gettid();
+    owner = gettid();
   }
 
   JASSERT((pid_t)(mutex->owner) == owner);
