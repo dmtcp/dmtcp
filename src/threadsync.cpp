@@ -141,9 +141,9 @@ ThreadSync::libdlLockLock()
   int saved_errno = errno;
   bool lockAcquired = false;
 
-  if (libdlLockOwner != dmtcp_gettid()) {
+  if (libdlLockOwner != gettid()) {
     JASSERT(DmtcpMutexLock(&libdlLock) == 0);
-    libdlLockOwner = dmtcp_gettid();
+    libdlLockOwner = gettid();
     lockAcquired = true;
   }
   errno = saved_errno;
@@ -155,8 +155,8 @@ ThreadSync::libdlLockUnlock()
 {
   int saved_errno = errno;
 
-  JASSERT(libdlLockOwner == 0 || libdlLockOwner == dmtcp_gettid())
-    (libdlLockOwner) (dmtcp_gettid());
+  JASSERT(libdlLockOwner == 0 || libdlLockOwner == gettid())
+    (libdlLockOwner) (gettid());
   libdlLockOwner = 0;
   JASSERT(DmtcpMutexUnlock(&libdlLock) == 0);
   errno = saved_errno;

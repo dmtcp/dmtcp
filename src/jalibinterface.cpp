@@ -60,7 +60,7 @@ initializeJalib()
   INIT_JALIB_FPTR(accept);
   INIT_JALIB_FPTR(setsockopt);
 
-  jalibFuncPtrs.gettid = dmtcp_gettid;
+  jalibFuncPtrs.gettid = gettid;
 
   jalib_init(jalibFuncPtrs,
              ELF_INTERPRETER,
