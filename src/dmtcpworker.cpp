@@ -135,7 +135,7 @@ DmtcpWorker::determineCkptSignal()
     if ((errno != 0) || (tmp == endp)) {
       sig = CKPT_SIGNAL;
     }
-    if (sig < 1 || sig > 31) {
+    if (sig < 1 || sig >= SIGRTMAX) {
       sig = CKPT_SIGNAL;
     }
   }
