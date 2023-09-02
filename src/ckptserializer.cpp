@@ -420,7 +420,7 @@ CkptSerializer::writeCkptImage(void *mtcpHdr,
                                size_t mtcpHdrLen,
                                const string& ckptFilename)
 {
-  JTRACE("Thread performing checkpoint.") (dmtcp_gettid());
+  JTRACE("Thread performing checkpoint.");
   createCkptDir();
   forked_ckpt_status = test_and_prepare_for_forked_ckpt();
   if (forked_ckpt_status == FORKED_CKPT_PARENT) {
