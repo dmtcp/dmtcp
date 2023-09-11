@@ -92,6 +92,7 @@ static int hasOverlappingMapping(VA addr, size_t size);
 static int mremap_move(void *dest, void *src, size_t size);
 static void remapMtcpRestartToReservedArea(RestoreInfo *rinfo);
 static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr);
+static void unmap_one_memory_area_and_rewind(Area *area, int mapsfd);
 static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo);
 static void compute_vdso_vvar_addr(RestoreInfo *rinfo);
 
@@ -694,6 +695,26 @@ compute_vdso_vvar_addr(RestoreInfo *rinfo)
 
 NO_OPTIMIZE
 static void
+unmap_one_memory_area_and_rewind(Area *area, int mapsfd)
+{
+  int mtcp_sys_errno;
+  DPRINTF("***INFO: munmapping (%p..%p)\n", area->addr, area->endAddr);
+  if (mtcp_sys_munmap(area->addr, area->size) == -1) {
+    MTCP_PRINTF("***WARNING: %s(%x): munmap(%p, %d) failed; errno: %d\n",
+                area->name, area->flags, area->addr, area->size,
+                mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  // Since we just unmapped a region, the size and contents of the
+  // /proc/self/maps file has changed. We should rewind and reread this file to
+  // ensure that we don't miss any regions.
+  // TODO(kapil): Create a list of all areas that we want to munmap and then unmap them all at once.
+  mtcp_sys_lseek(mapsfd, 0, SEEK_SET);
+}
+
+NO_OPTIMIZE
+static void
 unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
 {
   /* Unmap everything except this image, vdso, vvar and vsyscall. */
@@ -738,21 +759,19 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       // Do not unmap vsyscall.
     } else if (mtcp_strcmp(area.name, "[vectors]") == 0) {
       // Do not unmap vectors.  (used in Linux 3.10 on __arm__)
+    } else if (mtcp_strcmp(area.name, "[heap]") == 0) {
+      // Unmap heap.
+      unmap_one_memory_area_and_rewind(&area, mapsfd);
+    } else if (mtcp_strendswith(area.name, BINARY_NAME) ||
+               mtcp_strendswith(area.name, BINARY_NAME_M32)) {
+      // Unmap original mtcp_restart regions.
+      unmap_one_memory_area_and_rewind(&area, mapsfd);
     } else if (mtcp_plugin_skip_memory_region_munmap(&area, rinfo)) {
       // Skip memory region reserved by plugin.
-      DPRINTF("***INFO: skipping memory region suggested by plugin (%p..%p)\n",
+      DPRINTF("***INFO: skipping memory region as requested by plugin (%p..%p)\n",
               area.addr, area.endAddr);
     } else if (area.size > 0 && rinfo->skipMremap == 0) {
-      DPRINTF("***INFO: munmapping (%p..%p)\n", area.addr, area.endAddr);
-      if (mtcp_sys_munmap(area.addr, area.size) == -1) {
-        MTCP_PRINTF("***WARNING: %s(%x): munmap(%p, %d) failed; errno: %d\n",
-                    area.name, area.flags, area.addr, area.size,
-                    mtcp_sys_errno);
-        mtcp_abort();
-      }
-
-      // Rewind and reread maps.
-      mtcp_sys_lseek(mapsfd, 0, SEEK_SET);
+      unmap_one_memory_area_and_rewind(&area, mapsfd);
     }
   }
   mtcp_sys_close(mapsfd);
