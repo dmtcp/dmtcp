@@ -62,12 +62,6 @@ typedef struct RestoreInfo {
   VA new_stack_addr;
   size_t stack_offset;
 
-  VA minLibsStart;
-  VA maxLibsEnd;
-  VA minHighMemStart;
-  VA maxHighMemEnd;
-  char* restartDir;
-
   // void (*post_restart)();
   // void (*restorememoryareas_fptr)();
   int use_gdb;

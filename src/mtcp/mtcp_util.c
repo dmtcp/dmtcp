@@ -42,10 +42,10 @@
 #include "mtcp_util.h"
 #include "../membarrier.h"
 
-unsigned long mtcp_strtol (char *str)
+unsigned long long mtcp_strtoll (const char *str)
 {
   int mtcp_sys_errno=0;
-  unsigned long int v = 0;
+  unsigned long long int v = 0;
   int base = 10;
   if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
     str += 2;
@@ -71,6 +71,37 @@ unsigned long mtcp_strtol (char *str)
     str++;
   }
   return v;
+}
+
+unsigned long mtcp_strtol (const char *str)
+{
+  return (unsigned long) mtcp_strtoll(str);
+}
+
+void mtcp_ultoa(char* buffer, unsigned long n)
+{
+  // On 64-bit machines the largest unsigned is 20 digits.
+  char buff[20];
+  int i;
+
+  i = sizeof buff;
+  do {
+    buff[--i] = (n % 10) + '0';
+    n /= 10;
+  } while (n > 0);
+
+  mtcp_strcpy(buffer, buff);
+}
+
+void mtcp_itoa(char* buffer, int n)
+{
+  if (n < 0) {
+    buffer[0] = '-';
+    buffer++;
+    n = -n;
+  }
+
+  mtcp_ultoa(buffer, n);
 }
 
 size_t mtcp_strlen(const char *s)

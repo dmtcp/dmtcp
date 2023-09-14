@@ -150,7 +150,7 @@ char *pause_param;
 
 
 static void setEnvironFd();
-static void runMtcpRestart(int fd, ProcessInfo *pInfo);
+static void runMtcpRestart(int fd, RestoreTarget *target);
 static int readCkptHeader(const string &path, ProcessInfo *pInfo);
 static int openCkptFileToRead(const string &path);
 static int processCkptImages();
@@ -342,7 +342,7 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
     }
   }
 
-  runMtcpRestart(_fd, &_pInfo);
+  runMtcpRestart(_fd, this);
 
   JASSERT(false).Text("unreachable");
 }
@@ -405,8 +405,29 @@ getMtcpArgs()
   return mtcpArgs;
 }
 
+void
+publishKeyValueMapToMtcpEnvironment(RestoreTarget *restoreTarget)
+{
+  const map<string, string> &kvmap = restoreTarget->getKeyValueMap();
+  for (auto kv : kvmap) {
+    setenv(kv.first.c_str(), kv.second.c_str(), 1);
+  }
+
+  return;
+}
+
+vector<char*> StringVectorToCharPtrVector(vector<string> const& strings)
+{
+  vector<char*> ptrs;
+  for (size_t i = 0; i < strings.size(); i++) {
+    ptrs.push_back((char*) strings[i].c_str());
+  }
+
+  return ptrs;
+}
+
 static void
-runMtcpRestart(int fd, ProcessInfo *pInfo)
+runMtcpRestart(int fd, RestoreTarget *restoreTarget)
 {
   if (requestedDebugLevel > 0) {
     int debugPipe[2];
@@ -431,7 +452,7 @@ runMtcpRestart(int fd, ProcessInfo *pInfo)
       char cpid[11]; // XXX: Is 10 digits for long PID plus a terminating null
       snprintf(cpid, 11, "%ld", (long unsigned)pid);
       char* const command[] = {const_cast<char*>("gdb"),
-                               const_cast<char*>(pInfo->procSelfExe().c_str()),
+                               const_cast<char*>(restoreTarget->procSelfExe().c_str()),
                                cpid,
                                NULL};
       execvp(command[0], command);
@@ -445,13 +466,14 @@ runMtcpRestart(int fd, ProcessInfo *pInfo)
     }
   }
 
+  publishKeyValueMapToMtcpEnvironment(restoreTarget);
   vector<char *> mtcpArgs = getMtcpArgs();
 
 #if defined(__x86_64__) || defined(__aarch64__)
   // FIXME: This is needed for CONFIG_M32 only because getPath("mtcp_restart")
   // fails to return the absolute path for mtcp_restart.  We should fix
   // the bug in Util::getPath() and remove CONFIG_M32 condition in #if.
-  if (pInfo->elfType() == ProcessInfo::Elf_32) {
+  if (restoreTarget->getElfType() == ProcessInfo::Elf_32) {
     mtcp_restart_32 = Util::getPath("mtcp_restart-32", true);
     mtcpArgs[0] = (char *) mtcp_restart_32.c_str();
   }
@@ -462,7 +484,7 @@ runMtcpRestart(int fd, ProcessInfo *pInfo)
   mtcpArgs.push_back((char *) fdBuf.c_str());
 
   mtcpArgs.push_back(NULL);
-  execvpe(mtcpArgs[0], &mtcpArgs[0], environ);
+  execvp(mtcpArgs[0], &mtcpArgs[0]);
 
   JASSERT(false) (mtcpArgs[0]) (mtcpArgs[1]) (JASSERT_ERRNO)
   .Text("exec() failed");

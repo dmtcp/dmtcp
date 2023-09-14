@@ -71,6 +71,9 @@ class RestoreTarget
     const map<string, string>& getKeyValueMap() const
       { return _pInfo.getKeyValueMap(); }
 
+    const int getElfType() const
+      { return _pInfo.elfType(); }
+
   private:
     string _path;
     ProcessInfo _pInfo;
@@ -78,6 +81,7 @@ class RestoreTarget
 };
 
 vector<char *> getMtcpArgs();
+void publishKeyValueMapToMtcpEnvironment(RestoreTarget *restoreTarget);
 
 void dmtcp_restart_plugin(const string &restartDir,
                           const vector<string> &ckptImages) __attribute((weak));
