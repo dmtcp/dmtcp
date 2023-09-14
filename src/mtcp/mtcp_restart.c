@@ -146,11 +146,6 @@ main(int argc, char *argv[], char **environ)
   rinfo.skipMremap = 0;
   rinfo.use_gdb = 0;
 
-  rinfo.restartDir = NULL;
-  rinfo.minLibsStart = NULL;
-  rinfo.maxLibsEnd = NULL;
-  rinfo.minHighMemStart = NULL;
-  rinfo.maxHighMemEnd = NULL;
 
   char *restart_pause_str = mtcp_getenv("DMTCP_RESTART_PAUSE", environ);
   if (restart_pause_str == NULL) {
@@ -180,21 +175,6 @@ main(int argc, char *argv[], char **environ)
     } else if (mtcp_strcmp(argv[0], "--simulate") == 0) {
       simulate = 1;
       shift;
-    } else if (mtcp_strcmp(argv[0], "--restartdir") == 0) {
-      rinfo.restartDir = argv[1];
-      shift; shift;
-    } else if (mtcp_strcmp(argv[0], "--minLibsStart") == 0) {
-      rinfo.minLibsStart = (VA) mtcp_strtol(argv[1]);
-      shift; shift;
-    } else if (mtcp_strcmp(argv[0], "--maxLibsEnd") == 0) {
-      rinfo.maxLibsEnd = (VA) mtcp_strtol(argv[1]);
-      shift; shift;
-    } else if (mtcp_strcmp(argv[0], "--minHighMemStart") == 0) {
-      rinfo.minHighMemStart = (VA) mtcp_strtol(argv[1]);
-      shift; shift;
-    } else if (mtcp_strcmp(argv[0], "--maxHighMemEnd") == 0) {
-      rinfo.maxHighMemEnd = (VA) mtcp_strtol(argv[1]);
-      shift; shift;
     } else if (argc == 1) {
       // We would use MTCP_PRINTF, but it's also for output of util/readdmtcp.sh
       mtcp_printf("Considering '%s' as a ckpt image.\n", argv[0]);
@@ -210,17 +190,17 @@ main(int argc, char *argv[], char **environ)
     }
   }
 
-  if (((rinfo.fd != -1) ^ (rinfo.ckptImage[0] == '\0')) && !mpiMode) {
-    MTCP_PRINTF("***MTCP Internal Error\n");
-    mtcp_abort();
-  }
-
   compute_vdso_vvar_addr(&rinfo);
 
   DMTCP_RESTART_PAUSE(&rinfo, 1);
 
   if (!simulate) {
     mtcp_plugin_hook(&rinfo);
+  }
+
+  if (((rinfo.fd != -1) ^ (rinfo.ckptImage[0] == '\0')) && !mpiMode) {
+    MTCP_PRINTF("***MTCP Internal Error\n");
+    mtcp_abort();
   }
 
 #ifdef TIMING
