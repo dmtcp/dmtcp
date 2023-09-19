@@ -578,7 +578,9 @@ static void resetStaleTimeout() {
   if (timeout > 0) {
     alarm(timeout > elapsed_time ? timeout - elapsed_time : 1);
   } else {
-    alarm(0); // staleTimeout temporarily disabled and no absolute timeout
+    if (clients.size() == 0) {
+      alarm(0); // staleTimeout temporarily disabled and no absolute timeout
+    }
   }
 }
 
@@ -841,7 +843,9 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
   _virtualPidToClientMap.erase(client->virtualPid());
 
   ComputationStatus s = getStatus();
-  setStaleTimeout();
+  if (clients.size() == 0) {
+    setStaleTimeout();
+  }
   if (s.numPeers < 1) {
     if (exitOnLast) {
       JNOTE("last client exited, shutting down..");
@@ -1481,14 +1485,16 @@ DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
   if ((interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL &&
        interval != theCheckpointInterval) ||
       firstClient) {
-    int oldInterval = theCheckpointInterval;
-    if (interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL) {
+    if (interval == DMTCPMESSAGE_SAME_CKPT_INTERVAL) {
+      return; // This must be firstClient; but new interval not specified yet.
+    } else { // Either we're changing the ckpt interval, or still a firstClient.
+      int oldInterval = theCheckpointInterval;
       theCheckpointInterval = interval;
+      JNOTE("CheckpointInterval updated (for this computation only)")
+        (oldInterval) (theCheckpointInterval);
+      firstClient = false;
+      resetCkptTimer();
     }
-    JNOTE("CheckpointInterval updated (for this computation only)")
-      (oldInterval) (theCheckpointInterval);
-    firstClient = false;
-    resetCkptTimer();
   }
 }
 
@@ -1888,9 +1894,12 @@ main(int argc, char **argv)
       close(fd);
     }
 
+    unsigned int cur_timeout = alarm(0);
     if (fork() > 0) {
       JTRACE("Parent Exiting after fork()");
       exit(0);
+    } else {
+      alarm(cur_timeout); // Restore parent timeout in child.
     }
 
     // pid_t sid = setsid();

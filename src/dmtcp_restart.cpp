@@ -452,7 +452,8 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
       char cpid[11]; // XXX: Is 10 digits for long PID plus a terminating null
       snprintf(cpid, 11, "%ld", (long unsigned)pid);
       char* const command[] = {const_cast<char*>("gdb"),
-                               const_cast<char*>(restoreTarget->procSelfExe().c_str()),
+                               const_cast<char*>(restoreTarget->
+                                                 procSelfExe().c_str()),
                                cpid,
                                NULL};
       execvp(command[0], command);
@@ -740,7 +741,7 @@ main(int argc, char **argv)
 
   // process args
   shift;
-  while (argc > 0) { // ... -restartdir ./ OR ... ckptImg
+  while (argc > 0) { // ... --restartdir ./ OR ... ckptImg
     string s = argc > 0 ? argv[0] : "--help";
     if (s == "--help" && argc == 1) {
       printf("%s", theUsage);
@@ -879,7 +880,7 @@ main(int argc, char **argv)
     ckptImages.push_back(argv[0]);
   }
 
-  // Can't specify ckpt images with --restart-dir flag.
+  // Can't specify ckpt images with --restartdir flag.
   if (restartDir.empty() ^ (ckptImages.size() > 0)) {
     JASSERT_STDERR << theUsage;
     exit(DMTCP_FAIL_RC);
