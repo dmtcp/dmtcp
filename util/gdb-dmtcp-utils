@@ -353,8 +353,11 @@ LoadSymbolsLibrary()
 def add_symbol_files_from_filename(filename, base_addr):
   if not os.path.exists(filename):
     return
-  if is_exec_file(filename):
-    base_addr = 0  # ELF executables already have hard-wired absolute address
+
+  if not is_exec_file(filename):
+    return
+
+  base_addr = 0  # ELF executables already have hard-wired absolute address
   (textaddr, sections) = relocatesections(filename)
   cmd = "add-symbol-file %s 0x%x" % (filename, int(textaddr, 16) + base_addr)
   for s in sections:
@@ -504,7 +507,7 @@ def procmap_filename_address(line):
          tuple([int("0x"+elt, 16) for elt in quad[0].split("-")]) + (quad[1],)
 def is_text_segment(memory):
   (file, _, _, permission) = memory
-  return "/dev/" not in file and "r-x" in permission and '/' in file
+  return "/dev/" not in file and "/locale/" not in file and "r-x" in permission and '/' in file
 def memory_regions():
   if getpid() == 0:
     sys.stderr.write("\n*** Process not running! ***\n")
@@ -512,7 +515,7 @@ def memory_regions():
   if usingCore():
     lines = gdb.execute("info proc mappings", False, True).split('\n')
     lines = [procmap_filename_address(line) for line in lines
-                                  if " 0x" in line and "/dev/" not in line]
+                                  if " 0x" in line and "/dev/" not in line and "/locale/" not in line]
   else:
     p = subprocess.Popen(["cat", "/proc/"+str(getpid())+"/maps"],
                          stdout = subprocess.PIPE)
