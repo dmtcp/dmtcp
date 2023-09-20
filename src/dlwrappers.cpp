@@ -140,13 +140,21 @@ extern "C"
 void *
 dlsym(void *handle, const char *symbol)
 {
+  void *ret = NULL;
   if (handle == RTLD_NEXT) {
-    return dlsym_with_rtld_next(symbol);
+    ret = dlsym_with_rtld_next(symbol);
+
+    // If RTLD_NEXT failed, let's call libc-dlsym so that a subsequent dlerror()
+    // will return the right error message.
+    if (ret != NULL) {
+      return ret;
+    }
   }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   // FIXME:  _real_dlsym is currently in src/plugin/pid/pid_syscallsreal.c
   //         Should we move it to src/syscallsreal.c ?
-  void *ret = dmtcp_dlsym(handle, symbol);
+  ret = NEXT_FNC(dlsym)(handle, symbol);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
