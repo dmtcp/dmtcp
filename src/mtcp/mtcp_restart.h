@@ -2,15 +2,8 @@
 #define MTCP_RESTART_H
 
 #include "procmapsarea.h"
+#include "mtcp_header.h"
 #include <linux/limits.h>
-
-#ifdef MTCP_PLUGIN_H
-#include MTCP_PLUGIN_H
-#else
-#define PluginInfo char
-#define mtcp_plugin_hook(args)
-#define mtcp_plugin_skip_memory_region_munmap(area, rinfo) 0
-#endif
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -90,12 +83,17 @@ typedef struct RestoreInfo {
   MemRegion regions_to_munmap[MAX_REGIONS_TO_MUNMAP];
   int num_regions_to_munmap;
 
-  PluginInfo pluginInfo;
+  int simulate;
+  int mpiMode;
 
   char ckptImage[PATH_MAX];
 } RestoreInfo;
 
+int mtcp_restart_process_args(RestoreInfo *rinfo, int argc, char *argv[], char **environ);
+void mtcp_restart(RestoreInfo *rinfo, MtcpHeader *mtcpHdr);
+void mtcp_simulateread(RestoreInfo *rinfo);
 void mtcp_check_vdso(char **environ);
+int mtcp_open_ckpt_image_and_read_header(RestoreInfo *rinfo, MtcpHeader *mtcpHdr);
 
 // Usage: DMTCP_RESTART_PAUSE_WHILE(*&rinfo)->restart_pause == <LEVEL>);
 #define DMTCP_RESTART_PAUSE_WHILE(condition)                                   \
