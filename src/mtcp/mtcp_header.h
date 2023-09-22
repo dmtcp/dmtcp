@@ -1,6 +1,8 @@
 #ifndef MTCP_HEADER_H
 #define MTCP_HEADER_H
 
+#include <stddef.h>
+
 #define MTCP_SIGNATURE     "MTCP_HEADER_v2.2\n"
 #define MTCP_SIGNATURE_LEN 32
 

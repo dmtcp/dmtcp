@@ -66,7 +66,6 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
 #endif
 
 #define BINARY_NAME     "mtcp_restart"
-#define BINARY_NAME_M32 "mtcp_restart-32"
 
 /* struct RestoreInfo to pass all parameters from one function to next.
  * This must be global (not on stack) at the time that we jump from
@@ -91,7 +90,6 @@ static int doAreasOverlap2(char *addr, int length,
 static int hasOverlappingMapping(VA addr, size_t size);
 static int mremap_move(void *dest, void *src, size_t size);
 static void remapMtcpRestartToReservedArea(RestoreInfo *rinfo);
-static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr);
 static void unmap_one_memory_area_and_rewind(Area *area, int mapsfd);
 static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo);
 static void compute_vdso_vvar_addr(RestoreInfo *rinfo);
@@ -101,74 +99,47 @@ static void compute_regions_to_munmap(RestoreInfo *rinfo);
 // "/lib64/ld-linux-x86-64.so.2";
 
 #define shift argv++; argc--;
+
 NO_OPTIMIZE
 int
-main(int argc, char *argv[], char **environ)
+mtcp_restart_process_args(RestoreInfo *rinfo, int argc, char *argv[], char **environ)
 {
-  MtcpHeader mtcpHdr;
   int mtcp_sys_errno;
-  int simulate = 0;
-  int mpiMode = 0;
 
   if (argc == 1) {
     MTCP_PRINTF("***ERROR: This program should not be used directly.\n");
     mtcp_sys_exit(1);
   }
 
-#if 0
-  MTCP_PRINTF("Attach for debugging.");
-  { int x = 1; while (x) {}
-  }
-#endif /* if 0 */
-
-  // TODO(karya0): Remove vDSO checks after 2.4.0-rc3 release, and after
-  // testing.
-  // Without mtcp_check_vdso, CentOS 7 fails on dmtcp3, dmtcp5, others.
-#define ENABLE_VDSO_CHECK
-
-  // TODO(karya0): Remove this block and the corresponding file after sufficient
-  // testing:  including testing for __i386__, __arm__ and __aarch64__
-#ifdef ENABLE_VDSO_CHECK
-
-  /* i386 uses random addresses for vdso.  Make sure that its location
-   * will not conflict with other memory regions.
-   * (Other arch's may also need this in the future.  So, we do it for all.)
-   * Note that we may need to keep the old and the new vdso.  We may
-   * have checkpointed inside gettimeofday inside the old vdso, and the
-   * kernel, on restart, knows only the new vdso.
-   */
-  mtcp_check_vdso(environ);
-#endif /* ifdef ENABLE_VDSO_CHECK */
-
-  rinfo.argc = argc;
-  rinfo.argv = argv;
-  rinfo.environ = environ;
-  rinfo.fd = -1;
-  rinfo.skipMremap = 0;
-  rinfo.use_gdb = 0;
+  rinfo->argc = argc;
+  rinfo->argv = argv;
+  rinfo->environ = environ;
+  rinfo->fd = -1;
+  rinfo->skipMremap = 0;
+  rinfo->use_gdb = 0;
 
 
   char *restart_pause_str = mtcp_getenv("DMTCP_RESTART_PAUSE", environ);
   if (restart_pause_str == NULL) {
-    rinfo.restart_pause = 0; /* false */
+    rinfo->restart_pause = 0; /* false */
   } else {
-    rinfo.restart_pause = mtcp_strtol(restart_pause_str);
+    rinfo->restart_pause = mtcp_strtol(restart_pause_str);
   }
 
   shift;
   while (argc > 0) {
     if (mtcp_strcmp(argv[0], "--use-gdb") == 0) {
-      rinfo.use_gdb = 1;
+      rinfo->use_gdb = 1;
       shift;
     } else if (mtcp_strcmp(argv[0], "--mpi") == 0) {
-      mpiMode = 1;
+      rinfo->mpiMode = 1;
       shift;
       // Flags for call by dmtcp_restart follow here:
     } else if (mtcp_strcmp(argv[0], "--fd") == 0) {
-      rinfo.fd = mtcp_strtol(argv[1]);
+      rinfo->fd = mtcp_strtol(argv[1]);
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--stderr-fd") == 0) {
-      rinfo.stderr_fd = mtcp_strtol(argv[1]);
+      rinfo->stderr_fd = mtcp_strtol(argv[1]);
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--restore-buffer-addr") == 0) {
       rinfo.restore_addr = (VA) mtcp_strtol(argv[1]);
@@ -177,87 +148,56 @@ main(int argc, char *argv[], char **environ)
       rinfo.restore_size = mtcp_strtol(argv[1]);
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--mtcp-restart-pause") == 0) {
-      rinfo.restart_pause = argv[1][0] - '0'; /* true */
+      rinfo->restart_pause = argv[1][0] - '0'; /* true */
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--simulate") == 0) {
-      simulate = 1;
+      rinfo->simulate = 1;
       shift;
     } else if (argc == 1) {
       // We would use MTCP_PRINTF, but it's also for output of util/readdmtcp.sh
       mtcp_printf("Considering '%s' as a ckpt image.\n", argv[0]);
-      mtcp_strcpy(rinfo.ckptImage, argv[0]);
+      mtcp_strcpy(rinfo->ckptImage, argv[0]);
       break;
-    } else if (mpiMode) {
+    } else if (rinfo->mpiMode) {
       // N.B.: The assumption here is that the user provides the `--mpi` flag
       // followed by a list of checkpoint images
       break;
     } else {
       MTCP_PRINTF("MTCP Internal Error\n");
-      return -1;
+      mtcp_sys_exit(1);
     }
   }
 
-  compute_vdso_vvar_addr(&rinfo);
-  compute_regions_to_munmap(&rinfo);
+  compute_vdso_vvar_addr(rinfo);
+  compute_regions_to_munmap(rinfo);
+}
 
+NO_OPTIMIZE
+void
+mtcp_restart(RestoreInfo *rinfoIn, MtcpHeader *mtcpHdr)
+{
+  rinfo = *rinfoIn;
+  int mtcp_sys_errno;
   if (rinfo.restart_pause == 1) {
     MTCP_PRINTF("*** (gdb) set rinfo.restart_pause=2 # to go to next stmt\n");
   }
   // In GDB, 'set rinfo.restart_pause=2' to continue to next statement.
   DMTCP_RESTART_PAUSE_WHILE(rinfo.restart_pause == 1);
 
-  if (!simulate) {
-    mtcp_plugin_hook(&rinfo);
-  }
-
-  if (((rinfo.fd != -1) ^ (rinfo.ckptImage[0] == '\0')) && !mpiMode) {
-    MTCP_PRINTF("***MTCP Internal Error\n");
-    mtcp_abort();
-  }
-
 #ifdef TIMING
   mtcp_sys_gettimeofday(&rinfo.startValue, NULL);
 #endif
-  if (rinfo.fd != -1) {
-    mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof mtcpHdr);
-  } else {
-    int rc = -1;
-    rinfo.fd = mtcp_sys_open2(rinfo.ckptImage, O_RDONLY);
-    if (rinfo.fd == -1) {
-      MTCP_PRINTF("***ERROR opening ckpt image (%s); errno: %d\n",
-                  rinfo.ckptImage, mtcp_sys_errno);
-      mtcp_abort();
-    }
 
-    // This assumes that the MTCP header signature is unique.
-    // We repeatedly look for mtcpHdr because the first header will be
-    // for DMTCP.  So, we look deeper for the MTCP header.  The MTCP
-    // header is guaranteed to start on an offset that's an integer
-    // multiple of sizeof(mtcpHdr), which is currently 4096 bytes.
-    do {
-      rc = mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof mtcpHdr);
-    } while (rc > 0 && mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) != 0);
-    if (rc == 0) { /* if end of file */
-      MTCP_PRINTF("***ERROR: ckpt image doesn't match MTCP_SIGNATURE\n");
-      return 1;  /* exit with error code 1 */
-    }
-  }
-
-  if (simulate) {
-    mtcp_simulateread(rinfo.fd, &mtcpHdr);
-    return 0;
-  }
-
-  rinfo.saved_brk = mtcpHdr.saved_brk;
-  rinfo.restore_addr = mtcpHdr.restore_addr;
-  rinfo.restore_end = mtcpHdr.restore_addr + mtcpHdr.restore_size;
-  rinfo.restore_size = mtcpHdr.restore_size;
-  rinfo.vdsoStart = mtcpHdr.vdsoStart;
-  rinfo.vdsoEnd = mtcpHdr.vdsoEnd;
-  rinfo.vvarStart = mtcpHdr.vvarStart;
-  rinfo.vvarEnd = mtcpHdr.vvarEnd;
-  rinfo.endOfStack = mtcpHdr.end_of_stack;
-  rinfo.post_restart = mtcpHdr.post_restart;
+  rinfo.saved_brk = mtcpHdr->saved_brk;
+  rinfo.restore_addr = mtcpHdr->restore_addr;
+  rinfo.restore_end = mtcpHdr->restore_addr + mtcpHdr->restore_size;
+  rinfo.restore_size = mtcpHdr->restore_size;
+  rinfo.vdsoStart = mtcpHdr->vdsoStart;
+  rinfo.vdsoEnd = mtcpHdr->vdsoEnd;
+  rinfo.vvarStart = mtcpHdr->vvarStart;
+  rinfo.vvarEnd = mtcpHdr->vvarEnd;
+  rinfo.endOfStack = mtcpHdr->end_of_stack;
+  rinfo.post_restart = mtcpHdr->post_restart;
 
   restore_brk(rinfo.saved_brk, rinfo.restore_addr,
               rinfo.restore_addr + rinfo.restore_size);
@@ -269,15 +209,14 @@ main(int argc, char *argv[], char **environ)
   } else {
     // Set this environment variable to debug with GDB inside mtcp_restart.c;
     // Caveat: not as robust as standard mtcp_restart.
-    char *skipMremap = mtcp_getenv("DMTCP_DEBUG_MTCP_RESTART", environ);
+    char *skipMremap = mtcp_getenv("DMTCP_DEBUG_MTCP_RESTART", rinfo.environ);
     if (skipMremap != NULL && mtcp_strtol(skipMremap) > 0) {
       rinfo.skipMremap = 1;
       restorememoryareas(&rinfo);
-      return 0;
+      return;
     }
     restart_fast_path();
   }
-  return 0;  /* Will not reach here, but need to satisfy the compiler */
 }
 
 NO_OPTIMIZE
@@ -479,31 +418,77 @@ restart_slow_path()
 
 // Used by util/readdmtcp.sh
 // So, we use mtcp_printf to stdout instead of MTCP_PRINTF (diagnosis for DMTCP)
-static void
-mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
+int
+mtcp_open_ckpt_image_and_read_header(RestoreInfo *rinfo, MtcpHeader *mtcpHdr)
 {
   int mtcp_sys_errno;
+  int rc = -1;
 
-  // Print miscellaneous information:
-  char buf[MTCP_SIGNATURE_LEN + 1];
+  MTCP_ASSERT(rinfo->fd == -1);
 
-  mtcp_memcpy(buf, mtcpHdr->signature, MTCP_SIGNATURE_LEN);
-  buf[MTCP_SIGNATURE_LEN] = '\0';
-  mtcp_printf("\nMTCP: %s", buf);
+  rinfo->fd = mtcp_sys_open2(rinfo->ckptImage, O_RDONLY);
+  if (rinfo->fd == -1) {
+    MTCP_PRINTF("***ERROR opening ckpt image (%s); errno: %d\n",
+                rinfo->ckptImage, mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  // This assumes that the MTCP header signature is unique.
+  // We repeatedly look for mtcpHdr because the first header will be
+  // for DMTCP.  So, we look deeper for the MTCP header.  The MTCP
+  // header is guaranteed to start on an offset that's an integer
+  // multiple of sizeof(mtcpHdr), which is currently 4096 bytes.
+  do {
+    rc = mtcp_readfile(rinfo->fd, mtcpHdr, sizeof *mtcpHdr);
+  } while (rc > 0 && mtcp_strcmp(mtcpHdr->signature, MTCP_SIGNATURE) != 0);
+
+  if (rc == 0) { /* if end of file */
+    MTCP_PRINTF("***ERROR: ckpt image doesn't match MTCP_SIGNATURE\n");
+    mtcp_sys_close(rinfo->fd);
+    return -1;  /* exit with error code 1 */
+  }
+
+  return 0;
+}
+
+// Used by util/readdmtcp.sh
+// So, we use mtcp_printf to stdout instead of MTCP_PRINTF (diagnosis for DMTCP)
+void
+mtcp_simulateread(RestoreInfo *rinfo)
+{
+  int mtcp_sys_errno;
+  MtcpHeader mtcpHdr;
+
+  MTCP_ASSERT(rinfo->simulate == 1);
+
+  if (rinfo->ckptImage[0] == '\0') {
+    MTCP_PRINTF("*** Simulate flag requires a checkpoint-image path as argument.\n");
+    mtcp_abort();
+  }
+
+  MTCP_ASSERT(rinfo->fd == -1);
+
+  rinfo->fd = mtcp_open_ckpt_image_and_read_header(rinfo, &mtcpHdr);
+  if (rinfo->fd == -1) {
+    MTCP_PRINTF("***ERROR: ckpt image not found.\n");
+    mtcp_abort();
+  }
+
+  mtcp_printf("\nMTCP: %s", mtcpHdr.signature);
   mtcp_printf("**** mtcp_restart (will be copied here): %p..%p\n",
-              mtcpHdr->restore_addr,
-              mtcpHdr->restore_addr + mtcpHdr->restore_size);
+              mtcpHdr.restore_addr,
+              mtcpHdr.restore_addr + mtcpHdr.restore_size);
   mtcp_printf("**** DMTCP entry point (ThreadList::postRestart()): %p\n",
-              mtcpHdr->post_restart);
-  mtcp_printf("**** brk (sbrk(0)): %p\n", mtcpHdr->saved_brk);
-  mtcp_printf("**** vdso: %p..%p\n", mtcpHdr->vdsoStart, mtcpHdr->vdsoEnd);
-  mtcp_printf("**** vvar: %p..%p\n", mtcpHdr->vvarStart, mtcpHdr->vvarEnd);
-  mtcp_printf("**** end of stack: %p\n", mtcpHdr->end_of_stack);
+              mtcpHdr.post_restart);
+  mtcp_printf("**** brk (sbrk(0)): %p\n", mtcpHdr.saved_brk);
+  mtcp_printf("**** vdso: %p..%p\n", mtcpHdr.vdsoStart, mtcpHdr.vdsoEnd);
+  mtcp_printf("**** vvar: %p..%p\n", mtcpHdr.vvarStart, mtcpHdr.vvarEnd);
+  mtcp_printf("**** end of stack: %p\n", mtcpHdr.end_of_stack);
 
   Area area;
   mtcp_printf("\n**** Listing ckpt image area:\n");
   while (1) {
-    mtcp_readfile(fd, &area, sizeof area);
+    mtcp_readfile(rinfo->fd, &area, sizeof area);
     if (area.size == -1) {
       break;
     }
@@ -515,7 +500,7 @@ mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
       if (!(area.flags & MAP_ANONYMOUS) && area.mmapFileSize > 0) {
         seekLen =  area.mmapFileSize;
       }
-      if (mtcp_sys_lseek(fd, seekLen, SEEK_CUR) < 0) {
+      if (mtcp_sys_lseek(rinfo->fd, seekLen, SEEK_CUR) < 0) {
          mtcp_printf("Could not seek!\n");
          break;
       }
@@ -1340,6 +1325,9 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
 
   size_t num_regions = 0;
 
+  char binary_name[PATH_MAX+1];
+  MTCP_ASSERT(mtcp_sys_readlink("/proc/self/exe", binary_name, PATH_MAX) != -1);
+
   // First figure out mtcp_restart memory regions.
   int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
@@ -1349,8 +1337,7 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
 
   Area area;
   while (mtcp_readmapsline(mapsfd, &area)) {
-    if ((mtcp_strendswith(area.name, BINARY_NAME) ||
-         mtcp_strendswith(area.name, BINARY_NAME_M32))) {
+    if (mtcp_strcmp(area.name, binary_name) == 0) {
       MTCP_ASSERT(num_regions < MAX_MTCP_RESTART_MEM_REGIONS);
       mem_regions[num_regions++] = area;
     }
