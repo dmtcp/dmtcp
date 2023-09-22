@@ -275,6 +275,19 @@ ProcessInfo::growStack()
 }
 
 void
+ProcessInfo::reclaimRestoreBufRegion()
+{
+  // Unmap the restore buffer and remap it with PROT_NONE. We do munmap followed
+  // by mmap to ensure that the kernel releases the backing physical pages.
+  JASSERT(munmap((void *)_restoreBufAddr, _restoreBufLen) == 0)
+    ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
+
+  JASSERT(mmap((void*) _restoreBufAddr , _restoreBufLen, PROT_NONE,
+               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) != MAP_FAILED)
+    ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
+}
+
+void
 ProcessInfo::init()
 {
   if (_pid == -1) {
@@ -442,15 +455,6 @@ ProcessInfo::restoreHeap()
 void
 ProcessInfo::restart()
 {
-  // Unmap the restore buffer and remap it with PROT_NONE. We do munmap followed
-  // by mmap to ensure that the kernel releases the backing physical pages.
-  JASSERT(munmap((void *)_restoreBufAddr, _restoreBufLen) == 0)
-    ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
-
-  JASSERT(mmap((void*) _restoreBufAddr , _restoreBufLen, PROT_NONE,
-               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) != MAP_FAILED)
-    ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
-
   restoreHeap();
 
   // Update the ckptDir

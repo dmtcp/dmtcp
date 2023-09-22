@@ -28,6 +28,7 @@
 #include "uniquepid.h"
 #include "util.h"
 #include "shareddata.h"
+#include "processinfo.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
@@ -643,6 +644,13 @@ ThreadList::waitForAllRestored(Thread *thread)
     SigInfo::restoreSigHandlers();
 
     JTRACE("before DmtcpWorker::postRestart()");
+
+    // A jalloc allocation can result in an mmap call. Although it is rare,
+    // the kernel can place the new region in the free space between the
+    // heap and stack of mtcp_restart i.e., in the restoreBuf region.
+    // It is better to reclaim the restore buffer now before it's too late.
+    // FIXME: can we do any better?
+    ProcessInfo::instance().reclaimRestoreBufRegion();
 
     DmtcpWorker::postRestart(thread->ckptReadTime);
 

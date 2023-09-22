@@ -58,6 +58,7 @@ class ProcessInfo
     void restoreProcessGroupInfo();
     void restoreHeap();
     void growStack();
+    void reclaimRestoreBufRegion();
 
     bool beginPthreadJoin(pthread_t thread);
     void endPthreadJoin(pthread_t thread);
