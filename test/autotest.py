@@ -1122,6 +1122,7 @@ if HAS_VIM == "yes":
     killCommand(vimCommand)
   S=DEFAULT_S
 
+os.environ['DMTCP_GZIP'] = "0"
 if sys.version_info[0:2] >= (2,6):
   #On some systems, "emacs -nw" runs dbus-daemon processes in
   #background throwing off the number of processes in the computation. The
@@ -1143,6 +1144,7 @@ if sys.version_info[0:2] >= (2,6):
     runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
                               " --no-init-file /etc/passwd"])
   S=DEFAULT_S
+os.environ['DMTCP_GZIP'] = GZIP
 
 if HAS_SCRIPT == "yes":
   S=7*DEFAULT_S
