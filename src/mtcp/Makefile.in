@@ -11,7 +11,6 @@ LDFLAGS = @LDFLAGS@
 ARM_HOST = @ARM_HOST@
 PACKAGE = @PACKAGE@
 FAST_RST_VIA_MMAP = @FAST_RST_VIA_MMAP@
-MANA_HELPER_DIR = @MANA_HELPER_DIR@
 
 # Allow the user to specify the install program.
 INSTALL = @INSTALL@
@@ -84,14 +83,6 @@ HEADERS = mtcp_header.h mtcp_restart.h mtcp_sys.h mtcp_util.h \
 
 OBJS = mtcp_restart.o stdlibfnc.o mtcp_util.o mtcp_check_vdso.o ${ARM_BINARIES}
 
-ifneq ($(MANA_HELPER_DIR),)
-  HEADERS += $(MANA_HELPER_DIR)/mtcp_split_process.h \
-             $(MANA_HELPER_DIR)/ucontext_i.h
-  OBJS += mtcp_restart_plugin.o mtcp_split_process.o getcontext.o
-  CFLAGS += -DMTCP_PLUGIN_H="<mtcp_restart_plugin.h>"
-  INCLUDES += -I$(MANA_HELPER_DIR)
-endif
-
 all: default
 default: build
 libs: build
@@ -102,7 +93,10 @@ build: $(targetdir)/bin/$(MTCP_RESTART)
 # A 2MB hugepage is 0x200000.  Addresses must be a multiple of 0x200000.
 LINKER_FLAGS= -Wl,-Ttext-segment=11200000 #-Wl,-Trodata-segment=445000000
 
-$(targetdir)/bin/$(MTCP_RESTART): $(OBJS)
+libmtcprestart.a: $(OBJS)
+	$(AR) rcs $@ $^
+
+$(targetdir)/bin/$(MTCP_RESTART): main.o libmtcprestart.a
 	${LINK} -fPIC -g -O0 -nodefaultlibs -static ${LINKER_FLAGS} $^
 
 # We need to compile mtcp_restart.c with "-fno-stack-protector" to avoid
@@ -117,12 +111,6 @@ $(targetdir)/bin/$(MTCP_RESTART): $(OBJS)
 #   (e.g. ARM/gcc-4.8), the inlining of -O2 avoids bugs when fnc's are copied.
 %.o: %.c $(HEADERS)
 	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
-
-%.o: $(MANA_HELPER_DIR)/%.c $(HEADERS)
-	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
-
-%.o: $(MANA_HELPER_DIR)/%.S $(HEADERS)
-	$(COMPILE) $<
 
 syscall-arm.o: syscall-arm.S
 	${CC} ${CFLAGS} -c $<
