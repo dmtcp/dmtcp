@@ -42,9 +42,6 @@
 #include "uniquepid.h"
 #include "util.h"
 
-#define BINARY_NAME         "dmtcp_restart"
-#define MTCP_RESTART_BINARY "mtcp_restart"
-
 using namespace dmtcp;
 
 // Copied from mtcp/mtcp_restart.c.
@@ -137,10 +134,6 @@ CoordinatorMode allowedModes = COORD_ANY;
 string coord_host;
 int coord_port = UNINITIALIZED_PORT;
 string thePortFile;
-
-static bool runMpiProxy = 0;
-string restartDir;
-vector<string> ckptImages;
 
 string mtcp_restart;
 string mtcp_restart_32;
@@ -389,7 +382,7 @@ vector<char *>
 getMtcpArgs()
 {
   vector<char *> mtcpArgs;
-  mtcp_restart = Util::getPath("mtcp_restart");
+  mtcp_restart = Util::getPath(mtcp_restart.c_str());
   pause_param = get_pause_param();
   stderrFd = jalib::XToString(PROTECTED_STDERR_FD);
 
@@ -475,7 +468,7 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
   // fails to return the absolute path for mtcp_restart.  We should fix
   // the bug in Util::getPath() and remove CONFIG_M32 condition in #if.
   if (restoreTarget->getElfType() == ProcessInfo::Elf_32) {
-    mtcp_restart_32 = Util::getPath("mtcp_restart-32", true);
+    mtcp_restart_32 = Util::getPath(mtcp_restart_32.c_str(), true);
     mtcpArgs[0] = (char *) mtcp_restart_32.c_str();
   }
 #endif // if defined(__x86_64__) || defined(__aarch64__) || defined(CONFIG_M32)
@@ -714,8 +707,8 @@ setNewCkptDir(const string& path)
 // shift args
 #define shift argc--, argv++
 
-int
-main(int argc, char **argv)
+DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, const string& mtcpRestartBinaryName)
+: argc(argc), argv(argv), binaryName(binaryName), mtcpRestartBinaryName(mtcpRestartBinaryName)
 {
   char *tmpdir_arg = NULL;
 
@@ -736,7 +729,7 @@ main(int argc, char **argv)
   if (argc == 1) {
     printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
     printf("(For help: %s --help)\n\n", argv[0]);
-    return DMTCP_FAIL_RC;
+    exit(DMTCP_FAIL_RC);
   }
 
   // process args
@@ -745,10 +738,10 @@ main(int argc, char **argv)
     string s = argc > 0 ? argv[0] : "--help";
     if (s == "--help" && argc == 1) {
       printf("%s", theUsage);
-      return 0;
+      exit(0);
     } else if ((s == "--version") && argc == 1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
-      return 0;
+      exit(0);
     } else if (s == "-j" || s == "--join-coordinator" || s == "--join") {
       allowedModes = COORD_JOIN;
       shift;
@@ -816,7 +809,7 @@ main(int argc, char **argv)
     } else if ((s.length() > 2 && s.substr(0, 2) == "--") ||
                (s.length() > 1 && s.substr(0, 1) == "-")) {
       printf("Invalid Argument\n%s", theUsage);
-      return DMTCP_FAIL_RC;
+      exit(DMTCP_FAIL_RC);
     } else if (argc > 1 && s == "--") {
       shift;
       break;
@@ -828,7 +821,7 @@ main(int argc, char **argv)
   tmpDir = Util::calcTmpDir(tmpdir_arg);
 
   // make sure JASSERT initializes now, rather than during restart
-  Util::initializeLogFile(tmpDir.c_str(), "dmtcp_restart");
+  Util::initializeLogFile(tmpDir.c_str(), binaryName.c_str());
 
   if ((getenv(ENV_VAR_NAME_PORT) == NULL ||
        getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
@@ -888,15 +881,12 @@ main(int argc, char **argv)
 
   CoordinatorAPI::getCoordHostAndPort(allowedModes, &coord_host, &coord_port);
 
-  if (dmtcp_restart_plugin != NULL) {
-    dmtcp_restart_plugin(restartDir, ckptImages);
-  }
-
-  return processCkptImages();
+  mtcp_restart = mtcpRestartBinaryName;
+  mtcp_restart_32 = mtcpRestartBinaryName + "-32";
 }
 
-static int
-processCkptImages()
+void
+DmtcpRestart::processCkptImages()
 {
   for (const string& ckptImage : ckptImages) {
       RestoreTarget *t = new RestoreTarget(ckptImage);
@@ -956,5 +946,4 @@ processCkptImages()
   }
 
   JASSERT(false).Text("unreachable");
-  return -1;
 }
