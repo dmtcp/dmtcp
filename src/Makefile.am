@@ -48,6 +48,7 @@ AM_CPPFLAGS= -I$(dmtcpincludedir) -I$(jalibdir)
 
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a 				\
+		   libdmtcprestart.a 				\
 		   libsyscallsreal.a 				\
 		   libnohijack.a 				\
 		   libjalib.a
@@ -205,9 +206,15 @@ __d_bindir__dmtcp_launch_LDADD  = libdmtcpinternal.a 		\
 				  libnohijack.a			\
 				  -lpthread -lrt -ldl
 
-__d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp
+libdmtcprestart_a_SOURCES = dmtcp_restart.cpp
+libdmtcprestart_a_LIBADD  = libdmtcpinternal.a 		\
+				   libjalib.a 			\
+				   libnohijack.a
 
-__d_bindir__dmtcp_restart_LDADD  = libdmtcpinternal.a 		\
+__d_bindir__dmtcp_restart_SOURCES = dmtcp_restart_main.cpp
+
+__d_bindir__dmtcp_restart_LDADD  = libdmtcprestart.a 		\
+				   libdmtcpinternal.a 			\
 				   libjalib.a 			\
 				   libnohijack.a		\
 				   -lpthread -lrt -ldl
@@ -224,11 +231,8 @@ __d_bindir__dmtcp_launch_LDADD  += -latomic
 __d_bindir__dmtcp_restart_LDADD  += -latomic
 __d_bindir__dmtcp_command_LDADD += -latomic
 libjalib_a_LIBADD = -latomic
+libdmtcprestart_a_LIBADD = -latomic
 __d_libdir__libdmtcp_so_LDADD += -latomic
-endif
-
-if CONFIG_MANA_HELPER_DIR
-__d_bindir__dmtcp_restart_SOURCES += $(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp
 endif
 
 install-libs: install-dmtcplibPROGRAMS

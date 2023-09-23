@@ -28,6 +28,8 @@
 #include "processinfo.h"
 #include "uniquepid.h"
 
+#define BINARY_NAME         "dmtcp_restart"
+
 using namespace dmtcp;
 
 class RestoreTarget
@@ -78,6 +80,21 @@ class RestoreTarget
     string _path;
     ProcessInfo _pInfo;
     int _fd;
+};
+
+class DmtcpRestart
+{
+  public:
+    DmtcpRestart(int argc, char **argv, const string &binaryName, const string &mtcpRestartBinaryName);
+    void processCkptImages();
+
+    int argc;
+    char **argv;
+    string binaryName;
+    string mtcpRestartBinaryName;
+    vector<string> ckptImages;
+    string restartDir;
+    bool runMpiProxy = 0;
 };
 
 vector<char *> getMtcpArgs();
