@@ -31,6 +31,13 @@
 
 typedef void (*fnptr_t)();
 
+#define MAX_REGIONS_TO_MUNMAP 16
+
+typedef struct MemRegion_t {
+  VA startAddr;
+  VA endAddr;
+} MemRegion;
+
 typedef struct RestoreInfo {
   int fd;
   int stderr_fd;  /* FIXME:  This is never used. */
@@ -79,6 +86,9 @@ typedef struct RestoreInfo {
   int argc;
   char **argv;
   char **environ;
+
+  MemRegion regions_to_munmap[MAX_REGIONS_TO_MUNMAP];
+  int num_regions_to_munmap;
 
   PluginInfo pluginInfo;
 

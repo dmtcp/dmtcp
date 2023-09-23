@@ -95,6 +95,7 @@ static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr);
 static void unmap_one_memory_area_and_rewind(Area *area, int mapsfd);
 static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo);
 static void compute_vdso_vvar_addr(RestoreInfo *rinfo);
+static void compute_regions_to_munmap(RestoreInfo *rinfo);
 
 // const char service_interp[] __attribute__((section(".interp"))) =
 // "/lib64/ld-linux-x86-64.so.2";
@@ -191,6 +192,7 @@ main(int argc, char *argv[], char **environ)
   }
 
   compute_vdso_vvar_addr(&rinfo);
+  compute_regions_to_munmap(&rinfo);
 
   if (rinfo.restart_pause == 1) {
     MTCP_PRINTF("*** (gdb) set rinfo.restart_pause=2 # to go to next stmt\n");
@@ -682,6 +684,49 @@ compute_vdso_vvar_addr(RestoreInfo *rinfo)
 }
 
 NO_OPTIMIZE
+void
+compute_regions_to_munmap(RestoreInfo *rinfo)
+{
+  int mtcp_sys_errno;
+  Area area;
+
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+  MTCP_ASSERT (mapsfd >= 0);
+
+  rinfo->num_regions_to_munmap = 0;
+  while (mtcp_readmapsline(mapsfd, &area)) {
+    if (mtcp_strcmp(area.name, "[vdso]") == 0 ||
+        mtcp_strcmp(area.name, "[vvar]") == 0 ||
+        mtcp_strcmp(area.name, "[vsyscall]") == 0) {
+      // Do not unmap vdso, vvar, or vsyscall.
+    } else {
+      int idx = rinfo->num_regions_to_munmap++;
+      rinfo->regions_to_munmap[idx].startAddr = area.addr;
+      rinfo->regions_to_munmap[idx].endAddr = area.endAddr;
+
+      MTCP_ASSERT(rinfo->num_regions_to_munmap < MAX_REGIONS_TO_MUNMAP);
+    }
+  }
+
+  mtcp_sys_close(mapsfd);
+}
+
+
+// Check if this area is part of memory regions to unmap as computed earlier.
+static int
+should_unmap_mem_region(RestoreInfo *rinfo, Area *area)
+{
+  for (size_t i = 0; i < rinfo->num_regions_to_munmap; i++) {
+    if (area->addr == rinfo->regions_to_munmap[i].startAddr &&
+        area->endAddr == rinfo->regions_to_munmap[i].endAddr) {
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
+NO_OPTIMIZE
 static void
 unmap_one_memory_area_and_rewind(Area *area, int mapsfd)
 {
@@ -750,16 +795,11 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     } else if (mtcp_strcmp(area.name, "[heap]") == 0) {
       // Unmap heap.
       unmap_one_memory_area_and_rewind(&area, mapsfd);
-    } else if (mtcp_strendswith(area.name, BINARY_NAME) ||
-               mtcp_strendswith(area.name, BINARY_NAME_M32)) {
+    } else if (should_unmap_mem_region(rinfo, &area)) {
       // Unmap original mtcp_restart regions.
       unmap_one_memory_area_and_rewind(&area, mapsfd);
-    } else if (mtcp_plugin_skip_memory_region_munmap(&area, rinfo)) {
-      // Skip memory region reserved by plugin.
-      DPRINTF("***INFO: skipping memory region as requested by plugin (%p..%p)\n",
-              area.addr, area.endAddr);
-    } else if (area.size > 0 && rinfo->skipMremap == 0) {
-      unmap_one_memory_area_and_rewind(&area, mapsfd);
+    } else {
+      DPRINTF("Not skipping memory region (%p..%p)\n", area.addr, area.endAddr);
     }
   }
   mtcp_sys_close(mapsfd);
