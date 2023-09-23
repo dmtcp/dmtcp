@@ -113,7 +113,6 @@ dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so$(EXEEXT)
 @AARCH64_HOST_TRUE@am__append_4 = -latomic
 @AARCH64_HOST_TRUE@am__append_5 = -latomic
 @AARCH64_HOST_TRUE@am__append_6 = -latomic
-@CONFIG_MANA_HELPER_DIR_TRUE@am__append_7 = $(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_cxx_compile_stdcxx.m4 \
@@ -144,6 +143,14 @@ am_libdmtcpinternal_a_OBJECTS = coordinatorapi.$(OBJEXT) \
 	tokenize.$(OBJEXT) uniquepid.$(OBJEXT) util_exec.$(OBJEXT) \
 	util_init.$(OBJEXT) util_misc.$(OBJEXT) workerstate.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
+libdmtcprestart_a_AR = $(AR) $(ARFLAGS)
+@AARCH64_HOST_FALSE@libdmtcprestart_a_DEPENDENCIES =  \
+@AARCH64_HOST_FALSE@	libdmtcpinternal.a libjalib.a \
+@AARCH64_HOST_FALSE@	libnohijack.a
+@AARCH64_HOST_TRUE@libdmtcprestart_a_DEPENDENCIES =  \
+@AARCH64_HOST_TRUE@	libdmtcpinternal.a libjalib.a libnohijack.a
+am_libdmtcprestart_a_OBJECTS = dmtcprestartinternal.$(OBJEXT)
+libdmtcprestart_a_OBJECTS = $(am_libdmtcprestart_a_OBJECTS)
 libjalib_a_AR = $(AR) $(ARFLAGS)
 libjalib_a_DEPENDENCIES =
 am_libjalib_a_OBJECTS = jalib.$(OBJEXT) jalloc.$(OBJEXT) \
@@ -189,16 +196,12 @@ am___d_bindir__dmtcp_nocheckpoint_OBJECTS =  \
 __d_bindir__dmtcp_nocheckpoint_OBJECTS =  \
 	$(am___d_bindir__dmtcp_nocheckpoint_OBJECTS)
 __d_bindir__dmtcp_nocheckpoint_LDADD = $(LDADD)
-am____d_bindir__dmtcp_restart_SOURCES_DIST = dmtcp_restart.cpp \
-	$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp
-@CONFIG_MANA_HELPER_DIR_TRUE@am__objects_1 =  \
-@CONFIG_MANA_HELPER_DIR_TRUE@	dmtcp_restart_plugin.$(OBJEXT)
-am___d_bindir__dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT) \
-	$(am__objects_1)
+am___d_bindir__dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT)
 __d_bindir__dmtcp_restart_OBJECTS =  \
 	$(am___d_bindir__dmtcp_restart_OBJECTS)
-__d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
-	libnohijack.a $(am__DEPENDENCIES_1)
+__d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcprestart.a \
+	libdmtcpinternal.a libjalib.a libnohijack.a \
+	$(am__DEPENDENCIES_1)
 am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	ckptserializer.$(OBJEXT) dlwrappers.$(OBJEXT) \
 	dmtcpplugin.$(OBJEXT) dmtcpworker.$(OBJEXT) \
@@ -239,33 +242,32 @@ am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/dmtcp_dlsym_wrappers.Po \
 	./$(DEPDIR)/dmtcp_get_libc_offset.Po \
 	./$(DEPDIR)/dmtcp_launch.Po ./$(DEPDIR)/dmtcp_nocheckpoint.Po \
-	./$(DEPDIR)/dmtcp_restart.Po \
-	./$(DEPDIR)/dmtcp_restart_plugin.Po \
-	./$(DEPDIR)/dmtcpmessagetypes.Po \
+	./$(DEPDIR)/dmtcp_restart.Po ./$(DEPDIR)/dmtcpmessagetypes.Po \
 	./$(DEPDIR)/dmtcpnohijackstubs.Po ./$(DEPDIR)/dmtcpplugin.Po \
-	./$(DEPDIR)/dmtcpworker.Po ./$(DEPDIR)/execwrappers.Po \
-	./$(DEPDIR)/glibcsystem.Po ./$(DEPDIR)/jalib.Po \
-	./$(DEPDIR)/jalibinterface.Po ./$(DEPDIR)/jalloc.Po \
-	./$(DEPDIR)/jassert.Po ./$(DEPDIR)/jbuffer.Po \
-	./$(DEPDIR)/jfilesystem.Po ./$(DEPDIR)/jserialize.Po \
-	./$(DEPDIR)/jsocket.Po ./$(DEPDIR)/jtimer.Po \
-	./$(DEPDIR)/kvdb.Po ./$(DEPDIR)/lookup_service.Po \
-	./$(DEPDIR)/miscwrappers.Po ./$(DEPDIR)/mutex.Po \
-	./$(DEPDIR)/nosyscallsreal.Po ./$(DEPDIR)/plugininfo.Po \
-	./$(DEPDIR)/pluginmanager.Po ./$(DEPDIR)/popen.Po \
-	./$(DEPDIR)/posix_spawn.Po ./$(DEPDIR)/processinfo.Po \
-	./$(DEPDIR)/procselfmaps.Po ./$(DEPDIR)/restartscript.Po \
-	./$(DEPDIR)/rlimitfloatenv.Po ./$(DEPDIR)/rwlock.Po \
-	./$(DEPDIR)/shareddata.Po ./$(DEPDIR)/siginfo.Po \
-	./$(DEPDIR)/signalwrappers.Po ./$(DEPDIR)/syscallsreal.Po \
-	./$(DEPDIR)/syslogwrappers.Po ./$(DEPDIR)/terminal.Po \
-	./$(DEPDIR)/threadlist.Po ./$(DEPDIR)/threadsync.Po \
-	./$(DEPDIR)/threadwrappers.Po ./$(DEPDIR)/tls.Po \
-	./$(DEPDIR)/tokenize.Po ./$(DEPDIR)/trampolines.Po \
-	./$(DEPDIR)/uniquepid.Po ./$(DEPDIR)/util_exec.Po \
-	./$(DEPDIR)/util_init.Po ./$(DEPDIR)/util_misc.Po \
-	./$(DEPDIR)/workerstate.Po ./$(DEPDIR)/wrapperlock.Po \
-	./$(DEPDIR)/wrappers.Po ./$(DEPDIR)/writeckpt.Po
+	./$(DEPDIR)/dmtcprestartinternal.Po ./$(DEPDIR)/dmtcpworker.Po \
+	./$(DEPDIR)/execwrappers.Po ./$(DEPDIR)/glibcsystem.Po \
+	./$(DEPDIR)/jalib.Po ./$(DEPDIR)/jalibinterface.Po \
+	./$(DEPDIR)/jalloc.Po ./$(DEPDIR)/jassert.Po \
+	./$(DEPDIR)/jbuffer.Po ./$(DEPDIR)/jfilesystem.Po \
+	./$(DEPDIR)/jserialize.Po ./$(DEPDIR)/jsocket.Po \
+	./$(DEPDIR)/jtimer.Po ./$(DEPDIR)/kvdb.Po \
+	./$(DEPDIR)/lookup_service.Po ./$(DEPDIR)/miscwrappers.Po \
+	./$(DEPDIR)/mutex.Po ./$(DEPDIR)/nosyscallsreal.Po \
+	./$(DEPDIR)/plugininfo.Po ./$(DEPDIR)/pluginmanager.Po \
+	./$(DEPDIR)/popen.Po ./$(DEPDIR)/posix_spawn.Po \
+	./$(DEPDIR)/processinfo.Po ./$(DEPDIR)/procselfmaps.Po \
+	./$(DEPDIR)/restartscript.Po ./$(DEPDIR)/rlimitfloatenv.Po \
+	./$(DEPDIR)/rwlock.Po ./$(DEPDIR)/shareddata.Po \
+	./$(DEPDIR)/siginfo.Po ./$(DEPDIR)/signalwrappers.Po \
+	./$(DEPDIR)/syscallsreal.Po ./$(DEPDIR)/syslogwrappers.Po \
+	./$(DEPDIR)/terminal.Po ./$(DEPDIR)/threadlist.Po \
+	./$(DEPDIR)/threadsync.Po ./$(DEPDIR)/threadwrappers.Po \
+	./$(DEPDIR)/tls.Po ./$(DEPDIR)/tokenize.Po \
+	./$(DEPDIR)/trampolines.Po ./$(DEPDIR)/uniquepid.Po \
+	./$(DEPDIR)/util_exec.Po ./$(DEPDIR)/util_init.Po \
+	./$(DEPDIR)/util_misc.Po ./$(DEPDIR)/workerstate.Po \
+	./$(DEPDIR)/wrapperlock.Po ./$(DEPDIR)/wrappers.Po \
+	./$(DEPDIR)/writeckpt.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -296,8 +298,9 @@ AM_V_CXXLD = $(am__v_CXXLD_@AM_V@)
 am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
 am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
-SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
-	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
+SOURCES = $(libdmtcpinternal_a_SOURCES) $(libdmtcprestart_a_SOURCES) \
+	$(libjalib_a_SOURCES) $(libnohijack_a_SOURCES) \
+	$(libsyscallsreal_a_SOURCES) \
 	$(__d_bindir__dmtcp_command_SOURCES) \
 	$(__d_bindir__dmtcp_coordinator_SOURCES) \
 	$(__d_bindir__dmtcp_get_libc_offset_SOURCES) \
@@ -305,14 +308,15 @@ SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(__d_bindir__dmtcp_nocheckpoint_SOURCES) \
 	$(__d_bindir__dmtcp_restart_SOURCES) \
 	$(__d_libdir__libdmtcp_so_SOURCES)
-DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
+DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) \
+	$(libdmtcprestart_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
 	$(__d_bindir__dmtcp_command_SOURCES) \
 	$(__d_bindir__dmtcp_coordinator_SOURCES) \
 	$(__d_bindir__dmtcp_get_libc_offset_SOURCES) \
 	$(__d_bindir__dmtcp_launch_SOURCES) \
 	$(__d_bindir__dmtcp_nocheckpoint_SOURCES) \
-	$(am____d_bindir__dmtcp_restart_SOURCES_DIST) \
+	$(__d_bindir__dmtcp_restart_SOURCES) \
 	$(__d_libdir__libdmtcp_so_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
@@ -593,6 +597,7 @@ AM_CPPFLAGS = -I$(dmtcpincludedir) -I$(jalibdir)
 
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a 				\
+		   libdmtcprestart.a 				\
 		   libsyscallsreal.a 				\
 		   libnohijack.a 				\
 		   libjalib.a
@@ -603,7 +608,7 @@ include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
 
 # headers:
 nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
-	dmtcp_coordinator.h dmtcp_restart.h dmtcpmessagetypes.h \
+	dmtcp_coordinator.h dmtcprestartinternal.h dmtcpmessagetypes.h \
 	dmtcpworker.h lookup_service.h ldt.h plugininfo.h \
 	pluginmanager.h processinfo.h restartscript.h tls.h siginfo.h \
 	syscallwrappers.h threadinfo.h threadlist.h threadsync.h \
@@ -704,9 +709,15 @@ __d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 __d_bindir__dmtcp_launch_SOURCES = dmtcp_launch.cpp
 __d_bindir__dmtcp_launch_LDADD = libdmtcpinternal.a libjalib.a \
 	libnohijack.a -lpthread -lrt -ldl $(am__append_3)
-__d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp $(am__append_7)
-__d_bindir__dmtcp_restart_LDADD = libdmtcpinternal.a libjalib.a \
-	libnohijack.a -lpthread -lrt -ldl $(am__append_4)
+libdmtcprestart_a_SOURCES = dmtcprestartinternal.cpp
+@AARCH64_HOST_TRUE@libdmtcprestart_a_LIBADD = -latomic
+libdmtcprestart_a_LIBADD = libdmtcpinternal.a 		\
+				   libjalib.a 			\
+				   libnohijack.a
+
+__d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp
+__d_bindir__dmtcp_restart_LDADD = libdmtcprestart.a libdmtcpinternal.a \
+	libjalib.a libnohijack.a -lpthread -lrt -ldl $(am__append_4)
 __d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
 __d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a libjalib.a \
 	libnohijack.a -lpthread -lrt -ldl $(am__append_5)
@@ -837,6 +848,11 @@ libdmtcpinternal.a: $(libdmtcpinternal_a_OBJECTS) $(libdmtcpinternal_a_DEPENDENC
 	$(AM_V_AR)$(libdmtcpinternal_a_AR) libdmtcpinternal.a $(libdmtcpinternal_a_OBJECTS) $(libdmtcpinternal_a_LIBADD)
 	$(AM_V_at)$(RANLIB) libdmtcpinternal.a
 
+libdmtcprestart.a: $(libdmtcprestart_a_OBJECTS) $(libdmtcprestart_a_DEPENDENCIES) $(EXTRA_libdmtcprestart_a_DEPENDENCIES) 
+	$(AM_V_at)-rm -f libdmtcprestart.a
+	$(AM_V_AR)$(libdmtcprestart_a_AR) libdmtcprestart.a $(libdmtcprestart_a_OBJECTS) $(libdmtcprestart_a_LIBADD)
+	$(AM_V_at)$(RANLIB) libdmtcprestart.a
+
 libjalib.a: $(libjalib_a_OBJECTS) $(libjalib_a_DEPENDENCIES) $(EXTRA_libjalib_a_DEPENDENCIES) 
 	$(AM_V_at)-rm -f libjalib.a
 	$(AM_V_AR)$(libjalib_a_AR) libjalib.a $(libjalib_a_OBJECTS) $(libjalib_a_LIBADD)
@@ -904,10 +920,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_launch.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_nocheckpoint.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_restart.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_restart_plugin.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpmessagetypes.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpnohijackstubs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpplugin.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcprestartinternal.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpworker.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/glibcsystem.Po@am__quote@ # am--include-marker
@@ -1100,20 +1116,6 @@ jtimer.obj: $(jalibdir)/jtimer.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jtimer.cpp' object='jtimer.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jtimer.obj `if test -f '$(jalibdir)/jtimer.cpp'; then $(CYGPATH_W) '$(jalibdir)/jtimer.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jtimer.cpp'; fi`
-
-dmtcp_restart_plugin.o: $(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT dmtcp_restart_plugin.o -MD -MP -MF $(DEPDIR)/dmtcp_restart_plugin.Tpo -c -o dmtcp_restart_plugin.o `test -f '$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp' || echo '$(srcdir)/'`$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/dmtcp_restart_plugin.Tpo $(DEPDIR)/dmtcp_restart_plugin.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp' object='dmtcp_restart_plugin.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o dmtcp_restart_plugin.o `test -f '$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp' || echo '$(srcdir)/'`$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp
-
-dmtcp_restart_plugin.obj: $(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT dmtcp_restart_plugin.obj -MD -MP -MF $(DEPDIR)/dmtcp_restart_plugin.Tpo -c -o dmtcp_restart_plugin.obj `if test -f '$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp'; then $(CYGPATH_W) '$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp'; else $(CYGPATH_W) '$(srcdir)/$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/dmtcp_restart_plugin.Tpo $(DEPDIR)/dmtcp_restart_plugin.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp' object='dmtcp_restart_plugin.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o dmtcp_restart_plugin.obj `if test -f '$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp'; then $(CYGPATH_W) '$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp'; else $(CYGPATH_W) '$(srcdir)/$(MANA_HELPER_DIR)/dmtcp_restart_plugin.cpp'; fi`
 install-includeHEADERS: $(include_HEADERS)
 	@$(NORMAL_INSTALL)
 	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
@@ -1350,10 +1352,10 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/dmtcp_launch.Po
 	-rm -f ./$(DEPDIR)/dmtcp_nocheckpoint.Po
 	-rm -f ./$(DEPDIR)/dmtcp_restart.Po
-	-rm -f ./$(DEPDIR)/dmtcp_restart_plugin.Po
 	-rm -f ./$(DEPDIR)/dmtcpmessagetypes.Po
 	-rm -f ./$(DEPDIR)/dmtcpnohijackstubs.Po
 	-rm -f ./$(DEPDIR)/dmtcpplugin.Po
+	-rm -f ./$(DEPDIR)/dmtcprestartinternal.Po
 	-rm -f ./$(DEPDIR)/dmtcpworker.Po
 	-rm -f ./$(DEPDIR)/execwrappers.Po
 	-rm -f ./$(DEPDIR)/glibcsystem.Po
@@ -1457,10 +1459,10 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/dmtcp_launch.Po
 	-rm -f ./$(DEPDIR)/dmtcp_nocheckpoint.Po
 	-rm -f ./$(DEPDIR)/dmtcp_restart.Po
-	-rm -f ./$(DEPDIR)/dmtcp_restart_plugin.Po
 	-rm -f ./$(DEPDIR)/dmtcpmessagetypes.Po
 	-rm -f ./$(DEPDIR)/dmtcpnohijackstubs.Po
 	-rm -f ./$(DEPDIR)/dmtcpplugin.Po
+	-rm -f ./$(DEPDIR)/dmtcprestartinternal.Po
 	-rm -f ./$(DEPDIR)/dmtcpworker.Po
 	-rm -f ./$(DEPDIR)/execwrappers.Po
 	-rm -f ./$(DEPDIR)/glibcsystem.Po
