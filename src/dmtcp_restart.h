@@ -56,6 +56,9 @@ class RestoreTarget
 
     int numPeers() { return _pInfo.numPeers(); }
 
+    uint64_t restoreBufAddr() { return _pInfo.restoreBufAddr(); }
+    uint64_t restoreBufLen() { return _pInfo.restoreBufLen(); }
+
     void initialize();
 
     void restoreGroup();
@@ -80,7 +83,7 @@ class RestoreTarget
     int _fd;
 };
 
-vector<char *> getMtcpArgs();
+vector<char *> getMtcpArgs(uint64_t restoreBufAddr, uint64_t restoreBufLen);
 void publishKeyValueMapToMtcpEnvironment(RestoreTarget *restoreTarget);
 
 void dmtcp_restart_plugin(const string &restartDir,
