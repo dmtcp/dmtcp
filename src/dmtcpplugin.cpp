@@ -472,3 +472,15 @@ dmtcp_add_to_ckpt_header(const char *key, const char *value)
 {
   ProcessInfo::instance().addKeyValuePairToCkptHeader(key, value);
 }
+
+EXTERNC void
+dmtcp_set_restore_buf_addr(void *new_addr)
+{
+  ProcessInfo::instance().updateRestoreBufAddr(new_addr);
+}
+
+EXTERNC uint64_t
+dmtcp_restore_buf_len()
+{
+  ProcessInfo::instance().restoreBufLen();
+}
