@@ -1340,14 +1340,24 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
     mtcp_abort();
   }
 
+  // Reserve the entire restore area. This would ensure no other memory regions
+  // get mapped in this location.
+  void *addr = mmap_fixed_noreplace(rinfo->restore_addr,
+                                    rinfo->restore_size,
+                                    PROT_NONE,
+                                    MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED,
+                                    -1,
+                                    0);
+  MTCP_ASSERT(addr != MAP_FAILED);
+
   size_t i;
   for (i = 0; i < num_regions; i++) {
-    void *addr = mmap_fixed_noreplace(mem_regions[i].addr + restore_region_offset,
-                                      mem_regions[i].size,
-                                      mem_regions[i].prot,
-                                      MAP_PRIVATE | MAP_FIXED,
-                                      mtcp_restart_fd,
-                                      mem_regions[i].offset);
+    void *addr = mtcp_sys_mmap(mem_regions[i].addr + restore_region_offset,
+                               mem_regions[i].size,
+                               mem_regions[i].prot,
+                               MAP_PRIVATE | MAP_FIXED,
+                               mtcp_restart_fd,
+                               mem_regions[i].offset);
 
     if (addr == MAP_FAILED) {
       MTCP_PRINTF("mmap failed with error; errno: %d\n", mtcp_sys_errno);
@@ -1370,12 +1380,12 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
   VA guard_page =
     mem_regions[num_regions - 1].endAddr + restore_region_offset;
 
-  MTCP_ASSERT(mmap_fixed_noreplace(guard_page,
-                                   MTCP_PAGE_SIZE,
-                                   PROT_NONE,
-                                   MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
-                                   -1,
-                                   0) == guard_page);
+  MTCP_ASSERT(mtcp_sys_mmap(guard_page,
+                            MTCP_PAGE_SIZE,
+                            PROT_NONE,
+                            MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
+                            -1,
+                            0) == guard_page);
   MTCP_ASSERT(guard_page != MAP_FAILED);
 
   VA guard_page_end_addr = guard_page + MTCP_PAGE_SIZE;
@@ -1389,12 +1399,12 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
   void *new_stack_start_addr = new_stack_end_addr - rinfo->old_stack_size;
 
   rinfo->new_stack_addr =
-    mmap_fixed_noreplace(new_stack_start_addr,
-                         rinfo->old_stack_size,
-                         PROT_READ | PROT_WRITE,
-                         MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
-                         -1,
-                         0);
+    mtcp_sys_mmap(new_stack_start_addr,
+                  rinfo->old_stack_size,
+                  PROT_READ | PROT_WRITE,
+                  MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
+                  -1,
+                  0);
   MTCP_ASSERT(rinfo->new_stack_addr != MAP_FAILED);
 
   rinfo->stack_offset = rinfo->old_stack_addr - rinfo->new_stack_addr;
