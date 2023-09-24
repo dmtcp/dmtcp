@@ -145,9 +145,9 @@ class ProcessInfo
 
     uint64_t savedBrk(void) const { return _savedBrk; }
 
+    void updateRestoreBufAddr(void* addr, uint64_t len);
     uint64_t restoreBufAddr(void) const { return _restoreBufAddr; }
-
-    uint64_t restoreBufLen(void) const { return RESTORE_TOTAL_SIZE; }
+    uint64_t restoreBufLen(void) const { return _restoreBufLen; }
 
     uint64_t vdsoStart(void) const { return _vdsoStart; }
 
