@@ -434,7 +434,7 @@ mtcp_open_ckpt_image_and_read_header(RestoreInfo *rinfo, MtcpHeader *mtcpHdr)
   // header is guaranteed to start on an offset that's an integer
   // multiple of sizeof(mtcpHdr), which is currently 4096 bytes.
   do {
-    rc = mtcp_readfile(rinfo->fd, &mtcpHdr, sizeof mtcpHdr);
+    rc = mtcp_readfile(rinfo->fd, mtcpHdr, sizeof *mtcpHdr);
   } while (rc > 0 && mtcp_strcmp(mtcpHdr->signature, MTCP_SIGNATURE) != 0);
 
   if (rc == 0) { /* if end of file */
@@ -443,7 +443,7 @@ mtcp_open_ckpt_image_and_read_header(RestoreInfo *rinfo, MtcpHeader *mtcpHdr)
     return -1;  /* exit with error code 1 */
   }
 
-  return 0;
+  return rinfo->fd;
 }
 
 // Used by util/readdmtcp.sh
@@ -1329,7 +1329,7 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
 
   Area area;
   while (mtcp_readmapsline(mapsfd, &area)) {
-    if ((mtcp_strendswith(area.name, BINARY_NAME) ||
+    if ((mtcp_strendswith(area.name, "mtcp_restart_mana") ||
          mtcp_strendswith(area.name, BINARY_NAME_M32))) {
       MTCP_ASSERT(num_regions < MAX_MTCP_RESTART_MEM_REGIONS);
       mem_regions[num_regions++] = area;
