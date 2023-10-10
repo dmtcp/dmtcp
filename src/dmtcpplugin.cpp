@@ -345,13 +345,12 @@ dmtcp_get_restart_env(const char *name,   // IN
 
   struct stat statbuf;
   size_t size = RESTART_ENV_MAXSIZE;
-  char *env_buf = NULL;
 
   if (fstat(env_fd, &statbuf) == 0) {
     size = statbuf.st_size + 1;
   }
 
-  env_buf = (char*) JALLOC_HELPER_MALLOC(size);
+  char env_buf[size] = {0};
 
   int namelen = strlen(name);
   *value = '\0'; // Default is null string
@@ -396,7 +395,6 @@ dmtcp_get_restart_env(const char *name,   // IN
   close(env_fd);
   JWARNING(rc != RESTART_ENV_DMTCP_BUF_TOO_SMALL)
     (name) (sizeof(env_buf)).Text("Resize env_buf[]");
-  JALLOC_HELPER_FREE(env_buf);
   return rc;
 }
 

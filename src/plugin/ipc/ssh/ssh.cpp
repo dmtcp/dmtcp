@@ -17,6 +17,9 @@
 using namespace dmtcp;
 
 #define SSHD_PIPE_FD -1
+// DPP, below, stands for "DMTCP Path Prefix"
+#define ENV_ORIG_DPP "DMTCP_ORIGINAL_PATH_PREFIX"
+#define ENV_NEW_DPP  "DMTCP_NEW_PATH_PREFIX"
 
 static string cmd;
 static string prefix;
@@ -427,6 +430,23 @@ prepareForExec(DmtcpEventData_t *data)
     prefix += " --rsh-slave ";
   } else {
     prefix += " --ssh-slave ";
+  }
+
+  if(dmtcp_pathvirt_enabled && dmtcp_pathvirt_enabled()) {
+    if(getenv(ENV_NEW_DPP)) {
+      prefix += "/usr/bin/env ";
+      prefix += ENV_NEW_DPP;
+      prefix += "=";
+      prefix += getenv(ENV_NEW_DPP);
+      prefix += " ";
+    }
+    if(getenv(ENV_ORIG_DPP)) {
+      prefix += "/usr/bin/env ";
+      prefix += ENV_ORIG_DPP;
+      prefix += "=";
+      prefix += getenv(ENV_ORIG_DPP);
+      prefix += " ";
+    }
   }
 
   JTRACE("Prefix")(prefix);

@@ -618,6 +618,19 @@ patchUserEnv(const char *env[], const char *filename)
   ldPreloadStr += getUpdatedLdPreload(filename, userPreloadStr.c_str());
 
   result.push_back(ldPreloadStr);
+
+  /*
+   * The path virtualization plugin tries to set the new prefix env var on
+   * restart. However, for some applications (e.g. bash), setenv() won't affect
+   * the envp area, possibly because the application has its private copy of
+   * the env vars. We need to patch the right env vars before calling execve().
+   * */
+  if (getenv("DMTCP_NEW_PATH_PREFIX")) {
+    string pathVirt = "DMTCP_NEW_PATH_PREFIX=";
+    pathVirt += getenv("DMTCP_NEW_PATH_PREFIX");
+    result.push_back(pathVirt);
+  }
+
   if (dbg) {
     out << "     addenv[dmtcp]:" << result.back() << '\n';
   }
