@@ -16,3 +16,6 @@ cscope.*
 
 ckpt*.dmtcp*
 dmtcp_restart_script*.sh
+
+*/*.txt
+../*/*/*/*.txt
