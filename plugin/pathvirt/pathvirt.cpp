@@ -34,14 +34,14 @@
 # undef __xstat64
 # undef __lxstat
 # undef __lxstat64
-# define __xstat(vers,path,buf)         stat(path,buf)
-# define __xstat64(vers,path,buf)       stat64(path,buf)
-# define __lxstat(vers,path,buf)        lstat(path,buf)
-# define __lxstat64(vers,path,buf)      lstat64(path,buf)
-# define _real_xstat(vers,path,buf)     _real_stat(path,buf)
-# define _real_xstat64(vers,path,buf)   _real_stat64(path,buf)
-# define _real_lxstat(vers,path,buf)    _real_lstat(path,buf)
-# define _real_lxstat64(vers,path,buf)  _real_lstat64(path,buf)
+# define __xstat(vers, path, buf)         stat(path, buf)
+# define __xstat64(vers, path, buf)       stat64(path, buf)
+# define __lxstat(vers, path, buf)        lstat(path, buf)
+# define __lxstat64(vers, path, buf)      lstat64(path, buf)
+# define _real_xstat(vers, path, buf)     _real_stat(path, buf)
+# define _real_xstat64(vers, path, buf)   _real_stat64(path, buf)
+# define _real_lxstat(vers, path, buf)    _real_lstat(path, buf)
+# define _real_lxstat64(vers, path, buf)  _real_lstat64(path, buf)
 #endif
 
 #undef open
@@ -832,7 +832,7 @@ virtual_to_physical_path(const char *virt_path)
     int index = clfind(oldPathPrefixList, virt_path, &oldPathPtr);
     if (index == -1) {
       pthread_rwlock_unlock(&listRwLock);
-      return resolve_symlink(virtPathString.c_str());
+      return virtPathString;
     }
 
     /* found it in old list, now get a pointer to the new prefix to swap in*/
@@ -860,5 +860,5 @@ virtual_to_physical_path(const char *virt_path)
 
     pthread_rwlock_unlock(&listRwLock);
 
-    return resolve_symlink(physPathString.c_str());
+    return physPathString;
 }
