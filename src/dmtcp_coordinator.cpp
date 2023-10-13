@@ -1470,7 +1470,24 @@ calcLocalAddr()
 static void
 resetCkptTimer()
 {
-  if (theCheckpointInterval > 0) {
+  // FIXME:  Fix timeout logic to include setStaleTimeout, resetStaleTimeout
+  //         theCheckpointInterval, theDefaultCheckpointInterval
+  //         coord_interval set by args; launch_interval set onConnect
+  // static numPrevClients = 0;
+  // if (clients.size() == 1 && numPrevClients == 0) { // first onConnect
+  //   alarm( launch_interval == DMTCPMESSAGE_SAME_CKPT_INTERVAL ?
+  //          coord_interval : launch_interval );
+  // } else if (clients.size() > num{revClients && /* second onConnect or more
+  //            launch_interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL) {
+  //   alarm( launch_interval );
+  // } else if (clients.size() == 0) { // We did final onDisconnect.
+  //   alarm( staleTimeout );
+  // } // If onDisconnect, but clients.size() > 0, then keep existing timeout.
+  // numPrevClients = clients.size();
+  // // END_OF_resetCkptTimer
+  if (clients.size() == 0) {
+    alarm(staleTimeout);
+  } else if (theCheckpointInterval > 0) {
     alarm(theCheckpointInterval);
   } else {
     alarm(timeout);
@@ -1486,7 +1503,11 @@ DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
        interval != theCheckpointInterval) ||
       firstClient) {
     if (interval == DMTCPMESSAGE_SAME_CKPT_INTERVAL) {
-      return; // This must be firstClient; but new interval not specified yet.
+      // This must be firstClient, and dmtcp_launch didn't specify interval.
+      if (theCheckpointInterval != 0) { // Use dmtcp_coordinator ckpt interval.
+        firstClient = false;
+        resetCkptTimer(); // Use theCheckpointInterval from dmtcp_coordinator.
+      }
     } else { // Either we're changing the ckpt interval, or still a firstClient.
       int oldInterval = theCheckpointInterval;
       theCheckpointInterval = interval;
