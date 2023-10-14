@@ -24,26 +24,28 @@
 #include "mtcp_restart.h"
 #include "mtcp_util.h"
 
+static void main_new_stack(RestoreInfo *rinfoIn);
+
 NO_OPTIMIZE
 int
 main(int argc, char *argv[], char **environ)
 {
   int mtcp_sys_errno;
-  RestoreInfo rinfo;
+
+  mtcp_restart_process_args(argc, argv, environ, &main_new_stack);
+  MTCP_ASSERT(0);
+}
+
+void main_new_stack(RestoreInfo *rinfo)
+{
+  int mtcp_sys_errno;
   MtcpHeader mtcpHdr;
 
-  mtcp_restart_process_args(&rinfo, argc, argv, environ);
+  MTCP_ASSERT(rinfo->fd != -1);
 
-  if (rinfo.simulate) {
-    mtcp_simulateread(&rinfo);
-    mtcp_sys_exit(0);
-  }
-
-  MTCP_ASSERT(rinfo.fd != -1);
-
-  int rc = mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof (mtcpHdr));
+  int rc = mtcp_readfile(rinfo->fd, &mtcpHdr, sizeof (mtcpHdr));
   MTCP_ASSERT(rc == sizeof (mtcpHdr));
   MTCP_ASSERT(mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) == 0);
 
-  mtcp_restart(&rinfo, &mtcpHdr);
+  mtcp_restart(rinfo, &mtcpHdr);
 }
