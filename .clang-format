@@ -118,9 +118,6 @@ ContinuationIndentWidth: 2
 # Don't try to guess the pointer alignment
 DerivePointerAlignment: false
 
-# List of foreach macros due to lack of range-based for loops.
-ForEachMacros: [ foreach, foreachkey, foreachvalue, foreachpair ]
-
 # Maximum number of empty lines to keep.
 MaxEmptyLinesToKeep: 2
 
