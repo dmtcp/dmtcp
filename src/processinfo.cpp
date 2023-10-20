@@ -38,6 +38,7 @@ namespace dmtcp
 {
 static ProcessInfo *pInfo = NULL;
 static ProcessInfo *vforkBackup = NULL;
+constexpr uint64_t EndOfBrkMapSize = 0x1000000;
 
 static DmtcpMutex tblLock = DMTCP_MUTEX_INITIALIZER;
 
@@ -298,6 +299,12 @@ ProcessInfo::init()
 
   growStack();
 
+  _initialSavedBrk = (uint64_t)sbrk(0);
+  uint64_t brkMmap = (uint64_t)mmap(
+    (void *)_initialSavedBrk, EndOfBrkMapSize, PROT_NONE,
+    MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED, -1, 0);
+  ASSERT_EQ(brkMmap, _initialSavedBrk);
+
   // Reserve space for restoreBuf
   _restoreBufLen = RESTORE_TOTAL_SIZE;
 
@@ -415,6 +422,10 @@ ProcessInfo::resetOnFork()
 void
 ProcessInfo::restoreHeap()
 {
+  // Release backing memory for EndOfBrkMap memory region.
+  ASSERT_EQ(0,
+            madvise((void *)_initialSavedBrk, EndOfBrkMapSize, MADV_DONTNEED));
+
   /* If the original start of heap is lower than the current end of heap, we
    * want to mmap the area between _savedBrk and current break. This
    * happens when the size of checkpointed program is smaller then the size of
