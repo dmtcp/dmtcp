@@ -99,7 +99,8 @@ restoreUserLDPRELOAD()
   char *preload = getenv("LD_PRELOAD");
   char *userPreload = getenv(ENV_VAR_ORIG_LD_PRELOAD);
 
-  JASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload));
+  JASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload))
+  (preload)(userPreload);
 
   // Destructively modify environment variable "LD_PRELOAD" in place:
   preload[0] = '\0';
