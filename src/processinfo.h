@@ -205,6 +205,7 @@ class ProcessInfo
 
     uint64_t _savedHeapStart;
     uint64_t _savedBrk;
+    uint64_t _initialSavedBrk;
 
     uint64_t _vdsoStart;
     uint64_t _vdsoEnd;
