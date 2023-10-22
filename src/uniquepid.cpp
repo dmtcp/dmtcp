@@ -58,6 +58,15 @@ theUniqueHostId()
 #endif // ifdef USE_GETHOSTID
 }
 
+inline static long
+getTimeNs()
+{
+  struct timespec value;
+  JASSERT(clock_gettime(CLOCK_MONOTONIC, &value) == 0);
+  long nsecs = value.tv_sec * 1000000000L + value.tv_nsec;
+  return nsecs;
+}
+
 static UniquePid&
 nullProcess()
 {
@@ -99,17 +108,10 @@ parentProcess()
 UniquePid&
 UniquePid::ThisProcess(bool disableJTrace /*=false*/)
 {
-  struct timespec value;
-  uint64_t nsecs = 0;
-
   if (theProcess() == nullProcess()) {
-    JASSERT(clock_gettime(CLOCK_MONOTONIC, &value) == 0);
-    nsecs = value.tv_sec * 1000000000L + value.tv_nsec;
-    theProcess() = UniquePid(theUniqueHostId(),
-                             ::getpid(),
-                             nsecs);
+    theProcess() = UniquePid(theUniqueHostId(), ::getpid(), getTimeNs());
     if (disableJTrace == false) {
-      JTRACE("recalculated process UniquePid...") (theProcess());
+      JTRACE("recalculated process UniquePid...")(theProcess());
     }
   }
 
@@ -210,8 +212,8 @@ UniquePid::resetOnFork()
 
   // parentProcess() is for inspection tools
   parentProcess() = ThisProcess();
-  theProcess() = UniquePid(host, getpid(), ::time(NULL));
-  JTRACE("Explicitly setting process UniquePid") (ThisProcess());
+  theProcess() = UniquePid(host, getpid(), getTimeNs());
+  JTRACE("Explicitly setting process UniquePid")(ThisProcess());
 }
 
 bool
