@@ -19,16 +19,85 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <elf.h>
+#include <link.h>
 #include <stdlib.h>
 #include <unistd.h>
+
 #include "../jalib/jassert.h"
+#include "../jalib/jfilesystem.h"
 #include "dmtcp.h"
+#include "tokenize.h"
+#include "util.h"
 
 #define _real_dlopen  NEXT_FNC(dlopen)
 #define _real_dlclose NEXT_FNC(dlclose)
 
 extern "C" int dmtcp_libdlLockLock();
 extern "C" void dmtcp_libdlLockUnlock();
+
+using namespace dmtcp;
+
+void
+getRpathRunPath(void *caller, string *rpathStr, string *runpathStr)
+{
+  Dl_info info;
+  struct link_map *map;
+
+  ASSERT_NOT_NULL(rpathStr);
+  ASSERT_NOT_NULL(runpathStr);
+
+  // Retrieve the link_map for the library given by addr
+  int ret = dladdr1(caller, &info, (void **)&map, RTLD_DL_LINKMAP);
+  ASSERT_NE(0, ret);
+
+  string filepath = info.dli_fname;
+  string dirname = jalib::Filesystem::DirName(info.dli_fname);
+
+  const ElfW(Dyn) *dyn = map->l_ld;
+  const ElfW(Dyn) *rpath = NULL;
+  const ElfW(Dyn) *runpath = NULL;
+  const char *strtab = NULL;
+  for (; dyn->d_tag != DT_NULL; ++dyn) {
+    if (dyn->d_tag == DT_RPATH) {
+      rpath = dyn;
+    } else if (dyn->d_tag == DT_RUNPATH) {
+      runpath = dyn;
+    } else if (dyn->d_tag == DT_STRTAB) {
+      strtab = (const char *)dyn->d_un.d_val;
+    }
+  }
+
+  ASSERT_NOT_NULL(strtab);
+
+  if (rpath != NULL) {
+    *rpathStr = strtab + rpath->d_un.d_val;
+    *rpathStr = dmtcp::Util::replace(*rpathStr, "$ORIGIN", dirname);
+  } else {
+    rpathStr->clear();
+  }
+
+  if (runpath != NULL) {
+    *runpathStr = strtab + runpath->d_un.d_val;
+    *runpathStr = dmtcp::Util::replace(*runpathStr, "$ORIGIN", dirname);
+  } else {
+    runpathStr->clear();
+  }
+}
+
+static void *
+dlopen_try_paths(const char *filename, int flag, string path)
+{
+  vector<string> paths = tokenizeString(path, ":");
+  for (auto path : paths) {
+    string newFilename = path + "/" + filename;
+    if (_real_dlopen(newFilename.c_str(), flag) != NULL) {
+      break;
+    }
+  }
+
+  return NULL;
+}
 
 /* Reason for using thread_performing_dlopen_dlsym:
  *
@@ -68,18 +137,46 @@ extern "C"
 void *dlopen(const char *filename, int flag)
 {
   bool lockAcquired = dmtcp_libdlLockLock();
-  void *ret = _real_dlopen(filename, flag);
+  string rpath;
+  string runpath;
+  void *ret = NULL;
+
+  getRpathRunPath(__builtin_return_address(0), &rpath, &runpath);
+
+  // 1. Attempt dlopen using RPATH.
+  if (!rpath.empty()) {
+    ret = _real_dlopen(filename, flag);
+  }
+
+  // 2. Attempt dlopen using LD_LIBRARY_PATH.
+  // TODO(kapil): We should use a cached copy of LD_LIBRARY_PATH as it existed
+  // at the time of program start since the manpage explicitly states it:
+  //    If, at the time that the program was started, the environment variable
+  //    LD_LIBRARY_PATH was defined to contain a colon-separated list of
+  //    directories, then these are searched.
+  const char *ldLibraryPath = getenv("LD_LIBRARY_PATH");
+  if (ret == NULL && ldLibraryPath != NULL) {
+    ret = dlopen_try_paths(filename, flag, ldLibraryPath);
+  }
+
+  // 3. Attempt dlopen using RUNPATH.
+  if (ret == NULL && !runpath.empty()) {
+    ret = dlopen_try_paths(filename, flag, runpath);
+  }
+
+  // 4. Finally try dlopen using filename as is.
+  if (ret == NULL) {
+    ret = _real_dlopen(filename, flag);
+  }
 
   if (lockAcquired) {
     dmtcp_libdlLockUnlock();
   }
-  JWARNING(ret) (filename) (flag)
-    .Text("dlopen failed!\n"
-          "You may also see a message 'ERROR: ld.so:'\n from libdl.so.\n"
-          "If this happens only under DMTCP, then consider setting the \n"
-          "environment variable 'DMTCP_DL_PLUGIN' to \"0\" before \n"
-          "'dmtcp_launch'.\n"
-          "If the problem persists, please write to the DMTCP developers.\n");
+
+  if (ret == NULL) {
+    JTRACE("dlopen failed")(filename)(flag)(rpath)(ldLibraryPath)(runpath);
+  }
+
   return ret;
 }
 
