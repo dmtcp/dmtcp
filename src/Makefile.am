@@ -86,7 +86,6 @@ nobase_noinst_HEADERS =						\
 			threadinfo.h				\
 			threadlist.h				\
 			threadsync.h				\
-			tokenize.h				\
 			uniquepid.h				\
 			workerstate.h
 
@@ -107,6 +106,7 @@ nobase_noinst_HEADERS += $(dmtcpincludedir)/dmtcp.h		\
 			 $(dmtcpincludedir)/procselfmaps.h	\
 			 $(dmtcpincludedir)/protectedfds.h	\
 			 $(dmtcpincludedir)/shareddata.h	\
+			 $(dmtcpincludedir)/tokenize.h		\
 			 $(dmtcpincludedir)/trampolines.h	\
 			 $(dmtcpincludedir)/util.h		\
 			 $(dmtcpincludedir)/virtualidtable.h	\
@@ -163,6 +163,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  pluginmanager.cpp		\
 				  popen.cpp 			\
 				  tls.cpp			\
+				  posix_spawn.cpp 		\
 				  rlimitfloatenv.cpp 		\
 				  signalwrappers.cpp 		\
 				  siginfo.cpp 			\
