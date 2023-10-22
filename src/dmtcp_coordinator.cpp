@@ -94,15 +94,16 @@ using namespace dmtcp;
 
 static const char *theHelpMessage =
   "COMMANDS:\n"
-  "  l : List connected nodes\n"
-  "  s : Print status message\n"
-  "  c : Checkpoint all nodes\n"
-  "  Kc : Checkpoint and then kill all nodes\n"
-  "  i : Print current checkpoint interval\n"
-  "      (To change checkpoint interval, use dmtcp_command)\n"
-  "  k : Kill all nodes\n"
-  "  q : Kill all nodes and quit\n"
-  "  ? : Show this message\n"
+  "  l: List connected nodes\n"
+  "  s: Print status message\n"
+  "  c: Checkpoint all nodes\n"
+  "  ck: kc: \n"
+  "     Checkpoint and then kill all nodes\n"
+  "  i: Print current checkpoint interval\n"
+  "     (To change checkpoint interval, use dmtcp_command)\n"
+  "  k: Kill all nodes\n"
+  "  q: Kill all nodes and quit\n"
+  "  ?: Show this message\n"
   "\n";
 
 static const char *theUsage =
@@ -239,6 +240,17 @@ static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
 static int theNextClientNumber = 1;
 vector<CoordClient *>clients;
 
+static inline void
+ltrim(string &s)
+{
+  for (auto i = s.begin(); i != s.end(); ++i) {
+    if (!std::isspace(*i)) {
+      s.erase(s.begin(), i);
+      break;
+    }
+  }
+}
+
 CoordClient::CoordClient(const jalib::JSocket &sock,
                          const struct sockaddr_storage *addr,
                          socklen_t len,
@@ -292,23 +304,23 @@ DmtcpCoordinator::getNewVirtualPid()
 static string replyData = "";
 
 void
-DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
+DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
 {
   if (reply != NULL) {
     reply->coordCmdStatus = CoordCmdStatus::NOERROR;
   }
 
-  switch (cmd) {
-  case 'b':  // prefix blocking command, prior to checkpoint command
-    JTRACE("blocking checkpoint beginning...");
-    blockUntilDone = true;
-    break;
-  case 'K':  // prefix kill command, after ckpt cmd
-    JTRACE("Will kill peers after creating the checkpoint...");
-    killAfterCkptOnce = true;
-    break;
-  case 'c':
-    JTRACE("checkpointing...");
+  if (cmd == "bc" || cmd == "kc" || cmd == "ck" || cmd == "c") {
+    if (cmd == "bc") {
+      blockUntilDone = true;
+      JTRACE("blocking checkpoint beginning...");
+    } else if (cmd == "kc" || cmd == "ck") {
+      JTRACE("Will kill peers after creating the checkpoint...");
+      killAfterCkptOnce = true;
+    } else {
+      JTRACE("checkpointing...");
+    }
+
     if (startCheckpoint()) {
       if (reply != NULL) {
         reply->numPeers = getStatus().numPeers;
@@ -318,34 +330,14 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
         reply->coordCmdStatus = CoordCmdStatus::ERROR_NOT_RUNNING_STATE;
       }
     }
-    break;
-  case 'i':
-    JTRACE("setting checkpoint interval...");
-    updateCheckpointInterval(theCheckpointInterval);
-    if (theCheckpointInterval == 0) {
-      printf("Current Checkpoint Interval:"
-             " Disabled (checkpoint manually instead)\n");
-    } else {
-      printf("Current Checkpoint Interval: %d\n", theCheckpointInterval);
-    }
-    if (theDefaultCheckpointInterval == 0) {
-      printf("Default Checkpoint Interval:"
-             " Disabled (checkpoint manually instead)\n");
-    } else {
-      printf("Default Checkpoint Interval: %d\n", theDefaultCheckpointInterval);
-    }
-    break;
-  case 'l':
-  case 't':
+  } else if (cmd == "l" || cmd == "t") {
     if (reply != NULL) {
       replyData = printList();
       reply->extraBytes = replyData.length();
     } else {
       JASSERT_STDERR << printList();
     }
-    break;
-  case 'u':
-  {
+  } else if (cmd == "u") {
     JASSERT_STDERR << "Host List:\n";
     JASSERT_STDERR << "HOST => # connected clients \n";
     dmtcp::map<string, int>clientHosts;
@@ -361,10 +353,7 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
          ++it) {
       JASSERT_STDERR << it->first << " => " << it->second << '\n';
     }
-    break;
-  }
-  case 'q':
-  {
+  } else if (cmd == "q") {
     JNOTE("killing all connected peers and quitting ...");
     broadcastMessage(DMT_KILL_PEER);
     JASSERT_STDERR << "DMTCP coordinator exiting... (per request)\n";
@@ -377,17 +366,27 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
     recordEvent("Exiting");
     serializeKVDB();
     exit(0);
-    break;
-  }
-  case 'k':
+  } else if (cmd == "i") {
+    JTRACE("setting checkpoint interval...");
+    updateCheckpointInterval(theCheckpointInterval);
+    if (theCheckpointInterval == 0) {
+      printf("Current Checkpoint Interval:"
+             " Disabled (checkpoint manually instead)\n");
+    } else {
+      printf("Current Checkpoint Interval: %d\n", theCheckpointInterval);
+    }
+    if (theDefaultCheckpointInterval == 0) {
+      printf("Default Checkpoint Interval:"
+             " Disabled (checkpoint manually instead)\n");
+    } else {
+      printf("Default Checkpoint Interval: %d\n", theDefaultCheckpointInterval);
+    }
+  } else if (cmd == "k") {
     JNOTE("Killing all connected peers...");
     broadcastMessage(DMT_KILL_PEER);
-    break;
-  case 'h': case '?':
+  } else if (cmd == "h" || cmd == "?") {
     JASSERT_STDERR << theHelpMessage;
-    break;
-  case 's':
-  {
+  } else if (cmd == "s") {
     ComputationStatus s = getStatus();
     bool running = (s.minimumStateUnanimous &&
                     s.minimumState == WorkerState::RUNNING);
@@ -398,13 +397,7 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
     } else {
       printStatus(s.numPeers, running);
     }
-    break;
-  }
-  case ' ': case '\t': case '\n': case '\r':
-
-    // ignore whitespace
-    break;
-  default:
+  } else {
     JNOTE("unhandled user command")(cmd);
     if (reply != NULL) {
       reply->coordCmdStatus = CoordCmdStatus::ERROR_INVALID_COMMAND;
@@ -454,14 +447,16 @@ DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
   }
 
   o << "Exit on last client: " << exitOnLast << std::endl
-    << "Kill after checkpoint: " << killAfterCkpt << std::endl
+    << "Kill after checkpoint: " << killAfterCkpt
+    << std::endl
 
     // << "Kill after checkpoint (first time only): " << killAfterCkptOnce
     // << std::endl
     << "Computation Id: " << compId << std::endl
     << "Checkpoint Dir: " << ckptDir << std::endl
     << "NUM_PEERS=" << numPeers << std::endl
-    << "RUNNING=" << (isRunning ? "yes" : "no") << std::endl;
+    << "RUNNING=" << (isRunning ? "yes" : "no") << std::endl
+    << std::endl;
   printf("%s", o.str().c_str());
   fflush(stdout);
 }
@@ -474,18 +469,16 @@ DmtcpCoordinator::printList()
   o << "Client List:\n";
   o << "#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE, BARRIER\n";
   for (size_t i = 0; i < clients.size(); i++) {
-    o << clients[i]->clientNumber()
-      << ", " << clients[i]->progname()
-      << "[" << clients[i]->identity().pid() << ":" << clients[i]->realPid()
-      << "]@" << clients[i]->hostname()
+    o << clients[i]->clientNumber() << ", " << clients[i]->progname() << "["
+      << clients[i]->identity().pid() << ":" << clients[i]->realPid() << "]@"
+      << clients[i]->hostname()
 #ifdef PRINT_REMOTE_IP
       << "(" << clients[i]->ip() << ")"
 #endif // ifdef PRINT_REMOTE_IP
-      << ", " << clients[i]->identity()
-      << ", " << clients[i]->state()
-      << ", " << clients[i]->barrier()
-      << '\n';
+      << ", " << clients[i]->identity() << ", " << clients[i]->state() << ", "
+      << clients[i]->barrier() << "\n";
   }
+  o << "\n";
   return o.str();
 }
 
@@ -849,7 +842,7 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
   if (s.numPeers < 1) {
     if (exitOnLast) {
       JNOTE("last client exited, shutting down..");
-      handleUserCommand('q');
+      handleUserCommand("q");
     } else {
       removeStaleSharedAreaFile();
     }
@@ -1005,20 +998,22 @@ DmtcpCoordinator::processDmtUserCmd(DmtcpMessage &hello_remote,
   DmtcpMessage reply;
   reply.type = DMT_USER_CMD_RESULT;
 
+  string cmd(1, hello_remote.coordCmd);
+
   // if previous 'b' blocking prefix command had set blockUntilDone
   if (blockUntilDone && blockUntilDoneRemote == -1 &&
       hello_remote.coordCmd == 'c') {
     // Reply will be done in DmtcpCoordinator::onData in this file.
     blockUntilDoneRemote = remote.sockfd();
-    handleUserCommand(hello_remote.coordCmd, &reply);
+    handleUserCommand(cmd, &reply);
   } else if (hello_remote.coordCmd == 'i') {
     // theDefaultCheckpointInterval = hello_remote.theCheckpointInterval;
     // theCheckpointInterval = theDefaultCheckpointInterval;
-    handleUserCommand(hello_remote.coordCmd, &reply);
+    handleUserCommand(cmd, &reply);
     remote << reply;
     remote.close();
   } else {
-    handleUserCommand(hello_remote.coordCmd, &reply);
+    handleUserCommand(cmd, &reply);
     remote << reply;
     if (reply.extraBytes > 0) {
       remote.writeAll(replyData.c_str(), reply.extraBytes);
@@ -1332,7 +1327,7 @@ static void
 signalHandler(int signum)
 {
   if (signum == SIGINT) {
-    prog.handleUserCommand('q');
+    prog.handleUserCommand("q");
   } else if (signum == SIGALRM) {
     timerExpired = true;
     if (timeout &&
@@ -1499,6 +1494,22 @@ DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
 }
 
 void
+printPrompt()
+{
+  if (std::cin.eof() != 1) {
+    printf("dmtcp> ");
+    fflush(stdout);
+  }
+}
+
+void
+clearPrompt()
+{
+  printf("\r");
+  fflush(stdout);
+}
+
+void
 DmtcpCoordinator::eventLoop(bool daemon)
 {
   struct epoll_event ev;
@@ -1528,6 +1539,8 @@ DmtcpCoordinator::eventLoop(bool daemon)
   }
 
   while (true) {
+    printPrompt();
+
     // Wait until either there is some activity on client sockets, or the timer
     // has expired.
     int nfds;
@@ -1535,6 +1548,7 @@ DmtcpCoordinator::eventLoop(bool daemon)
       nfds = epoll_wait(epollFd, events, MAX_EVENTS, -1);
     } while (nfds < 0 && errno == EINTR && !timerExpired);
 
+    clearPrompt();
 
     // The ckpt timer has expired; it's time to checkpoint.
     //   NOTE:  We need minimumStateUnanimous and RUNNING, in case
@@ -1572,16 +1586,20 @@ DmtcpCoordinator::eventLoop(bool daemon)
         if (ptr == (void *)listenSock) {
           onConnect();
         } else if (ptr == (void *)STDIN_FILENO) {
-          char buf[1];
-          int ret = Util::readAll(STDIN_FD, buf, sizeof(buf));
-          JASSERT(ret != -1) (JASSERT_ERRNO);
-          if (ret > 0) {
-            handleUserCommand(buf[0]);
-          } else {
-            JNOTE("closing stdin");
+          string cmd;
+          std::getline(std::cin, cmd);
+          if (std::cin.eof() == 1) {
+            JASSERT_STDERR << "\n  Closing stdin...\n";
             JASSERT(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1)
               (JASSERT_ERRNO);
             close(STDIN_FD);
+          } else {
+            std::transform(cmd.begin(), cmd.end(), cmd.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+            ltrim(cmd);
+            if (!cmd.empty()) {
+              handleUserCommand(cmd);
+            }
           }
         } else {
           onData((CoordClient *)ptr);
