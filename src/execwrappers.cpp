@@ -168,6 +168,9 @@ __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(
 extern "C" pid_t
 fork()
 {
+  // Ensure that we have initialized the DMTCP worker before calling fork().
+  dmtcp_initialize_entry_point();
+
   if (isPerformingCkptRestart()) {
     // We shouldn't be using _real_syscall here because that won't reset
     // internal locks both for libc and DMTCP. If needed, we should have a
