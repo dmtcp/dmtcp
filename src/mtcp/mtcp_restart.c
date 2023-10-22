@@ -323,7 +323,7 @@ restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
     // Now unmap the just mapped extended heap. This is to ensure that we don't
     // have overlap with the restore region.
     if (mtcp_sys_munmap(current_brk, new_brk - current_brk) == -1) {
-      MTCP_PRINTF("***WARNING: munmap failed; errno: %d\n", mtcp_sys_errno);
+      DPRINTF("***WARNING: munmap failed; errno: %d\n", mtcp_sys_errno);
     }
   }
   if (new_brk != saved_brk) {
@@ -333,10 +333,10 @@ restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
               new_brk, saved_brk);
     } else {
       if (new_brk == current_brk) {
-        MTCP_PRINTF("error: new/current break (%p) != saved break (%p)\n",
+        DPRINTF("error: new/current break (%p) != saved break (%p)\n",
                     current_brk, saved_brk);
       } else {
-        MTCP_PRINTF("error: new break (%p) != current break (%p)\n",
+        DPRINTF("error: new break (%p) != current break (%p)\n",
                     new_brk, current_brk);
       }
 
