@@ -177,7 +177,8 @@ char **getDmtcpArgs();
 void allowGdbDebug(int currentDebugLevel);
 
 string getTimestampStr();
-}
+string replace(const string &in, const string &match, const string &replace);
+} // namespace Util
 }
 #endif // ifdef __cplusplus
 #endif // ifndef UTIL_H

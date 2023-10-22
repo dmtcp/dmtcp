@@ -703,3 +703,22 @@ Util::getTimestampStr()
 
   return buf2;
 }
+
+string
+Util::replace(const string &in, const string &match, const string &replace)
+{
+  string data = in;
+
+  // Get the first occurrence
+  size_t pos = data.find(match);
+
+  // Repeat till end is reached
+  while (pos != std::string::npos) {
+    data.replace(pos, match.size(), replace);
+
+    // Get the next occurrence from the current position
+    pos = data.find(match, pos + replace.size());
+  }
+
+  return data;
+}
