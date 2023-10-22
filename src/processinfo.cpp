@@ -247,8 +247,8 @@ ProcessInfo::growStack()
       int ret = mprotect(area.addr + area.size, 0x1000,
                          PROT_READ | PROT_WRITE | PROT_EXEC);
       if (ret == 0) {
-        JNOTE("bottom-most page of stack (page with highest address) was\n"
-              "  invisible in /proc/self/maps. It is made visible again now.");
+        JTRACE("bottom-most page of stack (page with highest address) was"
+               " invisible in /proc/self/maps. It is made visible again now.");
       }
     }
   }
