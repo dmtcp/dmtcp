@@ -129,9 +129,6 @@ static const char *theUsage =
   "  --timeout seconds\n"
   "      Coordinator exits after <seconds> even if jobs are active\n"
   "      (Useful during testing to prevent runaway coordinator processes)\n"
-  "  --stale-timeout seconds\n"
-  "      Coordinator exits after <seconds> of no active job (default: 8 hrs)\n"
-  "      (The default prevents runaway processes; Override w/ larger timeout)\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent "
   "process.\n"
@@ -163,9 +160,8 @@ static bool blockUntilDone = false;
 static bool killAfterCkpt = false;
 static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
-static time_t timeout = 0; // used with --timeout
-static time_t start_time = 0; // used with --timeout
-static unsigned int staleTimeout = 0; // used with --stale-timeout
+static time_t timeout = 0;
+static time_t start_time; // used with timeout
 
 static DmtcpCoordinator prog;
 
@@ -559,32 +555,6 @@ DmtcpCoordinator::processBarrier(const string &barrier)
 }
 
 
-static unsigned int staleStartTime = 0;
-// Call this at start time, and when no more processes (cf: exit-on-last)
-static void setStaleTimeout() {
-  unsigned int cur_timeout = 0;
-  if (staleStartTime == 0) {
-    staleStartTime = time(NULL);
-    cur_timeout = alarm(0); alarm(cur_timeout); // Retrieve existing alarm.
-    if (staleTimeout == 0) { staleTimeout = 8 * 60 * 60; } // 8 hours is default
-  }
-  if (staleTimeout < cur_timeout || cur_timeout == 0) {
-    alarm(staleTimeout); // Set new alarm
-  }; // else keep existing alarm set by --timeout
-}
-// Call this when starting a new process
-static void resetStaleTimeout() {
-  unsigned int elapsed_time = time(NULL) - start_time;
-  if (timeout > 0) {
-    alarm(timeout > elapsed_time ? timeout - elapsed_time : 1);
-  } else {
-    if (clients.size() == 0) {
-      alarm(0); // staleTimeout temporarily disabled and no absolute timeout
-    }
-  }
-}
-
-
 void
 DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 {
@@ -843,9 +813,6 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
   _virtualPidToClientMap.erase(client->virtualPid());
 
   ComputationStatus s = getStatus();
-  if (clients.size() == 0) {
-    setStaleTimeout();
-  }
   if (s.numPeers < 1) {
     if (exitOnLast) {
       JNOTE("last client exited, shutting down..");
@@ -907,7 +874,6 @@ DmtcpCoordinator::onConnect()
   struct sockaddr_storage remoteAddr;
   socklen_t remoteLen = sizeof(remoteAddr);
   jalib::JSocket remote = listenSock->accept(&remoteAddr, &remoteLen);
-  resetStaleTimeout();
 
   JTRACE("accepting new connection") (remote.sockfd());
 
@@ -1327,7 +1293,6 @@ DmtcpCoordinator::getStatus() const
   return status;
 }
 
-
 static void
 signalHandler(int signum)
 {
@@ -1337,13 +1302,6 @@ signalHandler(int signum)
     timerExpired = true;
     if (timeout &&
         (time(NULL) - start_time) >= (timeout - 1)) { // -1 for roundoff
-      fprintf(stderr, "*** dmtcp_coordinator:  --timeout timed out\n");
-      exit(1);
-    } else if (staleTimeout && // -1, below, for roundoff
-               time(NULL) - staleStartTime >= (staleTimeout - 1)) {
-      fprintf(stderr,
-              "*** dmtcp_coordinator:  --stale-timeout timed out; Was %d sec\n",
-              staleTimeout);
       exit(1);
     }
   } else {
@@ -1470,24 +1428,7 @@ calcLocalAddr()
 static void
 resetCkptTimer()
 {
-  // FIXME:  Fix timeout logic to include setStaleTimeout, resetStaleTimeout
-  //         theCheckpointInterval, theDefaultCheckpointInterval
-  //         coord_interval set by args; launch_interval set onConnect
-  // static numPrevClients = 0;
-  // if (clients.size() == 1 && numPrevClients == 0) { // first onConnect
-  //   alarm( launch_interval == DMTCPMESSAGE_SAME_CKPT_INTERVAL ?
-  //          coord_interval : launch_interval );
-  // } else if (clients.size() > num{revClients && /* second onConnect or more
-  //            launch_interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL) {
-  //   alarm( launch_interval );
-  // } else if (clients.size() == 0) { // We did final onDisconnect.
-  //   alarm( staleTimeout );
-  // } // If onDisconnect, but clients.size() > 0, then keep existing timeout.
-  // numPrevClients = clients.size();
-  // // END_OF_resetCkptTimer
-  if (clients.size() == 0) {
-    alarm(staleTimeout);
-  } else if (theCheckpointInterval > 0) {
+  if (theCheckpointInterval > 0) {
     alarm(theCheckpointInterval);
   } else {
     alarm(timeout);
@@ -1502,20 +1443,14 @@ DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
   if ((interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL &&
        interval != theCheckpointInterval) ||
       firstClient) {
-    if (interval == DMTCPMESSAGE_SAME_CKPT_INTERVAL) {
-      // This must be firstClient, and dmtcp_launch didn't specify interval.
-      if (theCheckpointInterval != 0) { // Use dmtcp_coordinator ckpt interval.
-        firstClient = false;
-        resetCkptTimer(); // Use theCheckpointInterval from dmtcp_coordinator.
-      }
-    } else { // Either we're changing the ckpt interval, or still a firstClient.
-      int oldInterval = theCheckpointInterval;
+    int oldInterval = theCheckpointInterval;
+    if (interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL) {
       theCheckpointInterval = interval;
-      JNOTE("CheckpointInterval updated (for this computation only)")
-        (oldInterval) (theCheckpointInterval);
-      firstClient = false;
-      resetCkptTimer();
     }
+    JNOTE("CheckpointInterval updated (for this computation only)")
+      (oldInterval) (theCheckpointInterval);
+    firstClient = false;
+    resetCkptTimer();
   }
 }
 
@@ -1748,9 +1683,6 @@ main(int argc, char **argv)
       start_time = time(NULL);
       alarm(timeout);  // and resetCkptTimer() will also set this.
       shift; shift;
-    } else if (argc > 1 && s == "--stale-timeout") {
-      staleTimeout = atol(argv[1]);
-      shift; shift;
     } else if (s == "--daemon") {
       daemon = true;
       shift;
@@ -1807,7 +1739,6 @@ main(int argc, char **argv)
 
   tmpDir = Util::calcTmpDir(tmpdir_arg);
   Util::initializeLogFile(tmpDir, "dmtcp_coordinator");
-  setStaleTimeout(); // Initialize alarm to staleTimeout.
 
   JTRACE("New DMTCP coordinator starting.")
     (UniquePid::ThisProcess());
@@ -1915,12 +1846,9 @@ main(int argc, char **argv)
       close(fd);
     }
 
-    unsigned int cur_timeout = alarm(0);
     if (fork() > 0) {
       JTRACE("Parent Exiting after fork()");
       exit(0);
-    } else {
-      alarm(cur_timeout); // Restore parent timeout in child.
     }
 
     // pid_t sid = setsid();
