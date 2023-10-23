@@ -208,10 +208,11 @@ REQUIRE_TMP_MB=10
 BIN="./bin/"
 
 # cmdline string to launch coord: times out after 3 hours to prevent runaways
-coordinator_cmdline = BIN+"dmtcp_coordinator --timeout 10800"
+coordinator_cmdline = BIN+"dmtcp_coordinator --timeout 10800 --daemon"
+command_cmdline = BIN+"dmtcp_command" # -p " + str(coordinator_port)
 
 #Checkpoint command to send to coordinator
-CKPT_CMD=b'c'
+CKPT_CMD = 'bc'
 
 #Appears as S*SLOW in code.  If --slow, then SLOW=5
 SLOW = pow(5, args.slow)
@@ -307,6 +308,24 @@ class MySubprocess:
     self.stdin = os.open(os.devnull, os.O_RDONLY)
     self.stdout = os.open(os.devnull, os.O_WRONLY)
     self.stderr = os.open(os.devnull, os.O_WRONLY)
+
+def runDmtcpCommand(cmd, waitForOutput=True):
+  global command_cmdline
+
+  cmdline = command_cmdline + " " + cmd
+  cmdline = cmdline.split()
+  #print("Running...", cmdline)
+
+  proc = subprocess.Popen(cmdline, bufsize=BUFFER_SIZE,
+                stdin=None, stdout=subprocess.PIPE,
+                stderr=None, close_fds=True)
+
+  if waitForOutput:
+    output = proc.stdout.readlines()
+  else:
+    output = None
+
+  return output
 
 #run a child process
 # NOTE:  Can eventually migrate to Python 2.7:  subprocess.check_output
@@ -439,21 +458,10 @@ else:
 #run the coordinator
 coordinator = runCmd(coordinator_cmdline)
 
-#send a command to the coordinator process
-def coordinatorCmd(cmd):
-  try:
-    if args.verbose and cmd != b"s":
-      print("COORDINATORCMD(",cmd,")")
-    coordinator.stdin.write(cmd+b"\n")
-    coordinator.stdin.flush()
-  except:
-    raise CheckFailed("failed to write '%s' to coordinator (pid: %d)" %
-                      (cmd, coordinator.pid))
-
 #clean up after ourselves
 def SHUTDOWN():
   try:
-    coordinatorCmd(b'q')
+    runDmtcpCommand('q')
     sleep(S*SLOW)
   except:
     print("SHUTDOWN() failed")
@@ -477,21 +485,12 @@ def WAITFOR(test, msg):
 
 #extract (NUM_PEERS, RUNNING) from coordinator
 def getStatus():
-  coordinatorCmd(b's')
+  output = runDmtcpCommand('s')
 
-  returncode = coordinator.poll()
-  if returncode:
-    if returncode < 0:
-      print("Coordinator terminated by signal ", str(-returncode))
-    CHECK(False, "coordinator died unexpectedly")
-    return (-1, False)
-
-  while True:
-    try:
-      line=str(coordinator.stdout.readline().strip().decode("ascii"))
-      if not line:  # Immediate empty string on stdout means EOF
-        CHECK(False, "coordinator died unexpectedly")
-        return (-1, False)
+  peers = 0
+  running = "no"
+  for line in output:
+      line=str(line.strip().decode("ascii"))
 
       m = re.search('NUM_PEERS=(\d+)', line)
       if m != None:
@@ -502,16 +501,6 @@ def getStatus():
       if m != None:
         running = m.group(1)
         break
-
-    except IOError as e:
-      if coordinator.poll():
-        if coordinator.poll() < 0:
-          print("Coordinator terminated by signal ", str(-returncode))
-        CHECK(False, "coordinator died unexpectedly")
-        return (-1, False)
-      if e.errno==4: #Interrupted system call
-        continue
-      raise CheckFailed("I/O error(%s): %s" % (e.errno, e.strerror))
 
   if args.verbose:
     print("STATUS: peers=%d, running=%s" % (peers,running))
@@ -570,13 +559,13 @@ def runTestRaw(name, numProcs, cmds):
 
   def testKill():
     #kill all processes
-    coordinatorCmd(b'k')
+    runDmtcpCommand('k')
     try:
       WAITFOR(lambda: getStatus()==(0, False),
               lambda:"coordinator kill command failed")
     except CheckFailed:
       global coordinator
-      coordinatorCmd(b'q')
+      runDmtcpCommand('q')
       os.system("kill -9 %d" % coordinator.pid)
       print("Trying to kill old coordinator, and run new one on same port")
       coordinator = runCmd(coordinator_cmdline)
@@ -606,12 +595,12 @@ def runTestRaw(name, numProcs, cmds):
 
   def testCheckpoint():
     #start checkpoint
-    coordinatorCmd(CKPT_CMD)
+    runDmtcpCommand(CKPT_CMD)
 
     #wait for files to appear and status to return to original
-    # b'Kc' input to dmtcp_coordinator is equivalent to 'dmtcp_command -kc'
+    # 'Kc' input to dmtcp_coordinator is equivalent to 'dmtcp_command -kc'
     WAITFOR(lambda: getNumCkptFiles(ckptDir)>0 and \
-                 (CKPT_CMD == b'Kc' or doesStatusSatisfy(getStatus(), status)),
+                 (CKPT_CMD == 'Kc' or doesStatusSatisfy(getStatus(), status)),
             wfMsg("checkpoint error"))
     #we now know there was at least one checkpoint file, and the correct number
     #  of processes have restarted;  but they may fail quickly after restert
@@ -626,9 +615,9 @@ def runTestRaw(name, numProcs, cmds):
           "unexpected number of checkpoint files, %s procs, %d files"
           % (str(status[0]), numFiles))
 
-    if SLOW > 1 and CKPT_CMD != b'Kc':
+    if SLOW > 1 and CKPT_CMD != 'Kc':
       #wait and see if some processes will die shortly after checkpointing
-      #but if b'Kc' was requested, processes should die (not resume)
+      #but if 'Kc' was requested, processes should die (not resume)
       sleep(S*SLOW)
       CHECK(doesStatusSatisfy(getStatus(), status),
             "error: processes checkpointed, but died upon resume")
@@ -774,11 +763,13 @@ def runTest(name, numProcs, cmds):
       runTestRaw(name, numProcs, cmds)
       break;
     except KeyboardInterrupt:
+      runDmtcpCommand('q', waitForOutput=False)
       for pid in getProcessChildren(os.getpid()):
         try:
           os.kill(pid, signal.SIGKILL)
         except OSError: # This happens if pid already died.
           pass
+      sys.exit(1)
     except CheckFailed as e:
       if not args.retry_once:
         break
@@ -860,7 +851,7 @@ runTest("gettid",        1, ["./test/gettid"])
 # program will try to unlink the file once again, but the unlink operation will
 # fail, causing the test to fail.
 old_ckpt_cmd = CKPT_CMD
-CKPT_CMD = b'Kc' # Equivalent to 'dmtcp_command -kc'
+CKPT_CMD = 'Kc' # Equivalent to 'dmtcp_command -kc'
 runTest("syscall-tester",  1, ["./test/syscall-tester"])
 CKPT_CMD = old_ckpt_cmd
 
