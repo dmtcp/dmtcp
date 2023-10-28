@@ -33,6 +33,11 @@
 // remove it once we are more comfortable with the state of the code.
 #define JALLOC_DEBUG
 
+// This is enabled to capture and display allocation arenas (memory ranges) in
+// coordinator kvdb.
+#define JALLOC_DEBUG_STATS 1
+#define MAX_ARENAS 1024
+
 static constexpr size_t headerSizeInBytes = sizeof(size_t);
 static constexpr size_t footerSizeInBytes = sizeof(size_t);
 #ifdef JALLOC_DEBUG
@@ -43,20 +48,28 @@ static constexpr size_t headerFooterSizeInBytes = headerSizeInBytes;
 
 namespace jalib
 {
+struct JAllocArena
+{
+  void *startAddr;
+  void *endAddr;
+};
+
 class JAllocDispatcher
 {
   private:
-    static void initialize(void);
-    static void *allocate(size_t n);
-    static void deallocate(void *ptr, size_t n);
+  static void initialize(void);
+  static void deallocate(void *ptr, size_t n);
 
   public:
-    static void *malloc(size_t nbytes)
-    {
-      size_t *p = (size_t *)JAllocDispatcher::allocate(nbytes + headerFooterSizeInBytes);
+  static void *allocate(size_t n);
 
-      *p = nbytes;
-      p += 1;
+  static void *malloc(size_t nbytes)
+  {
+    size_t *p =
+      (size_t *)JAllocDispatcher::allocate(nbytes + headerFooterSizeInBytes);
+
+    *p = nbytes;
+    p += 1;
 
 #ifdef JALLOC_DEBUG
       // Put a canary at the end of the allocated block. The canary is the value
@@ -67,7 +80,7 @@ class JAllocDispatcher
 #endif // ifdef JALLOC_DEBUG
 
       return p;
-    }
+  }
 
     static void free(void *p)
     {
@@ -127,9 +140,11 @@ class JAlloc
     {
       return JAllocDispatcher::free(p);
     }
+
+    static void getAllocArenas(JAllocArena **arenas, int *numArenas);
 #endif // ifdef JALIB_ALLOCATOR
 };
-}
+} // namespace jalib
 
 #define JALLOC_HELPER_NEW(nbytes)                                            \
                                      return jalib::JAllocDispatcher::malloc( \
