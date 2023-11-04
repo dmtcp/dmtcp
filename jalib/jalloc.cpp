@@ -297,6 +297,11 @@ jalib::JFixedAllocStack<4 * 4096> *lvl5;
 void
 jalib::JAllocDispatcher::initialize(void)
 {
+    // The template parameter specifies the largest allocation request a            
+  // particular alloc-arena can handle. For example, lvl1 will handle all         
+  // requests up to 64 bytes. Larger requests go to the next arena and so on.    
+  // Lvl5 handles requests up to 16 KB; anything larger results in a call to     
+  // alloc_raw (which in turn calls mmap).
   constexpr int blockSize = 4 * 4096;
   lvl1 = new jalib::JFixedAllocStack<64>(blockSize);
   lvl2 = new jalib::JFixedAllocStack<256>(blockSize);
