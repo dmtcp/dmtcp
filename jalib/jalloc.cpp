@@ -19,7 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <atomic>
 #include "jalib.h"
 #include "jalloc.h"
 #include <pthread.h>
@@ -33,13 +32,11 @@
 
 // Make highest chunk size large; avoid a raw_alloc calling mmap()
 // during /proc/self/maps
-#define MAX_CHUNKSIZE (16 * 1024)
+#define MAX_CHUNKSIZE (4 * 1024)
 
 using namespace jalib;
 
 static bool _initialized = false;
-JAllocArena allocArenas[MAX_ARENAS];
-static int numAllocArenas;
 
 #ifdef JALIB_ALLOCATOR
 
@@ -66,7 +63,7 @@ _alloc_raw(size_t n)
   if (n % sysconf(_SC_PAGESIZE) != 0) {
     n = (n + sysconf(_SC_PAGESIZE) - (n % sysconf(_SC_PAGESIZE)));
   }
-  void *p = mmap(mmapHintAddr, n, PROT_READ | PROT_WRITE | PROT_EXEC,
+  void *p = mmap(mmapHintAddr, n, PROT_READ | PROT_WRITE,
                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
   if (p != MAP_FAILED) {
     mmapHintAddr = p + n;
@@ -74,7 +71,7 @@ _alloc_raw(size_t n)
 #  else // ifdef USE_DMTCP_ALLOC_ARENA
   void *p = mmap(NULL,
                  n,
-                 PROT_READ | PROT_WRITE | PROT_EXEC,
+                 PROT_READ | PROT_WRITE,
                  MAP_PRIVATE | MAP_ANONYMOUS,
                  -1,
                  0);
@@ -83,24 +80,8 @@ _alloc_raw(size_t n)
   if (p == MAP_FAILED) {
     perror("DMTCP(" __FILE__ "): _alloc_raw: ");
   }
-
-  if (p != MAP_FAILED) {
-    int idx = numAllocArenas++;
-    if (idx < MAX_ARENAS) {
-      allocArenas[idx].startAddr = p;
-      allocArenas[idx].endAddr = (char*)p + n;
-    }
-  }
-
   return p;
 # endif // ifdef JALIB_USE_MALLOC
-}
-
-void jalib::JAlloc::getAllocArenas(JAllocArena **arenas, int *numArenas)
-{
-  *arenas = allocArenas;
-  int idx = numAllocArenas;
-  *numArenas = idx > MAX_ARENAS ? MAX_ARENAS : idx;
 }
 
 inline void
@@ -112,20 +93,10 @@ _dealloc_raw(void *ptr, size_t n)
   if (ptr == 0 || n == 0) {
     return;
   }
-
-  for (int i = 0; i < numAllocArenas; i++) {
-    if (allocArenas[i].startAddr == ptr) {
-      allocArenas[i].startAddr = NULL;
-      allocArenas[i].endAddr = NULL;
-      break;
-    }
-  }
-
   int rv = munmap(ptr, n);
   if (rv != 0) {
     perror("DMTCP(" __FILE__ "): _dealloc_raw: ");
   }
-
 # endif // ifdef JALIB_USE_MALLOC
 }
 
@@ -165,14 +136,18 @@ class JFixedAllocStack
 {
   public:
     enum { N = _N };
-    JFixedAllocStack(size_t blockSize)
-    : _blockSize(blockSize)
+    JFixedAllocStack()
     {
-      if (blockSize == 0) {
+      if (_blockSize == 0) {
         _blockSize = 4 * MAX_CHUNKSIZE;
       }
       memset(&_top, 0, sizeof(_top));
       _numExpands = 0;
+    }
+
+    void initialize(int blockSize)
+    {
+      _blockSize = blockSize;
     }
 
     size_t chunkSize() { return N; }
@@ -293,23 +268,21 @@ class JFixedAllocStack
 };
 } // namespace jalib
 
-jalib::JFixedAllocStack<64> *lvl1;
-jalib::JFixedAllocStack<256> *lvl2;
-jalib::JFixedAllocStack<1024> *lvl3;
-jalib::JFixedAllocStack<4096> *lvl4;
-# if MAX_CHUNKSIZE < (4 *4096)
+jalib::JFixedAllocStack<64>lvl1;
+jalib::JFixedAllocStack<256>lvl2;
+jalib::JFixedAllocStack<1024>lvl3;
+# if MAX_CHUNKSIZE <= 1024
 #  error MAX_CHUNKSIZE must be larger
 # endif // if MAX_CHUNKSIZE <= 1024
-jalib::JFixedAllocStack<MAX_CHUNKSIZE> *lvl5;
+jalib::JFixedAllocStack<MAX_CHUNKSIZE>lvl4;
 
 void
 jalib::JAllocDispatcher::initialize(void)
 {
-  lvl1 = new jalib::JFixedAllocStack<64>(1024 * 1024 * 16);
-  lvl2 = new jalib::JFixedAllocStack<256>(1024 * 1024);
-  lvl3 = new jalib::JFixedAllocStack<1024>(1024 * 1024);
-  lvl4 = new jalib::JFixedAllocStack<4096>(1024 * 1024);
-  lvl5 = new jalib::JFixedAllocStack<MAX_CHUNKSIZE>(1024 * 1024);
+  lvl1.initialize(1024 * 16);
+  lvl2.initialize(1024 * 16);
+  lvl3.initialize(1024 * 32);
+  lvl4.initialize(1024 * 32);
   _initialized = true;
 }
 
@@ -320,16 +293,14 @@ jalib::JAllocDispatcher::allocate(size_t n)
     initialize();
   }
   void *retVal;
-  if (n <= lvl1->chunkSize()) {
-    retVal = lvl1->allocate();
-  } else if (n <= lvl2->chunkSize()) {
-    retVal = lvl2->allocate();
-  } else if (n <= lvl3->chunkSize()) {
-    retVal = lvl3->allocate();
-  } else if (n <= lvl4->chunkSize()) {
-    retVal = lvl4->allocate();
-  } else if (n <= lvl5->chunkSize()) {
-    retVal = lvl5->allocate();
+  if (n <= lvl1.chunkSize()) {
+    retVal = lvl1.allocate();
+  } else if (n <= lvl2.chunkSize()) {
+    retVal = lvl2.allocate();
+  } else if (n <= lvl3.chunkSize()) {
+    retVal = lvl3.allocate();
+  } else if (n <= lvl4.chunkSize()) {
+    retVal = lvl4.allocate();
   } else {
     retVal = _alloc_raw(n);
   }
@@ -347,36 +318,33 @@ jalib::JAllocDispatcher::deallocate(void *ptr, size_t n)
     }
     abort();
   }
-  if (n <= lvl1->N) {
-    lvl1->deallocate(ptr);
-  } else if (n <= lvl2->N) {
-    lvl2->deallocate(ptr);
-  } else if (n <= lvl3->N) {
-    lvl3->deallocate(ptr);
-  } else if (n <= lvl4->N) {
-    lvl4->deallocate(ptr);
-  } else if (n <= lvl5->N) {
-    lvl5->deallocate(ptr);
+  if (n <= lvl1.N) {
+    lvl1.deallocate(ptr);
+  } else if (n <= lvl2.N) {
+    lvl2.deallocate(ptr);
+  } else if (n <= lvl3.N) {
+    lvl3.deallocate(ptr);
+  } else if (n <= lvl4.N) {
+    lvl4.deallocate(ptr);
   } else {
-    // _dealloc_raw(ptr, n);
+    _dealloc_raw(ptr, n);
   }
 }
 
 int
 jalib::JAllocDispatcher::numExpands()
 {
-  return lvl1->numExpands() + lvl2->numExpands() +
-         lvl3->numExpands() + lvl4->numExpands() + lvl5->numExpands();
+  return lvl1.numExpands() + lvl2.numExpands() +
+         lvl3.numExpands() + lvl4.numExpands();
 }
 
 void
 jalib::JAllocDispatcher::preExpand()
 {
-  lvl1->preExpand();
-  lvl2->preExpand();
-  lvl3->preExpand();
-  lvl4->preExpand();
-  lvl5->preExpand();
+  lvl1.preExpand();
+  lvl2.preExpand();
+  lvl3.preExpand();
+  lvl4.preExpand();
 }
 
 #else // ifdef JALIB_ALLOCATOR

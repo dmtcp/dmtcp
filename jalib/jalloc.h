@@ -43,13 +43,6 @@ static constexpr size_t headerFooterSizeInBytes = headerSizeInBytes;
 
 namespace jalib
 {
-#define MAX_ARENAS 1024
-struct JAllocArena
-{
-  void *startAddr;
-  void *endAddr;
-};
-
 class JAllocDispatcher
 {
   private:
@@ -134,8 +127,6 @@ class JAlloc
     {
       return JAllocDispatcher::free(p);
     }
-
-    static void getAllocArenas(JAllocArena **arenas, int *numArenas);
 #endif // ifdef JALIB_ALLOCATOR
 };
 }
