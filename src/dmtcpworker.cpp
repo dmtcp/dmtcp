@@ -433,26 +433,9 @@ DmtcpWorker::preCheckpoint()
 void
 DmtcpWorker::postCheckpoint()
 {
-  // Send ckpt maps to coordinator.
-  string workerPath("/worker/" + ProcessInfo::instance().upidStr());
-
-  jalib::JAllocArena *arenas;
-  int numArenas = 0;
   {
-    jalib::JAlloc::getAllocArenas(&arenas, &numArenas);
-    ostringstream o;
-    for (int i = 0; i < numArenas; i++) {
-      if (arenas[i].startAddr != NULL) {
-        o << std::hex << (uint64_t) arenas[i].startAddr
-          << "-" << (uint64_t) arenas[i].endAddr
-          << " " << ((uint64_t)arenas[i].endAddr - (uint64_t)arenas[i].startAddr) << "\n";
-      }
-    }
-
-    kvdb::set(workerPath, "ProcSelfMaps_JAllocArenas", o.str());
-  }
-
-  {
+    // Send ckpt maps to coordinator.
+    string workerPath("/worker/" + ProcessInfo::instance().upidStr());
     kvdb::set(
       workerPath,
       "ProcSelfMaps_Ckpt",
