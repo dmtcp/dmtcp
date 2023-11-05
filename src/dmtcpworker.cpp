@@ -428,6 +428,17 @@ DmtcpWorker::preCheckpoint()
 
   WorkerState::setCurrentState(WorkerState::CHECKPOINTING);
   PluginManager::eventHook(DMTCP_EVENT_PRECHECKPOINT);
+
+  {
+    ProcSelfMaps procSelfMaps;
+    ProcMapsArea area;
+
+    while (procSelfMaps.getNextArea(&area)) {
+      if (area.prot == PROT_NONE && area.name[0] == '\0' && area.size > 4096) {
+        mprotect(area.addr, area.size, PROT_READ | PROT_WRITE | PROT_EXEC);
+      }
+    }
+  }
 }
 
 void
