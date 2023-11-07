@@ -294,20 +294,26 @@ jalib::JFixedAllocStack<1024> *lvl3;
 jalib::JFixedAllocStack<4096> *lvl4;
 jalib::JFixedAllocStack<4 * 4096> *lvl5;
 
+static char lvl1StorageBuffer[sizeof(jalib::JFixedAllocStack<64>)];
+static char lvl2StorageBuffer[sizeof(jalib::JFixedAllocStack<256>)];
+static char lvl3StorageBuffer[sizeof(jalib::JFixedAllocStack<1024>)];
+static char lvl4StorageBuffer[sizeof(jalib::JFixedAllocStack<4096>)];
+static char lvl5StorageBuffer[sizeof(jalib::JFixedAllocStack<4 * 4096>)];
+
 void
 jalib::JAllocDispatcher::initialize(void)
 {
-    // The template parameter specifies the largest allocation request a            
-  // particular alloc-arena can handle. For example, lvl1 will handle all         
-  // requests up to 64 bytes. Larger requests go to the next arena and so on.    
-  // Lvl5 handles requests up to 16 KB; anything larger results in a call to     
+  // The template parameter specifies the largest allocation request a
+  // particular alloc-arena can handle. For example, lvl1 will handle all
+  // requests up to 64 bytes. Larger requests go to the next arena and so on.
+  // Lvl5 handles requests up to 16 KB; anything larger results in a call to
   // alloc_raw (which in turn calls mmap).
   constexpr int blockSize = 4 * 4096;
-  lvl1 = new jalib::JFixedAllocStack<64>(blockSize);
-  lvl2 = new jalib::JFixedAllocStack<256>(blockSize);
-  lvl3 = new jalib::JFixedAllocStack<1024>(blockSize);
-  lvl4 = new jalib::JFixedAllocStack<4096>(blockSize);
-  lvl5 = new jalib::JFixedAllocStack<4 * 4096>(1024 * 1024 * 16);
+  lvl1 = new (lvl1StorageBuffer) jalib::JFixedAllocStack<64>(blockSize);
+  lvl2 = new (lvl2StorageBuffer) jalib::JFixedAllocStack<256>(blockSize);
+  lvl3 = new (lvl3StorageBuffer) jalib::JFixedAllocStack<1024>(blockSize);
+  lvl4 = new (lvl4StorageBuffer) jalib::JFixedAllocStack<4096>(blockSize);
+  lvl5 = new (lvl5StorageBuffer) jalib::JFixedAllocStack<4 * 4096>(1024 * 1024 * 16);
   _initialized = true;
 }
 
