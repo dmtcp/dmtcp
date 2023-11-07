@@ -101,6 +101,8 @@ class JAssert
         return "Note";
       case JAssertType::Trace:
         return "Trace";
+      case JAssertType::Raw:
+        return "";
     }
 
     return "";
@@ -113,7 +115,10 @@ class JAssert
         return redEscapeStr;
       case JAssertType::Warning:
         return yellowEscapeStr;
+      default:
+        return "";
     }
+
     return "";
   }
 
