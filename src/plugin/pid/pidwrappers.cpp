@@ -179,7 +179,7 @@ pthread_kill(pthread_t th, int sig)
   pid_t virtTid = dmtcp_pthread_get_tid(th);
   pid_t realTid = VIRTUAL_TO_REAL_PID(virtTid);
 
-  return tgkill(_dmtcp_pid, realTid, sig);
+  return _real_tgkill(_dmtcp_pid, realTid, sig);
 }
 #endif // #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
 

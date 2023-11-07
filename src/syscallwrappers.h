@@ -126,6 +126,7 @@ extern "C"
 #endif // if defined(__arm__) || defined(__aarch64__)
 
 LIB_PRIVATE pid_t dmtcp_gettid();
+pid_t gettid(void) __THROW;
 
 extern int dmtcp_wrappers_initializing;
 

@@ -97,6 +97,12 @@
 void
 initialize_wrappers() {}
 
+pid_t
+gettid(void)
+{
+  return syscall(SYS_gettid);
+}
+
 /// call the libc version of this function via dlopen/dlsym
 int
 _real_socket(int domain, int type, int protocol)
