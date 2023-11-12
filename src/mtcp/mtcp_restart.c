@@ -198,6 +198,52 @@ main(int argc, char *argv[], char **environ)
   // In GDB, 'set rinfo.restart_pause=2' to continue to next statement.
   DMTCP_RESTART_PAUSE_WHILE(rinfo.restart_pause == 1);
 
+// ============================== NEW CODE ==============================
+  // FIXME:  We should think about placing this code inside a function
+  //         (or macro?) for readability.  Note that this code is mostly
+  //         copied from restart_fast_path().  It still needs more testing.
+  // FIXME:  Should we use mremap instead of memcpy/munmap?
+  // Copy over old stack to new location;
+  mtcp_memcpy(rinfo.new_stack_addr, rinfo.old_stack_addr, rinfo.old_stack_size);
+  DPRINTF("We have copied mtcp_restart to higher address, so that it will not\n"
+          "    interfere with any temporaryremap'ing in the plugin hook.\n");
+  // Force a hard failure early, in case code refers to the old stack:
+  mtcp_sys_munmap(rinfo.old_stack_addr, rinfo.old_stack_size);
+
+  // Read the current value of sp and bp/fp registers and subtract the
+  // stack_offset to compute the new sp and bp values. We have already copied
+  // all the bits from old stack to the new one and so any one referring to
+  // stack data using sp/bp should be fine.
+  // NOTE: changing the value of bp/fp register is optional and only useful for
+  // doing a return from this function or to access any local variables. Since
+  // we don't use any local variables from here on, we can ignore bp/fp
+  // registers.
+  // NOTE: 32-bit ARM doesn't have an fp register.
+
+#if defined(__i386__) || defined(__x86_64__)
+  asm volatile ("mfence" ::: "memory");
+
+  asm volatile (CLEAN_FOR_64_BIT(sub %0, %%esp; )
+                CLEAN_FOR_64_BIT(sub %0, %%ebp; )
+                : : "r" (rinfo.stack_offset) : "memory");
+
+#elif defined(__arm__)
+  asm volatile ("sub sp, sp, %0"
+                : : "r" (rinfo.stack_offset) : "memory");
+
+#elif defined(__aarch64__)
+  // Use x29 instead of fp because GCC's inline assembler does not recognize fp.
+  asm volatile ("sub sp, sp, %0\n\t"
+                "sub x29, x29, %0"
+                : : "r" (rinfo.stack_offset) : "memory");
+
+#else /* if defined(__i386__) || defined(__x86_64__) */
+
+# error "assembly instruction not translated"
+
+#endif /* if defined(__i386__) || defined(__x86_64__) */
+// ======================= END OF NEW CODE ==============================
+
   if (!simulate) {
     mtcp_plugin_hook(&rinfo);
   }
