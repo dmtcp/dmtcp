@@ -12,22 +12,22 @@
 #include <sys/prctl.h>
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11) ||
 // defined(HAS_PR_SET_PTRACER)
-#include "jalloc.h"
-#include "jassert.h"
 #include "ckptserializer.h"
+#include "coordinatorapi.h"
 #include "dmtcpalloc.h"
 #include "dmtcpworker.h"
+#include "jalloc.h"
+#include "jassert.h"
 #include "mtcp/mtcp_header.h"
 #include "pluginmanager.h"
 #include "shareddata.h"
 #include "siginfo.h"
 #include "syscallwrappers.h"
 #include "threadlist.h"
-#include "tls.h"
 #include "threadsync.h"
+#include "tls.h"
 #include "uniquepid.h"
 #include "util.h"
-#include "shareddata.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
@@ -570,7 +570,19 @@ stopthisthread(int signum)
    * ST_SIGNALED. This puts the STOPSIGNAL in the queue. The ckpt-thread will
    * later call sigaction(STOPSIGNAL, SIG_IGN) followed by
    * sigaction(STOPSIGNAL, stopthisthread) to discard all pending signals.
+   *
+   * 5. If the user sent a ckpt signal to the process and the kernel selected
+   * this thread as the signal receiver. This would happen in cases where the
+   * user sends a ckpt signal either directly using `kill -12 pid` or via
+   * a batch-queue manager (e.g., slurm). In this case, we request the
+   * coordinator to initiate a ckpt.
    */
+
+  // Case 5 above.
+  if (curThread == ckptThread || curThread->state == ST_RUNNING) {
+    CoordinatorAPI::connectAndSendUserCommand('c');
+    return;
+  }
 
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
