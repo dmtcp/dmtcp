@@ -12,22 +12,22 @@
 #include <sys/prctl.h>
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11) ||
 // defined(HAS_PR_SET_PTRACER)
-#include "jalloc.h"
-#include "jassert.h"
 #include "ckptserializer.h"
+#include "coordinatorapi.h"
 #include "dmtcpalloc.h"
 #include "dmtcpworker.h"
+#include "jalloc.h"
+#include "jassert.h"
 #include "mtcp/mtcp_header.h"
 #include "pluginmanager.h"
 #include "shareddata.h"
 #include "siginfo.h"
 #include "syscallwrappers.h"
 #include "threadlist.h"
-#include "tls.h"
 #include "threadsync.h"
+#include "tls.h"
 #include "uniquepid.h"
 #include "util.h"
-#include "shareddata.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
@@ -561,6 +561,7 @@ stopthisthread(int signum)
    *
    * 2. STOPSIGNAL received from Superior thread. In this case we change the
    * state to ST_SIGNALED, if currently in ST_RUNNING.
+   *
    * 3. STOPSIGNAL raised by this thread itself, after releasing all the locks.
    * In this case, we had already changed the state to ST_SIGNALED as a
    * result of step (2), so the ckpt-thread will never send us a signal.
@@ -570,7 +571,24 @@ stopthisthread(int signum)
    * ST_SIGNALED. This puts the STOPSIGNAL in the queue. The ckpt-thread will
    * later call sigaction(STOPSIGNAL, SIG_IGN) followed by
    * sigaction(STOPSIGNAL, stopthisthread) to discard all pending signals.
+   *
+   * 5. Normally, the user should never directly send a SIGUSR2 (ckpt signal)
+   * directly to a process.  They should use the DMTCP coordinator (perhaps
+   * by 'dmtcp_command'.  The coordinator then requests a ckpt from the
+   * ckpt thread, and the ckpt thread sends a signal to each user thread.
+   * But there are cases when DMTCP runs under some
+   * other scheduler (e.g., the Slurm resource manager).  In such cases,
+   * Slurm may send a ckpt signal, SIGUSR2, directly to _each_ user process,
+   * and the signal may be caught by any _one_ thread of the process.
+   * In this case, if we catch a signal not coming from the ckpt thread,
+   * then we request the DMTCP coordinator to initiate a checkpoint.
    */
+
+  // Case 5 above.
+  if (curThread == ckptThread || curThread->state == ST_RUNNING) {
+    CoordinatorAPI::connectAndSendUserCommand('c');
+    return;
+  }
 
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
