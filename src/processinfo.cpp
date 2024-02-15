@@ -299,32 +299,30 @@ ProcessInfo::init()
   growStack();
 
   // Reserve space for restoreBuf
-  _restoreBufLen = RESTORE_TOTAL_SIZE;
-
-  int pagesize = getpagesize();
-  _restoreBufAddr = (uint64_t) mmap(NULL, _restoreBufLen + 2*pagesize,
-                    PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  JASSERT(_restoreBufAddr != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
-  _restoreBufAddr = (uint64_t)(_restoreBufAddr + pagesize);
-  // Guard page _restoreBufAddr; prevent kernel from merging regions
-  // Note that PROT_READ was added to 'mprotect' on the guard pages.
-  //   Before adding this, test/{dmtcp5,sched_test,shared-fd1}, and others
-  //   were failing during the _first_ checkpoint, only.  The checkpoint
-  //   image was malformed because write() of these guard pages
-  //   was failing with EFAULT (although no SEGFAULT occurred) when trying to
-  //   read the guard pages and write them to the checkpoint image.
-  //   This occurred in Linux 3.10.0-1062.9.1.el7.x86_64 in CentOS 7.7.1908.
-  //   (But it did not occur in Ubuntu 18.04 with Linux 4.15.)
-  //   This is arguably a bug in the Linux 3.10 kernel.
-  mprotect((char *)_restoreBufAddr - pagesize, pagesize,
-           PROT_READ | PROT_EXEC);
-  JASSERT(_restoreBufLen % pagesize == 0) (_restoreBufLen) (pagesize);
-  mprotect((char *)_restoreBufAddr + _restoreBufLen, pagesize,
-           PROT_READ | PROT_EXEC);
+  updateRestoreBufAddr(nullptr, RESTORE_TOTAL_SIZE);
 
   if (_ckptDir.empty()) {
     updateCkptDirFileSubdir();
   }
+}
+
+void
+ProcessInfo::updateRestoreBufAddr(void* addr, uint64_t len)
+{
+  if (_restoreBufAddr != 0) {
+    JASSERT(munmap((void*) _restoreBufAddr, _restoreBufLen) == 0) (JASSERT_ERRNO);
+  }
+
+  int flags = MAP_SHARED | MAP_ANONYMOUS;
+
+  if (addr != nullptr) {
+    flags += MAP_FIXED;
+  }
+
+  _restoreBufLen = len;
+  _restoreBufAddr = (uint64_t) mmap(addr, _restoreBufLen,
+                    PROT_NONE, flags, -1, 0);
+  JASSERT(_restoreBufAddr != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
 }
 
 void
@@ -442,14 +440,7 @@ ProcessInfo::restoreHeap()
 void
 ProcessInfo::restart()
 {
-  // Unmap the restore buffer and remap it with PROT_NONE. We do munmap followed
-  // by mmap to ensure that the kernel releases the backing physical pages.
-  JASSERT(munmap((void *)_restoreBufAddr, _restoreBufLen) == 0)
-    ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
-
-  JASSERT(mmap((void*) _restoreBufAddr , _restoreBufLen, PROT_NONE,
-               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) != MAP_FAILED)
-    ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
+  updateRestoreBufAddr((void *)_restoreBufAddr, _restoreBufLen);
 
   restoreHeap();
 

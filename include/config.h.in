@@ -39,7 +39,7 @@
 /* DT_GNU_HASH is defined (e.g., in elf.h). */
 #undef HAS_GNU_HASH
 
-/* Allow 'gdb attach' when DMTCP_RESTART_PAUSE is defined. */
+/* Allow 'gdb attach' when DMTCP_RESTART_PAUSE_WHILE is defined. */
 #undef HAS_PR_SET_PTRACER
 
 /* define if the compiler supports basic C++14 syntax */

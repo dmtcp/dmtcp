@@ -28,6 +28,8 @@
 #include "processinfo.h"
 #include "uniquepid.h"
 
+#define BINARY_NAME         "dmtcp_restart"
+
 using namespace dmtcp;
 
 class RestoreTarget
@@ -56,6 +58,9 @@ class RestoreTarget
 
     int numPeers() { return _pInfo.numPeers(); }
 
+    uint64_t restoreBufAddr() { return _pInfo.restoreBufAddr(); }
+    uint64_t restoreBufLen() { return _pInfo.restoreBufLen(); }
+
     void initialize();
 
     void restoreGroup();
@@ -80,7 +85,22 @@ class RestoreTarget
     int _fd;
 };
 
-vector<char *> getMtcpArgs();
+class DmtcpRestart
+{
+  public:
+    DmtcpRestart(int argc, char **argv, const string &binaryName, const string &mtcpRestartBinaryName);
+    void processCkptImages();
+
+    int argc;
+    char **argv;
+    string binaryName;
+    string mtcpRestartBinaryName;
+    vector<string> ckptImages;
+    string restartDir;
+    bool runMpiProxy = 0;
+};
+
+vector<char *> getMtcpArgs(uint64_t restoreBufAddr, uint64_t restoreBufLen);
 void publishKeyValueMapToMtcpEnvironment(RestoreTarget *restoreTarget);
 
 void dmtcp_restart_plugin(const string &restartDir,

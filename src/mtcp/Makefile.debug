@@ -30,8 +30,11 @@ all: ../../bin/mtcp_restart libmtcp.a ../../lib/dmtcp/libdmtcp.so
 ../../lib/dmtcp/libdmtcp.so: libmtcp.a
 	cd ../..; make -j8
 
+libmtcprestart.a: mtcp_restart.o ${ARM_BINARIES}
+	$(AR) rcs $@ $^
+
 # ../../bin/mtcp_restart: mtcp_restart.o mtcp_check_vdso.o
-../../bin/mtcp_restart: mtcp_restart.o ${ARM_BINARIES}
+../../bin/mtcp_restart: libmtcprestart.a main.o ${ARM_BINARIES}
 	${CC} ${CFLAGS_M32} -fPIC -g -O2 -nodefaultlibs -o $@ $^
 
 # IMPORTANT:  Compile with -O2 or higher.  On some 32-bit CPUs

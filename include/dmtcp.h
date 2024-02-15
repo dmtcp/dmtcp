@@ -325,6 +325,8 @@ const char *dmtcp_get_ckpt_files_subdir(void);
 int dmtcp_should_ckpt_open_files(void);
 int dmtcp_allow_overwrite_with_ckpted_files(void);
 int dmtcp_skip_truncate_file_at_restart(const char* path);
+void dmtcp_set_restore_buf_addr(void *new_addr, uint64_t len);
+uint64_t dmtcp_restore_buf_len();
 
 int dmtcp_get_ckpt_signal(void);
 const char *dmtcp_get_uniquepid_str(void) __attribute__((weak));

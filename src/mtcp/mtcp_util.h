@@ -188,4 +188,5 @@ void *mtcp_memcpy(void *dstpp, const void *srcpp, size_t len);
 char *mtcp_getenv(const char *name, char **environ);
 void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
                            int fd, off_t offset);
+int mtcp_setauxval(char **evp, unsigned long int type, unsigned long int val);
 #endif // ifndef _MTCP_UTIL_H
