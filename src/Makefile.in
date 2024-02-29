@@ -138,10 +138,11 @@ libdmtcpinternal_a_AR = $(AR) $(ARFLAGS)
 libdmtcpinternal_a_LIBADD =
 am_libdmtcpinternal_a_OBJECTS = coordinatorapi.$(OBJEXT) \
 	dmtcpmessagetypes.$(OBJEXT) dmtcp_dlsym.$(OBJEXT) \
-	jalibinterface.$(OBJEXT) mutex.$(OBJEXT) processinfo.$(OBJEXT) \
-	procselfmaps.$(OBJEXT) rwlock.$(OBJEXT) shareddata.$(OBJEXT) \
-	tokenize.$(OBJEXT) uniquepid.$(OBJEXT) util_exec.$(OBJEXT) \
-	util_init.$(OBJEXT) util_misc.$(OBJEXT) workerstate.$(OBJEXT)
+	jalibinterface.$(OBJEXT) launch.$(OBJEXT) mutex.$(OBJEXT) \
+	processinfo.$(OBJEXT) procselfmaps.$(OBJEXT) rwlock.$(OBJEXT) \
+	shareddata.$(OBJEXT) tokenize.$(OBJEXT) uniquepid.$(OBJEXT) \
+	util_exec.$(OBJEXT) util_init.$(OBJEXT) util_misc.$(OBJEXT) \
+	workerstate.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libdmtcprestart_a_AR = $(AR) $(ARFLAGS)
 @AARCH64_HOST_FALSE@libdmtcprestart_a_DEPENDENCIES =  \
@@ -251,23 +252,23 @@ am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/jbuffer.Po ./$(DEPDIR)/jfilesystem.Po \
 	./$(DEPDIR)/jserialize.Po ./$(DEPDIR)/jsocket.Po \
 	./$(DEPDIR)/jtimer.Po ./$(DEPDIR)/kvdb.Po \
-	./$(DEPDIR)/lookup_service.Po ./$(DEPDIR)/miscwrappers.Po \
-	./$(DEPDIR)/mutex.Po ./$(DEPDIR)/nosyscallsreal.Po \
-	./$(DEPDIR)/plugininfo.Po ./$(DEPDIR)/pluginmanager.Po \
-	./$(DEPDIR)/popen.Po ./$(DEPDIR)/posix_spawn.Po \
-	./$(DEPDIR)/processinfo.Po ./$(DEPDIR)/procselfmaps.Po \
-	./$(DEPDIR)/restartscript.Po ./$(DEPDIR)/rlimitfloatenv.Po \
-	./$(DEPDIR)/rwlock.Po ./$(DEPDIR)/shareddata.Po \
-	./$(DEPDIR)/siginfo.Po ./$(DEPDIR)/signalwrappers.Po \
-	./$(DEPDIR)/syscallsreal.Po ./$(DEPDIR)/syslogwrappers.Po \
-	./$(DEPDIR)/terminal.Po ./$(DEPDIR)/threadlist.Po \
-	./$(DEPDIR)/threadsync.Po ./$(DEPDIR)/threadwrappers.Po \
-	./$(DEPDIR)/tls.Po ./$(DEPDIR)/tokenize.Po \
-	./$(DEPDIR)/trampolines.Po ./$(DEPDIR)/uniquepid.Po \
-	./$(DEPDIR)/util_exec.Po ./$(DEPDIR)/util_init.Po \
-	./$(DEPDIR)/util_misc.Po ./$(DEPDIR)/workerstate.Po \
-	./$(DEPDIR)/wrapperlock.Po ./$(DEPDIR)/wrappers.Po \
-	./$(DEPDIR)/writeckpt.Po
+	./$(DEPDIR)/launch.Po ./$(DEPDIR)/lookup_service.Po \
+	./$(DEPDIR)/miscwrappers.Po ./$(DEPDIR)/mutex.Po \
+	./$(DEPDIR)/nosyscallsreal.Po ./$(DEPDIR)/plugininfo.Po \
+	./$(DEPDIR)/pluginmanager.Po ./$(DEPDIR)/popen.Po \
+	./$(DEPDIR)/posix_spawn.Po ./$(DEPDIR)/processinfo.Po \
+	./$(DEPDIR)/procselfmaps.Po ./$(DEPDIR)/restartscript.Po \
+	./$(DEPDIR)/rlimitfloatenv.Po ./$(DEPDIR)/rwlock.Po \
+	./$(DEPDIR)/shareddata.Po ./$(DEPDIR)/siginfo.Po \
+	./$(DEPDIR)/signalwrappers.Po ./$(DEPDIR)/syscallsreal.Po \
+	./$(DEPDIR)/syslogwrappers.Po ./$(DEPDIR)/terminal.Po \
+	./$(DEPDIR)/threadlist.Po ./$(DEPDIR)/threadsync.Po \
+	./$(DEPDIR)/threadwrappers.Po ./$(DEPDIR)/tls.Po \
+	./$(DEPDIR)/tokenize.Po ./$(DEPDIR)/trampolines.Po \
+	./$(DEPDIR)/uniquepid.Po ./$(DEPDIR)/util_exec.Po \
+	./$(DEPDIR)/util_init.Po ./$(DEPDIR)/util_misc.Po \
+	./$(DEPDIR)/workerstate.Po ./$(DEPDIR)/wrapperlock.Po \
+	./$(DEPDIR)/wrappers.Po ./$(DEPDIR)/writeckpt.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -609,7 +610,7 @@ include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
 # headers:
 nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 	dmtcp_coordinator.h dmtcprestartinternal.h dmtcpmessagetypes.h \
-	dmtcpworker.h lookup_service.h ldt.h plugininfo.h \
+	dmtcpworker.h launch.h lookup_service.h ldt.h plugininfo.h \
 	pluginmanager.h processinfo.h restartscript.h tls.h siginfo.h \
 	syscallwrappers.h threadinfo.h threadlist.h threadsync.h \
 	uniquepid.h workerstate.h $(jalibdir)/jalib.h \
@@ -634,6 +635,7 @@ libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
 			     dmtcpmessagetypes.cpp		\
 			     dmtcp_dlsym.cpp 			\
 			     jalibinterface.cpp			\
+			     launch.cpp				\
 			     mutex.cpp 				\
 			     processinfo.cpp 			\
 			     procselfmaps.cpp			\
@@ -937,6 +939,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jsocket.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jtimer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/kvdb.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/launch.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lookup_service.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/miscwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mutex.Po@am__quote@ # am--include-marker
@@ -1369,6 +1372,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/jsocket.Po
 	-rm -f ./$(DEPDIR)/jtimer.Po
 	-rm -f ./$(DEPDIR)/kvdb.Po
+	-rm -f ./$(DEPDIR)/launch.Po
 	-rm -f ./$(DEPDIR)/lookup_service.Po
 	-rm -f ./$(DEPDIR)/miscwrappers.Po
 	-rm -f ./$(DEPDIR)/mutex.Po
@@ -1476,6 +1480,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/jsocket.Po
 	-rm -f ./$(DEPDIR)/jtimer.Po
 	-rm -f ./$(DEPDIR)/kvdb.Po
+	-rm -f ./$(DEPDIR)/launch.Po
 	-rm -f ./$(DEPDIR)/lookup_service.Po
 	-rm -f ./$(DEPDIR)/miscwrappers.Po
 	-rm -f ./$(DEPDIR)/mutex.Po

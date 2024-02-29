@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
@@ -19,33 +19,24 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "launch.h"
-#include "../jalib/jassert.h"
+#ifndef DMTCP_LAUNCH_H
+#define DMTCP_LAUNCH_H
 
-using namespace dmtcp;
 
-int
-main(int argc, const char **argv)
+namespace dmtcp {
+namespace Launch
 {
-  Launch::initializeLaunch(&argc, &argv);
+void
+validateLaunchEnvironment(int argc, const char **argv);
 
-  if (argc > 0) {
-    JTRACE("dmtcp_launch starting new program:")(argv[0]);
-  }
+void
+initializeLaunch(int *argc, const char ***argv);
 
-  Launch::validateLaunchEnvironment(argc, argv);
+const char **
+patchArgvForSetuid(int argc, const char **argv);
 
-  const char **newArgv = Launch::patchArgvForSetuid(argc, argv);
+void setLDPreloadLibs(int argc, const char **newArgv);
+};
+};
 
-  Launch::setLDPreloadLibs(argc, newArgv);
-
-  execvp(newArgv[0], (char* const*) newArgv);
-
-  // should be unreachable
-  JASSERT_STDERR <<
-    "ERROR: Failed to exec(\"" << argv[0] << "\"): " << JASSERT_ERRNO << "\n"
-                 << "Perhaps it is not in your $PATH?\n"
-                 << "See `dmtcp_launch --help` for usage.\n";
-
-  return -1;
-}
+#endif // #ifnded DMTCP_LAUNCH_H
