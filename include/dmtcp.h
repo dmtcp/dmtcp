@@ -244,6 +244,14 @@ typedef struct DmtcpUniqueProcessId {
 
 int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a, DmtcpUniqueProcessId b);
 
+typedef struct DmtcpInfo {
+  int argc;
+  const char **argv;
+} DmtcpInfo;
+
+DmtcpInfo dmtcp_register_new_process(int *argc, const char ***argv);
+DmtcpInfo dmtcp_register_restart_process();
+
 // FIXME:
 // If a plugin is not compiled with defined(__PIC__) and we can verify
 // that we're using DMTCP (environment variables), and dmtcp_is_enabled
