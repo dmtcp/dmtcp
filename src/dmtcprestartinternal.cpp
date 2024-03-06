@@ -283,6 +283,10 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
 {
   initialize();
 
+  if (allowedModes == COORD_NEW) {
+    allowedModes = COORD_ANY; // we have coord; restore default of COORD_ANY
+  }
+
   JTRACE("Creating process during restart")(upid())(_pInfo.procname());
 
   RestoreTargetMap::iterator it;
@@ -836,6 +840,10 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
   if ((getenv(ENV_VAR_NAME_PORT) == NULL ||
        getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
       allowedModes != COORD_NEW) {
+    if (allowedModes == COORD_ANY) {
+      // COORD_ANY is default; we should use --join to join existing coordinator
+      allowedModes = COORD_NEW;
+    }
     allowedModes = (allowedModes == COORD_ANY) ? COORD_NEW : allowedModes;
     setenv(ENV_VAR_NAME_PORT, STRINGIFY(DEFAULT_PORT), 1);
     JTRACE("No port specified\n"
