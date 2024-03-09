@@ -47,9 +47,6 @@ using namespace dmtcp;
 // Copied from mtcp/mtcp_restart.c.
 #define DMTCP_MAGIC_FIRST 'D'
 #define GZIP_FIRST        037
-#ifdef HBICT_DELTACOMP
-# define HBICT_FIRST      'H'
-#endif // ifdef HBICT_DELTACOMP
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -557,14 +554,6 @@ open_ckpt_to_read(const char *filename)
     NULL
   };
 
-#ifdef HBICT_DELTACOMP
-  const char *hbict_path = const_cast<char *>("hbict");
-  static const char *hbict_args[] = {
-    const_cast<char *>("hbict"),
-    const_cast<char *>("-r"),
-    NULL
-  };
-#endif // ifdef HBICT_DELTACOMP
   pid_t cpid;
 
   fc = first_char(filename);
@@ -573,21 +562,9 @@ open_ckpt_to_read(const char *filename)
 
   if (fc == DMTCP_MAGIC_FIRST) { /* no compression */
     return fd;
-  } else if (fc == GZIP_FIRST
-#ifdef HBICT_DELTACOMP
-             || fc == HBICT_FIRST
-#endif // ifdef HBICT_DELTACOMP
-             ) {
-    if (fc == GZIP_FIRST) {
-      decomp_path = gzip_path;
-      decomp_args = gzip_args;
-    }
-#ifdef HBICT_DELTACOMP
-    else {
-      decomp_path = hbict_path;
-      decomp_args = hbict_args;
-    }
-#endif // ifdef HBICT_DELTACOMP
+  } else if (fc == GZIP_FIRST) {
+    decomp_path = gzip_path;
+    decomp_args = gzip_args;
 
     JASSERT(pipe(fds) != -1) (filename)
     .Text("Cannot create pipe to execute gunzip to decompress ckpt file!");

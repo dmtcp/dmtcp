@@ -93,9 +93,6 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Use delta compression. */
-#undef HBICT_DELTACOMP
-
 /* Verbose trace output and log files in $DMTCP_TMPDIR */
 #undef LOGGING
 
