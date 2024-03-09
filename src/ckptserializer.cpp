@@ -175,30 +175,6 @@ test_use_compression(char *compressor, char *command, char *path, int def)
   return 1;
 }
 
-#ifdef HBICT_DELTACOMP
-static int
-open_ckpt_to_write_hbict(int fd,
-                         int pipe_fds[2],
-                         char *hbict_path,
-                         char *gzip_path)
-{
-  char *hbict_args[] = {
-    const_cast<char *>("hbict"),
-    const_cast<char *>("-a"),
-    NULL,
-    NULL
-  };
-
-  hbict_args[0] = hbict_path;
-  JTRACE("open_ckpt_to_write_hbict\n");
-
-  if (gzip_path != NULL) {
-    hbict_args[2] = const_cast<char *>("-z100");
-  }
-  return open_ckpt_to_write(fd, pipe_fds, hbict_args);
-}
-#endif // ifdef HBICT_DELTACOMP
-
 static int
 open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path)
 {
@@ -234,24 +210,13 @@ perform_open_ckpt_image_fd(const char *tempCkptFilename,
   return fd;
 #endif // ifdef FAST_RST_VIA_MMAP
 
-  /* 2. Test if using GZIP/HBICT compression */
-  /* 2a. Test if using GZIP compression */
+  /* 2. Test if using GZIP compression */
   int use_gzip_compression = 0;
   int use_deltacompression = 0;
   char *gzip_cmd = const_cast<char *>("gzip");
   char gzip_path[PATH_MAX];
   use_gzip_compression = test_use_compression(const_cast<char *>("GZIP"),
                                               gzip_cmd, gzip_path, 1);
-
-  /* 2b. Test if using HBICT compression */
-#ifdef HBICT_DELTACOMP
-  char *hbict_cmd = const_cast<char *>("hbict");
-  char hbict_path[PATH_MAX];
-  JTRACE("NOTICE: hbict compression is enabled\n");
-
-  use_deltacompression = test_use_compression(const_cast<char *>("HBICT"),
-                                              hbict_cmd, hbict_path, 1);
-#endif // ifdef HBICT_DELTACOMP
 
   /* 3. We now have the information to pipe to gzip, or directly to fd.
   *     We do it this way, so that gzip will be direct child of forked process
@@ -272,16 +237,7 @@ perform_open_ckpt_image_fd(const char *tempCkptFilename,
     }
 
     /* 3c. Fork compressor child */
-    if (use_deltacompression) { /* fork a hbict process */
-#ifdef HBICT_DELTACOMP
-      *use_compression = true;
-      if (use_gzip_compression) { // We may want hbict compression only
-        fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, gzip_path);
-      } else {
-        fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, NULL);
-      }
-#endif // ifdef HBICT_DELTACOMP
-    } else if (use_gzip_compression) {/* fork a gzip process */
+    if (use_gzip_compression) {/* fork a gzip process */
       *use_compression = true;
       fd = open_ckpt_to_write_gz(fd, pipe_fds, gzip_path);
       if (pipe_fds[0] == -1) {

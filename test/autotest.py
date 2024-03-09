@@ -638,8 +638,7 @@ def runTestRaw(name, numProcs, cmds):
       sleep(S*SLOW)
       CHECK(doesStatusSatisfy(getStatus(), status),
             "error:  processes restarted and then died")
-    if HBICT_DELTACOMP == "no":
-      clearCkptDir()
+    clearCkptDir()
 
   try:
     sys.stdout.flush()

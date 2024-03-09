@@ -94,10 +94,6 @@ static const char *theUsage =
   "  --gzip, --no-gzip, (environment variable DMTCP_GZIP=[01])\n"
   "              Enable/disable compression of checkpoint images (default: 1)\n"
   "              WARNING: gzip adds seconds. Without gzip, ckpt is often < 1s\n"
-#ifdef HBICT_DELTACOMP
-  "  --hbict, --no-hbict, (environment variable DMTCP_HBICT=[01])\n"
-  "              Enable/disable compression of checkpoint images (default: 1)\n"
-#endif // ifdef HBICT_DELTACOMP
   "  --ckptdir PATH (environment variable DMTCP_CHECKPOINT_DIR)\n"
   "              Directory to store checkpoint images\n"
   "              (default: curr dir at launch)\n"
@@ -271,15 +267,6 @@ processArgs(int *orig_argc, const char ***orig_argv)
       setenv(ENV_VAR_COMPRESSION, "0", 1);
       shift;
     }
-#ifdef HBICT_DELTACOMP
-    else if (s == "--hbict") {
-      setenv(ENV_VAR_DELTACOMPRESSION, "1", 1);
-      shift;
-    } else if (s == "--no-hbict") {
-      setenv(ENV_VAR_DELTACOMPRESSION, "0", 1);
-      shift;
-    }
-#endif // ifdef HBICT_DELTACOMP
     else if (s == "--new-coordinator") {
       allowedModes = COORD_NEW;
       shift;

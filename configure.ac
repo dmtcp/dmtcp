@@ -190,27 +190,10 @@ AC_ARG_ENABLE([fast_restart],
             [use_fast_restart=default])
 if test "$use_fast_restart" = "yes"; then
   AC_SUBST([FAST_RST_VIA_MMAP], [yes])
-  AC_SUBST([HBICT_DELTACOMP], [no])
 else
   AC_SUBST([FAST_RST_VIA_MMAP], [no])
 fi
 AM_CONDITIONAL([FAST_RST_VIA_MMAP], [test x$use_fast_restart = xyes])
-
-AC_ARG_ENABLE([delta_compression],
-            [AS_HELP_STRING([--enable-delta-compression],
-                            [enable incremental/differential checkpointing
-			     using HBICT (hash-based incremental checkpointing)
-			     tool; disables default gzip compression
-			     (EXPERIMENTAL)])],
-            [use_deltacomp=$enableval],
-            [use_deltacomp=no])
-
-if test "$use_deltacomp" = "yes"; then
-  AC_DEFINE([HBICT_DELTACOMP],[1],[Use delta compression.])
-  AC_SUBST([HBICT_DELTACOMP], [yes])
-else
-  AC_SUBST([HBICT_DELTACOMP], [no])
-fi
 
 AC_ARG_ENABLE([test_suite],
             [AS_HELP_STRING([--disable-test-suite],
