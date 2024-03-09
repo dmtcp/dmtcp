@@ -606,9 +606,6 @@ Util::getDmtcpArgs(void)
   const char *allocPlugin = getenv(ENV_VAR_ALLOC_PLUGIN);
   const char *dlPlugin = getenv(ENV_VAR_DL_PLUGIN);
 
-#ifdef HBICT_DELTACOMP
-  const char *deltacompression = getenv(ENV_VAR_DELTACOMPRESSION);
-#endif // ifdef HBICT_DELTACOMP
   const char *ckptOpenFiles = getenv(ENV_VAR_CKPT_OPEN_FILES);
   const char *ckptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
   const char *tmpDir = getenv(ENV_VAR_TMPDIR);
@@ -687,16 +684,6 @@ Util::getDmtcpArgs(void)
     argVector.push_back("--pathvirt");
   }
 
-
-#ifdef HBICT_DELTACOMP
-  if (deltacompression != NULL) {
-    if (strcmp(deltacompression, "0") == 0) {
-      argVector.push_back("--no-hbict");
-    } else {
-      argVector.push_back("--hbict");
-    }
-  }
-#endif // ifdef HBICT_DELTACOMP
   int totalBytes = 0;
   int num_args = argVector.size();
   for (size_t i = 0; i < argVector.size(); i++) {

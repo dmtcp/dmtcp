@@ -720,7 +720,6 @@ TEST_POSIX_MQ
 USE_TEST_SUITE
 FAST_RST_VIA_MMAP_FALSE
 FAST_RST_VIA_MMAP_TRUE
-HBICT_DELTACOMP
 FAST_RST_VIA_MMAP
 INFINIBAND_SUPPORT
 DEBUG
@@ -856,7 +855,6 @@ enable_unique_checkpoint_filenames
 enable_infiniband_support
 enable_forked_checkpointing
 enable_fast_restart
-enable_delta_compression
 enable_test_suite
 enable_experts_only_space1
 enable_experts_only
@@ -1545,10 +1543,6 @@ Optional Features:
                           (EXPERIMENTAL)
   --enable-fast-restart   uses tricks to mmap from checkpoint image file;
                           disables all kinds of compression (EXPERIMENTAL)
-  --enable-delta-compression
-                          enable incremental/differential checkpointing using
-                          HBICT (hash-based incremental checkpointing) tool;
-                          disables default gzip compression (EXPERIMENTAL)
   --disable-test-suite    disables "make check"; target apps for testing (e.g.
                           java) will not be invoked
 
@@ -7686,8 +7680,6 @@ fi
 if test "$use_fast_restart" = "yes"; then
   FAST_RST_VIA_MMAP=yes
 
-  HBICT_DELTACOMP=no
-
 else
   FAST_RST_VIA_MMAP=no
 
@@ -7700,26 +7692,6 @@ else
   FAST_RST_VIA_MMAP_FALSE=
 fi
 
-
-# Check whether --enable-delta_compression was given.
-if test ${enable_delta_compression+y}
-then :
-  enableval=$enable_delta_compression; use_deltacomp=$enableval
-else $as_nop
-  use_deltacomp=no
-fi
-
-
-if test "$use_deltacomp" = "yes"; then
-
-printf "%s\n" "#define HBICT_DELTACOMP 1" >>confdefs.h
-
-  HBICT_DELTACOMP=yes
-
-else
-  HBICT_DELTACOMP=no
-
-fi
 
 # Check whether --enable-test_suite was given.
 if test ${enable_test_suite+y}
