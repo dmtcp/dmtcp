@@ -88,41 +88,21 @@ typedef void (*fnptr_t)();
 
 #define MAX_REGIONS_TO_MUNMAP 16
 
-typedef struct MemRegion_t {
-  VA startAddr;
-  VA endAddr;
-} MemRegion;
-
 typedef struct RestoreInfo {
   int fd;
   int stderr_fd;  /* FIXME:  This is never used. */
 
   // int mtcp_sys_errno;
 
-  VA saved_brk;
-  VA restore_addr;
-  VA restore_end;
-  size_t restore_size;
-  VA vdsoStart;
-  VA vdsoEnd;
-  VA vvarStart;
-  VA vvarEnd;
-  VA vvarVClockStart;
-  VA vvarVClockEnd;
-  VA endOfStack;
-  fnptr_t post_restart;
   // NOTE: Update the offset when adding fields to the RestoreInfo struct
   // See note below in the restart_fast_path() function.
   fnptr_t restore_func;
   fnptr_t mtcp_restart_new_stack;
 
   // VDSO/VVAR regions for the mtcp_restart program.
-  VA currentVdsoStart;
-  VA currentVdsoEnd;
-  VA currentVvarStart;
-  VA currentVvarEnd;
-  VA currentVvarVClockStart;
-  VA currentVvarVClockEnd;
+  MemRegion currentVdso;
+  MemRegion currentVvar;
+  MemRegion currentVvarVClock;
 
   VA old_stack_addr;
   size_t old_stack_size;
@@ -132,7 +112,6 @@ typedef struct RestoreInfo {
   // void (*post_restart)();
   // void (*restorememoryareas_fptr)();
   int use_gdb;
-  VA mtcp_restart_text_addr;
 #ifdef TIMING
   struct timeval startValue;
 #endif
@@ -150,19 +129,18 @@ typedef struct RestoreInfo {
   int simulate;
   int mpiMode;
 
+  DmtcpCkptHeader ckptHdr;
+
   char ckptImage[PATH_MAX];
 } RestoreInfo;
 
 // int mtcp_restart_process_args(RestoreInfo *rinfo, int argc, char *argv[], char **environ);
 void mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*func)(RestoreInfo *));
-void mtcp_restart_process_header(RestoreInfo *rinfoIn, MtcpHeader *mtcpHdr);
-void mtcp_restart(RestoreInfo *rinfo, MtcpHeader *mtcpHdr);
-void mtcp_simulateread(RestoreInfo *rinfo);
+void mtcp_restart(RestoreInfo *rinfo);
 void mtcp_check_vdso(char **environ);
-int mtcp_open_ckpt_image_and_read_header(RestoreInfo *rinfo, MtcpHeader *mtcpHdr);
 
-// Usage: DMTCP_RESTART_PAUSE_WHILE(*&rinfo)->restart_pause == <LEVEL>);
-#define DMTCP_RESTART_PAUSE_WHILE(condition)                                   \
+// Usage: MTCP_RESTART_PAUSE_WHILE(*&rinfo)->restart_pause == <LEVEL>);
+#define MTCP_RESTART_PAUSE_WHILE(condition)                                   \
   do {                                                                         \
     while (condition);                                                         \
   } while (0)

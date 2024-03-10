@@ -33,14 +33,9 @@
 
 namespace dmtcp
 {
-class ProcessInfo
+class ProcessInfo : public DmtcpCkptHeader
 {
   public:
-    enum ElfType {
-      Elf_32,
-      Elf_64
-    };
-
 #ifdef JALIB_ALLOCATOR
     static void *operator new(size_t nbytes, void *p) { return p; }
 
@@ -64,19 +59,7 @@ class ProcessInfo
     void clearPthreadJoinState(pthread_t thread);
 
     void getState();
-    void setRootOfProcessTree() { _isRootOfProcessTree = true; }
-
-    bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
-
     void serialize(jalib::JBinarySerializer &o);
-
-    uint32_t numPeers() { return _numPeers; }
-
-    void numPeers(uint32_t np) { _numPeers = np; }
-
-    pid_t pid() const { return _pid; }
-
-    pid_t sid() const { return _sid; }
 
     uint32_t get_generation() { return _generation; }
 
@@ -92,78 +75,45 @@ class ProcessInfo
 
     void processRlimit();
 
-    const string &procname() const { return _procname; }
+    string getProcname() const { return procname; }
 
-    const string &procSelfExe() const { return _procSelfExe; }
+    string getProcSelfExe() const { return procSelfExe; }
 
     const string &hostname() const { return _hostname; }
 
-    const UniquePid &upid() {
+    UniquePid getUpid() {
       // Temporary fix until we remove the static members from UniquePid.cpp.
-      if (_upid == UniquePid()) {
-        _upid = UniquePid::ThisProcess(true);
+      if (upid == DmtcpUniqueProcessId()) {
+        upid = UniquePid::ThisProcess(true);
       }
-      return _upid;
+      return upid;
     }
 
     const string &upidStr() {
       if (_upidStr.empty()) {
-        _upidStr = upid().toString();
+        _upidStr = UniquePid(upid).toString();
       }
       return _upidStr;
     }
 
-    const UniquePid &uppid() {
+    UniquePid getUppid() {
       // Temporary fix until we remove the static members from UniquePid.cpp.
-      if (_uppid == UniquePid()) {
-        _uppid = UniquePid::ParentProcess();
+      if (uppid == UniquePid()) {
+        uppid = UniquePid::ParentProcess();
       }
-      return _uppid;
+      return uppid;
     }
-
-    UniquePid compGroup() const { return _compGroup; }
 
     const string &compGroupStr() {
       if (_compGroupStr.empty()) {
-        _compGroupStr = _compGroup.toString();
+        _compGroupStr = UniquePid(compGroup).toString();
       }
       return _compGroupStr;
     }
 
-    void compGroup(UniquePid cg) { _compGroup = cg; }
-
-
-    bool isOrphan() const { return _ppid == 1; }
-
-    bool isSessionLeader() const { return _pid == _sid; }
-
-    bool isGroupLeader() const { return _pid == _gid; }
-
-    bool isForegroundProcess() const { return _gid == _fgid; }
-
-    int elfType() const { return _elfType; }
-
-    uint64_t savedBrk(void) const { return _savedBrk; }
-
     void updateRestoreBufAddr(void* addr, uint64_t len);
-    uint64_t restoreBufAddr(void) const { return _restoreBufAddr; }
-    uint64_t restoreBufLen(void) const { return _restoreBufLen; }
-
-    uint64_t vdsoStart(void) const { return _vdsoStart; }
-
-    uint64_t vdsoEnd(void) const { return _vdsoEnd; }
-
-    uint64_t vvarStart(void) const { return _vvarStart; }
-
-    uint64_t vvarEnd(void) const { return _vvarEnd; }
-
-    uint64_t vvarVClockStart(void) const { return _vvarVClockStart; }
-
-    uint64_t vvarVClockEnd(void) const { return _vvarVClockEnd; }
-
     bool vdsoOffsetMismatch(uint64_t f1, uint64_t f2,
                             uint64_t f3, uint64_t f4);
-    uint64_t endOfStack(void) const { return _endOfStack; }
 
     string const& getCkptFilename() const { return _ckptFileName; }
     string getTempCkptFilename() const { return _ckptFileName + ".temp"; }
@@ -187,8 +137,6 @@ class ProcessInfo
     map<pthread_t, pthread_t>_pthreadJoinId;
     typedef map<pid_t, UniquePid>::iterator iterator;
 
-    string _procname;
-    string _procSelfExe;
     string _hostname;
     string _launchCWD;
     string _ckptCWD;
@@ -197,41 +145,13 @@ class ProcessInfo
     string _ckptFileName;
     string _ckptFilesSubDir;
 
-    UniquePid _upid;
-    UniquePid _uppid;
-    UniquePid _compGroup;
-
     string _upidStr;
     string _compGroupStr;
 
-    uint64_t _restoreBufAddr;
-    uint64_t _restoreBufLen;
-
     uint64_t _savedHeapStart;
-    uint64_t _savedBrk;
     uint64_t _initialSavedBrk;
 
-    uint64_t _vdsoStart;
-    uint64_t _vdsoEnd;
-    uint64_t _vvarStart;
-    uint64_t _vvarEnd;
-    uint64_t _vvarVClockStart;
-    uint64_t _vvarVClockEnd;
-    uint64_t _endOfStack;
-
-    uint64_t _clock_gettime_offset;
-    uint64_t _getcpu_offset;
-    uint64_t _gettimeofday_offset;
-    uint64_t _time_offset;
-
     // Put <64-bit wide variabled here to ensure they are properly aligned.
-
-    uint32_t _isRootOfProcessTree;
-    pid_t _pid;
-    pid_t _ppid;
-    pid_t _sid;
-    pid_t _gid;
-    pid_t _fgid;
 
     // _generation is per-process.  This constrasts with
     // _computation_generation, which is shared among all processes on a host.
@@ -241,9 +161,6 @@ class ProcessInfo
     uint32_t _generation;
     uint32_t _numCheckpoints;
     uint32_t _numRestarts;
-
-    uint32_t _numPeers;
-    uint32_t _elfType;
 
     uint32_t _buf; // for alignment. Remove if adding a new 32-bit variable.
 };

@@ -370,10 +370,13 @@ CkptSerializer::createCkptDir()
   .Text("ERROR: Missing execute- or write-access to checkpoint dir");
 }
 
-// See comments above for open_ckpt_to_read()
+// Ckpt file may be gzipped, and re read it from a pipe.  We can't lseek on a
+// pipe.  So, we write the DmtcpCkptHdr twice.  The first header is read by
+// 'dmtcp_restart'.  And then 'dmtcp_restart' execs into 'mtcp_restart'.
+// 'mtcp_restart inherits the fd, and then reads the second copy of
+// DmtcpCkptHdr.
 void
-CkptSerializer::writeCkptImage(void *mtcpHdr,
-                               size_t mtcpHdrLen,
+CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
                                const string& ckptFilename)
 {
   JTRACE("Thread performing checkpoint.");
@@ -396,11 +399,10 @@ CkptSerializer::writeCkptImage(void *mtcpHdr,
   JASSERT(fdCkptFileOnDisk >= 0);
   JASSERT(use_compression || fd == fdCkptFileOnDisk);
 
-  // The rest of this function is for compatibility with original definition.
-  writeDmtcpHeader(fd);
-
-  // Write MTCP header
-  JASSERT(Util::writeAll(fd, mtcpHdr, mtcpHdrLen) == (ssize_t)mtcpHdrLen);
+  // Write ckpt header twice. It's read once by dmtcp_restart and again by
+  // mtcp_restart.
+  JASSERT(Util::writeAll(fd, &ckptHdr, sizeof(ckptHdr)) == sizeof(ckptHdr));
+  JASSERT(Util::writeAll(fd, &ckptHdr, sizeof(ckptHdr)) == sizeof(ckptHdr));
 
   JTRACE("MTCP is about to write checkpoint image.")(ckptFilename);
   mtcp_writememoryareas(fd);
@@ -425,22 +427,4 @@ CkptSerializer::writeCkptImage(void *mtcpHdr,
   }
 
   JTRACE("checkpoint complete");
-}
-
-void
-CkptSerializer::writeDmtcpHeader(int fd)
-{
-  const ssize_t len = strlen(DMTCP_FILE_HEADER);
-
-  JASSERT(write(fd, DMTCP_FILE_HEADER, len) == len);
-
-  jalib::JBinarySerializeWriterRaw wr("", fd);
-  ProcessInfo::instance().serialize(wr);
-  ssize_t written = len + wr.bytes();
-
-  // We must write in multiple of PAGE_SIZE
-  const ssize_t pagesize = Util::pageSize();
-  ssize_t remaining = pagesize - (written % pagesize);
-  char buf[remaining];
-  JASSERT(Util::writeAll(fd, buf, remaining) == remaining);
 }
