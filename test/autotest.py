@@ -876,16 +876,16 @@ runTest("presuspend",   [1, 2], ["./test/presuspend"])
 
 PWD=os.getcwd()
 runTest("plugin-sleep2", 1, ["--with-plugin "+
-                             PWD+"/test/plugin/sleep1/dmtcp_sleep1hijack.so:"+
-                             PWD+"/test/plugin/sleep2/dmtcp_sleep2hijack.so "+
+                             PWD+"/test/plugin/sleep1/libdmtcp_sleep1.so:"+
+                             PWD+"/test/plugin/sleep2/libdmtcp_sleep2.so "+
                              "./test/dmtcp1"])
 
 runTest("plugin-example-db", 2, ["--with-plugin "+
-                            PWD+"/test/plugin/example-db/dmtcp_example-dbhijack.so "+
+                            PWD+"/test/plugin/example-db/libdmtcp_example-db.so "+
                              "env EXAMPLE_DB_KEY=1 EXAMPLE_DB_KEY_OTHER=2 "+
                              "./test/dmtcp1",
                                  "--with-plugin "+
-                            PWD+"/test/plugin/example-db/dmtcp_example-dbhijack.so "+
+                            PWD+"/test/plugin/example-db/libdmtcp_example-db.so "+
                              "env EXAMPLE_DB_KEY=2 EXAMPLE_DB_KEY_OTHER=1 "+
                              "./test/dmtcp1"])
 

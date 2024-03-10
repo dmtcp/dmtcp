@@ -16,7 +16,7 @@
 #include "kvdb.h"
 
 struct keyPid {
-  dmtcp::string key;
+  char key[64];
   pid_t pid;
 } mystruct, mystruct_other;
 
@@ -30,13 +30,15 @@ static void
 registerNSData()
 {
   /* Although one process resumes late, they will still all synchronize. */
-  if (mystruct.key == "1") {
+  if (dmtcp::string(mystruct.key) == "1") {
     sleep(1);
   }
   printf("The plugin is now resuming or restarting from checkpointing.\n");
+  printf("  Data to be sent:  My (key, pid) is: (%s, %ld).\n",
+         mystruct.key, (long)mystruct.pid);
   dmtcp::kvdb::set64("ex-db", mystruct.key, mystruct.pid);
   printf("  Data sent:  My (key, pid) is: (%s, %ld).\n",
-         mystruct.key.c_str(), (long)mystruct.pid);
+         mystruct.key, (long)mystruct.pid);
 }
 
 static void
@@ -68,7 +70,7 @@ sendQueries()
   }
   mystruct_other.pid = (pid_t) pidVal;
   printf("Data exchanged:  My (key,pid) is: (%s, %ld);  The other pid is:  "
-         "%ld.\n", mystruct.key.c_str(), (long)mystruct.pid, (long)mystruct_other.pid);
+         "%ld.\n", mystruct.key, (long)mystruct.pid, (long)mystruct_other.pid);
 }
 
 
@@ -80,13 +82,13 @@ example_db_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_INIT:
     printf("The plugin containing %s has been initialized.\n", __FILE__);
     if (getenv("EXAMPLE_DB_KEY")) {
-      mystruct.key = getenv("EXAMPLE_DB_KEY");
+      strcpy(mystruct.key, getenv("EXAMPLE_DB_KEY"));
       mystruct.pid = getpid();
       printf("  Data initialized:  My (key, pid) is: (%s, %ld).\n",
-             mystruct.key.c_str(), (long)mystruct.pid);
+             mystruct.key, (long)mystruct.pid);
     }
     if (getenv("EXAMPLE_DB_KEY_OTHER")) {
-      mystruct_other.key = getenv("EXAMPLE_DB_KEY_OTHER");
+      strcpy(mystruct_other.key, getenv("EXAMPLE_DB_KEY_OTHER"));
       mystruct_other.pid = -1; /* -1 means unknown */
     }
     break;
