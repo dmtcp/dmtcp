@@ -54,6 +54,8 @@ class RestoreTarget
 
     bool isOrphan() { return _ckptHdr._ppid == 1; }
 
+    bool isGroupLeader() const { return _ckptHdr._pid == _ckptHdr._gid; }
+
     string procname() { return _ckptHdr._procname; }
 
     int numPeers() { return _ckptHdr._numPeers; }
@@ -77,12 +79,8 @@ class RestoreTarget
 
     void createProcess(bool createIndependentRootProcesses = false);
 
-    const map<string, string>& getKeyValueMap() const
-      { return _pInfo.getKeyValueMap(); }
-
   private:
     string _path;
-    ProcessInfo _pInfo;
     DmtcpCkptHeader _ckptHdr;
     int _fd;
 };
@@ -103,7 +101,6 @@ class DmtcpRestart
 };
 
 vector<char *> getMtcpArgs(uint64_t restoreBufAddr, uint64_t restoreBufLen);
-void publishKeyValueMapToMtcpEnvironment(RestoreTarget *restoreTarget);
 
 void dmtcp_restart_plugin(const string &restartDir,
                           const vector<string> &ckptImages) __attribute((weak));

@@ -179,23 +179,23 @@ RestoreTarget::RestoreTarget(const string &path)
   _fd = readCkptHeader(_path, &_ckptHdr);
   checkVdsoOffsetMismatch(&_ckptHdr);
 
-  JTRACE("restore target")(_path)(_pInfo.numPeers())(_pInfo.compGroup());
+  JTRACE("restore target")(_path)(numPeers())(compGroup());
 }
 
 void
 RestoreTarget::initialize()
 {
-  UniquePid::ThisProcess() = _pInfo.upid();
-  UniquePid::ParentProcess() = _pInfo.uppid();
+  UniquePid::ThisProcess() = upid();
+  UniquePid::ParentProcess() = uppid();
 
-  DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
+  DmtcpUniqueProcessId compId = compGroup().upid();
   CoordinatorInfo coordInfo;
   struct in_addr localIPAddr;
 
   // FIXME:  We will use the new HOST and PORT here, but after restart,
   // we will use the old HOST and PORT from the ckpt image.
-  CoordinatorAPI::connectToCoordOnRestart(allowedModes, _pInfo.procname(),
-                                          _pInfo.compGroup(), _pInfo.numPeers(),
+  CoordinatorAPI::connectToCoordOnRestart(allowedModes, procname(),
+                                          compGroup(), numPeers(),
                                           &coordInfo, &localIPAddr);
 
   // If port was 0, we'll get new random port when coordinator starts up.
@@ -230,7 +230,7 @@ RestoreTarget::initialize()
 void
 RestoreTarget::restoreGroup()
 {
-  if (_pInfo.isGroupLeader()) {
+  if (isGroupLeader()) {
     // create new Group where this process becomes a leader
     JTRACE("Create new Group.");
     setpgid(0, 0);
@@ -295,14 +295,15 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
     allowedModes = COORD_ANY; // we have coord; restore default of COORD_ANY
   }
 
-  JTRACE("Creating process during restart")(upid())(_pInfo.procname());
+  JTRACE("Creating process during restart")(upid())(procname());
+  JTRACE("Creating process during restart")(upid())(procname());
 
   RestoreTargetMap::iterator it;
   for (it = targets.begin(); it != targets.end(); it++) {
     RestoreTarget *t = it->second;
-    if (_pInfo.upid() == t->_pInfo.upid()) {
+    if (upid() == t->upid()) {
       continue;
-    } else if (t->uppid() == _pInfo.upid() && t->_pInfo.sid() != _pInfo.pid()) {
+    } else if (t->uppid() == upid() && t->sid() != pid()) {
       t->createDependentChildProcess();
     }
   }
@@ -319,8 +320,8 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
   }
 
   // If we were the session leader, become one now.
-  if (_pInfo.sid() == _pInfo.pid()) {
-    if (getsid(0) != _pInfo.pid()) {
+  if (sid() == pid()) {
+    if (getsid(0) != pid()) {
       JWARNING(setsid() != -1)
       (getsid(0))(JASSERT_ERRNO)
         .Text("Failed to restore this process as session leader.");
@@ -330,10 +331,10 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
   // Now recreate processes with sid == _pid
   for (it = targets.begin(); it != targets.end(); it++) {
     RestoreTarget *t = it->second;
-    if (_pInfo.upid() == t->_pInfo.upid()) {
+    if (upid() == t->upid()) {
       continue;
-    } else if (t->_pInfo.sid() == _pInfo.pid()) {
-      if (t->uppid() == _pInfo.upid()) {
+    } else if (t->sid() == pid()) {
+      if (t->uppid() == upid()) {
         t->createDependentChildProcess();
       } else if (t->isRootOfProcessTree()) {
         t->createDependentNonChildProcess();
@@ -420,17 +421,6 @@ getMtcpArgs(uint64_t restoreBufAddr, uint64_t restoreBufLen)
   return mtcpArgs;
 }
 
-void
-publishKeyValueMapToMtcpEnvironment(RestoreTarget *restoreTarget)
-{
-  const map<string, string> &kvmap = restoreTarget->getKeyValueMap();
-  for (auto kv : kvmap) {
-    setenv(kv.first.c_str(), kv.second.c_str(), 1);
-  }
-
-  return;
-}
-
 vector<char*> StringVectorToCharPtrVector(vector<string> const& strings)
 {
   vector<char*> ptrs;
@@ -482,7 +472,6 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
     }
   }
 
-  publishKeyValueMapToMtcpEnvironment(restoreTarget);
   vector<char *> mtcpArgs = getMtcpArgs(restoreTarget->restoreBufAddr(), restoreTarget->restoreBufLen());
 
 #if defined(__x86_64__) || defined(__aarch64__)
