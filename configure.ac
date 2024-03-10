@@ -28,6 +28,10 @@ AC_PROG_CPP
 AC_CONFIG_MACRO_DIR([m4])
 AX_CXX_COMPILE_STDCXX([14], [noext], [mandatory])
 
+AX_CHECK_COMPILE_FLAG([-std=gnu11],
+  [AX_APPEND_FLAG([-std=gnu11])],
+  [AC_MSG_ERROR([-std=gnu11 not supported, you may have to set CFLAGS to enable C11 support.])])
+
 dnl This sets OPENMP_CFLAGS
 AC_OPENMP
 dnl This sets OPENMP_CXXFLAGS
