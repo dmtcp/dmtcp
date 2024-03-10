@@ -39,27 +39,31 @@ class RestoreTarget
 
     int fd() const { return _fd; }
 
-    const UniquePid &upid() { return _pInfo.upid(); }
-    const UniquePid &uppid() { return _pInfo.uppid(); }
+    UniquePid upid() { return _ckptHdr._upid; }
+    UniquePid uppid() { return _ckptHdr._uppid; }
+    UniquePid compGroup() { return _ckptHdr._compGroup; }
 
-    pid_t pid() const { return _pInfo.pid(); }
 
-    pid_t sid() const { return _pInfo.sid(); }
+    pid_t pid() const { return _ckptHdr._pid; }
 
-    bool isRootOfProcessTree() const { return _pInfo.isRootOfProcessTree(); }
+    pid_t sid() const { return _ckptHdr._sid; }
 
-    const string& procSelfExe() const { return _pInfo.procSelfExe(); }
+    bool isRootOfProcessTree() const { return _ckptHdr._isRootOfProcessTree; }
 
-    bool isOrphan() { return _pInfo.isOrphan(); }
+    string procSelfExe() const { return _ckptHdr._procSelfExe; }
 
-    string procname() { return _pInfo.procname(); }
+    bool isOrphan() { return _ckptHdr._ppid == 1; }
 
-    UniquePid compGroup() { return _pInfo.compGroup(); }
+    string procname() { return _ckptHdr._procname; }
 
-    int numPeers() { return _pInfo.numPeers(); }
+    int numPeers() { return _ckptHdr._numPeers; }
 
-    uint64_t restoreBufAddr() { return _pInfo.restoreBufAddr(); }
-    uint64_t restoreBufLen() { return _pInfo.restoreBufLen(); }
+    uint64_t restoreBufAddr() { return _ckptHdr._restoreBufAddr; }
+
+    uint64_t restoreBufLen() { return _ckptHdr._restoreBufLen; }
+
+    const int getElfType() const { return _ckptHdr._elfType; }
+
 
     void initialize();
 
@@ -76,12 +80,10 @@ class RestoreTarget
     const map<string, string>& getKeyValueMap() const
       { return _pInfo.getKeyValueMap(); }
 
-    const int getElfType() const
-      { return _pInfo.elfType(); }
-
   private:
     string _path;
     ProcessInfo _pInfo;
+    DmtcpCkptHeader _ckptHdr;
     int _fd;
 };
 

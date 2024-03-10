@@ -430,17 +430,9 @@ CkptSerializer::writeCkptImage(void *mtcpHdr,
 void
 CkptSerializer::writeDmtcpHeader(int fd)
 {
-  const ssize_t len = strlen(DMTCP_FILE_HEADER);
-
-  JASSERT(write(fd, DMTCP_FILE_HEADER, len) == len);
-
-  jalib::JBinarySerializeWriterRaw wr("", fd);
-  ProcessInfo::instance().serialize(wr);
-  ssize_t written = len + wr.bytes();
-
-  // We must write in multiple of PAGE_SIZE
+  DmtcpCkptHeader header = ProcessInfo::instance();
   const ssize_t pagesize = Util::pageSize();
-  ssize_t remaining = pagesize - (written % pagesize);
-  char buf[remaining];
-  JASSERT(Util::writeAll(fd, buf, remaining) == remaining);
+  ASSERT_EQ(sizeof(header) % pagesize, 0);
+
+  ASSERT_EQ(Util::writeAll(fd, &header, sizeof(header)), sizeof(header));
 }
