@@ -30,7 +30,7 @@
 
 namespace dmtcp
 {
-struct UniquePid : private DmtcpUniqueProcessId {
+struct UniquePid : public DmtcpUniqueProcessId {
   public:
     static UniquePid &ParentProcess();
     static UniquePid &ThisProcess(bool disableJTrace = false);

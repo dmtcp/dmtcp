@@ -39,27 +39,33 @@ class RestoreTarget
 
     int fd() const { return _fd; }
 
-    const UniquePid &upid() { return _pInfo.upid(); }
-    const UniquePid &uppid() { return _pInfo.uppid(); }
+    UniquePid upid() { return _ckptHdr.upid; }
+    UniquePid uppid() { return _ckptHdr.uppid; }
+    UniquePid compGroup() { return _ckptHdr.compGroup; }
 
-    pid_t pid() const { return _pInfo.pid(); }
 
-    pid_t sid() const { return _pInfo.sid(); }
+    pid_t pid() const { return _ckptHdr.pid; }
 
-    bool isRootOfProcessTree() const { return _pInfo.isRootOfProcessTree(); }
+    pid_t sid() const { return _ckptHdr.sid; }
 
-    const string& procSelfExe() const { return _pInfo.procSelfExe(); }
+    bool isRootOfProcessTree() const { return _ckptHdr.isRootOfProcessTree; }
 
-    bool isOrphan() { return _pInfo.isOrphan(); }
+    string procSelfExe() const { return _ckptHdr.procSelfExe; }
 
-    string procname() { return _pInfo.procname(); }
+    bool isOrphan() { return _ckptHdr.ppid == 1; }
 
-    UniquePid compGroup() { return _pInfo.compGroup(); }
+    bool isGroupLeader() const { return _ckptHdr.pid == _ckptHdr.gid; }
 
-    int numPeers() { return _pInfo.numPeers(); }
+    string procname() { return _ckptHdr.procname; }
 
-    uint64_t restoreBufAddr() { return _pInfo.restoreBufAddr(); }
-    uint64_t restoreBufLen() { return _pInfo.restoreBufLen(); }
+    int numPeers() { return _ckptHdr.numPeers; }
+
+    uint64_t restoreBufAddr() { return _ckptHdr.restoreBufAddr; }
+
+    uint64_t restoreBufLen() { return _ckptHdr.restoreBufLen; }
+
+    const int getElfType() const { return _ckptHdr.elfType; }
+
 
     void initialize();
 
@@ -73,15 +79,9 @@ class RestoreTarget
 
     void createProcess(bool createIndependentRootProcesses = false);
 
-    const map<string, string>& getKeyValueMap() const
-      { return _pInfo.getKeyValueMap(); }
-
-    const int getElfType() const
-      { return _pInfo.elfType(); }
-
   private:
     string _path;
-    ProcessInfo _pInfo;
+    DmtcpCkptHeader _ckptHdr;
     int _fd;
 };
 
@@ -101,7 +101,6 @@ class DmtcpRestart
 };
 
 vector<char *> getMtcpArgs(uint64_t restoreBufAddr, uint64_t restoreBufLen);
-void publishKeyValueMapToMtcpEnvironment(RestoreTarget *restoreTarget);
 
 void dmtcp_restart_plugin(const string &restartDir,
                           const vector<string> &ckptImages) __attribute((weak));

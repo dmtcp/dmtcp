@@ -32,10 +32,8 @@ namespace CkptSerializer
 {
 int openCkptFileToWrite(const string &path);
 void createCkptDir();
-void writeCkptImage(void *mtcpHdr,
-                    size_t mtcpHdrLen,
+void writeCkptImage(DmtcpCkptHeader ckptHdr,
                     const string& ckptFilename);
-void writeDmtcpHeader(int fd);
 }
 }
 #endif // ifndef CKPT_SERIZLIZER_H
