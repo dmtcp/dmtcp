@@ -121,38 +121,40 @@ static int requestedDebugLevel = 0;
 class RestoreTarget;
 
 typedef map<UniquePid, RestoreTarget *>RestoreTargetMap;
-RestoreTargetMap targets;
-RestoreTargetMap independentProcessTreeRoots;
-bool noStrictChecking = false;
+static RestoreTargetMap targets;
+static RestoreTargetMap independentProcessTreeRoots;
+static bool noStrictChecking = false;
 
-string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
-string ckptdir_arg;
-CoordinatorMode allowedModes = COORD_ANY;
-string coord_host;
-int coord_port = UNINITIALIZED_PORT;
-string thePortFile;
+static string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
+static string ckptdir_arg;
+static CoordinatorMode allowedModes = COORD_ANY;
+static string coord_host;
+static int coord_port = UNINITIALIZED_PORT;
+static string thePortFile;
 
-string mtcp_restart;
-string mtcp_restart_32;
-string fdBuf;
-string stderrFd;
-string restoreBufAddrStr;
-string restoreBufLenStr;
-char *pause_param;
+static string mtcp_restart;
+static string mtcp_restart_32;
+static string fdBuf;
+static string stderrFd;
+static string restoreBufAddrStr;
+static string restoreBufLenStr;
+static char *pause_param;
 
 
 static void setEnvironFd();
 static void runMtcpRestart(int fd, RestoreTarget *target);
-static int readCkptHeader(const string &path, ProcessInfo *pInfo);
+static int readCkptHeader(const string &path, DmtcpCkptHeader *ckptHdr);
 static int openCkptFileToRead(const string &path);
 
-RestoreTarget::RestoreTarget(const string &path)
-  : _path(path)
+static void
+checkVdsoOffsetMismatch(DmtcpCkptHeader *ckptHdr)
 {
-  JASSERT(jalib::Filesystem::FileExists(_path))
-  (_path).Text("checkpoint file missing");
+  constexpr char error[] =
+    "The vDSO section on the current system is different than"
+    " the host where the checkpoint image was generated. "
+    "Restart may fail if the program calls a function in"
+    " vDSO, like gettimeofday(), clock_gettime(), etc.";
 
-  _fd = readCkptHeader(_path, &_pInfo);
   uint64_t clock_gettime_offset =
     dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_clock_gettime");
   uint64_t getcpu_offset =
@@ -161,30 +163,41 @@ RestoreTarget::RestoreTarget(const string &path)
     dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_gettimeofday");
   uint64_t time_offset =
     dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_time");
-  JWARNING(!_pInfo.vdsoOffsetMismatch(clock_gettime_offset, getcpu_offset,
-                                      gettimeofday_offset, time_offset))
-    .Text("The vDSO section on the current system is different than"
-          " the host where the checkpoint image was generated. "
-          "Restart may fail if the program calls a function in"
-          " vDSO, like gettimeofday(), clock_gettime(), etc.");
-  JTRACE("restore target")(_path)(_pInfo.numPeers())(_pInfo.compGroup());
+
+  ASSERT_EQ(ckptHdr->clock_gettime_offset, clock_gettime_offset);
+  JASSERT(ckptHdr->getcpu_offset == getcpu_offset) .Text(error);
+  JASSERT(ckptHdr->gettimeofday_offset == gettimeofday_offset) .Text(error);
+  JASSERT(ckptHdr->time_offset == time_offset) .Text(error);
+}
+
+RestoreTarget::RestoreTarget(const string &path)
+  : _path(path)
+{
+  JASSERT(jalib::Filesystem::FileExists(_path))
+  (_path).Text("checkpoint file missing");
+
+  _fd = readCkptHeader(_path, &_ckptHdr);
+  checkVdsoOffsetMismatch(&_ckptHdr);
+
+  JTRACE("restore target")(_path)(numPeers())(compGroup());
 }
 
 void
 RestoreTarget::initialize()
 {
   WorkerState::setCurrentState(WorkerState::RESTARTING);
-  UniquePid::ThisProcess() = _pInfo.upid();
-  UniquePid::ParentProcess() = _pInfo.uppid();
 
-  DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
+  UniquePid::ThisProcess() = upid();
+  UniquePid::ParentProcess() = uppid();
+
+  DmtcpUniqueProcessId compId = compGroup().upid();
   CoordinatorInfo coordInfo;
   struct in_addr localIPAddr;
 
   // FIXME:  We will use the new HOST and PORT here, but after restart,
   // we will use the old HOST and PORT from the ckpt image.
-  CoordinatorAPI::connectToCoordOnRestart(allowedModes, _pInfo.procname(),
-                                          _pInfo.compGroup(), _pInfo.numPeers(),
+  CoordinatorAPI::connectToCoordOnRestart(allowedModes, procname(),
+                                          compGroup(), numPeers(),
                                           &coordInfo, &localIPAddr);
 
   // If port was 0, we'll get new random port when coordinator starts up.
@@ -219,7 +232,7 @@ RestoreTarget::initialize()
 void
 RestoreTarget::restoreGroup()
 {
-  if (_pInfo.isGroupLeader()) {
+  if (isGroupLeader()) {
     // create new Group where this process becomes a leader
     JTRACE("Create new Group.");
     setpgid(0, 0);
@@ -284,14 +297,15 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
     allowedModes = COORD_ANY; // we have coord; restore default of COORD_ANY
   }
 
-  JTRACE("Creating process during restart")(upid())(_pInfo.procname());
+  JTRACE("Creating process during restart")(upid())(procname());
+  JTRACE("Creating process during restart")(upid())(procname());
 
   RestoreTargetMap::iterator it;
   for (it = targets.begin(); it != targets.end(); it++) {
     RestoreTarget *t = it->second;
-    if (_pInfo.upid() == t->_pInfo.upid()) {
+    if (upid() == t->upid()) {
       continue;
-    } else if (t->uppid() == _pInfo.upid() && t->_pInfo.sid() != _pInfo.pid()) {
+    } else if (t->uppid() == upid() && t->sid() != pid()) {
       t->createDependentChildProcess();
     }
   }
@@ -308,8 +322,8 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
   }
 
   // If we were the session leader, become one now.
-  if (_pInfo.sid() == _pInfo.pid()) {
-    if (getsid(0) != _pInfo.pid()) {
+  if (sid() == pid()) {
+    if (getsid(0) != pid()) {
       JWARNING(setsid() != -1)
       (getsid(0))(JASSERT_ERRNO)
         .Text("Failed to restore this process as session leader.");
@@ -319,10 +333,10 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
   // Now recreate processes with sid == _pid
   for (it = targets.begin(); it != targets.end(); it++) {
     RestoreTarget *t = it->second;
-    if (_pInfo.upid() == t->_pInfo.upid()) {
+    if (upid() == t->upid()) {
       continue;
-    } else if (t->_pInfo.sid() == _pInfo.pid()) {
-      if (t->uppid() == _pInfo.upid()) {
+    } else if (t->sid() == pid()) {
+      if (t->uppid() == upid()) {
         t->createDependentChildProcess();
       } else if (t->isRootOfProcessTree()) {
         t->createDependentNonChildProcess();
@@ -409,17 +423,6 @@ getMtcpArgs(uint64_t restoreBufAddr, uint64_t restoreBufLen)
   return mtcpArgs;
 }
 
-void
-publishKeyValueMapToMtcpEnvironment(RestoreTarget *restoreTarget)
-{
-  const map<string, string> &kvmap = restoreTarget->getKeyValueMap();
-  for (auto kv : kvmap) {
-    setenv(kv.first.c_str(), kv.second.c_str(), 1);
-  }
-
-  return;
-}
-
 vector<char*> StringVectorToCharPtrVector(vector<string> const& strings)
 {
   vector<char*> ptrs;
@@ -471,14 +474,13 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
     }
   }
 
-  publishKeyValueMapToMtcpEnvironment(restoreTarget);
   vector<char *> mtcpArgs = getMtcpArgs(restoreTarget->restoreBufAddr(), restoreTarget->restoreBufLen());
 
 #if defined(__x86_64__) || defined(__aarch64__) || defined(__riscv)
   // FIXME: This is needed for CONFIG_M32 only because getPath("mtcp_restart")
   // fails to return the absolute path for mtcp_restart.  We should fix
   // the bug in Util::getPath() and remove CONFIG_M32 condition in #if.
-  if (restoreTarget->getElfType() == ProcessInfo::Elf_32) {
+  if (restoreTarget->getElfType() == Elf_32) {
     mtcp_restart_32 = Util::getPath(mtcp_restart_32.c_str(), true);
     mtcpArgs[0] = (char *) mtcp_restart_32.c_str();
   }
@@ -498,38 +500,15 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
 // ************************ For reading checkpoint files *****************
 
 int
-readCkptHeader(const string &path, ProcessInfo *pInfo)
+readCkptHeader(const string &path, DmtcpCkptHeader *ckptHdr)
 {
   int fd = openCkptFileToRead(path);
-  const size_t len = strlen(DMTCP_FILE_HEADER);
+  ASSERT_NE(-1, fd);
 
-  jalib::JBinarySerializeReaderRaw rdr("", fd);
+  ASSERT_EQ(sizeof(*ckptHdr), Util::readAll(fd, ckptHdr, sizeof(*ckptHdr)));
+  ASSERT_EQ(DMTCP_CKPT_SIGNATURE, string(ckptHdr->ckptSignature));
 
-  pInfo->serialize(rdr);
-  size_t numRead = len + rdr.bytes();
-
-  // We must read in multiple of PAGE_SIZE
-  const ssize_t pagesize = Util::pageSize();
-  ssize_t remaining = pagesize - (numRead % pagesize);
-  char buf[remaining];
-  JASSERT(Util::readAll(fd, buf, remaining) == remaining);
   return fd;
-}
-
-static char
-first_char(const char *filename)
-{
-  int fd, rc;
-  char c;
-
-  fd = open(filename, O_RDONLY);
-  JASSERT(fd >= 0) (filename).Text("ERROR: Cannot open filename");
-
-  rc = read(fd, &c, 1);
-  JASSERT(rc == 1) (filename).Text("ERROR: Error reading from filename");
-
-  close(fd);
-  return c;
 }
 
 // Copied from mtcp/mtcp_restart.c.
@@ -538,8 +517,8 @@ first_char(const char *filename)
 // A previous version tried to replace this with popen, causing a regression:
 // (no call to pclose, and possibility of using a wrong fd).
 // Returns fd;
-static int
-open_ckpt_to_read(const char *filename)
+int
+openCkptFileToRead(const string &filename)
 {
   int fd;
   int fds[2];
@@ -556,13 +535,22 @@ open_ckpt_to_read(const char *filename)
 
   pid_t cpid;
 
-  fc = first_char(filename);
-  fd = open(filename, O_RDONLY);
+  fd = open(filename.c_str(), O_RDONLY);
   JASSERT(fd >= 0)(filename).Text("Failed to open file.");
 
-  if (fc == DMTCP_MAGIC_FIRST) { /* no compression */
+  DmtcpCkptHeader ckptHdr;
+  ASSERT_EQ(sizeof(ckptHdr), Util::readAll(fd, &ckptHdr, sizeof(ckptHdr)));
+  if (string(ckptHdr.ckptSignature) == DMTCP_CKPT_SIGNATURE) {
+    // Uncompressed file. Rewind and return.
+    ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
     return fd;
-  } else if (fc == GZIP_FIRST) {
+  }
+
+  ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
+  ASSERT_EQ(1, Util::readAll(fd, &fc, 1));
+  ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
+
+  if (fc == GZIP_FIRST) {
     decomp_path = gzip_path;
     decomp_args = gzip_args;
 
@@ -623,27 +611,6 @@ open_ckpt_to_read(const char *filename)
     .Text("ERROR: Invalid magic number in this checkpoint file!");
   }
   return -1;
-}
-
-// See comments above for open_ckpt_to_read()
-int
-openCkptFileToRead(const string &path)
-{
-  char buf[1024];
-  int fd = open_ckpt_to_read(path.c_str());
-
-  // The rest of this function is for compatibility with original definition.
-  JASSERT(fd >= 0) (path).Text("Failed to open file.");
-  const int len = strlen(DMTCP_FILE_HEADER);
-  JASSERT(read(fd, buf, len) == len)(path).Text("read() failed");
-  if (strncmp(buf, DMTCP_FILE_HEADER, len) == 0) {
-    JTRACE("opened checkpoint file [uncompressed]")(path);
-  } else {
-    close(fd);
-    fd = open_ckpt_to_read(path.c_str()); /* Re-open from beginning */
-    JASSERT(fd >= 0) (path).Text("Failed to open file.");
-  }
-  return fd;
 }
 
 // ************************ End of for reading checkpoint files *************

@@ -141,8 +141,6 @@
 #define RESTART_SCRIPT_BASENAME "dmtcp_restart_script"
 #define RESTART_SCRIPT_EXT      "sh"
 
-#define DMTCP_FILE_HEADER       "DMTCP_CHECKPOINT_IMAGE_v2.0\n"
-
 // #define MIN_SIGNAL 1
 // #define MAX_SIGNAL 30
 
