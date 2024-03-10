@@ -6237,10 +6237,81 @@ printf "%s\n" "#define HAVE_CXX14 1" >>confdefs.h
 
 
 
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -std=gnu11" >&5
+printf %s "checking whether C compiler accepts -std=gnu11... " >&6; }
+if test ${ax_cv_check_cflags___std_gnu11+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -std=gnu11"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  ax_cv_check_cflags___std_gnu11=yes
+else $as_nop
+  ax_cv_check_cflags___std_gnu11=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___std_gnu11" >&5
+printf "%s\n" "$ax_cv_check_cflags___std_gnu11" >&6; }
+if test "x$ax_cv_check_cflags___std_gnu11" = xyes
+then :
+
+if test ${CFLAGS+y}
+then :
+
+  case " $CFLAGS " in #(
+  *" -std=gnu11 "*) :
+    { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: : CFLAGS already contains -std=gnu11"; } >&5
+  (: CFLAGS already contains -std=gnu11) 2>&5
+  ac_status=$?
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; } ;; #(
+  *) :
+
+     as_fn_append CFLAGS " -std=gnu11"
+     { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: : CFLAGS=\"\$CFLAGS\""; } >&5
+  (: CFLAGS="$CFLAGS") 2>&5
+  ac_status=$?
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+     ;;
+esac
+
+else $as_nop
+
+  CFLAGS=-std=gnu11
+  { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: : CFLAGS=\"\$CFLAGS\""; } >&5
+  (: CFLAGS="$CFLAGS") 2>&5
+  ac_status=$?
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+
+fi
+
+else $as_nop
+  as_fn_error $? "-std=gnu11 not supported, you may have to set CFLAGS to enable C11 support." "$LINENO" 5
+fi
+
+
 if test -e penmp || test -e mp; then
   as_fn_error $? "AC_OPENMP clobbers files named 'mp' and 'penmp'. Aborting configure because one of these files already exists." "$LINENO" 5
 fi
-
 # Check whether --enable-openmp was given.
 if test ${enable_openmp+y}
 then :
