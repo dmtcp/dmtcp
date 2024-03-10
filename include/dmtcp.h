@@ -283,6 +283,20 @@ typedef struct {
   uint64_t _gettimeofday_offset;
   uint64_t _time_offset;
 
+#if 0
+  // TODO(kapil): merge Mtcp header.
+  uint64_t vdsoStart;
+  uint64_t vdsoEnd;
+  uint64_t vvarStart;
+  uint64_t vvarEnd;
+
+  uint64_t saved_brk;
+  uint64_t end_of_stack;
+
+  uint64_t post_restart_addr;
+  //void (*post_restart)(double, int);
+#endif
+
   char _procname[1024];
   char _procSelfExe[1024];
 
