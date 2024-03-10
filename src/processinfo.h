@@ -33,14 +33,9 @@
 
 namespace dmtcp
 {
-class ProcessInfo
+class ProcessInfo : public DmtcpCkptHeader
 {
   public:
-    enum ElfType {
-      Elf_32,
-      Elf_64
-    };
-
 #ifdef JALIB_ALLOCATOR
     static void *operator new(size_t nbytes, void *p) { return p; }
 
@@ -92,15 +87,15 @@ class ProcessInfo
 
     void processRlimit();
 
-    const string &procname() const { return _procname; }
+    string procname() const { return _procname; }
 
-    const string &procSelfExe() const { return _procSelfExe; }
+    string procSelfExe() const { return _procSelfExe; }
 
     const string &hostname() const { return _hostname; }
 
-    const UniquePid &upid() {
+    UniquePid upid() {
       // Temporary fix until we remove the static members from UniquePid.cpp.
-      if (_upid == UniquePid()) {
+      if (_upid == DmtcpUniqueProcessId()) {
         _upid = UniquePid::ThisProcess(true);
       }
       return _upid;
@@ -113,7 +108,7 @@ class ProcessInfo
       return _upidStr;
     }
 
-    const UniquePid &uppid() {
+    UniquePid uppid() {
       // Temporary fix until we remove the static members from UniquePid.cpp.
       if (_uppid == UniquePid()) {
         _uppid = UniquePid::ParentProcess();
@@ -125,7 +120,7 @@ class ProcessInfo
 
     const string &compGroupStr() {
       if (_compGroupStr.empty()) {
-        _compGroupStr = _compGroup.toString();
+        _compGroupStr = UniquePid(_compGroup).toString();
       }
       return _compGroupStr;
     }
@@ -157,8 +152,6 @@ class ProcessInfo
 
     uint64_t vvarEnd(void) const { return _vvarEnd; }
 
-    bool vdsoOffsetMismatch(uint64_t f1, uint64_t f2,
-                            uint64_t f3, uint64_t f4);
     uint64_t endOfStack(void) const { return _endOfStack; }
 
     string const& getCkptFilename() const { return _ckptFileName; }
@@ -183,8 +176,6 @@ class ProcessInfo
     map<pthread_t, pthread_t>_pthreadJoinId;
     typedef map<pid_t, UniquePid>::iterator iterator;
 
-    string _procname;
-    string _procSelfExe;
     string _hostname;
     string _launchCWD;
     string _ckptCWD;
@@ -193,15 +184,8 @@ class ProcessInfo
     string _ckptFileName;
     string _ckptFilesSubDir;
 
-    UniquePid _upid;
-    UniquePid _uppid;
-    UniquePid _compGroup;
-
     string _upidStr;
     string _compGroupStr;
-
-    uint64_t _restoreBufAddr;
-    uint64_t _restoreBufLen;
 
     uint64_t _savedHeapStart;
     uint64_t _savedBrk;
@@ -213,19 +197,7 @@ class ProcessInfo
     uint64_t _vvarEnd;
     uint64_t _endOfStack;
 
-    uint64_t _clock_gettime_offset;
-    uint64_t _getcpu_offset;
-    uint64_t _gettimeofday_offset;
-    uint64_t _time_offset;
-
     // Put <64-bit wide variabled here to ensure they are properly aligned.
-
-    uint32_t _isRootOfProcessTree;
-    pid_t _pid;
-    pid_t _ppid;
-    pid_t _sid;
-    pid_t _gid;
-    pid_t _fgid;
 
     // _generation is per-process.  This constrasts with
     // _computation_generation, which is shared among all processes on a host.
@@ -235,9 +207,6 @@ class ProcessInfo
     uint32_t _generation;
     uint32_t _numCheckpoints;
     uint32_t _numRestarts;
-
-    uint32_t _numPeers;
-    uint32_t _elfType;
 
     uint32_t _buf; // for alignment. Remove if adding a new 32-bit variable.
 };

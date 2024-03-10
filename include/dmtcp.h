@@ -16,6 +16,7 @@
 #define DMTCP_H
 
 #include <netinet/ip.h>
+#include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -238,7 +239,12 @@ void dmtcp_initialize_plugin(void) __attribute((weak));
 typedef struct DmtcpUniqueProcessId {
   uint64_t _hostid;  // gethostid()
   uint64_t _time; // time()
-  pid_t _pid; // getpid()
+
+  union {
+    pid_t _pid; // getpid()
+    int32_t _;
+  };
+
   uint32_t _computation_generation; // computationGeneration()
 } DmtcpUniqueProcessId;
 
@@ -248,6 +254,45 @@ typedef struct DmtcpInfo {
   int argc;
   const char **argv;
 } DmtcpInfo;
+
+enum ElfType {
+  Elf_32,
+  Elf_64
+};
+
+#define DMTCP_CKPT_SIGNATURE "DMTCP_CHECKPOINT_IMAGE_v3.0\n"
+typedef struct {
+  char ckptSignature[32];
+
+  DmtcpUniqueProcessId _upid;
+  DmtcpUniqueProcessId _uppid;
+  DmtcpUniqueProcessId _compGroup;
+
+  uint64_t _restoreBufAddr;
+  uint64_t _restoreBufLen;
+
+  pid_t _pid;
+  pid_t _ppid;
+  pid_t _sid;
+  pid_t _gid;
+  pid_t _fgid;
+  uint32_t _isRootOfProcessTree;
+
+  uint32_t _numPeers;
+  uint32_t _elfType;
+
+  uint64_t _clock_gettime_offset;
+  uint64_t _getcpu_offset;
+  uint64_t _gettimeofday_offset;
+  uint64_t _time_offset;
+
+  char _procname[1024];
+  char _procSelfExe[1024];
+
+  char _padding[1864];
+} DmtcpCkptHeader;
+
+static_assert(sizeof(DmtcpCkptHeader) == 4096, "DmtcpCkptHeader must be 4096 bytes");
 
 DmtcpInfo dmtcp_register_new_process(int *argc, const char ***argv);
 DmtcpInfo dmtcp_register_restart_process();
