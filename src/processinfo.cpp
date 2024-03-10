@@ -155,6 +155,21 @@ ProcessInfo::ProcessInfo()
   char buf[PATH_MAX];
 
   _do_lock_tbl();
+
+  strcpy(ckptSignature, DMTCP_CKPT_SIGNATURE);
+  memset(_padding, 0, sizeof(_padding));
+
+  string procSelfExeStr = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+  strncpy(_procSelfExe, procSelfExeStr.c_str(), sizeof(_procSelfExe) - 1);
+
+  _clock_gettime_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+                                                     "__vdso_clock_gettime");
+  _getcpu_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+                                              "__vdso_getcpu");
+  _gettimeofday_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+                                                    "__vdso_gettimeofday");
+  _time_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_time");
+
   _pid = -1;
   _ppid = -1;
   _gid = -1;
@@ -167,7 +182,6 @@ ProcessInfo::ProcessInfo()
   // shared among all process on a node; used in variable sharedDataHeader.
   // _generation is updated when _this_ process begins its checkpoint.
   _pthreadJoinId.clear();
-  _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
   _uppid = UniquePid();
   JASSERT(getcwd(buf, sizeof buf) != NULL);
   _launchCWD = buf;
@@ -284,7 +298,9 @@ ProcessInfo::init()
     _ppid = getppid();
     _isRootOfProcessTree = true;
     _uppid = UniquePid();
-    _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+
+    string procSelfExeStr = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+    strncpy(_procSelfExe, procSelfExeStr.c_str(), sizeof(_procSelfExe) - 1);
   }
 
 #ifdef CONFIG_M32
@@ -389,8 +405,11 @@ ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
 void
 ProcessInfo::postExec()
 {
-  _procname = jalib::Filesystem::GetProgramName();
-  _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+  string procSelfExeStr = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+  strncpy(_procSelfExe, procSelfExeStr.c_str(), sizeof(_procSelfExe) - 1);
+
+  strncpy(_procname, jalib::Filesystem::GetProgramName().c_str(), sizeof(_procname) -1);
+
   _upid = UniquePid::ThisProcess();
   _uppid = UniquePid::ParentProcess();
   updateCkptDirFileSubdir();
@@ -604,8 +623,10 @@ ProcessInfo::getState()
     _uppid = UniquePid::ParentProcess();
   }
 
-  _procname = jalib::Filesystem::GetProgramName();
-  _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+  string procSelfExeStr = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+  strncpy(_procSelfExe, procSelfExeStr.c_str(), sizeof(_procSelfExe) - 1);
+
+  strncpy(_procname, jalib::Filesystem::GetProgramName().c_str(), sizeof(_procname) -1);
   _hostname = jalib::Filesystem::GetCurrentHostname();
   _upid = UniquePid::ThisProcess();
 
@@ -614,14 +635,6 @@ ProcessInfo::getState()
   _ckptCWD = buf;
 
   JTRACE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(_pid);
-}
-
-bool
-ProcessInfo::vdsoOffsetMismatch(uint64_t f1, uint64_t f2,
-                                uint64_t f3, uint64_t f4)
-{
-  return (f1 != _clock_gettime_offset) || (f2 != _getcpu_offset) ||
-         (f3 != _gettimeofday_offset) || (f4 != _time_offset);
 }
 
 // NOTE: ProcessInfo object acts as the checkpoint header for DMTCP.
@@ -647,13 +660,6 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("ProcessInfo:");
   _savedBrk = (uint64_t) sbrk(0);
-  _clock_gettime_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
-                                                     "__vdso_clock_gettime");
-  _getcpu_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
-                                              "__vdso_getcpu");
-  _gettimeofday_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
-                                                    "__vdso_gettimeofday");
-  _time_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_time");
 
   o & _elfType;
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid & _generation;
