@@ -226,7 +226,7 @@ dmtcp_skip_truncate_file_at_restart(const char* path)
 EXTERNC const char *
 dmtcp_get_executable_path(void)
 {
-  return ProcessInfo::instance().procSelfExe().c_str();
+  return ProcessInfo::instance().procSelfExe;
 }
 
 EXTERNC const char *
@@ -238,13 +238,13 @@ dmtcp_get_uniquepid_str(void)
 EXTERNC DmtcpUniqueProcessId
 dmtcp_get_uniquepid(void)
 {
-  return ProcessInfo::instance().upid().upid();
+  return ProcessInfo::instance().upid;
 }
 
 EXTERNC DmtcpUniqueProcessId
 dmtcp_get_computation_id(void)
 {
-  return ProcessInfo::instance().compGroup().upid();
+  return ProcessInfo::instance().compGroup;
 }
 
 EXTERNC const char *

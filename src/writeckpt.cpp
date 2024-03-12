@@ -179,8 +179,8 @@ mtcp_writememoryareas(int fd)
    *     RESTORE_TOTAL_SIZE is in src/processinfo.h and src/mtcp/mtcp_restart.h
    */
   JTRACE("addr and len of restoreBuf (to hold mtcp_restart code)")
-    ((void *)ProcessInfo::instance().restoreBufAddr())
-    (ProcessInfo::instance().restoreBufLen());
+    ((void *)ProcessInfo::instance().restoreBufAddr)
+    (ProcessInfo::instance().restoreBufLen);
   procSelfMaps = new ProcSelfMaps();
 
   // We must not cause an mmap() here, or the mem regions will not be correct.
@@ -190,14 +190,11 @@ mtcp_writememoryareas(int fd)
     // will invoke mmap if the JAlloc arena is full. Similarly, for STL objects
     // such as vector and string.
 
-    // FIXME: The "3" multiplier is to correspond to the "3" multiplier in
-    //        ProcessInfo::updateRestoreBufAddr().  See the comment there about
-    //        spaghetti code.  Ideally, we would refactor all of this code.
-    if ((uint64_t)area.addr == ProcessInfo::instance().restoreBufAddr()) {
-      JASSERT(area.size == 3 * ProcessInfo::instance().restoreBufLen())
+    if ((uint64_t)area.addr == ProcessInfo::instance().restoreBufAddr) {
+      JASSERT(area.size == ProcessInfo::instance().restoreBufLen)
         ((void *)area.addr)
         (area.size)
-        (ProcessInfo::instance().restoreBufLen());
+        (ProcessInfo::instance().restoreBufLen);
       continue;
     } else if (SharedData::isSharedDataRegion(area.addr)) {
       continue;
@@ -283,7 +280,7 @@ mtcp_writememoryareas(int fd)
       JTRACE("skipping over memory special section")
         (area.name) ((void*)area.addr) (area.size);
       continue;
-    } else if ((uint64_t) area.addr == ProcessInfo::instance().vdsoStart()) {
+    } else if ((uint64_t) area.addr == ProcessInfo::instance().vdsoStart) {
       //  vDSO issue:
       //    As always, we never want to save the vdso section.  We will use
       //  the vdso section code provided by the kernel on restart.  Further,

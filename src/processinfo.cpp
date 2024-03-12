@@ -157,24 +157,24 @@ ProcessInfo::ProcessInfo()
   _do_lock_tbl();
 
   strcpy(ckptSignature, DMTCP_CKPT_SIGNATURE);
-  memset(_padding, 0, sizeof(_padding));
+  memset(padding, 0, sizeof(padding));
 
   string procSelfExeStr = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
-  strncpy(_procSelfExe, procSelfExeStr.c_str(), sizeof(_procSelfExe) - 1);
+  strncpy(procSelfExe, procSelfExeStr.c_str(), sizeof(procSelfExe) - 1);
 
-  _clock_gettime_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+  clock_gettime_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
                                                      "__vdso_clock_gettime");
-  _getcpu_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+  getcpu_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
                                               "__vdso_getcpu");
-  _gettimeofday_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+  gettimeofday_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
                                                     "__vdso_gettimeofday");
-  _time_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_time");
+  time_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_time");
 
-  _pid = -1;
-  _ppid = -1;
-  _gid = -1;
-  _sid = -1;
-  _isRootOfProcessTree = false;
+  pid = -1;
+  ppid = -1;
+  gid = -1;
+  sid = -1;
+  isRootOfProcessTree = false;
   _generation = 0;
 
   // _generation, above, is per-process.
@@ -182,16 +182,16 @@ ProcessInfo::ProcessInfo()
   // shared among all process on a node; used in variable sharedDataHeader.
   // _generation is updated when _this_ process begins its checkpoint.
   _pthreadJoinId.clear();
-  _uppid = UniquePid();
+  uppid = UniquePid();
   JASSERT(getcwd(buf, sizeof buf) != NULL);
   _launchCWD = buf;
 #ifdef CONFIG_M32
   _elfType = Elf_32;
 #else // ifdef CONFIG_M32
-  _elfType = Elf_64;
+  elfType = Elf_64;
 #endif // ifdef CONFIG_M32
-  _restoreBufLen = RESTORE_TOTAL_SIZE;
-  _restoreBufAddr = 0;
+  restoreBufLen = RESTORE_TOTAL_SIZE;
+  restoreBufAddr = 0;
   _do_unlock_tbl();
 }
 
@@ -235,15 +235,15 @@ ProcessInfo::growStack()
       // Record start of heap which will later be used to restore heap
       _savedHeapStart = (unsigned long)area.addr;
     } else if (strcmp(area.name, "[vdso]") == 0) {
-      _vdsoStart = (unsigned long)area.addr;
-      _vdsoEnd = (unsigned long)area.endAddr;
+      vdsoStart = (unsigned long)area.addr;
+      vdsoEnd = (unsigned long)area.endAddr;
     } else if (strcmp(area.name, "[vvar]") == 0) {
-      _vvarStart = (unsigned long)area.addr;
-      _vvarEnd = (unsigned long)area.endAddr;
+      vvarStart = (unsigned long)area.addr;
+      vvarEnd = (unsigned long)area.endAddr;
     } else if ((VA)&area >= area.addr && (VA)&area < area.endAddr) {
       JTRACE("Original stack area") ((void *)area.addr) (area.size);
       stackArea = area;
-      _endOfStack = (uintptr_t) area.endAddr;
+      endOfStack = (uintptr_t) area.endAddr;
       /*
        * When using Matlab with dmtcp_launch, sometimes the bottom most
        * page of stack (the page with highest address) which contains the
@@ -292,24 +292,24 @@ ProcessInfo::growStack()
 void
 ProcessInfo::init()
 {
-  if (_pid == -1) {
+  if (pid == -1) {
     // This is a brand new process.
-    _pid = getpid();
-    _ppid = getppid();
-    _isRootOfProcessTree = true;
-    _uppid = UniquePid();
+    pid = getpid();
+    ppid = getppid();
+    isRootOfProcessTree = true;
+    uppid = UniquePid();
 
     string procSelfExeStr = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
-    strncpy(_procSelfExe, procSelfExeStr.c_str(), sizeof(_procSelfExe) - 1);
+    strncpy(procSelfExe, procSelfExeStr.c_str(), sizeof(procSelfExe) - 1);
   }
 
 #ifdef CONFIG_M32
   _elfType = Elf_32;
 #else // ifdef CONFIG_M32
-  _elfType = Elf_64;
+  elfType = Elf_64;
 #endif // ifdef CONFIG_M32
 
-  _vdsoStart = _vdsoEnd = _vvarStart = _vvarEnd = _endOfStack = 0;
+  vdsoStart = vdsoEnd = vvarStart = vvarEnd = endOfStack = 0;
 
   processRlimit();
 
@@ -332,15 +332,8 @@ ProcessInfo::init()
 void
 ProcessInfo::updateRestoreBufAddr(void* addr, uint64_t len)
 {
-  // This method could be called by ProcessInfo::init() or ProcessInfo::restart().
-  // If it was called by ProcessInfo::restart(), then mtcp_restart() will
-  // have mmap'ed this "restoreBuf".
-  // NOTE:  We are now doing 'munmap' on it, only to do ''mmap' on it once again
-  //        at the end of this method.  We need to munmap/mmap because we want
-  //        to free the backing physical pages created by mtcp_restart.
-
-  if (_restoreBufAddr != 0) {
-    JASSERT(munmap((void*) _restoreBufAddr, _restoreBufLen) == 0) (JASSERT_ERRNO);
+  if (restoreBufAddr != 0) {
+    JASSERT(munmap((void*) restoreBufAddr, restoreBufLen) == 0) (JASSERT_ERRNO);
   }
 
   int flags = MAP_SHARED | MAP_ANONYMOUS;
@@ -349,26 +342,10 @@ ProcessInfo::updateRestoreBufAddr(void* addr, uint64_t len)
     flags += MAP_FIXED;
   }
 
-  // FIXME:  ProcessInfo::init() sets  len to RESTORE_TOTAL_SIZE.  This
-  //         then sets it to _restoreBufLen.  But ProcessInfo::init() had
-  //         previously set _restoreBufLen to RESTORE_TOTAL_SIZE.  So, we
-  //         have now made the round trip.  This is spaghetti code. :-(
-  // NOTE: This note explains why we need the multiplier, 3, for 3*_restoreBufLen.
-  //       _restoreBufLen is a synonym for RESTORE_TOTAL_SIZE.
-  //       See the comment inside writeckpt.cpp:mtcp_writememoryareas() for
-  //       the purpose of the "restoreBuf" (aka "holebase").  Due to
-  //       address space randomization, this "restoreBuf" may have an
-  //       address conflict with the "stack", "vvar" or other, for mtcp_restart.
-  //       So, we mmap 3 * RESTORE_TOTAL_SIZE.  The entire test/data/stack of
-  //       of mtcp_restart is assumed to fit inside RESTORE_TOTAL_SIZE bytes.
-  //       So, the memory of mtcp_restart will overlap with at most two
-  //       of the three regions of size RESTORE_TOTAL_SIZE.  So, mtcp_restart
-  //       is guaranteed to find a "holebase" that doesn't overlap with
-  //       the existing memory of mtcp_restart.
-  _restoreBufLen = len;
-  _restoreBufAddr = (uint64_t) mmap(addr, 3 * _restoreBufLen,
+  restoreBufLen = len;
+  restoreBufAddr = (uint64_t) mmap(addr, restoreBufLen,
                     PROT_NONE, flags, -1, 0);
-  JASSERT(_restoreBufAddr != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
+  JASSERT(restoreBufAddr != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
 }
 
 void
@@ -429,12 +406,12 @@ void
 ProcessInfo::postExec()
 {
   string procSelfExeStr = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
-  strncpy(_procSelfExe, procSelfExeStr.c_str(), sizeof(_procSelfExe) - 1);
+  strncpy(procSelfExe, procSelfExeStr.c_str(), sizeof(procSelfExe) - 1);
 
-  strncpy(_procname, jalib::Filesystem::GetProgramName().c_str(), sizeof(_procname) -1);
+  strncpy(procname, jalib::Filesystem::GetProgramName().c_str(), sizeof(procname) -1);
 
-  _upid = UniquePid::ThisProcess();
-  _uppid = UniquePid::ParentProcess();
+  upid = UniquePid::ThisProcess();
+  uppid = UniquePid::ParentProcess();
   updateCkptDirFileSubdir();
 }
 
@@ -445,14 +422,14 @@ ProcessInfo::resetOnFork()
   Util::initializeLogFile(SharedData::getTmpDir());
 
   DmtcpMutexInit(&tblLock, DMTCP_MUTEX_NORMAL);
-  _ppid = _pid;
-  _pid = getpid();
+  ppid = pid;
+  pid = getpid();
 
-  _upid = UniquePid();
-  _uppid = UniquePid();
+  upid = UniquePid();
+  uppid = UniquePid();
   _upidStr.clear();
 
-  _isRootOfProcessTree = false;
+  isRootOfProcessTree = false;
   _pthreadJoinId.clear();
   _ckptFileName.clear();
   _ckptFilesSubDir.clear();
@@ -473,19 +450,19 @@ ProcessInfo::restoreHeap()
    */
   uint64_t curBrk = (uint64_t)sbrk(0);
 
-  if (curBrk > _savedBrk) {
+  if (curBrk > savedBrk) {
     JNOTE("Area between saved_break and curr_break not mapped, mapping it now")
-      (_savedBrk) (curBrk);
-    size_t oldsize = _savedBrk - _savedHeapStart;
+      (savedBrk) (curBrk);
+    size_t oldsize = savedBrk - _savedHeapStart;
     size_t newsize = curBrk - _savedHeapStart;
 
     JASSERT(mremap((void *)_savedHeapStart, oldsize, newsize, 0) != NULL)
-      (_savedBrk) (curBrk)
+      (savedBrk) (curBrk)
     .Text("mremap failed to map area between saved break and current break");
-  } else if (curBrk < _savedBrk) {
-    if (brk((void *)_savedBrk) != 0) {
+  } else if (curBrk < savedBrk) {
+    if (brk((void *)savedBrk) != 0) {
       JNOTE("Failed to restore area between saved_break and curr_break.")
-        (_savedBrk) (curBrk) (JASSERT_ERRNO);
+        (savedBrk) (curBrk) (JASSERT_ERRNO);
     }
   }
 }
@@ -493,7 +470,7 @@ ProcessInfo::restoreHeap()
 void
 ProcessInfo::restart()
 {
-  updateRestoreBufAddr((void *)_restoreBufAddr, _restoreBufLen);
+  updateRestoreBufAddr((void *)restoreBufAddr, restoreBufLen);
 
   restoreHeap();
 
@@ -528,17 +505,17 @@ void
 ProcessInfo::restoreProcessGroupInfo()
 {
   // Restore group assignment
-  if (dmtcp_virtual_to_real_pid && dmtcp_virtual_to_real_pid(_gid) != _gid) {
+  if (dmtcp_virtual_to_real_pid && dmtcp_virtual_to_real_pid(gid) != gid) {
     pid_t cgid = getpgid(0);
 
     // Group ID is known inside checkpointed processes
-    if (_gid != cgid) {
+    if (gid != cgid) {
       JTRACE("Restore Group Assignment")
-        (_gid) (_fgid) (cgid) (_pid) (_ppid) (getppid());
-      JWARNING(setpgid(0, _gid) == 0) (_gid) (JASSERT_ERRNO)
+        (gid) (fgid) (cgid) (pid) (ppid) (getppid());
+      JWARNING(setpgid(0, gid) == 0) (gid) (JASSERT_ERRNO)
       .Text("Cannot change group information");
     } else {
-      JTRACE("Group is already assigned") (_gid) (cgid);
+      JTRACE("Group is already assigned") (gid) (cgid);
     }
   } else {
     JTRACE("SKIP Group information, GID unknown");
@@ -619,45 +596,45 @@ ProcessInfo::setCkptDir(const char *dir)
 void
 ProcessInfo::getState()
 {
-  JASSERT(_pid == getpid()) (_pid) (getpid());
+  JASSERT(pid == getpid()) (pid) (getpid());
 
-  _gid = getpgid(0);
-  _sid = getsid(0);
+  gid = getpgid(0);
+  sid = getsid(0);
 
-  _fgid = -1;
+  fgid = -1;
 
   // Try to open the controlling terminal
   int tfd = _real_open("/dev/tty", O_RDWR);
   if (tfd != -1) {
-    _fgid = tcgetpgrp(tfd);
+    fgid = tcgetpgrp(tfd);
     _real_close(tfd);
   }
 
-  if (_ppid != getppid()) {
+  if (ppid != getppid()) {
     // Our original parent died; we are the root of the process tree now.
     //
     // On older systems, a process is inherited by init (pid = 1) after its
     // parent dies. However, with the new per-user init process, the parent
     // pid is no longer "1"; it's the pid of the user-specific init process.
-    _ppid = getppid();
-    _isRootOfProcessTree = true;
-    _uppid = UniquePid();
+    ppid = getppid();
+    isRootOfProcessTree = true;
+    uppid = UniquePid();
   } else {
-    _uppid = UniquePid::ParentProcess();
+    uppid = UniquePid::ParentProcess();
   }
 
   string procSelfExeStr = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
-  strncpy(_procSelfExe, procSelfExeStr.c_str(), sizeof(_procSelfExe) - 1);
+  strncpy(procSelfExe, procSelfExeStr.c_str(), sizeof(procSelfExe) - 1);
 
-  strncpy(_procname, jalib::Filesystem::GetProgramName().c_str(), sizeof(_procname) -1);
+  strncpy(procname, jalib::Filesystem::GetProgramName().c_str(), sizeof(procname) -1);
   _hostname = jalib::Filesystem::GetCurrentHostname();
-  _upid = UniquePid::ThisProcess();
+  upid = UniquePid::ThisProcess();
 
   char buf[PATH_MAX];
   JASSERT(getcwd(buf, sizeof buf) != NULL);
   _ckptCWD = buf;
 
-  JTRACE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(_pid);
+  JTRACE("CHECK GROUP PID")(gid)(fgid)(ppid)(pid);
 }
 
 // NOTE: ProcessInfo object acts as the checkpoint header for DMTCP.
@@ -682,26 +659,26 @@ void
 ProcessInfo::serialize(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("ProcessInfo:");
-  _savedBrk = (uint64_t) sbrk(0);
+  savedBrk = (uint64_t) sbrk(0);
 
-  o & _elfType;
-  o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid & _generation;
-  o & _procname & _procSelfExe & _hostname & _launchCWD & _ckptCWD;
-  o & _upid & _uppid;
-  o & _clock_gettime_offset & _getcpu_offset
-    & _gettimeofday_offset & _time_offset;
-  o & _compGroup & _numPeers;
-  o & _restoreBufAddr & _savedHeapStart & _savedBrk;
-  o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd & _endOfStack;
+  o & elfType;
+  o & isRootOfProcessTree & pid & sid & ppid & gid & fgid & _generation;
+  o & procname & procSelfExe & _hostname & _launchCWD & _ckptCWD;
+  o & upid & uppid;
+  o & clock_gettime_offset & getcpu_offset
+    & gettimeofday_offset & time_offset;
+  o & compGroup & numPeers;
+  o & restoreBufAddr & _savedHeapStart & savedBrk;
+  o & vdsoStart & vdsoEnd & vvarStart & vvarEnd & endOfStack;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
   o & kvmap;
 
   JTRACE("Serialized process information")
-    (_sid) (_ppid) (_gid) (_fgid) (_isRootOfProcessTree)
-    (_procname) (_hostname) (_launchCWD) (_ckptCWD) (_upid) (_uppid)
-    (_compGroup) (_numPeers) (_elfType);
+    (sid) (ppid) (gid) (fgid) (isRootOfProcessTree)
+    (procname) (_hostname) (_launchCWD) (_ckptCWD) (upid) (uppid)
+    (compGroup) (numPeers) (elfType);
 
-  if (_isRootOfProcessTree) {
+  if (isRootOfProcessTree) {
     JTRACE("This process is Root of Process Tree");
   }
 
