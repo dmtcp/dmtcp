@@ -372,8 +372,7 @@ CkptSerializer::createCkptDir()
 
 // See comments above for open_ckpt_to_read()
 void
-CkptSerializer::writeCkptImage(void *mtcpHdr,
-                               size_t mtcpHdrLen,
+CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
                                const string& ckptFilename)
 {
   JTRACE("Thread performing checkpoint.");
@@ -396,11 +395,10 @@ CkptSerializer::writeCkptImage(void *mtcpHdr,
   JASSERT(fdCkptFileOnDisk >= 0);
   JASSERT(use_compression || fd == fdCkptFileOnDisk);
 
-  // The rest of this function is for compatibility with original definition.
-  writeDmtcpHeader(fd);
-
-  // Write MTCP header
-  JASSERT(Util::writeAll(fd, mtcpHdr, mtcpHdrLen) == (ssize_t)mtcpHdrLen);
+  // Write ckpt header twice. It's read once by dmtcp_restart and again by
+  // mtcp_restart.
+  JASSERT(Util::writeAll(fd, &ckptHdr, sizeof(ckptHdr)) == sizeof(ckptHdr));
+  JASSERT(Util::writeAll(fd, &ckptHdr, sizeof(ckptHdr)) == sizeof(ckptHdr));
 
   JTRACE("MTCP is about to write checkpoint image.")(ckptFilename);
   mtcp_writememoryareas(fd);
@@ -425,14 +423,4 @@ CkptSerializer::writeCkptImage(void *mtcpHdr,
   }
 
   JTRACE("checkpoint complete");
-}
-
-void
-CkptSerializer::writeDmtcpHeader(int fd)
-{
-  DmtcpCkptHeader header = ProcessInfo::instance();
-  const ssize_t pagesize = Util::pageSize();
-  ASSERT_EQ(sizeof(header) % pagesize, 0);
-
-  ASSERT_EQ(Util::writeAll(fd, &header, sizeof(header)), sizeof(header));
 }

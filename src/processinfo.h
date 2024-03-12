@@ -59,19 +59,19 @@ class ProcessInfo : public DmtcpCkptHeader
     void clearPthreadJoinState(pthread_t thread);
 
     void getState();
-    void setRootOfProcessTree() { _isRootOfProcessTree = true; }
+    void setRootOfProcessTree() { isRootOfProcessTree = 1; }
 
-    bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
+    bool getIsRootOfProcessTree() const { return isRootOfProcessTree == 1; }
 
     void serialize(jalib::JBinarySerializer &o);
 
-    uint32_t numPeers() { return _numPeers; }
+    uint32_t getNumPeers() { return numPeers; }
 
-    void numPeers(uint32_t np) { _numPeers = np; }
+    void setNumPeers(uint32_t np) { numPeers = np; }
 
-    pid_t pid() const { return _pid; }
+    pid_t getPid() const { return pid; }
 
-    pid_t sid() const { return _sid; }
+    pid_t getSid() const { return sid; }
 
     uint32_t get_generation() { return _generation; }
 
@@ -87,72 +87,47 @@ class ProcessInfo : public DmtcpCkptHeader
 
     void processRlimit();
 
-    string procname() const { return _procname; }
+    string getProcname() const { return procname; }
 
-    string procSelfExe() const { return _procSelfExe; }
+    string getProcSelfExe() const { return procSelfExe; }
 
     const string &hostname() const { return _hostname; }
 
-    UniquePid upid() {
+    UniquePid getUpid() {
       // Temporary fix until we remove the static members from UniquePid.cpp.
-      if (_upid == DmtcpUniqueProcessId()) {
-        _upid = UniquePid::ThisProcess(true);
+      if (upid == DmtcpUniqueProcessId()) {
+        upid = UniquePid::ThisProcess(true);
       }
-      return _upid;
+      return upid;
     }
 
     const string &upidStr() {
       if (_upidStr.empty()) {
-        _upidStr = upid().toString();
+        _upidStr = UniquePid(upid).toString();
       }
       return _upidStr;
     }
 
-    UniquePid uppid() {
+    UniquePid getUppid() {
       // Temporary fix until we remove the static members from UniquePid.cpp.
-      if (_uppid == UniquePid()) {
-        _uppid = UniquePid::ParentProcess();
+      if (uppid == UniquePid()) {
+        uppid = UniquePid::ParentProcess();
       }
-      return _uppid;
+      return uppid;
     }
 
-    UniquePid compGroup() const { return _compGroup; }
+    UniquePid getCompGroup() const { return compGroup; }
 
     const string &compGroupStr() {
       if (_compGroupStr.empty()) {
-        _compGroupStr = UniquePid(_compGroup).toString();
+        _compGroupStr = UniquePid(compGroup).toString();
       }
       return _compGroupStr;
     }
 
-    void compGroup(UniquePid cg) { _compGroup = cg; }
-
-
-    bool isOrphan() const { return _ppid == 1; }
-
-    bool isSessionLeader() const { return _pid == _sid; }
-
-    bool isGroupLeader() const { return _pid == _gid; }
-
-    bool isForegroundProcess() const { return _gid == _fgid; }
-
-    int elfType() const { return _elfType; }
-
-    uint64_t savedBrk(void) const { return _savedBrk; }
+    void getCompGroup(UniquePid cg) { compGroup = cg; }
 
     void updateRestoreBufAddr(void* addr, uint64_t len);
-    uint64_t restoreBufAddr(void) const { return _restoreBufAddr; }
-    uint64_t restoreBufLen(void) const { return _restoreBufLen; }
-
-    uint64_t vdsoStart(void) const { return _vdsoStart; }
-
-    uint64_t vdsoEnd(void) const { return _vdsoEnd; }
-
-    uint64_t vvarStart(void) const { return _vvarStart; }
-
-    uint64_t vvarEnd(void) const { return _vvarEnd; }
-
-    uint64_t endOfStack(void) const { return _endOfStack; }
 
     string const& getCkptFilename() const { return _ckptFileName; }
     string getTempCkptFilename() const { return _ckptFileName + ".temp"; }
@@ -188,14 +163,7 @@ class ProcessInfo : public DmtcpCkptHeader
     string _compGroupStr;
 
     uint64_t _savedHeapStart;
-    uint64_t _savedBrk;
     uint64_t _initialSavedBrk;
-
-    uint64_t _vdsoStart;
-    uint64_t _vdsoEnd;
-    uint64_t _vvarStart;
-    uint64_t _vvarEnd;
-    uint64_t _endOfStack;
 
     // Put <64-bit wide variabled here to ensure they are properly aligned.
 

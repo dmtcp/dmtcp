@@ -92,16 +92,10 @@ typedef struct RestoreInfo {
 
   // int mtcp_sys_errno;
 
-  VA saved_brk;
   VA restore_addr;
   VA restore_end;
   size_t restore_size;
-  VA vdsoStart;
-  VA vdsoEnd;
-  VA vvarStart;
-  VA vvarEnd;
-  VA endOfStack;
-  fnptr_t post_restart;
+
   // NOTE: Update the offset when adding fields to the RestoreInfo struct
   // See note below in the restart_fast_path() function.
   fnptr_t restore_func;
@@ -139,19 +133,18 @@ typedef struct RestoreInfo {
   int simulate;
   int mpiMode;
 
+  MtcpHeader mtcpHeader;
+
   char ckptImage[PATH_MAX];
 } RestoreInfo;
 
 // int mtcp_restart_process_args(RestoreInfo *rinfo, int argc, char *argv[], char **environ);
 void mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*func)(RestoreInfo *));
-void mtcp_restart_process_header(RestoreInfo *rinfoIn, MtcpHeader *mtcpHdr);
-void mtcp_restart(RestoreInfo *rinfo, MtcpHeader *mtcpHdr);
-void mtcp_simulateread(RestoreInfo *rinfo);
+void mtcp_restart(RestoreInfo *rinfo);
 void mtcp_check_vdso(char **environ);
-int mtcp_open_ckpt_image_and_read_header(RestoreInfo *rinfo, MtcpHeader *mtcpHdr);
 
-// Usage: DMTCP_RESTART_PAUSE_WHILE(*&rinfo)->restart_pause == <LEVEL>);
-#define DMTCP_RESTART_PAUSE_WHILE(condition)                                   \
+// Usage: MTCP_RESTART_PAUSE_WHILE(*&rinfo)->restart_pause == <LEVEL>);
+#define MTCP_RESTART_PAUSE_WHILE(condition)                                   \
   do {                                                                         \
     while (condition);                                                         \
   } while (0)

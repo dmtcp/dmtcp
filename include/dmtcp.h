@@ -261,46 +261,43 @@ enum ElfType {
 typedef struct {
   char ckptSignature[32];
 
-  DmtcpUniqueProcessId _upid;
-  DmtcpUniqueProcessId _uppid;
-  DmtcpUniqueProcessId _compGroup;
+  DmtcpUniqueProcessId upid;
+  DmtcpUniqueProcessId uppid;
+  DmtcpUniqueProcessId compGroup;
 
-  uint64_t _restoreBufAddr;
-  uint64_t _restoreBufLen;
+  uint64_t restoreBufAddr;
+  uint64_t restoreBufLen;
 
-  pid_t _pid;
-  pid_t _ppid;
-  pid_t _sid;
-  pid_t _gid;
-  pid_t _fgid;
-  uint32_t _isRootOfProcessTree;
+  pid_t pid;
+  pid_t ppid;
+  pid_t sid;
+  pid_t gid;
+  pid_t fgid;
+  uint32_t isRootOfProcessTree;
 
-  uint32_t _numPeers;
-  uint32_t _elfType;
+  uint32_t numPeers;
+  uint32_t elfType;
 
-  uint64_t _clock_gettime_offset;
-  uint64_t _getcpu_offset;
-  uint64_t _gettimeofday_offset;
-  uint64_t _time_offset;
+  uint64_t clock_gettime_offset;
+  uint64_t getcpu_offset;
+  uint64_t gettimeofday_offset;
+  uint64_t time_offset;
 
-#if 0
-  // TODO(kapil): merge Mtcp header.
   uint64_t vdsoStart;
   uint64_t vdsoEnd;
   uint64_t vvarStart;
   uint64_t vvarEnd;
 
-  uint64_t saved_brk;
-  uint64_t end_of_stack;
+  uint64_t savedBrk;
+  uint64_t endOfStack;
 
-  uint64_t post_restart_addr;
+  uint64_t postRestartAddr;
   //void (*post_restart)(double, int);
-#endif
 
-  char _procname[1024];
-  char _procSelfExe[1024];
+  char procname[1024];
+  char procSelfExe[1024];
 
-  char _padding[1864];
+  char padding[1808];
 } DmtcpCkptHeader;
 
 static_assert(sizeof(DmtcpCkptHeader) == 4096, "DmtcpCkptHeader must be 4096 bytes");

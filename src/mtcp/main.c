@@ -39,13 +39,12 @@ main(int argc, char *argv[], char **environ)
 void main_new_stack(RestoreInfo *rinfo)
 {
   int mtcp_sys_errno;
-  MtcpHeader mtcpHdr;
 
   MTCP_ASSERT(rinfo->fd != -1);
 
-  int rc = mtcp_readfile(rinfo->fd, &mtcpHdr, sizeof (mtcpHdr));
-  MTCP_ASSERT(rc == sizeof (mtcpHdr));
-  MTCP_ASSERT(mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) == 0);
+  int rc = mtcp_readfile(rinfo->fd, &rinfo->mtcpHeader, sizeof (rinfo->mtcpHeader));
+  MTCP_ASSERT(rc == sizeof (rinfo->mtcpHeader));
+  MTCP_ASSERT(mtcp_strcmp(rinfo->mtcpHeader.ckptSignature, DMTCP_CKPT_SIGNATURE) == 0);
 
-  mtcp_restart(rinfo, &mtcpHdr);
+  mtcp_restart(rinfo);
 }
