@@ -186,6 +186,8 @@ RestoreTarget::RestoreTarget(const string &path)
 void
 RestoreTarget::initialize()
 {
+  WorkerState::setCurrentState(WorkerState::RESTARTING);
+
   UniquePid::ThisProcess() = upid();
   UniquePid::ParentProcess() = uppid();
 
