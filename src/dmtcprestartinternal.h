@@ -39,32 +39,32 @@ class RestoreTarget
 
     int fd() const { return _fd; }
 
-    UniquePid upid() { return _ckptHdr._upid; }
-    UniquePid uppid() { return _ckptHdr._uppid; }
-    UniquePid compGroup() { return _ckptHdr._compGroup; }
+    UniquePid upid() { return _ckptHdr.upid; }
+    UniquePid uppid() { return _ckptHdr.uppid; }
+    UniquePid compGroup() { return _ckptHdr.compGroup; }
 
 
-    pid_t pid() const { return _ckptHdr._pid; }
+    pid_t pid() const { return _ckptHdr.pid; }
 
-    pid_t sid() const { return _ckptHdr._sid; }
+    pid_t sid() const { return _ckptHdr.sid; }
 
-    bool isRootOfProcessTree() const { return _ckptHdr._isRootOfProcessTree; }
+    bool isRootOfProcessTree() const { return _ckptHdr.isRootOfProcessTree; }
 
-    string procSelfExe() const { return _ckptHdr._procSelfExe; }
+    string procSelfExe() const { return _ckptHdr.procSelfExe; }
 
-    bool isOrphan() { return _ckptHdr._ppid == 1; }
+    bool isOrphan() { return _ckptHdr.ppid == 1; }
 
-    bool isGroupLeader() const { return _ckptHdr._pid == _ckptHdr._gid; }
+    bool isGroupLeader() const { return _ckptHdr.pid == _ckptHdr.gid; }
 
-    string procname() { return _ckptHdr._procname; }
+    string procname() { return _ckptHdr.procname; }
 
-    int numPeers() { return _ckptHdr._numPeers; }
+    int numPeers() { return _ckptHdr.numPeers; }
 
-    uint64_t restoreBufAddr() { return _ckptHdr._restoreBufAddr; }
+    uint64_t restoreBufAddr() { return _ckptHdr.restoreBufAddr; }
 
-    uint64_t restoreBufLen() { return _ckptHdr._restoreBufLen; }
+    uint64_t restoreBufLen() { return _ckptHdr.restoreBufLen; }
 
-    const int getElfType() const { return _ckptHdr._elfType; }
+    const int getElfType() const { return _ckptHdr.elfType; }
 
 
     void initialize();

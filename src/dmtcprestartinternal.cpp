@@ -165,10 +165,10 @@ checkVdsoOffsetMismatch(DmtcpCkptHeader *ckptHdr)
   uint64_t time_offset =
     dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_time");
 
-  ASSERT_EQ(ckptHdr->_clock_gettime_offset, clock_gettime_offset);
-  JASSERT(ckptHdr->_getcpu_offset == getcpu_offset) .Text(error);
-  JASSERT(ckptHdr->_gettimeofday_offset == gettimeofday_offset) .Text(error);
-  JASSERT(ckptHdr->_time_offset == time_offset) .Text(error);
+  ASSERT_EQ(ckptHdr->clock_gettime_offset, clock_gettime_offset);
+  JASSERT(ckptHdr->getcpu_offset == getcpu_offset) .Text(error);
+  JASSERT(ckptHdr->gettimeofday_offset == gettimeofday_offset) .Text(error);
+  JASSERT(ckptHdr->time_offset == time_offset) .Text(error);
 }
 
 RestoreTarget::RestoreTarget(const string &path)

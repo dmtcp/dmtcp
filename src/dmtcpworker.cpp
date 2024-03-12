@@ -352,7 +352,7 @@ DmtcpWorker::waitForPreSuspendMessage()
   JASSERT(SharedData::getCompId() == msg.compGroup.upid())
     (SharedData::getCompId()) (msg.compGroup);
 
-  ProcessInfo::instance().compGroup(SharedData::getCompId());
+  ProcessInfo::instance().compGroup = SharedData::getCompId();
   exitAfterCkpt = msg.exitAfterCkpt;
 }
 
@@ -425,7 +425,7 @@ DmtcpWorker::preCheckpoint()
   JTRACE("Computation information") (numPeers);
 
   // initialize global number of peers:
-  ProcessInfo::instance().numPeers(numPeers);
+  ProcessInfo::instance().numPeers = numPeers;
 
   WorkerState::setCurrentState(WorkerState::CHECKPOINTING);
   PluginManager::eventHook(DMTCP_EVENT_PRECHECKPOINT);

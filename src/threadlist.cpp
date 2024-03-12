@@ -294,31 +294,6 @@ ThreadList::initThread(Thread *th)
 
 /*************************************************************************
  *
- *  Prepare MTCP Header
- *
- *************************************************************************/
-static void
-prepareMtcpHeader(MtcpHeader *mtcpHdr)
-{
-  memset(mtcpHdr, 0, sizeof(*mtcpHdr));
-  strncpy(mtcpHdr->signature, MTCP_SIGNATURE, strlen(MTCP_SIGNATURE) + 1);
-  mtcpHdr->saved_brk = sbrk(0);
-  mtcpHdr->end_of_stack = (void *)ProcessInfo::instance().endOfStack();
-  // TODO: Now that we have a separate mtcp dir, the code dealing with
-  // restoreBuf should go in there.
-  mtcpHdr->restore_addr = (void *)ProcessInfo::instance().restoreBufAddr();
-  mtcpHdr->restore_size = ProcessInfo::instance().restoreBufLen();
-
-  mtcpHdr->vdsoStart = (void *)ProcessInfo::instance().vdsoStart();
-  mtcpHdr->vdsoEnd = (void *)ProcessInfo::instance().vdsoEnd();
-  mtcpHdr->vvarStart = (void *)ProcessInfo::instance().vvarStart();
-  mtcpHdr->vvarEnd = (void *)ProcessInfo::instance().vvarEnd();
-
-  mtcpHdr->post_restart = &ThreadList::postRestart;
-}
-
-/*************************************************************************
- *
  *  Write checkpoint image
  *
  *************************************************************************/
@@ -333,12 +308,16 @@ ThreadList::writeCkpt()
     saved_sysinfo = TLSInfo_GetThreadSysinfo();
   }
 
-  MtcpHeader mtcpHdr;
-  prepareMtcpHeader(&mtcpHdr);
-
   string ckptFilename = ProcessInfo::instance().getTempCkptFilename();
 
-  CkptSerializer::writeCkptImage(&mtcpHdr, sizeof(mtcpHdr), ckptFilename);
+  DmtcpCkptHeader header = ProcessInfo::instance();
+  header.savedBrk = (uint64_t) sbrk(0);
+  header.postRestartAddr = (uint64_t) &ThreadList::postRestart;
+
+  const ssize_t pagesize = Util::pageSize();
+  ASSERT_EQ(sizeof(header) % pagesize, 0);
+
+  CkptSerializer::writeCkptImage(header, ckptFilename);
 }
 
 /*************************************************************************
