@@ -257,6 +257,7 @@ enum ElfType {
   Elf_64
 };
 
+typedef void (*PostRestartFnPtr_t)(double, int);
 #define DMTCP_CKPT_SIGNATURE "DMTCP_CHECKPOINT_IMAGE_v3.0\n"
 typedef struct {
   char ckptSignature[32];
