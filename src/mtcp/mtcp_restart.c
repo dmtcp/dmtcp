@@ -992,7 +992,6 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
   // method would be to read the elf headers for the mtcp_restart binary and
   // compute text offset from there.
   size_t entrypoint_offset = (VA)&_start - (VA) mem_regions[0].addr;
-  rinfo->mtcp_restart_text_addr = rinfo->ckptHdr.restoreBufAddr + entrypoint_offset;
 
   // Make sure we can fit all mtcp_restart regions in the restore area.
   MTCP_ASSERT(mem_regions[num_regions - 1].endAddr - mem_regions[0].addr <=
