@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include "../../include/dmtcp.h"
 
-typedef DmtcpCkptHeader MtcpHeader;
 // typedef union _MtcpHeader {
 //   struct {
 //     char signature[MTCP_SIGNATURE_LEN];
