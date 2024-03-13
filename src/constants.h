@@ -105,12 +105,6 @@
 #define ENV_VAR_COMPRESSION         "DMTCP_GZIP"
 #define ENV_VAR_ALLOC_PLUGIN        "DMTCP_ALLOC_PLUGIN"
 #define ENV_VAR_DL_PLUGIN           "DMTCP_DL_PLUGIN"
-#ifdef HBICT_DELTACOMP
-  # define ENV_VAR_DELTACOMPRESSION "DMTCP_HBICT"
-  # define ENV_DELTACOMPRESSION     ENV_VAR_DELTACOMPRESSION
-#else // ifdef HBICT_DELTACOMP
-  # define ENV_DELTACOMPRESSION
-#endif // ifdef HBICT_DELTACOMP
 
 #define ENV_VAR_FORKED_CKPT             "DMTCP_FORKED_CHECKPOINT"
 #define ENV_VAR_SIGCKPT                 "DMTCP_SIGCKPT"
@@ -143,15 +137,12 @@
   ENV_VAR_SIGCKPT,                    \
   ENV_VAR_SCREENDIR,                  \
   ENV_VAR_VIRTUAL_PID,                \
-  ENV_VAR_FSGSBASE_ENABLED,           \
-  ENV_DELTACOMPRESSION
+  ENV_VAR_FSGSBASE_ENABLED
 
 #define DMTCP_RESTART_CMD       "dmtcp_restart"
 
 #define RESTART_SCRIPT_BASENAME "dmtcp_restart_script"
 #define RESTART_SCRIPT_EXT      "sh"
-
-#define DMTCP_FILE_HEADER       "DMTCP_CHECKPOINT_IMAGE_v2.0\n"
 
 // #define MIN_SIGNAL 1
 // #define MAX_SIGNAL 30

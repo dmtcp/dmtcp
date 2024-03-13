@@ -177,16 +177,16 @@ class CppLinter(LinterBase):
         rules_filter = '--filter=-,+' + ',+'.join(active_rules)
         python_version = 'python3' if sys.version_info[0] == 3 else 'python'
         p = subprocess.Popen(
-            [python_version, 'util/cpplint.py', rules_filter] + source_paths,
+            [python_version, 'util/cpplint.py', "--verbose=5", rules_filter] + source_paths,
             stderr=subprocess.PIPE,
             close_fds=True)
 
         # Lines are stored and filtered, only showing found errors instead
         # of e.g., 'Done processing XXX.' which tends to be dominant output.
         for line in p.stderr:
-            if re.match('^(Done processing |Total errors found: )', line):
+            if re.match(b'^(Done processing |Total errors found: )', line):
                 continue
-            sys.stderr.write(line)
+            sys.stderr.write(line.decode('utf-8'))
 
         p.wait()
         return p.returncode

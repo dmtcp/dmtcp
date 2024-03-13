@@ -2,7 +2,6 @@ USE_TEST_SUITE="@USE_TEST_SUITE@"
 USE_M32=@M32@
 USE_MULTILIB=@MULTILIB@
 DEBUG="@DEBUG@"
-HBICT_DELTACOMP="@HBICT_DELTACOMP@"
 ARM_HOST="@ARM_HOST@"
 
 # We may be running a user's python, but we should only test with canonical one
