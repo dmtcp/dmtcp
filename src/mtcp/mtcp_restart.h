@@ -92,10 +92,6 @@ typedef struct RestoreInfo {
 
   // int mtcp_sys_errno;
 
-  VA restore_addr;
-  VA restore_end;
-  size_t restore_size;
-
   // NOTE: Update the offset when adding fields to the RestoreInfo struct
   // See note below in the restart_fast_path() function.
   fnptr_t restore_func;
@@ -115,7 +111,6 @@ typedef struct RestoreInfo {
   // void (*post_restart)();
   // void (*restorememoryareas_fptr)();
   int use_gdb;
-  VA mtcp_restart_text_addr;
 #ifdef TIMING
   struct timeval startValue;
 #endif
