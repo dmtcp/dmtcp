@@ -42,9 +42,9 @@ void main_new_stack(RestoreInfo *rinfo)
 
   MTCP_ASSERT(rinfo->fd != -1);
 
-  int rc = mtcp_readfile(rinfo->fd, &rinfo->mtcpHeader, sizeof (rinfo->mtcpHeader));
-  MTCP_ASSERT(rc == sizeof (rinfo->mtcpHeader));
-  MTCP_ASSERT(mtcp_strcmp(rinfo->mtcpHeader.ckptSignature, DMTCP_CKPT_SIGNATURE) == 0);
+  int rc = mtcp_readfile(rinfo->fd, &rinfo->ckptHdr, sizeof (rinfo->ckptHdr));
+  MTCP_ASSERT(rc == sizeof (rinfo->ckptHdr));
+  MTCP_ASSERT(mtcp_strcmp(rinfo->ckptHdr.ckptSignature, DMTCP_CKPT_SIGNATURE) == 0);
 
   mtcp_restart(rinfo);
 }

@@ -133,7 +133,7 @@ typedef struct RestoreInfo {
   int simulate;
   int mpiMode;
 
-  MtcpHeader mtcpHeader;
+  DmtcpCkptHeader ckptHdr;
 
   char ckptImage[PATH_MAX];
 } RestoreInfo;
