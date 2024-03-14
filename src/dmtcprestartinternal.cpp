@@ -121,24 +121,24 @@ static int requestedDebugLevel = 0;
 class RestoreTarget;
 
 typedef map<UniquePid, RestoreTarget *>RestoreTargetMap;
-RestoreTargetMap targets;
-RestoreTargetMap independentProcessTreeRoots;
-bool noStrictChecking = false;
+static RestoreTargetMap targets;
+static RestoreTargetMap independentProcessTreeRoots;
+static bool noStrictChecking = false;
 
-string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
-string ckptdir_arg;
-CoordinatorMode allowedModes = COORD_ANY;
-string coord_host;
-int coord_port = UNINITIALIZED_PORT;
-string thePortFile;
+static string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
+static string ckptdir_arg;
+static CoordinatorMode allowedModes = COORD_ANY;
+static string coord_host;
+static int coord_port = UNINITIALIZED_PORT;
+static string thePortFile;
 
-string mtcp_restart;
-string mtcp_restart_32;
-string fdBuf;
-string stderrFd;
-string restoreBufAddrStr;
-string restoreBufLenStr;
-char *pause_param;
+static string mtcp_restart;
+static string mtcp_restart_32;
+static string fdBuf;
+static string stderrFd;
+static string restoreBufAddrStr;
+static string restoreBufLenStr;
+static char *pause_param;
 
 
 static void setEnvironFd();

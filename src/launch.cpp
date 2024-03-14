@@ -216,12 +216,12 @@ static struct PluginInfo pluginInfo[] = {               // Default value
   { &enablePIDPlugin, "libdmtcp_pid.so" }               // Enabled
 };
 
-const size_t numLibs = sizeof(pluginInfo) / sizeof(struct PluginInfo);
+static const size_t numLibs = sizeof(pluginInfo) / sizeof(struct PluginInfo);
 
 static CoordinatorMode allowedModes = COORD_ANY;
-string tmpDir = "tmpDir is not set";
-string coord_host = "";
-int coord_port = UNINITIALIZED_PORT;
+static string tmpDir = "tmpDir is not set";
+static string coord_host = "";
+static int coord_port = UNINITIALIZED_PORT;
 static string thePortFile;
 
 void ResetProtectedFds()
