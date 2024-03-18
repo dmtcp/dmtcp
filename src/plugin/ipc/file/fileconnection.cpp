@@ -336,10 +336,7 @@ FileConnection::refill(bool isRestart)
       JASSERT(tempfd != -1) (_path) (JASSERT_ERRNO).Text("open() failed");
       JASSERT(truncate(_path.c_str(), _st_size) == 0)
         (_path.c_str()) (_st_size) (JASSERT_ERRNO);
-    } else {
-      JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
-      .Text("File not found.");
-
+    } else if (jalib::Filesystem::FileExists(_path)) {
       if (stat(_path.c_str(), &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
         if (statbuf.st_size > _st_size &&
             ((_fcntlFlags & O_APPEND) ||
@@ -371,7 +368,15 @@ FileConnection::refill(bool isRestart)
         }
       }
       tempfd = openFile();
+    } else if (_fcntlFlags & O_WRONLY) {
+      // File doesn't exist. If it's a WRONLY file, we'll create a new one.
+      tempfd = _real_open(_path.c_str(), O_CREAT|O_WRONLY|O_TRUNC);
+      ASSERT_NE(-1, tempfd);
+      ASSERT_EQ(0, ftruncate(tempfd, _st_size));
+    } else {
+      JASSERT(false) (_path) .Text("File not found.");
     }
+
     restoreDupFds(tempfd);
   }
 
