@@ -787,6 +787,8 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
     } else if (argc > 1 && (s == "--gdb")) {
       requestedDebugLevel = atoi(argv[1]);
       shift; shift;
+    } else if (s == "--restore") {
+      shift;
     } else if (s == "--mpi") {
       runMpiProxy = true;
       shift;
