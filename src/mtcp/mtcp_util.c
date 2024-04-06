@@ -865,9 +865,9 @@ void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
 #ifndef MAP_FIXED_NOREPLACE
 #define MAP_FIXED_NOREPLACE 0x100000
+#endif
   // This flag should force: 'addr == addr2' or 'addr2 == MAP_FAILED'
   flags |= MAP_FIXED_NOREPLACE;
-#endif
 #endif
   void *addr2 = mtcp_sys_mmap(addr, len, prot, flags, fd, offset);
   if (addr == addr2) {
