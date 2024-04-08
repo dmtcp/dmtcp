@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
@@ -19,21 +19,24 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef CKPT_SERIZLIZER_H
-#define CKPT_SERIZLIZER_H
-
-#include "dmtcpalloc.h"
-#include "processinfo.h"
+#ifndef DMTCP_LAUNCH_H
+#define DMTCP_LAUNCH_H
 
 
-namespace dmtcp
+namespace dmtcp {
+namespace Launch
 {
-namespace CkptSerializer
-{
-int openCkptFileToWrite(const string &path);
-void createCkptDir();
-void writeCkptImage(DmtcpCkptHeader ckptHdr,
-                    const string& ckptFilename);
-}
-}
-#endif // ifndef CKPT_SERIZLIZER_H
+void
+validateLaunchEnvironment(int argc, const char **argv);
+
+void
+initializeLaunch(int *argc, const char ***argv);
+
+const char **
+patchArgvForSetuid(int argc, const char **argv);
+
+void setLDPreloadLibs(int argc, const char **newArgv);
+};
+};
+
+#endif // #ifnded DMTCP_LAUNCH_H

@@ -271,9 +271,11 @@ void open_log_file();
 #define JASSERT_FUNC __FUNCTION__
 #define JASSERT_LINE JASSERT_STRINGIFY(__LINE__)
 #define JASSERT_FILE jassert_internal::jassert_basename(__FILE__)
-#define JASSERT_CONTEXT(reason)                                                 \
+#define JASSERT_CONTEXT_NO_NEWLINE(reason)                                                 \
   Print(" at ").Print(JASSERT_FILE).Print(":" JASSERT_LINE " in ").Print(  \
-    JASSERT_FUNC).Print("; REASON='" reason "'\n")
+    JASSERT_FUNC).Print("; REASON='" reason)
+
+#define JASSERT_CONTEXT(reason) JASSERT_CONTEXT_NO_NEWLINE(reason).Print("\n")                                                 \
 
 #ifdef LOGGING
 # define JTRACE(msg)                                              \
@@ -302,18 +304,32 @@ void open_log_file();
     .JASSERT_CONTEXT("JASSERT(" # term ") failed").JASSERT_CONT_A
 
 #define ASSERT_EQ(expected, term)                                 \
-  if ((expected) == (term)) {                                     \
+  do {                                                            \
+  auto lhs = (expected);                                          \
+  auto rhs = (term);                                              \
+  if (lhs == rhs) {                                               \
   } else                                                          \
     jassert_internal::JAssert()                                   \
-    .JASSERT_CONTEXT("ASSERT_EQ failed; <" #expected "> == <"     \
-                     #term ">.").JASSERT_CONT_A
+    .JASSERT_CONTEXT_NO_NEWLINE("ASSERT_EQ failed; ")             \
+    .Print("<" #expected "(").Print(lhs)                          \
+    .Print(")> == <" #term "(").Print(rhs)                        \
+    .Print(")>.\n")                                               \
+    .JASSERT_CONT_A;                                              \
+  } while (0)
 
-#define ASSERT_NE(expected, term)                                           \
-  if ((expected) != (term)) {                                               \
-  } else                                                                    \
-    jassert_internal::JAssert()                                             \
-      .JASSERT_CONTEXT("ASSERT_NE failed; <" #expected "> != <" #term ">.") \
-      .JASSERT_CONT_A
+#define ASSERT_NE(expected, term)                                 \
+  do {                                                            \
+  auto lhs = (expected);                                          \
+  auto rhs = (term);                                              \
+  if (lhs != rhs) {                                               \
+  } else                                                          \
+    jassert_internal::JAssert()                                   \
+    .JASSERT_CONTEXT_NO_NEWLINE("ASSERT_NE failed; ")             \
+    .Print("<" #expected "(").Print(lhs)                          \
+    .Print(")> != <" #term "(").Print(rhs)                        \
+    .Print(")>.\n")                                               \
+    .JASSERT_CONT_A;                                              \
+  } while (0)
 
 #define ASSERT_NULL(term)                                         \
   if (nullptr == (term)) {                                        \

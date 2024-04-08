@@ -15,8 +15,8 @@ ifndef DMTCP_ROOT
 endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 
-override CFLAGS += -fPIC -I${DMTCP_INCLUDE}
-override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE}
+override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -g -O0
+override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -g -O0
 LINK = ${CC}
 
 # if version.h not found:
