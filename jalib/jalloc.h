@@ -142,9 +142,9 @@ class JAlloc
     {
       return JAllocDispatcher::free(p);
     }
+#endif // ifdef JALIB_ALLOCATOR
 
     static void getAllocArenas(JAllocArena **arenas, int *numArenas);
-#endif // ifdef JALIB_ALLOCATOR
 };
 } // namespace jalib
 
