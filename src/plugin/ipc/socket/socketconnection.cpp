@@ -612,6 +612,9 @@ TcpConnection::doRecvHandshakes(const ConnectionIdentifier &coordId)
 void
 TcpConnection::refill(bool isRestart)
 {
+  if (_type == TCP_PREEXISTING) {
+    return;
+  }
   if ((_fcntlFlags & O_ASYNC) != 0) {
     JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
     restoreSocketOptions(_fds);
@@ -632,7 +635,8 @@ TcpConnection::postRestart()
   case TCP_INVALID:
   case TCP_EXTERNAL_CONNECT:
     JTRACE("Creating dead socket.") (_fds[0]) (_fds.size());
-    restoreDupFds(_makeDeadSocket());
+    // FIXME: Not really the solution for pre-existing fds in the lower-half
+    // restoreDupFds(_makeDeadSocket());
     break;
 
   case TCP_ERROR:
