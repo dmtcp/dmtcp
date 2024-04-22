@@ -38,6 +38,7 @@
 
 namespace dmtcp
 {
+extern "C" bool dmtcp_initialized;
 
 static bool
 isValidAddress(const char *path)
@@ -220,6 +221,10 @@ __open64_2(const char *path, int flags)
 extern "C" FILE *
 fopen(const char *path, const char *mode)
 {
+  if (!dmtcp_initialized) {
+    return _real_fopen(path, mode);
+  }
+
   WrapperLock wrapperLock;
 
   char realPath[PATH_MAX] = { 0 };
@@ -574,6 +579,10 @@ mkostemps(char *ttemplate, int suffixlen, int flags)
 
 extern "C" DIR * opendir(const char *name)
 {
+  if (!dmtcp_initialized) {
+    return _real_opendir(name);
+  }
+
   WrapperLock wrapperLock;
   char realPath[PATH_MAX] = {0};
 
