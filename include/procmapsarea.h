@@ -119,7 +119,7 @@ typedef union ProcMapsArea {
 typedef ProcMapsArea Area;
 
 EXTERNC int
-dmtcp_skip_memory_region_ckpting(const Area *area) __attribute((weak));
+dmtcp_skip_memory_region_ckpting(Area *area) __attribute((weak));
 
 #ifdef __cplusplus
 } // extern "C" {
