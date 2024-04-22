@@ -51,7 +51,7 @@ EXTERNC ProcSelfMaps *procSelfMaps;
  */
 static ATOMIC_SHARED_GLOBAL bool exitInProgress = false;
 static bool exitAfterCkpt = 0;
-static bool dmtcp_initialized = false;
+bool dmtcp_initialized = false;
 
 
 /* NOTE:  Please keep this function in sync with its copy at:
