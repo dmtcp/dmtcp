@@ -82,11 +82,14 @@ Util::calcTmpDir(const char *tmpdirenv)
           errno == ENAMETOOLONG).Text("gethostname() failed");
 
   char *userName = const_cast<char *>("");
+#if 0
   if (getpwuid(getuid()) != NULL) {
     userName = getpwuid(getuid())->pw_name;
   } else if (getenv("USER") != NULL) {
     userName = getenv("USER");
   }
+#endif
+  userName = getenv("USER");
 
   if (tmpdirenv) {
     // tmpdirenv was set by --tmpdir
