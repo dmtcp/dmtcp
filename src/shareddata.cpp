@@ -184,7 +184,7 @@ SharedData::initialize(const char *tmpDir,
   }
 
   size_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
-  void *addr = mmap((void *)0x10000000, size,
+  void *addr = mmap((void *)sharedDataHeader, size,
                     PROT_READ | PROT_WRITE, MAP_SHARED,
                     PROTECTED_SHM_FD, 0);
   printf("shared data header address: %p\n", addr);
