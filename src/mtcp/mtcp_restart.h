@@ -137,6 +137,7 @@ typedef struct RestoreInfo {
 void mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*func)(RestoreInfo *));
 void mtcp_restart(RestoreInfo *rinfo);
 void mtcp_check_vdso(char **environ);
+void mtcp_simulateread(RestoreInfo *rinfo);
 
 // Usage: MTCP_RESTART_PAUSE_WHILE(*&rinfo)->restart_pause == <LEVEL>);
 #define MTCP_RESTART_PAUSE_WHILE(condition)                                   \

@@ -174,6 +174,11 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
     }
   }
 
+  if (rinfo.simulate) {
+    mtcp_simulateread(&rinfo);
+    mtcp_sys_exit(0);
+  }
+
   validateRestoreBufferLocation(&rinfo);
 
   compute_regions_to_munmap(&rinfo);
@@ -441,6 +446,112 @@ clear_icache(void *beg, void *end)
     __asm__ __volatile__("isb" : : : "memory");
 }
 #endif
+
+mtcp_open_ckpt_image_and_read_header(RestoreInfo *rinfo, DmtcpCkptHeader *dmtcpHdr)
+{
+  int mtcp_sys_errno;
+  int rc = -1;
+
+  MTCP_ASSERT(rinfo->fd == -1);
+
+  rinfo->fd = mtcp_sys_open2(rinfo->ckptImage, O_RDONLY);
+  if (rinfo->fd == -1) {
+    MTCP_PRINTF("***ERROR opening ckpt image (%s); errno: %d\n",
+                rinfo->ckptImage, mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  // This assumes that the MTCP header signature is unique.
+  // We repeatedly look for dmtcpHdr because the first header will be
+  // for DMTCP.  So, we look deeper for the MTCP header.  The MTCP
+  // header is guaranteed to start on an offset that's an integer
+  // multiple of sizeof(dmtcpHdr), which is currently 4096 bytes.
+  do {
+    rc = mtcp_readfile(rinfo->fd, dmtcpHdr, sizeof *dmtcpHdr);
+  } while (rc > 0 && mtcp_strcmp(dmtcpHdr->ckptSignature, DMTCP_CKPT_SIGNATURE) != 0);
+  // Header was written twice
+  rc = mtcp_readfile(rinfo->fd, dmtcpHdr, sizeof *dmtcpHdr);
+
+  if (rc == 0) { /* if end of file */
+    MTCP_PRINTF("***ERROR: ckpt image doesn't match MTCP_SIGNATURE\n");
+    mtcp_sys_close(rinfo->fd);
+    return -1;  /* exit with error code 1 */
+  }
+
+  return rinfo->fd;
+}
+
+// Used by util/readdmtcp.sh
+// So, we use mtcp_printf to stdout instead of MTCP_PRINTF (diagnosis for DMTCP)
+void
+mtcp_simulateread(RestoreInfo *rinfo)
+{
+  int mtcp_sys_errno;
+  DmtcpCkptHeader dmtcpHdr;
+
+  MTCP_ASSERT(rinfo->simulate == 1);
+
+  if (rinfo->ckptImage[0] == '\0') {
+    MTCP_PRINTF("*** Simulate flag requires a checkpoint-image path as argument.\n");
+    mtcp_abort();
+  }
+
+  MTCP_ASSERT(rinfo->fd == -1);
+
+  rinfo->fd = mtcp_open_ckpt_image_and_read_header(rinfo, &dmtcpHdr);
+  if (rinfo->fd == -1) {
+    MTCP_PRINTF("***ERROR: ckpt image not found.\n");
+    mtcp_abort();
+  }
+
+  mtcp_printf("\nMTCP: %s", dmtcpHdr.ckptSignature);
+  mtcp_printf("**** mtcp_restart (will be copied here): %p..%p\n",
+              dmtcpHdr.restoreBufAddr,
+              dmtcpHdr.restoreBufAddr + dmtcpHdr.restoreBufLen);
+  mtcp_printf("**** DMTCP entry point (ThreadList::postRestart()): %p\n",
+              dmtcpHdr.postRestartAddr);
+  mtcp_printf("**** brk (sbrk(0)): %p\n", dmtcpHdr.savedBrk);
+  mtcp_printf("**** vdso: %p..%p\n", dmtcpHdr.vdsoStart, dmtcpHdr.vdsoEnd);
+  mtcp_printf("**** vvar: %p..%p\n", dmtcpHdr.vvarStart, dmtcpHdr.vvarEnd);
+  mtcp_printf("**** end of stack: %p\n", dmtcpHdr.endOfStack);
+
+  Area area;
+  mtcp_printf("\n**** Listing ckpt image area:\n");
+  while (1) {
+    mtcp_readfile(rinfo->fd, &area, sizeof area);
+    if (area.size == -1) {
+      break;
+    }
+
+    if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
+        (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
+
+      off_t seekLen = area.size;
+      if (!(area.flags & MAP_ANONYMOUS) && area.mmapFileSize > 0) {
+        seekLen =  area.mmapFileSize;
+      }
+      if (mtcp_sys_lseek(rinfo->fd, seekLen, SEEK_CUR) < 0) {
+         mtcp_printf("Could not seek!\n");
+         break;
+      }
+    }
+
+    if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
+      mtcp_printf("%p-%p %c%c%c%c %s          %s\n",
+                  area.addr, area.endAddr,
+                  ((area.prot & PROT_READ)  ? 'r' : '-'),
+                  ((area.prot & PROT_WRITE) ? 'w' : '-'),
+                  ((area.prot & PROT_EXEC)  ? 'x' : '-'),
+                  ((area.flags & MAP_SHARED)
+                    ? 's'
+                    : ((area.flags & MAP_PRIVATE) ? 'p' : '-')),
+                  ((area.flags & MAP_ANONYMOUS) ? "Anon" : "    "),
+
+                  // area.offset, area.devmajor, area.devminor, area.inodenum,
+                  area.name);
+    }
+  }
+}
 
 NO_OPTIMIZE
 static void
