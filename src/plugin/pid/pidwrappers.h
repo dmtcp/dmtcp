@@ -84,6 +84,8 @@ struct user_desc {
 #include <sys/epoll.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <asm/prctl.h>
+#include <sys/prctl.h>
 #include <unistd.h>
 
 #include "dmtcp.h"
