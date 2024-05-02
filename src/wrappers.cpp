@@ -166,6 +166,7 @@ dmtcp_openat(int dirfd, const char *path, int flags, mode_t mode)
 extern "C" int
 open(const char *path, int flags, ...)
 {
+
   mode_t mode = 0;
 
   if (flags & O_CREAT) {
@@ -175,7 +176,11 @@ open(const char *path, int flags, ...)
     va_end(arg);
   }
 
-  return dmtcp_openat(AT_FDCWD, path, flags, mode);
+  if (!dmtcp_is_running_state()) {
+    return _real_open(path, flags, mode);
+  } else {
+    return dmtcp_openat(AT_FDCWD, path, flags, mode);
+  }
 }
 
 
@@ -365,6 +370,9 @@ creat64(const char *path, mode_t mode)
 extern "C" int
 close(int fd)
 {
+  if (!dmtcp_is_running_state()) {
+    return _real_close(fd);
+  }
   WrapperLock wrapperLock;
 
   if (dmtcp_is_protected_fd(fd)) {
