@@ -187,7 +187,6 @@ SharedData::initialize(const char *tmpDir,
   void *addr = mmap((void *)0x20000000, size,
                     PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED,
                     PROTECTED_SHM_FD, 0);
-  printf("shared data header address: %p\n", addr);
   JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO)
   .Text("Unable to find shared area.");
 
