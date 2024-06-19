@@ -486,7 +486,6 @@ mtcp_write_anonymous_pages(int fd, Area area)
 static void
 writememoryarea(int fd, Area area)
 {
-  printf("write addr: %p, end_addr: %p\n", area.addr, area.endAddr);
   void *addr = area.addr;
 
   if (!(area.flags & MAP_ANONYMOUS)) {
