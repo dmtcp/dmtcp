@@ -275,7 +275,8 @@ class JFixedAllocStack
         char buf[N];
       };
     };
-    struct StackHead {
+    // alignas(16) to support 128-bit StackHead, used in dwcas
+    struct alignas(16) StackHead {
       uintptr_t counter;
       FreeItem* node;
     };
