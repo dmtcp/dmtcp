@@ -4838,7 +4838,15 @@ testall()
 
     /*            {BasicIOV, "BasicIOV: Basic vector reads and writes"},*/
     { BasicFreopen, "BasicFreopen: Does freopen return something sensible?" },
-    { BasicStat, "BasicStat: Does [fs]tat return correct simple info?" },
+    // BasicStat does: fd=open(file); close(fd); unlink(file) in a loop.
+    //   If we checkpoint after close(fd), resume will unlink(file),
+    //   and so restart will fail.
+    // TODO:  DMTCP should offer:  dmtcp_precious_file(file)
+    //        At checkpoint time, even if the fd is closed, if the
+    //        file still exists on disk, then pretend that
+    //          ./dmtcp_launch --checkpoint-open-files ...
+    //        was used, but only for this file.
+    // { BasicStat, "BasicStat: Does [fs]tat return correct simple info?" },
 
     // This test doesn't behave well with DMTCP as it creates files and then
     // removes permissions, causing DMTCP to fail with EPERM.
