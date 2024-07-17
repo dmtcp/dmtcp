@@ -101,6 +101,115 @@ int utimes(char *filename, struct timeval *tvp);
 
 #include <sys/resource.h>
 
+
+/* Many tests do : fd=open(file); close(fd); unlink(file) in a loop.
+ *   If we checkpoint after close(fd), resume will unlink(file),
+ *   and so restart will fail.
+ *   We define files that have been closed and will later be modified
+ *   or unlinked after resume as _precious_ files.  DMTCP should save the
+ *   contents of precious files at ckpt time, and restore during restart
+ *   This is similar to:  ./dmtcp_launch --checkpoint-open-files
+ * TODO:  DMTCP should offer:
+ *            dmtcp_precious_file(file)
+ *        At checkpoint time, even if the fd is closed, if the
+ *        file still exists on disk, then pretend that
+ *          ./dmtcp_launch --checkpoint-open-files ...
+ *        was used, but only for this file.
+ *          Further, DMTCP should offer:
+ *            dmtcp_launch --checkpoint-all-files-as-precious
+ *        along with:
+ *            dmtcp_not_precious_file(file) // for exceptions
+ *        Note that --checkpoint-all-files-as-precious should imply
+ *          --checkpoint-open-files
+ * Once the TODO is implemented in DMTCP, we can remove this,
+ *   and in autotest.py, do:  dmtcp_launch --checkpoint-all-files-as-precious
+ * But in the meantime, we need:  dmtcp_launch --checkpoint-open-files
+ */
+
+#define PRECIOUS_MAX 1000
+#define PRECIOUS_NONE (-1)
+#define PRECIOUS_UNINITIALIZED (-2)
+int precious[PRECIOUS_MAX] = {PRECIOUS_UNINITIALIZED};
+int save_precious(int fd) {
+  if (precious[0] == PRECIOUS_UNINITIALIZED) {
+    for (int i = 0; i < PRECIOUS_MAX; i++) {
+      precious[i] = PRECIOUS_NONE;
+    }
+  }
+  // If this is a pipe, socket, FIFO, then it's not a file to be saved.
+  if (lseek(fd, 0, SEEK_CUR) == -1) { return -1; }
+  // This is efficient, as long as there are only a few precious fd's.
+  for (int i = 0; i < PRECIOUS_MAX; i++) {
+    if (precious[i] == PRECIOUS_NONE) {
+      precious[i] = fd;
+      // Now erify that the precious[] array is not yet full.
+      for (int j = i; j < PRECIOUS_MAX; j++) {
+        if (precious[j] == PRECIOUS_NONE) {return i;}
+      }
+      fprintf(stderr, "DMTCP: %s: precious[] is full;"
+                      " Consider increasing PRECIOUS_MAX: %s:%d\n",
+                      __func__, __FILE__, __LINE__);
+      return -1;
+    }
+  }
+  assert(0); // This is nevver reached, but the compiler would complain.
+}
+
+// Not reentrant, not thread-safe
+char *fd_to_filename(int fd, char buf[], int buf_size) {
+  char fd_path[100]; // /proc/PID/fd/FD
+  snprintf(fd_path, sizeof(fd_path), "/proc/self/fd/%d", fd);
+  ssize_t target_len = readlink(fd_path, buf, buf_size - 1);
+  if (target_len == -1) {
+    perror("DMTCP: fd_to_filename: readlink");
+    target_len = 0;
+  }
+  buf[target_len] = '\0';
+  return buf;
+}
+
+int CLOSE(int fd) {
+  int before = lseek(fd, 0, SEEK_CUR);
+  if (before != -1) {
+    int idx = save_precious(dup(fd));
+  }
+  return close(fd);
+}
+
+#include <sys/types.h>
+#include <dirent.h>
+// Technically, we should do the same for unlinkat and rmdir.
+int UNLINK(char *pathname) {
+  int rc = unlink(pathname);
+  if (rc == -1) { return rc; }
+  char proc_fd[100];
+  sprintf(proc_fd, "/proc/%d/fd", getpid());
+  DIR *dir = opendir(proc_fd);
+
+  struct dirent *entry;
+  while ((entry = readdir(dir)) != NULL) {
+    char filename[PATH_MAX];
+    fd_to_filename(atoi(entry->d_name), filename, PATH_MAX);
+    if (filename[0] == '\0') { continue; }
+
+    char *ptr = strstr(filename, " (deleted)");
+    if (ptr) { *ptr = '\0'; }
+    if (strcmp(filename, pathname) == 0) {
+      for (int i = 0; i < sizeof(precious) / sizeof(precious[0]); i++) {
+        if (precious[i] == atoi(entry->d_name)) {
+          close(precious[i]); // We did unlink. The file is no longer precious.
+          precious[i] = PRECIOUS_NONE;
+        }
+      }
+    }
+  }
+  closedir(dir);
+  return rc;
+}
+
+#define close(x) CLOSE(x)
+#define unlink(x) UNLINK(x)
+
 #if defined(LINUX) && defined(GLIBC)
 # undef getpriority
 # undef setpriority
@@ -4838,15 +4947,7 @@ testall()
 
     /*            {BasicIOV, "BasicIOV: Basic vector reads and writes"},*/
     { BasicFreopen, "BasicFreopen: Does freopen return something sensible?" },
-    // BasicStat does: fd=open(file); close(fd); unlink(file) in a loop.
-    //   If we checkpoint after close(fd), resume will unlink(file),
-    //   and so restart will fail.
-    // TODO:  DMTCP should offer:  dmtcp_precious_file(file)
-    //        At checkpoint time, even if the fd is closed, if the
-    //        file still exists on disk, then pretend that
-    //          ./dmtcp_launch --checkpoint-open-files ...
-    //        was used, but only for this file.
-    // { BasicStat, "BasicStat: Does [fs]tat return correct simple info?" },
+    { BasicStat, "BasicStat: Does [fs]tat return correct simple info?" },
 
     // This test doesn't behave well with DMTCP as it creates files and then
     // removes permissions, causing DMTCP to fail with EPERM.
