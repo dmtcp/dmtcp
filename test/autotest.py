@@ -332,6 +332,11 @@ def runDmtcpCommand(cmd, waitForOutput=True):
 devnullFd = os.open(os.devnull, os.O_WRONLY)
 def runCmd(cmd):
   global devnullFd
+
+  # FIXME:  We should rewrite autotest.py cleanl (e.g., "LAUNCH_FLAGS")
+  #          For now, we will live with this hack.
+  if "dmtcp_launch ./test/syscall-tester" in cmd:
+    cmd = cmd.replace("dmtcp_launch ", "dmtcp_launch --checkpoint-open-files ")
   if args.verbose:
     print("Launching... ", cmd)
   cmd = splitWithQuotes(cmd);
@@ -850,8 +855,12 @@ runTest("gettid",        1, ["./test/gettid"])
 # the file would have been deleted from the disk. However, on restart, the test
 # program will try to unlink the file once again, but the unlink operation will
 # fail, causing the test to fail.
+#   We have now patched syscall-tester.c (see near top) to fix this.
+# But this requires --checkpoint-open-files.  A fix for DMTCP is proposed
+# there, and that will later need --checkpoint-all-files-as-precious.
 old_ckpt_cmd = CKPT_CMD
 CKPT_CMD = 'Kc' # Equivalent to 'dmtcp_command -kc'
+# THIS DOES:  ./bin/dmtcp_launch --checkpoint-open-files ./test/syscall-tester
 runTest("syscall-tester",  1, ["./test/syscall-tester"])
 CKPT_CMD = old_ckpt_cmd
 
@@ -1286,6 +1295,8 @@ runTest("nocheckpoint",        [1,2], ["./test/nocheckpoint"])
 print("== Summary ==")
 print("%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1]))
 if failed_tests:
+  failed_tests = [test for i, test in enumerate(failed_tests)
+                       if i == 0 or failed_tests[i-1] != test]
   print("Failed Tests:")
   for f in failed_tests:
     printError("  " + f)
