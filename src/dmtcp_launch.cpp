@@ -535,7 +535,9 @@ main(int argc, const char **argv)
   }
 
   // Test and set env var for FSGSBASE. The env var is used by MANA.
-  testFsGsBase();
+#ifdef __x86_64__
+  testFsGsBase(); // Fsgsbase is used only on Intel/AMD x86_64.
+#endif
 
   if (argc > 0) {
     JTRACE("dmtcp_launch starting new program:")(argv[0]);
