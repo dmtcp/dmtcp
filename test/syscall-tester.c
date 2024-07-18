@@ -109,6 +109,10 @@ int utimes(char *filename, struct timeval *tvp);
  *   or unlinked after resume as _precious_ files.  DMTCP should save the
  *   contents of precious files at ckpt time, and restore during restart
  *   This is similar to:  ./dmtcp_launch --checkpoint-open-files
+ * DESIGN: We refer to a _precious_ file as one that should be
+ *   saved during chekcpoint, even if there are no current open fd's
+ *   pointing to it.  Hence, we dup our own fd before user close(),
+ *   and then close our fd when the user unlinks the file.
  * TODO:  DMTCP should offer:
  *            dmtcp_precious_file(file)
  *        At checkpoint time, even if the fd is closed, if the
@@ -127,6 +131,7 @@ int utimes(char *filename, struct timeval *tvp);
  */
 
 #define PRECIOUS_MAX 1000
+#define PRECIOUS_MAX_HASH (2*PRECIOUS_MAX)
 #define PRECIOUS_NONE (-1)
 #define PRECIOUS_UNINITIALIZED (-2)
 int precious[PRECIOUS_MAX] = {PRECIOUS_UNINITIALIZED};
@@ -168,10 +173,69 @@ char *fd_to_filename(int fd, char buf[], int buf_size) {
   return buf;
 }
 
+int hash(char filename[]) {
+  unsigned long int hash;
+  int len = strlen(filename);
+  int i;
+  for (i = 0; i < len; i += sizeof(hash)) {
+    hash = hash ^ *(__typeof__(hash) *) (filename + i);
+  }
+  if (i > len) {
+    __typeof__(hash) tmp = 0;
+    memcpy(&tmp, filename + i - sizeof(hash), len % sizeof(hash));
+    hash = hash ^ tmp;
+  }
+  return hash % PRECIOUS_MAX_HASH; // An index for hash_array[]
+}
+
+void prune_precious(int idx) { // precious[idx] assigned by save_precious()
+  static int high_watermark = 1000;
+  if (high_watermark - idx >= 500) {return;}
+
+  // Compress precious[] so that all entries are in front.
+  int last_idx = 0;
+  for (int i = 0; i < PRECIOUS_MAX; i++) {
+    if (precious[i] != PRECIOUS_NONE) {
+      precious[last_idx++] = precious[i];
+    }
+  }
+  for (int i = last_idx; i < PRECIOUS_MAX; i++) {
+    precious[i] = PRECIOUS_NONE;
+  }
+
+  int hash_array[PRECIOUS_MAX_HASH];
+  char filename[PATH_MAX];
+  snprintf(filename, PATH_MAX, "%d", fd_to_filename(precious[idx], filename,
+                                                    PATH_MAX));
+  int hash_idx = hash(filename);
+  if (filename[0] == '\0') {
+    close(idx); // No filename for precious[]; This should not happen.
+    precious[idx] = PRECIOUS_NONE;
+  } else if (hash_array[hash_idx] == PRECIOUS_NONE) {
+    hash_array[hash_idx] = precious[idx]; // the fd in precious[]
+  } else { // Else check if hash collision, and otherwise remove precious[idx]
+    char filename2[PATH_MAX];
+    fd_to_filename(hash_array[hash_idx], filename2, PATH_MAX);
+    if (strncmp(filename, filename2, PATH_MAX) == 0) {
+      close(precious[idx]); // This is a duplicate for same filename.
+      precious[idx] = PRECIOUS_NONE;
+    }
+  }
+
+  if (high_watermark - last_idx < 500) {
+    high_watermark += 1000;
+  } else if (high_watermark - last_idx > 1500) {
+    high_watermark -= 1000;
+  }
+}
+
 int CLOSE(int fd) {
   int before = lseek(fd, 0, SEEK_CUR);
   if (before != -1) {
     int idx = save_precious(dup(fd));
+    if (idx > 0 && idx % 1000 == 0) {
+      prune_precious(idx);
+    }
   }
   return close(fd);
 }
