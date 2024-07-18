@@ -148,7 +148,6 @@ static void setEnvironFd();
 static void runMtcpRestart(int fd, RestoreTarget *target);
 static int readCkptHeader(const string &path, ProcessInfo *pInfo);
 static int openCkptFileToRead(const string &path);
-static int processCkptImages();
 
 RestoreTarget::RestoreTarget(const string &path)
   : _path(path)

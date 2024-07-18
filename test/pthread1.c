@@ -1,6 +1,9 @@
 /* Compile with:  gcc THIS_FILE -lpthread */
 
 #include <assert.h>
+// __USE_GNU is needed for pthread_getattr_np().
+// assert.h is undefining __USE_GNU as of glibc-2.35.  Arguably, a bug.
+#define __USE_GNU
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>

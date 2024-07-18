@@ -82,7 +82,8 @@ int main(int argc, char *argv[])
 
     while (!feof(fp)) {
       char buf;
-      fread(&buf, 1, 1, fp);
+      int rc = fread(&buf, 1, 1, fp);
+      assert(rc == 1);
       printf("%c", buf);
       fflush(stdout);
     }

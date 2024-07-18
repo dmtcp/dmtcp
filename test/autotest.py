@@ -58,6 +58,7 @@ parser.add_argument('tests',
                     help='Test to run')
 
 args = parser.parse_args()
+args.verbose = True
 
 # stats[0] is number passed; stats[1] is total number
 stats = [0, 0]
@@ -89,6 +90,11 @@ if args.parallel:
     args.parallel = False
     print("\n*** autotest.py: '--parallel' ignored;" +
           " requires Python 3.5 or later. ***\n")
+
+if args.stress or args.tests:
+  testname_width = 15
+else:
+  testname_width = 0 # Will use DEFAULT_TESTNAME_WIDTH
 
 def parallel_test(name):
   global tests, test_dict, autotest_path
@@ -161,7 +167,8 @@ if USE_TEST_SUITE == "no":
 #Number of times to try dmtcp_restart
 RETRIES=2
 
-DEFAULT_TESTNAME_WIDTH = 20
+# We want the --stress' flag to still print output within 80 columns.
+DEFAULT_TESTNAME_WIDTH = testname_width or 20
 
 #Sleep after each program startup (sec)
 DEFAULT_S=0.3
@@ -212,7 +219,7 @@ coordinator_cmdline = BIN+"dmtcp_coordinator --timeout 10800 --daemon"
 command_cmdline = BIN+"dmtcp_command" # -p " + str(coordinator_port)
 
 #Checkpoint command to send to coordinator
-CKPT_CMD = 'bc'
+CKPT_CMD = b'c'
 
 #Appears as S*SLOW in code.  If --slow, then SLOW=5
 SLOW = pow(5, args.slow)
@@ -286,15 +293,23 @@ if not os.path.isfile('./bin/dmtcp_launch'):
   sys.exit(1)
 
 #pad a string and print/flush it
-def printFixed(str, w=1):
-  os.write(sys.stdout.fileno(), str.ljust(w).encode("ascii"))
+def printFixed(string, width=1):
+  os.write(sys.stdout.fileno(), string.ljust(width).encode("ascii"))
   sys.stdout.flush()
 
 COLOR_RED = "\033[0;31m"
 COLOR_RESET = "\033[0m"
 
+def printFixedError(msg):
+  os.write(sys.stdout.fileno(), COLOR_RED.encode("ascii"))
+  printFixed(msg)
+  os.write(sys.stdout.fileno(), COLOR_RESET.encode("ascii"))
+  sys.stdout.flush()
+
 def printError(msg):
-  print(COLOR_RED, msg, COLOR_RESET)
+  os.write(sys.stdout.fileno(),
+           (COLOR_RED + msg + COLOR_RESET + "\n").encode("ascii"))
+  sys.stdout.flush()
 
 #exception on failed check
 class CheckFailed(Exception):
@@ -695,11 +710,11 @@ def runTestRaw(name, numProcs, cmds):
             if os.path.isdir(dmtcp_tmpdir()) and os.path.isdir(ckptDir):
               if subprocess.call( ("cp -pr " + ckptDir + ' '
                                    + dmtcp_tmpdir()).split() ) == 0:
-                print("\n***** Copied checkpoint images to " + dmtcp_tmpdir() +
-                      "/" + ckptDir)
+                printError("\n***** Copied checkpoint images to " +
+                           dmtcp_tmpdir() + "/" + ckptDir)
             raise e
           else:
-            printError("Failed ")
+            printFixedError("Failed ")
             (oldpid, oldstatus) = os.waitpid(procs[-1].pid, os.WNOHANG)
             if oldpid == procs[-1].pid:
               if os.WIFEXITED(oldstatus):
@@ -716,8 +731,8 @@ def runTestRaw(name, numProcs, cmds):
                     printFixed(" (" + coredump + " copied to DMTCP_TMPDIR:" +
                                dmtcp_tmpdir() + "/)")
             else:
-              printFixed("(Either first process didn't die, or else this long" +
-                         " delay has been observed due to a slow" +
+              printError("\n(Either first process didn't die, or else " +
+                         " this long delay\n has been observed due to a slow" +
                          " NFS-based filesystem.)")
             printFixed("; retry:")
             testKill()
@@ -731,9 +746,10 @@ def runTestRaw(name, numProcs, cmds):
     stats[0]+=1
 
   except CheckFailed as e:
-    printError("Failed")
-    printFixed("", DEFAULT_TESTNAME_WIDTH)
-    print(COLOR_RED, "root-pids:", [x.pid for x in procs], "msg:", e.value, COLOR_RESET)
+    printFixedError("Failed")
+    printFixed("\n")
+    printError("root-pids:" + str([x.pid for x in procs]) +
+          "msg:" + str(e.value))
     failed_tests.append(name)
     try:
       testKill()
@@ -776,7 +792,7 @@ def runTest(name, numProcs, cmds):
         break
       if i == 0:
         stats[1]-=1
-        print("Trying once again")
+        print(COLOR_RED + "Trying once again" + COLOR_RESET)
 
 def saveResultsNMI():
   if DEBUG == "yes":

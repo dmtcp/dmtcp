@@ -278,8 +278,6 @@ pthread_getattr_np(pthread_t th, pthread_attr_t *attr)
   /* This is the guardsize after adjusting it.  */
   iattr->guardsize = *th_addr.reported_guardsize;
 
-  /* Stack size limit.  */
-  struct rlimit rl;
   /* The sizes are subject to alignment.  */
   if (__glibc_likely(*th_addr.stackblock != NULL)) {
     /* The stack size reported to the user should not include the
@@ -311,7 +309,7 @@ pthread_getattr_np(pthread_t th, pthread_attr_t *attr)
       extern void *__libc_stack_end;
       void *stack_end = (void *)((uintptr_t)__libc_stack_end & pagemask);
 #if _STACK_GROWS_DOWN
-      stack_end += pagesize;
+      stack_end = (char *)stack_end + pagesize;
 #endif
 
       VA lastEndAddr = NULL;

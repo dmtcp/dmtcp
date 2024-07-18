@@ -20,7 +20,7 @@ int DmtcpRWLockTryRdLockUnsafe(DmtcpRWLock *rwlock)
 {
   int result = EBUSY;
 
-  ASSERT_EQ(gettid(), rwlock->xLock.owner);
+  ASSERT_EQ(gettid(), static_cast<int>(rwlock->xLock.owner));
 
   // Detect deadlock.
   if (rwlock->writer == gettid()) {
