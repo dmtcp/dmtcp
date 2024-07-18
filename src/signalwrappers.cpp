@@ -58,6 +58,12 @@ bannedSignalNumber()
   return stopSignal;
 }
 
+// In glibc, signal.h makes this a macro, with: _Pragma "sigmask is deprecated"
+// But we need this deprecated function for user code with older BSD API.
+#ifdef sigmask
+# undef sigmask
+# define sigmask(sig) ((int)(1u << ((sig) - 1)))
+#endif
 static int
 patchBSDMask(int mask)
 {
@@ -83,6 +89,7 @@ patchBSDUserMask(int how, const int mask, int *oldmask)
     checkpointSignalBlockedForProcess = ((mask & bannedMask) != 0);
   }
 }
+#pragma GCC diagnostic pop
 
 static inline sigset_t
 patchPOSIXMask(const sigset_t *mask)
