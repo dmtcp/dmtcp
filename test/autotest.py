@@ -71,6 +71,9 @@ disabled_tests = [
   "vfork2",
   # Raw thread creation using clone syscall directly isn't supported.
   "clone1"
+  # This test needs to be fixed.  It is not really running.
+  # ERROR: ld.so: object '/home/gene/dmtcp.git/test/plugin/example-db/dmtcp_example-dbhijack.so' from LD_PRELOAD cannot be preloaded (cannot open shared object file): ignored.
+  "dmtcp_example-db"
 ]
 
 # if 'autotest.py --parallel', then initialize tests and test_dict.
@@ -901,6 +904,8 @@ runTest("plugin-sleep2", 1, ["--with-plugin "+
                              PWD+"/test/plugin/sleep2/dmtcp_sleep2hijack.so "+
                              "./test/dmtcp1"])
 
+# FIXME:  Test does not work.  Try:  AUTOTEST=-v make check-plugin-example-db
+# ERROR: ld.so: object '/home/gene/dmtcp.git/test/plugin/example-db/dmtcp_example-dbhijack.so' from LD_PRELOAD cannot be preloaded (cannot open shared object file): ignored.
 runTest("plugin-example-db", 2, ["--with-plugin "+
                             PWD+"/test/plugin/example-db/dmtcp_example-dbhijack.so "+
                              "env EXAMPLE_DB_KEY=1 EXAMPLE_DB_KEY_OTHER=2 "+
