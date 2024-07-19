@@ -68,7 +68,7 @@ failed_tests = []
 disabled_tests = [
   # Vfork is not currently supported.
   #"vfork1", # We simulate vfork using fork.
-  "vfork2",
+  # vfork1 and vfork2 tests were failing due to a previous bug in vfork.c  <   ## "vfork2",
   # Raw thread creation using clone syscall directly isn't supported.
   "clone1"
   # This test needs to be fixed.  It is not really running.

@@ -14,6 +14,10 @@ typedef struct PipesAndCmd {
 
 static int sn_popen_pid;
 
+// FIXME:
+// "cfn" seems to mean "child function"  No idea what "sn_" means.
+// This would have been easier to read if we simply pass
+//   'int pipefd[]' and 'char *command' as separate arguments.
 int
 sn_simple_popen_r_cfn(PipesAndCmd pipesAndCmd)
 {
@@ -40,11 +44,11 @@ sn_simple_popen_r(char *command)
     close(pipesAndCmd.fds[0]);
     close(pipesAndCmd.fds[1]);
     return NULL;
-  } else if (sn_popen_pid == 0) {
+  } else if (sn_popen_pid == 0) { // if child
     sn_simple_popen_r_cfn(pipesAndCmd);
-  } else {
-    result = fdopen(pipesAndCmd.fds[0], "r");
+  } else { // else parent
     close(pipesAndCmd.fds[1]);
+    result = fdopen(pipesAndCmd.fds[0], "r");
   }
 
   return result;
@@ -83,7 +87,9 @@ int main(int argc, char *argv[])
     while (!feof(fp)) {
       char buf;
       int rc = fread(&buf, 1, 1, fp);
-      assert(rc == 1);
+      if (rc != 1 && feof(fp)) {
+        break;  // Streams can register eof late.
+      }
       printf("%c", buf);
       fflush(stdout);
     }
