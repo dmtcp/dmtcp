@@ -333,10 +333,6 @@ devnullFd = os.open(os.devnull, os.O_WRONLY)
 def runCmd(cmd):
   global devnullFd
 
-  # FIXME:  We should rewrite autotest.py cleanl (e.g., "LAUNCH_FLAGS")
-  #          For now, we will live with this hack.
-  if "dmtcp_launch ./test/syscall-tester" in cmd:
-    cmd = cmd.replace("dmtcp_launch ", "dmtcp_launch --checkpoint-open-files ")
   if args.verbose:
     print("Launching... ", cmd)
   cmd = splitWithQuotes(cmd);
@@ -860,8 +856,7 @@ runTest("gettid",        1, ["./test/gettid"])
 # there, and that will later need --checkpoint-all-files-as-precious.
 old_ckpt_cmd = CKPT_CMD
 CKPT_CMD = 'Kc' # Equivalent to 'dmtcp_command -kc'
-# THIS DOES:  ./bin/dmtcp_launch --checkpoint-open-files ./test/syscall-tester
-runTest("syscall-tester",  1, ["./test/syscall-tester"])
+runTest("syscall-tester",  1, ["--checkpoint-open-files ./test/syscall-tester"])
 CKPT_CMD = old_ckpt_cmd
 
 # Test for files opened with WRONLY mode and later unlinked.
