@@ -58,7 +58,6 @@ parser.add_argument('tests',
                     help='Test to run')
 
 args = parser.parse_args()
-args.verbose = True
 
 # stats[0] is number passed; stats[1] is total number
 stats = [0, 0]
@@ -222,7 +221,7 @@ coordinator_cmdline = BIN+"dmtcp_coordinator --timeout 10800 --daemon"
 command_cmdline = BIN+"dmtcp_command" # -p " + str(coordinator_port)
 
 #Checkpoint command to send to coordinator
-CKPT_CMD = b'c'
+CKPT_CMD = 'c'
 
 #Appears as S*SLOW in code.  If --slow, then SLOW=5
 SLOW = pow(5, args.slow)
@@ -969,12 +968,12 @@ runTest("realpath",      1, ["./test/realpath"])
 runTest("pthread1",      1, ["./test/pthread1"])
 runTest("pthread2",      1, ["./test/pthread2"])
 
-S=10*DEFAULT_S
+S=0.5*DEFAULT_S
 runTest("pthread3",      1, ["./test/pthread2 80"])
-S=DEFAULT_S
 
 runTest("pthread4",      1, ["./test/pthread4"])
 runTest("pthread5",      1, ["./test/pthread5"])
+S=DEFAULT_S
 
 runTest("clone1",      1, ["./test/clone1"])
 
