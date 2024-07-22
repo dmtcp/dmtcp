@@ -347,7 +347,8 @@ LoadSymbols()
 
 
 class LoadSymbolsLibrary(gdb.Command):
-    """load-symbols-library [FILENAME-OR-ADDRESS] (load symbols from library)"""
+    """load-symbols-library [FILENAME-OR-ADDRESS] (loads symbols from a binary)
+With no argument, it loads symbols for the newest call frame that has no name"""
 
     def __init__(self):
         super(LoadSymbolsLibrary,
@@ -356,6 +357,15 @@ class LoadSymbolsLibrary(gdb.Command):
         self.dont_repeat()
 
     def invoke(self, filename_or_address, from_tty):
+        if not filename_or_address:
+          frame = gdb.newest_frame()
+          while frame and frame.name():
+            frame = frame.older()
+          if not frame or frame.name():
+            print("Nothing done!  Symbols for all call frames"
+                  " have been loaded")
+            return
+          filename_or_address = str(hex(frame.pc()))
         load_symbols_library(filename_or_address.split()[0])
 # This will add the new gdb command: load-symbols-library
 LoadSymbolsLibrary()
