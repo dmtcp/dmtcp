@@ -1,5 +1,5 @@
 #/*****************************************************************************
-# * Copyright (C) 2020 Gene Cooperman <gene@ccs.neu.edu>                      *
+# * Copyright (C) 2020, 2022-2024 Gene Cooperman <gene@ccs.neu.edu>           *
 # *                                                                           *
 # * DMTCP is free software: you can redistribute it and/or                    *
 # * modify it under the terms of the GNU Lesser General Public License as     *
@@ -15,11 +15,17 @@
 # * License along with DMTCP.  If not, see <http://www.gnu.org/licenses/>.    *
 # *****************************************************************************/
 
-python
 import subprocess
 import re
+import sys
 import os
 import textwrap
+
+try:
+  gdb.selected_thread()
+except:
+  print("\n*** USAGE:  source THIS_FILE  (from inside GDB)\n")
+  sys.exit(1)
 
 # This adds a GDB command:  add-symbol-files-all    (no arguments)
 # To use it, either do:
@@ -80,6 +86,7 @@ def is_recent_gdb():
     else:
       is_recent_gdb.value = False
   return is_recent_gdb.value
+# This should be used only for executabble binaries.
 def load_symbols(exec_file=None):
   if not is_recent_gdb():
     print("Older GDB; use add-symbol-files-all (This GDB is version: " +
@@ -123,7 +130,7 @@ def load_symbols_library(filename_or_address):
     if is_exec_file(filename):
       # ELF executables already have hard-wired absolute address
       print("EXECUTABLE FILE:")
-      add_symbol_files_from_filename(filename, 0)
+      load_symbols(filename)
     else:
       gdb.execute("add-symbol-file -o " + str(start_addr) + " " + filename)
   else:
@@ -317,7 +324,11 @@ AddSymbolFilesAll()
 
 
 class LoadSymbols(gdb.Command):
-    """load-symbols [FILENAME] (load fresh symbols from /proc/self/maps)"""
+    """load-symbols [FILENAME] (load fresh symbols from /proc/self/maps)
+
+If there is more than one executable binary loaded (e.g., split processes),
+then you may need to use load-symbols-library, and select as an argument
+the filename (or address in /proc/*/maps) for the specific binary desired."""
 
     def __init__(self):
         super(LoadSymbols,
