@@ -548,20 +548,28 @@ mtcp_abort(void)
 #if defined(__arm__) || defined(__aarch64__)
 # undef mtcp_inline_syscall
 # undef INLINE_SYSCALL_RAW
-# if defined(__arm__)
+# ifdef __cplusplus
+#  if defined(__arm__)
+extern "C" unsigned int mtcp_syscall(...);
+#  elif defined(__aarch64__)
+extern "C" unsigned long mtcp_syscall(...);
+#  endif // if defined(__arm__)
+# else // ifdef __cpluscplus ... else ...
+#  if defined(__arm__)
 extern unsigned int mtcp_syscall();
-# elif defined(__aarch64__)
+#  elif defined(__aarch64__)
 extern unsigned long mtcp_syscall();
-# endif // if defined(__arm__)
+#  endif // if defined(__arm__)
+# endif
 # ifdef MTCP_SYS_ERRNO_ON_STACK
 #  define mtcp_inline_syscall(name, num_args, ...) \
-  mtcp_syscall(SYS_ ## name, &mtcp_sys_errno, ## __VA_ARGS__)
+  mtcp_syscall(SYS_ ## name, &mtcp_sys_errno, ##__VA_ARGS__)
 #  define INLINE_SYSCALL_RAW(name, nr, ...) \
-  mtcp_syscall(name, &mtcp_sys_errno, ## __VA_ARGS__)
+  mtcp_syscall(name, &mtcp_sys_errno, ##__VA_ARGS__)
 # else // ifdef MTCP_SYS_ERRNO_ON_STACK
-#  define mtcp_inline_syscall(name, num_args, args ...) \
-  mtcp_syscall(SYS_ ## name, args)
+#  define mtcp_inline_syscall(name, num_args, ...) \
+  mtcp_syscall(SYS_ ## name, ##__VA_ARGS__)
 #  define INLINE_SYSCALL_RAW(name, nr, ...) \
-  mtcp_syscall(name, ## __VA_ARGS__)
+  mtcp_syscall(name, ##__VA_ARGS__)
 # endif // ifdef MTCP_SYS_ERRNO_ON_STACK
 #endif // if defined(__arm__) || defined(__aarch64__)
