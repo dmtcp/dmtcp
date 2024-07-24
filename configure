@@ -9147,6 +9147,9 @@ as_fn_error $? "Using C++14, which should support both sync and atomic
                   In jalloc.cpp, replace __atomic by __sync_bool if the
                   __sync_bool test succeeded, and then edit './configure'.
 See \`config.log' for more details" "$LINENO" 5; }
+
+printf "%s\n" "#define HAS_ATOMIC 1" >>confdefs.h
+
 fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __WAIT_STATUS type" >&5
