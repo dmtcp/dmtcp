@@ -234,7 +234,7 @@ __d_bindir__dmtcp_launch_LDADD  += -latomic
 __d_bindir__dmtcp_restart_LDADD  += -latomic
 __d_bindir__dmtcp_command_LDADD += -latomic
 libjalib_a_LIBADD = -latomic
-libdmtcprestart_a_LIBADD = -latomic
+libdmtcprestart_a_LIBADD += -latomic
 __d_libdir__libdmtcp_so_LDADD += -latomic
 endif
 
