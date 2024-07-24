@@ -24,6 +24,9 @@
 /* Child process does checkpointing */
 #undef FORKED_CHECKPOINTING
 
+/* Define to 1 if 'gcc test.c -latomic' works for __atomic_compare_exchange */
+#undef HAS_ATOMIC
+
 /* Define to 1 if you have process_vm_readv and process_vm_writev. */
 #undef HAS_CMA
 

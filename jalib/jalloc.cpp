@@ -19,14 +19,15 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "jalib.h"
-#include "jalloc.h"
+#include <atomic>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include "jalib.h"
+#include "jalloc.h"
 
 #define ATOMIC_SHARED volatile __attribute((aligned))
 
@@ -134,7 +135,7 @@ _dealloc_raw(void *ptr, size_t n)
 static inline bool
 bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
 {
-  uint8_t result = 0;
+  bool result = false;
 #ifdef __x86_64__
   typedef unsigned __int128 uint128_t;
   // This requires compiling with -mcx16
@@ -142,17 +143,22 @@ bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
                                         *(uint128_t*)oldValue,
                                         *(uint128_t*)newValue);
 #elif __arm__ || __i386__
+  // FIXME: Consider replacing __sync_bool_compare_and_swap by
+  //        __atomic_compare_exchange for improved performance.
+  //        But for x86_64, this already uses cmpxchg16.  So,
+  //        __atomic_* has no advantage, and adds a dependency on libatomic.so
   result = __sync_bool_compare_and_swap((uint64_t volatile *)dst,
                                         *(uint64_t*)oldValue,
                                         *(uint64_t*)newValue);
 #elif __aarch64__
+  // This requires libatomic.so
   typedef unsigned __int128 uint128_t;
   result = __atomic_compare_exchange((uint128_t*)dst,
                                      (uint128_t*)oldValue,
                                      (uint128_t*)newValue, 0,
                                       __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
 #endif /* if __x86_64__ */
-  return result != 0;
+  return result;
 }
 
 template<size_t _N>
