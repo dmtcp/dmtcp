@@ -8990,6 +8990,7 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 
 
     #include <sys/wait.h>
+    #include <sys/types.h>
     #include <stdlib.h>
     int main() {
       __WAIT_STATUS status __attribute__((unused));

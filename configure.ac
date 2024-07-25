@@ -817,12 +817,19 @@ if test "$gccAtomicBuiltins" = "no"; then
 fi
 dnl Else will use mutex implementation; see jalib/jalloc.cpp
 
+dnl TODO:  __WAIT_STATUS is defined in include/config.h to be 'int *'
+dnl        POSIX says 'int'.  Why do we need __WAIT_STATUS for DMTCP,
+dnl        and then do AC_DEFINE to define it??
+dnl        It was part of the glibc lxstat support, but it was deprecated,
+dnl        and then removed as of glibc-2.24 in 2016.
+dnl        DMTCP should also drop support for __WAIT_STATUS.
 dnl Check whether __WAIT_STATUS is available.
 AC_MSG_CHECKING(for __WAIT_STATUS type)
 AC_LINK_IFELSE(
 [
   AC_LANG_SOURCE([[
     #include <sys/wait.h>
+    #include <sys/types.h>
     #include <stdlib.h>
     int main() {
       __WAIT_STATUS status __attribute__((unused));
@@ -836,5 +843,7 @@ if test "$wait_status" = "no"; then
   AC_DEFINE([__WAIT_STATUS],[int *],
             [can use __WAIT_STATUS as wait status type])
 fi
+dnl __WAIT_STATUS entered at commit 7d1344 (2009) and bdcac4 (2016)
+AC_MSG_NOTICE([*** glibc-2.24 removed __WAIT_STATUS; This check will go away in the future.])
 
 AC_OUTPUT
