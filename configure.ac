@@ -6,7 +6,7 @@ AC_INIT([DMTCP],
 
 AC_PREREQ([2.60])
 # TODO(kapil): Add 'subdir-objects after automake 1.16 has been released.
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 AM_MAINTAINER_MODE
 AC_CANONICAL_HOST
 AC_PROG_INSTALL
