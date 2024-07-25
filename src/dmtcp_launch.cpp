@@ -762,6 +762,7 @@ testScreen(const char **argv, const char ***newArgv)
 static void
 testFsGsBase()
 {
+#ifdef __x86_64__
   pid_t childPid = fork();
   JASSERT(childPid != -1);
 
@@ -787,6 +788,7 @@ testFsGsBase()
   } else {
     setenv(ENV_VAR_FSGSBASE_ENABLED, "0", 1);
   }
+#endif
 }
 
 static void
