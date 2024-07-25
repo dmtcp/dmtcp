@@ -8938,21 +8938,184 @@ then :
 fi
 
 
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $CC atomic builtins" >&5
-printf %s "checking for $CC atomic builtins... " >&6; }
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $CXX __sync_bool_compare_and_swap builtins" >&5
+printf %s "checking for $CXX __sync_bool_compare_and_swap builtins... " >&6; }
 ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'
 ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
+CXXFLAGS_orig="$CXXFLAGS"
+CXXFLAGS="$CXXFLAGS -march=native"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
 
+    #include <assert.h>
+    #include <stdlib.h>
     int main() {
-      volatile unsigned long val = 1;
-      __sync_bool_compare_and_swap(&val, 1, 0);
+      typedef unsigned __int128 uint128_t;
+      uint128_t val = static_cast<uint128_t>(1);
+      bool result = __sync_bool_compare_and_swap(&val, 1, 2);
+      assert(result == true && static_cast<int>(val) == 2);
+      return 0;
+    }
+
+
+_ACEOF
+if ac_fn_cxx_try_link "$LINENO"
+then :
+  gccSyncBuiltins='yes'
+else $as_nop
+  gccSyncBuiltins='no'
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+CXXFLAGS="$CXXFLAGS_orig"
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $gccSyncBuiltins" >&5
+printf "%s\n" "$gccSyncBuiltins" >&6; }
+
+if test "$gccSyncBuiltins" = "no"; then
+  { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+printf "%s\n" "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Support for __sync_bool_compare_and_swap built-ins
+                  is required to build DMTCP.
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+
+if test "$is_arm_host" == "yes" -o "$is_i486_host" == "yes" ; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __atomic_compare_exchange_8 in -latomic" >&5
+printf %s "checking for __atomic_compare_exchange_8 in -latomic... " >&6; }
+if test ${ac_cv_lib_atomic___atomic_compare_exchange_8+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-latomic  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+char __atomic_compare_exchange_8 ();
+int
+main (void)
+{
+return __atomic_compare_exchange_8 ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_atomic___atomic_compare_exchange_8=yes
+else $as_nop
+  ac_cv_lib_atomic___atomic_compare_exchange_8=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_atomic___atomic_compare_exchange_8" >&5
+printf "%s\n" "$ac_cv_lib_atomic___atomic_compare_exchange_8" >&6; }
+if test "x$ac_cv_lib_atomic___atomic_compare_exchange_8" = xyes
+then :
+  printf "%s\n" "#define HAVE_LIBATOMIC 1" >>confdefs.h
+
+  LIBS="-latomic $LIBS"
+
+fi
+
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __atomic_compare_exchange_16 in -latomic" >&5
+printf %s "checking for __atomic_compare_exchange_16 in -latomic... " >&6; }
+if test ${ac_cv_lib_atomic___atomic_compare_exchange_16+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-latomic  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+char __atomic_compare_exchange_16 ();
+int
+main (void)
+{
+return __atomic_compare_exchange_16 ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_atomic___atomic_compare_exchange_16=yes
+else $as_nop
+  ac_cv_lib_atomic___atomic_compare_exchange_16=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_atomic___atomic_compare_exchange_16" >&5
+printf "%s\n" "$ac_cv_lib_atomic___atomic_compare_exchange_16" >&6; }
+if test "x$ac_cv_lib_atomic___atomic_compare_exchange_16" = xyes
+then :
+  printf "%s\n" "#define HAVE_LIBATOMIC 1" >>confdefs.h
+
+  LIBS="-latomic $LIBS"
+
+fi
+
+fi
+if test ${ac_cv_lib_atomic_+y}; then
+  printf %s "*** libatomic.so not found; In jalib/jalloc.cpp need to"
+  printf %s "***   replace __atomic_* by __sync_*."
+fi
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $CXX __atomic_compare_exchange builtins using -latomic" >&5
+printf %s "checking for $CXX __atomic_compare_exchange builtins using -latomic... " >&6; }
+ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+# It seems to be undocumented that this needs '-latomic' as of 2024.
+LDFLAGS_orig="$LDFLAGS"
+LDFLAGS="$LDFLAGS -latomic"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+    #include <atomic>
+    #include <assert.h>
+    #include <stdlib.h>
+    int main() {
+      typedef unsigned __int128 uint128_t;
+      uint128_t *dst = static_cast<uint128_t*>(malloc(128));
+      uint128_t *oldValue = static_cast<uint128_t*>(malloc(128));
+      uint128_t *newValue = static_cast<uint128_t*>(malloc(128));
+      *dst = static_cast<uint128_t>(1);
+      *oldValue = static_cast<uint128_t>(1);
+      *newValue = static_cast<uint128_t>(2);
+      bool result = __atomic_compare_exchange((uint128_t*)dst,
+                                         (uint128_t*)oldValue,
+                                         (uint128_t*)newValue, 0,
+                                          __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+      assert(result == true);
+      assert(*dst == *newValue);
       return 0;
     }
 
@@ -8966,6 +9129,7 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
+LDFLAGS="$LDFLAGS_orig"
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -8978,8 +9142,10 @@ printf "%s\n" "$gccAtomicBuiltins" >&6; }
 if test "$gccAtomicBuiltins" = "no"; then
   { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 printf "%s\n" "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Support for atomic built-ins is required to build DMTCP.
-                  Consider using GCC 4.1 or newer.
+as_fn_error $? "Using C++14, which should support both sync and atomic
+                  built-ins.  Something is seriously wrong.
+                  In jalloc.cpp, replace __atomic by __sync_bool if the
+                  __sync_bool test succeeded, and then edit './configure'.
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 

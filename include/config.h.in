@@ -48,6 +48,9 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
+/* Define to 1 if you have the `atomic' library (-latomic). */
+#undef HAVE_LIBATOMIC
+
 /* Define to 1 if you have the <linux/version.h> header file. */
 #undef HAVE_LINUX_VERSION_H
 
