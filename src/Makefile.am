@@ -142,6 +142,9 @@ libjalib_a_SOURCES = $(jalibdir)/jalib.cpp			\
 		     $(jalibdir)/jsocket.cpp 			\
 		     $(jalibdir)/jtimer.cpp
 
+# This is required for jalib/jalloc.cpp:__sync_bool_compare_and_swap()
+libjalib_a_CFLAGS = -march=native
+
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
 libsyscallsreal_a_SOURCES = syscallsreal.c 			\
@@ -229,12 +232,7 @@ __d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a 		\
 				  libnohijack.a			\
 				  -lpthread -lrt -ldl
 if AARCH64_HOST
-__d_bindir__dmtcp_coordinator_LDADD += -latomic
-__d_bindir__dmtcp_launch_LDADD  += -latomic
-__d_bindir__dmtcp_restart_LDADD  += -latomic
-__d_bindir__dmtcp_command_LDADD += -latomic
-libjalib_a_LIBADD = -latomic
-libdmtcprestart_a_LIBADD = -latomic
+# FIXME: This depends on configure showing __atomic_* exists, not on aarch64
 __d_libdir__libdmtcp_so_LDADD += -latomic
 endif
 
