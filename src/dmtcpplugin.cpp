@@ -352,7 +352,13 @@ dmtcp_get_restart_env(const char *name,   // IN
     size = statbuf.st_size + 1;
   }
 
-  char env_buf[size] = {0};
+  char env_buf_small[10000];
+  char *env_buf;
+  if (size <= sizeof env_buf_small) {
+    env_buf = env_buf_small;
+  } else {
+    env_buf = (char *)JALLOC_MALLOC(size);
+  }
 
   int namelen = strlen(name);
   *value = '\0'; // Default is null string
@@ -394,6 +400,9 @@ dmtcp_get_restart_env(const char *name,   // IN
     }
   }
 
+  if (size > sizeof env_buf_small) {
+    JALLOC_FREE(env_buf);
+  } // Else env_buf was allocated on the stack as env_buf_small.
   close(env_fd);
   JWARNING(rc != RESTART_ENV_DMTCP_BUF_TOO_SMALL)
     (name) (sizeof(env_buf)).Text("Resize env_buf[]");

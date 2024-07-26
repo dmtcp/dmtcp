@@ -770,13 +770,13 @@ testFsGsBase()
     unsigned long fsbase = -1;
     // On systems without FSGSBASE support (Linux kernel < 5.9, this instruction
     // fails with SIGILL).
-    asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
+    asm volatile("rdfsbase %0" : "=r" (fsbase) :: "memory");
     if (fsbase != (unsigned long)-1) {
       exit(0);
     }
 
     // Also test wrfsbase in case it generates SIGILL as well.
-    asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
+    asm volatile("wrfsbase %0" :: "r" (fsbase) : "memory");
     exit(1);
   }
 

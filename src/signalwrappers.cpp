@@ -89,7 +89,6 @@ patchBSDUserMask(int how, const int mask, int *oldmask)
     checkpointSignalBlockedForProcess = ((mask & bannedMask) != 0);
   }
 }
-#pragma GCC diagnostic pop
 
 static inline sigset_t
 patchPOSIXMask(const sigset_t *mask)
