@@ -274,7 +274,6 @@ mtcp_writememoryareas(int fd)
     do {
       memcpy(&area, &unchecked_area, sizeof(Area));
       if (dmtcp_skip_memory_region_ckpting) {
-        printf("checking memory area: %p\n", area.addr);
         skip = dmtcp_skip_memory_region_ckpting(&area);
       }
       if (skip) {
