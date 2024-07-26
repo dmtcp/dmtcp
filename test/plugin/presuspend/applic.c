@@ -35,10 +35,11 @@ void *do_thread_work(void * dummy) {
       }
     }
   }
+  return NULL;
 }
 
 void do_child_work() {
-  // This child process is killed by primary thread by end of PRESUSPEND event..
+  // This child process is killed by primary thread by end of PRESUSPEND event.
   while (1);
 }
 

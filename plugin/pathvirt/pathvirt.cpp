@@ -28,7 +28,7 @@
 // defining the xstat family.  It now defines the stat family directly.
 // instead of defining stat as a macro that expands to __xstat, etc.
 // We are macro expanding the xstat family to the stat family,
-// whenever _STAT_VER not defined..
+// whenever _STAT_VER not defined.
 #ifndef _STAT_VER
 # undef __xstat
 # undef __xstat64
