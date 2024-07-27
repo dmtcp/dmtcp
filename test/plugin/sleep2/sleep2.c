@@ -64,6 +64,9 @@ sleep2_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_RESUME:
     resume();
     break;
+
+  default:
+    break;
   }
 }
 

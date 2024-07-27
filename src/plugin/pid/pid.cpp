@@ -32,11 +32,12 @@
 #include "shareddata.h"
 #include "virtualpidtable.h"
 
-static constexpr const char* PROC_PREFIX = "/proc/";
-static constexpr size_t PROC_PREFIX_LEN = strlen(PROC_PREFIX);
+static char PROC_PREFIX[] = "/proc/";
 
-static constexpr const char* PROC_TASK_TOKEN = "/task/";
-static constexpr size_t PROC_TASK_TOKEN_LEN = strlen(PROC_TASK_TOKEN);
+static char PROC_TASK_TOKEN[] = "/task/";
+// Was more complicated C++ using constexpr and strlen.  But clang++
+//  error'ed out.  So, instead we use the simpler C syntax, which is correct.
+static const size_t PROC_TASK_TOKEN_LEN = sizeof(PROC_TASK_TOKEN) - 1;
 
 using namespace dmtcp;
 
