@@ -213,17 +213,19 @@ __d_bindir__dmtcp_launch_LDADD  = libdmtcpinternal.a 		\
 				  -lpthread -lrt -ldl
 
 libdmtcprestart_a_SOURCES = dmtcprestartinternal.cpp
-libdmtcprestart_a_LIBADD  = libdmtcpinternal.a 		\
+libdmtcprestart_a_LIBADD  = libdmtcpinternal.a 			\
 				   libjalib.a 			\
 				   libnohijack.a
 
 __d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp
 
 __d_bindir__dmtcp_restart_LDADD  = libdmtcprestart.a 		\
-				   libdmtcpinternal.a 			\
+				   libdmtcpinternal.a 		\
 				   libjalib.a 			\
 				   libnohijack.a		\
 				   -lpthread -lrt -ldl
+
+__d_bindir__dmtcp_restart_DEPENDENCIES  = libdmtcprestart.a
 
 __d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
 
@@ -235,6 +237,10 @@ if AARCH64_HOST
 # FIXME: This depends on configure showing __atomic_* exists, not on aarch64
 __d_libdir__libdmtcp_so_LDADD += -latomic
 endif
+
+# Refer to configure.ac for the definition of RESTART_PLUGIN.
+__d_bindir__dmtcp_restart_LDADD += $(RESTART_PLUGIN)
+__d_bindir__dmtcp_restart_DEPENDENCIES += $(RESTART_PLUGIN)
 
 install-libs: install-dmtcplibPROGRAMS
 	(cd mtcp && ${MAKE} install-libs)

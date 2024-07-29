@@ -772,10 +772,30 @@ AC_ARG_WITH([mana_helper_dir],
             [mana_helper_dir=$withval],
             [mana_helper_dir=no])
 
-AM_CONDITIONAL(CONFIG_MANA_HELPER_DIR, [test "$mana_helper_dir" != "no"])
+# automake-2.71 has a bug in AM_CONDITIONAL.  When the if statment is
+#  _not_ triggered.  They seem to assume that you _must_ define
+# the conditional case for 'then' and for 'else', even if 'else'
+# means creating a differently named file that is empty.
+# Otherwise, automake tries to do dependency checking on the
+#   file specified in 'then', even though we didn't triffer it.
+# This seems to be an argument for abandoning automake:  It is
+#   a separate, poorly documented, inflexible language that loses the
+#   clarity and simplicity of an ordinary Makefile.in.
+# *** BUG IN ORIGINAL DESIGN:  It seems like the author wanted
+# *** MANA_HELPER_DIR to be pulled in from src/mtcpMakfeile if
+# *** it is defined.  That doesn't work.  Maybe it once worked (unknonwn)
+# *** before automake insisted on using 'subdir-objects'.  So I'll leave
+# *** the code # *** here, in case the author wants to fix this. - Gene
 if test "$mana_helper_dir" != "no"; then
-  AC_SUBST(MANA_HELPER_DIR, [`realpath $mana_helper_dir`])
+  # This is the buggy case.
+  RESTART_PLUGIN=`realpath $mana_helper_dir`/dmtcp_restart_plugin.$(OBJEXT)
+  MANA_HELPER_DIR=`realpath $mana_helper_dir`
+else
+  RESTART_PLUGIN=
+  MANA_HELPER_DIR=
 fi
+AC_SUBST([RESTART_PLUGIN])
+AC_SUBST([MANA_HELPER_DIR])
 
 if test "$use_m32" = "yes"; then
   interp=/lib/ld-linux.so.2

@@ -195,8 +195,7 @@ __d_bindir__dmtcp_nocheckpoint_LDADD = $(LDADD)
 am___d_bindir__dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT)
 __d_bindir__dmtcp_restart_OBJECTS =  \
 	$(am___d_bindir__dmtcp_restart_OBJECTS)
-__d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcprestart.a \
-	libdmtcpinternal.a libjalib.a libnohijack.a
+am__DEPENDENCIES_1 =
 am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	ckptserializer.$(OBJEXT) dlwrappers.$(OBJEXT) \
 	dmtcpplugin.$(OBJEXT) dmtcpworker.$(OBJEXT) \
@@ -211,7 +210,6 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	wrappers.$(OBJEXT) writeckpt.$(OBJEXT)
 __d_libdir__libdmtcp_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_so_OBJECTS)
-am__DEPENDENCIES_1 =
 __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libsyscallsreal.a $(am__DEPENDENCIES_1)
 __d_libdir__libdmtcp_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
@@ -504,6 +502,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 RANLIB = @RANLIB@
+RESTART_PLUGIN = @RESTART_PLUGIN@
 SCREEN = @SCREEN@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
@@ -714,17 +713,17 @@ __d_bindir__dmtcp_launch_LDADD = libdmtcpinternal.a 		\
 				  -lpthread -lrt -ldl
 
 libdmtcprestart_a_SOURCES = dmtcprestartinternal.cpp
-libdmtcprestart_a_LIBADD = libdmtcpinternal.a 		\
+libdmtcprestart_a_LIBADD = libdmtcpinternal.a 			\
 				   libjalib.a 			\
 				   libnohijack.a
 
 __d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp
-__d_bindir__dmtcp_restart_LDADD = libdmtcprestart.a 		\
-				   libdmtcpinternal.a 			\
-				   libjalib.a 			\
-				   libnohijack.a		\
-				   -lpthread -lrt -ldl
 
+# Refer to configure.ac for the definition of RESTART_PLUGIN.
+__d_bindir__dmtcp_restart_LDADD = libdmtcprestart.a libdmtcpinternal.a \
+	libjalib.a libnohijack.a -lpthread -lrt -ldl $(RESTART_PLUGIN)
+__d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcprestart.a \
+	$(RESTART_PLUGIN)
 __d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
 __d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a 		\
 				  libjalib.a 			\
