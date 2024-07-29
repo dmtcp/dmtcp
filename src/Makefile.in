@@ -108,14 +108,12 @@ bin_PROGRAMS = $(d_bindir)/dmtcp_command$(EXEEXT) \
 	$(d_bindir)/dmtcp_get_libc_offset$(EXEEXT) \
 	$(d_bindir)/dmtcp_restart$(EXEEXT)
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so$(EXEEXT)
-@AARCH64_HOST_TRUE@am__append_2 = mtcp/syscall-aarch64.S
-@ARM_HOST_TRUE@am__append_3 = mtcp/syscall-arm.S
+@AARCH64_HOST_TRUE@am__append_2 = -latomic
+@AARCH64_HOST_TRUE@am__append_3 = -latomic
 @AARCH64_HOST_TRUE@am__append_4 = -latomic
 @AARCH64_HOST_TRUE@am__append_5 = -latomic
 @AARCH64_HOST_TRUE@am__append_6 = -latomic
 @AARCH64_HOST_TRUE@am__append_7 = -latomic
-@AARCH64_HOST_TRUE@am__append_8 = -latomic
-@AARCH64_HOST_TRUE@am__append_9 = -latomic
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_cxx_compile_stdcxx.m4 \
@@ -202,20 +200,6 @@ __d_bindir__dmtcp_nocheckpoint_LDADD = $(LDADD)
 am___d_bindir__dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT)
 __d_bindir__dmtcp_restart_OBJECTS =  \
 	$(am___d_bindir__dmtcp_restart_OBJECTS)
-__d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcprestart.a \
-	libdmtcpinternal.a libjalib.a libnohijack.a \
-	$(am__DEPENDENCIES_1)
-am____d_libdir__libdmtcp_so_SOURCES_DIST = alarm.cpp \
-	ckptserializer.cpp dlwrappers.cpp dmtcpplugin.cpp \
-	dmtcpworker.cpp dmtcp_dlsym_wrappers.cpp execwrappers.cpp \
-	glibcsystem.cpp kvdb.cpp miscwrappers.cpp plugininfo.cpp \
-	pluginmanager.cpp popen.cpp tls.cpp posix_spawn.cpp \
-	rlimitfloatenv.cpp signalwrappers.cpp siginfo.cpp \
-	syslogwrappers.cpp terminal.cpp threadlist.cpp threadsync.cpp \
-	threadwrappers.cpp wrapperlock.cpp wrappers.cpp writeckpt.cpp \
-	mtcp/syscall-aarch64.S mtcp/syscall-arm.S
-@AARCH64_HOST_TRUE@am__objects_1 = mtcp/syscall-aarch64.$(OBJEXT)
-@ARM_HOST_TRUE@am__objects_2 = mtcp/syscall-arm.$(OBJEXT)
 am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	ckptserializer.$(OBJEXT) dlwrappers.$(OBJEXT) \
 	dmtcpplugin.$(OBJEXT) dmtcpworker.$(OBJEXT) \
@@ -227,8 +211,7 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	syslogwrappers.$(OBJEXT) terminal.$(OBJEXT) \
 	threadlist.$(OBJEXT) threadsync.$(OBJEXT) \
 	threadwrappers.$(OBJEXT) wrapperlock.$(OBJEXT) \
-	wrappers.$(OBJEXT) writeckpt.$(OBJEXT) $(am__objects_1) \
-	$(am__objects_2)
+	wrappers.$(OBJEXT) writeckpt.$(OBJEXT)
 __d_libdir__libdmtcp_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_so_OBJECTS)
 __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
@@ -285,15 +268,8 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	./$(DEPDIR)/util_exec.Po ./$(DEPDIR)/util_init.Po \
 	./$(DEPDIR)/util_misc.Po ./$(DEPDIR)/workerstate.Po \
 	./$(DEPDIR)/wrapperlock.Po ./$(DEPDIR)/wrappers.Po \
-	./$(DEPDIR)/writeckpt.Po mtcp/$(DEPDIR)/syscall-aarch64.Po \
-	mtcp/$(DEPDIR)/syscall-arm.Po
+	./$(DEPDIR)/writeckpt.Po
 am__mv = mv -f
-CPPASCOMPILE = $(CCAS) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CCASFLAGS) $(CCASFLAGS)
-AM_V_CPPAS = $(am__v_CPPAS_@AM_V@)
-am__v_CPPAS_ = $(am__v_CPPAS_@AM_DEFAULT_V@)
-am__v_CPPAS_0 = @echo "  CPPAS   " $@;
-am__v_CPPAS_1 = 
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 AM_V_CC = $(am__v_CC_@AM_V@)
@@ -338,7 +314,7 @@ DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) \
 	$(__d_bindir__dmtcp_launch_SOURCES) \
 	$(__d_bindir__dmtcp_nocheckpoint_SOURCES) \
 	$(__d_bindir__dmtcp_restart_SOURCES) \
-	$(am____d_libdir__libdmtcp_so_SOURCES_DIST)
+	$(__d_libdir__libdmtcp_so_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -533,6 +509,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 RANLIB = @RANLIB@
+RESTART_PLUGIN = @RESTART_PLUGIN@
 SCREEN = @SCREEN@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
@@ -688,21 +665,39 @@ libsyscallsreal_a_SOURCES = syscallsreal.c 			\
 libnohijack_a_SOURCES = dmtcpnohijackstubs.cpp			\
 			nosyscallsreal.c
 
-__d_libdir__libdmtcp_so_SOURCES = alarm.cpp ckptserializer.cpp \
-	dlwrappers.cpp dmtcpplugin.cpp dmtcpworker.cpp \
-	dmtcp_dlsym_wrappers.cpp execwrappers.cpp glibcsystem.cpp \
-	kvdb.cpp miscwrappers.cpp plugininfo.cpp pluginmanager.cpp \
-	popen.cpp tls.cpp posix_spawn.cpp rlimitfloatenv.cpp \
-	signalwrappers.cpp siginfo.cpp syslogwrappers.cpp terminal.cpp \
-	threadlist.cpp threadsync.cpp threadwrappers.cpp \
-	wrapperlock.cpp wrappers.cpp writeckpt.cpp $(am__append_2) \
-	$(am__append_3)
+__d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
+				  ckptserializer.cpp 		\
+				  dlwrappers.cpp 		\
+				  dmtcpplugin.cpp 		\
+				  dmtcpworker.cpp 		\
+				  dmtcp_dlsym_wrappers.cpp 	\
+				  execwrappers.cpp 		\
+				  glibcsystem.cpp 		\
+				  kvdb.cpp			\
+				  miscwrappers.cpp 		\
+				  plugininfo.cpp 		\
+				  pluginmanager.cpp		\
+				  popen.cpp 			\
+				  tls.cpp			\
+				  posix_spawn.cpp 		\
+				  rlimitfloatenv.cpp 		\
+				  signalwrappers.cpp 		\
+				  siginfo.cpp 			\
+				  syslogwrappers.cpp 		\
+				  terminal.cpp 			\
+				  threadlist.cpp 		\
+				  threadsync.cpp 		\
+				  threadwrappers.cpp 		\
+				  wrapperlock.cpp		\
+				  wrappers.cpp 			\
+				  writeckpt.cpp
+
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 __d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
-	libsyscallsreal.a -ldl -lpthread -lrt $(am__append_9)
+	libsyscallsreal.a -ldl -lpthread -lrt $(am__append_7)
 __d_bindir__dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 __d_bindir__dmtcp_get_libc_offset_SOURCES = dmtcp_get_libc_offset.c
 __d_bindir__dmtcp_get_libc_offset_LDADD = -ldl
@@ -711,24 +706,29 @@ __d_bindir__dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp 	\
 					restartscript.cpp
 
 __d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
-	libnohijack.a -lpthread -lrt -ldl $(am__append_4)
+	libnohijack.a -lpthread -lrt -ldl $(am__append_2)
 __d_bindir__dmtcp_launch_SOURCES = dmtcp_launch.cpp
 __d_bindir__dmtcp_launch_LDADD = libdmtcpinternal.a libjalib.a \
-	libnohijack.a -lpthread -lrt -ldl $(am__append_5)
+	libnohijack.a -lpthread -lrt -ldl $(am__append_3)
 libdmtcprestart_a_SOURCES = dmtcprestartinternal.cpp
 libdmtcprestart_a_LIBADD = libdmtcpinternal.a libjalib.a libnohijack.a \
-	$(am__append_8)
+	$(am__append_6)
 __d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp
+
+# Refer to configure.ac for the definition of RESTART_PLUGIN.
 __d_bindir__dmtcp_restart_LDADD = libdmtcprestart.a libdmtcpinternal.a \
-	libjalib.a libnohijack.a -lpthread -lrt -ldl $(am__append_6)
+	libjalib.a libnohijack.a -lpthread -lrt -ldl $(am__append_4) \
+	$(RESTART_PLUGIN)
+__d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcprestart.a \
+	$(RESTART_PLUGIN)
 __d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
 __d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a libjalib.a \
-	libnohijack.a -lpthread -lrt -ldl $(am__append_7)
+	libnohijack.a -lpthread -lrt -ldl $(am__append_5)
 @AARCH64_HOST_TRUE@libjalib_a_LIBADD = -latomic
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .S .c .cpp .o .obj
+.SUFFIXES: .c .cpp .o .obj
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -919,16 +919,6 @@ $(d_bindir)/dmtcp_nocheckpoint$(EXEEXT): $(__d_bindir__dmtcp_nocheckpoint_OBJECT
 $(d_bindir)/dmtcp_restart$(EXEEXT): $(__d_bindir__dmtcp_restart_OBJECTS) $(__d_bindir__dmtcp_restart_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_restart_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
 	@rm -f $(d_bindir)/dmtcp_restart$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_restart_OBJECTS) $(__d_bindir__dmtcp_restart_LDADD) $(LIBS)
-mtcp/$(am__dirstamp):
-	@$(MKDIR_P) mtcp
-	@: > mtcp/$(am__dirstamp)
-mtcp/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) mtcp/$(DEPDIR)
-	@: > mtcp/$(DEPDIR)/$(am__dirstamp)
-mtcp/syscall-aarch64.$(OBJEXT): mtcp/$(am__dirstamp) \
-	mtcp/$(DEPDIR)/$(am__dirstamp)
-mtcp/syscall-arm.$(OBJEXT): mtcp/$(am__dirstamp) \
-	mtcp/$(DEPDIR)/$(am__dirstamp)
 $(d_libdir)/$(am__dirstamp):
 	@$(MKDIR_P) $(d_libdir)
 	@: > $(d_libdir)/$(am__dirstamp)
@@ -940,7 +930,6 @@ $(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdi
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f $(jalibdir)/*.$(OBJEXT)
-	-rm -f mtcp/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -1007,30 +996,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wrapperlock.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/writeckpt.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@mtcp/$(DEPDIR)/syscall-aarch64.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@mtcp/$(DEPDIR)/syscall-arm.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
 	@echo '# dummy' >$@-t && $(am__mv) $@-t $@
 
 am--depfiles: $(am__depfiles_remade)
-
-.S.o:
-@am__fastdepCCAS_TRUE@	$(AM_V_CPPAS)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
-@am__fastdepCCAS_TRUE@	$(CPPASCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
-@am__fastdepCCAS_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
-@AMDEP_TRUE@@am__fastdepCCAS_FALSE@	$(AM_V_CPPAS)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCCAS_FALSE@	DEPDIR=$(DEPDIR) $(CCASDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCCAS_FALSE@	$(AM_V_CPPAS@am__nodep@)$(CPPASCOMPILE) -c -o $@ $<
-
-.S.obj:
-@am__fastdepCCAS_TRUE@	$(AM_V_CPPAS)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
-@am__fastdepCCAS_TRUE@	$(CPPASCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
-@am__fastdepCCAS_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
-@AMDEP_TRUE@@am__fastdepCCAS_FALSE@	$(AM_V_CPPAS)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCCAS_FALSE@	DEPDIR=$(DEPDIR) $(CCASDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCCAS_FALSE@	$(AM_V_CPPAS@am__nodep@)$(CPPASCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -1275,8 +1246,6 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
-	-rm -f mtcp/$(DEPDIR)/$(am__dirstamp)
-	-rm -f mtcp/$(am__dirstamp)
 	-test -z "$(d_bindir)/$(am__dirstamp)" || rm -f $(d_bindir)/$(am__dirstamp)
 	-test -z "$(d_libdir)/$(am__dirstamp)" || rm -f $(d_libdir)/$(am__dirstamp)
 	-test -z "$(jalibdir)/$(DEPDIR)/$(am__dirstamp)" || rm -f $(jalibdir)/$(DEPDIR)/$(am__dirstamp)
@@ -1353,8 +1322,6 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/wrapperlock.Po
 	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
-	-rm -f mtcp/$(DEPDIR)/syscall-aarch64.Po
-	-rm -f mtcp/$(DEPDIR)/syscall-arm.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -1462,8 +1429,6 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/wrapperlock.Po
 	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
-	-rm -f mtcp/$(DEPDIR)/syscall-aarch64.Po
-	-rm -f mtcp/$(DEPDIR)/syscall-arm.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

@@ -652,8 +652,7 @@ am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
 MANA_HELPER_DIR
-CONFIG_MANA_HELPER_DIR_FALSE
-CONFIG_MANA_HELPER_DIR_TRUE
+RESTART_PLUGIN
 HAS_OPENMPI
 OPENMPI_MPIRUN
 OPENMPI_MPICC
@@ -6688,7 +6687,6 @@ else
 fi
 
 
-
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -9947,18 +9945,30 @@ else $as_nop
 fi
 
 
- if test "$mana_helper_dir" != "no"; then
-  CONFIG_MANA_HELPER_DIR_TRUE=
-  CONFIG_MANA_HELPER_DIR_FALSE='#'
-else
-  CONFIG_MANA_HELPER_DIR_TRUE='#'
-  CONFIG_MANA_HELPER_DIR_FALSE=
-fi
-
+# automake-2.71 has a bug in AM_CONDITIONAL.  When the if statment is
+#  _not_ triggered.  They seem to assume that you _must_ define
+# the conditional case for 'then' and for 'else', even if 'else'
+# means creating a differently named file that is empty.
+# Otherwise, automake tries to do dependency checking on the
+#   file specified in 'then', even though we didn't triffer it.
+# This seems to be an argument for abandoning automake:  It is
+#   a separate, poorly documented, inflexible language that loses the
+#   clarity and simplicity of an ordinary Makefile.in.
+# *** BUG IN ORIGINAL DESIGN:  It seems like the author wanted
+# *** MANA_HELPER_DIR to be pulled in from src/mtcpMakfeile if
+# *** it is defined.  That doesn't work.  Maybe it once worked (unknonwn)
+# *** before automake insisted on using 'subdir-objects'.  So I'll leave
+# *** the code # *** here, in case the author wants to fix this. - Gene
 if test "$mana_helper_dir" != "no"; then
+  # This is the buggy case.
+  RESTART_PLUGIN=`realpath $mana_helper_dir`/dmtcp_restart_plugin.$(OBJEXT)
   MANA_HELPER_DIR=`realpath $mana_helper_dir`
-
+else
+  RESTART_PLUGIN=
+  MANA_HELPER_DIR=
 fi
+
+
 
 if test "$use_m32" = "yes"; then
   interp=/lib/ld-linux.so.2
@@ -10079,6 +10089,8 @@ if test "$wait_status" = "no"; then
 printf "%s\n" "#define __WAIT_STATUS int *" >>confdefs.h
 
 fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: *** glibc-2.24 removed __WAIT_STATUS; This check will go away in the future." >&5
+printf "%s\n" "$as_me: *** glibc-2.24 removed __WAIT_STATUS; This check will go away in the future." >&6;}
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -10255,10 +10267,6 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${AARCH64_HOST_TRUE}" && test -z "${AARCH64_HOST_FALSE}"; then
   as_fn_error $? "conditional \"AARCH64_HOST\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
-if test -z "${CONFIG_MANA_HELPER_DIR_TRUE}" && test -z "${CONFIG_MANA_HELPER_DIR_FALSE}"; then
-  as_fn_error $? "conditional \"CONFIG_MANA_HELPER_DIR\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 
