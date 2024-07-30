@@ -353,11 +353,13 @@ struct linux_dirent {
 # if defined(__aarch64__)
 
 // As of glibc-2.18, readlink() has been replaced by readlinkat()
-// glibc includes checks for old call, except in Aarch64
-#  define mtcp_sys_readlink(args ...) mtcp_inline_syscall(readlinkat, 3, args)
-# else // if defined(__aarch64__)
+// glibc includes checks for old call, except in aarch64
+// Presumably, the Linux kernel for aarch64 never supported readlink.
+#  define mtcp_sys_readlink(args ...) mtcp_inline_syscall(readlinkat, 4, \
+                                                          AT_FDCWD, args)
+# else // else if not defined(__aarch64__)
 #  define mtcp_sys_readlink(args ...) mtcp_inline_syscall(readlink, 3, args)
-# endif // if defined(__aarch64__)
+# endif // endif: defined(__aarch64__)
 # if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
 
 /* Should this be changed to use newer ugetrlimit kernel call? */
