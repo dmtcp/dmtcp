@@ -3723,7 +3723,7 @@ case $host_os in *\ *) host_os=`echo "$host_os" | sed 's/ /-/g'`;; esac
 
 
 # Automake uses 'ar cru' by default.  The 'ar' program then issues a warning.
-ARFLAGS=cr
+ARFLAGS=rc
 
 if test -n "$ac_tool_prefix"; then
   # Extract the first word of "${ac_tool_prefix}ranlib", so it can be a program name with args.
