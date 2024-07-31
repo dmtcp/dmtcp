@@ -145,8 +145,6 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
       (shmaddr) (shmflg) (getpid())
     .Text("Failed to get SHMLBA-aligned address after 20 tries");
   }
-#elif defined(__aarch64__)
-# warning "TODO: Implementation for ARM64."
 #endif // ifdef __arm__
 
   if (ret != (void *)-1) {
