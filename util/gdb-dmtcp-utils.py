@@ -27,6 +27,11 @@ except:
   print("\n*** USAGE:  source THIS_FILE  (from inside GDB)\n")
   sys.exit(1)
 
+# Python debugging of this file:
+#  * breakpoint()
+#  * gdb.execute("set python print-stack full")
+gdb.execute("set python print-stack full")
+
 # This adds a GDB command:  add-symbol-files-all    (no arguments)
 # To use it, either do:
 #     gdb -x gdb-dmtcp-utils TARGET_PROGRAM PID
@@ -86,24 +91,71 @@ def is_recent_gdb():
     else:
       is_recent_gdb.value = False
   return is_recent_gdb.value
-# This should be used only for executabble binaries.
+# This should be used only for executable binaries.
+def file_base_address(file):
+  output = subprocess.run("readelf -S " + file + " | grep '\.text'",
+                          shell=True, stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT, timeout=300)
+  text_fields = output.stdout.decode('utf-8').split()
+  return int(text_fields[-2], 16) - int(text_fields[-1], 16)
 def load_symbols(exec_file=None):
   if not is_recent_gdb():
     print("Older GDB; use add-symbol-files-all (This GDB is version: " +
           gdb.VERSION + ")")
     return
 
+  # *** FIXME: Consider ways to refactor this code for readability.
   if exec_file:
     exec_files = [exec_file]
   else:
-    exec_files = []
-    for (filename, _, _, _) in memory_regions_executable():
-      exec_files += [filename]
-    exec_files = [filename for filename in exec_files
-                           if is_exec_file(filename)]
+    exec_info = []
+    for (filename, start_addr, _, _) in memory_regions_executable():
+      exec_info += [(filename, start_addr)]
+    if len(exec_info) == 2 and exec_info[0][0] == exec_info[1][0]:
+      print("*** It appears that " + exec_info[0][0] + " was loaded twice.\n" +
+            "*** Assuming that the second copy was migrated from original.\n" +
+            "*** Will re-load symbols for GDB using addresses of second copy.")
+      breakpoint()
+      offset = exec_info[1][1] - exec_info[0][1]
+      gdb.execute("symbol-file -readnow -o " + hex(offset) + " " +
+                  exec_info[0][0])
+      return
+    base_address = next(address
+                        for (filename, address, _, _) in memory_regions()
+                        if filename == exec_info[0][0])
+    print(base_address, file_base_address(exec_info[0][0]))
+    if len(exec_info) == 1 and \
+       base_address > file_base_address(exec_info[0][0]) + 10*4096:
+      print("*** Binary migrated from original address. Loading symbols there.")
+      offset = base_address - file_base_address(exec_info[0][0])
+      gdb.execute("symbol-file -readnow -o " + hex(offset) + " " + exec_info[0][0])
+      return
+    if base_address == file_base_address(exec_info[0][0]):
+      print("*** Binary appears to be at original address. Loading symbols.")
+      gdb.execute("symbol-file -readnow " + exec_info[0][0])
+      return
+    exec_files = [filename for filename, address in exec_info]
 
+  if len(exec_files) > 1:
+    tmp = [filename for filename in exec_files if is_exec_file(filename)]
+    tmp = [file for file in tmp
+                if not file.strip(".0123456789").endswith(".so")]
+    if len(set(tmp)) == 1:
+      exec_files = list(set(tmp))
   if len(exec_files) == 1:
-    # Accept the first matching address even if not the text segment:
+    # ***   NOTE: We have two cases.  For normally loaded files,
+    # ***         GDB 'symbol-file' works without using the offset '-o'.
+    # ***         But for GDB's restarted processes, GDB thinks that
+    # ***         the memory segments of the binary begin at 0x0.
+    # ***         So, we need to use '-o ADDR' where ADDR is the beginning
+    # ***         of the first memory segment.  Often the first memory
+    # ***         segment is read-only, so that the next segments can be:
+    # ***         text, data, and bss, respectively.  If the layout
+    # ***         follows this convention, then 'symbol-file' or
+    # ***         'add-symbol-file' can read the ELF and load the
+    # ***         text segment, while safely assuming the data and bss
+    # ***         segments are the ones following it in the ELF layout.
+    # Here, accept the first matching address even if not the text segment:
     exec_address = next(address
                         for (filename, address, _, _) in memory_regions()
                         if filename == exec_files[0])
@@ -129,7 +181,7 @@ def load_symbols_library(filename_or_address):
     (filename, start_addr) = candidates[0]
     if is_exec_file(filename):
       # ELF executables already have hard-wired absolute address
-      print("EXECUTABLE FILE:")
+      print("EXECUTABLE FILE: " + filename)
       load_symbols(filename)
     else:
       gdb.execute("add-symbol-file -o " + str(start_addr) + " " + filename)
@@ -139,7 +191,6 @@ def load_symbols_library(filename_or_address):
 
 def is_exec_file(filename):
   if not os.path.exists(filename):
-    print("**** path");print("\n")
     return False
   tmp = filename
   tmp = tmp[0 if "/" not in tmp else tmp.rindex("/")+1:] 
@@ -324,11 +375,20 @@ AddSymbolFilesAll()
 
 
 class LoadSymbols(gdb.Command):
-    """load-symbols [FILENAME] (load fresh symbols from /proc/self/maps)
+    """load-symbols [optional: FILENAME] (load symbols from /proc/self/maps)
+
+Normally, load-symbols works with no arguments.  When GDB stack does
+not show any symbols, try this.
+
+This handles the case with one executable file loaded, such as attaching
+with GDB to a process restarted by DMTCP.  There is _experimental_ support
+for when an executable was copied to a second address and the original
+may or may not have been unmapped.
 
 If there is more than one executable binary loaded (e.g., split processes),
-then you may need to use load-symbols-library, and select as an argument
-the filename (or address in /proc/*/maps) for the specific binary desired."""
+or if there are remaining frames on stack with no symbols, then you may
+need to try using load-symbols-library, and select as an argument the
+filename (or address in /proc/*/maps) for the specific binary desired."""
 
     def __init__(self):
         super(LoadSymbols,
