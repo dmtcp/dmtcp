@@ -2,12 +2,13 @@ AC_INIT([DMTCP],
         m4_esyscmd([tr -d '\n' < VERSION]),
         [dmtcp-forum@lists.sourceforge.net],
         [dmtcp],
-        [http://dmtcp.sourceforge.net])
+        [https://dmtcp.sourceforge.io/ ; https://github.com/dmtcp/dmtcp])
 
-AC_PREREQ([2.60])
+AC_PREREQ([2.71])
 # TODO(kapil): Add 'subdir-objects after automake 1.16 has been released.
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 AM_MAINTAINER_MODE
+AM_PROG_AS
 AC_CANONICAL_HOST
 AC_PROG_INSTALL
 # Automake uses 'ar cru' by default.  The 'ar' program then issues a warning.
@@ -22,7 +23,6 @@ dnl So, we are invoking AC_PROG_CXX _before_ AC_PROG_CC, to take advantage
 dnl of an undocumented autotools feature.
 AC_PROG_CXX
 AC_PROG_CC
-AC_PROG_CC_STDC
 AC_PROG_CPP
 
 AC_CONFIG_MACRO_DIR([m4])
@@ -58,9 +58,9 @@ enable_option_checking=fatal
 if test -n "$ac_unrecognized_opts"; then
   case $enable_option_checking in
     no) ;;
-    fatal) { $as_echo "$as_me: error: unrecognized options: $ac_unrecognized_opts" >&2
+    fatal) { AS_ECHO(["error: unrecognized options: $ac_unrecognized_opts"]) >&2
    { (exit 1); exit 1; }; } ;;
-    *)     $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2 ;;
+    *)     AS_ECHO(["$as_me: WARNING: unrecognized options: $ac_unrecognized_opts"]) >&2 ;;
   esac
 fi
 
@@ -226,7 +226,7 @@ if test "$use_test_suite" = "yes"; then
   CFLAGS="-g -O0"
   old_LIBS="$LIBS"
   LIBS="-lrt $LIBS"
-  AC_TRY_RUN([
+  AC_RUN_IFELSE([AC_LANG_SOURCE([[
               #include <fcntl.h>           /* For O_* constants */
               #include <sys/stat.h>        /* For mode constants */
               #include <mqueue.h>
@@ -241,7 +241,7 @@ if test "$use_test_suite" = "yes"; then
                 mq_unlink(mqname);
                 return 0;
               }
-              ], [posix_mq='yes'], [posix_mq='no'])
+              ]])],[posix_mq='yes'],[posix_mq='no'],[])
   CFLAGS="$old_CFLAGS"
   LIBS="$old_LIBS"
   AC_LANG_POP([C])
@@ -481,28 +481,28 @@ fi
 AC_MSG_RESULT([$is_wsl])
 
 AC_MSG_CHECKING([whether GNU_HASH is supported for ELF])
-AC_TRY_RUN([
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
            #include <stdio.h>
            #include <elf.h>
            int main() {
              printf("(DT_GNU_HASH: %d) ", DT_GNU_HASH);
              return 0;
            }
-           ], [has_gnu_hash='yes'], [has_gnu_hash='no'])
+           ]])],[has_gnu_hash='yes'],[has_gnu_hash='no'],[])
 if test "$has_gnu_hash" == "yes"; then
   AC_DEFINE([HAS_GNU_HASH],[1],[DT_GNU_HASH is defined (e.g., in elf.h).])
 fi
 AC_MSG_RESULT([$has_gnu_hash])
 
 AC_MSG_CHECKING([whether PR_SET_PTRACER is an option for prctl()])
-AC_TRY_RUN([
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
            #include <sys/prctl.h>
            int main() {
              prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
              prctl(PR_SET_PTRACER, 0, 0, 0, 0);
              return 0;
            }
-           ], [has_pr_set_ptracer='yes'], [has_pr_set_ptracer='no'])
+           ]])],[has_pr_set_ptracer='yes'],[has_pr_set_ptracer='no'],[])
 if test "$has_pr_set_ptracer" == "yes"; then
   AC_DEFINE([HAS_PR_SET_PTRACER],[1],[Allow 'gdb attach' when DMTCP_RESTART_PAUSE_WHILE is defined.])
 fi
@@ -510,10 +510,10 @@ AC_MSG_RESULT([$has_pr_set_ptracer])
 
 dnl CMA (Cross Memory Attach) brought in with  Linux 3.2.0 and glibc 2.15
 dnl Around Feb., 2018, Docker forbids process_vm_readv even though it's in
-dnl   libc.so.  So, AC_CHECK_FUNC is not sufficient.  Use AC_TRY_RUN.
+dnl   libc.so.  So, AC_CHECK_FUNC is not sufficient.  Use AC_RUN_IFELSE([AC_LANG_SOURCE([[]])],[],[],[]).
 AC_MSG_CHECKING([if process_vm_readv/process_vm_writev (CMA) available])
 dnl AC_CHECK_FUNC(process_vm_readv, [has_cma='yes'], [has_cma='no'])
-AC_TRY_RUN([
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
        #define _GNU_SOURCE
        #include <sys/types.h>
        #include <unistd.h>
@@ -551,7 +551,7 @@ AC_TRY_RUN([
            else
                return 0;
        }
-       ], [has_cma='yes'], [has_cma='no'])
+       ]])],[has_cma='yes'],[has_cma='no'],[])
 if test "$has_cma" == "yes"; then
   AC_DEFINE([HAS_CMA],[1],[Define to 1 if you have process_vm_readv and process_vm_writev.])
   AC_SUBST([HAS_CMA], [yes])
@@ -564,14 +564,14 @@ dnl The Linux FSGSBASE commits were pushed in with Linux 5.9.0.
 dnl This allows x86_64 assembly "rdfsbase" to be called in user space.
 dnl However, some earlier Linux kernels
 dnl have backported this feature (e.g., HPE Cray in Linux 5.3.18).
-dnl So, testing the kernel version does not suffice.  Here, we use AC_TRY_RUN.
+dnl So, testing the kernel version does not suffice.  Here, we use AC_RUN_IFELSE([AC_LANG_SOURCE([[]])],[],[],[]).
 AC_MSG_CHECKING([if FSGSBASE for x86_64 (setting fs in user space) is available])
 dnl AC_CANONICAL_HOST
 dnl HOST_OS=""
 dnl AS_CASE([$host_cpu], [x86_64], [ HOST_OS="x86_64" ])
 has_fsgsbase='no'
 if test `uname -m` == x86_64; then
-  AC_TRY_RUN([
+  AC_RUN_IFELSE([AC_LANG_SOURCE([[
              #include <sys/auxv.h>
              #include <elf.h>
 
@@ -597,7 +597,7 @@ if test `uname -m` == x86_64; then
             *   syscall(SYS_arch_prctl, ARCH_GET_FS, fsbase);
             *   syscall(SYS_arch_prctl, ARCH_SET_FS, fsbase);
             */
-       ], [has_fsgsbase='yes'], [has_fsgsbase='no'])
+       ]])],[has_fsgsbase='yes'],[has_fsgsbase='no'],[])
 fi
 if test "$has_fsgsbase" == "yes"; then
   AC_DEFINE([HAS_FSGSBASE],[1],[Define to 1 if you have FSGSBASE in kernel.])
@@ -766,16 +766,40 @@ else
   fi
 fi
 
-AC_ARG_WITH([mana_helper_dir],
-            [AS_HELP_STRING([--with-mana-helper-dir=manadir],
-                            [Directory containing additional mana-specific helpers.])],
-            [mana_helper_dir=$withval],
-            [mana_helper_dir=no])
+dnl ****** TODO: THIS IS STALE CODE.  WE WILL DELETE IT (or updateit?)
+dnl ****** AFTER WE COMMIT THE PR FOR THE NEW, PLANNED RESTART PLUGINS.
+dnl AC_ARG_WITH([mana_helper_dir],
+dnl             [AS_HELP_STRING([--with-mana-helper-dir=manadir],
+dnl                             [Directory containing additional mana-specific helpers.])],
+dnl             [mana_helper_dir=$withval],
+dnl             [mana_helper_dir=no])
+dnl ***** TODO: When finally removing this, also remove references
+dnl             in src/Makefile.am and src/mtcp/Makefile.in
 
-AM_CONDITIONAL(CONFIG_MANA_HELPER_DIR, [test "$mana_helper_dir" != "no"])
+dnl ****** TODO: SEE ABOVE: KEEP THIS UNTIL THE NEW RESTART PLUGIN
+# NOTE FO FUTURE:  We should avoid AM_CONDITIONAL.
+# automake-2.71 has a bug in AM_CONDITIONAL.  When the if statment is
+#  _not_ triggered.  They seem to assume that you _must_ define
+# the conditional case for 'then' and for 'else', even if 'else'
+# means creating a differently named file that is empty.
+# Otherwise, automake tries to do dependency checking on the
+#   file specified in 'then', even though we onky triggered the 'if'.
+# FLAME ON: automake is a separate, poorly documented, inflexible
+#   language that loses the clarity and simplicity of an ordinary
+#   Makefile.in.  For example, it's not possible to have a per-file CLFAGS.
+# *** BUG IN ORIGINAL DESIGN WITH automake:  It's not clear if
+#   --with-mana-helper-dir ever worked.  We were using the default only.
+mana_helper_dir=no
 if test "$mana_helper_dir" != "no"; then
-  AC_SUBST(MANA_HELPER_DIR, [`realpath $mana_helper_dir`])
+  # This is the buggy case.
+  RESTART_PLUGIN=`realpath $mana_helper_dir`/dmtcp_restart_plugin.$(OBJEXT)
+  MANA_HELPER_DIR=`realpath $mana_helper_dir`
+else
+  RESTART_PLUGIN=
+  MANA_HELPER_DIR=
 fi
+AC_SUBST([RESTART_PLUGIN])
+AC_SUBST([MANA_HELPER_DIR])
 
 if test "$use_m32" = "yes"; then
   interp=/lib/ld-linux.so.2
@@ -817,12 +841,19 @@ if test "$gccAtomicBuiltins" = "no"; then
 fi
 dnl Else will use mutex implementation; see jalib/jalloc.cpp
 
+dnl TODO:  __WAIT_STATUS is defined in include/config.h to be 'int *'
+dnl        POSIX says 'int'.  Why do we need __WAIT_STATUS for DMTCP,
+dnl        and then do AC_DEFINE to define it??
+dnl        It was part of the glibc lxstat support, but it was deprecated,
+dnl        and then removed as of glibc-2.24 in 2016.
+dnl        DMTCP should also drop support for __WAIT_STATUS.
 dnl Check whether __WAIT_STATUS is available.
 AC_MSG_CHECKING(for __WAIT_STATUS type)
 AC_LINK_IFELSE(
 [
   AC_LANG_SOURCE([[
     #include <sys/wait.h>
+    #include <sys/types.h>
     #include <stdlib.h>
     int main() {
       __WAIT_STATUS status __attribute__((unused));
@@ -836,5 +867,7 @@ if test "$wait_status" = "no"; then
   AC_DEFINE([__WAIT_STATUS],[int *],
             [can use __WAIT_STATUS as wait status type])
 fi
+dnl __WAIT_STATUS entered at commit 7d1344 (2009) and bdcac4 (2016)
+AC_MSG_NOTICE([*** glibc-2.24 removed __WAIT_STATUS; This check will go away in the future.])
 
 AC_OUTPUT
