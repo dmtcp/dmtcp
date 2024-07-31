@@ -859,7 +859,6 @@ enable_multilib
 enable_static_libstdcxx
 enable_dlsym_wrapper
 with_mpich
-with_mana_helper_dir
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1568,9 +1567,6 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-mpich=mpich_path_prefix
                           Compile mpich3 tests in `make check`
-  --with-mana-helper-dir=manadir
-                          Directory containing additional mana-specific
-                          helpers.
 
 Some influential environment variables:
   CC          C compiler command
@@ -9936,29 +9932,19 @@ else
 fi
 
 
-# Check whether --with-mana_helper_dir was given.
-if test ${with_mana_helper_dir+y}
-then :
-  withval=$with_mana_helper_dir; mana_helper_dir=$withval
-else $as_nop
-  mana_helper_dir=no
-fi
-
-
+# NOTE FO FUTURE:  We should avoid AM_CONDITIONAL.
 # automake-2.71 has a bug in AM_CONDITIONAL.  When the if statment is
 #  _not_ triggered.  They seem to assume that you _must_ define
 # the conditional case for 'then' and for 'else', even if 'else'
 # means creating a differently named file that is empty.
 # Otherwise, automake tries to do dependency checking on the
-#   file specified in 'then', even though we didn't triffer it.
-# This seems to be an argument for abandoning automake:  It is
-#   a separate, poorly documented, inflexible language that loses the
-#   clarity and simplicity of an ordinary Makefile.in.
-# *** BUG IN ORIGINAL DESIGN:  It seems like the author wanted
-# *** MANA_HELPER_DIR to be pulled in from src/mtcpMakfeile if
-# *** it is defined.  That doesn't work.  Maybe it once worked (unknonwn)
-# *** before automake insisted on using 'subdir-objects'.  So I'll leave
-# *** the code # *** here, in case the author wants to fix this. - Gene
+#   file specified in 'then', even though we onky triggered the 'if'.
+# FLAME ON: automake is a separate, poorly documented, inflexible
+#   language that loses the clarity and simplicity of an ordinary
+#   Makefile.in.  For example, it's not possible to have a per-file CLFAGS.
+# *** BUG IN ORIGINAL DESIGN WITH automake:  It's not clear if
+#   --with-mana-helper-dir ever worked.  We were using the default only.
+mana_helper_dir=no
 if test "$mana_helper_dir" != "no"; then
   # This is the buggy case.
   RESTART_PLUGIN=`realpath $mana_helper_dir`/dmtcp_restart_plugin.$(OBJEXT)

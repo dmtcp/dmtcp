@@ -766,26 +766,30 @@ else
   fi
 fi
 
-AC_ARG_WITH([mana_helper_dir],
-            [AS_HELP_STRING([--with-mana-helper-dir=manadir],
-                            [Directory containing additional mana-specific helpers.])],
-            [mana_helper_dir=$withval],
-            [mana_helper_dir=no])
+dnl ****** TODO: THIS IS STALE CODE.  WE WILL DELETE IT (or updateit?)
+dnl ****** AFTER WE COMMIT THE PR FOR THE NEW, PLANNED RESTART PLUGINS.
+dnl AC_ARG_WITH([mana_helper_dir],
+dnl             [AS_HELP_STRING([--with-mana-helper-dir=manadir],
+dnl                             [Directory containing additional mana-specific helpers.])],
+dnl             [mana_helper_dir=$withval],
+dnl             [mana_helper_dir=no])
+dnl ***** TODO: When finally removing this, also remove references
+dnl             in src/Makefile.am and src/mtcp/Makefile.in
 
+dnl ****** TODO: SEE ABOVE: KEEP THIS UNTIL THE NEW RESTART PLUGIN
+# NOTE FO FUTURE:  We should avoid AM_CONDITIONAL.
 # automake-2.71 has a bug in AM_CONDITIONAL.  When the if statment is
 #  _not_ triggered.  They seem to assume that you _must_ define
 # the conditional case for 'then' and for 'else', even if 'else'
 # means creating a differently named file that is empty.
 # Otherwise, automake tries to do dependency checking on the
-#   file specified in 'then', even though we didn't triffer it.
-# This seems to be an argument for abandoning automake:  It is
-#   a separate, poorly documented, inflexible language that loses the
-#   clarity and simplicity of an ordinary Makefile.in.
-# *** BUG IN ORIGINAL DESIGN:  It seems like the author wanted
-# *** MANA_HELPER_DIR to be pulled in from src/mtcpMakfeile if
-# *** it is defined.  That doesn't work.  Maybe it once worked (unknonwn)
-# *** before automake insisted on using 'subdir-objects'.  So I'll leave
-# *** the code # *** here, in case the author wants to fix this. - Gene
+#   file specified in 'then', even though we onky triggered the 'if'.
+# FLAME ON: automake is a separate, poorly documented, inflexible
+#   language that loses the clarity and simplicity of an ordinary
+#   Makefile.in.  For example, it's not possible to have a per-file CLFAGS.
+# *** BUG IN ORIGINAL DESIGN WITH automake:  It's not clear if
+#   --with-mana-helper-dir ever worked.  We were using the default only.
+mana_helper_dir=no
 if test "$mana_helper_dir" != "no"; then
   # This is the buggy case.
   RESTART_PLUGIN=`realpath $mana_helper_dir`/dmtcp_restart_plugin.$(OBJEXT)
