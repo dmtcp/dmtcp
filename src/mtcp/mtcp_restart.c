@@ -38,7 +38,6 @@
  */
 
 #define _GNU_SOURCE 1
-#include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sched.h>
@@ -88,12 +87,7 @@ static int doAreasOverlap2(char *addr, int length,
                char *vdsoStart, char *vdsoEnd, char *vvarStart, char *vvarEnd);
 static int hasOverlappingMapping(VA addr, size_t size);
 static int mremap_move(void *dest, void *src, size_t size);
-static void remapExistingAreasToReservedArea(RestoreInfo *rinfo, void (*restore_func)(RestoreInfo*));
-static void remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
-                                           Area *mem_regions,
-                                           size_t num_regions,
-                                           void (*restore_func)(RestoreInfo*),
-                                           VA *endAddr);
+static void remapMtcpRestartToReservedArea(RestoreInfo *rinfo, void (*restore_func)(RestoreInfo*));
 static void unmap_one_memory_area_and_rewind(Area *area, int mapsfd);
 static void restore_vdso_vvar(RestoreInfo *rinfo);
 static void compute_vdso_vvar_addr(RestoreInfo *rinfo);
@@ -181,11 +175,12 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
 
   validateRestoreBufferLocation(&rinfo);
 
+  compute_vdso_vvar_addr(&rinfo);
   compute_regions_to_munmap(&rinfo);
 
   /* For __arm__ and __aarch64__ will need to invalidate cache after this.
    */
-  remapExistingAreasToReservedArea(&rinfo, restore_func);
+  remapMtcpRestartToReservedArea(&rinfo, restore_func);
 
   // Copy over old stack to new location;
   mtcp_memcpy(rinfo.new_stack_addr, rinfo.old_stack_addr, rinfo.old_stack_size);
@@ -214,9 +209,6 @@ mtcp_restart_new_stack(RestoreInfo *rinfoGlobal)
 
   // Make a local copy so that we can unmap the original mtcp_restart text+data.
   RestoreInfo rinfo = *rinfoGlobal;
-
-  // Reset environ.
-  rinfo.environ = (char**) (((VA) rinfo.environ) - rinfo.stack_offset);
 
   DPRINTF("Entered copy of mtcp_restart_new_stack().  Will now unmap old memory "
           "and call restore function supplied by main().");
@@ -719,39 +711,190 @@ NO_OPTIMIZE
 static void
 restore_vdso_vvar(RestoreInfo *rinfo)
 {
+  /* Unmap everything except this image, vdso, vvar and vsyscall. */
   int mtcp_sys_errno;
+  VA vdsoStart = rinfo->currentVdsoStart;
+  VA vdsoEnd = rinfo->currentVdsoEnd;
+  VA vvarStart = rinfo->currentVvarStart;
+  VA vvarEnd = rinfo->currentVvarEnd;
 
-  if (rinfo->currentVdsoEnd - rinfo->currentVdsoStart != rinfo->vdsoEnd - rinfo->vdsoStart) {
+  // If the vvar (or vdso) segment does not exist, then rinfo->vvarStart and
+  // rinfo->vvarEnd are both 0 (or the vdso equivalents). We check for those to
+  // ensure we don't get a false positive here.
+  if ((vdsoStart == vvarEnd && rinfo->vdsoStart != rinfo->vvarEnd &&
+       rinfo->vvarStart != 0 && rinfo->vvarEnd != 0) ||
+      (vvarStart == vdsoEnd && rinfo->vvarStart != rinfo->vdsoEnd &&
+       rinfo->vdsoStart != 0 && rinfo->vdsoEnd != 0)) {
+    MTCP_PRINTF("***Error: vdso/vvar order was different during ckpt.\n");
+    mtcp_abort();
+  }
+
+  if (vdsoEnd - vdsoStart != rinfo->vdsoEnd - rinfo->vdsoStart) {
     MTCP_PRINTF("***Error: vdso size mismatch.\n");
     mtcp_abort();
   }
 
-  if (rinfo->currentVvarEnd - rinfo->currentVvarStart != rinfo->vvarEnd - rinfo->vvarStart) {
-    MTCP_PRINTF("***Error: vvar size mismatch. Current: %p..%p; existing %p..%p\n",
-      rinfo->currentVvarEnd, rinfo->currentVvarStart, rinfo->vvarEnd, rinfo->vvarStart);
+  if (vvarEnd - vvarStart != rinfo->vvarEnd - rinfo->vvarStart) {
+    MTCP_PRINTF("***Error: vvar size mismatch.\n");
     mtcp_abort();
   }
 
-  if (rinfo->currentVvarStart != NULL) {
-    int rc = mremap_move(rinfo->vvarStart,
-                         rinfo->currentVvarStart,
-                         rinfo->currentVvarEnd - rinfo->currentVvarStart);
-    if (rc == -1) {
-      MTCP_PRINTF("***Error: failed to restore vvar to pre-ckpt location.");
-      mtcp_abort();
+  // The functions mremap and mremap_move do not allow overlapping src and dest.
+  // So, we first researve an interim memory region for staging.
+  void *stagingAddr = NULL;
+  int stagingSize = 0;
+  void *stagingVdsoStart = NULL;
+  void *stagingVvarStart = NULL;
+  if (vdsoStart != NULL) {
+    stagingSize += vdsoEnd - vdsoStart;
+  }
+  if (vvarStart != NULL) {
+    stagingSize += vvarEnd - vvarStart;
+  }
+  if (stagingSize > 0) {
+    // We mmap three times the memory that we need, so that if the current
+    // vdso/vvar and the original pre-checkpoint vdso/vvar partially overlap,
+    // then we are guaranteed that the _middle_ third of the this new mmap'ed
+    // region cannot overlap with any of the old or new vdso/vvar regions.
+    // Part 1:  Try three staging areas.  At least one of the three will not
+    //          overlap with either the new vdso or the new vvar.
+    void *stagingAddrA = NULL;
+    void *stagingAddrB = NULL;
+    void *stagingAddrC = NULL;
+
+    stagingAddrA = mtcp_sys_mmap(NULL, 3*stagingSize,
+        PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    stagingAddr = stagingAddrA;
+    void *rinfoVdsoEnd = rinfo->vdsoStart + (vdsoEnd - vdsoStart);
+    void *rinfoVvarEnd = rinfo->vvarStart + (vvarEnd - vvarStart);
+    if (doAreasOverlap2(stagingAddrA + stagingSize, stagingSize,
+                        rinfo->vdsoStart, rinfoVdsoEnd,
+                        rinfo->vvarStart, rinfoVvarEnd)) {
+      stagingAddrB = mtcp_sys_mmap(NULL, 3*stagingSize,
+          PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+      stagingAddr = stagingAddrB;
+    }
+    if (doAreasOverlap2(stagingAddrB + stagingSize, stagingSize,
+                        rinfo->vdsoStart, rinfoVdsoEnd,
+                        rinfo->vvarStart, rinfoVvarEnd)) {
+      stagingAddrC = mtcp_sys_mmap(NULL, 3*stagingSize, PROT_NONE,
+                                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+      stagingAddr = stagingAddrC;
+    }
+    if (stagingAddrA != NULL && stagingAddrA != stagingAddr) {
+      mtcp_sys_munmap(stagingAddrA, 3*stagingSize);
+    }
+    if (stagingAddrB != NULL && stagingAddrB != stagingAddr) {
+      mtcp_sys_munmap(stagingAddrB, 3*stagingSize);
+    }
+    MTCP_ASSERT( ! doAreasOverlap2(stagingAddr + stagingSize, stagingSize,
+                                   rinfo->vdsoStart, rinfoVdsoEnd,
+                                   rinfo->vvarStart, rinfoVvarEnd));
+
+    // Part 2:  stagingAddr now has no overlap.  It's safe to mremap.
+    // Unmap the first and last thirds of the staging area to avoid overlaps
+    // between the new vdso/vvar regions and the staging area.
+    stagingAddr = stagingAddr + stagingSize;
+    mtcp_sys_munmap(stagingAddr - stagingSize, stagingSize);
+    mtcp_sys_munmap(stagingAddr + stagingSize, stagingSize);
+
+    stagingVdsoStart = stagingVvarStart = stagingAddr;
+    if (vdsoStart != NULL) {
+      int rc = mremap_move(stagingVdsoStart, vdsoStart, vdsoEnd - vdsoStart);
+      if (rc == -1) {
+        MTCP_PRINTF("***Error: failed to remap vdsoStart to staging area.");
+      }
+      stagingVvarStart = (char *)stagingVdsoStart + (vdsoEnd - vdsoStart);
+    }
+    if (vvarStart != NULL) {
+      int rc = mremap_move(stagingVvarStart, vvarStart, vvarEnd - vvarStart);
+      if (rc == -1) {
+        MTCP_PRINTF("***Error: failed to remap vdsoStart to staging area.");
+      }
     }
   }
 
-  if (rinfo->currentVdsoStart != NULL) {
-    int rc = mremap_move(rinfo->vdsoStart,
-                         rinfo->currentVdsoStart,
-                         rinfo->currentVdsoEnd - rinfo->currentVdsoStart);
+  // Move vvar to original location, followed by same for vdso
+  if (vvarStart != NULL) {
+    int rc = mremap_move(rinfo->vvarStart, stagingVvarStart, vvarEnd - vvarStart);
     if (rc == -1) {
-      MTCP_PRINTF("***Error: failed to restore vdso to pre-ckpt location.");
+      MTCP_PRINTF("***Error: failed to remap stagingVvarStart to old value "
+                  "%p -> %p); errno: %d.\n",
+                  stagingVvarStart, rinfo->vvarStart, mtcp_sys_errno);
       mtcp_abort();
     }
-    mtcp_setauxval(rinfo->environ, AT_SYSINFO_EHDR,
-                   (unsigned long int) rinfo->vdsoStart);
+#if defined(__i386__)
+    // FIXME: For clarity of code, move this i386-specific code toa function.
+    void *vvar = mmap_fixed_noreplace(stagingVvarStart, vvarEnd - vvarStart,
+                                      PROT_EXEC | PROT_WRITE | PROT_READ,
+                                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                                      -1, 0);
+    if (vvar == MAP_FAILED) {
+      MTCP_PRINTF("***Error: failed to mremap vvar; errno: %d\n",
+                  mtcp_sys_errno);
+      mtcp_abort();
+    }
+    MTCP_ASSERT(vvar == stagingVvarStart);
+    // On i386, only the first page is readable. Reading beyond that
+    // results in a bus error.
+    // Arguably, this is a bug in the kernel, since /proc/*/maps indicates
+    // that both pages of vvar memory have read permission.
+    // This issue arose due to a change in the Linux kernel pproximately in
+    // version 4.0
+    // TODO: Find a way to automatically detect the readable bytes.
+    mtcp_memcpy(vvarStart, rinfo->vvarStart, MTCP_PAGE_SIZE);
+#endif /* if defined(__i386__) */
+  }
+
+  if (vdsoStart != NULL) {
+    int rc = mremap_move(rinfo->vdsoStart, stagingVdsoStart, vdsoEnd - vdsoStart);
+    if (rc == -1) {
+      MTCP_PRINTF("***Error: failed to remap stagingVdsoStart to old value "
+                  "%p -> %p); errno: %d.\n",
+                  stagingVdsoStart, rinfo->vdsoStart, mtcp_sys_errno);
+      mtcp_abort();
+    }
+#if defined(__i386__)
+    // FIXME: For clarity of code, move this i386-specific code to a function.
+    // In commit dec2c26c1eb13eb1c12edfdc9e8e811e4cc0e3c2 , the mremap
+    // code above was added, and then caused a segfault on restart for
+    // __i386__ in CentOS 7.  In that case ENABLE_VDSO_CHECK was not defined.
+    // This version was needed in that commit for __i386__
+    // (i.e., for multi-arch.sh) to succeed.
+    // Newer Linux kernels, such as __x86_64__, provide a separate vsyscall
+    // segment
+    // for kernel calls while using vdso for system calls that can be
+    // executed purely in user space through kernel-specific user-space code.
+    // On older kernels like __x86__, both purposes are squeezed into vdso.
+    // Since vdso will use randomized addresses (unlike the standard practice
+    // for vsyscall), this implies that kernel calls on __x86__ can go through
+    // randomized addresses, and so they need special treatment.
+    void *vdso = mmap_fixed_noreplace(stagingVdsoStart, vdsoEnd - vdsoStart,
+                                      PROT_EXEC | PROT_WRITE | PROT_READ,
+                                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                                      -1, 0);
+
+    // The new vdso was remapped to the location of the old vdso, since the
+    // restarted application code remembers the old vdso address.
+    // But for __i386__, a kernel call will go through the old vdso address
+    // into the kernel, and then the kernel will return to the new vdso address
+    // that was created by this kernel.  So, we need to copy the new vdso
+    // code from its current location at the old vdso address back into
+    // the new vdso address that was just mmap'ed.
+    if (vdso == MAP_FAILED) {
+      MTCP_PRINTF("***Error: failed to mremap vdso; errno: %d\n",
+                  mtcp_sys_errno);
+      mtcp_abort();
+    }
+    MTCP_ASSERT(vdso == stagingVdsoStart);
+    // FIXME:  Do we need this logic also for x86_64, etc.?
+    mtcp_memcpy(vdsoStart, rinfo->vdsoStart, vdsoEnd - vdsoStart);
+#endif /* if defined(__i386__) */
+  }
+
+  if (stagingSize > 0) {
+    // We're done using this.  Release the remaining staging area.
+    mtcp_sys_munmap(stagingAddr, stagingSize);
   }
 }
 
@@ -1069,35 +1212,48 @@ mremap_move(void *dest, void *src, size_t size) {
 // This is the entrypoint to the binary. We'll need it for adding symbol file.
 int _start();
 
-static int
-isVdsoArea(Area* area)
-{
-#if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 18)
-    // It's a vdso page from a time before Linux displayed the annotation.
-    if (area.addr == 0xfffe0000 && area.size == 4096) {
-      return 1;
-    }
-#endif // if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 18)
-
-  return mtcp_strcmp(area->name, "[vdso]") == 0;
-}
-
 NO_OPTIMIZE
 static void
-remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
-                               Area *mem_regions,
-                               size_t num_regions,
-                               void (*restore_func)(RestoreInfo*),
-                               VA *endAddr)
+remapMtcpRestartToReservedArea(RestoreInfo *rinfo, void (*restore_func)(RestoreInfo*))
 {
   int mtcp_sys_errno;
 
-  ptrdiff_t restore_region_offset = (VA) rinfo->restore_addr - mem_regions[0].addr;
-  rinfo->restore_func = (fnptr_t)
-    ((uint64_t)restore_func + restore_region_offset);
-  rinfo->mtcp_restart_new_stack = (fnptr_t)
-    ((uint64_t)mtcp_restart_new_stack + restore_region_offset);
+  const size_t MAX_MTCP_RESTART_MEM_REGIONS = 16;
 
+  Area mem_regions[MAX_MTCP_RESTART_MEM_REGIONS];
+
+  size_t num_regions = 0;
+
+  char binary_name[PATH_MAX+1];
+  MTCP_ASSERT(mtcp_sys_readlink("/proc/self/exe", binary_name, PATH_MAX) != -1);
+
+  // First figure out mtcp_restart memory regions.
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    MTCP_PRINTF("error opening /proc/self/maps: errno: %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  Area area;
+  while (mtcp_readmapsline(mapsfd, &area)) {
+    if (mtcp_strcmp(area.name, binary_name) == 0) {
+      MTCP_ASSERT(num_regions < MAX_MTCP_RESTART_MEM_REGIONS);
+      mem_regions[num_regions++] = area;
+    }
+
+    // Also compute the stack location.
+    if (area.addr < (VA) &area && area.endAddr > (VA) &area) {
+      // We've found stack.
+      rinfo->old_stack_addr = area.addr;
+      rinfo->old_stack_size = area.size;
+    }
+  }
+
+  mtcp_sys_close(mapsfd);
+
+  VA nextAddr = rinfo->restore_addr;
+
+  ptrdiff_t restore_region_offset = (VA) rinfo->restore_addr - mem_regions[0].addr;
 
   // TODO: _start can sometimes be different than text_offset. The foolproof
   // method would be to read the elf headers for the mtcp_restart binary and
@@ -1142,8 +1298,6 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
       mtcp_abort();
     }
 
-    *endAddr = (VA) addr + mem_regions[i].size;
-
     // This probably is some memory that was initialized by the loader; let's
     // copy over the bits.
     if (mem_regions[i].prot & PROT_WRITE) {
@@ -1153,103 +1307,25 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
 
   mtcp_sys_close(mtcp_restart_fd);
   mtcp_restart_fd = -1;
-}
 
-NO_OPTIMIZE
-static void
-remapExistingAreasToReservedArea(RestoreInfo *rinfo,
-                                 void (*restore_func)(RestoreInfo*))
-{
-  int mtcp_sys_errno;
+  // Create a guard page without read permissions and use the remaining region
+  // for the stack.
 
-  const size_t MAX_MTCP_RESTART_MEM_REGIONS = 16;
+  VA guard_page =
+    mem_regions[num_regions - 1].endAddr + restore_region_offset;
 
-  Area mem_regions[MAX_MTCP_RESTART_MEM_REGIONS];
-
-  size_t num_regions = 0;
-
-  char binary_name[PATH_MAX+1];
-  MTCP_ASSERT(mtcp_sys_readlink("/proc/self/exe", binary_name, PATH_MAX) != -1);
-
-  rinfo->currentVdsoStart = NULL;
-  rinfo->currentVdsoEnd = NULL;
-  rinfo->currentVvarStart = NULL;
-  rinfo->currentVvarEnd = NULL;
-  rinfo->old_stack_addr = NULL;
-  rinfo->old_stack_size = 0;
-
-  // First figure out mtcp_restart memory regions.
-  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
-  if (mapsfd < 0) {
-    MTCP_PRINTF("error opening /proc/self/maps: errno: %d\n", mtcp_sys_errno);
-    mtcp_abort();
-  }
-
-  Area area;
-  while (mtcp_readmapsline(mapsfd, &area)) {
-    if (isVdsoArea(&area)) {
-      rinfo->currentVdsoStart = area.addr;
-      rinfo->currentVdsoEnd = area.endAddr;
-    } else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
-      rinfo->currentVvarStart = area.addr;
-      rinfo->currentVvarEnd = area.endAddr;
-    } else if (mtcp_strcmp(area.name, binary_name) == 0) {
-      MTCP_ASSERT(num_regions < MAX_MTCP_RESTART_MEM_REGIONS);
-      mem_regions[num_regions++] = area;
-    } else if (area.addr < (VA) &area && area.endAddr > (VA) &area) {
-      // We've found stack.
-      rinfo->old_stack_addr = area.addr;
-      rinfo->old_stack_size = area.size;
-    }
-  }
-
-  mtcp_sys_close(mapsfd);
-
-  VA endAddr;
-  remapMtcpRestartToReservedArea(rinfo, mem_regions, num_regions, restore_func, &endAddr);
-
-  // Create a guard page without read permissions.
-  MTCP_ASSERT(mtcp_sys_mmap(endAddr,
+  MTCP_ASSERT(mtcp_sys_mmap(guard_page,
                             MTCP_PAGE_SIZE,
                             PROT_NONE,
                             MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
                             -1,
-                            0) == endAddr);
+                            0) == guard_page);
+  MTCP_ASSERT(guard_page != MAP_FAILED);
 
-  endAddr += MTCP_PAGE_SIZE;
-
-  // Now move vvar to the end of guard page.
-  if (rinfo->currentVvarStart != NULL) {
-    size_t size = rinfo->currentVvarEnd - rinfo->currentVvarStart;
-    int rc = mremap_move(endAddr, rinfo->currentVvarStart, size);
-    if (rc == -1) {
-      MTCP_PRINTF("***Error: failed to remap vvarStart to reserved area.");
-      mtcp_abort();
-    }
-
-    rinfo->currentVvarStart = endAddr;
-    rinfo->currentVvarEnd = endAddr + size;
-    endAddr = rinfo->currentVvarEnd;
-  }
-
-  // Now move vdso to the end of vvar page.
-  if (rinfo->currentVdsoStart != NULL) {
-    size_t size = rinfo->currentVdsoEnd - rinfo->currentVdsoStart;
-    int rc = mremap_move(endAddr, rinfo->currentVdsoStart, size);
-    if (rc == -1) {
-      MTCP_PRINTF("***Error: failed to remap vdsoStart to reserved area.");
-      mtcp_abort();
-    }
-
-    rinfo->currentVdsoStart = endAddr;
-    rinfo->currentVdsoEnd = endAddr + size;
-    endAddr = rinfo->currentVdsoEnd;
-    mtcp_setauxval(rinfo->environ, AT_SYSINFO_EHDR,
-                   (unsigned long int) rinfo->currentVdsoStart);
-  }
+  VA guard_page_end_addr = guard_page + MTCP_PAGE_SIZE;
 
   uint64_t remaining_restore_area =
-    (uint64_t) (rinfo->restore_addr + rinfo->restore_size - endAddr);
+    (uint64_t) (rinfo->restore_addr + RESTORE_TOTAL_SIZE - guard_page_end_addr);
 
   MTCP_ASSERT(remaining_restore_area >= rinfo->old_stack_size);
 
@@ -1266,6 +1342,16 @@ remapExistingAreasToReservedArea(RestoreInfo *rinfo,
   MTCP_ASSERT(rinfo->new_stack_addr != MAP_FAILED);
 
   rinfo->stack_offset = rinfo->old_stack_addr - rinfo->new_stack_addr;
+
+  rinfo->restore_func = (fnptr_t)
+   ((uint64_t)restore_func + restore_region_offset);
+
+  rinfo->mtcp_restart_new_stack = (fnptr_t)
+   ((uint64_t)mtcp_restart_new_stack + restore_region_offset);
+
+//   DPRINTF("For debugging:\n"
+//           "    (gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
+//           *mtcp_restart_text_addr);
 }
 
 #ifdef FAST_RST_VIA_MMAP

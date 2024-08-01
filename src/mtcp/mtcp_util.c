@@ -26,7 +26,6 @@
  *****************************************************************************/
 
 #include <linux/version.h>
-#include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -884,18 +883,4 @@ void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
     MTCP_PRINTF("error %d mapping %p bytes at %p, flags: %p, prot :%p\n", mtcp_sys_errno, len, addr, flags, prot);
     return MAP_FAILED;
   }
-}
-
-int
-mtcp_setauxval(char **evp, unsigned long int type, unsigned long int val)
-{ while (*evp++ != NULL) {};
-  Elf64_auxv_t *auxv = (Elf64_auxv_t *)evp;
-  Elf64_auxv_t *p;
-  for (p = auxv; p->a_type != AT_NULL; p++) {
-    if (p->a_type == type) {
-       p->a_un.a_val = val;
-       return 0;
-    }
-  }
-  return -1;
 }
