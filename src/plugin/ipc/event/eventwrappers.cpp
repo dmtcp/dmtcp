@@ -39,7 +39,7 @@ using namespace dmtcp;
 /* 'man 7 signal' says the following are not restarted after ckpt signal
  * even though the SA_RESTART option was used.  If we wrap these, we must
  * restart them when they are interrupted by a checkpoint signal.
- * python-2.7{socketmodule.c,signalmodule.c} assume no unknown signal
+ * python-3.7{socketmodule.c,signalmodule.c} assume no unknown signal
  *   handlers such as DMTCP checkpoint signal.  So, Python needs this.
  *
  * + Socket interfaces, when a timeout has been  set  on  the  socket
