@@ -3,7 +3,7 @@ Section: utils
 Priority: optional
 Maintainer: Paul Grosu <pgrosu@gmail.com>
 Uploaders: Yaroslav Halchenko <debian@onerussian.com>, Kapil Arya <kapil@ccs.neu.edu>
-Build-Depends: debhelper (>= 11), python
+Build-Depends: debhelper (>= 11), python3
 Standards-Version: 4.2.1
 Vcs-git: https://github.com/dmtcp/dmtcp.git
 Vcs-browser: https://github.com/dmtcp/dmtcp

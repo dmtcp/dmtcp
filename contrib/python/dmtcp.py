@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # The contents of this file are inspired from the python script dmtcp_ctypes.py
 # originally supplied by Neal Becker.
