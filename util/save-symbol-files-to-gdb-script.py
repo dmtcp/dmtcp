@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Usage:  python THIS_FILE PID > GDB_SCRIPT
 #    OR:  THIS_FILE PID > GDB_SCRIPT

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # This file is deprecated.  It is a hack, to augment the logic for
 #   'add-symbol-file libdmtcp.so' in mtcp/mtcp_restart.c
 # A better version is util/gdb-add-symbol-files-all.  Read heading for info.

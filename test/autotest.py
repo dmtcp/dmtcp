@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # NOTE: .github/workflows/make-check.yml at DMTCP_ROOT calls autotest.py
 
@@ -107,7 +107,7 @@ def parallel_test(name):
     if isinstance(tests[i], subprocess.Popen) and tests[i].poll() == None:
       num_jobs += 1  # job still executing
     elif isinstance(tests[i], str):
-      tests[i] = subprocess.Popen( # Example: exec python autotest.py dmtcp1
+      tests[i] = subprocess.Popen( # Example: exec python3 autotest.py dmtcp1
                    "exec " + sys.executable + " " + autotest_path + " " +
                      tests[i] + " > /dev/null 2>&1",
                    shell=True)
@@ -1081,9 +1081,12 @@ POST_LAUNCH_SLEEP = 2  # Don't checkpoint until perl cmd has launched
 runTest("perl",          1, ["/usr/bin/perl"])
 POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
 
-if HAS_PYTHON == "yes":
+if HAS_PYTHON == "yes" or HAS_PYTHON3 == "yes":
   POST_LAUNCH_SLEEP = 2  # Don't checkpoint until python cmd has launched
-  runTest("python",      1, ["/usr/bin/python"])
+  if HAS_PYTHON == "yes":
+    runTest("python",      1, ["/usr/bin/env python"])
+  else:
+    runTest("python",      1, ["/usr/bin/env python3"])
   POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
 
 os.environ['DMTCP_GZIP'] = "1"

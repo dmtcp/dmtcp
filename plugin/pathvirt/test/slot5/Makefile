@@ -19,7 +19,7 @@ file-test4: file-test4.c
 check: clean pv-test
 	DMTCP_ORIGINAL_PATH_PREFIX=$(PATHVIRT)/slot5/bin5:$(PATHVIRT)/slot5/doc5:$(PATHVIRT)/slot5/lib5 \
 		${DMTCP_ROOT}/bin/dmtcp_launch --pathvirt -i4 ./pv-test
-		# dmtcp_launch -i2 --pathvirt /usr/bin/python pv-test.py
+		# dmtcp_launch -i2 --pathvirt /usr/bin/env python3 pv-test.py
 
 newtest: clean file-test
 	DMTCP_ORIGINAL_PATH_PREFIX=/tmp ${DMTCP_ROOT}/bin/dmtcp_launch --checkpoint-open-files --pathvirt ./file-test
@@ -49,7 +49,7 @@ gdb: clean pv-test
 
 check-python:  clean
 	DMTCP_ORIGINAL_PATH_PREFIX=$(PATHVIRT)/slot5/bin5:$(PATHVIRT)/slot5/doc5:$(PATHVIRT)/slot5/lib5 \
-		${DMTCP_ROOT}/bin/dmtcp_launch -i4 --pathvirt /usr/bin/python pv-test.py
+		${DMTCP_ROOT}/bin/dmtcp_launch -i4 --pathvirt /usr/bin/env python3 pv-test.py
 
 restart:
 	DMTCP_NEW_PATH_PREFIX=$(PATHVIRT)/misc/slot7/bin7:$(PATHVIRT)/misc/slot7/doc7:$(PATHVIRT)/misc/slot7/lib7 \
