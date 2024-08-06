@@ -40,14 +40,11 @@ srcdir = @srcdir@
 VPATH = @srcdir@
 targetdir = $(top_builddir)
 
-ifeq (${shell uname -m},aarch64)
-else
 ifeq (${shell uname -m},armv7)
 else
 ifeq (${shell uname -m},armv7l)
 else
 DO_PTHREAD_ATFORK = yes
-endif
 endif
 endif
 
