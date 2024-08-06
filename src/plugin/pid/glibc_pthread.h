@@ -105,7 +105,13 @@
 #define _STACK_GROWS_DOWN 1
 
 struct libc_tcbhead_t {
+#if defined(__arm__) || defined(__aarch64__)
+  char pad[8];
+#elif defined(__x86__) || defined(__x86_64__)
   char pad[704];
+#else
+# error "Unsupported architecture"
+#endif
 };
 
 struct libc_list_t {
