@@ -985,7 +985,7 @@ runTest("mutex4",        1, ["./test/mutex4"])
 # FIXME:  pthread_atfork doesn't compile on some architectures.
 #         If we add a configure test for pthread_atfork, we can
 #           set a Python variable in autotest_config.py.in
-if uname_m != "armv7" and uname_m != "armv7l" and uname_m != "aarch64":
+if uname_m != "armv7" and uname_m != "armv7l":
   if os.getenv("LD_LIBRARY_PATH"):
     os.environ["LD_LIBRARY_PATH"] += ":./test"
   else:
