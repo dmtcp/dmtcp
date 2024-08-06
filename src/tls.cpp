@@ -27,7 +27,9 @@
 #include <sys/personality.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
+#define _GNU_SOURCE
 #include <unistd.h>
+#include <sys/types.h>
 
 #include "config.h" // define WSL if present
 #include "jassert.h"
@@ -512,9 +514,9 @@ TLSInfo_RestoreTLSTidPid(Thread *thread)
 
   if (glibcMajorVersion() == 2 && glibcMinorVersion() <= 24) {
     *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetPidOffset()) =
-      mtcp_sys_getpid();
+      getpid();
   }
 
   *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetTidOffset()) =
-     mtcp_sys_kernel_gettid();
+     gettid();
 }

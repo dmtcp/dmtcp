@@ -353,11 +353,13 @@ struct linux_dirent {
 # if defined(__aarch64__)
 
 // As of glibc-2.18, readlink() has been replaced by readlinkat()
-// glibc includes checks for old call, except in Aarch64
-#  define mtcp_sys_readlink(args ...) mtcp_inline_syscall(readlinkat, 3, args)
-# else // if defined(__aarch64__)
+// glibc includes checks for old call, except in aarch64
+// Presumably, the Linux kernel for aarch64 never supported readlink.
+#  define mtcp_sys_readlink(args ...) mtcp_inline_syscall(readlinkat, 4, \
+                                                          AT_FDCWD, args)
+# else // else if not defined(__aarch64__)
 #  define mtcp_sys_readlink(args ...) mtcp_inline_syscall(readlink, 3, args)
-# endif // if defined(__aarch64__)
+# endif // endif: defined(__aarch64__)
 # if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
 
 /* Should this be changed to use newer ugetrlimit kernel call? */
@@ -548,20 +550,28 @@ mtcp_abort(void)
 #if defined(__arm__) || defined(__aarch64__)
 # undef mtcp_inline_syscall
 # undef INLINE_SYSCALL_RAW
-# if defined(__arm__)
+# ifdef __cplusplus
+#  if defined(__arm__)
+extern "C" unsigned int mtcp_syscall(...);
+#  elif defined(__aarch64__)
+extern "C" unsigned long mtcp_syscall(...);
+#  endif // if defined(__arm__)
+# else // ifdef __cpluscplus ... else ...
+#  if defined(__arm__)
 extern unsigned int mtcp_syscall();
-# elif defined(__aarch64__)
+#  elif defined(__aarch64__)
 extern unsigned long mtcp_syscall();
-# endif // if defined(__arm__)
+#  endif // if defined(__arm__)
+# endif
 # ifdef MTCP_SYS_ERRNO_ON_STACK
 #  define mtcp_inline_syscall(name, num_args, ...) \
-  mtcp_syscall(SYS_ ## name, &mtcp_sys_errno, ## __VA_ARGS__)
+  mtcp_syscall(SYS_ ## name, &mtcp_sys_errno, ##__VA_ARGS__)
 #  define INLINE_SYSCALL_RAW(name, nr, ...) \
-  mtcp_syscall(name, &mtcp_sys_errno, ## __VA_ARGS__)
+  mtcp_syscall(name, &mtcp_sys_errno, ##__VA_ARGS__)
 # else // ifdef MTCP_SYS_ERRNO_ON_STACK
-#  define mtcp_inline_syscall(name, num_args, args ...) \
-  mtcp_syscall(SYS_ ## name, args)
+#  define mtcp_inline_syscall(name, num_args, ...) \
+  mtcp_syscall(SYS_ ## name, ##__VA_ARGS__)
 #  define INLINE_SYSCALL_RAW(name, nr, ...) \
-  mtcp_syscall(name, ## __VA_ARGS__)
+  mtcp_syscall(name, ##__VA_ARGS__)
 # endif // ifdef MTCP_SYS_ERRNO_ON_STACK
 #endif // if defined(__arm__) || defined(__aarch64__)

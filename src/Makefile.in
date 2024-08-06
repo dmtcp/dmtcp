@@ -108,11 +108,8 @@ bin_PROGRAMS = $(d_bindir)/dmtcp_command$(EXEEXT) \
 	$(d_bindir)/dmtcp_get_libc_offset$(EXEEXT) \
 	$(d_bindir)/dmtcp_restart$(EXEEXT)
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so$(EXEEXT)
+# FIXME: This depends on configure showing __atomic_* exists, not on aarch64
 @AARCH64_HOST_TRUE@am__append_2 = -latomic
-@AARCH64_HOST_TRUE@am__append_3 = -latomic
-@AARCH64_HOST_TRUE@am__append_4 = -latomic
-@AARCH64_HOST_TRUE@am__append_5 = -latomic
-@AARCH64_HOST_TRUE@am__append_6 = -latomic
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_cxx_compile_stdcxx.m4 \
@@ -144,18 +141,19 @@ am_libdmtcpinternal_a_OBJECTS = coordinatorapi.$(OBJEXT) \
 	util_init.$(OBJEXT) util_misc.$(OBJEXT) workerstate.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libdmtcprestart_a_AR = $(AR) $(ARFLAGS)
-@AARCH64_HOST_FALSE@libdmtcprestart_a_DEPENDENCIES =  \
-@AARCH64_HOST_FALSE@	libdmtcpinternal.a libjalib.a \
-@AARCH64_HOST_FALSE@	libnohijack.a
-@AARCH64_HOST_TRUE@libdmtcprestart_a_DEPENDENCIES =  \
-@AARCH64_HOST_TRUE@	libdmtcpinternal.a libjalib.a libnohijack.a
+libdmtcprestart_a_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
+	libnohijack.a
 am_libdmtcprestart_a_OBJECTS = dmtcprestartinternal.$(OBJEXT)
 libdmtcprestart_a_OBJECTS = $(am_libdmtcprestart_a_OBJECTS)
 libjalib_a_AR = $(AR) $(ARFLAGS)
-libjalib_a_DEPENDENCIES =
-am_libjalib_a_OBJECTS = jalib.$(OBJEXT) jalloc.$(OBJEXT) \
-	jassert.$(OBJEXT) jbuffer.$(OBJEXT) jfilesystem.$(OBJEXT) \
-	jserialize.$(OBJEXT) jsocket.$(OBJEXT) jtimer.$(OBJEXT)
+libjalib_a_LIBADD =
+am__dirstamp = $(am__leading_dot)dirstamp
+am_libjalib_a_OBJECTS = $(jalibdir)/jalib.$(OBJEXT) \
+	$(jalibdir)/jalloc.$(OBJEXT) $(jalibdir)/jassert.$(OBJEXT) \
+	$(jalibdir)/jbuffer.$(OBJEXT) \
+	$(jalibdir)/jfilesystem.$(OBJEXT) \
+	$(jalibdir)/jserialize.$(OBJEXT) $(jalibdir)/jsocket.$(OBJEXT) \
+	$(jalibdir)/jtimer.$(OBJEXT)
 libjalib_a_OBJECTS = $(am_libjalib_a_OBJECTS)
 libnohijack_a_AR = $(AR) $(ARFLAGS)
 libnohijack_a_LIBADD =
@@ -170,17 +168,15 @@ libsyscallsreal_a_OBJECTS = $(am_libsyscallsreal_a_OBJECTS)
 am___d_bindir__dmtcp_command_OBJECTS = dmtcp_command.$(OBJEXT)
 __d_bindir__dmtcp_command_OBJECTS =  \
 	$(am___d_bindir__dmtcp_command_OBJECTS)
-am__DEPENDENCIES_1 =
 __d_bindir__dmtcp_command_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
-	libnohijack.a $(am__DEPENDENCIES_1)
-am__dirstamp = $(am__leading_dot)dirstamp
+	libnohijack.a
 am___d_bindir__dmtcp_coordinator_OBJECTS =  \
 	dmtcp_coordinator.$(OBJEXT) lookup_service.$(OBJEXT) \
 	restartscript.$(OBJEXT)
 __d_bindir__dmtcp_coordinator_OBJECTS =  \
 	$(am___d_bindir__dmtcp_coordinator_OBJECTS)
 __d_bindir__dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a \
-	libjalib.a libnohijack.a $(am__DEPENDENCIES_1)
+	libjalib.a libnohijack.a
 am___d_bindir__dmtcp_get_libc_offset_OBJECTS =  \
 	dmtcp_get_libc_offset.$(OBJEXT)
 __d_bindir__dmtcp_get_libc_offset_OBJECTS =  \
@@ -190,7 +186,7 @@ am___d_bindir__dmtcp_launch_OBJECTS = dmtcp_launch.$(OBJEXT)
 __d_bindir__dmtcp_launch_OBJECTS =  \
 	$(am___d_bindir__dmtcp_launch_OBJECTS)
 __d_bindir__dmtcp_launch_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
-	libnohijack.a $(am__DEPENDENCIES_1)
+	libnohijack.a
 am___d_bindir__dmtcp_nocheckpoint_OBJECTS =  \
 	dmtcp_nocheckpoint.$(OBJEXT)
 __d_bindir__dmtcp_nocheckpoint_OBJECTS =  \
@@ -200,8 +196,7 @@ am___d_bindir__dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT)
 __d_bindir__dmtcp_restart_OBJECTS =  \
 	$(am___d_bindir__dmtcp_restart_OBJECTS)
 __d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcprestart.a \
-	libdmtcpinternal.a libjalib.a libnohijack.a \
-	$(am__DEPENDENCIES_1)
+	libdmtcpinternal.a libjalib.a libnohijack.a
 am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	ckptserializer.$(OBJEXT) dlwrappers.$(OBJEXT) \
 	dmtcpplugin.$(OBJEXT) dmtcpworker.$(OBJEXT) \
@@ -216,6 +211,7 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	wrappers.$(OBJEXT) writeckpt.$(OBJEXT)
 __d_libdir__libdmtcp_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_so_OBJECTS)
+am__DEPENDENCIES_1 =
 __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libsyscallsreal.a $(am__DEPENDENCIES_1)
 __d_libdir__libdmtcp_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
@@ -235,7 +231,14 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
+am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
+	$(jalibdir)/$(DEPDIR)/jalloc.Po \
+	$(jalibdir)/$(DEPDIR)/jassert.Po \
+	$(jalibdir)/$(DEPDIR)/jbuffer.Po \
+	$(jalibdir)/$(DEPDIR)/jfilesystem.Po \
+	$(jalibdir)/$(DEPDIR)/jserialize.Po \
+	$(jalibdir)/$(DEPDIR)/jsocket.Po \
+	$(jalibdir)/$(DEPDIR)/jtimer.Po ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/ckptserializer.Po ./$(DEPDIR)/coordinatorapi.Po \
 	./$(DEPDIR)/dlwrappers.Po ./$(DEPDIR)/dmtcp_command.Po \
 	./$(DEPDIR)/dmtcp_coordinator.Po ./$(DEPDIR)/dmtcp_dlsym.Po \
@@ -246,11 +249,7 @@ am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/dmtcpnohijackstubs.Po ./$(DEPDIR)/dmtcpplugin.Po \
 	./$(DEPDIR)/dmtcprestartinternal.Po ./$(DEPDIR)/dmtcpworker.Po \
 	./$(DEPDIR)/execwrappers.Po ./$(DEPDIR)/glibcsystem.Po \
-	./$(DEPDIR)/jalib.Po ./$(DEPDIR)/jalibinterface.Po \
-	./$(DEPDIR)/jalloc.Po ./$(DEPDIR)/jassert.Po \
-	./$(DEPDIR)/jbuffer.Po ./$(DEPDIR)/jfilesystem.Po \
-	./$(DEPDIR)/jserialize.Po ./$(DEPDIR)/jsocket.Po \
-	./$(DEPDIR)/jtimer.Po ./$(DEPDIR)/kvdb.Po \
+	./$(DEPDIR)/jalibinterface.Po ./$(DEPDIR)/kvdb.Po \
 	./$(DEPDIR)/lookup_service.Po ./$(DEPDIR)/miscwrappers.Po \
 	./$(DEPDIR)/mutex.Po ./$(DEPDIR)/nosyscallsreal.Po \
 	./$(DEPDIR)/plugininfo.Po ./$(DEPDIR)/pluginmanager.Po \
@@ -281,10 +280,6 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-AM_V_lt = $(am__v_lt_@AM_V@)
-am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
-am__v_lt_0 = --silent
-am__v_lt_1 = 
 CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 AM_V_CXX = $(am__v_CXX_@AM_V@)
@@ -656,6 +651,9 @@ libjalib_a_SOURCES = $(jalibdir)/jalib.cpp			\
 		     $(jalibdir)/jtimer.cpp
 
 
+# This is required for jalib/jalloc.cpp:__sync_bool_compare_and_swap()
+libjalib_a_CFLAGS = -march=native
+
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
 libsyscallsreal_a_SOURCES = syscallsreal.c 			\
@@ -696,7 +694,7 @@ __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 __d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
-	libsyscallsreal.a -ldl -lpthread -lrt $(am__append_6)
+	libsyscallsreal.a -ldl -lpthread -lrt $(am__append_2)
 __d_bindir__dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 __d_bindir__dmtcp_get_libc_offset_SOURCES = dmtcp_get_libc_offset.c
 __d_bindir__dmtcp_get_libc_offset_LDADD = -ldl
@@ -704,24 +702,35 @@ __d_bindir__dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp 	\
 					lookup_service.cpp 	\
 					restartscript.cpp
 
-__d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
-	libnohijack.a -lpthread -lrt -ldl $(am__append_2)
+__d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a 	\
+				      libjalib.a 		\
+				      libnohijack.a		\
+				      -lpthread -lrt -ldl
+
 __d_bindir__dmtcp_launch_SOURCES = dmtcp_launch.cpp
-__d_bindir__dmtcp_launch_LDADD = libdmtcpinternal.a libjalib.a \
-	libnohijack.a -lpthread -lrt -ldl $(am__append_3)
+__d_bindir__dmtcp_launch_LDADD = libdmtcpinternal.a 		\
+				  libjalib.a			\
+				  libnohijack.a			\
+				  -lpthread -lrt -ldl
+
 libdmtcprestart_a_SOURCES = dmtcprestartinternal.cpp
-@AARCH64_HOST_TRUE@libdmtcprestart_a_LIBADD = -latomic
 libdmtcprestart_a_LIBADD = libdmtcpinternal.a 		\
 				   libjalib.a 			\
 				   libnohijack.a
 
 __d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp
-__d_bindir__dmtcp_restart_LDADD = libdmtcprestart.a libdmtcpinternal.a \
-	libjalib.a libnohijack.a -lpthread -lrt -ldl $(am__append_4)
+__d_bindir__dmtcp_restart_LDADD = libdmtcprestart.a 		\
+				   libdmtcpinternal.a 			\
+				   libjalib.a 			\
+				   libnohijack.a		\
+				   -lpthread -lrt -ldl
+
 __d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
-__d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a libjalib.a \
-	libnohijack.a -lpthread -lrt -ldl $(am__append_5)
-@AARCH64_HOST_TRUE@libjalib_a_LIBADD = -latomic
+__d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a 		\
+				  libjalib.a 			\
+				  libnohijack.a			\
+				  -lpthread -lrt -ldl
+
 all: all-recursive
 
 .SUFFIXES:
@@ -852,6 +861,28 @@ libdmtcprestart.a: $(libdmtcprestart_a_OBJECTS) $(libdmtcprestart_a_DEPENDENCIES
 	$(AM_V_at)-rm -f libdmtcprestart.a
 	$(AM_V_AR)$(libdmtcprestart_a_AR) libdmtcprestart.a $(libdmtcprestart_a_OBJECTS) $(libdmtcprestart_a_LIBADD)
 	$(AM_V_at)$(RANLIB) libdmtcprestart.a
+$(jalibdir)/$(am__dirstamp):
+	@$(MKDIR_P) $(jalibdir)
+	@: > $(jalibdir)/$(am__dirstamp)
+$(jalibdir)/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) $(jalibdir)/$(DEPDIR)
+	@: > $(jalibdir)/$(DEPDIR)/$(am__dirstamp)
+$(jalibdir)/jalib.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
+	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
+$(jalibdir)/jalloc.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
+	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
+$(jalibdir)/jassert.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
+	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
+$(jalibdir)/jbuffer.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
+	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
+$(jalibdir)/jfilesystem.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
+	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
+$(jalibdir)/jserialize.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
+	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
+$(jalibdir)/jsocket.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
+	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
+$(jalibdir)/jtimer.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
+	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
 
 libjalib.a: $(libjalib_a_OBJECTS) $(libjalib_a_DEPENDENCIES) $(EXTRA_libjalib_a_DEPENDENCIES) 
 	$(AM_V_at)-rm -f libjalib.a
@@ -904,10 +935,19 @@ $(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdi
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
+	-rm -f $(jalibdir)/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jalib.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jalloc.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jassert.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jbuffer.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jfilesystem.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jserialize.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jsocket.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jtimer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/alarm.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ckptserializer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coordinatorapi.Po@am__quote@ # am--include-marker
@@ -927,15 +967,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpworker.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/glibcsystem.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jalib.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jalibinterface.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jalloc.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jassert.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jbuffer.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jfilesystem.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jserialize.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jsocket.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jtimer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/kvdb.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lookup_service.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/miscwrappers.Po@am__quote@ # am--include-marker
@@ -978,144 +1010,36 @@ $(am__depfiles_remade):
 am--depfiles: $(am__depfiles_remade)
 
 .c.o:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ $<
 
 .c.obj:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
 .cpp.o:
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCXX_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXXCOMPILE) -c -o $@ $<
 
 .cpp.obj:
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
+@am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
+@am__fastdepCXX_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
-
-jalib.o: $(jalibdir)/jalib.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalib.o -MD -MP -MF $(DEPDIR)/jalib.Tpo -c -o jalib.o `test -f '$(jalibdir)/jalib.cpp' || echo '$(srcdir)/'`$(jalibdir)/jalib.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jalib.Tpo $(DEPDIR)/jalib.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jalib.cpp' object='jalib.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalib.o `test -f '$(jalibdir)/jalib.cpp' || echo '$(srcdir)/'`$(jalibdir)/jalib.cpp
-
-jalib.obj: $(jalibdir)/jalib.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalib.obj -MD -MP -MF $(DEPDIR)/jalib.Tpo -c -o jalib.obj `if test -f '$(jalibdir)/jalib.cpp'; then $(CYGPATH_W) '$(jalibdir)/jalib.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jalib.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jalib.Tpo $(DEPDIR)/jalib.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jalib.cpp' object='jalib.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalib.obj `if test -f '$(jalibdir)/jalib.cpp'; then $(CYGPATH_W) '$(jalibdir)/jalib.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jalib.cpp'; fi`
-
-jalloc.o: $(jalibdir)/jalloc.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalloc.o -MD -MP -MF $(DEPDIR)/jalloc.Tpo -c -o jalloc.o `test -f '$(jalibdir)/jalloc.cpp' || echo '$(srcdir)/'`$(jalibdir)/jalloc.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jalloc.Tpo $(DEPDIR)/jalloc.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jalloc.cpp' object='jalloc.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalloc.o `test -f '$(jalibdir)/jalloc.cpp' || echo '$(srcdir)/'`$(jalibdir)/jalloc.cpp
-
-jalloc.obj: $(jalibdir)/jalloc.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalloc.obj -MD -MP -MF $(DEPDIR)/jalloc.Tpo -c -o jalloc.obj `if test -f '$(jalibdir)/jalloc.cpp'; then $(CYGPATH_W) '$(jalibdir)/jalloc.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jalloc.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jalloc.Tpo $(DEPDIR)/jalloc.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jalloc.cpp' object='jalloc.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalloc.obj `if test -f '$(jalibdir)/jalloc.cpp'; then $(CYGPATH_W) '$(jalibdir)/jalloc.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jalloc.cpp'; fi`
-
-jassert.o: $(jalibdir)/jassert.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jassert.o -MD -MP -MF $(DEPDIR)/jassert.Tpo -c -o jassert.o `test -f '$(jalibdir)/jassert.cpp' || echo '$(srcdir)/'`$(jalibdir)/jassert.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jassert.Tpo $(DEPDIR)/jassert.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jassert.cpp' object='jassert.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jassert.o `test -f '$(jalibdir)/jassert.cpp' || echo '$(srcdir)/'`$(jalibdir)/jassert.cpp
-
-jassert.obj: $(jalibdir)/jassert.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jassert.obj -MD -MP -MF $(DEPDIR)/jassert.Tpo -c -o jassert.obj `if test -f '$(jalibdir)/jassert.cpp'; then $(CYGPATH_W) '$(jalibdir)/jassert.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jassert.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jassert.Tpo $(DEPDIR)/jassert.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jassert.cpp' object='jassert.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jassert.obj `if test -f '$(jalibdir)/jassert.cpp'; then $(CYGPATH_W) '$(jalibdir)/jassert.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jassert.cpp'; fi`
-
-jbuffer.o: $(jalibdir)/jbuffer.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jbuffer.o -MD -MP -MF $(DEPDIR)/jbuffer.Tpo -c -o jbuffer.o `test -f '$(jalibdir)/jbuffer.cpp' || echo '$(srcdir)/'`$(jalibdir)/jbuffer.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jbuffer.Tpo $(DEPDIR)/jbuffer.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jbuffer.cpp' object='jbuffer.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jbuffer.o `test -f '$(jalibdir)/jbuffer.cpp' || echo '$(srcdir)/'`$(jalibdir)/jbuffer.cpp
-
-jbuffer.obj: $(jalibdir)/jbuffer.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jbuffer.obj -MD -MP -MF $(DEPDIR)/jbuffer.Tpo -c -o jbuffer.obj `if test -f '$(jalibdir)/jbuffer.cpp'; then $(CYGPATH_W) '$(jalibdir)/jbuffer.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jbuffer.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jbuffer.Tpo $(DEPDIR)/jbuffer.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jbuffer.cpp' object='jbuffer.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jbuffer.obj `if test -f '$(jalibdir)/jbuffer.cpp'; then $(CYGPATH_W) '$(jalibdir)/jbuffer.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jbuffer.cpp'; fi`
-
-jfilesystem.o: $(jalibdir)/jfilesystem.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jfilesystem.o -MD -MP -MF $(DEPDIR)/jfilesystem.Tpo -c -o jfilesystem.o `test -f '$(jalibdir)/jfilesystem.cpp' || echo '$(srcdir)/'`$(jalibdir)/jfilesystem.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jfilesystem.Tpo $(DEPDIR)/jfilesystem.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jfilesystem.cpp' object='jfilesystem.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jfilesystem.o `test -f '$(jalibdir)/jfilesystem.cpp' || echo '$(srcdir)/'`$(jalibdir)/jfilesystem.cpp
-
-jfilesystem.obj: $(jalibdir)/jfilesystem.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jfilesystem.obj -MD -MP -MF $(DEPDIR)/jfilesystem.Tpo -c -o jfilesystem.obj `if test -f '$(jalibdir)/jfilesystem.cpp'; then $(CYGPATH_W) '$(jalibdir)/jfilesystem.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jfilesystem.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jfilesystem.Tpo $(DEPDIR)/jfilesystem.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jfilesystem.cpp' object='jfilesystem.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jfilesystem.obj `if test -f '$(jalibdir)/jfilesystem.cpp'; then $(CYGPATH_W) '$(jalibdir)/jfilesystem.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jfilesystem.cpp'; fi`
-
-jserialize.o: $(jalibdir)/jserialize.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jserialize.o -MD -MP -MF $(DEPDIR)/jserialize.Tpo -c -o jserialize.o `test -f '$(jalibdir)/jserialize.cpp' || echo '$(srcdir)/'`$(jalibdir)/jserialize.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jserialize.Tpo $(DEPDIR)/jserialize.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jserialize.cpp' object='jserialize.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jserialize.o `test -f '$(jalibdir)/jserialize.cpp' || echo '$(srcdir)/'`$(jalibdir)/jserialize.cpp
-
-jserialize.obj: $(jalibdir)/jserialize.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jserialize.obj -MD -MP -MF $(DEPDIR)/jserialize.Tpo -c -o jserialize.obj `if test -f '$(jalibdir)/jserialize.cpp'; then $(CYGPATH_W) '$(jalibdir)/jserialize.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jserialize.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jserialize.Tpo $(DEPDIR)/jserialize.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jserialize.cpp' object='jserialize.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jserialize.obj `if test -f '$(jalibdir)/jserialize.cpp'; then $(CYGPATH_W) '$(jalibdir)/jserialize.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jserialize.cpp'; fi`
-
-jsocket.o: $(jalibdir)/jsocket.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jsocket.o -MD -MP -MF $(DEPDIR)/jsocket.Tpo -c -o jsocket.o `test -f '$(jalibdir)/jsocket.cpp' || echo '$(srcdir)/'`$(jalibdir)/jsocket.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jsocket.Tpo $(DEPDIR)/jsocket.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jsocket.cpp' object='jsocket.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jsocket.o `test -f '$(jalibdir)/jsocket.cpp' || echo '$(srcdir)/'`$(jalibdir)/jsocket.cpp
-
-jsocket.obj: $(jalibdir)/jsocket.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jsocket.obj -MD -MP -MF $(DEPDIR)/jsocket.Tpo -c -o jsocket.obj `if test -f '$(jalibdir)/jsocket.cpp'; then $(CYGPATH_W) '$(jalibdir)/jsocket.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jsocket.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jsocket.Tpo $(DEPDIR)/jsocket.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jsocket.cpp' object='jsocket.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jsocket.obj `if test -f '$(jalibdir)/jsocket.cpp'; then $(CYGPATH_W) '$(jalibdir)/jsocket.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jsocket.cpp'; fi`
-
-jtimer.o: $(jalibdir)/jtimer.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jtimer.o -MD -MP -MF $(DEPDIR)/jtimer.Tpo -c -o jtimer.o `test -f '$(jalibdir)/jtimer.cpp' || echo '$(srcdir)/'`$(jalibdir)/jtimer.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jtimer.Tpo $(DEPDIR)/jtimer.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jtimer.cpp' object='jtimer.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jtimer.o `test -f '$(jalibdir)/jtimer.cpp' || echo '$(srcdir)/'`$(jalibdir)/jtimer.cpp
-
-jtimer.obj: $(jalibdir)/jtimer.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jtimer.obj -MD -MP -MF $(DEPDIR)/jtimer.Tpo -c -o jtimer.obj `if test -f '$(jalibdir)/jtimer.cpp'; then $(CYGPATH_W) '$(jalibdir)/jtimer.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jtimer.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jtimer.Tpo $(DEPDIR)/jtimer.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jtimer.cpp' object='jtimer.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jtimer.obj `if test -f '$(jalibdir)/jtimer.cpp'; then $(CYGPATH_W) '$(jalibdir)/jtimer.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jtimer.cpp'; fi`
 install-includeHEADERS: $(include_HEADERS)
 	@$(NORMAL_INSTALL)
 	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
@@ -1330,6 +1254,8 @@ distclean-generic:
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
 	-test -z "$(d_bindir)/$(am__dirstamp)" || rm -f $(d_bindir)/$(am__dirstamp)
 	-test -z "$(d_libdir)/$(am__dirstamp)" || rm -f $(d_libdir)/$(am__dirstamp)
+	-test -z "$(jalibdir)/$(DEPDIR)/$(am__dirstamp)" || rm -f $(jalibdir)/$(DEPDIR)/$(am__dirstamp)
+	-test -z "$(jalibdir)/$(am__dirstamp)" || rm -f $(jalibdir)/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -1340,7 +1266,15 @@ clean-am: clean-binPROGRAMS clean-dmtcplibPROGRAMS clean-generic \
 	clean-noinstLIBRARIES mostlyclean-am
 
 distclean: distclean-recursive
-		-rm -f ./$(DEPDIR)/alarm.Po
+		-rm -f $(jalibdir)/$(DEPDIR)/jalib.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jalloc.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jassert.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jbuffer.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jfilesystem.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jserialize.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jsocket.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jtimer.Po
+	-rm -f ./$(DEPDIR)/alarm.Po
 	-rm -f ./$(DEPDIR)/ckptserializer.Po
 	-rm -f ./$(DEPDIR)/coordinatorapi.Po
 	-rm -f ./$(DEPDIR)/dlwrappers.Po
@@ -1359,15 +1293,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/dmtcpworker.Po
 	-rm -f ./$(DEPDIR)/execwrappers.Po
 	-rm -f ./$(DEPDIR)/glibcsystem.Po
-	-rm -f ./$(DEPDIR)/jalib.Po
 	-rm -f ./$(DEPDIR)/jalibinterface.Po
-	-rm -f ./$(DEPDIR)/jalloc.Po
-	-rm -f ./$(DEPDIR)/jassert.Po
-	-rm -f ./$(DEPDIR)/jbuffer.Po
-	-rm -f ./$(DEPDIR)/jfilesystem.Po
-	-rm -f ./$(DEPDIR)/jserialize.Po
-	-rm -f ./$(DEPDIR)/jsocket.Po
-	-rm -f ./$(DEPDIR)/jtimer.Po
 	-rm -f ./$(DEPDIR)/kvdb.Po
 	-rm -f ./$(DEPDIR)/lookup_service.Po
 	-rm -f ./$(DEPDIR)/miscwrappers.Po
@@ -1447,7 +1373,15 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-recursive
-		-rm -f ./$(DEPDIR)/alarm.Po
+		-rm -f $(jalibdir)/$(DEPDIR)/jalib.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jalloc.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jassert.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jbuffer.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jfilesystem.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jserialize.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jsocket.Po
+	-rm -f $(jalibdir)/$(DEPDIR)/jtimer.Po
+	-rm -f ./$(DEPDIR)/alarm.Po
 	-rm -f ./$(DEPDIR)/ckptserializer.Po
 	-rm -f ./$(DEPDIR)/coordinatorapi.Po
 	-rm -f ./$(DEPDIR)/dlwrappers.Po
@@ -1466,15 +1400,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/dmtcpworker.Po
 	-rm -f ./$(DEPDIR)/execwrappers.Po
 	-rm -f ./$(DEPDIR)/glibcsystem.Po
-	-rm -f ./$(DEPDIR)/jalib.Po
 	-rm -f ./$(DEPDIR)/jalibinterface.Po
-	-rm -f ./$(DEPDIR)/jalloc.Po
-	-rm -f ./$(DEPDIR)/jassert.Po
-	-rm -f ./$(DEPDIR)/jbuffer.Po
-	-rm -f ./$(DEPDIR)/jfilesystem.Po
-	-rm -f ./$(DEPDIR)/jserialize.Po
-	-rm -f ./$(DEPDIR)/jsocket.Po
-	-rm -f ./$(DEPDIR)/jtimer.Po
 	-rm -f ./$(DEPDIR)/kvdb.Po
 	-rm -f ./$(DEPDIR)/lookup_service.Po
 	-rm -f ./$(DEPDIR)/miscwrappers.Po
