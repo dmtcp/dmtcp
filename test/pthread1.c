@@ -1,9 +1,10 @@
 /* Compile with:  gcc THIS_FILE -lpthread */
 
-#include <assert.h>
 // __USE_GNU is needed for pthread_getattr_np().
 // assert.h is undefining __USE_GNU as of glibc-2.35.  Arguably, a bug.
-#define __USE_GNU
+// #define __USE_GNU
+#define _GNU_SOURCE     /* To get pthread_getattr_np() declaration */
+#include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +22,7 @@ main()
   void *stackaddr;
   size_t stacksize;
   int ret = pthread_getattr_np(pthread_self(), &attr);
+  if (ret != 0) {fprintf(stderr, "error: ret: %d\n", ret);}
   assert(ret == 0);
 
   ret = pthread_attr_getstack(&attr, &stackaddr, &stacksize);
