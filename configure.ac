@@ -467,6 +467,18 @@ else
   AC_SUBST([AARCH64_HOST], [no])
 fi
 
+AC_MSG_CHECKING([whether tid offset for glibc is correct])
+CFLAGS_orig="$CFLAGS"
+CFLAGS="$CFLAGS -pthread"
+AC_RUN_IFELSE(
+   [AC_LANG_SOURCE([`cat util/check-pthread-tid-offset.c`])],
+   [AC_MSG_RESULT([yes])],
+   [AC_MSG_RESULT([no])]
+   [AC_MSG_ERROR([util/check-pthread-tid-offset.c failed; Read for explanation])]
+)
+CFLAGS="$CFLAGS"
+AC_OUTPUT
+
 AC_MSG_CHECKING([if this is WSL (Windows Subystem for Linux)])
 if uname -r | grep -i Microsoft > /dev/null; then
   is_wsl='yes'
@@ -737,7 +749,7 @@ if test "$mpich_path" = "no"; then
   if test "$mpich_path_prefix" = "no"; then
     AC_SUBST(HAS_MPICH,[no])
   else
-    AC_MSG_ERROR([Invalid mpich path, use --with-mpich=<mpich_path_prefix>])
+    AC_MSG_ERROR([invalid mpich path, use --with-mpich=<mpich_path_prefix>])
   fi
 else
   AC_SUBST(HAS_MPICH, [yes])

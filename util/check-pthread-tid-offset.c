@@ -7,8 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/syscall.h> 
-#include <sys/types.h> 
+#include <sys/syscall.h>
+#include <sys/types.h>
 #include <pthread.h>
 #include <ucontext.h>
 #include <gnu/libc-version.h> // for gnu_get_libc_version()
