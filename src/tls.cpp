@@ -101,7 +101,7 @@ static int glibcMinorVersion()
  *
  * NOTE: glibc-2.10 changes the size of __padding from 16 to 24.  --KAPIL
  *
- * NOTE: glibc-2.11 further changes the size tcphead_t without updating the
+ * NOTE: glibc-2.11 further changes the size tcbhead_t without updating the
  *       size of __padding in struct pthread. We need to add an extra 512 bytes
  *       to accommodate this.                                    -- KAPIL
  */
