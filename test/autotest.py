@@ -67,9 +67,8 @@ failed_tests = []
 disabled_tests = [
   # Vfork is not currently supported.
   #"vfork1", # We simulate vfork using fork.
-  # vfork1 and vfork2 tests were failing due to a previous bug in vfork.c  <   ## "vfork2",
-  # Raw thread creation using clone syscall directly isn't supported.
-  "clone1"
+  # vfork1 and vfork2 tests were failing due to a previous bug in vfork.c 
+  #"vfork2",
   # This test needs to be fixed.  It is not really running.
   # ERROR: ld.so: object '/home/gene/dmtcp.git/test/plugin/example-db/dmtcp_example-dbhijack.so' from LD_PRELOAD cannot be preloaded (cannot open shared object file): ignored.
   "dmtcp_example-db"
@@ -974,7 +973,8 @@ runTest("pthread4",      1, ["./test/pthread4"])
 runTest("pthread5",      1, ["./test/pthread5"])
 S=DEFAULT_S
 
-runTest("clone1",      1, ["./test/clone1"])
+runTest("clone1",        1, ["./test/clone1 0"]) # non-detached thread simulated
+runTest("clone2",        1, ["./test/clone1 1"]) # detached thread simulated
 
 runTest("mutex1",        1, ["./test/mutex1"])
 runTest("mutex2",        1, ["./test/mutex2"])
