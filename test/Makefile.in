@@ -81,9 +81,12 @@ TESTS=${notdir ${basename ${shell ls $(srcdir)/*.c $(srcdir)/*.cpp $(srcdir)/*.c
 	${addsuffix .class,${notdir ${basename ${shell ls $(srcdir)/java*.java}}}} \
 	hellompich openmpi
 
-tests: $(TESTS) $(TESTS_MULTILIB)
-	cd plugin && ${MAKE}
+# Compile plugins first; Otherwise, errors in standard tests scroll off screen.
+tests: plugins $(TESTS) $(TESTS_MULTILIB)
 	#${MAKE} -C credentials
+
+plugins:
+	cd plugin && ${MAKE}
 
 tidy:
 	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
