@@ -68,8 +68,7 @@ See `./configure --help` for that and other options.
 
 See the file [QUICK-START.md](QUICK-START.md) for further information on using DMTCP.
 
-
-## Running without a separate coordinator process:
+## Running without a separate coordinator process (UNSUPPORTED):
 
 Usually, the most convenient procedure is to use DMTCP in its
 default mode, which includes a separate DMTCP coordinator process.
