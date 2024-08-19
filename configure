@@ -10042,13 +10042,8 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $gccSyncBuiltins" >&5
 printf "%s\n" "$gccSyncBuiltins" >&6; }
 
-if test "$gccSyncBuiltins" = "no"; then
-  { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-printf "%s\n" "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Support for __sync_bool_compare_and_swap built-ins
-                  is required to build DMTCP.
-See \`config.log' for more details" "$LINENO" 5; }
-fi
+printf "%s\n" "#define HAS_SYNC_BOOL 1" >>confdefs.h
+
 
 if test "$is_arm_host" == "yes" -o "$is_i486_host" == "yes" ; then
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __atomic_compare_exchange_8 in -latomic" >&5
@@ -10208,9 +10203,7 @@ if test "$gccAtomicBuiltins" = "no"; then
   { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 printf "%s\n" "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "Using C++14, which should support both sync and atomic
-                  built-ins.  Something is seriously wrong.
-                  In jalloc.cpp, replace __atomic_* by __sync_bool_* if the
-                  __sync_bool test succeeded, and then edit './configure'.
+                  built-ins.  Will default to using slower mutexes in jalloc.cpp
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 

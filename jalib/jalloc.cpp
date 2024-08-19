@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include "jalib.h"
 #include "jalloc.h"
+#include "config.h"
 
 #define ATOMIC_SHARED volatile __attribute((aligned))
 
@@ -132,32 +133,42 @@ _dealloc_raw(void *ptr, size_t n)
  * The function returns true if the exchange was successful.
  * If the exchange is not successfully, the function returns false.
  */
+pthread_mutex_t atomic_compare_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 static inline bool
 bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
 {
   bool result = false;
-#ifdef __x86_64__
-  typedef unsigned __int128 uint128_t;
-  // This requires compiling with -mcx16
-  result = __sync_bool_compare_and_swap((uint128_t volatile *)dst,
-                                        *(uint128_t*)oldValue,
-                                        *(uint128_t*)newValue);
-#elif __arm__ || __i386__
-  // FIXME: Consider replacing __sync_bool_compare_and_swap by
-  //        __atomic_compare_exchange for improved performance.
-  //        But for x86_64, this already uses cmpxchg16.  So,
-  //        __atomic_* has no advantage, and adds a dependency on libatomic.so
-  result = __sync_bool_compare_and_swap((uint64_t volatile *)dst,
-                                        *(uint64_t*)oldValue,
-                                        *(uint64_t*)newValue);
-#elif __aarch64__
-  // This requires libatomic.so
+#if defined(HAS_ATOMIC)
+  // This requires libatomic.so in GNU
   typedef unsigned __int128 uint128_t;
   result = __atomic_compare_exchange((uint128_t*)dst,
                                      (uint128_t*)oldValue,
                                      (uint128_t*)newValue, 0,
                                       __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-#endif /* if __x86_64__ */
+#elif defined (HAS_SYNC_BOOL)
+  typedef unsigned __int128 uint128_t;
+  // This requires compiling with -mcx16
+  result = __sync_bool_compare_and_swap((uint128_t volatile *)dst,
+                                        *(uint128_t*)oldValue,
+                                        *(uint128_t*)newValue);
+#else
+  pthread_mutex_lock(&atomic_compare_mutex);
+  // 16-byte object is the same as a 128-bit object
+  // This is slower, and might affect codes with _very_ frequent
+  //   DMTCP-internal operations (e.g., thread create/destroy).
+  //   See: https://en.wikipedia.org/wiki/ABA_problem
+  //   for other workarounds, but if a CPU truly is missing dwcase
+  //   assembly instructions, then maybe it's not yet widely used, and
+  //   a future version of the CPU architecture will support dwcas.
+  if (memcmp((void *)dst, oldValue, 16) == 0) {
+    result = true;
+    memcpy((void *)dst, newValue, 16);
+  } else {
+    result = false;
+  }
+  pthread_mutex_unlock(&atomic_compare_mutex);
+#endif
   return result;
 }
 

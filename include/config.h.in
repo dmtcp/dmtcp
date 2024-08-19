@@ -42,6 +42,9 @@
 /* Allow 'gdb attach' when DMTCP_RESTART_PAUSE_WHILE is defined. */
 #undef HAS_PR_SET_PTRACER
 
+/* Define to 1 if __sync_bool_compare_and_swap is supported */
+#undef HAS_SYNC_BOOL
+
 /* define if the compiler supports basic C++14 syntax */
 #undef HAVE_CXX14
 
