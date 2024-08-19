@@ -844,12 +844,7 @@ AC_LINK_IFELSE(
 CXXFLAGS="$CXXFLAGS_orig"
 AC_LANG_POP([C++])
 AC_MSG_RESULT([$gccSyncBuiltins])
-
-if test "$gccSyncBuiltins" = "no"; then
-  AC_MSG_FAILURE([Support for __sync_bool_compare_and_swap built-ins
-                  is required to build DMTCP.])
-fi
-dnl Else can use mutex implementation; see jalib/jalloc.cpp
+AC_DEFINE([HAS_SYNC_BOOL],[1],[Define to 1 if __sync_bool_compare_and_swap is supported])
 
 dnl NOTE:  Using __atomic_* requires linking with -latomic.
 dnl        If libatomic not available, then we must switch to __sync_*.
@@ -905,11 +900,8 @@ if test "$gccAtomicBuiltins" = "yes"; then
 fi
 if test "$gccAtomicBuiltins" = "no"; then
   AC_MSG_FAILURE([Using C++14, which should support both sync and atomic
-                  built-ins.  Something is seriously wrong.
-                  In jalloc.cpp, replace __atomic_* by __sync_bool_* if the
-                  __sync_bool test succeeded, and then edit './configure'.])
+                  built-ins.  Will default to using slower mutexes in jalloc.cpp])
 fi
-dnl Else can use mutex implementation; see jalib/jalloc.cpp
 
 dnl TODO:  __WAIT_STATUS is defined in include/config.h to be 'int *'
 dnl        POSIX says 'int'.  Why do we need __WAIT_STATUS for DMTCP,
