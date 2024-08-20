@@ -27,7 +27,9 @@
 #include <sys/personality.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
 #include <unistd.h>
 #include <sys/types.h>
 
