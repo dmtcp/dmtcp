@@ -900,12 +900,14 @@ LDFLAGS="$LDFLAGS_orig"
 AC_LANG_POP([C++])
 AC_MSG_RESULT([$gccAtomicBuiltins])
 
+if test "$gccAtomicBuiltins" = "yes"; then
+  AC_DEFINE([HAS_ATOMIC],[1],[Define to 1 if 'gcc test.c -latomic' works for __atomic_compare_exchange])
+fi
 if test "$gccAtomicBuiltins" = "no"; then
   AC_MSG_FAILURE([Using C++14, which should support both sync and atomic
                   built-ins.  Something is seriously wrong.
                   In jalloc.cpp, replace __atomic_* by __sync_bool_* if the
                   __sync_bool test succeeded, and then edit './configure'.])
-  AC_DEFINE([HAS_ATOMIC],[1],[Define to 1 if 'gcc test.c -latomic' works for __atomic_compare_exchange])
 fi
 dnl Else can use mutex implementation; see jalib/jalloc.cpp
 
