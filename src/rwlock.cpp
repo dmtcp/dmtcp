@@ -11,173 +11,149 @@ extern "C"
 void DmtcpRWLockInit(DmtcpRWLock *rwlock)
 {
   memset(rwlock, 0, sizeof(*rwlock));
-  DmtcpMutexInit(&rwlock->xLock, DMTCP_MUTEX_NORMAL);
-}
-
-
-static
-int DmtcpRWLockTryRdLockUnsafe(DmtcpRWLock *rwlock)
-{
-  int result = EBUSY;
-
-  ASSERT_EQ(gettid(), static_cast<int>(rwlock->xLock.owner));
-
-  // Detect deadlock.
-  if (rwlock->writer == gettid()) {
-    result = EDEADLK;
-  }
-
-  // See if we can acquire the lock.
-  if (rwlock->writer == 0 && !rwlock->nWritersQueued) {
-    uint32_t nReaders =
-        __atomic_add_fetch(&rwlock->nReaders, 1, __ATOMIC_SEQ_CST);
-    JASSERT(nReaders != 0); // Overflow
-    result = 0;
-  }
-
-  return result;
-}
-
-
-extern "C"
-int DmtcpRWLockTryRdLock(DmtcpRWLock *rwlock)
-{
-  int result = EBUSY;
-
-  if (DmtcpMutexTryLock(&rwlock->xLock) != 0) {
-    return result;
-  }
-
-  result = DmtcpRWLockTryRdLockUnsafe(rwlock);
-
-  JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
-
-  return result;
 }
 
 
 extern "C"
 int DmtcpRWLockRdLock(DmtcpRWLock *rwlock)
 {
-  int result = 0;
-
-  JASSERT(DmtcpMutexLock(&rwlock->xLock) == 0);
-
-  while (1) {
-    result = DmtcpRWLockTryRdLockUnsafe(rwlock);
-    if (result != EBUSY) {
-      break;
-    }
-
-    // Lock was not available. Let's queue ourselves.
-    uint32_t oldReadersQueued =
-        __atomic_add_fetch(&rwlock->nReadersQueued, 1, __ATOMIC_SEQ_CST);
-    JASSERT(oldReadersQueued != 0); // Overflow
-
-    // Record writer TID.
-    uint64_t waitVal = rwlock->readersFutex;
-
-    // Unlock exclusive lock and wait for writer to finish.
-    JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
-
-    // Wait for futex.
-    int s = futex_wait(&rwlock->readersFutex, waitVal);
-    JASSERT (s != -1 || errno == EAGAIN) (JASSERT_ERRNO);
-
-    // Reacquire the exclusive lock.
-    JASSERT(DmtcpMutexLock(&rwlock->xLock) == 0);
-    --rwlock->nReadersQueued;
+  // Detect deadlock.
+  if (rwlock->writerTid == gettid()) {
+    return EDEADLK;
   }
 
-  JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
+  DmtcpRWLockStatus oldStatus;
+  DmtcpRWLockStatus newStatus;
 
-  return result;
+  __atomic_load(&rwlock->status, &oldStatus, __ATOMIC_RELAXED);
+
+  uint32_t waitVal;
+  do {
+    newStatus = oldStatus;
+    if (oldStatus.nWriters > 0) {
+      newStatus.nReadersQueued++;
+    } else {
+      newStatus.nReaders++;
+    }
+    waitVal = rwlock->readerFutex;
+  } while (!__atomic_compare_exchange(&rwlock->status,  &oldStatus, &newStatus,
+                                     false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED));
+
+  if (oldStatus.nWriters > 0) {
+    int ret = futex_wait(&rwlock->readerFutex, waitVal);
+    JASSERT(ret == 0 || errno == EAGAIN);
+  }
+
+  return 0;
 }
 
-int DmtcpRWLockRdLockIgnoreQueuedWriter(DmtcpRWLock *rwlock)
+extern "C"
+int DmtcpRWLockRdUnlock(DmtcpRWLock *rwlock)
 {
-  uint32_t old = __atomic_fetch_add(&rwlock->nReaders, 1, __ATOMIC_SEQ_CST);
-  JASSERT(old > 0);
-  JASSERT(old + 1 != 0); // Overflow
+  DmtcpRWLockStatus oldStatus;
+  DmtcpRWLockStatus newStatus;
+
+  __atomic_load(&rwlock->status, &oldStatus, __ATOMIC_RELAXED);
+  do {
+    newStatus = oldStatus;
+    ASSERT_NE(0, newStatus.nReaders);
+    newStatus.nReaders--;
+  } while (!__atomic_compare_exchange(&rwlock->status,  &oldStatus, &newStatus,
+                                     false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED));
+
+  if (newStatus.nReaders == 0 && newStatus.nWriters > 0) {
+    rwlock->writerFutex++;
+    JASSERT(futex_wake(&rwlock->writerFutex, 1) != -1) (JASSERT_ERRNO);
+  }
+
   return 0;
 }
 
 extern "C"
 int DmtcpRWLockWrLock(DmtcpRWLock *rwlock)
 {
-  int result = 0;
-
-  JASSERT(DmtcpMutexLock(&rwlock->xLock) == 0);
-
-  while (1) {
-    // See if we can acquire the lock.
-    if (rwlock->writer == 0 && rwlock->nReaders == 0) {
-      rwlock->writer = gettid();
-      break;
-    }
-
-    // Detect deadlock.
-    if (rwlock->writer == gettid()) {
-      JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
-      return EDEADLK;
-    }
-
-    // Lock was not available. Let's queue ourselves.
-    ++rwlock->nWritersQueued;
-    JASSERT(rwlock->nWritersQueued != 0); // Overflow
-
-    // Record writer TID.
-    uint64_t waitVal = rwlock->writersFutex;
-
-    // Unlock exclusive lock and wait for writer to finish.
-    JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
-
-    // Wait for futex.
-    int s = futex_wait(&rwlock->writersFutex, waitVal);
-    JASSERT (s != -1 || errno == EAGAIN) (JASSERT_ERRNO);
-
-    // Reacquire the exclusive lock.
-    JASSERT(DmtcpMutexLock(&rwlock->xLock) == 0);
-    --rwlock->nWritersQueued;
+  // Detect deadlock.
+  if (rwlock->writerTid == gettid()) {
+    return EDEADLK;
   }
 
-  return result;
+  DmtcpRWLockStatus oldStatus;
+  DmtcpRWLockStatus newStatus;
+
+  __atomic_load(&rwlock->status, &oldStatus, __ATOMIC_RELAXED);
+
+  uint32_t waitVal;
+  do {
+    newStatus = oldStatus;
+    newStatus.nWriters++;
+    waitVal = rwlock->writerFutex;
+  } while (!__atomic_compare_exchange(
+    &rwlock->status, &oldStatus, &newStatus, false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED));
+
+  if (newStatus.nWriters > 1 || newStatus.nReaders > 0) {
+    int ret = futex_wait(&rwlock->writerFutex, waitVal);
+    JASSERT(ret == 0 || errno == EAGAIN);
+  }
+
+  rwlock->writerTid = gettid();
+
+  return 0;
 }
 
-
 extern "C"
+int DmtcpRWLockWrUnlock(DmtcpRWLock *rwlock)
+{
+  DmtcpRWLockStatus oldStatus;
+  DmtcpRWLockStatus newStatus;
+
+  ASSERT_EQ(gettid(), rwlock->writerTid);
+  ASSERT_EQ(0, rwlock->status.nReaders);
+
+  rwlock->writerTid = 0;
+
+  __atomic_load(&rwlock->status, &oldStatus, __ATOMIC_RELAXED);
+
+  do {
+    newStatus = oldStatus;
+    newStatus.nWriters--;
+    if (newStatus.nWriters == 0) {
+      newStatus.nReaders = newStatus.nReadersQueued;
+      newStatus.nReadersQueued = 0;
+    }
+  } while (!__atomic_compare_exchange(&rwlock->status, &oldStatus, &newStatus,
+                                     false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED));
+
+  if (newStatus.nWriters > 0) {
+    rwlock->writerFutex++;
+    JASSERT(futex_wake(&rwlock->writerFutex, 1) != -1) (JASSERT_ERRNO);
+  } else {
+    rwlock->readerFutex++;
+    JASSERT(futex_wake(&rwlock->readerFutex, newStatus.nReaders) != -1) (JASSERT_ERRNO);
+  }
+
+  return 0;
+}
+
 int DmtcpRWLockUnlock(DmtcpRWLock *rwlock)
 {
-  if (rwlock->writer == gettid()) {
-    // We must already have the lock.
-    JASSERT((pid_t)(rwlock->xLock.owner) == gettid());
-    rwlock->writer = 0;
-  } else {
-    JASSERT(DmtcpMutexLock(&rwlock->xLock) == 0);
-    JASSERT(rwlock->writer == 0) (rwlock->writer);
-    uint32_t old = __atomic_fetch_sub(&rwlock->nReaders, 1, __ATOMIC_SEQ_CST);
-    JASSERT(old > 0); // Overflow
+  if (rwlock->writerTid == gettid()) {
+    return DmtcpRWLockWrUnlock(rwlock);
   }
 
-  // If we are the last reader or the writer, wake a waiting writer.
-  if (rwlock->nReaders == 0) {
-    if (rwlock->nWritersQueued > 0) {
-      // If writers are queued, wakeup one of them.
-      ++rwlock->writersFutex;
-      JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
-      JASSERT(futex_wake(&rwlock->writersFutex, 1) != -1) (JASSERT_ERRNO);
-      return 0;
-    }
+  return DmtcpRWLockRdUnlock(rwlock);
+}
 
-    if (rwlock->nReadersQueued > 0) {
-      // Wakeup all queued Readers.
-      ++rwlock->readersFutex;
-      JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
-      JASSERT(futex_wake(&rwlock->readersFutex, INT_MAX) != -1) (JASSERT_ERRNO);
-      return 0;
-    }
-  }
+int DmtcpRWLockRdLockIgnoreQueuedWriter(DmtcpRWLock *rwlock)
+{
+  DmtcpRWLockStatus oldStatus;
+  DmtcpRWLockStatus newStatus;
 
-  JASSERT(DmtcpMutexUnlock(&rwlock->xLock) == 0);
+  __atomic_load(&rwlock->status, &oldStatus, __ATOMIC_RELAXED);
+  do {
+    newStatus = oldStatus;
+    newStatus.nReaders++;
+  } while (!__atomic_compare_exchange(&rwlock->status,  &oldStatus, &newStatus,
+                                     false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED));
+
   return 0;
 }
