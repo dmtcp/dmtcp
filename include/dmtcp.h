@@ -193,14 +193,17 @@ typedef struct
 
 typedef struct
 {
-  int32_t writer;
-  uint32_t nReaders;
-  uint32_t nWritersQueued;
-  uint32_t nReadersQueued;
-  uint32_t writersFutex;
-  uint32_t readersFutex;
+  int32_t nReaders: 10;
+  int32_t nWriters: 10;
+  int32_t nReadersQueued: 10;
+  int32_t unused: 2;
+} DmtcpRWLockStatus;
 
-  DmtcpMutex xLock;
+typedef struct {
+  DmtcpRWLockStatus status;
+  int32_t writerTid;
+  uint32_t readerFutex;
+  uint32_t writerFutex;
 } DmtcpRWLock;
 
 void DmtcpMutexInit(DmtcpMutex *mutex, DmtcpMutexType type);
