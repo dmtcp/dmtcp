@@ -414,7 +414,8 @@ Util::patchArgvIfSetuid(const char *filename,
   memset(realFilename, 0, sizeof(realFilename));
   expandPathname(filename, realFilename, sizeof(realFilename));
 
-  // char expandedFilename[PATH_MAX];
+  // // Prepare the buffer; man 2 readlink says it won't NUL terminate.
+  // char expandedFilename[PATH_MAX] = {0};
   // expandPathname(filename, expandedFilename, sizeof (expandedFilename));
   // JASSERT(readlink(expandedFilename, realFilename, PATH_MAX - 1) != -1)
   // (filename) (expandedFilename) (realFilename) (JASSERT_ERRNO);

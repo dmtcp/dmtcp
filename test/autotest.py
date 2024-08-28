@@ -933,7 +933,6 @@ runTest("rlimit-restore", 1, ["./test/rlimit-restore"])
 
 runTest("rlimit-nofile",  2, ["./test/rlimit-nofile"])
 
-# Disable procfd1 until we fix readlink
 runTest("procfd1",       2, ["./test/procfd1"])
 
 # popen1 can have more than one processes

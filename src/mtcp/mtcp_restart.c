@@ -1168,7 +1168,8 @@ remapExistingAreasToReservedArea(RestoreInfo *rinfo,
 
   size_t num_regions = 0;
 
-  char binary_name[PATH_MAX+1];
+  // Prepare the binary_name buffer; man 2 readlink says it won't NUL terminate.
+  char binary_name[PATH_MAX+1] = {0};
   MTCP_ASSERT(mtcp_sys_readlink("/proc/self/exe", binary_name, PATH_MAX) != -1);
 
   rinfo->currentVdsoStart = NULL;

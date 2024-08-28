@@ -164,6 +164,8 @@ int save_precious(int fd) {
 char *fd_to_filename(int fd, char buf[], int buf_size) {
   char fd_path[100]; // /proc/PID/fd/FD
   snprintf(fd_path, sizeof(fd_path), "/proc/self/fd/%d", fd);
+  // Prepare the buffer 'buf'; man 2 readlink says it won't NUL terminate.
+  memset(buf, 0, buf_size - 1);
   ssize_t target_len = readlink(fd_path, buf, buf_size - 1);
   if (target_len == -1) {
     perror("DMTCP: fd_to_filename: readlink");
@@ -2598,6 +2600,8 @@ readlink_test(char *path, char *buf, size_t bufsiz)
   fflush(NULL);
 
   /* do not assume buf will be null terminated */
+  // Prepare the buffer 'buf'; man 2 readlink says it won't NUL terminate.
+  memset(buf, 0, bufsiz);
   passed = handle_gez(ret = readlink(path, buf, bufsiz));
   save_errno = errno;
 
