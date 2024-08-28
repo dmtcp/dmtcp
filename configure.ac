@@ -917,6 +917,31 @@ if test "$gccAtomicBuiltins" = "no"; then
                   built-ins.  Will default to using slower mutexes in jalloc.cpp])
 fi
 
+AC_MSG_CHECKING([value of page size (sysconf(_SC_PAGESIZE))])
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
+           #include <stdio.h>
+           #include <unistd.h>
+           int main() {
+             fprintf(stderr, "%d", sysconf(_SC_PAGESIZE));
+             return 0;
+           }
+           ]])],[sysconf_pagesize=$(./conftest$EXEEXT 2>&1)],
+                [sysconf_pagesize='unknown'],[])
+if test "$sysconf_pagesize" = "unknown"; then
+  AC_MSG_FAILURE([Page size not found; Manually change include/config.h])
+fi
+AC_DEFINE_UNQUOTED([MTCP_PAGE_SIZE], $sysconf_pagesize,
+                   [Page size (sysconf(_SC_PAGESIZE))])
+
+dnl TODO:  __WAIT_STATUS is defined in include/config.h to be 'int *'
+dnl        POSIX says 'int'.  Why do we need __WAIT_STATUS for DMTCP,
+dnl        and then do AC_DEFINE to define it??
+dnl        It was part of the glibc lxstat support, but it was deprecated,
+dnl        and then removed as of glibcgccAtomicBuiltins" = "no"; then
+AC_MSG_RESULT([$sysconf_pagesize])
+AC_DEFINE_UNQUOTED([MTCP_PAGE_SIZE], $sysconf_pagesize,
+                   [Page size (sysconf(_SC_PAGESIZE))])
+
 dnl TODO:  __WAIT_STATUS is defined in include/config.h to be 'int *'
 dnl        POSIX says 'int'.  Why do we need __WAIT_STATUS for DMTCP,
 dnl        and then do AC_DEFINE to define it??

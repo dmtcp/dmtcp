@@ -11756,6 +11756,54 @@ as_fn_error $? "Using C++14, which should support both sync and atomic
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking value of page size (sysconf(_SC_PAGESIZE))" >&5
+printf %s "checking value of page size (sysconf(_SC_PAGESIZE))... " >&6; }
+if test "$cross_compiling" = yes
+then :
+  { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+printf "%s\n" "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "cannot run test program while cross compiling
+See \`config.log' for more details" "$LINENO" 5; }
+else $as_nop
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+           #include <stdio.h>
+           #include <unistd.h>
+           int main() {
+             fprintf(stderr, "%d", sysconf(_SC_PAGESIZE));
+             return 0;
+           }
+
+_ACEOF
+if ac_fn_c_try_run "$LINENO"
+then :
+  sysconf_pagesize=$(./conftest$EXEEXT 2>&1)
+else $as_nop
+  sysconf_pagesize='unknown'
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+if test "$sysconf_pagesize" = "unknown"; then
+  { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+printf "%s\n" "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Page size not found; Manually change include/config.h
+See \`config.log' for more details" "$LINENO" 5; }
+# else
+#   AC_MSG_RESULT([$sysconf_pagesize])
+fi
+
+printf "%s\n" "#define MTCP_PAGE_SIZE $sysconf_pagesize" >>confdefs.h
+
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $sysconf_pagesize" >&5
+printf "%s\n" "$sysconf_pagesize" >&6; }
+
+printf "%s\n" "#define MTCP_PAGE_SIZE $sysconf_pagesize" >>confdefs.h
+
+
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __WAIT_STATUS type" >&5
 printf %s "checking for __WAIT_STATUS type... " >&6; }
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext

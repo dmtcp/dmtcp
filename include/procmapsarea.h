@@ -23,6 +23,7 @@
 #define PROCMAPSAREA_H
 #include <stdint.h>
 #include <sys/types.h>
+#include "config.h" // For MTCP_PAGE_SIZE
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,7 +35,6 @@ extern "C" {
 #endif // ifdef __cplusplus
 
 // MTCP_PAGE_SIZE must be page-aligned:  multiple of sysconf(_SC_PAGESIZE).
-#define MTCP_PAGE_SIZE        4096
 #define MTCP_PAGE_MASK        (~(MTCP_PAGE_SIZE - 1))
 #define MTCP_PAGE_OFFSET_MASK (MTCP_PAGE_SIZE - 1)
 #define FILENAMESIZE          1024
