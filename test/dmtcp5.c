@@ -38,7 +38,8 @@ myHandler(int i)
 int
 main(int argc, char *argv[])
 {
-  char cmd_file[256];
+  // Prepare the cmd_file buffer; man 2 readlink says it won't NUL terminate
+  char cmd_file[256] = {0};
   int cmd_len = readlink("/proc/self/exe", cmd_file, 255);
 
   if (cmd_len == -1) {

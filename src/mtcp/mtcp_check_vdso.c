@@ -301,7 +301,8 @@ void mtcp_check_vdso(char **environ)
      */
     mtcp_sys_personality((pers | ADDR_NO_RANDOMIZE) & ~ADDR_COMPAT_LAYOUT);
     if ( ADDR_NO_RANDOMIZE & mtcp_sys_personality(0xffffffffUL) ) /* if it's off now */
-    { char runtime[PATH_MAX+1];
+    { // Prepare the runtime buffer; man 2 readlink says it won't NUL terminate.
+      char runtime[PATH_MAX+1] = {0};
       int i = mtcp_sys_readlink("/proc/self/exe", runtime, PATH_MAX);
       if ( i != -1)
       { char *argv[MAX_ARGS+1];
