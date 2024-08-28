@@ -108,6 +108,9 @@
 /* Verbose trace output and log files in $DMTCP_TMPDIR */
 #undef LOGGING
 
+/* Page size (sysconf(_SC_PAGESIZE)) */
+#undef MTCP_PAGE_SIZE
+
 /* Name of package */
 #undef PACKAGE
 

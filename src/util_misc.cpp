@@ -574,6 +574,7 @@ Util::areZeroPages(void *addr, size_t numPages)
   size_t end = numPages * page_size / sizeof(*buf);
   long long res = 0;
 
+  ASSERT_EQ(sizeof(*buf) - 1, 7);
   for (i = 0; i + 7 < end; i += 8) {
     res = buf[i + 0] | buf[i + 1] | buf[i + 2] | buf[i + 3] |
       buf[i + 4] | buf[i + 5] | buf[i + 6] | buf[i + 7];
