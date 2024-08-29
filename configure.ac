@@ -844,7 +844,9 @@ AC_LINK_IFELSE(
 CXXFLAGS="$CXXFLAGS_orig"
 AC_LANG_POP([C++])
 AC_MSG_RESULT([$gccSyncBuiltins])
-AC_DEFINE([HAS_SYNC_BOOL],[1],[Define to 1 if __sync_bool_compare_and_swap is supported])
+if test "$gccSyncBuiltins" = "yes"; then
+  AC_DEFINE([HAS_SYNC_BOOL],[1],[Define to 1 if __sync_bool_compare_and_swap is supported])
+fi
 
 dnl NOTE:  Using __atomic_* requires linking with -latomic.
 dnl        If libatomic not available, then we must switch to __sync_*.
