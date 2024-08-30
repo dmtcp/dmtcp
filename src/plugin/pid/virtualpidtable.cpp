@@ -137,14 +137,18 @@ VirtualPidTable::virtualToReal(pid_t virtualId)
   if (virtualId == -1) {
     return virtualId;
   }
+
   pid_t id = (virtualId < -1 ? abs(virtualId) : virtualId);
-  pid_t retVal = VirtualIdTable<pid_t>::virtualToReal(id);
-  if (retVal == id) {
-    retVal = SharedData::getRealPid(id);
-    if (retVal == -1) {
-      retVal = id;
+
+  pid_t realId;
+  if (!VirtualIdTable::virtualToReal(id, &realId)) {
+    // Try shared area to see if some other process contains this virtual id.
+    realId = SharedData::getRealPid(id);
+    if (realId == -1) {
+      realId = id;
     }
   }
-  retVal = virtualId < -1 ? -retVal : retVal;
-  return retVal;
+
+  realId = virtualId < -1 ? -realId : realId;
+  return realId;
 }
