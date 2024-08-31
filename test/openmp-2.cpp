@@ -14,25 +14,24 @@ const unsigned int size2 = 10000;
 const unsigned int size3 = 10000;
 const unsigned int size4 = 1000;
 
+constexpr int NumThreads = 16;
 
 int **memarray;
 
-double scratch[4] = { 0, 0, 0, 0 };
+double scratch[NumThreads] = { 0 };
 
 
 int
 main(int argc, char *argv[])
 {
-  omp_set_num_threads(4);
+  omp_set_num_threads(NumThreads);
   cout << "Number of OpenMP threads: " << omp_get_max_threads() << endl;
 
   MetaTestOptimize();
 
-  cout << "scratch[0]: " << scratch[0] << endl;
-  cout << "scratch[1]: " << scratch[1] << endl;
-  cout << "scratch[2]: " << scratch[2] << endl;
-  cout << "scratch[3]: " << scratch[3] << endl;
-
+  for (int i = 0; i < NumThreads; i++) {
+    cout << "scratch[" << i << "]: " << scratch[i] << endl;
+  }
 
   return 0;
 }
@@ -63,7 +62,7 @@ MetaTestOptimize()
 void
 ScoreMetaCallback()
 {
-  omp_set_num_threads(4);
+  omp_set_num_threads(NumThreads);
 
   // DMTCP hangs with this uncommented:
         #pragma omp critical(ScoreMetaCallback)
