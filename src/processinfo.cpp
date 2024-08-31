@@ -316,6 +316,13 @@ ProcessInfo::init()
 void
 ProcessInfo::updateRestoreBufAddr(void* addr, uint64_t len)
 {
+  // This method could be called by ProcessInfo::init() or ProcessInfo::restart().
+  // If it was called by ProcessInfo::restart(), then mtcp_restart() will
+  // have mmap'ed this "restoreBuf".
+  // NOTE:  We are now doing 'munmap' on it, only to do ''mmap' on it once again
+  //        at the end of this method.  We need to munmap/mmap because we want
+  //        to free the backing physical pages created by mtcp_restart.
+
   if (_restoreBufAddr != 0) {
     JASSERT(munmap((void*) _restoreBufAddr, _restoreBufLen) == 0)
       (JASSERT_ERRNO);
@@ -327,6 +334,10 @@ ProcessInfo::updateRestoreBufAddr(void* addr, uint64_t len)
     flags += MAP_FIXED;
   }
 
+  // FIXME:  ProcessInfo::init() sets  len to RESTORE_TOTAL_SIZE.  This
+  //         then sets it to _restoreBufLen.  But ProcessInfo::init() had
+  //         previously set _restoreBufLen to RESTORE_TOTAL_SIZE.  So, we
+  //         have now made the round trip.  This is spaghetti code. :-(
   _restoreBufLen = len;
   _restoreBufAddr = (uint64_t) mmap(addr, _restoreBufLen,
                     PROT_NONE, flags, -1, 0);

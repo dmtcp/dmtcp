@@ -119,11 +119,11 @@ mtcp_writememoryareas(int fd)
     nscdAreas->clear();
 
     // This block is to ensure that the object is deleted as soon as we leave
-    // this block.
-    ProcSelfMaps procSelfMaps;
+    // this local code block.
+    ProcSelfMaps procSelfMapsTmp;
 
     // Preprocess memory regions as needed.
-    while (procSelfMaps.getNextArea(&area)) {
+    while (procSelfMapsTmp.getNextArea(&area)) {
       if (Util::isNscdArea(area)) {
         /* Special Case Handling: nscd is enabled*/
         JTRACE("NSCD daemon shared memory area present.\n"
@@ -144,6 +144,34 @@ mtcp_writememoryareas(int fd)
   }
 
   /* Finally comes the memory contents */
+  /*     The name "restoreBuf" here is a synonym for the name "holebase"
+   * in the src/mtcp directory.  At the DMTCP_EVENT_INIT event, we had
+   * called ProcessInfo::init(), which called ProcessInfo::updateRestoreBufAddr().
+   * FIXME: Since this is the init event, it's not clear why updateRestoreBufAddr()
+   *        begins by doing munmap of some previous "restorebuf" region if it exists.
+   * That method had called mmap to create a shared memory segment at
+   * address ProcessInfo::_restoreBufAddr, of length _restoreBufAddr:_restoreBufLen,
+   * a synonym for RESTORE_TOTAL_SIZE (defined both in src/processinfo.h
+   * and src/mtcp/mtcp_restart.h).  The JTRACE below confirms that this
+   * was done in the "init" event, with a hint only here: (to hold mtcp_restart code)
+   *     In src/mtcp/mtcp_restart.c, we see that restoreBufAddr and restoreBufLen
+   * have been transferred to the command line, and now have the new synonyms:
+   * rinfo.restore_addr (restoreBufAddr) and rinfo.restore_size (restoreBufLen).
+   * We will _not_ save the "restoreBuf" memory segment into the ckpt image.
+   * mtcp_restart will mmap this region.  In mtcp_restart.c, we copy the
+   * text/data/stack to restoreBufAddr.
+   * The executable, bin/mtcp_restart, is compiled with '-fPIC', so that we
+   * can execute it after it has been migrated to restoreBufAddr.
+   *
+   * FIXME: The "mmap/munmap" of holebase/restoreBuf is hidden inside
+   *        processinfo.cpp:ProcessInfo::updateRestoreBufAddr().
+   *        This is called by processinfo.cpp:ProcessInfo::restart() and
+   *        dmtcpplugin.cpp:dmtcp_set_restore_buf_addr().
+   *        And dmtcp_set_restore_buf_addr(). only in include/dmtcp.h.  ??
+   *        restart() is heavily overloaded, but assuming it's only relevant
+   *        to processinfo.cpp, we have it used in: ProcessInfo::restart()
+   *        and 'case DMTCP_EVENT_RESTART' in processInfo_EventHook().
+   */
   JTRACE("addr and len of restoreBuf (to hold mtcp_restart code)")
     ((void *)ProcessInfo::instance().restoreBufAddr())
     (ProcessInfo::instance().restoreBufLen());
