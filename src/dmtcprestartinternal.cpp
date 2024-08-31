@@ -474,7 +474,8 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
   }
 
   publishKeyValueMapToMtcpEnvironment(restoreTarget);
-  vector<char *> mtcpArgs = getMtcpArgs(restoreTarget->restoreBufAddr(), restoreTarget->restoreBufLen());
+  vector<char *> mtcpArgs = getMtcpArgs(restoreTarget->restoreBufAddr(),
+                                        restoreTarget->restoreBufLen());
 
 #if defined(__x86_64__) || defined(__aarch64__)
   // FIXME: This is needed for CONFIG_M32 only because getPath("mtcp_restart")
@@ -720,8 +721,14 @@ setNewCkptDir(const string& path)
 // shift args
 #define shift argc--, argv++
 
-DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, const string& mtcpRestartBinaryName)
-: argc(argc), argv(argv), binaryName(binaryName), mtcpRestartBinaryName(mtcpRestartBinaryName)
+DmtcpRestart::DmtcpRestart(int argc,
+                           char **argv,
+                           const string& binaryName,
+                           const string& mtcpRestartBinaryName)
+: argc(argc),
+  argv(argv),
+  binaryName(binaryName),
+  mtcpRestartBinaryName(mtcpRestartBinaryName)
 {
   char *tmpdir_arg = NULL;
 

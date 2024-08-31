@@ -37,7 +37,8 @@ int DmtcpRWLockRdLock(DmtcpRWLock *rwlock)
     }
     waitVal = rwlock->readerFutex;
   } while (!__atomic_compare_exchange(&rwlock->status,  &oldStatus, &newStatus,
-                                     false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED));
+                                      false, __ATOMIC_ACQUIRE,
+                                      __ATOMIC_RELAXED));
 
   if (oldStatus.nWriters > 0) {
     int ret = futex_wait(&rwlock->readerFutex, waitVal);
@@ -59,7 +60,8 @@ int DmtcpRWLockRdUnlock(DmtcpRWLock *rwlock)
     ASSERT_NE(0, newStatus.nReaders);
     newStatus.nReaders--;
   } while (!__atomic_compare_exchange(&rwlock->status,  &oldStatus, &newStatus,
-                                     false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED));
+                                      false, __ATOMIC_ACQUIRE,
+                                      __ATOMIC_RELAXED));
 
   if (newStatus.nReaders == 0 && newStatus.nWriters > 0) {
     rwlock->writerFutex++;
@@ -87,8 +89,9 @@ int DmtcpRWLockWrLock(DmtcpRWLock *rwlock)
     newStatus = oldStatus;
     newStatus.nWriters++;
     waitVal = rwlock->writerFutex;
-  } while (!__atomic_compare_exchange(
-    &rwlock->status, &oldStatus, &newStatus, false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED));
+  } while (!__atomic_compare_exchange(&rwlock->status, &oldStatus, &newStatus,
+                                      false, __ATOMIC_ACQUIRE,
+                                      __ATOMIC_RELAXED));
 
   if (newStatus.nWriters > 1 || newStatus.nReaders > 0) {
     int ret = futex_wait(&rwlock->writerFutex, waitVal);
@@ -121,14 +124,16 @@ int DmtcpRWLockWrUnlock(DmtcpRWLock *rwlock)
       newStatus.nReadersQueued = 0;
     }
   } while (!__atomic_compare_exchange(&rwlock->status, &oldStatus, &newStatus,
-                                     false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED));
+                                      false, __ATOMIC_ACQUIRE,
+                                      __ATOMIC_RELAXED));
 
   if (newStatus.nWriters > 0) {
     rwlock->writerFutex++;
     JASSERT(futex_wake(&rwlock->writerFutex, 1) != -1) (JASSERT_ERRNO);
   } else {
     rwlock->readerFutex++;
-    JASSERT(futex_wake(&rwlock->readerFutex, newStatus.nReaders) != -1) (JASSERT_ERRNO);
+    JASSERT(futex_wake(&rwlock->readerFutex, newStatus.nReaders) != -1)
+      (JASSERT_ERRNO);
   }
 
   return 0;
@@ -153,7 +158,8 @@ int DmtcpRWLockRdLockIgnoreQueuedWriter(DmtcpRWLock *rwlock)
     newStatus = oldStatus;
     newStatus.nReaders++;
   } while (!__atomic_compare_exchange(&rwlock->status,  &oldStatus, &newStatus,
-                                     false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED));
+                                      false, __ATOMIC_ACQUIRE,
+                                      __ATOMIC_RELAXED));
 
   return 0;
 }

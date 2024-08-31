@@ -88,7 +88,10 @@ class RestoreTarget
 class DmtcpRestart
 {
   public:
-    DmtcpRestart(int argc, char **argv, const string &binaryName, const string &mtcpRestartBinaryName);
+    DmtcpRestart(int argc,
+                 char **argv,
+                 const string &binaryName,
+                 const string &mtcpRestartBinaryName);
     void processCkptImages();
 
     int argc;
