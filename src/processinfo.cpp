@@ -317,7 +317,8 @@ void
 ProcessInfo::updateRestoreBufAddr(void* addr, uint64_t len)
 {
   if (_restoreBufAddr != 0) {
-    JASSERT(munmap((void*) _restoreBufAddr, _restoreBufLen) == 0) (JASSERT_ERRNO);
+    JASSERT(munmap((void*) _restoreBufAddr, _restoreBufLen) == 0)
+      (JASSERT_ERRNO);
   }
 
   int flags = MAP_SHARED | MAP_ANONYMOUS;
