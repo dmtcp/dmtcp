@@ -337,8 +337,20 @@ ProcessInfo::updateRestoreBufAddr(void* addr, uint64_t len)
   //         then sets it to _restoreBufLen.  But ProcessInfo::init() had
   //         previously set _restoreBufLen to RESTORE_TOTAL_SIZE.  So, we
   //         have now made the round trip.  This is spaghetti code. :-(
+  // NOTE: This note explains why we need the multiplier, 3, for 3*_restoreBufLen.
+  //       _restoreBufLen is a synonym for RESTORE_TOTAL_SIZE.
+  //       See the comment inside writeckpt.cpp:mtcp_writememoryareas() for
+  //       the purpose of the "restoreBuf" (aka "holebase").  Due to
+  //       address space randomization, this "restoreBuf" may have an
+  //       address conflict with the "stack", "vvar" or other, for mtcp_restart.
+  //       So, we mmap 3 * RESTORE_TOTAL_SIZE.  The entire test/data/stack of
+  //       of mtcp_restart is assumed to fit inside RESTORE_TOTAL_SIZE bytes.
+  //       So, the memory of mtcp_restart will overlap with at most two
+  //       of the three regions of size RESTORE_TOTAL_SIZE.  So, mtcp_restart
+  //       is guaranteed to find a "holebase" that doesn't overlap with
+  //       the existing memory of mtcp_restart.
   _restoreBufLen = len;
-  _restoreBufAddr = (uint64_t) mmap(addr, _restoreBufLen,
+  _restoreBufAddr = (uint64_t) mmap(addr, 3 * _restoreBufLen,
                     PROT_NONE, flags, -1, 0);
   JASSERT(_restoreBufAddr != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
 }

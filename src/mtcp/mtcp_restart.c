@@ -259,12 +259,22 @@ validateRestoreBufferLocation(RestoreInfo *rinfo)
   int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
   MTCP_ASSERT (mapsfd >= 0);
 
+  // NOTE:  rinfo->restore_addr, rinfo->restore_size are synonyms for
+  //        restoreBufAddr, restoreBufLen in src/{writeckpt.cpp,processinfo.cpp}.
+  //        See comment in processinfo.cpp:ProcessInfo::updateRestoreBufAddr()
+  //        for why "restoreBuf" is actually 3 times as large.
+  int attempt = 1;
   Area area;
   while (mtcp_readmapsline(mapsfd, &area)) {
     if (doAreasOverlap(area.addr, area.size, (VA) rinfo->restore_addr, rinfo->restore_size)) {
-      MTCP_PRINTF("***ERROR: Restore buffer overlaps with memory area %p-%p\n",
-                  area.addr, area.endAddr);
-      mtcp_abort();
+      if (attempt >= 3) {
+        MTCP_PRINTF("***ERROR: Restore buffer overlaps with memory area %p-%p\n",
+                    area.addr, area.endAddr);
+        mtcp_abort();
+      } else {
+        attempt++; // restoreBuf is 3 times as large as rinfo->restore_size
+        rinfo->restore_addr += rinfo->restore_size;
+      }
     }
   }
 

@@ -171,6 +171,12 @@ mtcp_writememoryareas(int fd)
    *        restart() is heavily overloaded, but assuming it's only relevant
    *        to processinfo.cpp, we have it used in: ProcessInfo::restart()
    *        and 'case DMTCP_EVENT_RESTART' in processInfo_EventHook().
+   *
+   * We will change the restoreBufLen to 3 * RESTORE_TOTAL_SIZE (found
+   * in the file XXX, so that if the mtcp_restart code+stack is limited
+   * to at most TOTAL_*_SIZE bytes, then it can overlap at most
+   * two of the three regions of 3 * RESTORE_TOTAL_SIZE.
+   *     RESTORE_TOTAL_SIZE is in src/processinfo.h and src/mtcp/mtcp_restart.h
    */
   JTRACE("addr and len of restoreBuf (to hold mtcp_restart code)")
     ((void *)ProcessInfo::instance().restoreBufAddr())
@@ -184,8 +190,11 @@ mtcp_writememoryareas(int fd)
     // will invoke mmap if the JAlloc arena is full. Similarly, for STL objects
     // such as vector and string.
 
+    // FIXME: The "3" multiplier is to correspond to the "3" multiplier in
+    //        ProcessInfo::updateRestoreBufAddr().  See the comment there about
+    //        spaghetti code.  Ideally, we would refactor all of this code.
     if ((uint64_t)area.addr == ProcessInfo::instance().restoreBufAddr()) {
-      JASSERT(area.size == ProcessInfo::instance().restoreBufLen())
+      JASSERT(area.size == 3 * ProcessInfo::instance().restoreBufLen())
         ((void *)area.addr)
         (area.size)
         (ProcessInfo::instance().restoreBufLen());
