@@ -1120,6 +1120,12 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
 
   // Reserve the entire restore area. This would ensure no other memory regions
   // get mapped in this location.
+  //FIXME:  Since rinfo.restore_size is a synonym for restoreBufLen, which is
+  //        a synonym for RESTORE_TOTAL_SIZE, why don't we just use
+  //        rinfo.restore_size here and below?
+  //        The current code is probably left over from a request for
+  //        a now obsolete request by the MANA project.  We should
+  //        refactor this.
   void *addr = mmap_fixed_noreplace(rinfo->restore_addr,
                                     RESTORE_TOTAL_SIZE,
                                     PROT_NONE,
