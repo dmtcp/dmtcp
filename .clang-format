@@ -53,6 +53,8 @@ AllowShortFunctionsOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 
+AlwaysBreakAfterDefinitionReturnType: None
+
 AlwaysBreakAfterDefinitionReturnType: TopLevel
 
 AlwaysBreakBeforeMultilineStrings: false

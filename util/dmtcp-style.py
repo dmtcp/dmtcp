@@ -135,15 +135,14 @@ class CppLinter(LinterBase):
 
     source_dirs = ['src',
                    'include',
-                   'plugin' #,
-                   #'contrib'
-                   ]
+                   'plugin',
+                   'contrib']
 
-    exclude_files = '(.*.sh|dmtcp_rm_loclaunch|config.h|restartscript.cpp|infiniband/examples|src/mtcp/|test-suite|Makefile.in)'
+    exclude_files = '(restartscript.cpp|infiniband\/examples|src\/mtcp\/|test-suite|Makefile.in)'
 
-    source_files = '.(cpp|h)$'
+    source_files = '\.(cpp|h)$'
 
-    comment_prefix = '\\'
+    comment_prefix = '\/\/'
 
     def run_lint(self, source_paths):
         '''
@@ -154,29 +153,28 @@ class CppLinter(LinterBase):
 
         # See cpplint.py for full list of rules.
         active_rules = [
-            '+build/class',
-            '+build/deprecated',
-            '+build/endif_comment',
-            '+build/include_order',
+            'build/class',
+            'build/deprecated',
+            'build/endif_comment',
+            'build/include_order',
             #'build/include_what_you_use',
             #'readability/todo',
             #'readability/namespace',
             #'runtime/vlog',
-            '+whitespace/blank_line',
-            '+whitespace/comma',
-            '+whitespace/end_of_line',
-            '+whitespace/ending_newline',
-            '+whitespace/forcolon',
-            '+whitespace/indent',
-            '-whitespace/indent_namespace',
-            '+whitespace/line_length',
-            '+whitespace/operators',
-            '+whitespace/semicolon',
-            '+whitespace/tab',
-            '+whitespace/comments',
-            '+whitespace/todo']
+            'whitespace/blank_line',
+            'whitespace/comma',
+            'whitespace/end_of_line',
+            'whitespace/ending_newline',
+            'whitespace/forcolon',
+            'whitespace/indent',
+            'whitespace/line_length',
+            'whitespace/operators',
+            'whitespace/semicolon',
+            'whitespace/tab',
+            'whitespace/comments',
+            'whitespace/todo']
 
-        rules_filter = '--filter=-,' + ','.join(active_rules)
+        rules_filter = '--filter=-,+' + ',+'.join(active_rules)
         python_version = 'python3' if sys.version_info[0] == 3 else 'python'
         p = subprocess.Popen(
             [python_version, 'util/cpplint.py', rules_filter] + source_paths,
@@ -186,7 +184,6 @@ class CppLinter(LinterBase):
         # Lines are stored and filtered, only showing found errors instead
         # of e.g., 'Done processing XXX.' which tends to be dominant output.
         for line in p.stderr:
-            line = line.decode('utf-8')
             if re.match('^(Done processing |Total errors found: )', line):
                 continue
             sys.stderr.write(line)
