@@ -222,23 +222,6 @@ class VirtualIdTable
       return idVec;
     }
 
-    virtual bool virtualToReal(IdType virtualId, IdType *realId)
-    {
-      bool retVal = false;
-
-      /* This code is called from MTCP while the checkpoint thread is holding
-         the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
-         this function. */
-      _do_lock_tbl();
-      id_iterator i = _idMapTable.find(virtualId);
-      if (i != _idMapTable.end()) {
-        *realId = i->second;
-        retVal = true;
-      }
-      _do_unlock_tbl();
-      return retVal;
-    }
-
     virtual IdType virtualToReal(IdType virtualId)
     {
       IdType retVal = 0;
