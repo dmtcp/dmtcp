@@ -446,9 +446,7 @@ DmtcpWorker::postCheckpoint()
       if (arenas[i].startAddr != NULL) {
         o << std::hex << (uint64_t) arenas[i].startAddr
           << "-" << (uint64_t) arenas[i].endAddr
-          << " "
-          << ((uint64_t)arenas[i].endAddr - (uint64_t)arenas[i].startAddr)
-          << "\n";
+          << " " << ((uint64_t)arenas[i].endAddr - (uint64_t)arenas[i].startAddr) << "\n";
       }
     }
 
