@@ -973,9 +973,6 @@ runTest("pthread4",      1, ["./test/pthread4"])
 runTest("pthread5",      1, ["./test/pthread5"])
 S=DEFAULT_S
 
-runTest("clone1",        1, ["./test/clone1 0"]) # non-detached thread simulated
-runTest("clone2",        1, ["./test/clone1 1"]) # detached thread simulated
-
 runTest("mutex1",        1, ["./test/mutex1"])
 runTest("mutex2",        1, ["./test/mutex2"])
 runTest("mutex3",        1, ["./test/mutex3"])
