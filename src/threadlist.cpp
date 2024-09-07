@@ -146,7 +146,13 @@ save_sp(void **sp)
   asm volatile ("mov %0,sp"
                 : "=r" (*sp)
                 : : "memory");
-#else // if defined(__i386__) || defined(__x86_64__)
+
+#elif defined(__riscv)
+  asm volatile ("addi %0, sp, 0"
+                  : "=r" (*sp)
+                  : : "memory");
+
+#else  // if defined(__i386__) || defined(__x86_64__)
 # error "assembly instruction not translated"
 #endif // if defined(__i386__) || defined(__x86_64__)
 }
