@@ -23,9 +23,9 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#ifdef __aarch64__
+#if defined(__aarch64__) || defined(__riscv)
 
-/* On aarch64, fork() is not implemented, in favor of clone().
+/* On aarch64 and riscv, fork() is not implemented, in favor of clone().
  *   A true fork call would include CLONE_CHILD_SETTID and set the thread id
  * in the thread area of the child (using set_thread_area).  We don't do that.
  */
@@ -35,9 +35,9 @@
                 NULL,                                                \
                 NULL,                                                \
                 NULL)
-#else // ifdef __aarch64__
+#else  // ifdef __aarch64__
 # define _real_sys_fork() _real_syscall(SYS_fork)
-#endif // ifdef __aarch64__
+#endif  // ifdef __aarch64__
 #include <fcntl.h>
 #include <signal.h>
 #include <unistd.h>
@@ -48,12 +48,12 @@
 #include "syscallwrappers.h"
 #include "util.h"
 
-// aarch64 doesn't define SYS_pipe kernel call by default.
-#if defined(__aarch64__)
+// aarch64 and riscv don't define SYS_pipe kernel call by default.
+#if defined(__aarch64__) || defined(__riscv)
 # define _real_pipe(a)         _real_syscall(SYS_pipe2, a, 0)
-#else // if defined(__aarch64__)
+#else  // if defined(__aarch64__)
 # define _real_pipe(a)         _real_syscall(SYS_pipe, a)
-#endif // if defined(__aarch64__)
+#endif  // if defined(__aarch64__)
 #define _real_waitpid(a, b, c) _real_syscall(SYS_wait4, a, b, c, NULL)
 
 using namespace dmtcp;
@@ -208,7 +208,7 @@ perform_open_ckpt_image_fd(const char *tempCkptFilename,
 
 #ifdef FAST_RST_VIA_MMAP
   return fd;
-#endif // ifdef FAST_RST_VIA_MMAP
+#endif  // ifdef FAST_RST_VIA_MMAP
 
   /* 2. Test if using GZIP compression */
   int use_gzip_compression = 0;
@@ -257,7 +257,7 @@ test_and_prepare_for_forked_ckpt()
 {
 #ifdef TEST_FORKED_CHECKPOINTING
   return 1;
-#endif // ifdef TEST_FORKED_CHECKPOINTING
+#endif  // ifdef TEST_FORKED_CHECKPOINTING
 
   if (getenv(ENV_VAR_FORKED_CKPT) == NULL) {
     return 0;
@@ -313,7 +313,7 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
     ckpt_extcomp_child_pid = cpid;
     JWARNING(_real_close(pipe_fds[0]) == 0) (JASSERT_ERRNO)
     .Text("WARNING: close failed");
-    fd = pipe_fds[1]; // change return value
+    fd = pipe_fds[1];  // change return value
   } else { /* child process */
     // static int (*libc_unsetenv) (const char *name);
     // static int (*libc_execvp) (const char *path, char *const argv[]);
@@ -339,7 +339,7 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
     }
 
     // Don't load libdmtcp.so, etc. in exec.
-    unsetenv("LD_PRELOAD"); // If in bash, this is bash env. var. version
+    unsetenv("LD_PRELOAD");  // If in bash, this is bash env. var. version
     char *ld_preload_str = (char *)getenv("LD_PRELOAD");
     if (ld_preload_str != NULL) {
       ld_preload_str[0] = '\0';

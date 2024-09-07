@@ -55,7 +55,7 @@ memfence() {  asm volatile ("mfence" ::: "memory"); }
 static inline void
 memfence() {  asm volatile ("dmb" ::: "memory"); }
 
-#elif defined(__aarch64__)
+#elif defined(__aarch64__) | defined(__riscv)
 # include "membarrier.h"
 static inline void
 memfence() {  RMB; WMB; }
