@@ -20,8 +20,8 @@
 #define LDT_H
 #include <linux/version.h>
 
-// ARM is missing asm/ldt.h in Ubuntu 11.10 (Linux 3.0, glibc-2.13)
-#if defined(__arm__) || defined(__aarch64__)
+// ARM and RISCV are missing asm/ldt.h in Ubuntu 11.10 (Linux 3.0, glibc-2.13)
+#if defined(__arm__) || defined(__aarch64__) || defined(__riscv)
 
 /* Structure passed to `modify_ldt', 'set_thread_area', and 'clone' calls.
    This seems to have been stable since the beginning of Linux 2.6  */
@@ -37,7 +37,7 @@ struct user_desc {
   unsigned int useable : 1;
   unsigned int empty : 25;  /* Some variations leave this out. */
 };
-#else // if defined(__arm__) || defined(__aarch64__)
+#else  // if defined(__arm__) || defined(__aarch64__)
 
 // Defines struct user_desc
 # include <asm/ldt.h>
@@ -66,6 +66,6 @@ struct user_desc {
 
 /* struct modify_ldt_ldt_s   was defined instead of   struct user_desc   */
 #  define user_desc modify_ldt_ldt_s
-# endif // if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0)
-#endif // if defined(__arm__) || defined(__aarch64__)
-#endif // ifndef LDT_H
+# endif  // if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0)
+#endif  // if defined(__arm__) || defined(__aarch64__)
+#endif  // ifndef LDT_H
