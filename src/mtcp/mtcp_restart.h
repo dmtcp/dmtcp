@@ -39,6 +39,13 @@
                 CLEAN_FOR_64_BIT(sub %0, %%ebp; )                             \
                 : : "r" (addr) : "memory");
 
+#elif defined(__riscv)
+# define RELOCATE_STACK(addr) \
+	asm volatile("fence":::"memory"); \
+	asm volatile ("sub sp, sp, %0\n\t" \
+		      "sub fp, fp, %0" \
+		      : : "r" (addr) : "memory");\
+
 #elif defined(__arm__)
 
 # define RELOCATE_STACK(addr)                                                 \

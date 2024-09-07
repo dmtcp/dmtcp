@@ -48,6 +48,14 @@
 # define RMB asm volatile (".arch armv8.1-a \n\t dsb sy\n" : : : "memory")
 # define WMB asm volatile (".arch armv8.1-a \n\t dsb sy\n" : : : "memory")
 # define IMB asm volatile (".arch armv8.1-a \n\t isb" : : : "memory")
+
+#elif defined(__riscv)
+# define RMB asm volatile ("fence" \
+			  : : : "memory")
+# define  WMB asm volatile ("fence" \
+			   : : : "memory")
+# define IMB
+
 #else // if defined(__i386__) || defined(__x86_64__)
 # error "instruction architecture not implemented"
 #endif // if defined(__i386__) || defined(__x86_64__)
