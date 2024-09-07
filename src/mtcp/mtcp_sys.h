@@ -242,7 +242,7 @@ struct linux_dirent {
  * As of glibc-2.18, open() has been replaced by openat(). glibc converts
  * calls to open() to openat(), but NOT for Aarch64
  */
-# if defined(__aarch64__)
+# if defined(__aarch64__) || defined(__riscv)
 #  define mtcp_sys_open(args ...) mtcp_inline_syscall(openat, 4, AT_FDCWD, args)
 # else // if defined(__aarch64__)
 #  define mtcp_sys_open(args ...) mtcp_inline_syscall(open, 3, args)
@@ -318,7 +318,7 @@ struct linux_dirent {
                               flags,                           \
                               fd,                              \
                               offset / 4096)
-# elif defined(__aarch64__)
+# elif defined(__aarch64__) || defined(__riscv)
 #  define mtcp_sys_mmap(args ...) (void *)mtcp_inline_syscall(mmap, 6, args)
 # else // if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
 #  error "getrlimit kernel call not implemented in this architecture"
@@ -352,7 +352,7 @@ struct linux_dirent {
 # define mtcp_sys_process_vm_readv(args ...)                                 \
                                     mtcp_inline_syscall(process_vm_readv, 6, \
                                                         args)
-# if defined(__aarch64__)
+# if defined(__aarch64__) || defined(__riscv)
 
 // As of glibc-2.18, readlink() has been replaced by readlinkat()
 // glibc includes checks for old call, except in aarch64
@@ -370,7 +370,7 @@ struct linux_dirent {
 
 /* EABI ARM exclusively uses newer ugetrlimit kernel API, and not getrlimit */
 #  define mtcp_sys_getrlimit(args ...) mtcp_inline_syscall(ugetrlimit, 2, args)
-# elif defined(__aarch64__)
+# elif defined(__aarch64__) || defined(__riscv)
 #  define mtcp_sys_getrlimit(args ...) mtcp_inline_syscall(getrlimit, 2, args)
 # else // if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
 #  error "getrlimit kernel call not implemented in this architecture"
@@ -390,7 +390,7 @@ struct linux_dirent {
 
 # define mtcp_sys_fcntl2(args ...)      mtcp_inline_syscall(fcntl, 2, args)
 # define mtcp_sys_fcntl3(args ...)      mtcp_inline_syscall(fcntl, 3, args)
-# if defined(__aarch64__)
+# if defined(__aarch64__) || defined(__riscv)
 #  define mtcp_sys_mkdir(args ...)                                   \
                                         mtcp_inline_syscall(mkdirat, \
                       3,                                             \
@@ -540,6 +540,8 @@ mtcp_abort(void)
   asm volatile ("mov r0, #0 ; str r0, [r0]");
 # elif defined(__aarch64__)
   asm volatile ("mov x0, #0 ; str x0, [X0]");
+# elif defined(__riscv__)
+  asm volatile ("add x0, #0;  str x0, [X0]");
 # endif // if defined(__i386__) || defined(__x86_64__)
   for (;;) { /* Without this, gcc emits warning:  `noreturn' fnc does return */
   }
