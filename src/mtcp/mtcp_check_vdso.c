@@ -147,6 +147,8 @@ int mtcp_have_thread_sysinfo_offset(char **environ) {
                 : "=r" (sysinfo) );
 #elif defined(__aarch64__)
   asm volatile ("mrs     %0, tpidr_el0" : "=r" (sysinfo) );
+#elif defined(__riscv)
+  asm volatile("addi %0, tp, 0" : "=r" (sysinfo));
 #else
 # error "current architecture not supported"
 #endif
@@ -168,6 +170,8 @@ void *mtcp_get_thread_sysinfo() {
                 : "=r" (sysinfo) );
 #elif defined(__aarch64__)
   asm volatile ("mrs     %0, tpidr_el0" : "=r" (sysinfo) );
+#elif defined(__riscv)
+  asm volatile("addi %0, tp,0" : "=r" (sysinfo));
 #else
 # error "current architecture not supported"
 #endif
@@ -183,6 +187,8 @@ void mtcp_set_thread_sysinfo(void *sysinfo) {
   mtcp_sys_kernel_set_tls(sysinfo);
 #elif defined(__aarch64__)
   asm volatile ("msr     tpidr_el0, %[gs]" : : [gs] "r" (sysinfo) );
+#elif defined(__riscv)
+  asm volatile("addi tp, %[gs],0" : : [gs] "r" (sysinfo) );
 #else
 # error "current architecture not supported"
 #endif
