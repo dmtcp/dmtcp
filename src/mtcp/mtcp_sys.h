@@ -201,6 +201,8 @@ extern int mtcp_sys_errno;
 
 // FIXME:  Now that we're introducing syscall-aarch64.S, we should abandon this.
 // # include "sysdep-aarch64.h"
+# elif defined(__riscv)
+#include "sysdep/sysdep-riscv.h"
 # else // ifdef __i386__
 #  error "Missing sysdep.h file for this architecture."
 # endif /* end __arm__ */
