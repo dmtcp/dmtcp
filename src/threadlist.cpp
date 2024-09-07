@@ -32,8 +32,8 @@
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
 // Default is to use  setcontext/getcontext.
-#if defined(__arm__) || defined(__aarch64__)
-#define SETJMP /* setcontext/getcontext not defined for ARM glibc */
+#if defined(__arm__) || defined(__aarch64__) || defined(__riscv)
+#define SETJMP  /* setcontext/getcontext not defined for ARM and RISC-V glibc */
 #endif         // if defined(__arm__) || defined(__aarch64__)
 
 #ifdef SETJMP
@@ -68,7 +68,7 @@ static bool originalstartup;
 volatile int dmtcp::restartPauseLevel = 0;
 
 extern bool sem_launch_first_time;
-extern sem_t sem_launch; // allocated in coordinatorapi.cpp
+extern sem_t sem_launch;  // allocated in coordinatorapi.cpp
 static sem_t semNotifyCkptThread;
 static sem_t semWaitForCkptThreadSignal;
 
@@ -154,7 +154,7 @@ save_sp(void **sp)
 
 #else  // if defined(__i386__) || defined(__x86_64__)
 # error "assembly instruction not translated"
-#endif // if defined(__i386__) || defined(__x86_64__)
+#endif  // if defined(__i386__) || defined(__x86_64__)
 }
 
 /*****************************************************************************
@@ -172,7 +172,7 @@ void
 ThreadList::resetOnFork()
 {
   while (activeThreads != NULL) {
-    ThreadList::threadIsDead(activeThreads); // takes care of updating
+    ThreadList::threadIsDead(activeThreads);  // takes care of updating
                                              // "activeThreads" ptr.
   }
 
@@ -400,9 +400,9 @@ checkpointhread(void *dummy)
   /* Set up our restart point.  I.e., we get jumped to here after a restore. */
 #ifdef SETJMP
   JASSERT(sigsetjmp(ckptThread->jmpbuf, 1) >= 0) (JASSERT_ERRNO);
-#else // ifdef SETJMP
+#else  // ifdef SETJMP
   JASSERT(getcontext(&ckptThread->savctx) == 0) (JASSERT_ERRNO);
-#endif // ifdef SETJMP
+#endif  // ifdef SETJMP
   save_sp(&ckptThread->saved_sp);
   JTRACE("after sigsetjmp/getcontext") (curThread->tid) (curThread->saved_sp);
 
@@ -601,17 +601,17 @@ stopthisthread(int signum)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
     JWARNING(prctl(PR_GET_NAME, curThread->procname) != -1) (JASSERT_ERRNO)
     .Text("prctl(PR_GET_NAME, ...) failed");
-#endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
+#endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
-    Thread_SaveSigState(curThread); // save sig state (and block sig delivery)
-    TLSInfo_SaveTLSState(curThread); // save thread local storage state
+    Thread_SaveSigState(curThread);  // save sig state (and block sig delivery)
+    TLSInfo_SaveTLSState(curThread);  // save thread local storage state
 
     /* Set up our restart point, ie, we get jumped to here after a restore */
 #ifdef SETJMP
     JASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0);
-#else // ifdef SETJMP
+#else  // ifdef SETJMP
     JASSERT(getcontext(&curThread->savctx) == 0);
-#endif // ifdef SETJMP
+#endif  // ifdef SETJMP
     save_sp(&curThread->saved_sp);
 
     JTRACE("Thread after sigsetjmp/getcontext")
@@ -658,7 +658,7 @@ stopthisthread(int signum)
       JASSERT(prctl(PR_SET_NAME, curThread->procname) != -1 || errno == EINVAL)
         (curThread->procname) (JASSERT_ERRNO)
       .Text("prctl(PR_SET_NAME, ...) failed");
-#endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
+#endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
       JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
 
@@ -814,7 +814,7 @@ restarthread(void *threadv)
 
   dmtcp_update_virtual_to_real_tid(thread->tid);
 
-  if (thread == motherofall) { // if this is a user thread
+  if (thread == motherofall) {  // if this is a user thread
     DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 4);
   }
 
@@ -825,9 +825,9 @@ restarthread(void *threadv)
   JTRACE("calling siglongjmp/setcontext") (thread->tid);
 #ifdef SETJMP
   siglongjmp(thread->jmpbuf, 1); /* Shouldn't return */
-#else // ifdef SETJMP
+#else  // ifdef SETJMP
   setcontext(&thread->savctx); /* Shouldn't return */
-#endif // ifdef SETJMP
+#endif  // ifdef SETJMP
   JASSERT(false);
   return 0;   /* NOTREACHED : stop compiler warning */
 }
