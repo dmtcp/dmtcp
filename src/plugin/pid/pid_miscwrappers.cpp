@@ -348,11 +348,13 @@ syscall(long sys_num, ...)
 // Presumably, it's handled by libc, and is not a kernel call
 //   in AARCH64 (e.g., v5.01).
 #ifndef __aarch64__
+#ifndef __riscv
   case SYS_getpgrp:
   {
     ret = getpgrp();
     break;
   }
+#endif
 #endif
 
   case SYS_getpgid:
