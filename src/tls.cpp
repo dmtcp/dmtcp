@@ -170,6 +170,13 @@ TLSInfo_GetTidOffset(void)
   }
 #endif
 
+//FIXME:Define offset for __aarch64__
+
+#ifdef __riscv
+  offset = 192;
+  return offset;
+#endif
+
   if (glibcMinorVersion() >= 10) {
     offset = 26 * sizeof(void *); // sizeof(__padding) + sizeof(list_t)
   } else {
