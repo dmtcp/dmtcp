@@ -297,7 +297,7 @@ ld_linux_so_path(int version, bool is32bitElf = false)
 {
   char buf[80];
 
-#if (defined(__x86_64__) || defined(__aarch64__)) && !defined(CONFIG_M32)
+#if (defined(__x86_64__) || defined(__aarch64__) || defined(__riscv)) && !defined(CONFIG_M32)
   if (is32bitElf) {
     sprintf(buf, "/lib/ld-linux.so.%d", version);
   } else {
@@ -475,7 +475,7 @@ Util::patchArgvIfSetuid(const char *filename,
   // Use /lib64 if 64-bit O/S and not 32-bit app:
 
   char *ldStrPtr = NULL;
-# if (defined(__x86_64__) || defined(__aarch64__)) && !defined(CONFIG_M32)
+# if (defined(__x86_64__) || defined(__aarch64__) || defined(__riscv)) && !defined(CONFIG_M32)
   bool isElf, is32bitElf;
   elfType(cmdBuf, &isElf, &is32bitElf);
   if (is32bitElf) {
@@ -571,7 +571,7 @@ Util::getPath(const char *cmd, bool is32bit)
 
   string suffixFor32Bits;
 
-#if defined(__x86_64__) || defined(__aarch64__)
+#if defined(__x86_64__) || defined(__aarch64__) || defined(__riscv)
   if (is32bit) {  // if this is a multi-architecture build
     string basename = jalib::Filesystem::BaseName(cmd);
     if (strcmp(cmd, "mtcp_restart-32") == 0) {

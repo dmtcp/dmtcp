@@ -293,11 +293,13 @@ syscall(long sys_num, ...)
   }
 
 # ifndef __aarch64__
+# ifndef __riscv
   case SYS_fork:
   {
     ret = fork();
     break;
   }
+# endif
 # endif // ifndef __aarch64__
   case SYS_exit:
   {
@@ -306,12 +308,14 @@ syscall(long sys_num, ...)
     break;
   }
 # ifndef __aarch64__
+# ifndef __riscv
   case SYS_open:
   {
     SYSCALL_GET_ARGS_3(const char *, pathname, int, flags, mode_t, mode);
     ret = open(pathname, flags, mode);
     break;
   }
+# endif
 # endif // ifndef __aarch64__
   case SYS_close:
   {
@@ -463,12 +467,14 @@ syscall(long sys_num, ...)
 #endif // ifdef __x86_64__
 
 # ifndef __aarch64__
+#ifndef __riscv
   case SYS_pipe:
   {
     SYSCALL_GET_ARG(int *, fds);
     ret = pipe(fds);
     break;
   }
+# endif
 # endif // ifdef __aarch64__
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && __GLIBC_PREREQ(2, 9)
   case SYS_pipe2:
@@ -522,40 +528,48 @@ syscall(long sys_num, ...)
 # endif // ifdef __x86_64__
 #endif // ifndef DISABLE_SYS_V_IPC
 # ifndef __aarch64__
+# ifndef __riscv
   case SYS_poll:
   {
     SYSCALL_GET_ARGS_3(struct pollfd *, fds, nfds_t, nfds, int, timeout);
     ret = poll(fds, nfds, timeout);
     break;
   }
+# endif
 # endif // ifdef __aarch64__
 # ifndef __aarch64__
+# ifndef __riscv
   case SYS_epoll_create:
   {
     SYSCALL_GET_ARG(int, size);
     ret = epoll_create(size);
     break;
   }
+# endif
 # endif // ifdef __aarch64__
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13) && __GLIBC_PREREQ(2, 4)
 # ifndef __aarch64__
+# ifndef __riscv
   case SYS_inotify_init:
   {
     ret = inotify_init();
     break;
   }
+# endif
 # endif // ifdef __aarch64__
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13) && __GLIBC_PREREQ(2,
        // 4)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) && __GLIBC_PREREQ(2, 8)
 # ifndef __aarch64__
+# ifndef __riscv
   case SYS_signalfd:
   {
     SYSCALL_GET_ARGS_3(int, fd, sigset_t *, mask, int, flags);
     ret = signalfd(fd, mask, flags);
     break;
   }
+# endif
 # endif // ifndef __aarch64__
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) && __GLIBC_PREREQ(2,
        // 8)
@@ -570,12 +584,14 @@ syscall(long sys_num, ...)
        // 8)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) && __GLIBC_PREREQ(2, 8)
 # ifndef __aarch64__
+# ifndef __riscv
   case SYS_eventfd:
   {
     SYSCALL_GET_ARGS_2(unsigned int, initval, int, flags);
     ret = eventfd(initval, flags);
     break;
   }
+# endif
 # endif // ifndef __aarch64__
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) && __GLIBC_PREREQ(2,
        // 8)

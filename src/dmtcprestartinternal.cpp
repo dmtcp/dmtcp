@@ -473,7 +473,7 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
   publishKeyValueMapToMtcpEnvironment(restoreTarget);
   vector<char *> mtcpArgs = getMtcpArgs(restoreTarget->restoreBufAddr(), restoreTarget->restoreBufLen());
 
-#if defined(__x86_64__) || defined(__aarch64__)
+#if defined(__x86_64__) || defined(__aarch64__) || defined(__riscv)
   // FIXME: This is needed for CONFIG_M32 only because getPath("mtcp_restart")
   // fails to return the absolute path for mtcp_restart.  We should fix
   // the bug in Util::getPath() and remove CONFIG_M32 condition in #if.
