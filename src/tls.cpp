@@ -17,7 +17,7 @@
  *****************************************************************************/
 
 #include "tls.h"
-#include <pthread.h> // for pthread_self(), needed for WSL
+#include <pthread.h>  // for pthread_self(), needed for WSL
 #include <elf.h>
 #include <errno.h>
 #include <gnu/libc-version.h>
@@ -33,7 +33,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-#include "config.h" // define WSL if present
+#include "config.h"  // define WSL if present
 #include "jassert.h"
 #include "mtcp/mtcp_sys.h"
 
@@ -165,7 +165,7 @@ TLSInfo_GetTidOffset(void)
 
 #ifdef __x86_64__
   if (glibcMinorVersion() >= 11) {
-    offset = 720; // sizeof(tcbhead_t) + sizeof(list_t)
+    offset = 720;  // sizeof(tcbhead_t) + sizeof(list_t)
     return offset;
   }
 #endif
@@ -178,9 +178,9 @@ TLSInfo_GetTidOffset(void)
 #endif
 
   if (glibcMinorVersion() >= 10) {
-    offset = 26 * sizeof(void *); // sizeof(__padding) + sizeof(list_t)
+    offset = 26 * sizeof(void *);  // sizeof(__padding) + sizeof(list_t)
   } else {
-    offset = 18 * sizeof(void *); // sizeof(__padding) + sizeof(list_t)
+    offset = 18 * sizeof(void *);  // sizeof(__padding) + sizeof(list_t)
   }
 
   return offset;
@@ -266,7 +266,7 @@ tls_set_thread_area(Thread *thread)
   asm volatile ("movw %0,%%fs" : : "m" (thread->tlsInfo.fs));
   asm volatile ("movw %0,%%gs" : : "m" (thread->tlsInfo.gs));
 }
-#endif // ifdef __i386__
+#endif  // ifdef __i386__
 
 #ifdef __arm__
 
@@ -328,7 +328,7 @@ tls_get_thread_area(Thread *thread)
 {
   unsigned long int addr;
   asm volatile ("mrs   %0, tpidr_el0" : "=r" (addr));
-  thread->tlsInfo.tlsAddr = addr - 1776; // sizeof(struct pthread) = 1776
+  thread->tlsInfo.tlsAddr = addr - 1776;  // sizeof(struct pthread) = 1776
 }
 
 static void
@@ -338,7 +338,42 @@ tls_set_thread_area(Thread *thread)
   asm volatile ("msr     tpidr_el0, %[gs]" : :[gs] "r" (addr));
 }
 #endif /* end __aarch64__ */
+// FIXME: The branch feature/riscv-experimental has a commit with commit message
+//              Add libc_tcbhead_t padding for pthread_t for riscv
+// That commit has padding for all CPUs.  We should replace this with
+// the new commit when it's pushed in.
 
+#ifdef __riscv
+/* This allocation hack will work only if calls to mtcp_sys_get_thread_area
+ * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
+ * This is all because get_thread_area is not implemented for aarch64.
+ * 	For RISCV, the thread pointer seems to point to the next slot
+ * after the 'struct pthread'.  Why??  So, we subtract that address.
+ * After that, tid/pid will be located at offset 208/212 as expected
+ * for glibc-2.17.
+ * NOTE:  'struct pthread' defined in glibc/nptl/descr.h
+ * 	The value below (1776) is current for glibc-2.17.
+ * 	See PORTING file for easy way to compute these numbers.
+ * 	May have to update 'sizeof(struct pthread)' for new versions of glibc.
+ * 	We can automate this by searching for negative offset from end
+ * 	of 'struct pthread' in tls_tid_offset, tls_pid_offset in mtcp.c.
+ */
+
+static void
+tls_get_thread_area(Thread *thread)
+{
+  unsigned long int addr;
+  asm volatile ("addi %0, tp, 0" : "=r" (addr));
+  thread->tlsInfo.tlsAddr = addr - 1856;  // sizeof(struct pthread)=1856
+}
+
+static void
+tls_set_thread_area(Thread *thread)
+{
+  unsigned long int addr = thread->tlsInfo.tlsAddr + 1856;
+  asm volatile("addi tp, %[gs], 0" : : [gs] "r" (addr));
+}
+#endif  /* end __riscv */
 
 /*****************************************************************************
  *
@@ -400,7 +435,7 @@ int
 TLSInfo_HaveThreadSysinfoOffset()
 {
 #ifdef RESET_THREAD_SYSINFO
-  static int result = -1; // Reset to 0 or 1 on first call.
+  static int result = -1;  // Reset to 0 or 1 on first call.
 #else /* ifdef RESET_THREAD_SYSINFO */
   static int result = 0;
 #endif /* ifdef RESET_THREAD_SYSINFO */
@@ -415,6 +450,8 @@ TLSInfo_HaveThreadSysinfoOffset()
                   : "=r" (sysinfo));
 #elif defined(__aarch64__)
     asm volatile ("mrs     %0, tpidr_el0" : "=r" (sysinfo));
+#elif defined(__riscv)
+    asm volatile("addi %0, tp, 0" : "=r" (sysinfo));
 #else /* if defined(__i386__) || defined(__x86_64__) */
 # error "current architecture not supported"
 #endif /* if defined(__i386__) || defined(__x86_64__) */
@@ -439,6 +476,8 @@ TLSInfo_GetThreadSysinfo()
                 : "=r" (sysinfo));
 #elif defined(__aarch64__)
   asm volatile ("mrs     %0, tpidr_el0" : "=r" (sysinfo));
+#elif defined(__riscv)
+  asm volatile ("addi %0, tp, 0" : "=r" (sysinfo));
 #else /* if defined(__i386__) || defined(__x86_64__) */
 # error "current architecture not supported"
 #endif /* if defined(__i386__) || defined(__x86_64__) */
@@ -455,6 +494,8 @@ TLSInfo_SetThreadSysinfo(void *sysinfo)
   mtcp_sys_kernel_set_tls(sysinfo);
 #elif defined(__aarch64__)
   asm volatile ("msr     tpidr_el0, %[gs]" : :[gs] "r" (sysinfo));
+#elif defined(__riscv)
+  asm volatile("addi tp, %[gs], 0" :: [gs] "r" (sysinfo));
 #else /* if defined(__i386__) || defined(__x86_64__) */
 # error "current architecture not supported"
 #endif /* if defined(__i386__) || defined(__x86_64__) */
