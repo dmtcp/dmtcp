@@ -347,6 +347,7 @@ syscall(long sys_num, ...)
 // SYS_getpgrp undefined in aarch64.
 // Presumably, it's handled by libc, and is not a kernel call
 //   in AARCH64 (e.g., v5.01).
+// Tested with glibc-2.36:  __NR_getpgrp not defined on ARM64.
 #ifndef __aarch64__
   case SYS_getpgrp:
   {
