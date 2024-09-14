@@ -105,13 +105,17 @@
 // TODO(kapil): Add dynamic check for this.
 #define _STACK_GROWS_DOWN 1
 
+// These constants can be determined automatically, by running:
+//  check-pthread-tid-offset -v # Source code in util/check-pthread-tid-offset.c
 struct libc_tcbhead_t {
-#if defined(__arm__) || defined(__aarch64__)
-  char pad[24 * sizeof(void*)];
-#elif defined(__x86__) || defined(__x86_64__)
+#if defined(__x86__) || defined(__x86_64__)
   char pad[704];
+#elif defined(__arm__) || defined(__aarch64__)
+  char pad[24 * sizeof(void*)];
+#elif defined(__riscv)
+  char pad[192]; // Same as 'char pad[24 * sizeof(void*)];' (__aarch64__ above)
 #else
-# error "Unsupported architecture"
+# error "Unsupported architecture; Call executable with '-v' flag for info."
 #endif
 };
 
