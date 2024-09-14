@@ -33,12 +33,14 @@ void segfault_handler(int signal) {
 
 // From src/plugin/pid/libc_pthread.h
 struct libc_tcbhead_t {
-#if defined(__arm__) || defined(__aarch64__)
-  char pad[24 * sizeof(void*)];
-#elif defined(__x86__) || defined(__x86_64__)
+#if defined(__x86__) || defined(__x86_64__)
   char pad[704];
+#elif defined(__arm__) || defined(__aarch64__)
+  char pad[24 * sizeof(void*)];
+#elif defined(__riscv)
+  char pad[192];
 #else
-# warning "Unsupported architecture"
+# warning "Unsupported architecture; Call executable with '-v' flag for info."
 #endif
 };
 
@@ -94,6 +96,10 @@ int main(int argc, const char *argv[]) {
   if (argc == 2) {
     verbose = (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "-verbose") == 0);
   }
+  if (argc > 1 && ! verbose) {
+    fprintf(stderr, "USAGE:  %s [-v|--verbose]\n", argv[0]);
+    exit(1);
+  }
 
   for (int i = 0; i < num_elts; i++) {
     pthread_tid_hit[i] = 1;
@@ -118,11 +124,22 @@ int main(int argc, const char *argv[]) {
   }
 
   if (verbose && num_matches >= 1) {
-    printf("Match found for tid_offset"
-           " (glibc_pthread.h:struct libc_tcbhead_t): %d\n", match_offset);
-    printf("  (This is for the offset in 'pthread_t', or 'struct pthread'.\n"
-           "   In src/plugin/pid/globc_pthread.h, you will need to subtract\n"
-           "   2*sizeof(void *) for sizeof(struct libc_tcbhead_t) .)\n");
+    printf("Match found for tid_offset; tid_offset = %d;\n"
+           "  See glibc_pthread.h:struct libc_tcbhead_t.\n", match_offset);
+    printf("  This is for the offset in 'pthread_t', or 'struct pthread'.\n"
+           "  In src/plugin/pid/glibc_pthread.h, for pad[], use:\n");
+    printf("struct libc_tcbhead_t {\n"
+           "  char pad[%ld];\n"
+           "};\n", match_offset - sizeof(struct libc_list_t));
+    printf("The tid offset in that file is calculated based on:\n"
+           "  struct libc2_33_pthread {\n"
+           "    libc_tcbhead_t header;\n"
+           "    libc_list_t list;\n"
+           "    pid_t tid;\n"
+           "    ..\n"
+           "  };\n");
+    printf("So, the size of pad[] is based on:"
+           "  tid_offset - sizeof(struct libc_list_t)\n");
   }
 
   // SEE: src/tls.cpp and src/plugin/pid/glibc_pthread.h
