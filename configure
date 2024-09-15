@@ -11590,7 +11590,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 printf "%s\n" "$gccSyncBuiltins" >&6; }
 if test "$gccSyncBuiltins" = "yes"; then
 
-printf "%s\n" "#define HAS_SYNC_BOOL 1" >>confdefs.h
+printf "%s\n" "#define HAS_128_SYNC_BOOL 1" >>confdefs.h
 
 fi
 
@@ -11745,7 +11745,7 @@ printf "%s\n" "$gccAtomicBuiltins" >&6; }
 
 if test "$gccAtomicBuiltins" = "yes"; then
 
-printf "%s\n" "#define HAS_ATOMIC 1" >>confdefs.h
+printf "%s\n" "#define HAS_128_ATOMIC 1" >>confdefs.h
 
 fi
 if test "$gccAtomicBuiltins" = "no"; then

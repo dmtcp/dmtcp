@@ -857,7 +857,7 @@ CXXFLAGS="$CXXFLAGS_orig"
 AC_LANG_POP([C++])
 AC_MSG_RESULT([$gccSyncBuiltins])
 if test "$gccSyncBuiltins" = "yes"; then
-  AC_DEFINE([HAS_SYNC_BOOL],[1],[Define to 1 if __sync_bool_compare_and_swap is supported])
+  AC_DEFINE([HAS_128_SYNC_BOOL],[1],[Define to 1 if __sync_bool_compare_and_swap is supported])
 fi
 
 dnl NOTE:  Using __atomic_* requires linking with -latomic.
@@ -910,7 +910,7 @@ AC_LANG_POP([C++])
 AC_MSG_RESULT([$gccAtomicBuiltins])
 
 if test "$gccAtomicBuiltins" = "yes"; then
-  AC_DEFINE([HAS_ATOMIC],[1],[Define to 1 if 'gcc test.c -latomic' works for __atomic_compare_exchange])
+  AC_DEFINE([HAS_128_ATOMIC],[1],[Define to 1 if 'gcc test.c -latomic' works for __atomic_compare_exchange])
 fi
 if test "$gccAtomicBuiltins" = "no"; then
   AC_MSG_FAILURE([Using C++14, which should support both sync and atomic
