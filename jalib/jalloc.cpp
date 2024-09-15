@@ -139,9 +139,15 @@ static inline bool
 bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
 {
   bool result = false;
-#if defined(HAS_128_ATOMIC)
+#if defined(HAS_128_ATOMIC) && !defined(__aarch64__)
   // This requires libatomic.so in GNU
+  // For ARM64 (aarch64), as of 2024, the GCC version of libatomic.so
+  // may call pthread_mutex_lock instead of using atomic instructions.
+  // See:  https://gcc.gnu.org/bugzilla/show_bug.cgi?id=70814
+  // This can generate an infinite loop if the target application
+  // interposes on pthread_mutex_lock using dlsym.  McMini is such a case.
   typedef unsigned __int128 uint128_t;
+  // This requires libatomic.so in GNU
   result = __atomic_compare_exchange((uint128_t*)dst,
                                      (uint128_t*)oldValue,
                                      (uint128_t*)newValue, 0,
@@ -153,6 +159,8 @@ bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
                                         *(uint128_t*)oldValue,
                                         *(uint128_t*)newValue);
 #else
+  // FIXME:  Replace var with atomic_compare_futex and use futex.
+  // Using futex protects us if target app interposes on pthread_mutex_lock.
   pthread_mutex_lock(&atomic_compare_mutex);
   // 16-byte object is the same as a 128-bit object
   // This is slower, and might affect codes with _very_ frequent
