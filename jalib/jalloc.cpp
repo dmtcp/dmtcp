@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include <atomic>
+#include <limits.h> // for INT_MAX
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
@@ -29,6 +30,7 @@
 #include "jalib.h"
 #include "jalloc.h"
 #include "config.h"
+#include "futex.h"
 
 #define ATOMIC_SHARED volatile __attribute((aligned))
 
@@ -126,14 +128,12 @@ _dealloc_raw(void *ptr, size_t n)
 # endif // ifdef JALIB_USE_MALLOC
 }
 
-/*
- * Atomically compares the word at the given 'oldValue' address with the
+/* Atomically compares the word at the given 'oldValue' address with the
  * word at the given 'dst' address. If the two words are equal, the word
  * at 'dst' address is changed to the word at 'newValue' address.
  * The function returns true if the exchange was successful.
  * If the exchange is not successfully, the function returns false.
  */
-pthread_mutex_t atomic_compare_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static inline bool
 bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
@@ -159,9 +159,17 @@ bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
                                         *(uint128_t*)oldValue,
                                         *(uint128_t*)newValue);
 #else
-  // FIXME:  Replace var with atomic_compare_futex and use futex.
   // Using futex protects us if target app interposes on pthread_mutex_lock.
-  pthread_mutex_lock(&atomic_compare_mutex);
+  static uint32_t atomic_compare_futex = 0;
+  // Emulate mutex lock
+  while (1) {
+    int old = __sync_val_compare_and_swap(&atomic_compare_futex, 0, 1);
+    if (old == 0) {
+      break; // We now own the futex.
+    } else {
+      futex_wait(&atomic_compare_futex, 1); // Wait if futex is 1
+    }
+  }
   // 16-byte object is the same as a 128-bit object
   // This is slower, and might affect codes with _very_ frequent
   //   DMTCP-internal operations (e.g., thread create/destroy).
@@ -175,7 +183,9 @@ bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
   } else {
     result = false;
   }
-  pthread_mutex_unlock(&atomic_compare_mutex);
+  // Emulate mutex unlock
+  __sync_fetch_and_sub(&atomic_compare_futex, 1); // Decrement futex value
+  futex_wake(&atomic_compare_futex, INT_MAX);
 #endif
   return result;
 }
