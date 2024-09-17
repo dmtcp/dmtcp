@@ -166,24 +166,35 @@ def load_symbols(exec_file=None):
     print("Call 'load-symbols EXEC_FILE' for the primary executable file.\n")
   else: # else len(exec_files) == 0
     print("No exec-files found\n")
-def load_symbols_library(filename_or_address):
+def load_symbols_library(filename_or_address, address=-1):
   if not is_recent_gdb():
     print("Older GDB; use add-symbol-file-from-substring (GDB is version: " +
           gdb.VERSION + ")")
     return
+  if address != -1:
+    address = cast_to_memory_address(address)
   filename = filename_or_address
   if cast_to_memory_address(filename) != None: # if this is a valid address:
     (filename, _, _, _) = memory_region_at_address(filename)
+    if filename == "[NO_LABEL]":
+      print("Address %s does not have a filename label." % filename_or_address)
+      print("Please call with arguments: load-symbols-library filename address")
+      print("('address' can be a number (hex or decimal) or the string '$pc')")
+      return
   # If filename is a substring, search for full filename in /proc/self/maps
   candidates = [(f, addr) for (f, addr, _, _) in memory_regions()
                           if filename in f]
-  if candidates: # If we have a valid filename.
+  if candidates and address == -1: # If we have a valid filename.
     (filename, start_addr) = candidates[0]
     if is_exec_file(filename):
       # ELF executables already have hard-wired absolute address
       print("EXECUTABLE FILE: " + filename)
       load_symbols(filename)
     else:
+      gdb.execute("add-symbol-file -o " + str(start_addr) + " " + filename)
+  elif address != -1: # If address given, assume it's because this is NO_LABEL
+      start_addr = [addr1 for (_, addr1, addr2, _) in memory_regions()
+                          if address >= addr1 and address < addr2][0]
       gdb.execute("add-symbol-file -o " + str(start_addr) + " " + filename)
   else:
     print("No matching FILENAME_OR_ADDRESS found\n")
@@ -407,8 +418,11 @@ LoadSymbols()
 
 
 class LoadSymbolsLibrary(gdb.Command):
-    """load-symbols-library [FILENAME-OR-ADDRESS] (loads symbols from a binary)
-With no argument, it loads symbols for the newest call frame that has no name"""
+    """load-symbols-library [FILENAME-OR-ADDRESS] [ADDRESS[ (loads symbols)
+With no argument, it loads symbols for the newest call frame that has no name.
+With 1 argument, specify filename or address; /proc/*/maps must have filename.
+With 2 argument2, specify filename and address; /proc/*/maps may have
+  no filename; ADDRESS may be given as '$pc'."""
 
     def __init__(self):
         super(LoadSymbolsLibrary,
@@ -426,7 +440,12 @@ With no argument, it loads symbols for the newest call frame that has no name"""
                   " have been loaded")
             return
           filename_or_address = str(hex(frame.pc()))
-        load_symbols_library(filename_or_address.split()[0])
+        if len(filename_or_address.split()) == 1:
+          load_symbols_library(filename_or_address)
+        else:
+          print(filename_or_address)
+          (arg1, arg2) = filename_or_address.split()
+          load_symbols_library(arg1, arg2)
 # This will add the new gdb command: load-symbols-library
 LoadSymbolsLibrary()
 
@@ -588,7 +607,8 @@ def procmap_filename_address(line):
          tuple([int("0x"+elt, 16) for elt in quad[0].split("-")]) + (quad[1],)
 def is_text_segment(memory):
   (file, _, _, permission) = memory
-  return "/dev/" not in file and "/locale/" not in file and "r-x" in permission and '/' in file
+  return "/dev/" not in file and "/locale/" not in file and \
+                 "r-x" in permission and '/' in file
 def memory_regions():
   if getpid() == 0:
     sys.stderr.write("\n*** Process not running! ***\n")
@@ -596,7 +616,8 @@ def memory_regions():
   if usingCore():
     lines = gdb.execute("info proc mappings", False, True).split('\n')
     lines = [procmap_filename_address(line) for line in lines
-                                  if " 0x" in line and "/dev/" not in line and "/locale/" not in line]
+                                  if " 0x" in line and "/dev/" not in line and
+                                     "/locale/" not in line]
   else:
     p = subprocess.Popen(["cat", "/proc/"+str(getpid())+"/maps"],
                          stdout = subprocess.PIPE)
@@ -628,6 +649,8 @@ def memory_region(filename_substring):
 def cast_to_memory_address(memory_address):
   if type(memory_address) == int:
     memory_address = hex(memory_address)  # This converts it to a hex string.
+  elif memory_address == "$pc":
+    memory_address = str(hex(gdb.newest_frame().pc()))
   elif "0x" in memory_address:
     memory_address = hex(int(str(gdb.parse_and_eval(memory_address))))
   elif set(str(memory_address)).issubset("0123456789abcdef"):
