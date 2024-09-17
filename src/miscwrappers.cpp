@@ -308,6 +308,21 @@ syscall(long sys_num, ...)
     break;
   }
 # ifndef __aarch64__
+// FIXME:  Change to:
+// #ifdef SYS_open
+//   // Not defined for __aarch64__ and __riscv
+// ... [Original code] ...
+// #endif
+// #ifdef SYS_openat
+// case SYS_openat:
+// {
+//  SYSCALL_GET_ARGS_4(int, dirfd, const char *, pathname,
+//                     int, flags, mode_t, mode);
+//  ret = openat(dirfd, pathname, flags, mode);
+//  break;
+// }
+// #endif
+
 # ifndef __riscv
   case SYS_open:
   {
@@ -467,6 +482,19 @@ syscall(long sys_num, ...)
 #endif // ifdef __x86_64__
 
 # ifndef __aarch64__
+// FIXME:  Change to:
+// #ifdef SYS_pipe
+//   // Not defined for __aarch64__ and __riscv
+// ... [Original code] ...
+// #endif
+// #ifdef SYS_pipe2
+// case SYS_pipe2:
+// {
+//  SYSCALL_GET_ARGS_2(int *, pipefd, int, flags);
+//  ret = pipe2(pipefd, flags);
+//  break;
+// }
+// #endif
 #ifndef __riscv
   case SYS_pipe:
   {
@@ -483,7 +511,7 @@ syscall(long sys_num, ...)
     ret = pipe2(fds, flags);
     break;
   }
-#endif // if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) &&
+#endif  // if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) &&
        // __GLIBC_PREREQ(2, 9)
 
   case SYS_setsid:
@@ -528,6 +556,8 @@ syscall(long sys_num, ...)
 # endif // ifdef __x86_64__
 #endif // ifndef DISABLE_SYS_V_IPC
 # ifndef __aarch64__
+// FIXME:  In addition to 'poll()', add'ppoll()' with correct
+//         args for aarch64 and riscv.
 # ifndef __riscv
   case SYS_poll:
   {
@@ -538,6 +568,19 @@ syscall(long sys_num, ...)
 # endif
 # endif // ifdef __aarch64__
 # ifndef __aarch64__
+// FIXME:  Change to:
+// #ifdef SYS_epoll_create
+//   // Not defined for __aarch64__ and __riscv
+// ... [Original code] ...
+// #endif
+// #ifdef  SYS_epoll_create1
+// case SYS_epoll_create:
+// {
+//   SYSCALL_GET_ARG(int, flags);
+//   ret = epoll_create1(flags);
+//   break;
+// }
+// #endif
 # ifndef __riscv
   case SYS_epoll_create:
   {
@@ -549,6 +592,8 @@ syscall(long sys_num, ...)
 # endif // ifdef __aarch64__
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13) && __GLIBC_PREREQ(2, 4)
 # ifndef __aarch64__
+// FIXME:  In addition to 'inotify_init', add 'inotify_init'
+//         with correct args for aarch64 and riscv.
 # ifndef __riscv
   case SYS_inotify_init:
   {
@@ -562,6 +607,8 @@ syscall(long sys_num, ...)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) && __GLIBC_PREREQ(2, 8)
 # ifndef __aarch64__
+// FIXME:  In addition to 'signalfd', add 'signalfd4' with correct
+//         args for aarch64 and riscv.
 # ifndef __riscv
   case SYS_signalfd:
   {
@@ -584,6 +631,8 @@ syscall(long sys_num, ...)
        // 8)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) && __GLIBC_PREREQ(2, 8)
 # ifndef __aarch64__
+// FIXME:  In addition to 'eventfd', add 'eventfd2'
+//         with correct args for aarch64 and riscv.
 # ifndef __riscv
   case SYS_eventfd:
   {
