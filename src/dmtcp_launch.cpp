@@ -113,9 +113,6 @@ static const char *theUsage =
   "              Colon-separated list of DMTCP plugins to be preloaded with\n"
   "              DMTCP.\n"
   "              (Absolute pathnames are required.)\n"
-  "  --batch-queue, --rm\n"
-  "              Enable support for resource managers (Torque PBS and SLURM).\n"
-  "              (default: disabled)\n"
   "  --modify-env\n"
   "              Update environment variables based on the environment on the\n"
   "              restart host (e.g., DISPLAY=$DISPLAY).\n"
@@ -163,8 +160,6 @@ static bool disableAllPlugins = false;
 static bool checkpointOpenFiles = false;
 
 static bool enableModifyEnvPlugin = false;
-static bool enableRMPlugin = false;
-static bool explicitSrun = false;
 
 static bool enableIB2TcpPlugin = false;
 static bool enableIBPlugin = false;
@@ -198,7 +193,6 @@ static struct PluginInfo pluginInfo[] = {               // Default value
   { &enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so" }, // Disabled
   { &enableIB2TcpPlugin, "libdmtcp_ib2tcp.so" },        // Disabled
   { &enableIBPlugin, "libdmtcp_infiniband.so" },        // Disabled
-  { &enableRMPlugin, "libdmtcp_batch-queue.so" },       // Disabled
   { &enableAllocPlugin, "libdmtcp_alloc.so" },          // Enabled
   { &enableDlPlugin, "libdmtcp_dl.so" },                // Enabled
   { &enableIPCPlugin, "libdmtcp_ipc.so" },              // Enabled
@@ -320,12 +314,6 @@ processArgs(int *orig_argc, const char ***orig_argv)
       shift;
     } else if (s == "--no-plugins" || s == "--disable-all-plugins") {
       disableAllPlugins = true;
-      shift;
-    } else if (s == "--rm" || s == "--batch-queue") {
-      enableRMPlugin = true;
-      shift;
-    } else if (s == "--explicit-srun") {
-      explicitSrun = true;
       shift;
     } else if (s == "--with-plugin") {
       setenv(ENV_VAR_PLUGIN, argv[1], 1);
@@ -578,10 +566,6 @@ main(int argc, const char **argv)
   if (getenv("SESSION_MANAGER") != NULL) {
     JTRACE("Unsetting SESSION_MANAGER environment variable.");
     unsetenv("SESSION_MANAGER");
-  }
-
-  if (explicitSrun) {
-    setenv(ENV_VAR_EXPLICIT_SRUN, "1", 1);
   }
 
   // FIXME:  Unify this code with code prior to execvp in execwrappers.cpp

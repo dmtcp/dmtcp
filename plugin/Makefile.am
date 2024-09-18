@@ -42,50 +42,6 @@ bin_SCRIPTS =
 CLEANFILES =
 
 #
-# Batch queue plugin
-#
-libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_batch-queue.so
-__d_libdir__libdmtcp_batch_queue_so_SOURCES =                          \
-	batch-queue/rm_main.cpp                                        \
-	batch-queue/rm_main.h                                          \
-	batch-queue/rm_torque.cpp                                      \
-	batch-queue/rm_torque.h                                        \
-	batch-queue/rm_slurm.cpp                                       \
-	batch-queue/rm_slurm.h                                         \
-	batch-queue/rm_utils.cpp                                       \
-	batch-queue/rm_utils.h                                         \
-	batch-queue/rm_pmi.cpp                                         \
-	batch-queue/rm_pmi.h                                           \
-	batch-queue/slurm_helper.cpp
-__d_libdir__libdmtcp_batch_queue_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_batch_queue_so_LDADD = $(LDADD)
-
-bin_PROGRAMS += $(d_bindir)/dmtcp_discover_rm
-__d_bindir__dmtcp_discover_rm_SOURCES =                                \
-	batch-queue/discover_dmtcpinput.cpp                            \
-	batch-queue/discover_resources.cpp                             \
-	batch-queue/discover_slurm.cpp                                 \
-	batch-queue/discover_torque.cpp                                \
-	batch-queue/dmtcp_discover_rm.cpp
-
-bin_PROGRAMS += $(d_bindir)/dmtcp_srun_helper
-__d_bindir__dmtcp_srun_helper_SOURCES =                                \
-	batch-queue/rm_main.h                                          \
-	batch-queue/rm_slurm.h                                         \
-	batch-queue/slurm_helper.cpp                                   \
-	batch-queue/slurm_helper.h                                     \
-	batch-queue/dmtcp_srun_helper.cpp
-
-dist_bin_SCRIPTS += batch-queue/dmtcp_rm_loclaunch
-
-build_rm_loclaunch:
-	cp batch-queue/dmtcp_rm_loclaunch $(top_builddir)/bin/
-
-clean_rm_loclaunch:
-	rm $(top_builddir)/bin/dmtcp_rm_loclaunch
-
-
-#
 # Modify env plugin
 #
 libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_modify-env.so
@@ -115,9 +71,5 @@ __d_libdir__libdmtcp_unique_ckpt_so_LDADD = $(LDADD)
 install-libs: install-libdmtcpPROGRAMS
 
 uninstall-libs: uninstall-libdmtcpPROGRAMS
-
-all-local: build_rm_loclaunch
-
-clean-local: clean_rm_loclaunch
 
 .PHONY: install-libs uninstall-libs

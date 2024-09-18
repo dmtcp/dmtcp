@@ -672,10 +672,6 @@ Util::getDmtcpArgs(void)
     argVector.push_back("--infiniband");
   }
 
-  if (dmtcp_batch_queue_enabled != NULL && dmtcp_batch_queue_enabled()) {
-    argVector.push_back("--batch-queue");
-  }
-
   if (dmtcp_pathvirt_enabled != NULL && dmtcp_pathvirt_enabled()) {
     argVector.push_back("--pathvirt");
   }
