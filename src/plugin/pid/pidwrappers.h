@@ -35,7 +35,6 @@
 #include <sched.h>
 #include <signal.h>
 #include <stdio.h>
-#include <sys/ptrace.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -46,10 +45,6 @@
 #include <sys/uio.h>
 #endif  // ifdef HAS_CMA
 
-// This was needed for 64-bit SUSE LINUX Enterprise Server 9 (Linux 2.6.5):
-#ifndef PTRACE_GETEVENTMSG
-#include <sys/ptrace.h>
-#endif  // ifndef PTRACE_GETEVENTMSG
 #include <stdarg.h>
 #if defined(__arm__) || defined(__aarch64__)
 struct user_desc {
@@ -150,7 +145,6 @@ LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
   MACRO(ioctl)                         \
   MACRO(setgid)                        \
   MACRO(setuid)                        \
-  MACRO(ptrace)                        \
   MACRO(pthread_exit)                  \
   MACRO(fcntl)
 
@@ -250,11 +244,6 @@ int _real_ioctl(int d, unsigned long int request, ...) __THROW;
 
 int _real_setgid(gid_t gid);
 int _real_setuid(uid_t uid);
-
-long _real_ptrace(enum __ptrace_request request,
-                  pid_t pid,
-                  void *addr,
-                  void *data);
 
 void _real_pthread_exit(void *retval);
 int _real_fcntl(int fd, int cmd, void *arg);

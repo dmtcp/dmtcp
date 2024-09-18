@@ -393,8 +393,7 @@ FileConnList::prepareShmList()
   shmAreaConn.clear();
   while (procSelfMaps.getNextArea(&area)) {
     if ((area.flags & MAP_SHARED) && area.prot != 0) {
-      if (strstr(area.name, "ptraceSharedInfo") != NULL ||
-          strstr(area.name, "dmtcpPidMap") != NULL ||
+      if (strstr(area.name, "dmtcpPidMap") != NULL ||
           strstr(area.name, "dmtcpSharedArea") != NULL ||
           strstr(area.name, "synchronization-log") != NULL ||
           strstr(area.name, "infiniband") != NULL ||

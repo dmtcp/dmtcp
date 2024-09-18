@@ -37,12 +37,6 @@ Files: src/plugin/ipc/event/util_descriptor.*
 Copyright: 2012, Onyeka Igabari
 License: LGPL-3
 
-Files: plugin/ptrace/*
-Copyright: 2009-2012, Ana-Maria Visan <amvisan@ccs.neu.edu>
-           2009-2012, Kapil Arya <kapil@ccs.neu.edu>
-           2009-2012, Gene Cooperman <gene@ccs.neu.edu>
-License: LGPL-3
-
 Files: src/glibcsystem.cpp
 Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
 License: LGPL-2.1

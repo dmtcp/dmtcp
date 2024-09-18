@@ -67,7 +67,7 @@ failed_tests = []
 disabled_tests = [
   # Vfork is not currently supported.
   #"vfork1", # We simulate vfork using fork.
-  # vfork1 and vfork2 tests were failing due to a previous bug in vfork.c 
+  # vfork1 and vfork2 tests were failing due to a previous bug in vfork.c
   #"vfork2",
   # This test needs to be fixed.  It is not really running.
   # ERROR: ld.so: object '/home/gene/dmtcp.git/test/plugin/example-db/dmtcp_example-dbhijack.so' from LD_PRELOAD cannot be preloaded (cannot open shared object file): ignored.
@@ -140,9 +140,6 @@ if USE_TEST_SUITE == "no":
   print("\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" +
         "***  re-configure _without_ './configure --disable-test-suite'\n")
   sys.exit()
-
-# Disable ptrace tests for now.
-PTRACE_SUPPORT="no"
 
 signal.alarm(1800)  # half hour
 
@@ -1192,35 +1189,6 @@ if HAS_SCREEN == "yes" and SCREEN_TEST_WORKS:
     runTest("screen",    3,  ["env TERM=vt100 " + SCREEN +
                                 " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
-
-if PTRACE_SUPPORT == "yes" and ARM_HOST == "no" and \
-   sys.version_info[0:2] >= (2,6):
-  if HAS_STRACE == "yes":
-    S=10*DEFAULT_S
-    runTest("strace",    2,  ["--ptrace strace test/dmtcp2"])
-    S=DEFAULT_S
-
-  if HAS_GDB == "yes":
-    if uname_p[0:3] == 'arm':
-      print("On ARM, there is a known issue with DMTCP for gdb-* test." +
-            "  Not running it.")
-    else:
-      os.system("echo 'run' > dmtcp-gdbinit.tmp")
-      S=10*DEFAULT_S
-      runTest("gdb",          2,
-              ["--ptrace gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
-
-      runTest("gdb-pthread0", 2,
-              ["--ptrace gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp3"])
-
-      # These tests currently fail sometimes (if the computation is checkpointed
-      # while a thread is being created). Re-enable them when this issue has
-      # been fixed in the ptrace plugin.
-      #runTest("gdb-pthread1", 2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread1"])
-      #runTest("gdb-pthread2",2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread2"])
-
-      S=DEFAULT_S
-      os.system("rm -f dmtcp-gdbinit.tmp")
 
 if HAS_JAVAC == "yes" and HAS_JAVA == "yes":
   S=10*DEFAULT_S

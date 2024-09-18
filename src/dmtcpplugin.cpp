@@ -415,12 +415,6 @@ dmtcp_get_readlog_fd(void)
   return PROTECTED_READLOG_FD;
 }
 
-EXTERNC int
-dmtcp_get_ptrace_fd(void)
-{
-  return PROTECTED_PTRACE_FD;
-}
-
 EXTERNC void
 dmtcp_block_ckpt_signal(void)
 {

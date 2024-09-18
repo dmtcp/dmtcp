@@ -122,9 +122,6 @@ VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
   }
 }
 
-// to allow linking without ptrace plugin
-extern "C" int dmtcp_is_ptracing() __attribute__((weak));
-
 pid_t
 VirtualPidTable::realToVirtual(pid_t realPid)
 {
