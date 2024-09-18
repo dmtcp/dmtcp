@@ -99,10 +99,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = $(d_bindir)/dmtcp_discover_rm$(EXEEXT) \
-	$(d_bindir)/dmtcp_srun_helper$(EXEEXT)
-libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_batch-queue.so$(EXEEXT) \
-	$(d_libdir)/libdmtcp_modify-env.so$(EXEEXT) \
+bin_PROGRAMS =
+libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_pathvirt.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT)
 subdir = plugin
@@ -121,40 +119,11 @@ am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(libdmtcpdir)" \
 	"$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS) $(libdmtcp_PROGRAMS)
 am__dirstamp = $(am__leading_dot)dirstamp
-am___d_bindir__dmtcp_discover_rm_OBJECTS =  \
-	batch-queue/discover_dmtcpinput.$(OBJEXT) \
-	batch-queue/discover_resources.$(OBJEXT) \
-	batch-queue/discover_slurm.$(OBJEXT) \
-	batch-queue/discover_torque.$(OBJEXT) \
-	batch-queue/dmtcp_discover_rm.$(OBJEXT)
-__d_bindir__dmtcp_discover_rm_OBJECTS =  \
-	$(am___d_bindir__dmtcp_discover_rm_OBJECTS)
-__d_bindir__dmtcp_discover_rm_LDADD = $(LDADD)
-__d_bindir__dmtcp_discover_rm_DEPENDENCIES =
-am___d_bindir__dmtcp_srun_helper_OBJECTS =  \
-	batch-queue/slurm_helper.$(OBJEXT) \
-	batch-queue/dmtcp_srun_helper.$(OBJEXT)
-__d_bindir__dmtcp_srun_helper_OBJECTS =  \
-	$(am___d_bindir__dmtcp_srun_helper_OBJECTS)
-__d_bindir__dmtcp_srun_helper_LDADD = $(LDADD)
-__d_bindir__dmtcp_srun_helper_DEPENDENCIES =
-am___d_libdir__libdmtcp_batch_queue_so_OBJECTS =  \
-	batch-queue/rm_main.$(OBJEXT) batch-queue/rm_torque.$(OBJEXT) \
-	batch-queue/rm_slurm.$(OBJEXT) batch-queue/rm_utils.$(OBJEXT) \
-	batch-queue/rm_pmi.$(OBJEXT) \
-	batch-queue/slurm_helper.$(OBJEXT)
-__d_libdir__libdmtcp_batch_queue_so_OBJECTS =  \
-	$(am___d_libdir__libdmtcp_batch_queue_so_OBJECTS)
-am__DEPENDENCIES_1 =
-__d_libdir__libdmtcp_batch_queue_so_DEPENDENCIES =  \
-	$(am__DEPENDENCIES_1)
-__d_libdir__libdmtcp_batch_queue_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
-	$(CXXFLAGS) $(__d_libdir__libdmtcp_batch_queue_so_LDFLAGS) \
-	$(LDFLAGS) -o $@
 am___d_libdir__libdmtcp_modify_env_so_OBJECTS =  \
 	modify-env/modify-env.$(OBJEXT) modify-env/warning.$(OBJEXT)
 __d_libdir__libdmtcp_modify_env_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_modify_env_so_OBJECTS)
+am__DEPENDENCIES_1 =
 __d_libdir__libdmtcp_modify_env_so_DEPENDENCIES =  \
 	$(am__DEPENDENCIES_1)
 __d_libdir__libdmtcp_modify_env_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
@@ -220,19 +189,7 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = batch-queue/$(DEPDIR)/discover_dmtcpinput.Po \
-	batch-queue/$(DEPDIR)/discover_resources.Po \
-	batch-queue/$(DEPDIR)/discover_slurm.Po \
-	batch-queue/$(DEPDIR)/discover_torque.Po \
-	batch-queue/$(DEPDIR)/dmtcp_discover_rm.Po \
-	batch-queue/$(DEPDIR)/dmtcp_srun_helper.Po \
-	batch-queue/$(DEPDIR)/rm_main.Po \
-	batch-queue/$(DEPDIR)/rm_pmi.Po \
-	batch-queue/$(DEPDIR)/rm_slurm.Po \
-	batch-queue/$(DEPDIR)/rm_torque.Po \
-	batch-queue/$(DEPDIR)/rm_utils.Po \
-	batch-queue/$(DEPDIR)/slurm_helper.Po \
-	modify-env/$(DEPDIR)/modify-env.Po \
+am__depfiles_remade = modify-env/$(DEPDIR)/modify-env.Po \
 	modify-env/$(DEPDIR)/warning.Po pathvirt/$(DEPDIR)/pathvirt.Po \
 	unique-ckpt/$(DEPDIR)/unique-ckpt.Po
 am__mv = mv -f
@@ -261,16 +218,10 @@ AM_V_CXXLD = $(am__v_CXXLD_@AM_V@)
 am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
 am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
-SOURCES = $(__d_bindir__dmtcp_discover_rm_SOURCES) \
-	$(__d_bindir__dmtcp_srun_helper_SOURCES) \
-	$(__d_libdir__libdmtcp_batch_queue_so_SOURCES) \
-	$(__d_libdir__libdmtcp_modify_env_so_SOURCES) \
+SOURCES = $(__d_libdir__libdmtcp_modify_env_so_SOURCES) \
 	$(__d_libdir__libdmtcp_pathvirt_so_SOURCES) \
 	$(__d_libdir__libdmtcp_unique_ckpt_so_SOURCES)
-DIST_SOURCES = $(__d_bindir__dmtcp_discover_rm_SOURCES) \
-	$(__d_bindir__dmtcp_srun_helper_SOURCES) \
-	$(__d_libdir__libdmtcp_batch_queue_so_SOURCES) \
-	$(__d_libdir__libdmtcp_modify_env_so_SOURCES) \
+DIST_SOURCES = $(__d_libdir__libdmtcp_modify_env_so_SOURCES) \
 	$(__d_libdir__libdmtcp_pathvirt_so_SOURCES) \
 	$(__d_libdir__libdmtcp_unique_ckpt_so_SOURCES)
 am__can_run_installinfo = \
@@ -478,38 +429,9 @@ AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/jalib
 dmtcp_ldflags = -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all
 LDADD = -ldl -lpthread
 libdmtcpdir = $(pkglibdir)
-dist_bin_SCRIPTS = batch-queue/dmtcp_rm_loclaunch
+dist_bin_SCRIPTS = 
 bin_SCRIPTS = 
 CLEANFILES = 
-__d_libdir__libdmtcp_batch_queue_so_SOURCES = \
-	batch-queue/rm_main.cpp                                        \
-	batch-queue/rm_main.h                                          \
-	batch-queue/rm_torque.cpp                                      \
-	batch-queue/rm_torque.h                                        \
-	batch-queue/rm_slurm.cpp                                       \
-	batch-queue/rm_slurm.h                                         \
-	batch-queue/rm_utils.cpp                                       \
-	batch-queue/rm_utils.h                                         \
-	batch-queue/rm_pmi.cpp                                         \
-	batch-queue/rm_pmi.h                                           \
-	batch-queue/slurm_helper.cpp
-
-__d_libdir__libdmtcp_batch_queue_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_batch_queue_so_LDADD = $(LDADD)
-__d_bindir__dmtcp_discover_rm_SOURCES = \
-	batch-queue/discover_dmtcpinput.cpp                            \
-	batch-queue/discover_resources.cpp                             \
-	batch-queue/discover_slurm.cpp                                 \
-	batch-queue/discover_torque.cpp                                \
-	batch-queue/dmtcp_discover_rm.cpp
-
-__d_bindir__dmtcp_srun_helper_SOURCES = \
-	batch-queue/rm_main.h                                          \
-	batch-queue/rm_slurm.h                                         \
-	batch-queue/slurm_helper.cpp                                   \
-	batch-queue/slurm_helper.h                                     \
-	batch-queue/dmtcp_srun_helper.cpp
-
 __d_libdir__libdmtcp_modify_env_so_SOURCES = \
 	modify-env/modify-env.c modify-env/warning.cpp
 
@@ -642,55 +564,6 @@ uninstall-libdmtcpPROGRAMS:
 
 clean-libdmtcpPROGRAMS:
 	-test -z "$(libdmtcp_PROGRAMS)" || rm -f $(libdmtcp_PROGRAMS)
-batch-queue/$(am__dirstamp):
-	@$(MKDIR_P) batch-queue
-	@: > batch-queue/$(am__dirstamp)
-batch-queue/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) batch-queue/$(DEPDIR)
-	@: > batch-queue/$(DEPDIR)/$(am__dirstamp)
-batch-queue/discover_dmtcpinput.$(OBJEXT):  \
-	batch-queue/$(am__dirstamp) \
-	batch-queue/$(DEPDIR)/$(am__dirstamp)
-batch-queue/discover_resources.$(OBJEXT): batch-queue/$(am__dirstamp) \
-	batch-queue/$(DEPDIR)/$(am__dirstamp)
-batch-queue/discover_slurm.$(OBJEXT): batch-queue/$(am__dirstamp) \
-	batch-queue/$(DEPDIR)/$(am__dirstamp)
-batch-queue/discover_torque.$(OBJEXT): batch-queue/$(am__dirstamp) \
-	batch-queue/$(DEPDIR)/$(am__dirstamp)
-batch-queue/dmtcp_discover_rm.$(OBJEXT): batch-queue/$(am__dirstamp) \
-	batch-queue/$(DEPDIR)/$(am__dirstamp)
-$(d_bindir)/$(am__dirstamp):
-	@$(MKDIR_P) $(d_bindir)
-	@: > $(d_bindir)/$(am__dirstamp)
-
-$(d_bindir)/dmtcp_discover_rm$(EXEEXT): $(__d_bindir__dmtcp_discover_rm_OBJECTS) $(__d_bindir__dmtcp_discover_rm_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_discover_rm_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
-	@rm -f $(d_bindir)/dmtcp_discover_rm$(EXEEXT)
-	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_discover_rm_OBJECTS) $(__d_bindir__dmtcp_discover_rm_LDADD) $(LIBS)
-batch-queue/slurm_helper.$(OBJEXT): batch-queue/$(am__dirstamp) \
-	batch-queue/$(DEPDIR)/$(am__dirstamp)
-batch-queue/dmtcp_srun_helper.$(OBJEXT): batch-queue/$(am__dirstamp) \
-	batch-queue/$(DEPDIR)/$(am__dirstamp)
-
-$(d_bindir)/dmtcp_srun_helper$(EXEEXT): $(__d_bindir__dmtcp_srun_helper_OBJECTS) $(__d_bindir__dmtcp_srun_helper_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_srun_helper_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
-	@rm -f $(d_bindir)/dmtcp_srun_helper$(EXEEXT)
-	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_srun_helper_OBJECTS) $(__d_bindir__dmtcp_srun_helper_LDADD) $(LIBS)
-batch-queue/rm_main.$(OBJEXT): batch-queue/$(am__dirstamp) \
-	batch-queue/$(DEPDIR)/$(am__dirstamp)
-batch-queue/rm_torque.$(OBJEXT): batch-queue/$(am__dirstamp) \
-	batch-queue/$(DEPDIR)/$(am__dirstamp)
-batch-queue/rm_slurm.$(OBJEXT): batch-queue/$(am__dirstamp) \
-	batch-queue/$(DEPDIR)/$(am__dirstamp)
-batch-queue/rm_utils.$(OBJEXT): batch-queue/$(am__dirstamp) \
-	batch-queue/$(DEPDIR)/$(am__dirstamp)
-batch-queue/rm_pmi.$(OBJEXT): batch-queue/$(am__dirstamp) \
-	batch-queue/$(DEPDIR)/$(am__dirstamp)
-$(d_libdir)/$(am__dirstamp):
-	@$(MKDIR_P) $(d_libdir)
-	@: > $(d_libdir)/$(am__dirstamp)
-
-$(d_libdir)/libdmtcp_batch-queue.so$(EXEEXT): $(__d_libdir__libdmtcp_batch_queue_so_OBJECTS) $(__d_libdir__libdmtcp_batch_queue_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_batch_queue_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
-	@rm -f $(d_libdir)/libdmtcp_batch-queue.so$(EXEEXT)
-	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_batch_queue_so_LINK) $(__d_libdir__libdmtcp_batch_queue_so_OBJECTS) $(__d_libdir__libdmtcp_batch_queue_so_LDADD) $(LIBS)
 modify-env/$(am__dirstamp):
 	@$(MKDIR_P) modify-env
 	@: > modify-env/$(am__dirstamp)
@@ -701,6 +574,9 @@ modify-env/modify-env.$(OBJEXT): modify-env/$(am__dirstamp) \
 	modify-env/$(DEPDIR)/$(am__dirstamp)
 modify-env/warning.$(OBJEXT): modify-env/$(am__dirstamp) \
 	modify-env/$(DEPDIR)/$(am__dirstamp)
+$(d_libdir)/$(am__dirstamp):
+	@$(MKDIR_P) $(d_libdir)
+	@: > $(d_libdir)/$(am__dirstamp)
 
 $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT): $(__d_libdir__libdmtcp_modify_env_so_OBJECTS) $(__d_libdir__libdmtcp_modify_env_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_modify_env_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT)
@@ -802,7 +678,6 @@ uninstall-dist_binSCRIPTS:
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
-	-rm -f batch-queue/*.$(OBJEXT)
 	-rm -f modify-env/*.$(OBJEXT)
 	-rm -f pathvirt/*.$(OBJEXT)
 	-rm -f unique-ckpt/*.$(OBJEXT)
@@ -810,18 +685,6 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@batch-queue/$(DEPDIR)/discover_dmtcpinput.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@batch-queue/$(DEPDIR)/discover_resources.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@batch-queue/$(DEPDIR)/discover_slurm.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@batch-queue/$(DEPDIR)/discover_torque.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@batch-queue/$(DEPDIR)/dmtcp_discover_rm.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@batch-queue/$(DEPDIR)/dmtcp_srun_helper.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@batch-queue/$(DEPDIR)/rm_main.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@batch-queue/$(DEPDIR)/rm_pmi.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@batch-queue/$(DEPDIR)/rm_slurm.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@batch-queue/$(DEPDIR)/rm_torque.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@batch-queue/$(DEPDIR)/rm_utils.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@batch-queue/$(DEPDIR)/slurm_helper.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@modify-env/$(DEPDIR)/modify-env.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@modify-env/$(DEPDIR)/warning.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@pathvirt/$(DEPDIR)/pathvirt.Po@am__quote@ # am--include-marker
@@ -951,7 +814,7 @@ distdir-am: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(PROGRAMS) $(SCRIPTS) all-local
+all-am: Makefile $(PROGRAMS) $(SCRIPTS)
 installdirs:
 	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(libdmtcpdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
@@ -983,15 +846,12 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
-	-rm -f batch-queue/$(DEPDIR)/$(am__dirstamp)
-	-rm -f batch-queue/$(am__dirstamp)
 	-rm -f modify-env/$(DEPDIR)/$(am__dirstamp)
 	-rm -f modify-env/$(am__dirstamp)
 	-rm -f pathvirt/$(DEPDIR)/$(am__dirstamp)
 	-rm -f pathvirt/$(am__dirstamp)
 	-rm -f unique-ckpt/$(DEPDIR)/$(am__dirstamp)
 	-rm -f unique-ckpt/$(am__dirstamp)
-	-test -z "$(d_bindir)/$(am__dirstamp)" || rm -f $(d_bindir)/$(am__dirstamp)
 	-test -z "$(d_libdir)/$(am__dirstamp)" || rm -f $(d_libdir)/$(am__dirstamp)
 
 maintainer-clean-generic:
@@ -1000,22 +860,10 @@ maintainer-clean-generic:
 clean: clean-am
 
 clean-am: clean-binPROGRAMS clean-generic clean-libdmtcpPROGRAMS \
-	clean-local mostlyclean-am
+	mostlyclean-am
 
 distclean: distclean-am
-		-rm -f batch-queue/$(DEPDIR)/discover_dmtcpinput.Po
-	-rm -f batch-queue/$(DEPDIR)/discover_resources.Po
-	-rm -f batch-queue/$(DEPDIR)/discover_slurm.Po
-	-rm -f batch-queue/$(DEPDIR)/discover_torque.Po
-	-rm -f batch-queue/$(DEPDIR)/dmtcp_discover_rm.Po
-	-rm -f batch-queue/$(DEPDIR)/dmtcp_srun_helper.Po
-	-rm -f batch-queue/$(DEPDIR)/rm_main.Po
-	-rm -f batch-queue/$(DEPDIR)/rm_pmi.Po
-	-rm -f batch-queue/$(DEPDIR)/rm_slurm.Po
-	-rm -f batch-queue/$(DEPDIR)/rm_torque.Po
-	-rm -f batch-queue/$(DEPDIR)/rm_utils.Po
-	-rm -f batch-queue/$(DEPDIR)/slurm_helper.Po
-	-rm -f modify-env/$(DEPDIR)/modify-env.Po
+		-rm -f modify-env/$(DEPDIR)/modify-env.Po
 	-rm -f modify-env/$(DEPDIR)/warning.Po
 	-rm -f pathvirt/$(DEPDIR)/pathvirt.Po
 	-rm -f unique-ckpt/$(DEPDIR)/unique-ckpt.Po
@@ -1065,19 +913,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-		-rm -f batch-queue/$(DEPDIR)/discover_dmtcpinput.Po
-	-rm -f batch-queue/$(DEPDIR)/discover_resources.Po
-	-rm -f batch-queue/$(DEPDIR)/discover_slurm.Po
-	-rm -f batch-queue/$(DEPDIR)/discover_torque.Po
-	-rm -f batch-queue/$(DEPDIR)/dmtcp_discover_rm.Po
-	-rm -f batch-queue/$(DEPDIR)/dmtcp_srun_helper.Po
-	-rm -f batch-queue/$(DEPDIR)/rm_main.Po
-	-rm -f batch-queue/$(DEPDIR)/rm_pmi.Po
-	-rm -f batch-queue/$(DEPDIR)/rm_slurm.Po
-	-rm -f batch-queue/$(DEPDIR)/rm_torque.Po
-	-rm -f batch-queue/$(DEPDIR)/rm_utils.Po
-	-rm -f batch-queue/$(DEPDIR)/slurm_helper.Po
-	-rm -f modify-env/$(DEPDIR)/modify-env.Po
+		-rm -f modify-env/$(DEPDIR)/modify-env.Po
 	-rm -f modify-env/$(DEPDIR)/warning.Po
 	-rm -f pathvirt/$(DEPDIR)/pathvirt.Po
 	-rm -f unique-ckpt/$(DEPDIR)/unique-ckpt.Po
@@ -1101,39 +937,29 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 
 .MAKE: install-am install-strip
 
-.PHONY: CTAGS GTAGS TAGS all all-am all-local am--depfiles check \
-	check-am clean clean-binPROGRAMS clean-generic \
-	clean-libdmtcpPROGRAMS clean-local cscopelist-am ctags \
-	ctags-am distclean distclean-compile distclean-generic \
-	distclean-tags distdir dvi dvi-am html html-am info info-am \
-	install install-am install-binPROGRAMS install-binSCRIPTS \
-	install-data install-data-am install-dist_binSCRIPTS \
-	install-dvi install-dvi-am install-exec install-exec-am \
-	install-html install-html-am install-info install-info-am \
-	install-libdmtcpPROGRAMS install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
-	uninstall-am uninstall-binPROGRAMS uninstall-binSCRIPTS \
+.PHONY: CTAGS GTAGS TAGS all all-am am--depfiles check check-am clean \
+	clean-binPROGRAMS clean-generic clean-libdmtcpPROGRAMS \
+	cscopelist-am ctags ctags-am distclean distclean-compile \
+	distclean-generic distclean-tags distdir dvi dvi-am html \
+	html-am info info-am install install-am install-binPROGRAMS \
+	install-binSCRIPTS install-data install-data-am \
+	install-dist_binSCRIPTS install-dvi install-dvi-am \
+	install-exec install-exec-am install-html install-html-am \
+	install-info install-info-am install-libdmtcpPROGRAMS \
+	install-man install-pdf install-pdf-am install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs maintainer-clean maintainer-clean-generic \
+	mostlyclean mostlyclean-compile mostlyclean-generic pdf pdf-am \
+	ps ps-am tags tags-am uninstall uninstall-am \
+	uninstall-binPROGRAMS uninstall-binSCRIPTS \
 	uninstall-dist_binSCRIPTS uninstall-libdmtcpPROGRAMS
 
 .PRECIOUS: Makefile
 
 
-build_rm_loclaunch:
-	cp batch-queue/dmtcp_rm_loclaunch $(top_builddir)/bin/
-
-clean_rm_loclaunch:
-	rm $(top_builddir)/bin/dmtcp_rm_loclaunch
-
 install-libs: install-libdmtcpPROGRAMS
 
 uninstall-libs: uninstall-libdmtcpPROGRAMS
-
-all-local: build_rm_loclaunch
-
-clean-local: clean_rm_loclaunch
 
 .PHONY: install-libs uninstall-libs
 
