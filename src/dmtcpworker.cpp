@@ -246,11 +246,6 @@ dmtcp_initialize_entry_point()
 
   restoreUserLDPRELOAD();
 
-  if (ibv_get_device_list && !dmtcp_infiniband_enabled) {
-    JNOTE("\n\n*** InfiniBand library detected."
-          "  Please use dmtcp_launch --ib ***\n");
-  }
-
   // Initialize data-structures related to motherofall thread.
   ThreadSync::initMotherOfAll();
   ThreadList::init();

@@ -3,7 +3,6 @@ LN_S=@LN_S@ -f
 MKDIR_P=@MKDIR_P@
 CC=@CC@
 M32=@M32@
-INFINIBAND_SUPPORT=@INFINIBAND_SUPPORT@
 PACKAGE=@PACKAGE_TARNAME@
 PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
 VERSION=@PACKAGE_VERSION@
@@ -26,11 +25,7 @@ LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
 endif
 
 plugins =
-plugins_distclean = ckptfile infiniband
-
-ifeq ($(INFINIBAND_SUPPORT),yes)
-  plugins += infiniband  # ib2tcp
-endif
+plugins_distclean = ckptfile
 
 default: build
 
@@ -78,4 +73,4 @@ uninstall:
 uninstall-libs:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall-libs); done
 
-.PHONY: default all build infiniband ckptfile tidy clean distclean install uninstall
+.PHONY: default all build ckptfile tidy clean distclean install uninstall
