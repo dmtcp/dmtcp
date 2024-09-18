@@ -38,7 +38,6 @@ AC_CONFIG_HEADERS([include/config.h])
 AC_CONFIG_FILES([Makefile \
                  contrib/Makefile \
                  contrib/ckptfile/Makefile \
-                 contrib/infiniband/Makefile \
                  plugin/Makefile \
                  src/Makefile \
                  src/mtcp/Makefile \
@@ -146,27 +145,6 @@ AC_ARG_ENABLE([unique_checkpoint_filenames],
 
 if test "$use_unique_checkpoint_filenames" = "yes"; then
   AC_DEFINE([UNIQUE_CHECKPOINT_FILENAMES],[1],[Use unique filenames for checkpoint images])
-fi
-
-AC_ARG_ENABLE([infiniband_support],
-            [AS_HELP_STRING([--enable-infiniband-support],
-                            [Turn on flags needed to support Infiniband.
-			    (EXPERIMENTAL)])],
-            [use_infiniband_support=$enableval],
-            [use_infiniband_support=no])
-
-if test "$use_infiniband_support" = "yes"; then
-  AC_CHECK_HEADERS([infiniband/verbs.h], [],
-                   [AC_MSG_ERROR(
-                    [#include: <infiniband/verbs.h> not found:
-                It may exist in /usr/local/ofed/include or /opt/ofed/include
-                If so, consider calling:
-                  ./configure CPPFLAGS=<INCL_DIR> --enable-infiniband-support
-                Otherwise, consider adding devel package for libibverbs.])]
-  )
-  AC_SUBST([INFINIBAND_SUPPORT], [yes])
-else
-  AC_SUBST([INFINIBAND_SUPPORT], [no])
 fi
 
 AC_ARG_ENABLE([forked_checkpointing],

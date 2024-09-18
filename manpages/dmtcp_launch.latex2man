@@ -95,9 +95,6 @@ A typical usage is:\\
     (e.g., DISPLAY=\$DISPLAY).  This can be set in a file dmtcp\_env.txt.
     (default: disabled)
 
-  \item[\Opt{--ib}, \Opt{--infiniband}]
-    Enable InfiniBand plugin. (default: disabled)
-
   \item[\Opt{--disable-alloc-plugin} (environment variable DMTCP\_ALLOC\_PLUGIN=\Lbr01\Rbr)]
     Disable alloc plugin (default: enabled).
 

@@ -121,8 +121,6 @@ static const char *theUsage =
   "  --pathvirt\n"
   "              Update file pathnames based on DMTCP_PATH_PREFIX\n"
   "              (default: disabled)\n"
-  "  --ib, --infiniband\n"
-  "              Enable InfiniBand plugin. (default: disabled)\n"
   "  --disable-alloc-plugin: (environment variable DMTCP_ALLOC_PLUGIN=[01])\n"
   "              Disable alloc plugin (default: enabled).\n"
   "  --disable-dl-plugin: (environment variable DMTCP_DL_PLUGIN=[01])\n"
@@ -161,9 +159,6 @@ static bool checkpointOpenFiles = false;
 
 static bool enableModifyEnvPlugin = false;
 
-static bool enableIB2TcpPlugin = false;
-static bool enableIBPlugin = false;
-
 static bool enableAllocPlugin = true;
 static bool enableDlPlugin = true;
 static bool enableIPCPlugin = true;
@@ -191,8 +186,6 @@ struct PluginInfo {
 static struct PluginInfo pluginInfo[] = {               // Default value
   { &enableModifyEnvPlugin, "libdmtcp_modify-env.so" },  // Disabled
   { &enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so" }, // Disabled
-  { &enableIB2TcpPlugin, "libdmtcp_ib2tcp.so" },        // Disabled
-  { &enableIBPlugin, "libdmtcp_infiniband.so" },        // Disabled
   { &enableAllocPlugin, "libdmtcp_alloc.so" },          // Enabled
   { &enableDlPlugin, "libdmtcp_dl.so" },                // Enabled
   { &enableIPCPlugin, "libdmtcp_ipc.so" },              // Enabled
@@ -299,12 +292,6 @@ processArgs(int *orig_argc, const char ***orig_argv)
       shift;
     } else if (s == "--pathvirt") {
       enablePathVirtPlugin = true;
-      shift;
-    } else if (s == "--ib" || s == "--infiniband") {
-      enableIBPlugin = true;
-      shift;
-    } else if (s == "--ib2tcp") {
-      enableIB2TcpPlugin = true;
       shift;
     } else if (s == "--disable-alloc-plugin") {
       setenv(ENV_VAR_ALLOC_PLUGIN, "0", 1);

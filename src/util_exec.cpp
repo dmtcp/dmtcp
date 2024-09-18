@@ -668,10 +668,6 @@ Util::getDmtcpArgs(void)
     argVector.push_back("--modify-env");
   }
 
-  if (dmtcp_infiniband_enabled != NULL && dmtcp_infiniband_enabled()) {
-    argVector.push_back("--infiniband");
-  }
-
   if (dmtcp_pathvirt_enabled != NULL && dmtcp_pathvirt_enabled()) {
     argVector.push_back("--pathvirt");
   }

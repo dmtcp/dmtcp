@@ -721,7 +721,6 @@ USE_TEST_SUITE
 FAST_RST_VIA_MMAP_FALSE
 FAST_RST_VIA_MMAP_TRUE
 FAST_RST_VIA_MMAP
-INFINIBAND_SUPPORT
 DEBUG
 LOGGING
 OPENMP_CXXFLAGS
@@ -852,7 +851,6 @@ enable_quiet
 enable_timing
 enable_realtime_ckpt_signal
 enable_unique_checkpoint_filenames
-enable_infiniband_support
 enable_forked_checkpointing
 enable_fast_restart
 enable_test_suite
@@ -1534,9 +1532,6 @@ Optional Features:
                           By default, successive checkpoints are written to
                           the same filename. Enable if each successive
                           checkpoint should be a unique filename.
-  --enable-infiniband-support
-                          Turn on flags needed to support Infiniband.
-                          (EXPERIMENTAL)
   --enable-forked-checkpointing
                           fork a child process to do checkpointing, so that
                           parent sees only minor delay during checkpoint.
@@ -1876,39 +1871,6 @@ fi
 
 } # ac_fn_cxx_try_link
 
-# ac_fn_c_check_header_compile LINENO HEADER VAR INCLUDES
-# -------------------------------------------------------
-# Tests whether HEADER exists and can be compiled using the include files in
-# INCLUDES, setting the cache variable VAR accordingly.
-ac_fn_c_check_header_compile ()
-{
-  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
-printf %s "checking for $2... " >&6; }
-if eval test \${$3+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-$4
-#include <$2>
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  eval "$3=yes"
-else $as_nop
-  eval "$3=no"
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-fi
-eval ac_res=\$$3
-	       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-printf "%s\n" "$ac_res" >&6; }
-  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
-
-} # ac_fn_c_check_header_compile
-
 # ac_fn_c_try_run LINENO
 # ----------------------
 # Try to run conftest.$ac_ext, and return whether this succeeded. Assumes that
@@ -2013,6 +1975,39 @@ printf "%s\n" "$ac_res" >&6; }
   eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
 
 } # ac_fn_c_check_func
+
+# ac_fn_c_check_header_compile LINENO HEADER VAR INCLUDES
+# -------------------------------------------------------
+# Tests whether HEADER exists and can be compiled using the include files in
+# INCLUDES, setting the cache variable VAR accordingly.
+ac_fn_c_check_header_compile ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
+printf %s "checking for $2... " >&6; }
+if eval test \${$3+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$4
+#include <$2>
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  eval "$3=yes"
+else $as_nop
+  eval "$3=no"
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+eval ac_res=\$$3
+	       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+printf "%s\n" "$ac_res" >&6; }
+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+
+} # ac_fn_c_check_header_compile
 ac_configure_args_raw=
 for ac_arg
 do
@@ -7469,7 +7464,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_config_headers="$ac_config_headers include/config.h"
 
-ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile contrib/infiniband/Makefile plugin/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile include/dmtcp/version.h test/Makefile test/autotest_config.py test/plugin/Makefile"
+ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile plugin/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile include/dmtcp/version.h test/Makefile test/autotest_config.py test/plugin/Makefile"
 
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
@@ -7588,69 +7583,6 @@ fi
 if test "$use_unique_checkpoint_filenames" = "yes"; then
 
 printf "%s\n" "#define UNIQUE_CHECKPOINT_FILENAMES 1" >>confdefs.h
-
-fi
-
-# Check whether --enable-infiniband_support was given.
-if test ${enable_infiniband_support+y}
-then :
-  enableval=$enable_infiniband_support; use_infiniband_support=$enableval
-else $as_nop
-  use_infiniband_support=no
-fi
-
-
-if test "$use_infiniband_support" = "yes"; then
-  ac_header= ac_cache=
-for ac_item in $ac_header_c_list
-do
-  if test $ac_cache; then
-    ac_fn_c_check_header_compile "$LINENO" $ac_header ac_cv_header_$ac_cache "$ac_includes_default"
-    if eval test \"x\$ac_cv_header_$ac_cache\" = xyes; then
-      printf "%s\n" "#define $ac_item 1" >> confdefs.h
-    fi
-    ac_header= ac_cache=
-  elif test $ac_header; then
-    ac_cache=$ac_item
-  else
-    ac_header=$ac_item
-  fi
-done
-
-
-
-
-
-
-
-
-if test $ac_cv_header_stdlib_h = yes && test $ac_cv_header_string_h = yes
-then :
-
-printf "%s\n" "#define STDC_HEADERS 1" >>confdefs.h
-
-fi
-       for ac_header in infiniband/verbs.h
-do :
-  ac_fn_c_check_header_compile "$LINENO" "infiniband/verbs.h" "ac_cv_header_infiniband_verbs_h" "$ac_includes_default"
-if test "x$ac_cv_header_infiniband_verbs_h" = xyes
-then :
-  printf "%s\n" "#define HAVE_INFINIBAND_VERBS_H 1" >>confdefs.h
-
-else $as_nop
-  as_fn_error $? "#include: <infiniband/verbs.h> not found:
-                It may exist in /usr/local/ofed/include or /opt/ofed/include
-                If so, consider calling:
-                  ./configure CPPFLAGS=<INCL_DIR> --enable-infiniband-support
-                Otherwise, consider adding devel package for libibverbs." "$LINENO" 5
-
-fi
-
-done
-  INFINIBAND_SUPPORT=yes
-
-else
-  INFINIBAND_SUPPORT=no
 
 fi
 
@@ -8958,7 +8890,6 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "contrib/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/Makefile" ;;
     "contrib/ckptfile/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/ckptfile/Makefile" ;;
-    "contrib/infiniband/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/infiniband/Makefile" ;;
     "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "src/mtcp/Makefile") CONFIG_FILES="$CONFIG_FILES src/mtcp/Makefile" ;;
@@ -9995,6 +9926,35 @@ else $as_nop
 fi
 
 includeReadline=yes
+ac_header= ac_cache=
+for ac_item in $ac_header_c_list
+do
+  if test $ac_cache; then
+    ac_fn_c_check_header_compile "$LINENO" $ac_header ac_cv_header_$ac_cache "$ac_includes_default"
+    if eval test \"x\$ac_cv_header_$ac_cache\" = xyes; then
+      printf "%s\n" "#define $ac_item 1" >> confdefs.h
+    fi
+    ac_header= ac_cache=
+  elif test $ac_header; then
+    ac_cache=$ac_item
+  else
+    ac_header=$ac_item
+  fi
+done
+
+
+
+
+
+
+
+
+if test $ac_cv_header_stdlib_h = yes && test $ac_cv_header_string_h = yes
+then :
+
+printf "%s\n" "#define STDC_HEADERS 1" >>confdefs.h
+
+fi
        for ac_header in readline/readline.h readline/history.h
 do :
   as_ac_Header=`printf "%s\n" "ac_cv_header_$ac_header" | $as_tr_sh`
@@ -12583,7 +12543,6 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "contrib/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/Makefile" ;;
     "contrib/ckptfile/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/ckptfile/Makefile" ;;
-    "contrib/infiniband/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/infiniband/Makefile" ;;
     "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "src/mtcp/Makefile") CONFIG_FILES="$CONFIG_FILES src/mtcp/Makefile" ;;
