@@ -412,7 +412,6 @@ DmtcpUniqueProcessId dmtcp_get_coord_id();
 DmtcpUniqueProcessId dmtcp_get_computation_id();
 
 // FOR EXPERTS ONLY:
-int dmtcp_get_ptrace_fd(void);
 int dmtcp_get_readlog_fd(void);
 void dmtcp_block_ckpt_signal(void);
 void dmtcp_unblock_ckpt_signal(void);

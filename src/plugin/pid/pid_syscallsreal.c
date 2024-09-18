@@ -281,13 +281,6 @@ _real_setuid(uid_t uid)
   REAL_FUNC_PASSTHROUGH(setuid) (uid);
 }
 
-LIB_PRIVATE
-long
-_real_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(long, ptrace) (request, pid, addr, data);
-}
-
 // gettid / tkill / tgkill are not defined in libc.
 LIB_PRIVATE
 pid_t

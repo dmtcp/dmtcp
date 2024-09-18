@@ -664,10 +664,6 @@ Util::getDmtcpArgs(void)
     argVector.push_back("--disable-dl-plugin");
   }
 
-  if (dmtcp_ptrace_enabled != NULL && dmtcp_ptrace_enabled()) {
-    argVector.push_back("--ptrace");
-  }
-
   if (dmtcp_modify_env_enabled != NULL && dmtcp_modify_env_enabled()) {
     argVector.push_back("--modify-env");
   }

@@ -33,9 +33,6 @@ src/glibcsystem.cpp are taken from glibc and is Copyright (C)
 The contents of the file include/dmtcpalloc.h are Copyright (C) 2002 by
 Pete Isensee.
 
-Files found in the directory plugin/ptrace are Copyright (C) 2005-2013 by
-Ana-Maria Visan, Kapil Arya, and Gene Cooperman.
-
 Files found in the directory plugin/batch-queue are Copyright (C) 2012-2013 by
 Artem Y. Polyakov.
 

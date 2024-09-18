@@ -30,6 +30,6 @@ Examples of special cases are:
 * SOON:  OpenGL
 * Widely used commercial software:  Matlab, ...
 * Non-default plugins:
-  --ptrace, modify-env
+  modify-env
   test/plugin/{applic-inititated-ckdpt,applic-delayed-ckpt}
 * Builds of DMTCP with other compilers:  icc LLVM/Clang

@@ -116,9 +116,6 @@ static const char *theUsage =
   "  --batch-queue, --rm\n"
   "              Enable support for resource managers (Torque PBS and SLURM).\n"
   "              (default: disabled)\n"
-  "  --ptrace\n"
-  "              Enable support for PTRACE system call for gdb/strace etc.\n"
-  "              (default: disabled)\n"
   "  --modify-env\n"
   "              Update environment variables based on the environment on the\n"
   "              restart host (e.g., DISPLAY=$DISPLAY).\n"
@@ -165,7 +162,6 @@ static const char *theUsage =
 static bool disableAllPlugins = false;
 static bool checkpointOpenFiles = false;
 
-static bool enablePtracePlugin = false;
 static bool enableModifyEnvPlugin = false;
 static bool enableRMPlugin = false;
 static bool explicitSrun = false;
@@ -198,7 +194,6 @@ struct PluginInfo {
 };
 
 static struct PluginInfo pluginInfo[] = {               // Default value
-  { &enablePtracePlugin, "libdmtcp_ptrace.so" },        // Disabled
   { &enableModifyEnvPlugin, "libdmtcp_modify-env.so" },  // Disabled
   { &enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so" }, // Disabled
   { &enableIB2TcpPlugin, "libdmtcp_ib2tcp.so" },        // Disabled
@@ -304,9 +299,6 @@ processArgs(int *orig_argc, const char ***orig_argv)
       shift;
     } else if (s == "--allow-file-overwrite") {
       setenv(ENV_VAR_ALLOW_OVERWRITE_WITH_CKPTED_FILES, "1", 0);
-      shift;
-    } else if (s == "--ptrace") {
-      enablePtracePlugin = true;
       shift;
     } else if (s == "--modify-env") {
       enableModifyEnvPlugin = true;

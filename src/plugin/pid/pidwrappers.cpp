@@ -576,48 +576,6 @@ wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
   return virtualPid;
 }
 
-#if 0
-extern "C" long
-ptrace(enum __ptrace_request request, ...)
-{
-  va_list ap;
-  pid_t virtualPid;
-  pid_t realPid;
-  void *addr;
-  void *data;
-
-  va_start(ap, request);
-  virtualPid = va_arg(ap, pid_t);
-  addr = va_arg(ap, void *);
-  data = va_arg(ap, void *);
-  va_end(ap);
-
-  realPid = VIRTUAL_TO_REAL_PID(virtualPid);
-  long ptrace_ret = _real_ptrace(request, realPid, addr, data);
-
-  /*
-   * PTRACE_GETEVENTMSG (since Linux 2.5.46)
-   *          Retrieve  a message (as an unsigned long) about the ptrace event
-   *          that just happened, placing it in the location data in the
-   *          parent.  For PTRACE_EVENT_EXIT this is the child's exit status.
-   *          For PTRACE_EVENT_FORK, PTRACE_EVENT_VFORK and PTRACE_EVENT_CLONE
-   *          this is the PID  of the new process.  Since Linux 2.6.18, the PID
-   *          of the new process is also available for PTRACE_EVENT_VFORK_DONE.
-   *          (addr is ignored.)
-   */
-
-#ifdef PT_GETEVENTMSG
-  if (ptrace_ret == 0 && request == PTRACE_GETEVENTMSG) {
-    unsigned long *ldata = (unsigned long *)data;
-    pid_t newRealPid = (pid_t)*ldata;
-    *ldata = (unsigned long)REAL_TO_VIRTUAL_PID(newRealPid);
-  }
-#endif // ifdef PT_GETEVENTMSG
-
-  return ptrace_ret;
-}
-#endif
-
 extern "C" int
 fcntl(int fd, int cmd, ...)
 {
