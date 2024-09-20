@@ -110,10 +110,8 @@
 struct libc_tcbhead_t {
 #if defined(__x86__) || defined(__x86_64__)
   char pad[704];
-#elif defined(__arm__) || defined(__aarch64__)
+#elif defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__ILP32__)
   char pad[24 * sizeof(void*)];
-#elif defined(__riscv)
-  char pad[192]; // Same as 'char pad[24 * sizeof(void*)];' (__aarch64__ above)
 #else
 # error "Unsupported architecture; Call executable with '-v' flag for info."
 #endif
