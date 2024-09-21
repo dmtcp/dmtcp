@@ -428,7 +428,7 @@ def free_diskspace(dir):
 # We can use the lesser of half the free disk space of filesystem or 100 MB.
 if free_diskspace(ckptDir) > 20*1024*1024:
   oldLimit = resource.getrlimit(resource.RLIMIT_CORE)
-  newLimit = [min(free_diskspace(ckptDir)/2, 100*1024*1024), oldLimit[1]]
+  newLimit = [min(free_diskspace(ckptDir)//2, 100*1024*1024), oldLimit[1]]
   if oldLimit[1] != resource.RLIM_INFINITY:  # Keep soft limit below hard limit
     newLimit[0] = min(newLimit[0], oldLimit[1])
   resource.setrlimit(resource.RLIMIT_CORE, newLimit)
