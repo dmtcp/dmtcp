@@ -656,6 +656,9 @@ def runTestRaw(name, numProcs, cmds):
 
   try:
     sys.stdout.flush()
+    # If verbose mode, maybe JWARNING/KASSERT was interrupted during color print
+    if args.verbose:
+      os.write(sys.stdout.fileno(), COLOR_RESET.encode("ascii"))
     printFixed(name, DEFAULT_TESTNAME_WIDTH)
 
     if name in disabled_tests:
