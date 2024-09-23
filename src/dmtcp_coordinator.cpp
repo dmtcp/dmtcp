@@ -168,7 +168,7 @@ static time_t timeout = 0; // used with --timeout
 static time_t start_time = 0; // used with --timeout
 static unsigned int staleTimeout = 0; // used with --stale-timeout
 
-static DmtcpCoordinator prog;
+static DmtcpCoordinator theCoordinator;
 
 /* The coordinator can receive a second checkpoint request while processing the
  * first one.  If the second request comes at a point where the coordinator has
@@ -1098,7 +1098,7 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
 
   // NOTE: Sending the same message twice. We want to make sure that the
   // worker process receives/processes the first messages as soon as it
-  // connects to the coordinator. The second message will be processed in
+  // connects to the theCoordinator. The second message will be processed in
   // postRestart routine in DmtcpWorker.
   //
   // The reason to do this is the following. The dmtcp_restart process
@@ -1175,7 +1175,7 @@ DmtcpCoordinator::validateNewWorkerProcess(
   } else if (hello_remote.compGroup != UniquePid()) {
     // New Process trying to connect to Coordinator but already has compGroup
     JNOTE("New process not part of currently running computation group"
-          "on this coordinator.  Rejecting.")
+          "on this theCoordinator.  Rejecting.")
       (hello_remote.compGroup);
 
     hello_local.type = DMT_REJECT_WRONG_COMP;
@@ -1327,7 +1327,7 @@ static void
 signalHandler(int signum)
 {
   if (signum == SIGINT) {
-    prog.handleUserCommand("q");
+    theCoordinator.handleUserCommand("q");
   } else if (signum == SIGALRM) {
     timerExpired = true;
     if (timeout &&
@@ -1501,7 +1501,7 @@ DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
       // This must be firstClient, and dmtcp_launch didn't specify interval.
       if (theCheckpointInterval != 0) { // Use dmtcp_coordinator ckpt interval.
         firstClient = false;
-        resetCkptTimer(); // Use theCheckpointInterval from dmtcp_coordinator.
+        resetCkptTimer(); // Use theCheckpointInterval from dmtcp_theCoordinator.
       }
     } else { // Either we're changing the ckpt interval, or still a firstClient.
       int oldInterval = theCheckpointInterval;
@@ -1862,7 +1862,7 @@ main(int argc, char **argv)
     JASSERT(listenSock->isValid()) (thePort) (JASSERT_ERRNO)
     .Text("Failed to create listen socket."
           "\nIf msg is \"Address already in use\", "
-          "this may be an old coordinator."
+          "this may be an old theCoordinator."
           "\nKill default coordinator and try again:  dmtcp_command -q"
           "\nIf that fails, \"pkill -9 dmtcp_coord\","
           " and try again in a minute or so.");
@@ -1963,7 +1963,7 @@ main(int argc, char **argv)
    * (gdb) run
    * ^C   # Stop gdb to get its attention, and continue debugging.
    * # The above scenario causes the SIGINT to go to a.out and its child,
-   * # the dmtcp_coordinator.  The coord then triggers the SIGINT handler,
+   * # the dmtcp_theCoordinator.  The coord then triggers the SIGINT handler,
    * # which sends DMT_KILL_PEER to kill a.out.
    */
   if (exitOnLast && daemon) {
@@ -1978,9 +1978,9 @@ main(int argc, char **argv)
   }
 
   if (!theStatusFile.empty()) {
-    prog.writeStatusToFile();
+    theCoordinator.writeStatusToFile();
   }
 
-  prog.eventLoop(daemon);
+  theCoordinator.eventLoop(daemon);
   return 0;
 }
