@@ -131,7 +131,7 @@ static const char *theUsage =
   "      Coordinator exits after <seconds> even if jobs are active\n"
   "      (Useful during testing to prevent runaway coordinator processes)\n"
   "  --stale-timeout seconds\n"
-  "      Coordinator exits after <seconds> of no active job (default: 8 hrs)\n"
+  "      Coordinator exits after <seconds> if no active job (default: 8 hrs)\n"
   "      (The default prevents runaway processes; Override w/ larger timeout)\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent "
@@ -196,8 +196,8 @@ static bool uniqueCkptFilenames = false;
  * A value of '0' means:  never checkpoint (manual checkpoint only).
  */
 static uint32_t theCheckpointInterval = 0; /* Current checkpoint interval */
-static uint32_t theDefaultCheckpointInterval = 0; /* Reset to this on new comp.
-                                                     */
+static uint32_t theDefaultCheckpointInterval = 0; /* Reset to this on new comp*/
+static int currentCkptInterval = -1;
 static bool timerExpired = false;
 
 static void resetCkptTimer();
@@ -980,11 +980,12 @@ DmtcpCoordinator::onConnect()
     .Text("Connect request from Unknown Remote Process Type");
   }
 
-  updateCheckpointInterval(hello_remote.theCheckpointInterval);
   JNOTE("worker connected") (hello_remote.from) (client->progname());
 
   clients.push_back(client);
   addDataSocket(client);
+
+  updateCheckpointInterval(hello_remote.theCheckpointInterval);
 
   JTRACE("END") (clients.size());
 }
@@ -1098,7 +1099,7 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
 
   // NOTE: Sending the same message twice. We want to make sure that the
   // worker process receives/processes the first messages as soon as it
-  // connects to the theCoordinator. The second message will be processed in
+  // connects to the coordinator. The second message will be processed in
   // postRestart routine in DmtcpWorker.
   //
   // The reason to do this is the following. The dmtcp_restart process
@@ -1464,25 +1465,9 @@ calcLocalAddr()
 
 static void
 resetCkptTimer()
-{
-  // FIXME:  Fix timeout logic to include setStaleTimeout, resetStaleTimeout
-  //         theCheckpointInterval, theDefaultCheckpointInterval
-  //         coord_interval set by args; launch_interval set onConnect
-  // static numPrevClients = 0;
-  // if (clients.size() == 1 && numPrevClients == 0) { // first onConnect
-  //   alarm( launch_interval == DMTCPMESSAGE_SAME_CKPT_INTERVAL ?
-  //          coord_interval : launch_interval );
-  // } else if (clients.size() > num{revClients && /* second onConnect or more
-  //            launch_interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL) {
-  //   alarm( launch_interval );
-  // } else if (clients.size() == 0) { // We did final onDisconnect.
-  //   alarm( staleTimeout );
-  // } // If onDisconnect, but clients.size() > 0, then keep existing timeout.
-  // numPrevClients = clients.size();
-  // // END_OF_resetCkptTimer
-  if (clients.size() == 0) {
+{ if (clients.size() == 0) {
     alarm(staleTimeout);
-  } else if (theCheckpointInterval > 0) {
+  } else if ((int)theCheckpointInterval > 0) {
     alarm(theCheckpointInterval);
   } else {
     alarm(timeout);
@@ -1491,26 +1476,27 @@ resetCkptTimer()
 
 void
 DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
-{
-  static bool firstClient = true;
-
-  if ((interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL &&
-       interval != theCheckpointInterval) ||
-      firstClient) {
-    if (interval == DMTCPMESSAGE_SAME_CKPT_INTERVAL) {
-      // This must be firstClient, and dmtcp_launch didn't specify interval.
-      if (theCheckpointInterval != 0) { // Use dmtcp_coordinator ckpt interval.
-        firstClient = false;
-        resetCkptTimer(); // Use theCheckpointInterval from dmtcp_theCoordinator.
-      }
-    } else { // Either we're changing the ckpt interval, or still a firstClient.
-      int oldInterval = theCheckpointInterval;
-      theCheckpointInterval = interval;
-      JNOTE("CheckpointInterval updated (for this computation only)")
-        (oldInterval) (theCheckpointInterval);
-      firstClient = false;
+{ if ((int)interval != -1) {
+    theCheckpointInterval = interval;
+  }
+  if (clients.size() == 0) {
+    resetCkptTimer(); // Will set to staleTimeout; Coulld be onDisconnect
+    currentCkptInterval = -1; // Set to -1; we now have staleTimeout
+  } else if (currentCkptInterval == -1) { // Was staleTimeout or initializing
+    resetCkptTimer(); // Could be onConnect or initializing
+  } else if (clients.size() == 1 && currentCkptInterval == -1) {
+      resetCkptTimer(); // Probably this is onCconnet for the first client
+  } else if (clients.size() > 0) {
+    if ((int)theCheckpointInterval != currentCkptInterval) {
       resetCkptTimer();
     }
+  }
+  if ((int)interval != -1 && clients.size() > 0) {
+    // if clients.size() == 0, then
+    //   currentCkptInterval == -1, but theCheckpointInterrval >= 0;
+    // Later, if clients.size() > 0, we need to again
+    //   set currentCkptInterval to the newly requested interval.
+    currentCkptInterval = interval; // Client is requesting change to interval
   }
 }
 
@@ -1862,7 +1848,7 @@ main(int argc, char **argv)
     JASSERT(listenSock->isValid()) (thePort) (JASSERT_ERRNO)
     .Text("Failed to create listen socket."
           "\nIf msg is \"Address already in use\", "
-          "this may be an old theCoordinator."
+          "this may be an old coordinator."
           "\nKill default coordinator and try again:  dmtcp_command -q"
           "\nIf that fails, \"pkill -9 dmtcp_coord\","
           " and try again in a minute or so.");
@@ -1879,23 +1865,9 @@ main(int argc, char **argv)
   if (interval != NULL) {
     theDefaultCheckpointInterval = jalib::StringToInt(interval);
     theCheckpointInterval = theDefaultCheckpointInterval;
+    theCoordinator.updateCheckpointInterval(theCheckpointInterval);
   }
 
-#if 0
-  if (!quiet) {
-    JASSERT_STDERR <<
-      "dmtcp_coordinator starting..." <<
-      "\n    Port: " << thePort <<
-      "\n    Checkpoint Interval: ";
-    if (theCheckpointInterval == 0) {
-      JASSERT_STDERR << "disabled (checkpoint manually instead)";
-    } else {
-      JASSERT_STDERR << theCheckpointInterval;
-    }
-    JASSERT_STDERR <<
-      "\n    Exit on last client: " << exitOnLast << "\n";
-  }
-#else // if 0
   if (!quiet) {
     fprintf(stderr, "dmtcp_coordinator starting..."
                     "\n    Host: %s (%s)"
@@ -1909,7 +1881,6 @@ main(int argc, char **argv)
     }
     fprintf(stderr, "\n    Exit on last client: %d\n", exitOnLast);
   }
-#endif // if 0
 
   if (daemon) {
     if (!quiet) {
@@ -1963,7 +1934,7 @@ main(int argc, char **argv)
    * (gdb) run
    * ^C   # Stop gdb to get its attention, and continue debugging.
    * # The above scenario causes the SIGINT to go to a.out and its child,
-   * # the dmtcp_theCoordinator.  The coord then triggers the SIGINT handler,
+   * # the dmtcp_coordinator.  The coord then triggers the SIGINT handler,
    * # which sends DMT_KILL_PEER to kill a.out.
    */
   if (exitOnLast && daemon) {
