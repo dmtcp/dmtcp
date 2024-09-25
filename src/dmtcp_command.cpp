@@ -206,10 +206,14 @@ main(int argc, char **argv)
               "Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
       break;
     case CoordCmdStatus::ERROR_NOT_RUNNING_STATE:
-      fprintf(stderr,
-              "Error, computation not in running state."
-              "  Either a checkpoint is\n"
-              " currently happening or there are no connected processes.\n");
+      if (*cmd == 'K') {
+        printf("Computation was checkpointed and killed.\n");
+      } else {
+        fprintf(stderr,
+                "Error, computation not in running state."
+                "  Either a checkpoint is\n"
+                " currently happening or there are no connected processes.\n");
+      }
       break;
     default:
       fprintf(stderr, "Unknown error\n");
