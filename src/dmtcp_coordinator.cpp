@@ -310,11 +310,12 @@ DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
     reply->coordCmdStatus = CoordCmdStatus::NOERROR;
   }
 
-  if (cmd == "bc" || cmd == "kc" || cmd == "ck" || cmd == "c") {
+  if (cmd == "bc" || cmd == "kc" || cmd == "ck" || cmd == "K" || cmd == "c") {
     if (cmd == "bc") {
       blockUntilDone = true;
       JTRACE("blocking checkpoint beginning...");
-    } else if (cmd == "kc" || cmd == "ck") {
+    } else if (cmd == "kc" || cmd == "ck" || cmd == "K") {
+      // dmtcp_command encodes this as 'cmd == "K"; '-kc' is the user flag.
       JTRACE("Will kill peers after creating the checkpoint...");
       killAfterCkptOnce = true;
     } else {
@@ -1480,7 +1481,7 @@ DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
     theCheckpointInterval = interval;
   }
   if (clients.size() == 0) {
-    resetCkptTimer(); // Will set to staleTimeout; Coulld be onDisconnect
+    resetCkptTimer(); // Will set to staleTimeout; Could be onDisconnect
     currentCkptInterval = -1; // Set to -1; we now have staleTimeout
   } else if (currentCkptInterval == -1) { // Was staleTimeout or initializing
     resetCkptTimer(); // Could be onConnect or initializing
