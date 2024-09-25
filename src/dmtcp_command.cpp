@@ -147,28 +147,29 @@ main(int argc, char **argv)
   int isRunning;
   int ckptInterval;
   char *workerList = NULL;
-  char *cmd = (char *)request.c_str();
-  switch (*cmd) {
+  // After this, the first char of the request is unique.  We only need that.
+  char cmdChar = *(char *)request.c_str();
+  switch (cmdChar) {
   case 'h':
     fprintf(stderr, theUsage, "");
     return 1;
 
   case 'i':
     setenv(ENV_VAR_CKPT_INTR, interval.c_str(), 1);
-    CoordinatorAPI::connectAndSendUserCommand(*cmd, &coordCmdStatus);
+    CoordinatorAPI::connectAndSendUserCommand(cmdChar, &coordCmdStatus);
     printf("Interval changed to %s\n", interval.c_str());
     break;
   case 'b':
   case 'K':
 
     // blocking prefix
-    CoordinatorAPI::connectAndSendUserCommand(*cmd, &coordCmdStatus);
+    CoordinatorAPI::connectAndSendUserCommand(cmdChar, &coordCmdStatus);
 
-    // actual command
-    CoordinatorAPI::connectAndSendUserCommand(*(cmd + 1), &coordCmdStatus);
+    // actual command: The request variable must have been "bc" or "Kc".
+    CoordinatorAPI::connectAndSendUserCommand('c', &coordCmdStatus);
     break;
   case 's':
-    CoordinatorAPI::connectAndSendUserCommand(*cmd,
+    CoordinatorAPI::connectAndSendUserCommand(cmdChar,
                                               &coordCmdStatus,
                                               &numPeers,
                                               &isRunning,
@@ -176,13 +177,13 @@ main(int argc, char **argv)
     break;
   case 'l':
     workerList =
-      CoordinatorAPI::connectAndSendUserCommand(*cmd, &coordCmdStatus);
+      CoordinatorAPI::connectAndSendUserCommand(cmdChar, &coordCmdStatus);
     break;
   case 'c':
   case 'k':
   case 'q':
     workerList =
-      CoordinatorAPI::connectAndSendUserCommand(*cmd, &coordCmdStatus);
+      CoordinatorAPI::connectAndSendUserCommand(cmdChar, &coordCmdStatus);
     break;
   default:
     fprintf(stderr, theUsage, "");
@@ -203,10 +204,10 @@ main(int argc, char **argv)
       break;
     case CoordCmdStatus::ERROR_INVALID_COMMAND:
       fprintf(stderr,
-              "Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
+              "Unknown command: %c, try 'dmtcp_command --help'\n", cmdChar);
       break;
     case CoordCmdStatus::ERROR_NOT_RUNNING_STATE:
-      if (*cmd == 'K') {
+      if (cmdChar == 'K') {
         printf("Computation was checkpointed and killed.\n");
       } else {
         fprintf(stderr,
@@ -222,7 +223,7 @@ main(int argc, char **argv)
     return 2;
   }
 
-  if(*cmd == 's' || *cmd == 'l'){
+  if(cmdChar == 's' || cmdChar == 'l'){
     printf("Coordinator:\n");
     char *host = getenv(ENV_VAR_NAME_HOST);
     if (host == NULL) {
@@ -235,7 +236,7 @@ main(int argc, char **argv)
     }
     printf("  Port: %s\n",
            (port ? port : STRINGIFY(DEFAULT_PORT) " (default port)"));
-    if (*cmd == 's') {
+    if (cmdChar == 's') {
       printf("Status...\n");
       printf("  NUM_PEERS=%d\n", numPeers);
       printf("  RUNNING=%s\n", (isRunning ? "yes" : "no"));
