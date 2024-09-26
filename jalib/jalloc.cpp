@@ -79,7 +79,7 @@ _alloc_raw(size_t n)
     perror("DMTCP(" __FILE__ "): _alloc_raw: ");
   }
 
-#ifdef JALLOC_DEBUG_STATS
+#  ifdef JALLOC_DEBUG_STATS
   if (p != MAP_FAILED) {
     int idx = __sync_fetch_and_add(&numAllocArenas, 1);
     if (idx < MAX_ARENAS) {
@@ -87,7 +87,7 @@ _alloc_raw(size_t n)
       allocArenas[idx].endAddr = (char*)p + n;
     }
   }
-#endif // ifdef JALLOC_DEBUG_STATS
+#  endif // ifdef JALLOC_DEBUG_STATS
 
   return p;
 # endif // ifdef JALIB_USE_MALLOC
@@ -110,7 +110,7 @@ _dealloc_raw(void *ptr, size_t n)
     return;
   }
 
-#ifdef JALLOC_DEBUG_STATS
+#  ifdef JALLOC_DEBUG_STATS
   for (int i = 0; i < numAllocArenas; i++) {
     if (allocArenas[i].startAddr == ptr) {
       allocArenas[i].startAddr = NULL;
@@ -118,7 +118,7 @@ _dealloc_raw(void *ptr, size_t n)
       break;
     }
   }
-#endif // #ifdef JALLOC_DEBUG_STATS
+#  endif // #ifdef JALLOC_DEBUG_STATS
 
   int rv = munmap(ptr, n);
   if (rv != 0) {
@@ -139,7 +139,7 @@ static inline bool
 bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
 {
   bool result = false;
-#if defined(HAS_128_ATOMIC) && !defined(__aarch64__)
+# if defined(HAS_128_ATOMIC) && !defined(__aarch64__)
   // This requires libatomic.so in GNU
   // For ARM64 (aarch64), as of 2024, the GCC version of libatomic.so
   // may call pthread_mutex_lock instead of using atomic instructions.
@@ -152,13 +152,29 @@ bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
                                      (uint128_t*)oldValue,
                                      (uint128_t*)newValue, 0,
                                       __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-#elif defined (HAS_128_SYNC_BOOL)
+# elif defined (HAS_128_SYNC_BOOL)
   typedef unsigned __int128 uint128_t;
+  // FIXME:  WE should modify dmtcp_command.cpp and coorindatorapi.cpp
+  //   to replace JALLOC_HELPER_MALLOC/FREE by malloc/free at runtime for
+  //   dmtcp_command/workerList. We could then remove this special-case code.
+  //   workerList is never used by libdmtcp.so.  So, there's no reason for JALIB.
+  if (getenv("DMTCP_COMMAND")) {
+    // DMTCP command is a single thread talking to the coordinator.
+    // It doesn't need the 3 MB of bloat caused by src/jalib.a
+    // We escape it for now, since aarch64/gcc can't support this code.
+    // So, for a small, single-threaded process, let's avoid the bloat.
+    if (*(uint128_t*)oldValue == *(uint128_t volatile *)dst) {
+      *(uint128_t volatile *)dst = *(uint128_t*)newValue;
+      return true;
+    } else {
+      return false;
+    }
+  }
   // This requires compiling with -mcx16
   result = __sync_bool_compare_and_swap((uint128_t volatile *)dst,
                                         *(uint128_t*)oldValue,
                                         *(uint128_t*)newValue);
-#else
+# else
   // Using futex protects us if target app interposes on pthread_mutex_lock.
   static uint32_t atomic_compare_futex = 0;
   // Emulate mutex lock
@@ -174,7 +190,7 @@ bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
   // This is slower, and might affect codes with _very_ frequent
   //   DMTCP-internal operations (e.g., thread create/destroy).
   //   See: https://en.wikipedia.org/wiki/ABA_problem
-  //   for other workarounds, but if a CPU truly is missing dwcase
+  //   for other workarounds, but if a CPU truly is missing dwcas
   //   assembly instructions, then maybe it's not yet widely used, and
   //   a future version of the CPU architecture will support dwcas.
   if (memcmp((void *)dst, oldValue, 16) == 0) {
@@ -186,7 +202,7 @@ bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
   // Emulate mutex unlock
   __sync_fetch_and_sub(&atomic_compare_futex, 1); // Decrement futex value
   futex_wake(&atomic_compare_futex, INT_MAX);
-#endif
+# endif
   return result;
 }
 
