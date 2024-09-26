@@ -428,6 +428,18 @@ else
   AC_SUBST([AARCH64_HOST], [no])
 fi
 
+AC_MSG_CHECKING([whether ARM64/aarch64 and g++ (if we need to use -mno-outline)])
+AM_CONDITIONAL(AARCH64_GCC_HOST,
+	       [test "$is_aarch64_host" == "yes" -a "$CC" == "gcc"])
+if test "$is_aarch64_host" == "yes" -a "$CC" == "gcc"; then
+  AC_SUBST([AARCH64_GCC_HOST], [yes])
+  is_aarch64_gcc="yes"
+else
+  AC_SUBST([AARCH64_GCC_HOST], [no])
+  is_aarch64_gcc="no"
+fi
+AC_MSG_RESULT([$is_aarch64_gcc])
+
 AC_MSG_CHECKING([whether tid offset for glibc is correct])
 CFLAGS_orig="$CFLAGS"
 CFLAGS="$CFLAGS -pthread"
@@ -802,14 +814,23 @@ CXXFLAGS_orig="$CXXFLAGS"
 CXXFLAGS="$CXXFLAGS -march=native"
 AC_LINK_IFELSE(
 [
+dnl NOTE:  x86_64 and clang do sync_book_compare_and_swap fine.
+dnl        Unfortunately, the Debian-12 release (and others??)
+dnl        have a gcc-12 that by default uses 'gcc -noutline',
+dnl        which assumes __aarch64_cas16_sync is defined, and gcc defines it
+dnl        _only_ if this is the base executable, and not a .o or .so file
   AC_LANG_SOURCE([[
     #include <assert.h>
     #include <stdlib.h>
     int main() {
-      typedef unsigned __int128 uint128_t;
-      uint128_t val = static_cast<uint128_t>(1);
-      bool result = __sync_bool_compare_and_swap(&val, 1, 2);
-      assert(result == true && static_cast<int>(val) == 2);
+      __int128 dest = static_cast<__int128>(0x1234567812345678);
+      __int128 oldValue=0x7ffffffff098;
+      __int128 newValue=0x7ffffffff088;
+      bool result = __sync_bool_compare_and_swap(&dest, oldValue, newValue);
+      assert(result == false && dest != newValue);
+      dest = oldValue;
+      result = __sync_bool_compare_and_swap(&dest, oldValue, newValue);
+      assert(result == true && dest == newValue);
       return 0;
     }
   ]])

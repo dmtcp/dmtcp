@@ -698,6 +698,9 @@ am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
+AARCH64_GCC_HOST
+AARCH64_GCC_HOST_FALSE
+AARCH64_GCC_HOST_TRUE
 AARCH64_HOST
 AARCH64_HOST_FALSE
 AARCH64_HOST_TRUE
@@ -8090,6 +8093,28 @@ else
 
 fi
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether ARM64/aarch64 and g++ (if we need to use -mno-outline)" >&5
+printf %s "checking whether ARM64/aarch64 and g++ (if we need to use -mno-outline)... " >&6; }
+ if test "$is_aarch64_host" == "yes" -a "$CC" == "gcc"; then
+  AARCH64_GCC_HOST_TRUE=
+  AARCH64_GCC_HOST_FALSE='#'
+else
+  AARCH64_GCC_HOST_TRUE='#'
+  AARCH64_GCC_HOST_FALSE=
+fi
+
+if test "$is_aarch64_host" == "yes" -a "$CC" == "gcc"; then
+  AARCH64_GCC_HOST=yes
+
+  is_aarch64_gcc="yes"
+else
+  AARCH64_GCC_HOST=no
+
+  is_aarch64_gcc="no"
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $is_aarch64_gcc" >&5
+printf "%s\n" "$is_aarch64_gcc" >&6; }
+
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether tid offset for glibc is correct" >&5
 printf %s "checking whether tid offset for glibc is correct... " >&6; }
 CFLAGS_orig="$CFLAGS"
@@ -8295,6 +8320,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${AARCH64_HOST_TRUE}" && test -z "${AARCH64_HOST_FALSE}"; then
   as_fn_error $? "conditional \"AARCH64_HOST\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${AARCH64_GCC_HOST_TRUE}" && test -z "${AARCH64_GCC_HOST_FALSE}"; then
+  as_fn_error $? "conditional \"AARCH64_GCC_HOST\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 
@@ -11494,10 +11523,14 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
     #include <assert.h>
     #include <stdlib.h>
     int main() {
-      typedef unsigned __int128 uint128_t;
-      uint128_t val = static_cast<uint128_t>(1);
-      bool result = __sync_bool_compare_and_swap(&val, 1, 2);
-      assert(result == true && static_cast<int>(val) == 2);
+      __int128 dest = static_cast<__int128>(0x1234567812345678);
+      __int128 oldValue=0x7ffffffff098;
+      __int128 newValue=0x7ffffffff088;
+      bool result = __sync_bool_compare_and_swap(&dest, oldValue, newValue);
+      assert(result == false && dest != newValue);
+      dest = oldValue;
+      result = __sync_bool_compare_and_swap(&dest, oldValue, newValue);
+      assert(result == true && dest == newValue);
       return 0;
     }
 
@@ -11944,6 +11977,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${AARCH64_HOST_TRUE}" && test -z "${AARCH64_HOST_FALSE}"; then
   as_fn_error $? "conditional \"AARCH64_HOST\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${AARCH64_GCC_HOST_TRUE}" && test -z "${AARCH64_GCC_HOST_FALSE}"; then
+  as_fn_error $? "conditional \"AARCH64_GCC_HOST\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__EXEEXT_TRUE}" && test -z "${am__EXEEXT_FALSE}"; then
