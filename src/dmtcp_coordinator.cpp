@@ -1671,7 +1671,7 @@ char *short_name(char short_buf[], char *name, unsigned int len, char *suffix) {
   memset(short_buf, '\0', len);
   int cmd_len = min(strlen(base_name)+1, len);
   memcpy(short_buf, base_name, cmd_len);
-  int short_buf_len = min(strlen(base_name), len - suffix_len);
+  int short_buf_len = min(strlen(base_name), len - suffix_len - 1);
   strncpy(short_buf + short_buf_len, suffix, suffix_len);
   return short_buf;
 }
@@ -1714,6 +1714,8 @@ void set_long_cmdline(char *argv0, const char *port) {
 int
 main(int argc, char **argv)
 {
+  char *argv0 = argv[0]; // Meeded for set_short/long_command_line()
+
   initializeJalib();
 
   // parse port
@@ -1725,15 +1727,6 @@ main(int argc, char **argv)
   if (portStr != NULL) {
     thePort = jalib::StringToInt(portStr);
   }
-
-  // Change command line to: dmtcp_coordinator -p<portStr>
-  char portStrBuf[10];
-  if (portStr == NULL) {
-    sprintf(portStrBuf, "%d", thePort);
-    portStr = portStrBuf;
-  }
-  set_short_cmdline(argv[0], portStr);
-  set_long_cmdline(argv[0], portStr);
 
   bool daemon = false;
   bool useLogFile = false;
@@ -1883,6 +1876,15 @@ main(int argc, char **argv)
     Util::writeCoordPortToFile(thePort, thePortFile.c_str());
   }
   JTRACE("Listening on port")(thePort);
+
+  // Change command line to: dmtcp_coordinator -p<portStr>
+  char portStrBuf[10];
+  if (portStr == NULL) {
+    sprintf(portStrBuf, "%d", thePort);
+    portStr = portStrBuf;
+  }
+  set_short_cmdline(argv0, portStr);
+  set_long_cmdline(argv0, portStr);
 
   // parse checkpoint interval
   const char *interval = getenv(ENV_VAR_CKPT_INTR);
