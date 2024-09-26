@@ -1024,7 +1024,7 @@ DmtcpCoordinator::onConnect()
     client->virtualPid(hello_remote.from.pid());
     _virtualPidToClientMap[client->virtualPid()] = client;
   } else if (hello_remote.type == DMT_NEW_WORKER) {
-    // Comping from dmtcp_launch or fork(), ssh(), etc.
+    // Coming from dmtcp_launch or fork(), ssh(), etc.
     JASSERT(hello_remote.state == WorkerState::RUNNING ||
             hello_remote.state == WorkerState::UNKNOWN);
     JASSERT(hello_remote.virtualPid == -1);

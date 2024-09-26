@@ -214,7 +214,7 @@ SharedData::initialize(const char *tmpDir,
       // performance optimization, we could use a SysV // semaphore/condition
       // variable, instead of sleeping and re-trying inside the loop.
       // NOTE:  This code is correct under total store order or seq. consist.
-      //   But the relaxed consstency model, partial store order, ouuld create a
+      //   But the relaxed consistency model, partial store order, ouuld create a
       //   theoretically possible bug if initialized does not reach memory last.
       if (statbuf.st_size > 0 && initialized) {
         break;

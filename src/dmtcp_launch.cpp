@@ -389,7 +389,7 @@ main(int argc, const char **argv)
   if (getenv("DMTCP_ABORT_ON_FAILED_ASSERT")) {
     JNOTE("\n\n*********************************************\n"
               "* DMTCP_ABORT_ON_FAILED_ASSERT is obsolete. *\n"
-              "* Plesae use DMTCP_ABORT_ON_FAILURE instead.*\n"
+              "* Please use DMTCP_ABORT_ON_FAILURE instead.*\n"
               "*********************************************\n");
   }
 
