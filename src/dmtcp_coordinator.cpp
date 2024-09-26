@@ -132,7 +132,7 @@ static const char *theUsage =
   "      (Useful during testing to prevent runaway coordinator processes)\n"
   "  --stale-timeout seconds\n"
   "      Coordinator exits after <seconds> if no active job (default: 8 hrs)\n"
-  "      (The default prevents runaway processes; Override w/ larger timeout)\n"
+  "      (Default prevents runaway coord's; Override w/ larger timeout or -1)\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent "
   "process.\n"
@@ -238,7 +238,7 @@ static uint64_t getCurrTimestamp();
 static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
 
 static int theNextClientNumber = 1;
-vector<CoordClient *>clients;
+vector<CoordClient *>clients; // Default constructor sets 'size() == 0'
 
 static inline void
 ltrim(string &s)
@@ -553,30 +553,85 @@ DmtcpCoordinator::processBarrier(const string &barrier)
 }
 
 
+// ==========================================================
+// Logic for timeout, staleTimeout, and theCheckpointInterval
+
 static unsigned int staleStartTime = 0;
 // Call this at start time, and when no more processes (cf: exit-on-last)
-static void setStaleTimeout() {
+static void initializeStaleTimeout() {
+  JASSERT(clients.size() == 0);
   unsigned int cur_timeout = 0;
-  if (staleStartTime == 0) {
+  if (staleStartTime == 0) { // If staleTimeout never initialized; do it now.
     staleStartTime = time(NULL);
     cur_timeout = alarm(0); alarm(cur_timeout); // Retrieve existing alarm.
+    // To override default, user sets very large staleTimeout (or -1)
     if (staleTimeout == 0) { staleTimeout = 8 * 60 * 60; } // 8 hours is default
   }
   if (staleTimeout < cur_timeout || cur_timeout == 0) {
-    alarm(staleTimeout); // Set new alarm
+    unsigned int elapsed_time = time(NULL) - start_time;
+    if (timeout > 0 && timeout - elapsed_time < staleTimeout) {
+      alarm(timeout > elapsed_time ? timeout - elapsed_time : 1);
+    } else {
+      alarm(staleTimeout); // Set new alarm when clients.size()==0
+    }
   }; // else keep existing alarm set by --timeout
 }
-// Call this when starting a new process
-static void resetStaleTimeout() {
+// Call this when starting a new process: Don't use staleTimeout; only timeout
+static void setTimeoutForNewClients() {
+  JASSERT(clients.size() > 0);
   unsigned int elapsed_time = time(NULL) - start_time;
-  if (timeout > 0) {
+  if (timeout > 0 && timeout - elapsed_time < currentCkptInterval) {
+    // timeout will happen before the next checkpoint interval
     alarm(timeout > elapsed_time ? timeout - elapsed_time : 1);
-  } else {
+  } else if (theCheckpointInterval > 0) {
+    alarm(theCheckpointInterval);
+  } else { // FIXME:  We can probably remove this 'else' clause.
     if (clients.size() == 0) {
+      // This shouldn't happen.  This function is called only for onConnect.
       alarm(0); // staleTimeout temporarily disabled and no absolute timeout
     }
   }
+  timerExpired = false;
 }
+
+static void
+resetCkptTimer()
+{ if (clients.size() == 0) {
+    alarm(staleTimeout);
+  } else {
+    setTimeoutForNewClients();
+  }
+  timerExpired = false;
+}
+
+void
+DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
+{ if ((int)interval != -1) {
+    theCheckpointInterval = interval;
+  }
+  if (clients.size() == 0) {
+    resetCkptTimer(); // Will set to staleTimeout; Coulld be onDisconnect
+    currentCkptInterval = -1; // Set to -1; we now have staleTimeout
+  } else if (currentCkptInterval == -1) { // Was staleTimeout or initializing
+    resetCkptTimer(); // Could be onConnect or initializing
+  } else if (clients.size() == 1 && currentCkptInterval == -1) {
+      resetCkptTimer(); // Probably this is onCconnet for the first client
+  } else if (clients.size() > 0) {
+    if ((int)theCheckpointInterval != currentCkptInterval) {
+      resetCkptTimer();
+    }
+  }
+  if ((int)interval != -1 && clients.size() > 0) {
+    // if clients.size() == 0, then
+    //   currentCkptInterval == -1, but theCheckpointInterrval >= 0;
+    // Later, if clients.size() > 0, we need to again
+    //   set currentCkptInterval to the newly requested interval.
+    currentCkptInterval = interval; // Client is requesting change to interval
+  }
+}
+
+// ===================================
+// Ohter logic (unrelated to timeouts)
 
 
 void
@@ -838,7 +893,7 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
 
   ComputationStatus s = getStatus();
   if (clients.size() == 0) {
-    setStaleTimeout();
+    initializeStaleTimeout();
   }
   if (s.numPeers < 1) {
     if (exitOnLast) {
@@ -901,7 +956,6 @@ DmtcpCoordinator::onConnect()
   struct sockaddr_storage remoteAddr;
   socklen_t remoteLen = sizeof(remoteAddr);
   jalib::JSocket remote = listenSock->accept(&remoteAddr, &remoteLen);
-  resetStaleTimeout();
 
   JTRACE("accepting new connection") (remote.sockfd());
 
@@ -924,13 +978,17 @@ DmtcpCoordinator::onConnect()
                                           hello_remote);
 
     addDataSocket(client);
+    setTimeoutForNewClients();
     return;
   }
 
   if (hello_remote.type == DMT_USER_CMD) {
-    // TODO(kapil): Update ckpt interval only if a valid one was supplied to
-    // dmtcp_command.
-    updateCheckpointInterval(hello_remote.theCheckpointInterval);
+    // NOTE:  If 'dmtcp_command -i XX', then it comes through DMT_USER_CMD.
+    //  In processDmtUserCmd, it wil update theDefaultCheckpointInterval and
+    //  theCheckpointInterval.  But if the user tped 'dmtcp_launch -i XX ...',
+    //  then it goes to DMT_NEW_WORKER, running initializeComputation(), and
+    //  then updateCheckpointInterval(hello_remote.theCheckpointInterval),
+    //  _without_ changing theDefaultCheckpointInterval.
     processDmtUserCmd(hello_remote, remote);
     return;
   }
@@ -1009,8 +1067,8 @@ DmtcpCoordinator::processDmtUserCmd(DmtcpMessage &hello_remote,
     blockUntilDoneRemote = remote.sockfd();
     handleUserCommand(cmd, &reply);
   } else if (hello_remote.coordCmd == 'i') {
-    // theDefaultCheckpointInterval = hello_remote.theCheckpointInterval;
-    // theCheckpointInterval = theDefaultCheckpointInterval;
+    theDefaultCheckpointInterval = hello_remote.theCheckpointInterval;
+    theCheckpointInterval = theDefaultCheckpointInterval;
     handleUserCommand(cmd, &reply);
     remote << reply;
     remote.close();
@@ -1065,6 +1123,7 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
       (numRestartPeers) (curTimeStamp) (compId);
     JTIMER_START(restart);
     recordEvent("Restart-Start");
+    resetCkptTimer();
   } else if (minimumState() != WorkerState::RESTARTING) {
     JNOTE("Computation not in RESTARTING state."
           "  Reject incoming computation process requesting restart.")
@@ -1336,7 +1395,8 @@ signalHandler(int signum)
         (time(NULL) - start_time) >= (timeout - 1)) { // -1 for roundoff
       fprintf(stderr, "*** dmtcp_coordinator:  --timeout timed out\n");
       exit(1);
-    } else if (staleTimeout && // -1, below, for roundoff
+    } else if (staleTimeout > 0 &&
+              // Use '(staleTimeout -1)', with -1, in case of roundoff
                time(NULL) - staleStartTime >= (staleTimeout - 1)) {
       fprintf(stderr,
               "*** dmtcp_coordinator:  --stale-timeout timed out; Was %d sec\n",
@@ -1464,43 +1524,6 @@ calcLocalAddr()
   coordHostname = hostname;
 }
 
-static void
-resetCkptTimer()
-{ if (clients.size() == 0) {
-    alarm(staleTimeout);
-  } else if ((int)theCheckpointInterval > 0) {
-    alarm(theCheckpointInterval);
-  } else {
-    alarm(timeout);
-  }
-}
-
-void
-DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
-{ if ((int)interval != -1) {
-    theCheckpointInterval = interval;
-  }
-  if (clients.size() == 0) {
-    resetCkptTimer(); // Will set to staleTimeout; Could be onDisconnect
-    currentCkptInterval = -1; // Set to -1; we now have staleTimeout
-  } else if (currentCkptInterval == -1) { // Was staleTimeout or initializing
-    resetCkptTimer(); // Could be onConnect or initializing
-  } else if (clients.size() == 1 && currentCkptInterval == -1) {
-      resetCkptTimer(); // Probably this is onCconnet for the first client
-  } else if (clients.size() > 0) {
-    if ((int)theCheckpointInterval != currentCkptInterval) {
-      resetCkptTimer();
-    }
-  }
-  if ((int)interval != -1 && clients.size() > 0) {
-    // if clients.size() == 0, then
-    //   currentCkptInterval == -1, but theCheckpointInterrval >= 0;
-    // Later, if clients.size() > 0, we need to again
-    //   set currentCkptInterval to the newly requested interval.
-    currentCkptInterval = interval; // Client is requesting change to interval
-  }
-}
-
 void
 printPrompt()
 {
@@ -1566,8 +1589,8 @@ DmtcpCoordinator::eventLoop(bool daemon)
     ComputationStatus s = getStatus();
     if (timerExpired &&
         s.minimumStateUnanimous && s.minimumState == WorkerState::RUNNING) {
-      timerExpired = false;
       startCheckpoint();
+      resetCkptTimer();
       continue;
     }
 
@@ -1812,7 +1835,7 @@ main(int argc, char **argv)
 
   tmpDir = Util::calcTmpDir(tmpdir_arg);
   Util::initializeLogFile(tmpDir, "dmtcp_coordinator");
-  setStaleTimeout(); // Initialize alarm to staleTimeout.
+  initializeStaleTimeout(); // Initialize alarm to staleTimeout.
 
   JTRACE("New DMTCP coordinator starting.")
     (UniquePid::ThisProcess());
