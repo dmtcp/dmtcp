@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "coordinatorapi.h"
 #include "util.h"
@@ -72,6 +73,7 @@ main(int argc, char **argv)
   string interval = "";
   string request = "h";
 
+  setenv("DMTCP_COMMAND", "1", 1); // for jalloc.cpp/sync_bool_compare_adn_swap
   initializeJalib();
 
   // No need to initialize the log file.
