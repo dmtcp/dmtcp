@@ -859,7 +859,7 @@ runTest("gettid",        1, ["./test/gettid"])
 # (sets exitAfterCkptOnce in src/dmtcp_coordinator.cpp) for
 # checkpointing so that the process is killed right after checkpoint. Otherwise
 # the syscall-tester could fail in the following case:
-#   1. create and open temp file
+#   1. create an open temp file
 #   2. close temp file
 #   3. ckpt
 #   4. unlink temp file

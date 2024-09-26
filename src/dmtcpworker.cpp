@@ -372,7 +372,7 @@ DmtcpWorker::waitForCheckpointRequest()
   // Further, we also want to prevent any overlap between an event-hook call
   // made here vs. an event-hook call made by the user thread in vfork().
   ThreadSync::presuspendEventHookLockLock();
-  JTRACE("Procesing pre-suspend barriers");
+  JTRACE("Processing pre-suspend barriers");
   PluginManager::eventHook(DMTCP_EVENT_PRESUSPEND);
   ThreadSync::presuspendEventHookLockUnlock();
 

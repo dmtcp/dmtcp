@@ -41,7 +41,7 @@ ProcSelfMaps::ProcSelfMaps()
   // for each level of the allocator.  See jalib/jalloc.cpp:preExpand().
   // It assumes no allocation larger than jalloc.cpp:MAX_CHUNKSIZE.
   // Ideally, we would have followed the MTCP C code, and not allocated
-  // any memory bewteen the constructor and destructor of ProcSelfMaps.
+  // any memory between the constructor and destructor of ProcSelfMaps.
   // But since C++ is biased toward frequent mallocs (e.g., dynamic vectors),
   // we try to compensate here for the weaknesses of C++.
   // If we use this /proc/self/maps for checkpointing, we must not mmap

@@ -547,7 +547,7 @@ class Pstree(gdb.Command):
 Pstree()
 
 class Lsof(gdb.Command):
-  """pstree (same as:  shell shell lsof -w [for this username])"""
+  """lsof (same as:  shell shell lsof -w [for this username])"""
   def __init__(self):
     super(Lsof,
           self).__init__("lsof", gdb.COMMAND_STATUS)

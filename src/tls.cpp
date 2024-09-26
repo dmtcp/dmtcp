@@ -144,7 +144,7 @@ static int glibcMinorVersion()
  */
 
 /* NOTE:  For future reference, the STATIC_TLS_TID_OFFSET() for a glibc version
- *  can be easily discvoered as long as a debug version of glibc is present:
+ *  can be easily discovered as long as a debug version of glibc is present:
  *  (gdb) p (char *)&(((struct pthread *)pthread_self())->tid) - \
  *                                                      (char *)pthread_self()
  *  $14 = 720  # So, 720 is the correct offset in this example.
@@ -219,13 +219,13 @@ tls_set_thread_area(Thread *thread)
 
   if (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_FS, thread->tlsInfo.fs)
       != 0) {
-    printf("\n*** DMTCP: Error restorig TLS.\n\n");
+    printf("\n*** DMTCP: Error restoring TLS.\n\n");
     abort();
   };
 
   if (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_GS, thread->tlsInfo.gs)
       != 0) {
-    printf("\n*** DMTCP: Error restorig TLS.\n\n");
+    printf("\n*** DMTCP: Error restoring TLS.\n\n");
     abort();
   }
 }
@@ -254,7 +254,7 @@ tls_set_thread_area(Thread *thread)
 
   if (mtcp_inline_syscall(set_thread_area, 1, &thread->tlsInfo.gdtentrytls)
         != 0) {
-    printf("\n*** DMTCP: Error restorig TLS.\n\n");
+    printf("\n*** DMTCP: Error restoring TLS.\n\n");
     abort();
   };
 
@@ -301,7 +301,7 @@ tls_set_thread_area(Thread *thread)
   if (mtcp_syscall(__ARM_NR_set_thread_area,
                    &mtcp_sys_errno,
                    thread->tlsInfo.tlsAddr) != 0) {
-    printf("\n*** DMTCP: Error restorig TLS.\n\n");
+    printf("\n*** DMTCP: Error restoring TLS.\n\n");
     abort();
   };
 }

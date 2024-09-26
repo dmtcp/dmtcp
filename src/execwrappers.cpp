@@ -200,7 +200,7 @@ fork()
     // called at the very beginning, the parent process won't have a chance to
     // reset the lock. Calling ThreadList::resetOnFork here ensures that any
     // such locks would have been reset by the caller and hence it's safe to
-    // call pthread_creat at this point.
+    // call pthread_create at this point.
     ThreadList::resetOnFork();
 
     /* NOTE: Any work that needs to be done for the newly created child
