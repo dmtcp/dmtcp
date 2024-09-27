@@ -87,8 +87,9 @@ nobase_noinst_HEADERS =						\
 			ckptserializer.h			\
 			constants.h 				\
 			coordinatorapi.h			\
+			coordinatorplugin.h			\
 			dmtcp_coordinator.h			\
-			dmtcprestartinternal.h				\
+			dmtcprestartinternal.h			\
 			dmtcpmessagetypes.h			\
 			dmtcpworker.h				\
 			lookup_service.h			\

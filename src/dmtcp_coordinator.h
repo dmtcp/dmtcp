@@ -23,6 +23,7 @@
 #define DMTCPDMTCPCOORDINATOR_H
 
 #include "../jalib/jsocket.h"
+#include "../jalib/jconvert.h"
 #include "dmtcpalloc.h"
 #include "dmtcpmessagetypes.h"
 
@@ -80,29 +81,86 @@ class CoordClient
     int _clientNumber;
     jalib::JSocket _sock;
     WorkerState::eWorkerState _state;
+    WorkerState::eWorkerState _prevState;
     string _hostname;
     string _progname;
     string _ip;
     string _barrier;
+    string _prevBarrier;
     pid_t _realPid;
     pid_t _virtualPid;
     int _isNSWorker;
 };
 
+typedef struct {
+    WorkerState::eWorkerState minimumState;
+    WorkerState::eWorkerState maximumState;
+    bool minimumStateUnanimous;
+    int numPeers;
+    timespec timestamp;
+} ComputationStatus;
+
+class CoordFlags {
+  public:
+      bool quiet = false;
+      int jassert_quiet = 0;
+      bool exitOnLast = false;
+      bool killAfterCkpt = false;
+      int timeout = 0;
+      int staleTimeout = 0;
+      int interval = 0;
+      int thePort = DEFAULT_PORT;
+      string thePortStr = "";
+      bool daemon = false;
+      bool useLogFile = false;
+      string progName = "";
+      string logFilename = "";
+      string thePortFile = "";
+      string theStatusFile = "";
+      string ckptDir = ""; //setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
+      string tmpDir = "";
+      string tmpDirArg = "";
+      bool writeKvData = false;
+
+      CoordFlags()
+      {
+        const char *portStr = getenv(ENV_VAR_NAME_PORT);
+        if (portStr == NULL) {
+          portStr = getenv("DMTCP_PORT");                      // deprecated
+        }
+        if (portStr != NULL) {
+          thePort = jalib::StringToInt(portStr);
+        }
+
+        if (getenv(ENV_VAR_COORD_LOGFILE)) {
+          useLogFile = true;
+          logFilename = getenv(ENV_VAR_COORD_LOGFILE);
+        }
+
+        if (getenv(ENV_VAR_CHECKPOINT_DIR) != NULL) {
+          ckptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
+        } else {
+          ckptDir = get_current_dir_name();
+        }
+
+        // Check and enable dumping KVDB.
+        {
+          const char *kvdbEnv = getenv(ENV_VAR_COORD_WRITE_KVDB);
+          if (kvdbEnv != NULL && kvdbEnv[0] == '1') {
+            writeKvData = true;
+          }
+        }
+
+      }
+};
+
 class DmtcpCoordinator
 {
   public:
-    typedef struct {
-      WorkerState::eWorkerState minimumState;
-      WorkerState::eWorkerState maximumState;
-      bool minimumStateUnanimous;
-      int numPeers;
-    } ComputationStatus;
-
     void onData(CoordClient *client);
     void onConnect();
     void onDisconnect(CoordClient *client);
-    void eventLoop(bool daemon);
+    void eventLoop();
 
     void addDataSocket(CoordClient *client);
     void updateCheckpointInterval(uint32_t timeout);
@@ -112,6 +170,7 @@ class DmtcpCoordinator
                           size_t extraBytes = 0,
                           const void *extraData = NULL);
 
+    int numClients();
     void recordEvent(string const &event);
     void serializeKVDB();
 
@@ -122,6 +181,7 @@ class DmtcpCoordinator
     void recordCkptFilename(CoordClient *client, const char *barrierList);
 
     void handleUserCommand(dmtcp::string cmd, DmtcpMessage *reply = NULL);
+    void getStatusStr(ostream *o);
     void writeStatusToFile();
     void printStatus(size_t numPeers, bool isRunning);
     string printList();
@@ -148,9 +208,12 @@ class DmtcpCoordinator
 
     void writeRestartScript();
 
+    static void queueCheckpoint();
+
   private:
     size_t _numCkptWorkers;
     size_t _numRestartFilenames;
+    bool checkpointQueued = false;
 
     // Store whether rsh/ssh was used
     map< string, vector<string> > _rshCmdFileNames;

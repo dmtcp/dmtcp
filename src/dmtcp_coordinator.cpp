@@ -85,6 +85,7 @@
 #include "tokenize.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "coordinatorplugin.h"
 #undef min
 #undef max
 
@@ -155,18 +156,10 @@ static const char *theUsage =
   "\n";
 
 
-static int thePort = -1;
-static string thePortFile;
-static string theStatusFile;
-
-static bool exitOnLast = false;
+CoordFlags flags;
 static bool blockUntilDone = false;
-static bool killAfterCkpt = false;
 static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
-static time_t timeout = 0; // used with --timeout
-static time_t start_time = 0; // used with --timeout
-static unsigned int staleTimeout = 0; // used with --stale-timeout
 
 static DmtcpCoordinator theCoordinator;
 
@@ -189,19 +182,6 @@ static bool workersRunningAndSuspendMsgSent = false;
 static bool killInProgress = false;
 static bool uniqueCkptFilenames = false;
 
-/* If dmtcp_launch/dmtcp_restart specifies '-i', theCheckpointInterval
- * will be reset accordingly (valid for current computation).  If dmtcp_command
- * specifies '-i' (or if user interactively invokes 'i' in coordinator),
- * then both theCheckpointInterval and theDefaultCheckpointInterval are set.
- * A value of '0' means:  never checkpoint (manual checkpoint only).
- */
-static uint32_t theCheckpointInterval = 0; /* Current checkpoint interval */
-static uint32_t theDefaultCheckpointInterval = 0; /* Reset to this on new comp*/
-static int currentCkptInterval = -1;
-static bool timerExpired = false;
-
-static void resetCkptTimer();
-
 const int STDIN_FD = fileno(stdin);
 
 JTIMER(checkpoint);
@@ -218,13 +198,9 @@ static time_t curTimeStamp = -1;
 static time_t ckptTimeStamp = -1;
 
 static LookupService lookupService;
-static bool writeKvData = false;
 
 static string coordHostname;
 static struct in_addr localhostIPAddr;
-
-static char *tmpDir = NULL;
-static string ckptDir;
 
 #define MAX_EVENTS 10000
 struct epoll_event events[MAX_EVENTS];
@@ -239,6 +215,7 @@ static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
 
 static int theNextClientNumber = 1;
 vector<CoordClient *>clients; // Default constructor sets 'size() == 0'
+vector<CoordinatorPlugin*> CoordPluginMgr::plugins;
 
 static inline void
 ltrim(string &s)
@@ -278,6 +255,11 @@ CoordClient::readProcessInfo(DmtcpMessage &msg)
     _progname = extraData + _hostname.length() + 1;
     delete[] extraData;
   }
+}
+
+int DmtcpCoordinator::numClients()
+{
+  return clients.size();
 }
 
 pid_t
@@ -368,20 +350,7 @@ DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
     serializeKVDB();
     exit(0);
   } else if (cmd == "i") {
-    JTRACE("setting checkpoint interval...");
-    updateCheckpointInterval(theCheckpointInterval);
-    if (theCheckpointInterval == 0) {
-      printf("Current Checkpoint Interval:"
-             " Disabled (checkpoint manually instead)\n");
-    } else {
-      printf("Current Checkpoint Interval: %d\n", theCheckpointInterval);
-    }
-    if (theDefaultCheckpointInterval == 0) {
-      printf("Default Checkpoint Interval:"
-             " Disabled (checkpoint manually instead)\n");
-    } else {
-      printf("Default Checkpoint Interval: %d\n", theDefaultCheckpointInterval);
-    }
+    // Already handled by CkptIntervalManager
   } else if (cmd == "k") {
     JNOTE("Killing all connected peers...");
     broadcastMessage(DMT_KILL_PEER);
@@ -394,7 +363,8 @@ DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
     if (reply != NULL) {
       reply->numPeers = s.numPeers;
       reply->isRunning = running;
-      reply->theCheckpointInterval = theCheckpointInterval;
+      // FIXME
+      //reply->theCheckpointInterval = flags.theCheckpointInterval;
     } else {
       printStatus(s.numPeers, running);
     }
@@ -406,26 +376,26 @@ DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
   }
 }
 
+void DmtcpCoordinator::getStatusStr(ostream *o)
+{
+  *o << "Status..." << std::endl
+     << "Host: " << coordHostname
+     << " (" << inet_ntoa(localhostIPAddr) << ")" << std::endl
+     << "Port: " << flags.thePort << std::endl
+     << "Checkpoint Interval: ";
+
+  CoordPluginMgr::writeStatusToStream(o);
+}
+
 void
 DmtcpCoordinator::writeStatusToFile()
 {
   ofstream o;
-  o.open(theStatusFile.c_str(), std::ios::out | std::ios::trunc);
-  JASSERT(!o.fail()) (theStatusFile)
+  o.open(flags.theStatusFile.c_str(), std::ios::out | std::ios::trunc);
+  JASSERT(!o.fail()) (flags.theStatusFile)
     .Text("Failed to truncate and open status file");
 
-  o << "Status..." << std::endl
-    << "Host: " << coordHostname
-    << " (" << inet_ntoa(localhostIPAddr) << ")" << std::endl
-    << "Port: " << thePort << std::endl
-    << "PID: " << getpid() << std::endl
-    << "Checkpoint Interval: ";
-
-  if (theCheckpointInterval == 0) {
-    o << "disabled (checkpoint manually instead)" << std::endl;
-  } else {
-    o << theCheckpointInterval << std::endl;
-  }
+  getStatusStr(&o);
 
   o.close();
 }
@@ -435,26 +405,16 @@ DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
 {
   ostringstream o;
 
-  o << "Status..." << std::endl
-    << "Host: " << coordHostname
-    << " (" << inet_ntoa(localhostIPAddr) << ")" << std::endl
-    << "Port: " << thePort << std::endl
-    << "Checkpoint Interval: ";
+  getStatusStr(&o);
 
-  if (theCheckpointInterval == 0) {
-    o << "disabled (checkpoint manually instead)" << std::endl;
-  } else {
-    o << theCheckpointInterval << std::endl;
-  }
-
-  o << "Exit on last client: " << exitOnLast << std::endl
-    << "Kill after checkpoint: " << killAfterCkpt
+  o << "Exit on last client: " << flags.exitOnLast << std::endl
+    << "Kill after checkpoint: " << flags.killAfterCkpt
     << std::endl
 
     // << "Kill after checkpoint (first time only): " << killAfterCkptOnce
     // << std::endl
     << "Computation Id: " << compId << std::endl
-    << "Checkpoint Dir: " << ckptDir << std::endl
+    << "Checkpoint Dir: " << flags.ckptDir << std::endl
     << "NUM_PEERS=" << numPeers << std::endl
     << "RUNNING=" << (isRunning ? "yes" : "no") << std::endl
     << std::endl;
@@ -496,7 +456,7 @@ DmtcpCoordinator::recordEvent(string const& event)
 void
 DmtcpCoordinator::serializeKVDB()
 {
-  if (!writeKvData) {
+  if (!flags.writeKvData) {
     return;
   }
 
@@ -532,7 +492,6 @@ DmtcpCoordinator::releaseBarrier(const string &barrier)
                      prevBarrier.c_str());
     if (status.minimumState == WorkerState::CHECKPOINTED) {
       JNOTE("Checkpoint complete; all workers running");
-      resetCkptTimer();
     }
   }
 }
@@ -551,88 +510,6 @@ DmtcpCoordinator::processBarrier(const string &barrier)
 
   releaseBarrier(barrier);
 }
-
-
-// ==========================================================
-// Logic for timeout, staleTimeout, and theCheckpointInterval
-
-static unsigned int staleStartTime = 0;
-// Call this at start time, and when no more processes (cf: exit-on-last)
-static void initializeStaleTimeout() {
-  JASSERT(clients.size() == 0);
-  unsigned int cur_timeout = 0;
-  if (staleStartTime == 0) { // If staleTimeout never initialized; do it now.
-    staleStartTime = time(NULL);
-    cur_timeout = alarm(0); alarm(cur_timeout); // Retrieve existing alarm.
-    // To override default, user sets very large staleTimeout (or -1)
-    if (staleTimeout == 0) { staleTimeout = 8 * 60 * 60; } // 8 hours is default
-  }
-  if (staleTimeout < cur_timeout || cur_timeout == 0) {
-    unsigned int elapsed_time = time(NULL) - start_time;
-    if (timeout > 0 && timeout - elapsed_time < staleTimeout) {
-      alarm(timeout > elapsed_time ? timeout - elapsed_time : 1);
-    } else {
-      alarm(staleTimeout); // Set new alarm when clients.size()==0
-    }
-  }; // else keep existing alarm set by --timeout
-}
-// Call this when starting a new process: Don't use staleTimeout; only timeout
-static void setTimeoutForNewClients() {
-  JASSERT(clients.size() > 0);
-  unsigned int elapsed_time = time(NULL) - start_time;
-  if (timeout > 0 && timeout - elapsed_time < currentCkptInterval) {
-    // timeout will happen before the next checkpoint interval
-    alarm(timeout > elapsed_time ? timeout - elapsed_time : 1);
-  } else if (theCheckpointInterval > 0) {
-    alarm(theCheckpointInterval);
-  } else { // FIXME:  We can probably remove this 'else' clause.
-    if (clients.size() == 0) {
-      // This shouldn't happen.  This function is called only for onConnect.
-      alarm(0); // staleTimeout temporarily disabled and no absolute timeout
-    }
-  }
-  timerExpired = false;
-}
-
-static void
-resetCkptTimer()
-{ if (clients.size() == 0) {
-    alarm(staleTimeout);
-  } else {
-    setTimeoutForNewClients();
-  }
-  timerExpired = false;
-}
-
-void
-DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
-{ if ((int)interval != -1) {
-    theCheckpointInterval = interval;
-  }
-  if (clients.size() == 0) {
-    resetCkptTimer(); // Will set to staleTimeout; Coulld be onDisconnect
-    currentCkptInterval = -1; // Set to -1; we now have staleTimeout
-  } else if (currentCkptInterval == -1) { // Was staleTimeout or initializing
-    resetCkptTimer(); // Could be onConnect or initializing
-  } else if (clients.size() == 1 && currentCkptInterval == -1) {
-      resetCkptTimer(); // Probably this is onCconnet for the first client
-  } else if (clients.size() > 0) {
-    if ((int)theCheckpointInterval != currentCkptInterval) {
-      resetCkptTimer();
-    }
-  }
-  if ((int)interval != -1 && clients.size() > 0) {
-    // if clients.size() == 0, then
-    //   currentCkptInterval == -1, but theCheckpointInterrval >= 0;
-    // Later, if clients.size() > 0, we need to again
-    //   set currentCkptInterval to the newly requested interval.
-    currentCkptInterval = interval; // Client is requesting change to interval
-  }
-}
-
-// ===================================
-// Ohter logic (unrelated to timeouts)
-
 
 void
 DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
@@ -666,11 +543,11 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 
   if (_numRestartFilenames == _numCkptWorkers) {
     const string restartScriptPath =
-      RestartScript::writeScript(ckptDir,
+      RestartScript::writeScript(flags.ckptDir,
                                  uniqueCkptFilenames,
                                  ckptTimeStamp,
-                                 theCheckpointInterval,
-                                 thePort,
+                                 0, //FIXME flags.theCheckpointInterval,
+                                 flags.thePort,
                                  compId,
                                  _restartFilenames,
                                  _rshCmdFileNames,
@@ -694,7 +571,7 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
       blockUntilDoneRemote = -1;
     }
 
-    if (killAfterCkpt || killAfterCkptOnce) {
+    if (flags.killAfterCkpt || killAfterCkptOnce) {
       JNOTE("Checkpoint Done. Killing all peers.");
       broadcastMessage(DMT_KILL_PEER);
       killAfterCkptOnce = false;
@@ -775,18 +652,18 @@ DmtcpCoordinator::onData(CoordClient *client)
   case DMT_GET_CKPT_DIR:
   {
     DmtcpMessage reply(DMT_GET_CKPT_DIR_RESULT);
-    reply.extraBytes = ckptDir.length() + 1;
+    reply.extraBytes = flags.ckptDir.length() + 1;
     client->sock() << reply;
-    client->sock().writeAll(ckptDir.c_str(), reply.extraBytes);
+    client->sock().writeAll(flags.ckptDir.c_str(), reply.extraBytes);
     break;
   }
   case DMT_UPDATE_CKPT_DIR:
   {
     JASSERT(extraData != 0)
     .Text("extra data expected with DMT_UPDATE_CKPT_DIR message");
-    if (strcmp(ckptDir.c_str(), extraData) != 0) {
-      ckptDir = extraData;
-      JNOTE("Updated ckptDir") (ckptDir);
+    if (strcmp(flags.ckptDir.c_str(), extraData) != 0) {
+      flags.ckptDir = extraData;
+      JNOTE("Updated ckptDir") (flags.ckptDir);
     }
     break;
   }
@@ -859,7 +736,7 @@ removeStaleSharedAreaFile()
 {
   ostringstream o;
 
-  o << tmpDir
+  o << flags.tmpDir
     << "/dmtcpSharedArea." << compId << "." << std::hex << curTimeStamp;
   JTRACE("Removing sharedArea file.") (o.str());
   unlink(o.str().c_str());
@@ -869,8 +746,8 @@ static void
 preExitCleanup()
 {
   removeStaleSharedAreaFile();
-  JTRACE("Removing port-file") (thePortFile);
-  unlink(thePortFile.c_str());
+  JTRACE("Removing port-file") (flags.thePortFile);
+  unlink(flags.thePortFile.c_str());
 }
 
 void
@@ -892,11 +769,8 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
   _virtualPidToClientMap.erase(client->virtualPid());
 
   ComputationStatus s = getStatus();
-  if (clients.size() == 0) {
-    initializeStaleTimeout();
-  }
   if (s.numPeers < 1) {
-    if (exitOnLast) {
+    if (flags.exitOnLast) {
       JNOTE("last client exited, shutting down..");
       handleUserCommand("q");
     } else {
@@ -907,11 +781,6 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
     // thus we need to reset it to false once all the processes in the
     // computations have disconnected.
     killInProgress = false;
-    if (theCheckpointInterval != theDefaultCheckpointInterval) {
-      updateCheckpointInterval(theDefaultCheckpointInterval);
-      JNOTE("CheckpointInterval reset on end of current computation")
-        (theCheckpointInterval);
-    }
   } else {
     // If the coordinator waits at currentBarrier, try to release it.
     if (!currentBarrier.empty()) {
@@ -923,6 +792,8 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
       releaseBarrier(currentBarrier);
     }
   }
+
+  CoordPluginMgr::clientDisconnected(client, s);
 
   delete client;
 }
@@ -978,7 +849,6 @@ DmtcpCoordinator::onConnect()
                                           hello_remote);
 
     addDataSocket(client);
-    setTimeoutForNewClients();
     return;
   }
 
@@ -1044,9 +914,8 @@ DmtcpCoordinator::onConnect()
   clients.push_back(client);
   addDataSocket(client);
 
-  updateCheckpointInterval(hello_remote.theCheckpointInterval);
-
-  JTRACE("END") (clients.size());
+  ComputationStatus status = getStatus();
+  CoordPluginMgr::clientConnected(client, status);
 }
 
 void
@@ -1067,8 +936,6 @@ DmtcpCoordinator::processDmtUserCmd(DmtcpMessage &hello_remote,
     blockUntilDoneRemote = remote.sockfd();
     handleUserCommand(cmd, &reply);
   } else if (hello_remote.coordCmd == 'i') {
-    theDefaultCheckpointInterval = hello_remote.theCheckpointInterval;
-    theCheckpointInterval = theDefaultCheckpointInterval;
     handleUserCommand(cmd, &reply);
     remote << reply;
     remote.close();
@@ -1094,7 +961,6 @@ getCurrTimestamp()
   nsecs = value.tv_sec*1000000000L + value.tv_nsec;
   return nsecs;
 }
-
 
 bool
 DmtcpCoordinator::validateRestartingWorkerProcess(
@@ -1123,7 +989,6 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
       (numRestartPeers) (curTimeStamp) (compId);
     JTIMER_START(restart);
     recordEvent("Restart-Start");
-    resetCkptTimer();
   } else if (minimumState() != WorkerState::RESTARTING) {
     JNOTE("Computation not in RESTARTING state."
           "  Reject incoming computation process requesting restart.")
@@ -1326,7 +1191,7 @@ DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
   msg.numPeers = clients.size();
   // From DMTCP coord viewpoint, we are killing peers after ckpt.
   // From DMTCP peer viewpoint, we will exit after ckpt.
-  msg.exitAfterCkpt = killAfterCkpt || killAfterCkptOnce;
+  msg.exitAfterCkpt = flags.killAfterCkpt || killAfterCkptOnce;
   msg.extraBytes = extraBytes;
 
   if (msg.type == DMT_KILL_PEER && clients.size() > 0) {
@@ -1343,7 +1208,7 @@ DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
   workersAtCurrentBarrier = 0;
 }
 
-DmtcpCoordinator::ComputationStatus
+ComputationStatus
 DmtcpCoordinator::getStatus() const
 {
   ComputationStatus status;
@@ -1380,6 +1245,8 @@ DmtcpCoordinator::getStatus() const
   status.maximumState = (max == INITIAL_MAX ? WorkerState::UNKNOWN
                          : (WorkerState::eWorkerState)max);
   status.numPeers = count;
+
+  ASSERT_EQ(0, clock_gettime(CLOCK_MONOTONIC, &status.timestamp));
   return status;
 }
 
@@ -1389,20 +1256,6 @@ signalHandler(int signum)
 {
   if (signum == SIGINT) {
     theCoordinator.handleUserCommand("q");
-  } else if (signum == SIGALRM) {
-    timerExpired = true;
-    if (timeout &&
-        (time(NULL) - start_time) >= (timeout - 1)) { // -1 for roundoff
-      fprintf(stderr, "*** dmtcp_coordinator:  --timeout timed out\n");
-      exit(1);
-    } else if (staleTimeout > 0 &&
-              // Use '(staleTimeout -1)', with -1, in case of roundoff
-               time(NULL) - staleStartTime >= (staleTimeout - 1)) {
-      fprintf(stderr,
-              "*** dmtcp_coordinator:  --stale-timeout timed out; Was %d sec\n",
-              staleTimeout);
-      exit(1);
-    }
   } else {
     JASSERT(false).Text("Not reached");
   }
@@ -1418,7 +1271,6 @@ setupSignalHandlers()
   action.sa_handler = signalHandler;
 
   sigaction(SIGINT, &action, NULL);
-  sigaction(SIGALRM, &action, NULL);
 }
 
 // This code is also copied to ssh.cpp:updateCoordHost()
@@ -1540,8 +1392,13 @@ clearPrompt()
   fflush(stdout);
 }
 
+void DmtcpCoordinator::queueCheckpoint()
+{
+  theCoordinator.checkpointQueued = true;
+}
+
 void
-DmtcpCoordinator::eventLoop(bool daemon)
+DmtcpCoordinator::eventLoop()
 {
   struct epoll_event ev;
 
@@ -1553,7 +1410,7 @@ DmtcpCoordinator::eventLoop(bool daemon)
   JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, listenSock->sockfd(), &ev) != -1)
     (JASSERT_ERRNO);
 
-  if (!daemon &&
+  if (!flags.daemon &&
 
       // epoll_ctl below fails if STDIN is pointing to /dev/null.
       // Not sure why.
@@ -1577,22 +1434,17 @@ DmtcpCoordinator::eventLoop(bool daemon)
     int nfds;
     do {
       nfds = epoll_wait(epollFd, events, MAX_EVENTS, -1);
-    } while (nfds < 0 && errno == EINTR && !timerExpired);
+      if (nfds == -1 && errno == EINTR) {
+        ComputationStatus s = getStatus();
+        CoordPluginMgr::tick(s);
+        if (checkpointQueued) {
+          checkpointQueued = false;
+          startCheckpoint();
+        }
+      }
+    } while (nfds < 0 && errno == EINTR);
 
     clearPrompt();
-
-    // The ckpt timer has expired; it's time to checkpoint.
-    //   NOTE:  We need minimumStateUnanimous and RUNNING, in case
-    //   worker had reached 'main()' of application and paused (e.g.,
-    //   under GDB), while the ckpt interval timer went off.  We want
-    //   startCheckpoint() to be deferred until the worker is RUNNING.
-    ComputationStatus s = getStatus();
-    if (timerExpired &&
-        s.minimumStateUnanimous && s.minimumState == WorkerState::RUNNING) {
-      startCheckpoint();
-      resetCkptTimer();
-      continue;
-    }
 
     // alarm() is not always the only source of interrupts.
     // For example, any signal, including signal 0 or SIGWINCH can cause this.
@@ -1714,36 +1566,18 @@ void set_long_cmdline(char *argv0, const char *port) {
 int
 main(int argc, char **argv)
 {
-  char *argv0 = argv[0]; // Meeded for set_short/long_command_line()
-
   initializeJalib();
 
-  // parse port
-  thePort = DEFAULT_PORT;
-  const char *portStr = getenv(ENV_VAR_NAME_PORT);
-  if (portStr == NULL) {
-    portStr = getenv("DMTCP_PORT");                      // deprecated
-  }
-  if (portStr != NULL) {
-    thePort = jalib::StringToInt(portStr);
-  }
+  flags.progName = argv[0];
 
-  bool daemon = false;
-  bool useLogFile = false;
-  string logFilename = "";
-  bool quiet = false;
-
-  char *tmpdir_arg = NULL;
+  set_short_cmdline(argv[0], jalib::XToString(flags.thePort).c_str());
+  set_long_cmdline(argv[0], jalib::XToString(flags.thePort).c_str());
 
   /* NOTE: The convention is that user-specified explicit runtime arguments
    *       get a higher priority than env. vars. The logFilename variable will
    *       be over-written if the coordinator was invoked with
    *       `--logfile <filename>.
    */
-  if (getenv(ENV_VAR_COORD_LOGFILE)) {
-    useLogFile = true;
-    logFilename = getenv(ENV_VAR_COORD_LOGFILE);
-  }
 
   shift;
   while (argc > 0) {
@@ -1755,59 +1589,57 @@ main(int argc, char **argv)
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return 0;
     } else if (s == "-q" || s == "--quiet") {
-      quiet = true;
-      jassert_quiet++;
+      flags.quiet = true;
+      flags.jassert_quiet++;
       shift;
     } else if (s == "--exit-on-last") {
-      exitOnLast = true;
+      flags.exitOnLast = true;
       shift;
     } else if (s == "--kill-after-ckpt") {
-      killAfterCkpt = true;
+      flags.killAfterCkpt = true;
       shift;
     } else if (argc > 1 && s == "--timeout") {
-      timeout = atol(argv[1]);
-      start_time = time(NULL);
-      alarm(timeout);  // and resetCkptTimer() will also set this.
+      flags.timeout = atol(argv[1]);
       shift; shift;
     } else if (argc > 1 && s == "--stale-timeout") {
-      staleTimeout = atol(argv[1]);
+      flags.staleTimeout = atol(argv[1]);
       shift; shift;
     } else if (s == "--daemon") {
-      daemon = true;
+      flags.daemon = true;
       shift;
     } else if (s == "--coord-logfile") {
-      useLogFile = true;
-      logFilename = argv[1];
+      flags.useLogFile = true;
+      flags.logFilename = argv[1];
       shift; shift;
     } else if (s == "-i" || s == "--interval") {
-      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
+      flags.interval = atol(argv[1]);
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'i' &&
                isdigit(argv[0][2])) { // else if -i5, for example
-      setenv(ENV_VAR_CKPT_INTR, argv[0] + 2, 1);
+      flags.interval = atol(&argv[0][2]);
       shift;
     } else if (argc > 1 &&
                (s == "-p" || s == "--port" || s == "--coord-port")) {
-      thePort = jalib::StringToInt(argv[1]);
+      flags.thePort = jalib::StringToInt(argv[1]);
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'p' &&
                isdigit(argv[0][2])) { // else if -p0, for example
-      thePort = jalib::StringToInt(argv[0] + 2);
+      flags.thePort = jalib::StringToInt(argv[0] + 2);
       shift;
     } else if (argc > 1 && s == "--port-file") {
-      thePortFile = argv[1];
+      flags.thePortFile = argv[1];
       shift; shift;
     } else if (argc > 1 && s == "--status-file") {
-      theStatusFile = argv[1];
+      flags.theStatusFile = argv[1];
       shift; shift;
     } else if (argc > 1 && (s == "-c" || s == "--ckptdir")) {
-      setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
+      flags.ckptDir = argv[1];
       shift; shift;
     } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
-      tmpdir_arg = argv[1];
+      flags.tmpDir = argv[1];
       shift; shift;
     } else if (s == "--write-kv-data") {
-      writeKvData = true;
+      flags.writeKvData = true;
       shift;
     } else if (argc == 1) { // last arg can be port
       char *endptr;
@@ -1816,7 +1648,7 @@ main(int argc, char **argv)
         fprintf(stderr, theUsage, DEFAULT_PORT);
         return 1;
       } else {
-        thePort = jalib::StringToInt(argv[0]);
+        flags.thePort = jalib::StringToInt(argv[0]);
         shift;
       }
       x++, x--; // to suppress unused variable warning
@@ -1826,33 +1658,18 @@ main(int argc, char **argv)
     }
   }
 
-  tmpDir = Util::calcTmpDir(tmpdir_arg);
-  Util::initializeLogFile(tmpDir, "dmtcp_coordinator");
-  initializeStaleTimeout(); // Initialize alarm to staleTimeout.
+  flags.tmpDir = Util::calcTmpDir(flags.tmpDirArg.c_str());
+  Util::initializeLogFile(flags.tmpDir.c_str(), "dmtcp_coordinator");
 
   JTRACE("New DMTCP coordinator starting.")
     (UniquePid::ThisProcess());
 
-  if (thePort < 0) {
+  if (flags.thePort < 0) {
     fprintf(stderr, theUsage, DEFAULT_PORT);
     return 1;
   }
 
   calcLocalAddr();
-
-  if (getenv(ENV_VAR_CHECKPOINT_DIR) != NULL) {
-    ckptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
-  } else {
-    ckptDir = get_current_dir_name();
-  }
-
-  // Check and enable dumping KVDB.
-  {
-    const char *kvdbEnv = getenv(ENV_VAR_COORD_WRITE_KVDB);
-    if (kvdbEnv != NULL && kvdbEnv[0] == '1') {
-      writeKvData = true;
-    }
-  }
 
   /*Test if the listener socket is already open*/
   if (fcntl(PROTECTED_COORD_FD, F_GETFD) != -1) {
@@ -1861,8 +1678,8 @@ main(int argc, char **argv)
     JTRACE("Using already created listener socket") (listenSock->port());
   } else {
     errno = 0;
-    listenSock = new jalib::JServerSocket(jalib::JSockAddr::ANY, thePort, 128);
-    JASSERT(listenSock->isValid()) (thePort) (JASSERT_ERRNO)
+    listenSock = new jalib::JServerSocket(jalib::JSockAddr::ANY, flags.thePort, 128);
+    JASSERT(listenSock->isValid()) (flags.thePort) (JASSERT_ERRNO)
     .Text("Failed to create listen socket."
           "\nIf msg is \"Address already in use\", "
           "this may be an old coordinator."
@@ -1871,54 +1688,37 @@ main(int argc, char **argv)
           " and try again in a minute or so.");
   }
 
-  thePort = listenSock->port();
-  if (!thePortFile.empty()) {
-    Util::writeCoordPortToFile(thePort, thePortFile.c_str());
+  flags.thePort = listenSock->port();
+  if (!flags.thePortFile.empty()) {
+    Util::writeCoordPortToFile(flags.thePort, flags.thePortFile.c_str());
   }
-  JTRACE("Listening on port")(thePort);
+  JTRACE("Listening on port")(flags.thePort);
 
-  // Change command line to: dmtcp_coordinator -p<portStr>
-  char portStrBuf[10];
-  if (portStr == NULL) {
-    sprintf(portStrBuf, "%d", thePort);
-    portStr = portStrBuf;
-  }
-  set_short_cmdline(argv0, portStr);
-  set_long_cmdline(argv0, portStr);
-
-  // parse checkpoint interval
-  const char *interval = getenv(ENV_VAR_CKPT_INTR);
-  if (interval != NULL) {
-    theDefaultCheckpointInterval = jalib::StringToInt(interval);
-    theCheckpointInterval = theDefaultCheckpointInterval;
-    theCoordinator.updateCheckpointInterval(theCheckpointInterval);
-  }
-
-  if (!quiet) {
+  if (!flags.quiet) {
     fprintf(stderr, "dmtcp_coordinator starting..."
                     "\n    Host: %s (%s)"
                     "\n    Port: %d"
                     "\n    Checkpoint Interval: ",
-            coordHostname.c_str(), inet_ntoa(localhostIPAddr), thePort);
-    if (theCheckpointInterval == 0) {
+            coordHostname.c_str(), inet_ntoa(localhostIPAddr), flags.thePort);
+    if (flags.interval == 0) {
       fprintf(stderr, "disabled (checkpoint manually instead)");
     } else {
-      fprintf(stderr, "%d", theCheckpointInterval);
+      fprintf(stderr, "%d", flags.interval);
     }
-    fprintf(stderr, "\n    Exit on last client: %d\n", exitOnLast);
+    fprintf(stderr, "\n    Exit on last client: %d\n", flags.exitOnLast);
   }
 
-  if (daemon) {
-    if (!quiet) {
+  if (flags.daemon) {
+    if (!flags.quiet) {
       JASSERT_STDERR << "Backgrounding...\n";
     }
     int fd = -1;
-    if (!useLogFile) {
+    if (!flags.useLogFile) {
       fd = open("/dev/null", O_RDWR);
       JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
     } else {
-      fd = open(logFilename.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0666);
-      JASSERT_SET_LOG(logFilename);
+      fd = open(flags.logFilename.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0666);
+      JASSERT_SET_LOG(flags.logFilename);
       int nullFd = open("/dev/null", O_RDWR);
       JASSERT(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO);
       close(nullFd);
@@ -1930,17 +1730,14 @@ main(int argc, char **argv)
       close(fd);
     }
 
-    unsigned int cur_timeout = alarm(0);
     if (fork() > 0) {
       JTRACE("Parent Exiting after fork()");
       exit(0);
-    } else {
-      alarm(cur_timeout); // Restore parent timeout in child.
     }
 
     // pid_t sid = setsid();
   } else {
-    if (!quiet) {
+    if (!flags.quiet) {
       JASSERT_STDERR <<
         "Type '?' for help." <<
         "\n\n";
@@ -1963,7 +1760,7 @@ main(int argc, char **argv)
    * # the dmtcp_coordinator.  The coord then triggers the SIGINT handler,
    * # which sends DMT_KILL_PEER to kill a.out.
    */
-  if (exitOnLast && daemon) {
+  if (flags.exitOnLast && flags.daemon) {
     sigset_t set;
     sigfillset(&set);
 
@@ -1974,10 +1771,11 @@ main(int argc, char **argv)
     sigprocmask(SIG_BLOCK, &set, NULL);
   }
 
-  if (!theStatusFile.empty()) {
+  if (!flags.theStatusFile.empty()) {
     theCoordinator.writeStatusToFile();
   }
 
-  theCoordinator.eventLoop(daemon);
+  CoordPluginMgr::initialize(flags);
+  theCoordinator.eventLoop();
   return 0;
 }
