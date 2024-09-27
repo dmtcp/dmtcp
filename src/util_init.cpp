@@ -88,7 +88,7 @@ Util::calcTmpDir(const char *tmpdirenv)
     userName = getenv("USER");
   }
 
-  if (tmpdirenv) {
+  if (tmpdirenv != nullptr && tmpdirenv[0] != '\0') {
     // tmpdirenv was set by --tmpdir
   } else if (getenv("DMTCP_TMPDIR")) {
     tmpdirenv = getenv("DMTCP_TMPDIR");
