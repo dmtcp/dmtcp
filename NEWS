@@ -1,9 +1,119 @@
 DMTCP NEWS -- history of user-visible changes.
 
-Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
+Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>,
+or "Issues" at https://github.com/dmtcp/dmtcp .
 
-Version 3.0.0 release notes
-===========================
+Version 3.1.0 release notes (Sept. 30, 2024)
+============================================
+This long delayed release now provides support for x86_64, aarch64, risc-v.
+It also supports 32-bit x86 and 32-bit 'arm', but those codes have not
+been tested recently.
+
+There are many bug fixes and elimination of compiler warnings, which
+are not individually enumerated here.  In particular, special attention
+was paid to robust operation of user threads, and to ensure that
+DMTCP's internal wrapper functions do not interfere with user code.
+
+* Support for x86_64/aarch64/risc-v and gcc/g++ and clang/clang++:
+    This has been tested on x86_64, aarch64, risc-v to support both for:
+  gcc/g++ and clang/clang++.  However, it has not been tested recently for
+  the 32-bit x86 and arm.  (User beware.)
+
+* New flags: --stale-timeout (default: 8 hours) and --timeout (default: none):
+      The DMTCP coordinator now offers a '--stale-timeout' flag.  By default,
+   the DMTCP coordinator will exit if _idle_ for 8 hours.  The flag can
+   change that value.  Similarly, a '--timeout' flag will cause the DMTCP
+   coordinator to exit for a positive timeout, regardless of whether a
+   computation with user clients is still executing.  The default timeout
+   is 0 (no timeout).
+
+* Python3 is now the standard in DMTCP Python scripts:
+    DMTCP now standardizes on 'python3', rather than 'python'.
+
+* Obsolete DMTCP plugins have been removed:
+    The batch-queue, infiniband, and ptrace DMTCP plugins have been
+  removed as obsolete, as well as HBICT/delta-compression.  For infiniband
+  and batch-queue, those were used in the past by HPC, and especially by
+  MPI (Message Passing Interface).
+
+* DMTCP use of atomics for internal lock-free data structures have been
+  enhanced for performance, portability and robustness:
+    DMTCP is now more careful when using:
+      __atomic_compare_exchange
+      __sync_bool_compare_and_swap
+  It tests for support, as is seen in: include/config{.h,.h.in}
+  DMTCP uses this to support DMTCP's bool_atomic_dwcas()
+  (double-word compare and swap), to provide 128 atomic compare and swap.
+  DMTCP tests, in order, for availability of
+     (i) __atomic_compare_*; (ii)__sync_book_compare_*; (iii)futex (wait/wake).
+  The first two make available a lock-free internal DMTCP stack.
+  The third one is slower, since it requires a kernel call.
+
+  Efficient bool_atomic_dwcas() matters if a target code makes thousands
+  of calls per second to pthread_create/join (e.g., OpenMP),
+  but most codes will not see a runtime slowdown even if futexes are used.
+
+  Further, a bug in DMTCP's internal memory management had inadvertently
+  used futexes, with similar slowdowns when DMTCP wrappers are invoked
+  thousands of times per second.  This bug is removed, and futexes
+  are no longer called on the "fast path".
+
+* MANA project using DMTCP platform:
+    For those interested in HPC/MPI, please look at:
+      https://github.com/mpickpt/mana
+      [ MANA for MPI ]
+  MANA uses the DMTCP platform, and provides robust support for checkpointing
+  MPI by using a concept called "split processes".
+  A planned future enhancement to DMTCP will provide "restart plugins",
+  which are helpful for the MANA project, as well as others.
+  The MANA project has also brought to light subtle bugs in dmtcp_restart,
+  which have now been fixed.
+  Similarly, DMTCP performance for hundreds or thousands of client processes
+  have been improved, based on former bottlenecks observed for MANA.
+
+  MANA is based on the DMTCP platform by using DMTCP plugins.  Plugins
+  also provide a mechanism for users to add flexibility to their applications
+  (e.g., executing plugin code at the time of INIT, CHECKPOINT
+  (both PRECHECKPOINT and PRESUSPEND), and RESTART).
+
+* McMini project using DMTCP platform:
+    A second project that will soon be extended to use the DMTCP platform is:
+      https://mcmini-doc.readthedocs.io/
+      [ McMini - "A Minimal Model Checker" [
+  The current version does not use DMTCP, and is as simple as:
+      mcmini pthread_hello_world
+  to catch deadlock and some other race conditions.
+  A new project, "Deep Debugging", will use DMTCP to enable model checking
+  to be used even after a multi-threaded code has been running for
+  minutes or hours.
+
+* New (enhanced) util/gdb-dmtcp-utils.py for debugging in GDB:
+    A script of general utility for those doing advanced GDB debugging is:
+      util/gdb-dmtcp-utils.py
+  This is provided by the DMTCP distro, but the script can be used in
+  any environment.  The usage is simply:
+      (gdb) source util/gdb-dmtcp-utils.py
+
+* Debugging user code in GDB after restart:
+      Debugging of code that has been restarted by dmtcp_restart has
+  now been enhanced.  For example, if a DMTCP_RESTART_PAUSE is set (from
+  1 to 7), the restarted process will pause early or late in the restart
+  process.  A user can then use GDB to attach to the process.
+      An alternative to DMTCP_RESTART_PAUSE is to strategically add to the
+  user code something like:  "volatile int dummy=1; while(dummy);"
+  This could be enhanced to trigger only if a special file is present,
+  or it could be added to a DMTCP_RESTART_EVENT of a plugin (see test/plugin).
+      Whether attaching by GDB during restart or later in its execution,
+  easy symbolic debugging of the user application is available.
+  In particular, note the important resource, gdb-dmtcp-utils.py
+  (see above).  This provides new GDB commands (e.g., load-symbols and
+  load-symbols-library), which are important when debugging a restarted
+  process with GDB.  These commands load symbols so that the stack will
+  restore the support of GDB's symbolic debugging (variables, functions,
+  file line numbers, etc.).
+
+Version 3.0.0 release notes (June 8, 2023)
+==========================================
 For some time, it has been recommended to use the latest github master
 branch for new projects using DMTCP.  This release formalizes that status.
 At this time, the InfiniBand plugin is deprecated and likely doesn't work.
