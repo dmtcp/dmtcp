@@ -983,8 +983,8 @@ DmtcpCoordinator::onConnect()
   }
 
   if (hello_remote.type == DMT_USER_CMD) {
-    // NOTE:  If 'dmtcp_command -i XX', then it comes through DMT_USER_CMD,
-    //  in processDmtUserCmd, it wil update theDefaultCheckpointInterval and
+    // NOTE:  If 'dmtcp_command -i XX', then it comes through DMT_USER_CMD.
+    //  In processDmtUserCmd, it wil update theDefaultCheckpointInterval and
     //  theCheckpointInterval.  But if the user tped 'dmtcp_launch -i XX ...',
     //  then it goes to DMT_NEW_WORKER, running initializeComputation(), and
     //  then updateCheckpointInterval(hello_remote.theCheckpointInterval),
