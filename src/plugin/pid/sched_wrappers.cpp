@@ -95,6 +95,9 @@ pthread_getschedparam (pthread_t th, int *policy, struct sched_param *param)
 
   *th_addr.flags = flags;
 
+  // FIXME:  We are executig this even if 'result==1' (error in prior syscall)
+  //         Further, it can happen that spolicy was not set before this,
+  //            and 'result == 0'. See: '(flags & ATTR_FLAG_SCHED_SET) == 0)'
   dmtcp_pthread_set_schedparam(th, spolicy, &sparam);
 
   glibc_lll_unlock(th_addr.lock);
