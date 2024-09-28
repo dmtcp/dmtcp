@@ -115,6 +115,8 @@ class JAssert
         return redEscapeStr;
       case JAssertType::Warning:
         return yellowEscapeStr;
+      case JAssertType::Note:
+        return greenEscapeStr;
       default:
         return "";
     }
