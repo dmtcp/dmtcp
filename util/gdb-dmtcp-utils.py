@@ -258,7 +258,7 @@ class dmtcp(gdb.Command):
 
   def __init__(self):
     super(dmtcp,
-          self).__init__("dmtcp", gdb.COMMAND_FILES, gdb.COMPLETE_FILENAME)
+          self).__init__("dmtcp", gdb.COMMAND_USER)
     self.dont_repeat()
 
   def invoke(self, dummy_args, from_tty):
@@ -315,7 +315,7 @@ class ShowFilenameAtAddress(gdb.Command):
 
     def __init__(self):
         super(ShowFilenameAtAddress,
-              self).__init__("show-filename-at-address", gdb.COMMAND_STATUS)
+              self).__init__("show-filename-at-address", gdb.COMMAND_FILES)
         self.dont_repeat()
 
     def invoke(self, memory_address, from_tty):
@@ -478,7 +478,7 @@ def usingCore():
           getpid() == 1)
 
 class Procmaps(gdb.Command):
-  """procmaps (same as:  shell cat /proc/INFERIOR_PID/maps)"""
+  """procmaps (same as:  shell cat /proc/self/maps)"""
   def __init__(self):
     super(Procmaps,
           self).__init__("procmaps", gdb.COMMAND_STATUS)
@@ -494,7 +494,7 @@ class Procmaps(gdb.Command):
 Procmaps()
 
 class Procfd(gdb.Command):
-  """procfd (same as:  shell ls -l /proc/INFERIOR_PID/fd)"""
+  """procfd (same as:  shell ls -l /proc/self/fd)"""
   def __init__(self):
     super(Procfd,
           self).__init__("procfd", gdb.COMMAND_STATUS)
@@ -507,7 +507,7 @@ class Procfd(gdb.Command):
 Procfd()
 
 class Procfdinfo(gdb.Command):
-  """procfdinfo (same as:  shell ls -l /proc/INFERIOR_PID/fdinfo/FD)"""
+  """procfdinfo (same as:  shell ls -l /proc/self/fdinfo/FD)"""
   def __init__(self):
     super(Procfdinfo,
           self).__init__("procfdinfo", gdb.COMMAND_STATUS)
@@ -523,7 +523,7 @@ class Procfdinfo(gdb.Command):
 Procfdinfo()
 
 class Procenviron(gdb.Command):
-  """procenviron (same as:  cat /proc/INFERIOR_PID/environ | tr '\\0' '\\n' | less)"""
+  """procenviron (same as:  cat /proc/self/environ | tr '\\0' '\\n' | less)"""
   def __init__(self):
     super(Procenviron,
           self).__init__("procenviron", gdb.COMMAND_STATUS)
@@ -540,7 +540,7 @@ class Pstree(gdb.Command):
   """pstree (same as:  shell pstree -plnu <$USER>)"""
   def __init__(self):
     super(Pstree,
-          self).__init__("pstree", gdb.COMMAND_STATUS)
+          self).__init__("pstree", gdb.COMMAND_USER)
     self.dont_repeat()
   def invoke(self, dummy_args, from_tty):
     gdb.execute("shell pstree -plnu " + str(os.getenv("USER")), False, True)
@@ -550,19 +550,35 @@ class Lsof(gdb.Command):
   """lsof (same as:  shell shell lsof -w [for this username])"""
   def __init__(self):
     super(Lsof,
-          self).__init__("lsof", gdb.COMMAND_STATUS)
+          # IN GDB, "ls" should not be an abbreviation for "lsof"
+          # In GDB-12, gdb.COMPLETE_NONE does not have an effiect.  Bug?
+          self).__init__("lsof", gdb.COMMAND_USER, gdb.COMPLETE_NONE)
     self.dont_repeat()
+  # And this variant also doesn't work.
+  def complete(self, text, word):
+    return gdb.COMPLETE_NONE
   def invoke(self, dummy_args, from_tty):
     gdb.execute("shell lsof -w | grep '^[^ ]*  *[0-9][0-9]*  *" + str(os.getenv("USER")) +
                 "  *[0-9]' | grep -v ^lsof | grep -v ^less | grep -v ^grep | less",
                 False, True)
 Lsof()
 
+# This is not a real command.  But without it, "ls" autocompletes to "lsof".
+# See above about the bug in "lsof" and COMPLETE_NONE.
+class Ls(gdb.Command):
+  def __init__(self):
+    super(Ls,
+          self).__init__("ls", gdb.COMMAND_USER, gdb.COMPLETE_NONE)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    print('Undefined command: "ls".  Try "help".')
+Ls()
+
 class Rlimit(gdb.Command):
   """rlimit (info on rlimit/ulimit)"""
   def __init__(self):
     super(Rlimit,
-          self).__init__("rlimit", gdb.COMMAND_STATUS)
+          self).__init__("rlimit", gdb.COMMAND_USER)
     self.dont_repeat()
   def invoke(self, dummy_args, from_tty):
     if getpid() == 0:
@@ -577,7 +593,7 @@ class Signals(gdb.Command):
   """signals (info from /proc/self/status: SigPnd, SigBlk, SigIgn, SigCgt)"""
   def __init__(self):
     super(Signals,
-          self).__init__("signals", gdb.COMMAND_STATUS)
+          self).__init__("signals", gdb.COMMAND_USER)
     self.dont_repeat()
   def invoke(self, dummy_args, from_tty):
     if getpid() == 0:
