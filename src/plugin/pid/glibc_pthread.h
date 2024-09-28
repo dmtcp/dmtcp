@@ -81,7 +81,7 @@
  */
 
 /* NOTE:  For future reference, the STATIC_TLS_TID_OFFSET() for a glibc version
- *  can be easily discvoered as long as a debug version of glibc is present:
+ *  can be easily discovered as long as a debug version of glibc is present:
  *  (gdb) p (char *)&(((struct pthread *)pthread_self())->tid) - \
  *                                                      (char *)pthread_self()
  *  $14 = 720  # So, 720 is the correct offset in this example.

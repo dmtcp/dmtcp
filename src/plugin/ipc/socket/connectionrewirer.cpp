@@ -178,7 +178,7 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     // socket address of the restoreSocket object (line 181). Unfortunately,
     // the jalib::JServerSocket class does not provide any interface that can
     // allow us to access the socket address being used by the socket. So,
-    // sockAddr is introducted to create the JServerSock and also to initialize
+    // sockAddr is introduced to create the JServerSock and also to initialize
     // _ip4RestoreAddr later.
     jalib::JSockAddr sockAddr(jalib::JSockAddr::ANY);
     jalib::JServerSocket restoreSocket(sockAddr, 0);

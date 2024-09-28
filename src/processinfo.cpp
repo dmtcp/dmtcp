@@ -231,7 +231,7 @@ ProcessInfo::growStack()
       stackArea = area;
       _endOfStack = (uintptr_t) area.endAddr;
       /*
-       * When using Matlab with dmtcp_launch, sometimes the bottom most
+       * When using Matlab with dmtcp_launch, sometimes the bottommost
        * page of stack (the page with highest address) which contains the
        * environment strings and the argv[] was not shown in /proc/self/maps.
        * This is arguably a bug in the Linux kernel as of version 2.6.32, etc.
@@ -247,7 +247,7 @@ ProcessInfo::growStack()
       int ret = mprotect(area.addr + area.size, 0x1000,
                          PROT_READ | PROT_WRITE | PROT_EXEC);
       if (ret == 0) {
-        JTRACE("bottom-most page of stack (page with highest address) was"
+        JTRACE("bottommost page of stack (page with highest address) was"
                " invisible in /proc/self/maps. It is made visible again now.");
       }
     }
