@@ -104,7 +104,7 @@ dlopen_try_paths(const char *filename, int flag, string path)
  * dlsym/dlopen/dlclose make a call to calloc() internally. We do not want to
  * checkpoint while we are in the midst of dlopen etc. as it can lead to
  * undesired behavior. To do so, we use WRAPPER_EXECUTION_DISABLE_CKPT() at the
- * beginning of the funtion. However, if a checkpoint request is received right
+ * beginning of the function. However, if a checkpoint request is received right
  * after WRAPPER_EXECUTION_DISABLE_CKPT(), the ckpt-thread is queued for wrlock
  * on the pthread-rwlock and any subsequent request for rdlock by other threads
  * will have to wait until the ckpt-thread releases the lock. However, in this

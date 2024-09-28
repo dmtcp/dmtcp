@@ -340,7 +340,6 @@ mtcp_writememoryareas(int fd)
       writeAreaHeader(fd, &area);
       continue;
     } else if (Util::isIBShmArea(area)) {
-      // TODO(kapil) Add dmtcp_skip_memory_region_ckpting to IB plugin.
       continue;
     } else if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
       /* Deleted File */
@@ -352,8 +351,8 @@ mtcp_writememoryareas(int fd)
 
     /* If the area didn't have read permissions, add it temporarily.
      *
-     * NOTE: Changing the permission here can results in two adjacent memory
-     * areas to become one (merged), if they have similar permissions. This can
+     * NOTE: Changing the permission here can result in two adjacent memory
+     * areas becoming one (merged), if they have similar permissions. This can
      * results in a modified /proc/self/maps file. We shouldn't get affected by
      * the changes because we are going to remove the PROT_READ later in the
      * code and that should reset the /proc/self/maps files to its original
