@@ -83,6 +83,7 @@ jassert_internal::JAssert::JAssert(JAssertType type)
 jassert_internal::JAssert::~JAssert()
 {
   if (_type != JAssertType::Error) {
+    Print(clearEscapeStr);
     writeToConsole(ss.str().c_str());
     writeToLog(ss.str().c_str());
     return;
