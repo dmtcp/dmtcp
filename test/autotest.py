@@ -506,12 +506,12 @@ def getStatus():
   for line in output:
       line=str(line.strip().decode("ascii"))
 
-      m = re.search('NUM_PEERS=(\d+)', line)
+      m = re.search('NUM_PEERS=(\\d+)', line)
       if m != None:
         peers = int(m.group(1))
         continue
 
-      m = re.search('RUNNING=(\w+)', line)
+      m = re.search('RUNNING=(\\w+)', line)
       if m != None:
         running = m.group(1)
         break
@@ -1240,8 +1240,8 @@ if HAS_OPENMPI == "yes":
               ' sleep 1 &&'
               ' ps auxw | grep $USER | grep -v grep | grep -q orted &&'
               ' touch ./uses_openmpi_orted" 2>/dev/null')
-    os.system("/bin/kill -9 `ps -eo pid,args | grep test_openmpi |" +
-              " sed -e 's%\([0-9]\) .*$%\1%'` 2>/dev/null")
+    os.system(r"/bin/kill -9 `ps -eo pid,args | grep test_openmpi |" +
+              r" sed -e 's%\([0-9]\) .*$%\1%'` 2>/dev/null")
     if os.path.exists('./uses_openmpi_orted'):
       os.system('rm -f ./uses_openmpi_orted')
       USES_OPENMPI_ORTED = "yes"
