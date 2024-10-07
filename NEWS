@@ -3,6 +3,12 @@ DMTCP NEWS -- history of user-visible changes.
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>,
 or "Issues" at https://github.com/dmtcp/dmtcp .
 
+Version 3.1.1 release notes (Oct. 8, 2024)
+============================================
+This minor release contains:
+ * an important bug fix, affecting ARM64 (__aarch64__)
+and other minor commits.
+
 Version 3.1.0 release notes (Sept. 30, 2024)
 ============================================
 This long delayed release now provides support for x86_64, aarch64, risc-v.

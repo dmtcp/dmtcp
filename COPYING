@@ -13,7 +13,7 @@ A copy of the LGPL license is contained in the COPYING.LESSER file.
 The file include/dmtcp.h is released under MIT/BSD dual license. The user is
 allowed to use these files under either license.
 
-Files found in the directory src are Copyright (C) 2006-2014 by Jason
+Files found in the directory src are Copyright (C) 2006-2024 by Jason
 Ansel, Kapil Arya, and Gene Cooperman, except:
 - files src/trampolines.* are Copyright (C) 2006-2013 by Tyler Denniston, and
   Kapil Arya
@@ -21,6 +21,8 @@ Ansel, Kapil Arya, and Gene Cooperman, except:
   Gene Cooperman and Rohan Garg.
 
 Files src/mtcp/mtcp_sys.h and src/mtcp/mtcp_util.ic are Copyright (C) 2006-2014 by Michael Rieker, Gene Cooperman, and Kapil Arya.
+
+The file util/gdb-dmtcp-utils.py is Copyright (C) 2023-2044 by Gene Cooperman.
 
 Files found in the directory src/jalib are Copyright (C) 2005-2008 by Jason Ansel.
 
