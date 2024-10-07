@@ -345,11 +345,16 @@ jalib::JFixedAllocStack<1024> *lvl3;
 jalib::JFixedAllocStack<4096> *lvl4;
 jalib::JFixedAllocStack<4 * 4096> *lvl5;
 
-static char lvl1StorageBuffer[sizeof(jalib::JFixedAllocStack<64>)];
-static char lvl2StorageBuffer[sizeof(jalib::JFixedAllocStack<256>)];
-static char lvl3StorageBuffer[sizeof(jalib::JFixedAllocStack<1024>)];
-static char lvl4StorageBuffer[sizeof(jalib::JFixedAllocStack<4096>)];
-static char lvl5StorageBuffer[sizeof(jalib::JFixedAllocStack<4 * 4096>)];
+static char lvl1StorageBuffer[sizeof(jalib::JFixedAllocStack<64>)]
+  __attribute__ ((aligned (16)));
+static char lvl2StorageBuffer[sizeof(jalib::JFixedAllocStack<256>)]
+  __attribute__ ((aligned (16)));
+static char lvl3StorageBuffer[sizeof(jalib::JFixedAllocStack<1024>)]
+  __attribute__ ((aligned (16)));
+static char lvl4StorageBuffer[sizeof(jalib::JFixedAllocStack<4096>)]
+  __attribute__ ((aligned (16)));
+static char lvl5StorageBuffer[sizeof(jalib::JFixedAllocStack<4 * 4096>)]
+  __attribute__ ((aligned (16)));
 
 void
 jalib::JAllocDispatcher::initialize(void)
