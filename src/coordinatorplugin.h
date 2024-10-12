@@ -39,7 +39,7 @@ class CoordinatorPlugin
     virtual void resumeAfterCkpt(ComputationStatus const& status) {}
     virtual void resumeAfterRestart(ComputationStatus const& status) {}
     virtual void userCmd(DmtcpMessage const& msg, ComputationStatus status, DmtcpMessage *reply) {}
-    virtual void clientConnected(CoordClient *client, ComputationStatus status) {}
+    virtual void clientConnected(CoordClient *client, DmtcpMessage const& msg, ComputationStatus status) {}
     virtual void clientDisconnected(CoordClient *client, ComputationStatus status) {}
 
     // virtual void startCkpt() {}
@@ -78,6 +78,7 @@ class CkptIntervalManager : public CoordinatorPlugin
         nextCkptTimeout = {0, 0};
       } else if (theCheckpointInterval > 0) {
         nextCkptTimeout.tv_sec = status.timestamp.tv_sec + theCheckpointInterval;
+        JNOTE("Time before next ckpt") (theCheckpointInterval);
       }
     }
 
@@ -103,6 +104,7 @@ class CkptIntervalManager : public CoordinatorPlugin
 
       if (nextCkptTimeout.tv_sec != 0 && status.timestamp.tv_sec > nextCkptTimeout.tv_sec) {
         nextCkptTimeout.tv_sec = 0;
+        JTRACE("Next ckpt timeout expired; triggering ckpt");
         DmtcpCoordinator::queueCheckpoint();
       }
     }
@@ -137,8 +139,12 @@ class CkptIntervalManager : public CoordinatorPlugin
       }
     };
 
-    virtual void clientConnected(CoordClient *client, ComputationStatus status) override
+    virtual void clientConnected(CoordClient *client, DmtcpMessage const& msg, ComputationStatus status) override
     {
+      if (msg.theCheckpointInterval != -1) {
+        theCheckpointInterval = msg.theCheckpointInterval;
+      }
+
       if (status.numPeers == 1 && (client->state() == WorkerState::UNKNOWN || client->state() == WorkerState::RUNNING)) {
         resetCkptTimer(status);
       }
@@ -170,10 +176,14 @@ class StaleTimeoutManager : public CoordinatorPlugin
     uint32_t theStaleTimeout;
 
     StaleTimeoutManager(CoordFlags flags)
-    : theDefaultStaleTimeout(8 * 60 * 60),
-      theStaleTimeout(8 * 60 * 60)
+    : theDefaultStaleTimeout(8 * 60 * 60)
     {
-      theStaleTimeout = flags.staleTimeout;
+      if (flags.staleTimeout != 0) {
+        theStaleTimeout = flags.staleTimeout;
+      } else {
+        theStaleTimeout = theDefaultStaleTimeout;
+      }
+
       stopTime = {0, 0};
     }
 
@@ -184,12 +194,21 @@ class StaleTimeoutManager : public CoordinatorPlugin
 
     virtual void tick(ComputationStatus const &status)
     {
-      if (stopTime.tv_sec != 0 && status.timestamp.tv_sec > stopTime.tv_sec && status.numPeers == 0) {
-        JNOTE("*** dmtcp_coordinator:  --stale-timeout timed out") (theStaleTimeout);
-        exit(1);
+      if (status.numPeers > 0) {
+        stopTime.tv_sec = 0;
+        return;
       }
 
-      stopTime.tv_sec = status.timestamp.tv_sec + theStaleTimeout;
+      if (theStaleTimeout != 0 && stopTime.tv_sec == 0) {
+        // Set stop time.
+        stopTime.tv_sec = status.timestamp.tv_sec + theStaleTimeout;
+        JNOTE("No active clients; starting stale timeout")(theStaleTimeout);
+      }
+
+      if (stopTime.tv_sec != 0 && status.timestamp.tv_sec > stopTime.tv_sec) {
+        JNOTE("*** dmtcp_coordinator:  --stale-timeout timed out") (stopTime.tv_sec) (theStaleTimeout);
+        exit(1);
+      }
     }
 };
 
@@ -208,6 +227,8 @@ class TimeoutManager : public CoordinatorPlugin
     virtual void tick(ComputationStatus const &status)
     {
       if (theTimeout != 0 && stopTime.tv_sec == 0) {
+        // initialization is done here to ensure we have the correct timestamp
+        // from status.
         stopTime.tv_sec = status.timestamp.tv_sec + theTimeout;
       }
 
@@ -223,9 +244,13 @@ class CoordPluginMgr
   public:
     static void initialize(CoordFlags const& flags)
     {
-      plugins.push_back(new StaleTimeoutManager(flags));
-      plugins.push_back(new TimeoutManager(flags));
-      plugins.push_back(new CkptIntervalManager(flags));
+      staleTimeoutManager = new StaleTimeoutManager(flags);
+      timeoutManager = new TimeoutManager(flags);
+      ckptIntervalManager = new CkptIntervalManager(flags);
+
+      plugins.push_back(staleTimeoutManager);
+      plugins.push_back(timeoutManager);
+      plugins.push_back(ckptIntervalManager);
     }
 
     static void tick(ComputationStatus const& status)
@@ -242,10 +267,24 @@ class CoordPluginMgr
       }
     }
 
-    static void clientConnected(CoordClient *client, ComputationStatus status)
+    static void clientConnected(CoordClient *client, DmtcpMessage const& msg, ComputationStatus status)
     {
       for (CoordinatorPlugin *plugin : plugins) {
-        plugin->clientConnected(client, status);
+        plugin->clientConnected(client, msg, status);
+      }
+    }
+
+    static void resumeAfterCkpt(ComputationStatus const& status)
+    {
+      for (CoordinatorPlugin *plugin : plugins) {
+        plugin->resumeAfterCkpt(status);
+      }
+    }
+
+    static void resumeAfterRestart(ComputationStatus const& status)
+    {
+      for (CoordinatorPlugin *plugin : plugins) {
+        plugin->resumeAfterRestart(status);
       }
     }
 
@@ -255,6 +294,17 @@ class CoordPluginMgr
         plugin->writeStatusToStream(o);
       }
     }
+
+  public:
+    // Defined in dmtcp_coordinator.cpp.
+    // These variables are needed until we can further refactor the coordinator
+    // code to strip out state related to these plugins (e.g., ckpt interval).
+    // Once the plugin-specific state is completely removed from the rest of the
+    // coordinator logic, we can have these variables local to the plugin
+    // manager.
+    static StaleTimeoutManager *staleTimeoutManager;
+    static TimeoutManager *timeoutManager;
+    static CkptIntervalManager *ckptIntervalManager;
 
   private:
     static vector<CoordinatorPlugin*> plugins;
