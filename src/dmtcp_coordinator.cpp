@@ -216,6 +216,9 @@ static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
 static int theNextClientNumber = 1;
 vector<CoordClient *>clients; // Default constructor sets 'size() == 0'
 vector<CoordinatorPlugin*> CoordPluginMgr::plugins;
+StaleTimeoutManager *CoordPluginMgr::staleTimeoutManager;
+TimeoutManager *CoordPluginMgr::timeoutManager;
+CkptIntervalManager *CoordPluginMgr::ckptIntervalManager;
 
 static inline void
 ltrim(string &s)
@@ -363,8 +366,7 @@ DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
     if (reply != NULL) {
       reply->numPeers = s.numPeers;
       reply->isRunning = running;
-      // FIXME
-      //reply->theCheckpointInterval = flags.theCheckpointInterval;
+      reply->theCheckpointInterval = CoordPluginMgr::ckptIntervalManager->theCheckpointInterval;
     } else {
       printStatus(s.numPeers, running);
     }
@@ -543,15 +545,16 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 
   if (_numRestartFilenames == _numCkptWorkers) {
     const string restartScriptPath =
-      RestartScript::writeScript(flags.ckptDir,
-                                 uniqueCkptFilenames,
-                                 ckptTimeStamp,
-                                 0, //FIXME flags.theCheckpointInterval,
-                                 flags.thePort,
-                                 compId,
-                                 _restartFilenames,
-                                 _rshCmdFileNames,
-                                 _sshCmdFileNames);
+      RestartScript::writeScript(
+        flags.ckptDir,
+        uniqueCkptFilenames,
+        ckptTimeStamp,
+        CoordPluginMgr::ckptIntervalManager->theCheckpointInterval,
+        flags.thePort,
+        compId,
+        _restartFilenames,
+        _rshCmdFileNames,
+        _sshCmdFileNames);
 
     JNOTE("Checkpoint complete. Wrote restart script") (restartScriptPath);
 
@@ -614,15 +617,19 @@ DmtcpCoordinator::onData(CoordClient *client)
 
     client->setBarrier("");
 
-    // A worker is switching from RESTARTING, stop restart timer.
-    // Multiple calls are harmless.
-    if (prevClientState == WorkerState::RESTARTING) {
-      ComputationStatus s = getStatus();
-      if (s.minimumStateUnanimous && s.minimumState == WorkerState::RUNNING) {
-        JTIMER_STOP(restart);
-        recordEvent("Restart-Complete");
-        serializeKVDB();
-      }
+    ComputationStatus s = getStatus();
+
+    if (s.minimumStateUnanimous && s.minimumState == WorkerState::RUNNING) {
+      // A worker is switching from RESTARTING, stop restart timer.
+      // Multiple calls are harmless.
+      if (prevClientState == WorkerState::RESTARTING) {
+          JTIMER_STOP(restart);
+          recordEvent("Restart-Complete");
+          serializeKVDB();
+          CoordPluginMgr::resumeAfterRestart(s);
+        } else {
+          CoordPluginMgr::resumeAfterCkpt(s);
+        }
     }
 
     break;
@@ -915,7 +922,7 @@ DmtcpCoordinator::onConnect()
   addDataSocket(client);
 
   ComputationStatus status = getStatus();
-  CoordPluginMgr::clientConnected(client, status);
+  CoordPluginMgr::clientConnected(client, hello_remote, status);
 }
 
 void
@@ -1433,14 +1440,14 @@ DmtcpCoordinator::eventLoop()
     // has expired.
     int nfds;
     do {
-      nfds = epoll_wait(epollFd, events, MAX_EVENTS, -1);
-      if (nfds == -1 && errno == EINTR) {
+      nfds = epoll_wait(epollFd, events, MAX_EVENTS, 1000);
+      if (nfds >= 0) {
+        // Epoll either returned due to activity on one of the client sockets,
+        // or timeout. In either case, we want to trigger a tick() for plugins.
+        // The plugins can use status.timestamp to handle timeouts, etc.
         ComputationStatus s = getStatus();
+        clearPrompt();
         CoordPluginMgr::tick(s);
-        if (checkpointQueued) {
-          checkpointQueued = false;
-          startCheckpoint();
-        }
       }
     } while (nfds < 0 && errno == EINTR);
 
@@ -1488,6 +1495,11 @@ DmtcpCoordinator::eventLoop()
           onData((CoordClient *)ptr);
         }
       }
+    }
+
+    if (checkpointQueued) {
+      checkpointQueued = false;
+      startCheckpoint();
     }
   }
 }
