@@ -44,6 +44,7 @@ void threadIsDead(Thread *thread);
 void emptyFreeList();
 
 void suspendThreads();
+void waitForExitingThreads();
 void resumeThreads();
 
 void vforkSuspendThreads();
