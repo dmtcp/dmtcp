@@ -39,6 +39,7 @@ namespace DmtcpWorker
   void acknowledgeSuspendMsg();
 
   void waitForCheckpointRequest();
+  void releaseLocks();
   void preCheckpoint();
   void postCheckpoint();
   void postRestart(double ckptReadTime = 0.0);

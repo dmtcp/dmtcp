@@ -390,7 +390,7 @@ DmtcpWorker::waitForCheckpointRequest()
 
 // now user threads are stopped
 void
-DmtcpWorker::preCheckpoint()
+DmtcpWorker::releaseLocks()
 {
   JTRACE("Threads suspended");
   WorkerState::setCurrentState(WorkerState::SUSPENDED);
@@ -404,7 +404,12 @@ DmtcpWorker::preCheckpoint()
     ThreadList::resumeThreads();
     ckptThreadPerformExit();
   }
+}
 
+// now user threads are stopped
+void
+DmtcpWorker::preCheckpoint()
+{
   // Update generation, in case user callback calls dmtcp_get_generation().
   uint32_t computationGeneration =
     SharedData::getCompId()._computation_generation;

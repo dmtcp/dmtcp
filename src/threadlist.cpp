@@ -430,6 +430,11 @@ checkpointhread(void *dummy)
 
     ThreadList::suspendThreads();
 
+    JTRACE("Release locks and wait for exiting threads to die.");
+    DmtcpWorker::releaseLocks();
+
+    ThreadList::waitForExitingThreads();
+
     JTRACE("Prepare plugin, etc. for checkpoint");
     DmtcpWorker::preCheckpoint();
 
@@ -475,6 +480,10 @@ ThreadList::suspendThreads()
       next = thread->next;
 
       if (thread == curThread) {
+        continue;
+      }
+
+      if (thread->exiting == 1) {
         continue;
       }
 
@@ -532,6 +541,31 @@ ThreadList::suspendThreads()
 
   JASSERT(activeThreads != NULL);
   JTRACE("everything suspended") (numUserThreads);
+}
+
+void ThreadList::waitForExitingThreads()
+{
+  int needsRescan = 0;
+  do {
+    Thread *next;
+    needsRescan = 0;
+
+    for (Thread *thread = activeThreads; thread != NULL; thread = next) {
+      next = thread->next;
+      if (thread->exiting) {
+        if (THREAD_TGKILL(motherpid, thread->tid, 0) == -1 && errno == ESRCH) {
+          // Thread exited. Let's remove it from the list.
+          ThreadList::threadIsDead(thread);
+        } else {
+          needsRescan = 1;
+        }
+      }
+    }
+
+    if (needsRescan) {
+      usleep(1000);
+    }
+  } while (needsRescan);
 }
 
 void ThreadList::vforkSuspendThreads()
