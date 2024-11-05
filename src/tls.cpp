@@ -172,11 +172,6 @@ TLSInfo_GetTidOffset(void)
 
 //FIXME:Define offset for __aarch64__
 
-#ifdef __riscv
-  offset = 192;
-  return offset;
-#endif
-
   if (glibcMinorVersion() >= 10) {
     offset = 26 * sizeof(void *);  // sizeof(__padding) + sizeof(list_t)
   } else {
@@ -364,13 +359,13 @@ tls_get_thread_area(Thread *thread)
 {
   unsigned long int addr;
   asm volatile ("addi %0, tp, 0" : "=r" (addr));
-  thread->tlsInfo.tlsAddr = addr - 1856;  // sizeof(struct pthread)=1856
+  thread->tlsInfo.tlsAddr = addr;
 }
 
 static void
 tls_set_thread_area(Thread *thread)
 {
-  unsigned long int addr = thread->tlsInfo.tlsAddr + 1856;
+  unsigned long int addr = thread->tlsInfo.tlsAddr;
   asm volatile("addi tp, %[gs], 0" : : [gs] "r" (addr));
 }
 #endif  /* end __riscv */
