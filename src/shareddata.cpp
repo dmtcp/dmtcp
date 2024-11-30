@@ -184,8 +184,8 @@ SharedData::initialize(const char *tmpDir,
   }
 
   size_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
-  void *addr = mmap((void *)sharedDataHeader, size,
-                    PROT_READ | PROT_WRITE, MAP_SHARED,
+  void *addr = mmap((void *)0x20000000, size,
+                    PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED,
                     PROTECTED_SHM_FD, 0);
   JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO)
   .Text("Unable to find shared area.");
