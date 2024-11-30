@@ -178,6 +178,9 @@ static bool enableLibDMTCP = true;
 // PID plugin must come last.
 static bool enablePIDPlugin = true;
 
+// Kernel loader for MANA
+static bool enableKernelLoader = false;
+
 struct PluginInfo {
   bool *enabled;
   const char *lib;
@@ -312,6 +315,7 @@ processArgs(int *orig_argc, const char ***orig_argv)
       setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
       shift;
     } else if (s == "--mpi") {
+      enableKernelLoader = true;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
       personality(ADDR_NO_RANDOMIZE);
 #endif
@@ -817,7 +821,11 @@ setLDPreloadLibs(bool is32bitElf)
 #endif // if defined(__x86_64__) || defined(__aarch64__)
   }
 
-  setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
+  if (enableKernelLoader) {
+    setenv("UH_PRELOAD", preloadLibs.c_str(), 1);
+  } else {
+    setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
+  }
 #if defined(__x86_64__) || defined(__aarch64__)
   if (is32bitElf) {
     string libdmtcp = Util::getPath("libdmtcp.so", true);
@@ -829,6 +837,11 @@ setLDPreloadLibs(bool is32bitElf)
           "make install\n"
           "  ./configure && make clean && make -j && make install\n");
     setenv("LD_PRELOAD", preloadLibs32.c_str(), 1);
+    if (enableKernelLoader) {
+      setenv("UH_PRELOAD", preloadLibs.c_str(), 1);
+    } else {
+      setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
+    }
   }
 #endif // if defined(__x86_64__) || defined(__aarch64__)
   JTRACE("getting value of LD_PRELOAD")
