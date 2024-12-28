@@ -78,7 +78,7 @@ VirtualPidTable::refresh()
   _do_lock_tbl();
   for (i = _idMapTable.begin(), next = i; i != _idMapTable.end(); i = next) {
     next++;
-    if (isIdCreatedByCurrentProcess(i->second)
+    if (isIdCreatedByCurrentProcess(i->first)
         && _real_tgkill(_real_pid, i->second, 0) == -1) {
       _idMapTable.erase(i);
     }

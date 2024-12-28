@@ -423,6 +423,13 @@ _real_timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
 }
 
 LIB_PRIVATE
+int
+_real_pthread_cancel(pthread_t th)
+{
+  REAL_FUNC_PASSTHROUGH(pthread_cancel) (th);
+}
+
+LIB_PRIVATE
 void
 _real_pthread_exit(void *retval)
 {
