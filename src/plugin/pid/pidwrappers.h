@@ -145,6 +145,7 @@ LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
   MACRO(ioctl)                         \
   MACRO(setgid)                        \
   MACRO(setuid)                        \
+  MACRO(pthread_cancel)                \
   MACRO(pthread_exit)                  \
   MACRO(fcntl)
 
@@ -245,6 +246,7 @@ int _real_ioctl(int d, unsigned long int request, ...) __THROW;
 int _real_setgid(gid_t gid);
 int _real_setuid(uid_t uid);
 
+int _real_pthread_cancel(pthread_t th);
 void _real_pthread_exit(void *retval);
 int _real_fcntl(int fd, int cmd, void *arg);
 

@@ -179,7 +179,77 @@ pthread_kill(pthread_t th, int sig)
   pid_t virtTid = dmtcp_pthread_get_tid(th);
   pid_t realTid = VIRTUAL_TO_REAL_PID(virtTid);
 
-  return _real_tgkill(_dmtcp_pid, realTid, sig);
+  return _real_tgkill(_real_getpid(), realTid, sig);
+}
+
+static inline bool
+cancel_enabled_and_canceled(int value)
+{
+  return (value & (CANCELSTATE_BITMASK | CANCELED_BITMASK | EXITING_BITMASK |
+                   TERMINATED_BITMASK)) == CANCELED_BITMASK;
+}
+
+static inline bool
+cancel_enabled_and_canceled_and_async(int value)
+{
+  return ((value) &
+          (CANCELSTATE_BITMASK | CANCELTYPE_BITMASK | CANCELED_BITMASK |
+           EXITING_BITMASK | TERMINATED_BITMASK)) ==
+         (CANCELTYPE_BITMASK | CANCELED_BITMASK);
+}
+
+extern "C" int
+pthread_cancel (pthread_t th)
+{
+  WrapperLock wrapperLock;
+  int result = 0;
+  pid_t virtTid = dmtcp_pthread_get_tid(th);
+
+  if (virtTid == 0) {
+    return result;
+  }
+
+  // This call is needed to let glibc initialize SIGCANCEL signal handler.
+  result = _real_pthread_cancel(th);
+
+  // Now we update cancelhandling value and send a signal as appropriate.
+
+  int *cancelHandling = dmtcp_pthread_get_cancelhandling_addr(th);
+  int oldval = *cancelHandling;
+  int newval;
+
+  do {
+    newval = oldval | CANCELING_BITMASK | CANCELED_BITMASK;
+    if (oldval == newval)
+      break;
+
+    /* If the cancellation is handled asynchronously just send a
+       signal.  We avoid this if possible since it's more
+       expensive.  */
+    if (cancel_enabled_and_canceled_and_async(newval)) {
+      /* Mark the cancellation as "in progress".  */
+      int newval2 = oldval | CANCELING_BITMASK;
+      if (!__atomic_compare_exchange(cancelHandling, &oldval, &newval2, 0,
+                                     __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+        continue;
+      }
+
+      /* The cancellation handler will take care of marking the
+         thread as canceled.  */
+      pid_t realTid = VIRTUAL_TO_REAL_PID(virtTid);
+
+      result = 0;
+      if (_real_tgkill(_real_getpid(), realTid, SIGCANCEL) == -1) {
+        return ESRCH;
+      }
+
+      break;
+    }
+
+  } while (!__atomic_compare_exchange(cancelHandling, &oldval, &newval, 0,
+                                      __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST));
+
+  return result;
 }
 #endif // #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
 

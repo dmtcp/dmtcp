@@ -102,6 +102,25 @@
 #define ATTR_FLAG_POLICY_SET 0x0040
 #define ATTR_FLAG_DO_RSEQ 0x0080
 
+/* Bit set if cancellation is disabled.  */
+#define CANCELSTATE_BIT 0
+#define CANCELSTATE_BITMASK (1 << CANCELSTATE_BIT)
+/* Bit set if asynchronous cancellation mode is selected.  */
+#define CANCELTYPE_BIT 1
+#define CANCELTYPE_BITMASK (1 << CANCELTYPE_BIT)
+/* Bit set if canceling has been initiated.  */
+#define CANCELING_BIT 2
+#define CANCELING_BITMASK (1 << CANCELING_BIT)
+/* Bit set if canceled.  */
+#define CANCELED_BIT 3
+#define CANCELED_BITMASK (1 << CANCELED_BIT)
+/* Bit set if thread is exiting.  */
+#define EXITING_BIT 4
+#define EXITING_BITMASK (1 << EXITING_BIT)
+/* Bit set if thread terminated and TCB is freed.  */
+#define TERMINATED_BIT 5
+#define TERMINATED_BITMASK (1 << TERMINATED_BIT)
+
 // TODO(kapil): Add dynamic check for this.
 #define _STACK_GROWS_DOWN 1
 
@@ -401,6 +420,8 @@ pid_t *dmtcp_pthread_get_tid_addr(pthread_t th);
 
 pid_t dmtcp_pthread_get_tid(pthread_t th);
 void dmtcp_pthread_set_tid(pthread_t th, pid_t tid);
+
+int *dmtcp_pthread_get_cancelhandling_addr(pthread_t th);
 
 int dmtcp_pthread_get_flags(pthread_t th);
 void dmtcp_pthread_set_flags(pthread_t th, int flags);

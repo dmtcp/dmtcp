@@ -154,6 +154,13 @@ dmtcp_pthread_set_tid(pthread_t th, pid_t tid)
   *th_addr.tid = tid;
 }
 
+int *
+dmtcp_pthread_get_cancelhandling_addr(pthread_t th)
+{
+  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
+  return th_addr.cancelhandling;
+}
+
 int
 dmtcp_pthread_get_flags(pthread_t th)
 {
