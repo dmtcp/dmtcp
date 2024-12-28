@@ -129,6 +129,9 @@ class VirtualIdTable
       bool res = false;
 
       _do_lock_tbl();
+      // TODO(kapil): _idMapTable contains not only ids created by this process,
+      // but also other ids that are created by other processes. This function
+      // shouldn't consider the latter ids.
       if (_idMapTable.size() < _max) {
         size_t count = 0;
         while (1) {

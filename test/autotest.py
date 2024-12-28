@@ -970,6 +970,7 @@ runTest("pthread3",      1, ["./test/pthread2 80"])
 
 runTest("pthread4",      1, ["./test/pthread4"])
 runTest("pthread5",      1, ["./test/pthread5"])
+runTest("pthread6",      1, ["./test/pthread6"])
 S=DEFAULT_S
 
 runTest("mutex1",        1, ["./test/mutex1"])
