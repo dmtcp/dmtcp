@@ -179,7 +179,25 @@ pthread_kill(pthread_t th, int sig)
   pid_t virtTid = dmtcp_pthread_get_tid(th);
   pid_t realTid = VIRTUAL_TO_REAL_PID(virtTid);
 
-  return _real_tgkill(_dmtcp_pid, realTid, sig);
+  return _real_tgkill(_real_getpid(), realTid, sig);
+}
+
+extern "C" int
+pthread_cancel (pthread_t th)
+{
+  int result = _real_pthread_cancel(th);
+
+  if (th != pthread_self() && result == ESRCH) {
+    pid_t virtTid = dmtcp_pthread_get_tid(th);
+    pid_t realTid = VIRTUAL_TO_REAL_PID(virtTid);
+
+    result = 0;
+    if (_real_tgkill(_real_getpid(), realTid, SIGCANCEL) == -1) {
+      return ESRCH;
+    }
+  }
+
+  return result;
 }
 #endif // #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
 
