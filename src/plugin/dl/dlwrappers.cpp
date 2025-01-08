@@ -136,6 +136,7 @@ dlopen_try_paths(const char *filename, int flag, string path)
 extern "C"
 void *dlopen(const char *filename, int flag)
 {
+  // TODO(kapil): Replace with scoped lock once we have it.
   bool lockAcquired = dmtcp_libdlLockLock();
   string rpath;
   string runpath;
@@ -143,8 +144,10 @@ void *dlopen(const char *filename, int flag)
 
   getRpathRunPath(__builtin_return_address(0), &rpath, &runpath);
 
-  // 1. Attempt dlopen using RPATH.
-  if (!rpath.empty()) {
+  // 1. We call libc dlopen:
+  //    * if filename is null. The user just wants a handle to the main program.
+  //    * if RPATH exists. We let libc handle RPATH when locating the file.
+  if (filename == NULL || !rpath.empty()) {
     ret = _real_dlopen(filename, flag);
   }
 
