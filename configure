@@ -695,6 +695,7 @@ ARM_HOST_TRUE
 X86_64_HOST
 X86_64_HOST_FALSE
 X86_64_HOST_TRUE
+MTCP_FIXED_TEXTADDR
 MULTILIB
 CONFIG_MULTILIB_FALSE
 CONFIG_MULTILIB_TRUE
@@ -852,6 +853,7 @@ enable_m32
 enable_multilib
 enable_static_libstdcxx
 enable_dlsym_wrapper
+enable_mtcp_fixed_textaddr
 with_mpich
 '
       ac_precious_vars='build_alias
@@ -1548,6 +1550,12 @@ Optional Features:
                           correctly on earlier distros.)
   --disable-dlsym-wrapper disables dlsym wrappers to avoid incompatibility
                           with RTLD_NEXT.
+  --enable-mtcp-fixed-textaddr
+                          Loads mtcp_restart at a fixed text addr, as required
+                          by MANA. WARNING: In some cases, the heap assigned
+                          by the kernel is at a lower address than this
+                          mtcp_restart fixed address, causing sbrk calls to
+                          fail when they attempt to shrink heap.
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -8295,6 +8303,21 @@ fi
 if test "$use_dlsym_wrapper" = "yes"; then
 
 printf "%s\n" "#define ENABLE_DLSYM_WRAPPER 1" >>confdefs.h
+
+fi
+
+# Check whether --enable-mtcp_fixed_textaddr was given.
+if test ${enable_mtcp_fixed_textaddr+y}
+then :
+  enableval=$enable_mtcp_fixed_textaddr; mtcp_fixed_textaddr=$enableval
+else case e in #(
+  e) mtcp_fixed_textaddr=no ;;
+esac
+fi
+
+
+if test "$mtcp_fixed_textaddr" = "yes"; then
+  MTCP_FIXED_TEXTADDR=1
 
 fi
 

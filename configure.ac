@@ -389,6 +389,21 @@ if test "$use_dlsym_wrapper" = "yes"; then
   AC_DEFINE([ENABLE_DLSYM_WRAPPER],[1],[Enable dlsym wrapper in libdmtcp.so])
 fi
 
+AC_ARG_ENABLE([mtcp_fixed_textaddr],
+            [AS_HELP_STRING([--enable-mtcp-fixed-textaddr],
+                            [Loads mtcp_restart at a fixed text addr, as
+                             required by MANA.  WARNING:   In some cases,
+                             the heap assigned by the kernel is at a lower
+                             address than this mtcp_restart fixed address,
+                             causing sbrk calls to fail when they attempt to
+                             shrink heap.])],
+            [mtcp_fixed_textaddr=$enableval],
+            [mtcp_fixed_textaddr=no])
+
+if test "$mtcp_fixed_textaddr" = "yes"; then
+  AC_SUBST([MTCP_FIXED_TEXTADDR], [1])
+fi
+
 #AC_ARG_ENABLE([allocator],
 #            [AS_HELP_STRING([--enable-allocator],
 #                            [cause DMTCP to use a custom allocator based on mmap
