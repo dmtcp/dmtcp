@@ -1,5 +1,6 @@
 CC = @CC@
 M32=@M32@
+MTCP_FIXED_TEXTADDR=@MTCP_FIXED_TEXTADDR@
 CFLAGS = @CFLAGS@
 # Why do we define C preprocessor flags?  If we're not using them,
 #   then declaring them reduces the readability for a person.
@@ -88,10 +89,12 @@ default: build
 libs: build
 build: $(targetdir)/bin/$(MTCP_RESTART)
 
+ifeq ($(MTCP_FIXED_TEXTADDR),1)
 # TODO(kapil): Check if -Ttext-segment value is appropriate for x86.
 # The other sections (bss, rodata, etc.) will follow immediately after text.
 # A 2MB hugepage is 0x200000.  Addresses must be a multiple of 0x200000.
 LINKER_FLAGS= -Wl,-Ttext-segment=11200000 #-Wl,-Trodata-segment=445000000
+endif
 
 libmtcprestart.a: $(OBJS)
 	$(AR) rcs $@ $^
