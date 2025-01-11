@@ -38,6 +38,7 @@
 
 namespace dmtcp
 {
+extern "C" bool dmtcp_initialized;
 
 static bool
 isValidAddress(const char *path)
@@ -165,6 +166,7 @@ dmtcp_openat(int dirfd, const char *path, int flags, mode_t mode)
 extern "C" int
 open(const char *path, int flags, ...)
 {
+
   mode_t mode = 0;
 
   if (flags & O_CREAT) {
@@ -174,7 +176,11 @@ open(const char *path, int flags, ...)
     va_end(arg);
   }
 
-  return dmtcp_openat(AT_FDCWD, path, flags, mode);
+  if (!dmtcp_is_running_state()) {
+    return _real_open(path, flags, mode);
+  } else {
+    return dmtcp_openat(AT_FDCWD, path, flags, mode);
+  }
 }
 
 
@@ -220,6 +226,10 @@ __open64_2(const char *path, int flags)
 extern "C" FILE *
 fopen(const char *path, const char *mode)
 {
+  if (!dmtcp_initialized) {
+    return _real_fopen(path, mode);
+  }
+
   WrapperLock wrapperLock;
 
   char realPath[PATH_MAX] = { 0 };
@@ -360,6 +370,9 @@ creat64(const char *path, mode_t mode)
 extern "C" int
 close(int fd)
 {
+  if (!dmtcp_is_running_state()) {
+    return _real_close(fd);
+  }
   WrapperLock wrapperLock;
 
   if (dmtcp_is_protected_fd(fd)) {
@@ -574,6 +587,10 @@ mkostemps(char *ttemplate, int suffixlen, int flags)
 
 extern "C" DIR * opendir(const char *name)
 {
+  if (!dmtcp_initialized) {
+    return _real_opendir(name);
+  }
+
   WrapperLock wrapperLock;
   char realPath[PATH_MAX] = {0};
 
