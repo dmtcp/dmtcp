@@ -118,6 +118,11 @@ typedef union ProcMapsArea {
 
 typedef ProcMapsArea Area;
 
+// The interface of dmtcp_skip_memory_region needs to allow plugins to save
+// part of the examined memory segment, and check the remaining segment in
+// the next iteration. This is required for split-process plugins in case
+// the kernel combines memory segments in the upper and lower half into a
+// single segment.
 EXTERNC int
 dmtcp_skip_memory_region_ckpting(Area *area) __attribute((weak));
 
