@@ -271,6 +271,80 @@ mtcp_writememoryareas(int fd)
       continue;
     }
 
+    if (0 == strcmp(area.name, "[vsyscall]") ||
+        0 == strcmp(area.name, "[vectors]") ||
+        0 == strcmp(area.name, "[vvar]")) {
+      // NOTE: We can't trust kernel's "[vdso]" label here.  See below.
+      JTRACE("skipping over memory special section")
+        (area.name) ((void*)area.addr) (area.size);
+      continue;
+    } else if ((uint64_t) area.addr == ProcessInfo::instance().vdsoStart()) {
+      //  vDSO issue:
+      //    As always, we never want to save the vdso section.  We will use
+      //  the vdso section code provided by the kernel on restart.  Further,
+      //  the user code on restart has already been initialized and so it
+      //  will continue to use the original vdso section determined during
+      //  program launch.  Luckily, during the DMTCP_INIT event, DMTCP recorded
+      //  this vdso address when it called ProcessInfo::instance().init().
+      //    Now, here's the bad news.  During the first restart, the kernel
+      //  may choose to locate the vdso at a new address.  So, in
+      //  src/mtcp/mtcp_restart, DMTCP will mremap the kernel's vdso back
+      //  to the original address known during program launch.  This is as
+      //  it should be.  But when DMTCP does an mremap of vdso, the kernel
+      //  fails to update its own "[vds0]" label.  This is arguable a bug in the
+      //  Linux kernel.  So, during the second checkpoint (after the first
+      //  restart), we can't trust the "[vdso]" label to tell us where the vdso
+      //  section really is.  And it's even worse.  During mtcp_restart, we may
+      //  have done mremap, and there may even now be some user data that was
+      //  restored to the address where the kernel thinks the "[vdso]" label
+      //  belongs.  So, we would be saving the original vdso section (which is
+      //  wrong), and we would be failing to save the user's memory that was
+      //  restored into the location labelled by the kernel's "[vdso]" label.
+      //  This last case is even worse, since we have now failed to restore some
+      //  user data.  This was observed to happen in RHEL 6.6.  The solution is
+      //  to trust DMTCP for the vdso location (as in the if condition above),
+      //  and not to trust the kernel's "[vdso]" label.
+      JTRACE("skipping vDSO special section")
+        (area.name) ((void*)area.addr) (area.size);
+      continue;
+    } else if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
+        Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
+      /* If the process has an area labeled as "/dev/zero (deleted)", we mark
+       *   the area as Anonymous and save the contents to the ckpt image file.
+       * If this area has a MAP_SHARED attribute, it should be replaced with
+       *   MAP_PRIVATE and we won't do any harm because, the /dev/zero file is
+       *   an absolute source and sink. Anything written to it will be
+       *   discarded and anything read from it will be all zeros.
+       * The following call to mmap will create "/dev/zero (deleted)" area
+       *         mmap(addr, size, protection, MAP_SHARED | MAP_ANONYMOUS, 0, 0)
+       *
+       * The above explanation also applies to "/dev/null (deleted)"
+       */
+      JTRACE("saving area as Anonymous") (area.name);
+      area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+      area.name[0] = '\0';
+    } else if (Util::isSysVShmArea(area)) {
+      JTRACE("Saving SysV SHM area as Anonymous") (area.name);
+      area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+      area.name[0] = '\0';
+    } else if (Util::isNscdArea(area)) {
+      /* Special Case Handling: nscd is enabled*/
+      area.prot = PROT_READ | PROT_WRITE;
+      area.properties |= DMTCP_ZERO_PAGE;
+      area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+      writeAreaHeader(fd, &area);
+      continue;
+    } else if (Util::isIBShmArea(area)) {
+      // TODO(kapil) Add dmtcp_skip_memory_region_ckpting to IB plugin.
+      continue;
+    } else if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
+      /* Deleted File */
+    } else if (area.name[0] == '/' && strstr(&area.name[1], "/") != NULL) {
+      /* If an absolute pathname
+       * Posix and SysV shared memory segments can be mapped as /XYZ
+       */
+    }
+
     Area unchecked_area;
     memcpy(&unchecked_area, &area, sizeof(Area));
     int skip = 0;
@@ -281,87 +355,13 @@ mtcp_writememoryareas(int fd)
       }
       if (skip) {
         JTRACE("skipping over memory section as suggested by plugin")
-              (area.name) ((void*)area.addr) (area.size);
+          (area.name) ((void*)area.addr) (area.size);
         break;
       }
 
       unchecked_area.addr = area.endAddr;
       unchecked_area.size = unchecked_area.endAddr - area.endAddr;
-
-      if (0 == strcmp(area.name, "[vsyscall]") ||
-          0 == strcmp(area.name, "[vectors]") ||
-          0 == strcmp(area.name, "[vvar]")) {
-        // NOTE: We can't trust kernel's "[vdso]" label here.  See below.
-        JTRACE("skipping over memory special section")
-          (area.name) ((void*)area.addr) (area.size);
-        continue;
-      } else if ((uint64_t) area.addr == ProcessInfo::instance().vdsoStart()) {
-        //  vDSO issue:
-        //    As always, we never want to save the vdso section.  We will use
-        //  the vdso section code provided by the kernel on restart.  Further,
-        //  the user code on restart has already been initialized and so it
-        //  will continue to use the original vdso section determined during
-        //  program launch.  Luckily, during the DMTCP_INIT event, DMTCP recorded
-        //  this vdso address when it called ProcessInfo::instance().init().
-        //    Now, here's the bad news.  During the first restart, the kernel
-        //  may choose to locate the vdso at a new address.  So, in
-        //  src/mtcp/mtcp_restart, DMTCP will mremap the kernel's vdso back
-        //  to the original address known during program launch.  This is as
-        //  it should be.  But when DMTCP does an mremap of vdso, the kernel
-        //  fails to update its own "[vds0]" label.  This is arguable a bug in the
-        //  Linux kernel.  So, during the second checkpoint (after the first
-        //  restart), we can't trust the "[vdso]" label to tell us where the vdso
-        //  section really is.  And it's even worse.  During mtcp_restart, we may
-        //  have done mremap, and there may even now be some user data that was
-        //  restored to the address where the kernel thinks the "[vdso]" label
-        //  belongs.  So, we would be saving the original vdso section (which is
-        //  wrong), and we would be failing to save the user's memory that was
-        //  restored into the location labelled by the kernel's "[vdso]" label.
-        //  This last case is even worse, since we have now failed to restore some
-        //  user data.  This was observed to happen in RHEL 6.6.  The solution is
-        //  to trust DMTCP for the vdso location (as in the if condition above),
-        //  and not to trust the kernel's "[vdso]" label.
-        JTRACE("skipping vDSO special section")
-          (area.name) ((void*)area.addr) (area.size);
-        continue;
-      } else if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
-          Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
-        /* If the process has an area labeled as "/dev/zero (deleted)", we mark
-         *   the area as Anonymous and save the contents to the ckpt image file.
-         * If this area has a MAP_SHARED attribute, it should be replaced with
-         *   MAP_PRIVATE and we won't do any harm because, the /dev/zero file is
-         *   an absolute source and sink. Anything written to it will be
-         *   discarded and anything read from it will be all zeros.
-         * The following call to mmap will create "/dev/zero (deleted)" area
-         *         mmap(addr, size, protection, MAP_SHARED | MAP_ANONYMOUS, 0, 0)
-         *
-         * The above explanation also applies to "/dev/null (deleted)"
-         */
-        JTRACE("saving area as Anonymous") (area.name);
-        area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
-        area.name[0] = '\0';
-      } else if (Util::isSysVShmArea(area)) {
-        JTRACE("Saving SysV SHM area as Anonymous") (area.name);
-        area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
-        area.name[0] = '\0';
-      } else if (Util::isNscdArea(area)) {
-        /* Special Case Handling: nscd is enabled*/
-        area.prot = PROT_READ | PROT_WRITE;
-        area.properties |= DMTCP_ZERO_PAGE;
-        area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
-        writeAreaHeader(fd, &area);
-        continue;
-      } else if (Util::isIBShmArea(area)) {
-        // TODO(kapil) Add dmtcp_skip_memory_region_ckpting to IB plugin.
-        continue;
-      } else if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
-        /* Deleted File */
-      } else if (area.name[0] == '/' && strstr(&area.name[1], "/") != NULL) {
-        /* If an absolute pathname
-         * Posix and SysV shared memory segments can be mapped as /XYZ
-         */
-      }
-
+      
       /* If the area didn't have read permissions, add it temporarily.
        *
        * NOTE: Changing the permission here can results in two adjacent memory
