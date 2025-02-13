@@ -474,7 +474,12 @@ ProcessInfo::restoreHeap()
 void
 ProcessInfo::restart()
 {
-  updateRestoreBufAddr((void *)_restoreBufAddr, _restoreBufLen);
+  // FIXME: MANA does not use mtcp_restart. Therefore, the _restoreBufAddr
+  // will not be allocated. Updateing the restore buffer will unmap
+  // unexpected memories. We are commenting out this call to
+  // updateRestoreBufAddr() in MANA. But we need to find a better
+  // solution later.
+  // updateRestoreBufAddr((void *)_restoreBufAddr, _restoreBufLen);
 
   restoreHeap();
 
