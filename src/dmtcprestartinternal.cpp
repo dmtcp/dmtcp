@@ -173,6 +173,9 @@ RestoreTarget::RestoreTarget(const string &path)
 void
 RestoreTarget::initialize()
 {
+  // FIXME:  This is only used by MANA, and so some of
+  // the code can be out of date.  We needed to revised
+  // dmtcprestartinternal.cpp
   WorkerState::setCurrentState(WorkerState::RESTARTING);
   UniquePid::ThisProcess() = _pInfo.upid();
   UniquePid::ParentProcess() = _pInfo.uppid();
