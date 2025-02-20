@@ -150,19 +150,15 @@ if USE_TEST_SUITE == "no":
 
 signal.alarm(1800)  # half hour
 
-if sys.version_info[0] not in (2,3) or sys.version_info[0:2] < (2,4):
-  print("test/autotest.py works only with Python 2.x for 2.x greater than 2.3")
-  print("Change the beginning of test/autotest.py if you believe you can run.")
+if sys.version_info[0] < 3:
+  print("test/autotest.py works only with Python 3.x")
+  print("Change this portion of test/autotest.py if you believe you can run.")
   sys.exit(1)
 
-if sys.version_info[0] == 2 and sys.version_info[1] >= 7:
-  uname_m = subprocess.check_output(['uname', '-m'])
-  uname_p = subprocess.check_output(['uname', '-p'])
-else:
-  uname_m = subprocess.Popen(['uname', '-m'],
-                             stdout=subprocess.PIPE).communicate()[0]
-  uname_p = subprocess.Popen(['uname', '-p'],
-                             stdout=subprocess.PIPE).communicate()[0]
+uname_m = subprocess.Popen(['uname', '-m'],
+                           stdout=subprocess.PIPE).communicate()[0]
+uname_p = subprocess.Popen(['uname', '-p'],
+                           stdout=subprocess.PIPE).communicate()[0]
 
 if USE_TEST_SUITE == "no":
   print("\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" +
@@ -1123,67 +1119,64 @@ if HAS_ZSH == "yes":
 if HAS_VIM == "yes":
   # Wait to checkpoint until vim finishes reading its initialization files
   S=10*DEFAULT_S
-  if sys.version_info[0:2] >= (2,6):
-    # Delete previous vim processes.  Vim behaves poorly with stale processes.
-    vimCommand = VIM + " -X -u DEFAULTS -i NONE /etc/passwd +3" # +3 makes cmd line unique
-    def killCommand(cmdToKill):
-      if os.getenv('USER') == None or HAS_PS == 'no':
-        return
-      ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o',
-                             'pid,command'],
-                            stdout=subprocess.PIPE).communicate()[0]
-      for row in ps.split(b'\n')[1:]:
-        cmd = row.split(None, 1) # maxsplit=1
-        if len(cmd) > 1 and cmd[1] == cmdToKill:
-          os.kill(int(cmd[0]), signal.SIGKILL)
-    killCommand(vimCommand)
-    runTest("vim",       1,  ["env TERM=vt100 " + vimCommand])
-    killCommand(vimCommand)
+  # Delete previous vim processes.  Vim behaves poorly with stale processes.
+  vimCommand = VIM + " -X -u DEFAULTS -i NONE /etc/passwd +3" # +3 makes cmd line unique
+  def killCommand(cmdToKill):
+    if os.getenv('USER') == None or HAS_PS == 'no':
+      return
+    ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o',
+                           'pid,command'],
+                          stdout=subprocess.PIPE).communicate()[0]
+    for row in ps.split(b'\n')[1:]:
+      cmd = row.split(None, 1) # maxsplit=1
+      if len(cmd) > 1 and cmd[1] == cmdToKill:
+        os.kill(int(cmd[0]), signal.SIGKILL)
+  killCommand(vimCommand)
+  runTest("vim",       1,  ["env TERM=vt100 " + vimCommand])
+  killCommand(vimCommand)
   S=DEFAULT_S
 
 os.environ['DMTCP_GZIP'] = "0"
-if sys.version_info[0:2] >= (2,6):
-  #On some systems, "emacs -nw" runs dbus-daemon processes in
-  #background throwing off the number of processes in the computation. The
-  #test thus fails. The fix is to run emacs-nox, if found. emacs-nox
-  #doesn't run any background processes.
-  S=15*DEFAULT_S
-  if HAS_EMACS_NOX == "yes":
-    # Wait to checkpoint until emacs finishes reading its initialization files
-    # Under emacs23, it opens /dev/tty directly in a new fd.
-    # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
-    # ... or else a better pty wrapper to capture emacs output to /dev/tty.
-    runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs-nox" +
-                              " --no-init-file /etc/passwd"])
-  elif HAS_EMACS == "yes":
-    # Wait to checkpoint until emacs finishes reading its initialization files
-    # Under emacs23, it opens /dev/tty directly in a new fd.
-    # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
-    # ... or else a better pty wrapper to capture emacs output to /dev/tty.
-    runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
-                              " --no-init-file /etc/passwd"])
-  S=DEFAULT_S
+#On some systems, "emacs -nw" runs dbus-daemon processes in
+#background throwing off the number of processes in the computation. The
+#test thus fails. The fix is to run emacs-nox, if found. emacs-nox
+#doesn't run any background processes.
+S=15*DEFAULT_S
+if HAS_EMACS_NOX == "yes":
+  # Wait to checkpoint until emacs finishes reading its initialization files
+  # Under emacs23, it opens /dev/tty directly in a new fd.
+  # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
+  # ... or else a better pty wrapper to capture emacs output to /dev/tty.
+  runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs-nox" +
+                            " --no-init-file /etc/passwd"])
+elif HAS_EMACS == "yes":
+  # Wait to checkpoint until emacs finishes reading its initialization files
+  # Under emacs23, it opens /dev/tty directly in a new fd.
+  # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
+  # ... or else a better pty wrapper to capture emacs output to /dev/tty.
+  runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
+                            " --no-init-file /etc/passwd"])
+S=DEFAULT_S
 os.environ['DMTCP_GZIP'] = GZIP
 
 if HAS_SCRIPT == "yes":
   S=7*DEFAULT_S
-  if sys.version_info[0:2] >= (2,6):
-    # NOTE: If 'script' fails, try raising value of S, above, to larger number.
-    #  Arguably, there is a bug in glibc, in that locale-archive can be 100 MB.
-    #  For example, in Fedora 13 (and other recent Red Hat-derived distros?),
-    #  /usr/lib/locale/locale-archive is 100 MB, and yet 'locale -a |wc' shows
-    #  only 8KB of content in ASCII.  The 100 MB of locale-archive condenses
-    #  to 25 MB _per process_ under gzip, but this can be slow at ckpt time.
-    # On some systems, the script test has two `script` processes, while on some
-    # other systems, there is only a single `script` process.
-    # Newer versions of Bash don't fork when executing a simple command
-    # specified with "-c" flag. Instead, the bash process execs into the given
-    # command.
-    POST_LAUNCH_SLEEP = 2  # Don't checkpoint until script cmd has launched
-    runTest("script",    [2,3,4],  ["/usr/bin/script -f" +
-                              " -c 'bash -c \"ls; sleep 30\"'" +
-                              " dmtcp-test-typescript.tmp"])
-    POST_LAUNCH_SLEEP = DEFAULT_POST_LAUNCH_SLEEP
+  # NOTE: If 'script' fails, try raising value of S, above, to larger number.
+  #  Arguably, there is a bug in glibc, in that locale-archive can be 100 MB.
+  #  For example, in Fedora 13 (and other recent Red Hat-derived distros?),
+  #  /usr/lib/locale/locale-archive is 100 MB, and yet 'locale -a |wc' shows
+  #  only 8KB of content in ASCII.  The 100 MB of locale-archive condenses
+  #  to 25 MB _per process_ under gzip, but this can be slow at ckpt time.
+  # On some systems, the script test has two `script` processes, while on some
+  # other systems, there is only a single `script` process.
+  # Newer versions of Bash don't fork when executing a simple command
+  # specified with "-c" flag. Instead, the bash process execs into the given
+  # command.
+  POST_LAUNCH_SLEEP = 2  # Don't checkpoint until script cmd has launched
+  runTest("script",    [2,3,4],  ["/usr/bin/script -f" +
+                            " -c 'bash -c \"ls; sleep 30\"'" +
+                            " dmtcp-test-typescript.tmp"])
+  POST_LAUNCH_SLEEP = DEFAULT_POST_LAUNCH_SLEEP
   os.system("rm -f dmtcp-test-typescript.tmp")
   S=DEFAULT_S
 
@@ -1196,9 +1189,8 @@ if HAS_SCRIPT == "yes":
 SCREEN_TEST_WORKS = False
 if HAS_SCREEN == "yes" and SCREEN_TEST_WORKS:
   S=3*DEFAULT_S
-  if sys.version_info[0:2] >= (2,6):
-    runTest("screen",    3,  ["env TERM=vt100 " + SCREEN +
-                                " -c /dev/null -s /bin/sh"])
+  runTest("screen",    3,  ["env TERM=vt100 " + SCREEN +
+                              " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
 
 if HAS_JAVAC == "yes" and HAS_JAVA == "yes":
@@ -1224,7 +1216,7 @@ if HAS_OPENMP == "yes":
   S=DEFAULT_S
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
-if HAS_MATLAB == "yes" and sys.version_info[0:2] >= (2,6):
+if HAS_MATLAB == "yes":
   S=10*DEFAULT_S
   runTest("matlab-nodisplay", 1,  [MATLAB+" -nodisplay -nojvm"])
   S=DEFAULT_S
