@@ -574,7 +574,7 @@ Util::areZeroPages(void *addr, size_t numPages)
   size_t end = numPages * page_size / sizeof(*buf);
   long long res = 0;
 
-  ASSERT_EQ(sizeof(*buf) - 1, 7);
+  ASSERT_EQ(sizeof(*buf) - 1, (unsigned)7);
   for (i = 0; i + 7 < end; i += 8) {
     res = buf[i + 0] | buf[i + 1] | buf[i + 2] | buf[i + 3] |
       buf[i + 4] | buf[i + 5] | buf[i + 6] | buf[i + 7];
@@ -695,7 +695,7 @@ Util::getTimestampStr()
   struct timeval tv;
   struct tm localTime;
   char buf1[128] = {0};
-  char buf2[138] = {0}; // Must contain "%s.%03ld"
+  char buf2[148] = {0}; // Must contain "%s.%03ld", which contains buf1
 
   gettimeofday(&tv, NULL);
   localtime_r(&tv.tv_sec, &localTime);
