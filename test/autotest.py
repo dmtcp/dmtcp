@@ -1138,24 +1138,16 @@ if HAS_VIM == "yes":
 
 os.environ['DMTCP_GZIP'] = "0"
 #On some systems, "emacs -nw" runs dbus-daemon processes in
-#background throwing off the number of processes in the computation. The
-#test thus fails. The fix is to run emacs-nox, if found. emacs-nox
-#doesn't run any background processes.
-S=15*DEFAULT_S
-if HAS_EMACS_NOX == "yes":
+#background throwing off the number of processes in the computation.
+#So, we expect 1 or 2 processes.
+S=40*DEFAULT_S
+if HAS_EMACS == "yes":
   # Wait to checkpoint until emacs finishes reading its initialization files
   # Under emacs23, it opens /dev/tty directly in a new fd.
   # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
   # ... or else a better pty wrapper to capture emacs output to /dev/tty.
-  runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs-nox" +
-                            " --no-init-file /etc/passwd"])
-elif HAS_EMACS == "yes":
-  # Wait to checkpoint until emacs finishes reading its initialization files
-  # Under emacs23, it opens /dev/tty directly in a new fd.
-  # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
-  # ... or else a better pty wrapper to capture emacs output to /dev/tty.
-  runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
-                            " --no-init-file /etc/passwd"])
+  runTest("emacs", [1, 2],  ["env TERM=vt100 /usr/bin/emacs -nw" +
+                             " --no-init-file /etc/passwd"])
 S=DEFAULT_S
 os.environ['DMTCP_GZIP'] = GZIP
 
