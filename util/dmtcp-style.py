@@ -138,11 +138,11 @@ class CppLinter(LinterBase):
                    'plugin',
                    'contrib']
 
-    exclude_files = '(restartscript.cpp|infiniband\/examples|src\/mtcp\/|test-suite|Makefile.in)'
+    exclude_files = '(restartscript.cpp|infiniband/examples|src/mtcp/|test-suite|Makefile.in)'
 
-    source_files = '\.(cpp|h)$'
+    source_files = '[.](cpp|h)$'
 
-    comment_prefix = '\/\/'
+    comment_prefix = '//'
 
     def run_lint(self, source_paths):
         '''
