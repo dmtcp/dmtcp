@@ -107,6 +107,8 @@ typedef struct RestoreInfo {
   VA vdsoEnd;
   VA vvarStart;
   VA vvarEnd;
+  VA vvarVClockStart;
+  VA vvarVClockEnd;
   VA endOfStack;
   fnptr_t post_restart;
   // NOTE: Update the offset when adding fields to the RestoreInfo struct
@@ -119,6 +121,8 @@ typedef struct RestoreInfo {
   VA currentVdsoEnd;
   VA currentVvarStart;
   VA currentVvarEnd;
+  VA currentVvarVClockStart;
+  VA currentVvarVClockEnd;
 
   VA old_stack_addr;
   size_t old_stack_size;

@@ -17,6 +17,8 @@ typedef union _MtcpHeader {
     void *vdsoEnd;
     void *vvarStart;
     void *vvarEnd;
+    void *vvarVClockStart;
+    void *vvarVClockEnd;
     void (*post_restart)(double, int);
   };
 
