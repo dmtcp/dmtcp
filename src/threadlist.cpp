@@ -319,6 +319,8 @@ prepareMtcpHeader(MtcpHeader *mtcpHdr)
   mtcpHdr->vdsoEnd = (void *)ProcessInfo::instance().vdsoEnd();
   mtcpHdr->vvarStart = (void *)ProcessInfo::instance().vvarStart();
   mtcpHdr->vvarEnd = (void *)ProcessInfo::instance().vvarEnd();
+  mtcpHdr->vvarVClockStart = (void *)ProcessInfo::instance().vvarVClockStart();
+  mtcpHdr->vvarVClockEnd = (void *)ProcessInfo::instance().vvarVClockEnd();
 
   mtcpHdr->post_restart = &ThreadList::postRestart;
 }
