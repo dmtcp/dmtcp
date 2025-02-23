@@ -226,6 +226,9 @@ ProcessInfo::growStack()
     } else if (strcmp(area.name, "[vvar]") == 0) {
       _vvarStart = (unsigned long)area.addr;
       _vvarEnd = (unsigned long)area.endAddr;
+    } else if (strcmp(area.name, "[vvar_vclock]") == 0) {
+      _vvarVClockStart = (unsigned long)area.addr;
+      _vvarVClockEnd = (unsigned long)area.endAddr;
     } else if ((VA)&area >= area.addr && (VA)&area < area.endAddr) {
       JTRACE("Original stack area") ((void *)area.addr) (area.size);
       stackArea = area;
@@ -294,6 +297,7 @@ ProcessInfo::init()
 #endif // ifdef CONFIG_M32
 
   _vdsoStart = _vdsoEnd = _vvarStart = _vvarEnd = _endOfStack = 0;
+  _vvarVClockStart = _vvarVClockEnd = 0;
 
   processRlimit();
 
@@ -686,7 +690,8 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
     & _gettimeofday_offset & _time_offset;
   o & _compGroup & _numPeers;
   o & _restoreBufAddr & _savedHeapStart & _savedBrk;
-  o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd & _endOfStack;
+  o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd;
+  o & _vvarVClockStart & _vvarVClockEnd & _endOfStack;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
   o & kvmap;
 

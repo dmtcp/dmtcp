@@ -85,7 +85,8 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr);
 static void restore_brk(RestoreInfo *rinfo);
 static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2);
 static int doAreasOverlap2(char *addr, int length,
-               char *vdsoStart, char *vdsoEnd, char *vvarStart, char *vvarEnd);
+               char *vdsoStart, char *vdsoEnd, char *vvarStart, char *vvarEnd,
+               char *vvarVClockStart, char *vvarVClockEnd);
 static int hasOverlappingMapping(VA addr, size_t size);
 static int mremap_move(void *dest, void *src, size_t size);
 static void remapExistingAreasToReservedArea(RestoreInfo *rinfo, void (*restore_func)(RestoreInfo*));
@@ -301,6 +302,8 @@ mtcp_restart(RestoreInfo *rinfo, MtcpHeader *mtcpHdr)
   rinfo->vdsoEnd = mtcpHdr->vdsoEnd;
   rinfo->vvarStart = mtcpHdr->vvarStart;
   rinfo->vvarEnd = mtcpHdr->vvarEnd;
+  rinfo->vvarVClockStart = mtcpHdr->vvarVClockStart;
+  rinfo->vvarVClockEnd = mtcpHdr->vvarVClockEnd;
   rinfo->endOfStack = mtcpHdr->end_of_stack;
   rinfo->post_restart = mtcpHdr->post_restart;
 
@@ -525,6 +528,7 @@ mtcp_simulateread(RestoreInfo *rinfo)
   mtcp_printf("**** brk (sbrk(0)): %p\n", mtcpHdr.saved_brk);
   mtcp_printf("**** vdso: %p..%p\n", mtcpHdr.vdsoStart, mtcpHdr.vdsoEnd);
   mtcp_printf("**** vvar: %p..%p\n", mtcpHdr.vvarStart, mtcpHdr.vvarEnd);
+  mtcp_printf("**** vvar_vclock: %p..%p\n", mtcpHdr.vvarVClockStart, mtcpHdr.vvarVClockEnd);
   mtcp_printf("**** end of stack: %p\n", mtcpHdr.end_of_stack);
 
   Area area;
@@ -629,6 +633,8 @@ compute_vdso_vvar_addr(RestoreInfo *rinfo)
   rinfo->currentVdsoEnd = NULL;
   rinfo->currentVvarStart = NULL;
   rinfo->currentVvarEnd = NULL;
+  rinfo->currentVvarVClockStart = NULL;
+  rinfo->currentVvarVClockEnd = NULL;
 
   int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
 
@@ -657,6 +663,11 @@ compute_vdso_vvar_addr(RestoreInfo *rinfo)
       rinfo->currentVvarStart = area.addr;
       rinfo->currentVvarEnd = area.endAddr;
     }
+    else if (mtcp_strcmp(area.name, "[vvar_vclock]") == 0) {
+      // Do not unmap vvar.
+      rinfo->currentVvarVClockStart = area.addr;
+      rinfo->currentVvarVClockEnd = area.endAddr;
+    }
   }
 
   mtcp_sys_close(mapsfd);
@@ -676,6 +687,7 @@ compute_regions_to_munmap(RestoreInfo *rinfo)
   while (mtcp_readmapsline(mapsfd, &area)) {
     if (mtcp_strcmp(area.name, "[vdso]") == 0 ||
         mtcp_strcmp(area.name, "[vvar]") == 0 ||
+        mtcp_strcmp(area.name, "[vvar_vclock]") == 0 ||
         mtcp_strcmp(area.name, "[vsyscall]") == 0) {
       // Do not unmap vdso, vvar, or vsyscall.
     } else {
@@ -748,6 +760,22 @@ restore_vdso_vvar(RestoreInfo *rinfo)
                          rinfo->currentVvarEnd - rinfo->currentVvarStart);
     if (rc == -1) {
       MTCP_PRINTF("***Error: failed to restore vvar to pre-ckpt location.");
+      mtcp_abort();
+    }
+  }
+
+  if (rinfo->currentVvarVClockEnd - rinfo->currentVvarVClockStart != rinfo->vvarVClockEnd - rinfo->vvarVClockStart) {
+    MTCP_PRINTF("***Error: vvar_vclock size mismatch. Current: %p..%p; existing %p..%p\n",
+      rinfo->currentVvarVClockEnd, rinfo->currentVvarVClockStart, rinfo->vvarVClockEnd, rinfo->vvarVClockStart);
+    mtcp_abort();
+  }
+
+  if (rinfo->currentVvarVClockStart != NULL) {
+    int rc = mremap_move(rinfo->vvarVClockStart,
+                         rinfo->currentVvarVClockStart,
+                         rinfo->currentVvarVClockEnd - rinfo->currentVvarVClockStart);
+    if (rc == -1) {
+      MTCP_PRINTF("***Error: failed to restore vvar_vclock to pre-ckpt location.");
       mtcp_abort();
     }
   }
@@ -1044,9 +1072,12 @@ doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2)
 NO_OPTIMIZE
 static int
 doAreasOverlap2(char *addr, int length, char *vdsoStart, char *vdsoEnd,
-                                        char *vvarStart, char *vvarEnd) {
+                char *vvarStart, char *vvarEnd,
+                char *vvarVClockStart, char *vvarVClockEnd) {
   return doAreasOverlap(addr, length, vdsoStart, vdsoEnd - vdsoStart) ||
-         doAreasOverlap(addr, length, vvarStart, vvarEnd - vvarStart);
+         doAreasOverlap(addr, length, vvarStart, vvarEnd - vvarStart) ||
+         doAreasOverlap(addr, length, vvarVClockStart,
+                        vvarVClockEnd - vvarVClockStart);
 }
 
 /* This uses MREMAP_FIXED | MREMAP_MAYMOVE to move a memory segment.
@@ -1192,6 +1223,8 @@ remapExistingAreasToReservedArea(RestoreInfo *rinfo,
   rinfo->currentVdsoEnd = NULL;
   rinfo->currentVvarStart = NULL;
   rinfo->currentVvarEnd = NULL;
+  rinfo->currentVvarVClockStart = NULL;
+  rinfo->currentVvarVClockEnd = NULL;
   rinfo->old_stack_addr = NULL;
   rinfo->old_stack_size = 0;
 
@@ -1210,6 +1243,9 @@ remapExistingAreasToReservedArea(RestoreInfo *rinfo,
     } else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
       rinfo->currentVvarStart = area.addr;
       rinfo->currentVvarEnd = area.endAddr;
+    } else if (mtcp_strcmp(area.name, "[vvar_vclock]") == 0) {
+      rinfo->currentVvarVClockStart = area.addr;
+      rinfo->currentVvarVClockEnd = area.endAddr;
     } else if (mtcp_strcmp(area.name, binary_name) == 0) {
       MTCP_ASSERT(num_regions < MAX_MTCP_RESTART_MEM_REGIONS);
       mem_regions[num_regions++] = area;
@@ -1247,6 +1283,20 @@ remapExistingAreasToReservedArea(RestoreInfo *rinfo,
     rinfo->currentVvarStart = endAddr;
     rinfo->currentVvarEnd = endAddr + size;
     endAddr = rinfo->currentVvarEnd;
+  }
+
+  // Now move vvar_vclock to the end of guard page.
+  if (rinfo->currentVvarVClockStart != NULL) {
+    size_t size = rinfo->currentVvarVClockEnd - rinfo->currentVvarVClockStart;
+    int rc = mremap_move(endAddr, rinfo->currentVvarVClockStart, size);
+    if (rc == -1) {
+      MTCP_PRINTF("***Error: failed to remap VvarVClockStart to reserved area.");
+      mtcp_abort();
+    }
+
+    rinfo->currentVvarVClockStart = endAddr;
+    rinfo->currentVvarVClockEnd = endAddr + size;
+    endAddr = rinfo->currentVvarVClockEnd;
   }
 
   // Now move vdso to the end of vvar page.
