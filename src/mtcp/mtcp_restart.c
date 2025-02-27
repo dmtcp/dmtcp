@@ -84,7 +84,6 @@ static int read_one_memory_area(int fd, VA endOfStack);
 static void restorememoryareas(RestoreInfo *rinfo_ptr);
 static void restore_brk(RestoreInfo *rinfo);
 static int doAreasOverlap(Area *area, MemRegion *memRegion);
-static int hasOverlappingMapping(VA addr, size_t size);
 static int mremap_move(void *dest, void *src, size_t size);
 static void remapExistingAreasToReservedArea(RestoreInfo *rinfo, void (*restore_func)(RestoreInfo*));
 static void remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
@@ -92,12 +91,10 @@ static void remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
                                            size_t num_regions,
                                            void (*restore_func)(RestoreInfo*),
                                            VA *endAddr);
-static void unmap_one_memory_area_and_rewind(Area *area, int mapsfd);
 static void restore_vdso_vvar_work(MemRegion *currentRegion,
                                    MemRegion *ckptRegion,
                                    const char *regionName);
 static void restore_vdso_vvar(RestoreInfo *rinfo);
-static void compute_vdso_vvar_addr(RestoreInfo *rinfo);
 static void compute_regions_to_munmap(RestoreInfo *rinfo);
 static void validateRestoreBufferLocation(RestoreInfo *rinfo);
 
@@ -497,10 +494,8 @@ restore_brk(RestoreInfo *rinfo)
   MTCP_ASSERT (mapsfd >= 0);
 
   Area area;
-  int foundHeap = 0;
   while (mtcp_readmapsline(mapsfd, &area)) {
     if (mtcp_strcmp(area.name, "[heap]") == 0) {
-      foundHeap = 1;
       MTCP_ASSERT(area.endAddr == (VA) new_brk);
       MTCP_ASSERT(mtcp_sys_munmap(area.addr, area.size) != -1);
       break;
@@ -622,53 +617,6 @@ restorememoryareas(RestoreInfo *rinfo)
 }
 
 NO_OPTIMIZE
-static void
-compute_vdso_vvar_addr(RestoreInfo *rinfo)
-{
-  int mtcp_sys_errno;
-  Area area;
-  rinfo->currentVdso = (MemRegion){0, 0};
-  rinfo->currentVvar = (MemRegion){0, 0};
-  rinfo->currentVvarVClock = (MemRegion){0, 0};
-
-  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
-
-  if (mapsfd < 0) {
-    MTCP_PRINTF("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
-    mtcp_abort();
-  }
-
-  while (mtcp_readmapsline(mapsfd, &area)) {
-    if (mtcp_strcmp(area.name, "[vdso]") == 0) {
-      // Do not unmap vdso.
-      rinfo->currentVdso.startAddr = (uint64_t) area.addr;
-      rinfo->currentVdso.endAddr = (uint64_t) area.endAddr;
-      DPRINTF("***INFO: vDSO found (%p..%p)\n original vDSO: (%p..%p)\n",
-              area.addr, area.endAddr, rinfo->ckptHdr.vdsoStart, rinfo->ckptHdr.vdsoEnd);
-    }
-#if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 18)
-    else if (area.addr == 0xfffe0000 && area.size == 4096) {
-      // It's a vdso page from a time before Linux displayed the annotation.
-      // Do not unmap vdso.
-    }
-#endif /* if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 18)
-          */
-    else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
-      // Do not unmap vvar.
-      rinfo->currentVvar.startAddr = (uint64_t) area.addr;
-      rinfo->currentVvar.endAddr = (uint64_t) area.endAddr;
-    }
-    else if (mtcp_strcmp(area.name, "[vvar_vclock]") == 0) {
-      // Do not unmap vvar.
-      rinfo->currentVvarVClock.startAddr = (uint64_t) area.addr;
-      rinfo->currentVvarVClock.endAddr = (uint64_t) area.endAddr;
-    }
-  }
-
-  mtcp_sys_close(mapsfd);
-}
-
-NO_OPTIMIZE
 void
 compute_regions_to_munmap(RestoreInfo *rinfo)
 {
@@ -695,41 +643,6 @@ compute_regions_to_munmap(RestoreInfo *rinfo)
   }
 
   mtcp_sys_close(mapsfd);
-}
-
-
-// Check if this area is part of memory regions to unmap as computed earlier.
-static int
-should_unmap_mem_region(RestoreInfo *rinfo, Area *area)
-{
-  for (size_t i = 0; i < rinfo->num_regions_to_munmap; i++) {
-    if ((uint64_t)area->addr == rinfo->regions_to_munmap[i].startAddr &&
-        (uint64_t)area->endAddr == rinfo->regions_to_munmap[i].endAddr) {
-      return 1;
-    }
-  }
-
-  return 0;
-}
-
-NO_OPTIMIZE
-static void
-unmap_one_memory_area_and_rewind(Area *area, int mapsfd)
-{
-  int mtcp_sys_errno;
-  DPRINTF("***INFO: munmapping (%p..%p)\n", area->addr, area->endAddr);
-  if (mtcp_sys_munmap(area->addr, area->size) == -1) {
-    MTCP_PRINTF("***WARNING: %s(%x): munmap(%p, %d) failed; errno: %d\n",
-                area->name, area->flags, area->addr, area->size,
-                mtcp_sys_errno);
-    mtcp_abort();
-  }
-
-  // Since we just unmapped a region, the size and contents of the
-  // /proc/self/maps file has changed. We should rewind and reread this file to
-  // ensure that we don't miss any regions.
-  // TODO(kapil): Create a list of all areas that we want to munmap and then unmap them all at once.
-  mtcp_sys_lseek(mapsfd, 0, SEEK_SET);
 }
 
 NO_OPTIMIZE
@@ -762,8 +675,6 @@ NO_OPTIMIZE
 static void
 restore_vdso_vvar(RestoreInfo *rinfo)
 {
-  int mtcp_sys_errno;
-
   restore_vdso_vvar_work(&rinfo->currentVdso, &rinfo->ckptHdr.vdso, "[vdso]");
   restore_vdso_vvar_work(&rinfo->currentVvar, &rinfo->ckptHdr.vvar, "[vvar]");
   restore_vdso_vvar_work(&rinfo->currentVvarVClock, &rinfo->ckptHdr.vvarVClock, "[vvar_vclock]");
@@ -1118,7 +1029,7 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
   // TODO: _start can sometimes be different than text_offset. The foolproof
   // method would be to read the elf headers for the mtcp_restart binary and
   // compute text offset from there.
-  size_t entrypoint_offset = (VA)&_start - (VA) mem_regions[0].addr;
+  // size_t entrypoint_offset = (VA)&_start - (VA) mem_regions[0].addr;
 
   // Make sure we can fit all mtcp_restart regions in the restore area.
   MTCP_ASSERT((mem_regions[num_regions - 1].endAddr - mem_regions[0].addr) <=
