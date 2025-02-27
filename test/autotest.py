@@ -59,8 +59,10 @@ parser.add_argument('tests',
 
 args = parser.parse_args()
 
+args.tests = []
 ### DEBUGGING
 args.tests = ["emacs"]
+args.verbose = True
 
 # stats[0] is number passed; stats[1] is total number
 stats = [0, 0]
