@@ -108,6 +108,91 @@ static void validateRestoreBufferLocation(RestoreInfo *rinfo);
 
 static RestoreInfo rinfo;
 
+// Used by util/readdmtcp.sh
+// So, we use mtcp_printf to stdout instead of MTCP_PRINTF (diagnosis for DMTCP)
+static void
+mtcp_simulateread(RestoreInfo *rinfo)
+{
+  int mtcp_sys_errno;
+  DmtcpCkptHeader hdr;
+
+  MTCP_ASSERT(rinfo->simulate == 1);
+  MTCP_ASSERT(rinfo->fd == -1);
+
+  if (rinfo->ckptImage[0] == '\0') {
+    MTCP_PRINTF("*** Simulate flag requires a checkpoint-image path as argument.\n");
+    mtcp_abort();
+  }
+
+  rinfo->fd = mtcp_sys_open2(rinfo->ckptImage, O_RDONLY);
+  if (rinfo->fd == -1) {
+    mtcp_printf("***ERROR opening ckpt image (%s); errno: %d\n",
+                rinfo->ckptImage, mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  // Read the first copy of the header (typically read by dmtcp_restart).
+  MTCP_ASSERT(mtcp_readfile(rinfo->fd, &hdr, sizeof hdr) == sizeof hdr);
+
+  // Read the second copy of the header (typically read by mtcp_restart).
+  MTCP_ASSERT(mtcp_readfile(rinfo->fd, &hdr, sizeof hdr) == sizeof hdr);
+
+  if (mtcp_strcmp(hdr.ckptSignature, DMTCP_CKPT_SIGNATURE) != 0) {
+    MTCP_PRINTF("***ERROR: ckpt image doesn't match DMTCP_CKPT_SIGNATURE\n");
+    mtcp_sys_close(rinfo->fd);
+    mtcp_sys_exit(-1);  /* exit with error code 1 */
+  }
+
+  mtcp_printf("\nDMTCP: %s", hdr.ckptSignature);
+  mtcp_printf("**** mtcp_restart (will be copied here): %p..%p\n",
+              hdr.restoreBufAddr,
+              hdr.restoreBufAddr + hdr.restoreBufLen);
+  mtcp_printf("**** DMTCP entry point (ThreadList::postRestart()): %p\n",
+              hdr.postRestartAddr);
+  mtcp_printf("**** brk (sbrk(0)): %p\n", hdr.savedBrk);
+  mtcp_printf("**** vdso: %p..%p\n", hdr.vdso.startAddr, hdr.vdso.endAddr);
+  mtcp_printf("**** vvar: %p..%p\n", hdr.vvar.startAddr, hdr.vvar.endAddr);
+  mtcp_printf("**** vvar_vclock: %p..%p\n", hdr.vvarVClock.startAddr, hdr.vvarVClock.endAddr);
+  mtcp_printf("**** end of stack: %p\n", hdr.endOfStack);
+
+  Area area;
+  mtcp_printf("\n**** Listing ckpt image area:\n");
+  while (1) {
+    mtcp_readfile(rinfo->fd, &area, sizeof area);
+    if (area.size == -1) {
+      break;
+    }
+
+    if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
+        (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
+
+      off_t seekLen = area.size;
+      if (!(area.flags & MAP_ANONYMOUS) && area.mmapFileSize > 0) {
+        seekLen =  area.mmapFileSize;
+      }
+      if (mtcp_sys_lseek(rinfo->fd, seekLen, SEEK_CUR) < 0) {
+         mtcp_printf("Could not seek!\n");
+         break;
+      }
+    }
+
+    if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
+      mtcp_printf("%p-%p %c%c%c%c %s          %s\n",
+                  area.addr, area.endAddr,
+                  ((area.prot & PROT_READ)  ? 'r' : '-'),
+                  ((area.prot & PROT_WRITE) ? 'w' : '-'),
+                  ((area.prot & PROT_EXEC)  ? 'x' : '-'),
+                  ((area.flags & MAP_SHARED)
+                    ? 's'
+                    : ((area.flags & MAP_PRIVATE) ? 'p' : '-')),
+                  ((area.flags & MAP_ANONYMOUS) ? "Anon" : "    "),
+
+                  // area.offset, area.devmajor, area.devminor, area.inodenum,
+                  area.name);
+    }
+  }
+}
+
 NO_OPTIMIZE
 void
 mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore_func)(RestoreInfo *))
@@ -173,6 +258,13 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
       MTCP_PRINTF("MTCP Internal Error: Unknown argument: %s\n", argv[0]);
       mtcp_sys_exit(1);
     }
+  }
+
+  if (rinfo.simulate) {
+    mtcp_simulateread(&rinfo);
+
+    // We are simulating a restart, so we don't need to do anything else.
+    mtcp_sys_exit(0);
   }
 
   validateRestoreBufferLocation(&rinfo);
