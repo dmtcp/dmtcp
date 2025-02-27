@@ -147,6 +147,7 @@ main(int argc, char **argv)
   int coordCmdStatus = CoordCmdStatus::NOERROR;
   int numPeers;
   int isRunning;
+  int isRestarting;
   int ckptInterval;
   char *workerList = NULL;
   // After this, the first char of the request is unique.  We only need that.
@@ -175,6 +176,7 @@ main(int argc, char **argv)
                                               &coordCmdStatus,
                                               &numPeers,
                                               &isRunning,
+                                              &isRestarting,
                                               &ckptInterval);
     break;
   case 'l':
@@ -241,7 +243,8 @@ main(int argc, char **argv)
     if (cmdChar == 's') {
       printf("Status...\n");
       printf("  NUM_PEERS=%d\n", numPeers);
-      printf("  RUNNING=%s\n", (isRunning ? "yes" : "no"));
+      printf("  RUNNING=%s\n", (isRunning ? "yes" :
+                                 (isRestarting ? "restarting" : "no")));
       if (ckptInterval) {
         printf("  CKPT_INTERVAL=%d\n", ckptInterval);
       } else {

@@ -75,6 +75,7 @@ char *connectAndSendUserCommand(char c,
                                 int *coordCmdStatus = NULL,
                                 int *numPeers = NULL,
                                 int *isRunning = NULL,
+                                int *isRestarting = NULL,
                                 int *ckptInterval = NULL);
 
 void sendCkptFilename();

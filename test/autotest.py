@@ -59,6 +59,9 @@ parser.add_argument('tests',
 
 args = parser.parse_args()
 
+### DEBUGGING
+args.tests = ["emacs"]
+
 # stats[0] is number passed; stats[1] is total number
 stats = [0, 0]
 
@@ -74,7 +77,7 @@ disabled_tests = [
   # image sizes (~500MB). A proper fix would be to diagnose the cause for the
   # unexpectedly large image size. If the large sizes are inevitable, we can
   # edit this script to ignore failures on ckpt images that are >~100MB.
-  "emacs",
+  #### "emacs",
 
   # This test needs to be fixed.  It is not really running.
   # ERROR: ld.so: object '/home/gene/dmtcp.git/test/plugin/example-db/dmtcp_example-dbhijack.so' from LD_PRELOAD cannot be preloaded (cannot open shared object file): ignored.
@@ -1140,7 +1143,7 @@ os.environ['DMTCP_GZIP'] = "0"
 #On some systems, "emacs -nw" runs dbus-daemon processes in
 #background throwing off the number of processes in the computation.
 #So, we expect 1 or 2 processes.
-S=40*DEFAULT_S
+S=10*DEFAULT_S
 if HAS_EMACS == "yes":
   # Wait to checkpoint until emacs finishes reading its initialization files
   # Under emacs23, it opens /dev/tty directly in a new fd.

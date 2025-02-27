@@ -363,12 +363,14 @@ DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
     ComputationStatus s = getStatus();
     bool running = (s.minimumStateUnanimous &&
                     s.minimumState == WorkerState::RUNNING);
+    bool restarting = s.minimumState == WorkerState::RESTARTING;
     if (reply != NULL) {
       reply->numPeers = s.numPeers;
       reply->isRunning = running;
+      reply->isRestarting = restarting;
       reply->theCheckpointInterval = CoordPluginMgr::ckptIntervalManager->theCheckpointInterval;
     } else {
-      printStatus(s.numPeers, running);
+      printStatus(s.numPeers, running, restarting);
     }
   } else {
     JNOTE("unhandled user command")(cmd);
@@ -403,8 +405,12 @@ DmtcpCoordinator::writeStatusToFile()
 }
 
 void
-DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
+DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning, bool isRestarting)
 {
+ComputationStatus s = getStatus();
+bool running = (s.minimumStateUnanimous &&
+                s.minimumState == WorkerState::RUNNING);
+bool restarting = s.minimumState == WorkerState::RESTARTING;
   ostringstream o;
 
   getStatusStr(&o);
@@ -418,7 +424,9 @@ DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
     << "Computation Id: " << compId << std::endl
     << "Checkpoint Dir: " << flags.ckptDir << std::endl
     << "NUM_PEERS=" << numPeers << std::endl
-    << "RUNNING=" << (isRunning ? "yes" : "no") << std::endl
+<< "DEBUGGING: " << s.minimumState << std::endl
+    << "RUNNING=" << (isRunning ? "yes" :
+                        (isRestarting ? "restarting" : "no")) << std::endl
     << std::endl;
   printf("%s", o.str().c_str());
   fflush(stdout);
