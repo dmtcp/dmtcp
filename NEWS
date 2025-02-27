@@ -3,6 +3,14 @@ DMTCP NEWS -- history of user-visible changes.
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>,
 or "Issues" at https://github.com/dmtcp/dmtcp .
 
+Version 3.2.0 release notes (Feb. 26, 2025)
+===========================================
+This minor release includes:
+* support for `[vvar_vclock]` memory regions present on modern kernels.
+* bug fix for pthread_cancel handling.
+* bug fix for dlopen(NULL, ...) calls.
+* bug fix for thread handling on RISCV.
+
 Version 3.1.2 release notes (Oct. 14, 2024)
 ===========================================
 A regression in 3.1.1 caused "dmtcp_launch -i XX ..." to fail.
