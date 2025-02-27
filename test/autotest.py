@@ -184,6 +184,7 @@ if uname_p[0:3] == 'arm':
 # Sleep before the first ckpt _only_.
 DEFAULT_POST_LAUNCH_SLEEP = 0.0
 POST_LAUNCH_SLEEP = 0.0
+POST_LAUNCH_SLEEP = 5.0
 
 # Sleep after launching restart, but before checking it
 DEFAULT_POST_RESTART_SLEEP = 0.0
@@ -1151,7 +1152,7 @@ if HAS_EMACS == "yes":
   # Under emacs23, it opens /dev/tty directly in a new fd.
   # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
   # ... or else a better pty wrapper to capture emacs output to /dev/tty.
-  runTest("emacs", [1, 2],  ["env TERM=vt100 /usr/bin/emacs -nw" +
+  runTest("emacs", 1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
                              " --no-init-file /etc/passwd"])
 S=DEFAULT_S
 os.environ['DMTCP_GZIP'] = GZIP
