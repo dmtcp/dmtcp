@@ -52,38 +52,6 @@ static const SharedData::DMTCP_ARCH_MODE archMode = SharedData::DMTCP_ARCH_32;
 static const SharedData::DMTCP_ARCH_MODE archMode = SharedData::DMTCP_ARCH_64;
 #endif
 
-// This emulates MAP_FIXED_NOREPLACE, which became available only in Linux 4.17
-// FIXME:  This assume that addr is a multiple of PAGESIZE.  We should
-//         check that in the function, and either issue an error in that
-//         case, or else simulate the action of MAP_FIXED_NOREPLACE.
-void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
-                           int fd, off_t offset)
-{
-  int mtcp_sys_errno;  // mtcp_sys_mmap, etc., are macros using this
-  if (flags & MAP_FIXED) {
-    flags ^= MAP_FIXED;
-  }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
-#ifndef MAP_FIXED_NOREPLACE
-#define MAP_FIXED_NOREPLACE 0x100000
-#endif
-  // This flag should force: 'addr == addr2' or 'addr2 == MAP_FAILED'
-  flags |= MAP_FIXED_NOREPLACE;
-#endif
-  void *addr2 = mmap(addr, len, prot, flags, fd, offset);
-  if (addr == addr2) {
-    return addr2;
-  } else if (addr2 != MAP_FAILED) {
-    // undo the mmap
-    munmap(addr2, len);
-    errno = EEXIST;
-    return MAP_FAILED;
-  } else {
-    // the mmap really did fail
-    return MAP_FAILED;
-  }
-}
-
 void
 SharedData::initializeHeader(const char *tmpDir,
                              DmtcpUniqueProcessId *compId,
@@ -222,9 +190,9 @@ SharedData::initialize(const char *tmpDir,
                 PROT_READ | PROT_WRITE, MAP_SHARED,
                 PROTECTED_SHM_FD, 0);
   } else {
-    addr = mmap_fixed_noreplace((void *)sharedDataHeader, size,
-                                PROT_READ | PROT_WRITE, MAP_SHARED,
-                                PROTECTED_SHM_FD, 0);
+    addr = Util::mmap_fixed_noreplace((void *)sharedDataHeader, size,
+                                      PROT_READ | PROT_WRITE, MAP_SHARED,
+                                      PROTECTED_SHM_FD, 0);
     // If the checkpointed program has parent and child processes,
     // the child process will try to map the shared area at the same
     // address that was mapped by the dmtcp_restart. We ignore this
