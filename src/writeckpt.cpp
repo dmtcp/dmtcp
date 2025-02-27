@@ -150,18 +150,18 @@ mtcp_writememoryareas(int fd)
    * FIXME: Since this is the init event, it's not clear why updateRestoreBufAddr()
    *        begins by doing munmap of some previous "restorebuf" region if it exists.
    * That method had called mmap to create a shared memory segment at
-   * address ProcessInfo::_restoreBufAddr, of length _restoreBufAddr:_restoreBufLen,
+   * address ProcessInfo::_restoreBuf.startAddr, of length _restoreBufAddr:_restoreBufLen,
    * a synonym for RESTORE_TOTAL_SIZE (defined both in src/processinfo.h
    * and src/mtcp/mtcp_restart.h).  The JTRACE below confirms that this
    * was done in the "init" event, with a hint only here: (to hold mtcp_restart code)
-   *     In src/mtcp/mtcp_restart.c, we see that restoreBufAddr and restoreBufLen
+   *     In src/mtcp/mtcp_restart.c, we see that restoreBuf.startAddr and restoreBufLen
    * have been transferred to the command line, and now have the new synonyms:
-   * rinfo.restore_addr (restoreBufAddr) and rinfo.restore_size (restoreBufLen).
+   * rinfo.restore_addr (restoreBuf.startAddr) and rinfo.restore_size (restoreBufLen).
    * We will _not_ save the "restoreBuf" memory segment into the ckpt image.
    * mtcp_restart will mmap this region.  In mtcp_restart.c, we copy the
-   * text/data/stack to restoreBufAddr.
+   * text/data/stack to restoreBuf.startAddr.
    * The executable, bin/mtcp_restart, is compiled with '-fPIC', so that we
-   * can execute it after it has been migrated to restoreBufAddr.
+   * can execute it after it has been migrated to restoreBuf.startAddr.
    *
    * FIXME: The "mmap/munmap" of holebase/restoreBuf is hidden inside
    *        processinfo.cpp:ProcessInfo::updateRestoreBufAddr().
@@ -171,16 +171,10 @@ mtcp_writememoryareas(int fd)
    *        restart() is heavily overloaded, but assuming it's only relevant
    *        to processinfo.cpp, we have it used in: ProcessInfo::restart()
    *        and 'case DMTCP_EVENT_RESTART' in processInfo_EventHook().
-   *
-   * We will change the restoreBufLen to 3 * RESTORE_TOTAL_SIZE (found
-   * in the file XXX, so that if the mtcp_restart code+stack is limited
-   * to at most TOTAL_*_SIZE bytes, then it can overlap at most
-   * two of the three regions of 3 * RESTORE_TOTAL_SIZE.
-   *     RESTORE_TOTAL_SIZE is in src/processinfo.h and src/mtcp/mtcp_restart.h
    */
   JTRACE("addr and len of restoreBuf (to hold mtcp_restart code)")
-    ((void *)ProcessInfo::instance().restoreBufAddr)
-    (ProcessInfo::instance().restoreBufLen);
+    ((void *)ProcessInfo::instance().restoreBuf.startAddr)
+    (ProcessInfo::instance().restoreBuf.endAddr);
   procSelfMaps = new ProcSelfMaps();
 
   // We must not cause an mmap() here, or the mem regions will not be correct.
@@ -190,14 +184,7 @@ mtcp_writememoryareas(int fd)
     // will invoke mmap if the JAlloc arena is full. Similarly, for STL objects
     // such as vector and string.
 
-    // FIXME: The "3" multiplier is to correspond to the "3" multiplier in
-    //        ProcessInfo::updateRestoreBufAddr().  See the comment there about
-    //        spaghetti code.  Ideally, we would refactor all of this code.
-    if ((uint64_t)area.addr == ProcessInfo::instance().restoreBufAddr) {
-      JASSERT(area.size == 3 * ProcessInfo::instance().restoreBufLen)
-        ((void *)area.addr)
-        (area.size)
-        (ProcessInfo::instance().restoreBufLen);
+    if ((uint64_t)area.addr == ProcessInfo::instance().restoreBuf.startAddr) {
       continue;
     } else if (SharedData::isSharedDataRegion(area.addr)) {
       continue;

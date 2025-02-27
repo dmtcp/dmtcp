@@ -396,7 +396,7 @@ char *get_pause_param()
 }
 
 vector<char *>
-getMtcpArgs(uint64_t restoreBufAddr, uint64_t restoreBufLen)
+getMtcpArgs(MemRegion restoreBuf)
 {
   vector<char *> mtcpArgs;
   mtcp_restart = Util::getPath(mtcp_restart.c_str());
@@ -408,11 +408,11 @@ getMtcpArgs(uint64_t restoreBufAddr, uint64_t restoreBufLen)
   mtcpArgs.push_back((char *) stderrFd.c_str());
 
   mtcpArgs.push_back((char *) "--restore-buffer-addr");
-  restoreBufAddrStr = jalib::XToHexString((void*)restoreBufAddr);
+  restoreBufAddrStr = jalib::XToHexString(restoreBuf.startAddr);
   mtcpArgs.push_back((char *) restoreBufAddrStr.c_str());
 
   mtcpArgs.push_back((char *) "--restore-buffer-len");
-  restoreBufLenStr = jalib::XToHexString((void*)restoreBufLen);
+  restoreBufLenStr = jalib::XToHexString(restoreBuf.endAddr - restoreBuf.startAddr);
   mtcpArgs.push_back((char *) restoreBufLenStr.c_str());
 
   if (pause_param) {
@@ -474,7 +474,7 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
     }
   }
 
-  vector<char *> mtcpArgs = getMtcpArgs(restoreTarget->restoreBufAddr(), restoreTarget->restoreBufLen());
+  vector<char *> mtcpArgs = getMtcpArgs(restoreTarget->restoreBuf());
 
 #if defined(__x86_64__) || defined(__aarch64__) || defined(__riscv)
   // FIXME: This is needed for CONFIG_M32 only because getPath("mtcp_restart")

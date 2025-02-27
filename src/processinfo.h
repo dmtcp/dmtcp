@@ -26,11 +26,6 @@
 #include "../jalib/jalloc.h"
 #include "uniquepid.h"
 
-#define MB                 1024 * 1024
-#define RESTORE_STACK_SIZE 16 * MB
-#define RESTORE_MEM_SIZE   16 * MB
-#define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE + RESTORE_MEM_SIZE)
-
 namespace dmtcp
 {
 class ProcessInfo : public DmtcpCkptHeader
@@ -111,7 +106,7 @@ class ProcessInfo : public DmtcpCkptHeader
       return _compGroupStr;
     }
 
-    void updateRestoreBufAddr(void* addr, uint64_t len);
+    void updateRestoreBufAddr();
     bool vdsoOffsetMismatch(uint64_t f1, uint64_t f2,
                             uint64_t f3, uint64_t f4);
 

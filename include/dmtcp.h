@@ -274,9 +274,6 @@ typedef struct {
   DmtcpUniqueProcessId uppid;
   DmtcpUniqueProcessId compGroup;
 
-  uint64_t restoreBufAddr;
-  uint64_t restoreBufLen;
-
   pid_t pid;
   pid_t ppid;
   pid_t sid;
@@ -291,6 +288,10 @@ typedef struct {
   uint64_t getcpu_offset;
   uint64_t gettimeofday_offset;
   uint64_t time_offset;
+
+  // Reserve 3 * 30MB for restore buffer.
+#define RESTORE_BUF_TOTAL_SIZE (90 * 1024 * 1024)
+  MemRegion restoreBuf;
 
   MemRegion vdso;
   MemRegion vvar;
@@ -395,8 +396,6 @@ const char *dmtcp_get_ckpt_files_subdir(void);
 int dmtcp_should_ckpt_open_files(void);
 int dmtcp_allow_overwrite_with_ckpted_files(void);
 int dmtcp_skip_truncate_file_at_restart(const char* path);
-void dmtcp_set_restore_buf_addr(void *new_addr, uint64_t len);
-uint64_t dmtcp_restore_buf_len();
 
 int dmtcp_get_ckpt_signal(void);
 const char *dmtcp_get_uniquepid_str(void) __attribute__((weak));

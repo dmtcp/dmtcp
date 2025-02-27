@@ -8,11 +8,6 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-#define MB                 1024 * 1024
-#define RESTORE_STACK_SIZE 16 * MB
-#define RESTORE_MEM_SIZE   16 * MB
-#define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE + RESTORE_MEM_SIZE)
-
 /* The use of NO_OPTIMIZE is deprecated and will be removed, since we
  * compile mtcp_restart.c with the -O0 flag already.
  */

@@ -66,16 +66,10 @@ StdLibEC(const dmtcp::string &s, bool strict)
 
 template<typename X>
 inline dmtcp::string
-XToString(const X &x, bool hexOutput = false)
+XToString(const X &x)
 {
   dmtcp::ostringstream tmp;
-
-  if (hexOutput) {
-    tmp << std::hex << x;
-  } else {
-    tmp << x;
-  }
-
+  tmp << x;
   return tmp.str();
 }
 
@@ -83,7 +77,9 @@ template<typename X>
 inline dmtcp::string
 XToHexString(const X &x)
 {
-  return XToString(x, true);
+  dmtcp::ostringstream tmp;
+  tmp << std::hex << std::showbase << x;
+  return tmp.str();
 }
 
 template<typename X>
