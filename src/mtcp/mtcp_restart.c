@@ -83,7 +83,7 @@ static void readmemoryareas(int fd, VA endOfStack);
 static int read_one_memory_area(int fd, VA endOfStack);
 static void restorememoryareas(RestoreInfo *rinfo_ptr);
 static void restore_brk(RestoreInfo *rinfo);
-static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2);
+static int doAreasOverlap(Area *area, MemRegion *memRegion);
 static int hasOverlappingMapping(VA addr, size_t size);
 static int mremap_move(void *dest, void *src, size_t size);
 static void remapExistingAreasToReservedArea(RestoreInfo *rinfo, void (*restore_func)(RestoreInfo*));
@@ -145,8 +145,8 @@ mtcp_simulateread(RestoreInfo *rinfo)
 
   mtcp_printf("\nDMTCP: %s", hdr.ckptSignature);
   mtcp_printf("**** mtcp_restart (will be copied here): %p..%p\n",
-              hdr.restoreBufAddr,
-              hdr.restoreBufAddr + hdr.restoreBufLen);
+              hdr.restoreBuf.startAddr,
+              hdr.restoreBuf.endAddr);
   mtcp_printf("**** DMTCP entry point (ThreadList::postRestart()): %p\n",
               hdr.postRestartAddr);
   mtcp_printf("**** brk (sbrk(0)): %p\n", hdr.savedBrk);
@@ -198,6 +198,7 @@ void
 mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore_func)(RestoreInfo *))
 {
   int mtcp_sys_errno;
+  uint64_t restoreBufLen = 0;
 
   if (argc == 1) {
     MTCP_PRINTF("***ERROR: This program should not be used directly.\n");
@@ -234,10 +235,10 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
       rinfo.stderr_fd = mtcp_strtol(argv[1]);
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--restore-buffer-addr") == 0) {
-      rinfo.ckptHdr.restoreBufAddr = mtcp_strtol(argv[1]);
+      rinfo.ckptHdr.restoreBuf.startAddr = mtcp_strtol(argv[1]);
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--restore-buffer-len") == 0) {
-      rinfo.ckptHdr.restoreBufLen = mtcp_strtol(argv[1]);
+      restoreBufLen = mtcp_strtol(argv[1]);
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--mtcp-restart-pause") == 0) {
       rinfo.restart_pause = argv[1][0] - '0'; /* true */
@@ -259,6 +260,8 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
       mtcp_sys_exit(1);
     }
   }
+
+  rinfo.ckptHdr.restoreBuf.endAddr = rinfo.ckptHdr.restoreBuf.startAddr + restoreBufLen;
 
   if (rinfo.simulate) {
     mtcp_simulateread(&rinfo);
@@ -347,24 +350,47 @@ validateRestoreBufferLocation(RestoreInfo *rinfo)
   int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
   MTCP_ASSERT (mapsfd >= 0);
 
-  // NOTE:  rinfo->restore_addr, rinfo->restore_size are synonyms for
-  //        restoreBufAddr, restoreBufLen in src/{writeckpt.cpp,processinfo.cpp}.
-  //        See comment in processinfo.cpp:ProcessInfo::updateRestoreBufAddr()
-  //        for why "restoreBuf" is actually 3 times as large.
-  int attempt = 1;
+  // NOTE: This note explains why we need the divisor, 3, for totalReservedLen.
+  //       The restoreBuf len is set to a rather large value than is required
+  //       for mtcp_restart.
+  //       See the comment inside writeckpt.cpp:mtcp_writememoryareas() for
+  //       the purpose of the "restoreBuf" (aka "holebase").  Due to
+  //       address space randomization, this "restoreBuf" may have an
+  //       address conflict with the "stack", "vvar" or other, for mtcp_restart.
+  //       So, we divide the restoreBuf by 3 and attempt each region until we succeed.
+  //       The entire test/data/stack of
+  //       of mtcp_restart is assumed to fit inside RESTORE_BUF_TOTAL_SIZE / 3 bytes.
+  //       So, the memory of mtcp_restart will overlap with at most two
+  //       of the three regions of size RESTORE_BUF_TOTAL_SIZE / 3.  So, mtcp_restart
+  //       is guaranteed to find a "holebase" that doesn't overlap with
+  //       the existing memory of mtcp_restart.
+
+  MTCP_ASSERT(RESTORE_BUF_TOTAL_SIZE ==
+    rinfo->ckptHdr.restoreBuf.endAddr - rinfo->ckptHdr.restoreBuf.startAddr);
+
+  uint64_t requiredLen = RESTORE_BUF_TOTAL_SIZE / 3;
+  MemRegion restoreBuf = {
+    .startAddr = rinfo->ckptHdr.restoreBuf.startAddr,
+    .endAddr = rinfo->ckptHdr.restoreBuf.startAddr + requiredLen
+  };
+
   Area area;
+  int attempt = 1;
   while (mtcp_readmapsline(mapsfd, &area)) {
-    if (doAreasOverlap(area.addr, area.size, (VA) rinfo->ckptHdr.restoreBufAddr, rinfo->ckptHdr.restoreBufLen)) {
+    if (doAreasOverlap(&area, &restoreBuf)) {
       if (attempt >= 3) {
         MTCP_PRINTF("***ERROR: Restore buffer overlaps with memory area %p-%p\n",
                     area.addr, area.endAddr);
         mtcp_abort();
       } else {
         attempt++; // restoreBuf is 3 times as large as rinfo->restore_size
-        rinfo->ckptHdr.restoreBufAddr += rinfo->ckptHdr.restoreBufLen;
+        restoreBuf.startAddr += requiredLen;
+        restoreBuf.endAddr += requiredLen;
       }
     }
   }
+
+  rinfo->ckptHdr.restoreBuf = restoreBuf;
 
   mtcp_sys_close(mapsfd);
 }
@@ -413,14 +439,13 @@ restore_brk(RestoreInfo *rinfo)
    */
 
   current_brk = (uint64_t) mtcp_sys_brk(NULL);
-  uint64_t restore_end =
-    rinfo->ckptHdr.restoreBufAddr + rinfo->ckptHdr.restoreBufLen;
-  if ((current_brk > rinfo->ckptHdr.restoreBufAddr) &&
-      (rinfo->ckptHdr.savedBrk < restore_end)) {
+  if ((current_brk > rinfo->ckptHdr.restoreBuf.startAddr) &&
+      (rinfo->ckptHdr.savedBrk < rinfo->ckptHdr.restoreBuf.endAddr)) {
     MTCP_PRINTF("current_brk %p, savedBrk %p, restore_begin %p,"
                 " restore_end %p\n",
-                current_brk, rinfo->ckptHdr.savedBrk, (VA) rinfo->ckptHdr.restoreBufAddr,
-                restore_end);
+                current_brk, rinfo->ckptHdr.savedBrk,
+                (VA) rinfo->ckptHdr.restoreBuf.startAddr,
+                rinfo->ckptHdr.restoreBuf.endAddr);
     mtcp_abort();
   }
 
@@ -1016,10 +1041,15 @@ adjust_for_smaller_file_size(Area *area, int fd)
 
 NO_OPTIMIZE
 static int
-doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2)
+doAreasOverlap(Area *area, MemRegion *memRegion)
 {
-  VA end1 = (char *)addr1 + size1;
-  VA end2 = (char *)addr2 + size2;
+  uint64_t size1 = area->size;
+  uint64_t size2 = memRegion->endAddr - memRegion->startAddr;
+
+  uint64_t addr1 = (uint64_t)area->endAddr;
+  uint64_t end1 = (uint64_t)area->endAddr;
+  uint64_t addr2 = memRegion->startAddr;
+  uint64_t end2 = memRegion->endAddr;
 
   return (size1 > 0 && addr1 >= addr2 && addr1 < end2) ||
          (size2 > 0 && addr2 >= addr1 && addr2 < end1);
@@ -1078,7 +1108,7 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
 {
   int mtcp_sys_errno;
 
-  ptrdiff_t restore_region_offset = (VA) rinfo->ckptHdr.restoreBufAddr - mem_regions[0].addr;
+  ptrdiff_t restore_region_offset = (VA) rinfo->ckptHdr.restoreBuf.startAddr - mem_regions[0].addr;
   rinfo->restore_func = (fnptr_t)
     ((uint64_t)restore_func + restore_region_offset);
   rinfo->mtcp_restart_new_stack = (fnptr_t)
@@ -1091,8 +1121,9 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
   size_t entrypoint_offset = (VA)&_start - (VA) mem_regions[0].addr;
 
   // Make sure we can fit all mtcp_restart regions in the restore area.
-  MTCP_ASSERT(mem_regions[num_regions - 1].endAddr - mem_regions[0].addr <=
-                rinfo->ckptHdr.restoreBufLen);
+  MTCP_ASSERT((mem_regions[num_regions - 1].endAddr - mem_regions[0].addr) <=
+                (rinfo->ckptHdr.restoreBuf.endAddr -
+                  rinfo->ckptHdr.restoreBuf.startAddr));
 
   // Now remap mtcp_restart at the restore location. Note that for memory
   // regions with write permissions, we copy over the bits from the original
@@ -1105,14 +1136,12 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
 
   // Reserve the entire restore area. This would ensure no other memory regions
   // get mapped in this location.
-  //FIXME:  Since rinfo.restore_size is a synonym for restoreBufLen, which is
-  //        a synonym for RESTORE_TOTAL_SIZE, why don't we just use
-  //        rinfo.restore_size here and below?
-  //        The current code is probably left over from a request for
+  //FIXME:  The current code is probably left over from a request for
   //        a now obsolete request by the MANA project.  We should
   //        refactor this.
-  void *addr = mmap_fixed_noreplace((VA) rinfo->ckptHdr.restoreBufAddr,
-                                    RESTORE_TOTAL_SIZE,
+  uint64_t len = rinfo->ckptHdr.restoreBuf.endAddr - rinfo->ckptHdr.restoreBuf.startAddr;
+  void *addr = mmap_fixed_noreplace((VA) rinfo->ckptHdr.restoreBuf.startAddr,
+                                    len,
                                     PROT_NONE,
                                     MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED,
                                     -1,
@@ -1244,11 +1273,11 @@ remapExistingAreasToReservedArea(RestoreInfo *rinfo,
   }
 
   uint64_t remaining_restore_area =
-    (uint64_t) (rinfo->ckptHdr.restoreBufAddr + rinfo->ckptHdr.restoreBufLen - (uint64_t) endAddr);
+    (uint64_t) (rinfo->ckptHdr.restoreBuf.endAddr - (uint64_t) endAddr);
 
   MTCP_ASSERT(remaining_restore_area >= rinfo->old_stack_size);
 
-  uint64_t new_stack_end_addr = rinfo->ckptHdr.restoreBufAddr + RESTORE_TOTAL_SIZE;
+  uint64_t new_stack_end_addr = rinfo->ckptHdr.restoreBuf.endAddr;
   uint64_t new_stack_start_addr = new_stack_end_addr - rinfo->old_stack_size;
 
   rinfo->new_stack_addr = (VA)

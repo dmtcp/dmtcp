@@ -60,9 +60,7 @@ class RestoreTarget
 
     int numPeers() { return _ckptHdr.numPeers; }
 
-    uint64_t restoreBufAddr() { return _ckptHdr.restoreBufAddr; }
-
-    uint64_t restoreBufLen() { return _ckptHdr.restoreBufLen; }
+    MemRegion restoreBuf() { return _ckptHdr.restoreBuf; }
 
     const int getElfType() const { return _ckptHdr.elfType; }
 
@@ -100,7 +98,7 @@ class DmtcpRestart
     bool runMpiProxy = 0;
 };
 
-vector<char *> getMtcpArgs(uint64_t restoreBufAddr, uint64_t restoreBufLen);
+vector<char *> getMtcpArgs(MemRegion restoreBuf);
 
 void dmtcp_restart_plugin(const string &restartDir,
                           const vector<string> &ckptImages) __attribute((weak));

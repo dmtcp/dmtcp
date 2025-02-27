@@ -162,8 +162,8 @@ ProcessInfo::ProcessInfo()
   upid = UniquePid::ThisProcess();
   uppid = UniquePid::ParentProcess();
 
-  restoreBufLen = RESTORE_TOTAL_SIZE;
-  restoreBufAddr = 0;
+  restoreBuf.startAddr = 0;
+  restoreBuf.endAddr = 0;
 
   pid = -1;
   ppid = -1;
@@ -225,7 +225,7 @@ ProcessInfo::growStack()
   /* Grow the stack to the stack limit */
   struct rlimit rlim;
   size_t stackSize;
-  const rlim_t eightMB = 8 * MB;
+  const rlim_t eightMB = 8 * 1024 * 1024;
 
   JASSERT(getrlimit(RLIMIT_STACK, &rlim) == 0) (JASSERT_ERRNO);
   if (rlim.rlim_cur == RLIM_INFINITY) {
@@ -343,7 +343,7 @@ ProcessInfo::init()
   ASSERT_EQ(brkMmap, _initialSavedBrk);
 
   // Reserve space for restoreBuf
-  updateRestoreBufAddr(nullptr, RESTORE_TOTAL_SIZE);
+  updateRestoreBufAddr();
 
   if (_ckptDir.empty()) {
     updateCkptDirFileSubdir();
@@ -351,7 +351,7 @@ ProcessInfo::init()
 }
 
 void
-ProcessInfo::updateRestoreBufAddr(void* addr, uint64_t len)
+ProcessInfo::updateRestoreBufAddr()
 {
   // This method could be called by ProcessInfo::init() or ProcessInfo::restart().
   // If it was called by ProcessInfo::restart(), then mtcp_restart() will
@@ -360,13 +360,14 @@ ProcessInfo::updateRestoreBufAddr(void* addr, uint64_t len)
   //        at the end of this method.  We need to munmap/mmap because we want
   //        to free the backing physical pages created by mtcp_restart.
 
-  if (restoreBufAddr != 0) {
-    JASSERT(munmap((void*) restoreBufAddr, restoreBufLen) == 0) (JASSERT_ERRNO);
+  if (restoreBuf.startAddr != 0) {
+    JASSERT(munmap((void*) restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE) == 0)
+      (JASSERT_ERRNO);
   }
 
   int flags = MAP_SHARED | MAP_ANONYMOUS;
 
-  if (addr != nullptr) {
+  if (restoreBuf.startAddr != 0) {
     flags += MAP_FIXED;
   }
 
@@ -374,22 +375,11 @@ ProcessInfo::updateRestoreBufAddr(void* addr, uint64_t len)
   //         then sets it to _restoreBufLen.  But ProcessInfo::init() had
   //         previously set _restoreBufLen to RESTORE_TOTAL_SIZE.  So, we
   //         have now made the round trip.  This is spaghetti code. :-(
-  // NOTE: This note explains why we need the multiplier, 3, for 3*_restoreBufLen.
-  //       _restoreBufLen is a synonym for RESTORE_TOTAL_SIZE.
-  //       See the comment inside writeckpt.cpp:mtcp_writememoryareas() for
-  //       the purpose of the "restoreBuf" (aka "holebase").  Due to
-  //       address space randomization, this "restoreBuf" may have an
-  //       address conflict with the "stack", "vvar" or other, for mtcp_restart.
-  //       So, we mmap 3 * RESTORE_TOTAL_SIZE.  The entire test/data/stack of
-  //       of mtcp_restart is assumed to fit inside RESTORE_TOTAL_SIZE bytes.
-  //       So, the memory of mtcp_restart will overlap with at most two
-  //       of the three regions of size RESTORE_TOTAL_SIZE.  So, mtcp_restart
-  //       is guaranteed to find a "holebase" that doesn't overlap with
-  //       the existing memory of mtcp_restart.
-  restoreBufLen = len;
-  restoreBufAddr = (uint64_t) mmap(addr, 3 * restoreBufLen,
-                    PROT_NONE, flags, -1, 0);
-  JASSERT(restoreBufAddr != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
+  restoreBuf.startAddr = (uint64_t) mmap((void*)restoreBuf.startAddr,
+                                         RESTORE_BUF_TOTAL_SIZE,
+                                         PROT_NONE, flags, -1, 0);
+  JASSERT(restoreBuf.startAddr != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
+  restoreBuf.endAddr = restoreBuf.startAddr + RESTORE_BUF_TOTAL_SIZE;
 }
 
 void
@@ -514,7 +504,7 @@ ProcessInfo::restoreHeap()
 void
 ProcessInfo::restart()
 {
-  updateRestoreBufAddr((void *)restoreBufAddr, restoreBufLen);
+  updateRestoreBufAddr();
 
   restoreHeap();
 
@@ -714,7 +704,7 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
   o & clock_gettime_offset & getcpu_offset
     & gettimeofday_offset & time_offset;
   o & compGroup & numPeers;
-  o & restoreBufAddr & _savedHeapStart & savedBrk;
+  o & restoreBuf.startAddr & _savedHeapStart & savedBrk;
   o & vdso & vvar & vvarVClock;
   o & endOfStack;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
