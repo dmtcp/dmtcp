@@ -89,12 +89,16 @@ shmget(key_t key, size_t size, int shmflg)
   // preserves the semantics of `IPC_PRIVATE`
   if (key == IPC_PRIVATE) {
     realKey = dmtcp_virtual_to_real_pid(getpid());
+    if (realKey == -1) {
+      realKey = key + dmtcp_virtual_to_real_pid(getpid());
+    }
   } else {
     realKey = VIRTUAL_TO_REAL_SHM_KEY(key);
+    if (realKey == -1) {
+      realKey = key;
+    }
   }
-  if (realKey == -1) {
-    realKey = key + dmtcp_virtual_to_real_pid(getpid());
-  }
+
   realId = _real_shmget(realKey, size, shmflg);
   if (realId != -1) {
     SysVShm::instance().on_shmget(realId, realKey, key, size, shmflg);
