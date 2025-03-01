@@ -94,7 +94,7 @@ if args.parallel:
   if args.tests == []:
     all_tests = subprocess.Popen(
       sys.executable + " " + autotest_path + " NO_SUCH_TEST | grep SKIPPED$",
-      shell=True, stdout=subprocess.PIPE)
+      shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     all_tests = str(all_tests.communicate()[0].decode("UTF-8"))
     all_tests = all_tests.replace('SKIPPED', '').split()
     tests = [test for test in all_tests]
@@ -340,7 +340,7 @@ def runDmtcpCommand(cmd, waitForOutput=True):
 
   proc = subprocess.Popen(cmdline, bufsize=BUFFER_SIZE,
                 stdin=None, stdout=subprocess.PIPE,
-                stderr=None, close_fds=True)
+                stderr=subprocess.STDOUT, close_fds=True)
 
   if waitForOutput:
     output = proc.stdout.readlines()
@@ -399,6 +399,8 @@ def runCmd(cmd):
     elif args.verbose:
       childStdout=None  # Inherit child stdout from parent
       childStderr=None  # Inherit child stderr from parent
+      childStdout=subprocess.PIPE
+      childStderr=subprocess.STDOUT
     else:
       childStdout = devnullFd
       childStderr = subprocess.STDOUT # Mix stderr into stdout file object
@@ -646,6 +648,7 @@ def runTestRaw(name, numProcs, cmds):
             "error: processes checkpointed, but died upon resume")
 
   def testRestart():
+    os.system("ls -l dmtcp-autotest-*")
     #build restart command
     cmd=BIN+"dmtcp_restart --quiet"
     for i in os.listdir(ckptDir):
@@ -1152,6 +1155,7 @@ if HAS_EMACS == "yes":
   # Under emacs23, it opens /dev/tty directly in a new fd.
   # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
   # ... or else a better pty wrapper to capture emacs output to /dev/tty.
+  os.system("bash -c 'ulimit -a'")
   runTest("emacs", 1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
                              " --no-init-file /etc/passwd"])
 S=DEFAULT_S
