@@ -68,7 +68,6 @@ shmget(key_t key, size_t size, int shmflg)
   int virtId = -1;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
-  key_t realKey = -1;
 
   // If multiple clients try to simultaneously create shm regions with
   // (IPC_PRIVATE | IPC_EXCL), there is a race condition that can cause the
@@ -87,14 +86,9 @@ shmget(key_t key, size_t size, int shmflg)
   // Therefore, we detect this special case of `IPC_PRIVATE` and use
   // a process's real pid to create the shared memory region. This also
   // preserves the semantics of `IPC_PRIVATE`
-  if (key == IPC_PRIVATE) {
-    realKey = dmtcp_virtual_to_real_pid(getpid());
-  } else {
-    realKey = VIRTUAL_TO_REAL_SHM_KEY(key);
-  }
-  if (realKey == -1) {
-    realKey = key + dmtcp_virtual_to_real_pid(getpid());
-  }
+
+  key_t realKey = VIRTUAL_TO_REAL_SHM_KEY(key);
+
   realId = _real_shmget(realKey, size, shmflg);
   if (realId != -1) {
     SysVShm::instance().on_shmget(realId, realKey, key, size, shmflg);
