@@ -46,6 +46,7 @@ using namespace dmtcp;
 
 // Globals
 ATOMIC_SHARED_GLOBAL bool restoreInProgress = false;
+static Thread motherofallStorage;
 Thread *motherofall = NULL;
 pid_t motherpid = 0;
 sigset_t sigpending_global;
@@ -98,20 +99,6 @@ unlk_threads(void)
 bool dmtcp_is_ckpt_thread()
 {
   return ckptThread == curThread;
-}
-
-Thread *
-dmtcp_get_motherofall()
-{
-  if (motherofall != nullptr) {
-    return motherofall;
-  }
-
-  ThreadList::init();
-
-  ASSERT_NOT_NULL(motherofall);
-
-  return motherofall;
 }
 
 Thread *
@@ -193,6 +180,15 @@ ThreadList::resetOnFork()
 void
 ThreadList::init()
 {
+  if (motherofall == nullptr) {
+    // We need to use static storage for motherofall to avoid calling
+    // JALLOC_MALLOC during initialization which could lead to infinite recursion.
+    motherofall = &motherofallStorage;
+    prepareThread(motherofall, NULL, NULL);
+    /* Set up caller as one of our threads so we can work on it */
+    initThread(motherofall);
+  }
+
   /* Save this process's pid.  Then verify that the TLS has it where it should
    * be. When we do a restore, we will have to modify each thread's TLS with the
    * new motherpid. We also assume that GS uses the first GDT entry for its
@@ -202,11 +198,6 @@ ThreadList::init()
   /* libc/getpid can lie if we had used kernel fork() instead of libc fork(). */
   motherpid = getpid();
 
-  if (motherofall == nullptr) {
-    /* Set up caller as one of our threads so we can work on it */
-    motherofall = ThreadList::getNewThread(NULL, NULL);
-    initThread(motherofall);
-  }
 }
 
 /*****************************************************************************
@@ -246,6 +237,16 @@ Thread *
 ThreadList::getNewThread(void *(*fn)(void *), void *arg)
 {
   Thread *th = (Thread*) JALLOC_MALLOC(sizeof(Thread));
+  prepareThread(th, fn, arg);
+  return th;
+}
+
+/*****************************************************************************
+ *
+ *****************************************************************************/
+void
+ThreadList::prepareThread(Thread *th, void *(*fn)(void *), void *arg)
+{
   /* Save exactly what the caller is supplying */
   th->fn = fn;
   th->arg = arg;
@@ -257,7 +258,6 @@ ThreadList::getNewThread(void *(*fn)(void *), void *arg)
   th->exiting = 0;
   th->wrapperLockCount = 0;
   th->procname[0] = '\0';
-  return th;
 }
 
 /*****************************************************************************
@@ -321,7 +321,7 @@ ThreadList::writeCkpt()
   header.postRestartAddr = (uint64_t) &ThreadList::postRestart;
 
   const ssize_t pagesize = Util::pageSize();
-  ASSERT_EQ(sizeof(header) % pagesize, 0);
+  ASSERT_EQ(sizeof(header) % pagesize, 0ul);
 
   CkptSerializer::writeCkptImage(header, ckptFilename);
 }
@@ -1005,5 +1005,7 @@ ThreadList::threadIsDead(Thread *thread)
     activeThreads = activeThreads->next;
   }
 
-  JALLOC_FREE(thread);
+  if (thread != &motherofallStorage) {
+    JALLOC_FREE(thread);
+  }
 }
