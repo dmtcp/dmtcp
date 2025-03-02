@@ -183,7 +183,7 @@ class DmtcpCoordinator
     void handleUserCommand(dmtcp::string cmd, DmtcpMessage *reply = NULL);
     void getStatusStr(ostream *o);
     void writeStatusToFile();
-    void printStatus(size_t numPeers, bool isRunning);
+    void printStatus(size_t numPeers, bool isRunning, bool isRestarting);
     string printList();
 
     void processDmtUserCmd(DmtcpMessage &hello_remote, jalib::JSocket &remote);

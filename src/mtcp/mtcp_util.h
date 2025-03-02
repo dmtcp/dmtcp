@@ -35,7 +35,7 @@
     mtcp_abort();                                       \
   }
 
-#ifdef LOGGING
+#if 1
 # define DPRINTF MTCP_PRINTF
 #else // ifdef LOGGING
 # define DPRINTF(args ...) // debug printing

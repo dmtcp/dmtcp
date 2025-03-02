@@ -294,6 +294,7 @@ connectAndSendUserCommand(char c,
                           int *coordCmdStatus,
                           int *numPeers,
                           int *isRunning,
+                          int *isRestarting,
                           int *ckptInterval)
 {
   char *replyData = NULL;
@@ -336,6 +337,9 @@ connectAndSendUserCommand(char c,
   }
   if (isRunning != NULL) {
     *isRunning = reply.isRunning;
+  }
+  if (isRestarting != NULL) {
+    *isRestarting = reply.isRestarting;
   }
   if (ckptInterval != NULL) {
     *ckptInterval = reply.theCheckpointInterval;

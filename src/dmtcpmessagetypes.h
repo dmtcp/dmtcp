@@ -135,6 +135,7 @@ struct DmtcpMessage {
 
   uint32_t numPeers;
   uint32_t isRunning;
+  uint32_t isRestarting;
   uint32_t coordCmd;
   int32_t coordCmdStatus;
 
