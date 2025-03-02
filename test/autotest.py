@@ -892,6 +892,8 @@ S=DEFAULT_S
 # Test for normal file, /dev/tty, proc file, and illegal pathname
 runTest("stat",         1, ["./test/stat"])
 
+runTest("mmap1", 1, ["./test/mmap1"])
+
 # FIXME:  Copy test/stack-growsdown from DMTCP-2.6 when PR is ready.
 # # Test if it works for stack growing on restart
 # runTest("stack-growsdown",         1, ["./test/stack-growsdown"])
