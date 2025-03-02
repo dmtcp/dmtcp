@@ -34,6 +34,7 @@ namespace ThreadList
 void init();
 void createCkptThread();
 Thread *getNewThread(void *(*fn)(void *), void *arg);
+void prepareThread(Thread *th, void *(*fn)(void *), void *arg);
 void initThread(Thread *);
 void resetOnFork();
 void threadExit();
