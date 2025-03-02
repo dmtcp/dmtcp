@@ -321,7 +321,7 @@ ThreadList::writeCkpt()
   header.postRestartAddr = (uint64_t) &ThreadList::postRestart;
 
   const ssize_t pagesize = Util::pageSize();
-  ASSERT_EQ(sizeof(header) % pagesize, 0);
+  ASSERT_EQ(sizeof(header) % pagesize, 0ul);
 
   CkptSerializer::writeCkptImage(header, ckptFilename);
 }

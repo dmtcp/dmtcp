@@ -15,8 +15,9 @@ void
 parent(int fd)
 {
   int shmid;
+  srand(getpid());
 
-  if ((shmid = shmget((key_t)9979, SIZE, IPC_CREAT | 0666)) < 0) {
+  if ((shmid = shmget((key_t)rand(), SIZE, IPC_CREAT | 0666)) < 0) {
     perror("shmget");
     exit(1);
   }
