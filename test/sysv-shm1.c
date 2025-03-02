@@ -1,5 +1,6 @@
 // shmget() needs sysv/ipc.h, which needs )XOPEN_SOURCE
 #define _XOPEN_SOURCE
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,74 +10,97 @@
 #include <unistd.h>
 
 #define SIZE 1024
+#define NUM_SHMIDS 3
 
 void
-parent(int shmid)
+parent(int shmid[])
 {
-  void *addr = shmat(shmid, NULL, 0);
+  int *addr[NUM_SHMIDS];
 
-  if (addr == (void *)-1) {
-    perror("Parent: shmat");
-    abort();
-  }
-
-  int *ptr = (int *)addr;
-  int i;
-  for (i = 1; i < 100000; i++) {
-    printf("Server: %d\n", i);
-    fflush(stdout);
-    *ptr = i;
-    while (*ptr != -i) {
-      sleep(1);
+  for (int shmidx = 0; shmidx < NUM_SHMIDS; shmidx++) {
+    addr[shmidx] = (int*) shmat(shmid[shmidx], NULL, 0);
+    if (addr == (void *)-1) {
+      perror("Parent: shmat");
+      abort();
     }
   }
-  *ptr = 0;
+
+  for (int i = 1; i < 100000; i++) {
+    printf("Server: %d\n", i);
+    fflush(stdout);
+    for (int shmidx = 0; shmidx < NUM_SHMIDS; shmidx++) {
+      addr[shmidx][0] = i + shmidx;
+    }
+    for (int shmidx = 0; shmidx < NUM_SHMIDS; shmidx++) {
+      while (addr[shmidx][0] != -(i + shmidx)) {
+        sleep(1);
+      }
+    }
+  }
   exit(0);
 }
 
 void
-child(int shmid)
+child(int shmid[])
 {
-  void *addr = shmat(shmid, NULL, 0);
-
-  if (addr == (void *)-1) {
-    perror("Child: shmat");
-    abort();
-  }
-
-  int *ptr = (int *)addr;
-  sleep(2);
-  int val;
-  while ((val = *ptr) != 0) {
-    int i = *ptr;
-    if (i > 0) {
-      printf("Client: %d\n", i);
-      fflush(stdout);
-      *ptr = -i;
-    } else {
-      sleep(1);
+  int *addr[NUM_SHMIDS];
+  for (int shmidx = 0; shmidx < NUM_SHMIDS; shmidx++) {
+    addr[shmidx] = (int*) shmat(shmid[shmidx], NULL, 0);
+    if (addr == (void *)-1) {
+      perror("Child: shmat");
+      abort();
     }
   }
+
+  for (int i = 1; i < 100000; i++) {
+    printf("Client: %d\n", i);
+    fflush(stdout);
+
+    for (int shmidx = 0; shmidx < NUM_SHMIDS; shmidx++) {
+      while (addr[shmidx][0] != i + shmidx) {
+        sleep(1);
+      }
+      addr[shmidx][0] = -addr[shmidx][0];
+    }
+  }
+
   exit(0);
 }
 
 int
 main(int argc, char **argv)
 {
-  int shmid;
+  int shmid[NUM_SHMIDS];
 
-  if ((shmid = shmget((key_t)9979, SIZE, IPC_CREAT | 0666)) < 0) {
+  // Create two private shm segments using IPC_PRIVATE;
+  shmid[0] = shmget(IPC_PRIVATE, SIZE, 0666);
+  if (shmid[0] < 0) {
     perror("shmget");
     exit(1);
   }
+
+  shmid[1] = shmget(IPC_PRIVATE, SIZE, 0666);
+  if (shmid[1] < 0) {
+    perror("shmget");
+    exit(1);
+  }
+
+  assert(shmid[0] != shmid[1]);
+
+  srand(getpid());
+  if ((shmid[2] = shmget((key_t)rand(), SIZE, IPC_CREAT | 0666)) < 0) {
+    perror("shmget");
+    exit(1);
+  }
+  printf("pid: %d, Shm1: %d, Shm2: %d, Shm3: %d\n", getpid(), shmid[0], shmid[1], shmid[2]);
+
   struct shmid_ds shmid_ds;
-  if (shmctl(shmid, IPC_STAT, &shmid_ds) == -1) {
+  if (shmctl(shmid[2], IPC_STAT, &shmid_ds) == -1) {
     perror("shmctl: shmctl failed");
     exit(1);
   }
-  printf("Shmid: %d\n", shmid);
 
-  void *addr = shmat(shmid, NULL, 0);
+  void *addr = shmat(shmid[2], NULL, 0);
   if (addr == (void *)-1) {
     perror("main: shmat");
     abort();
