@@ -130,6 +130,9 @@ timer%: timer%.c
 clock: clock.c
 	$(CC) -o $@ $< $(CFLAGS) -lrt
 
+mmap1: mmap1.c
+	$(CC) -o $@ $< $(CFLAGS) -ldl
+
 # Assume OpenMP exists only if OPENMP_CFLAGS is set.
 openmp-%: openmp-%.c
 ifneq (${OPENMP_CFLAGS},)
