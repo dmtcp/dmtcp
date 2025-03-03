@@ -317,6 +317,13 @@ mtcp_writememoryareas(int fd)
       area.name[0] = '\0';
     } else if (Util::isNscdArea(area)) {
       /* Special Case Handling: nscd is enabled*/
+      int skip = 0;
+      if (dmtcp_skip_memory_region_ckpting) {
+        skip = dmtcp_skip_memory_region_ckpting(&area);
+      }
+      if (skip) {
+        continue;
+      }
       area.prot = PROT_READ | PROT_WRITE;
       area.properties |= DMTCP_ZERO_PAGE;
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
