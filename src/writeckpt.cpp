@@ -179,167 +179,6 @@ mtcp_writememoryareas(int fd)
 
   // We must not cause an mmap() here, or the mem regions will not be correct.
   while (procSelfMaps->getNextArea(&area)) {
-    // TODO(kapil): Verify that we are not doing any operation that might
-    // result in a change of memory layout. For example, a call to JALLOC_NEW
-    // will invoke mmap if the JAlloc arena is full. Similarly, for STL objects
-    // such as vector and string.
-
-    if ((uint64_t)area.addr == ProcessInfo::instance().restoreBuf.startAddr) {
-      continue;
-    } else if (SharedData::isSharedDataRegion(area.addr)) {
-      continue;
-    }
-
-    /* Original comment:  Skip anything in kernel address space ---
-     *   beats me what's at FFFFE000..FFFFFFFF - we can't even read it;
-     * Added: That's the vdso section for earlier Linux 2.6 kernels.  For later
-     *  2.6 kernels, vdso occurs at an earlier address.  If it's unreadable,
-     *  then we simply won't copy it.  But let's try to read all areas, anyway.
-     * **COMMENTED OUT:** if (area.addr >= HIGHEST_VA) continue;
-     */
-
-    /* If it's readable, but it's VDSO, it will be dangerous to restore it.
-     * In 32-bit mode later Red Hat RHEL Linux 2.6.9 releases use 0xffffe000,
-     * the last page of virtual memory.  Note 0xffffe000 >= HIGHEST_VA
-     * implies we're in 32-bit mode.
-     */
-    if (area.addr >= HIGHEST_VA && area.addr == (VA)0xffffe000) {
-      continue;
-    }
-#ifdef __x86_64__
-
-    /* And in 64-bit mode later Red Hat RHEL Linux 2.6.9 releases
-     * use 0xffffffffff600000 for VDSO.
-     */
-    if (area.addr >= HIGHEST_VA && area.addr == (VA)0xffffffffff600000) {
-      continue;
-    }
-#endif // ifdef __x86_64__
-
-    /* Skip anything that has no read or execute permission.  This occurs
-     * on one page in a Linux 2.6.9 installation.  No idea why.  This code
-     * would also take care of kernel sections since we don't have read/execute
-     * permission there.
-     *
-     * EDIT: We should only skip the "---p" section for the shared libraries.
-     * Anonymous memory areas with no rwx permission should be saved regardless
-     * as the process might have removed the permissions temporarily and might
-     * want to use it later.
-     *
-     * This happens, for example, with libpthread where the pthread library
-     * tries to recycle thread stacks. When a thread exits, libpthread will
-     * remove the access permissions from the thread stack and later, when a
-     * new thread is created, it will provide the proper permission to this
-     * area and use it as the thread stack.
-     *
-     * If we do not restore this area on restart, the area might be returned by
-     * some mmap() call. Later on, when pthread wants to use this area, it will
-     * just try to use this area which now belongs to some other object. Even
-     * worse, the other object can then call munmap() on that area after
-     * libpthread started using it as thread stack causing the parts of thread
-     * stack getting munmap()'d from the memory resulting in a SIGSEGV.
-     *
-     * We suspect that libpthread is using mmap() instead of mprotect to change
-     * the permission from "---p" to "rw-p".
-     *
-     * Also, on SUSE 12, if this region was part of heap, the protected region
-     * may have the label "[heap]".  So, we also save the memory region if it
-     * has label "[heap]", "[stack]", or  "[stack:XXX]".
-     *
-     * EDIT: Not sure which kernel sections has ---p permissions. Let's save all
-     * regions with ---p permissions without discrimination.
-     *
-     */
-
-    if (area.size == 0) {
-      /* Kernel won't let us munmap this.  But we don't need to restore it. */
-      JTRACE("skipping over zero-sized segment")
-        ((void*)area.addr) (area.size);
-      continue;
-    }
-
-    if (0 == strcmp(area.name, "[vsyscall]") ||
-        0 == strcmp(area.name, "[vectors]") ||
-        0 == strcmp(area.name, "[vvar]") ||
-        0 == strcmp(area.name, "[vvar_vclock]")) {
-      // NOTE: We can't trust kernel's "[vdso]" label here.  See below.
-      JTRACE("skipping over memory special section")
-        (area.name) ((void*)area.addr) (area.size);
-      continue;
-    } else if ((uint64_t) area.addr == ProcessInfo::instance().vdso.startAddr) {
-      //  vDSO issue:
-      //    As always, we never want to save the vdso section.  We will use
-      //  the vdso section code provided by the kernel on restart.  Further,
-      //  the user code on restart has already been initialized and so it
-      //  will continue to use the original vdso section determined during
-      //  program launch.  Luckily, during the DMTCP_INIT event, DMTCP recorded
-      //  this vdso address when it called ProcessInfo::instance().init().
-      //    Now, here's the bad news.  During the first restart, the kernel
-      //  may choose to locate the vdso at a new address.  So, in
-      //  src/mtcp/mtcp_restart, DMTCP will mremap the kernel's vdso back
-      //  to the original address known during program launch.  This is as
-      //  it should be.  But when DMTCP does an mremap of vdso, the kernel
-      //  fails to update its own "[vds0]" label.  This is arguable a bug in the
-      //  Linux kernel.  So, during the second checkpoint (after the first
-      //  restart), we can't trust the "[vdso]" label to tell us where the vdso
-      //  section really is.  And it's even worse.  During mtcp_restart, we may
-      //  have done mremap, and there may even now be some user data that was
-      //  restored to the address where the kernel thinks the "[vdso]" label
-      //  belongs.  So, we would be saving the original vdso section (which is
-      //  wrong), and we would be failing to save the user's memory that was
-      //  restored into the location labelled by the kernel's "[vdso]" label.
-      //  This last case is even worse, since we have now failed to restore some
-      //  user data.  This was observed to happen in RHEL 6.6.  The solution is
-      //  to trust DMTCP for the vdso location (as in the if condition above),
-      //  and not to trust the kernel's "[vdso]" label.
-      JTRACE("skipping vDSO special section")
-        (area.name) ((void*)area.addr) (area.size);
-      continue;
-    } else if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
-        Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
-      /* If the process has an area labeled as "/dev/zero (deleted)", we mark
-       *   the area as Anonymous and save the contents to the ckpt image file.
-       * If this area has a MAP_SHARED attribute, it should be replaced with
-       *   MAP_PRIVATE and we won't do any harm because, the /dev/zero file is
-       *   an absolute source and sink. Anything written to it will be
-       *   discarded and anything read from it will be all zeros.
-       * The following call to mmap will create "/dev/zero (deleted)" area
-       *         mmap(addr, size, protection, MAP_SHARED | MAP_ANONYMOUS, 0, 0)
-       *
-       * The above explanation also applies to "/dev/null (deleted)"
-       */
-      JTRACE("saving area as Anonymous") (area.name);
-      area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
-      area.name[0] = '\0';
-    } else if (Util::isSysVShmArea(area)) {
-      JTRACE("Saving SysV SHM area as Anonymous") (area.name);
-      area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
-      area.name[0] = '\0';
-    } else if (Util::isNscdArea(area)) {
-      /* Special Case Handling: nscd is enabled*/
-      int skip = 0;
-      if (dmtcp_skip_memory_region_ckpting) {
-        skip = dmtcp_skip_memory_region_ckpting(&area);
-      }
-      if (skip) {
-        continue;
-      }
-      area.prot = PROT_READ | PROT_WRITE;
-      area.properties |= DMTCP_ZERO_PAGE;
-      area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
-      writeAreaHeader(fd, &area);
-      continue;
-    } else if (Util::isIBShmArea(area)) {
-      // TODO(kapil) Add dmtcp_skip_memory_region_ckpting to IB plugin.
-      continue;
-    } else if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
-      /* Deleted File */
-    } else if (area.name[0] == '/' && strstr(&area.name[1], "/") != NULL) {
-      /* If an absolute pathname
-       * Posix and SysV shared memory segments can be mapped as /XYZ
-       */
-    }
-
     Area unchecked_area;
     memcpy(&unchecked_area, &area, sizeof(Area));
     int skip = 0;
@@ -357,30 +196,8 @@ mtcp_writememoryareas(int fd)
       unchecked_area.addr = area.endAddr;
       unchecked_area.size = unchecked_area.endAddr - area.endAddr;
       
-      /* If the area didn't have read permissions, add it temporarily.
-       *
-       * NOTE: Changing the permission here can results in two adjacent memory
-       * areas to become one (merged), if they have similar permissions. This can
-       * results in a modified /proc/self/maps file. We shouldn't get affected by
-       * the changes because we are going to remove the PROT_READ later in the
-       * code and that should reset the /proc/self/maps files to its original
-       * condition.
-       */
-      if ((area.prot & PROT_READ) == 0) {
-        JASSERT(mprotect(area.addr, area.size, area.prot | PROT_READ) == 0)
-          (JASSERT_ERRNO) (area.size) ((void*)area.addr)
-          .Text("error adding PROT_READ to mem region");
-      }
-
       // the whole thing comes after the restore image
       writememoryarea(fd, area);
-
-      // Now remove PROT_READ from the area if it didn't have it originally
-      if ((area.prot & PROT_READ) == 0) {
-        JASSERT(mprotect(area.addr, area.size, area.prot) == 0)
-          (JASSERT_ERRNO) ((void*)area.addr) (area.size)
-          .Text("error removing PROT_READ from mem region.");
-      }
     } while (unchecked_area.size != 0);
   }
 
@@ -482,14 +299,166 @@ mtcp_write_anonymous_pages(int fd, Area area)
 static void
 writememoryarea(int fd, Area area)
 {
-  void *addr = area.addr;
+  // TODO(kapil): Verify that we are not doing any operation that might
+  // result in a change of memory layout. For example, a call to JALLOC_NEW
+  // will invoke mmap if the JAlloc arena is full. Similarly, for STL objects
+  // such as vector and string.
+
+  if ((uint64_t)area.addr == ProcessInfo::instance().restoreBuf.startAddr) {
+    return;
+  } else if (SharedData::isSharedDataRegion(area.addr)) {
+    return;
+  }
+
+  /* Original comment:  Skip anything in kernel address space ---
+   *   beats me what's at FFFFE000..FFFFFFFF - we can't even read it;
+   * Added: That's the vdso section for earlier Linux 2.6 kernels.  For later
+   *  2.6 kernels, vdso occurs at an earlier address.  If it's unreadable,
+   *  then we simply won't copy it.  But let's try to read all areas, anyway.
+   * **COMMENTED OUT:** if (area.addr >= HIGHEST_VA) return;
+   */
+
+  /* If it's readable, but it's VDSO, it will be dangerous to restore it.
+   * In 32-bit mode later Red Hat RHEL Linux 2.6.9 releases use 0xffffe000,
+   * the last page of virtual memory.  Note 0xffffe000 >= HIGHEST_VA
+   * implies we're in 32-bit mode.
+   */
+  if (area.addr >= HIGHEST_VA && area.addr == (VA)0xffffe000) {
+    return;
+  }
+#ifdef __x86_64__
+
+  /* And in 64-bit mode later Red Hat RHEL Linux 2.6.9 releases
+   * use 0xffffffffff600000 for VDSO.
+   */
+  if (area.addr >= HIGHEST_VA && area.addr == (VA)0xffffffffff600000) {
+    return;
+  }
+#endif // ifdef __x86_64__
+
+  /* Skip anything that has no read or execute permission.  This occurs
+   * on one page in a Linux 2.6.9 installation.  No idea why.  This code
+   * would also take care of kernel sections since we don't have read/execute
+   * permission there.
+   *
+   * EDIT: We should only skip the "---p" section for the shared libraries.
+   * Anonymous memory areas with no rwx permission should be saved regardless
+   * as the process might have removed the permissions temporarily and might
+   * want to use it later.
+   *
+   * This happens, for example, with libpthread where the pthread library
+   * tries to recycle thread stacks. When a thread exits, libpthread will
+   * remove the access permissions from the thread stack and later, when a
+   * new thread is created, it will provide the proper permission to this
+   * area and use it as the thread stack.
+   *
+   * If we do not restore this area on restart, the area might be returned by
+   * some mmap() call. Later on, when pthread wants to use this area, it will
+   * just try to use this area which now belongs to some other object. Even
+   * worse, the other object can then call munmap() on that area after
+   * libpthread started using it as thread stack causing the parts of thread
+   * stack getting munmap()'d from the memory resulting in a SIGSEGV.
+   *
+   * We suspect that libpthread is using mmap() instead of mprotect to change
+   * the permission from "---p" to "rw-p".
+   *
+   * Also, on SUSE 12, if this region was part of heap, the protected region
+   * may have the label "[heap]".  So, we also save the memory region if it
+   * has label "[heap]", "[stack]", or  "[stack:XXX]".
+   *
+   * EDIT: Not sure which kernel sections has ---p permissions. Let's save all
+   * regions with ---p permissions without discrimination.
+   *
+   */
+
+  if (area.size == 0) {
+    /* Kernel won't let us munmap this.  But we don't need to restore it. */
+    JTRACE("skipping over zero-sized segment")
+      ((void*)area.addr) (area.size);
+    return;
+  }
+
+  if (0 == strcmp(area.name, "[vsyscall]") ||
+      0 == strcmp(area.name, "[vectors]") ||
+      0 == strcmp(area.name, "[vvar]") ||
+      0 == strcmp(area.name, "[vvar_vclock]")) {
+    // NOTE: We can't trust kernel's "[vdso]" label here.  See below.
+    JTRACE("skipping over memory special section")
+      (area.name) ((void*)area.addr) (area.size);
+    return;
+  } else if ((uint64_t) area.addr == ProcessInfo::instance().vdso.startAddr) {
+    //  vDSO issue:
+    //    As always, we never want to save the vdso section.  We will use
+    //  the vdso section code provided by the kernel on restart.  Further,
+    //  the user code on restart has already been initialized and so it
+    //  will return to use the original vdso section determined during
+    //  program launch.  Luckily, during the DMTCP_INIT event, DMTCP recorded
+    //  this vdso address when it called ProcessInfo::instance().init().
+    //    Now, here's the bad news.  During the first restart, the kernel
+    //  may choose to locate the vdso at a new address.  So, in
+    //  src/mtcp/mtcp_restart, DMTCP will mremap the kernel's vdso back
+    //  to the original address known during program launch.  This is as
+    //  it should be.  But when DMTCP does an mremap of vdso, the kernel
+    //  fails to update its own "[vds0]" label.  This is arguable a bug in the
+    //  Linux kernel.  So, during the second checkpoint (after the first
+    //  restart), we can't trust the "[vdso]" label to tell us where the vdso
+    //  section really is.  And it's even worse.  During mtcp_restart, we may
+    //  have done mremap, and there may even now be some user data that was
+    //  restored to the address where the kernel thinks the "[vdso]" label
+    //  belongs.  So, we would be saving the original vdso section (which is
+    //  wrong), and we would be failing to save the user's memory that was
+    //  restored into the location labelled by the kernel's "[vdso]" label.
+    //  This last case is even worse, since we have now failed to restore some
+    //  user data.  This was observed to happen in RHEL 6.6.  The solution is
+    //  to trust DMTCP for the vdso location (as in the if condition above),
+    //  and not to trust the kernel's "[vdso]" label.
+    JTRACE("skipping vDSO special section")
+      (area.name) ((void*)area.addr) (area.size);
+    return;
+  } else if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
+      Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
+    /* If the process has an area labeled as "/dev/zero (deleted)", we mark
+     *   the area as Anonymous and save the contents to the ckpt image file.
+     * If this area has a MAP_SHARED attribute, it should be replaced with
+     *   MAP_PRIVATE and we won't do any harm because, the /dev/zero file is
+     *   an absolute source and sink. Anything written to it will be
+     *   discarded and anything read from it will be all zeros.
+     * The following call to mmap will create "/dev/zero (deleted)" area
+     *         mmap(addr, size, protection, MAP_SHARED | MAP_ANONYMOUS, 0, 0)
+     *
+     * The above explanation also applies to "/dev/null (deleted)"
+     */
+    JTRACE("saving area as Anonymous") (area.name);
+    area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+    area.name[0] = '\0';
+  } else if (Util::isSysVShmArea(area)) {
+    JTRACE("Saving SysV SHM area as Anonymous") (area.name);
+    area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+    area.name[0] = '\0';
+  } else if (Util::isNscdArea(area)) {
+    /* Special Case Handling: nscd is enabled*/
+    area.prot = PROT_READ | PROT_WRITE;
+    area.properties |= DMTCP_ZERO_PAGE;
+    area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+    writeAreaHeader(fd, &area);
+    return;
+  } else if (Util::isIBShmArea(area)) {
+    // TODO(kapil) Add dmtcp_skip_memory_region_ckpting to IB plugin.
+    return;
+  } else if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
+    /* Deleted File */
+  } else if (area.name[0] == '/' && strstr(&area.name[1], "/") != NULL) {
+    /* If an absolute pathname
+     * Posix and SysV shared memory segments can be mapped as /XYZ
+     */
+  }
 
   if (!(area.flags & MAP_ANONYMOUS)) {
-    JTRACE("save region") (addr) (area.size) (area.name) (area.offset);
+    JTRACE("save region") (area.addr) (area.size) (area.name) (area.offset);
   } else if (area.name[0] == '\0') {
-    JTRACE("save anonymous") (addr) (area.size);
+    JTRACE("save anonymous") (area.addr) (area.size);
   } else {
-    JTRACE("save anonymous") (addr) (area.size) (area.name) (area.offset);
+    JTRACE("save anonymous") (area.addr) (area.size) (area.name) (area.offset);
   }
 
   if (area.name[0] == '\0') {
@@ -497,6 +466,21 @@ writememoryarea(int fd, Area area)
     if (brk > area.addr && brk <= area.addr + area.size) {
       strcpy(area.name, "[heap]");
     }
+  }
+
+  /* If the area didn't have read permissions, add it temporarily.
+   *
+   * NOTE: Changing the permission here can results in two adjacent memory
+   * areas to become one (merged), if they have similar permissions. This can
+   * results in a modified /proc/self/maps file. We shouldn't get affected by
+   * the changes because we are going to remove the PROT_READ later in the
+   * code and that should reset the /proc/self/maps files to its original
+   * condition.
+   */
+  if ((area.prot & PROT_READ) == 0) {
+    JASSERT(mprotect(area.addr, area.size, area.prot | PROT_READ) == 0)
+      (JASSERT_ERRNO) (area.size) ((void*)area.addr)
+      .Text("error adding PROT_READ to mem region");
   }
 
   if ((area.flags & MAP_ANONYMOUS) != 0) {
@@ -529,5 +513,13 @@ writememoryarea(int fd, Area area)
     } else {
       JASSERT(Util::writeAll(fd, area.addr, area.size) == (ssize_t)area.size);
     }
+  }
+
+  
+  // Now remove PROT_READ from the area if it didn't have it originally
+  if ((area.prot & PROT_READ) == 0) {
+    JASSERT(mprotect(area.addr, area.size, area.prot) == 0)
+      (JASSERT_ERRNO) ((void*)area.addr) (area.size)
+      .Text("error removing PROT_READ from mem region.");
   }
 }
