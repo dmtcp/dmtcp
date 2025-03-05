@@ -59,6 +59,7 @@ dmtcp::string GetProgramPath();
 dmtcp::string GetDeviceName(int fd);
 dmtcp::string ResolveSymlink(const dmtcp::string &file);
 dmtcp::string DirName(const dmtcp::string &str);
+void DirName(char *dirname, const char *fname);
 dmtcp::string BaseName(const dmtcp::string &str);
 int mkdir_r(const dmtcp::string &dir, mode_t mode);
 

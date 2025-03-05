@@ -27,6 +27,7 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 #include "dmtcp.h"
+#include "wrapperlock.h"
 #include "tokenize.h"
 #include "util.h"
 
@@ -39,7 +40,7 @@ extern "C" void dmtcp_libdlLockUnlock();
 using namespace dmtcp;
 
 void
-getRpathRunPath(void *caller, string *rpathStr, string *runpathStr)
+getRpathRunPath(void *caller, char *rpathStr, char *runpathStr)
 {
   Dl_info info;
   struct link_map *map;
@@ -47,13 +48,16 @@ getRpathRunPath(void *caller, string *rpathStr, string *runpathStr)
   ASSERT_NOT_NULL(rpathStr);
   ASSERT_NOT_NULL(runpathStr);
 
+  rpathStr[0] = '\0';
+  runpathStr[0] = '\0';
+
   // Retrieve the link_map for the library given by addr
   int ret = dladdr1(caller, &info, (void **)&map, RTLD_DL_LINKMAP);
   ASSERT_NE(0, ret);
 
-  string filepath = info.dli_fname;
-  string dirname = jalib::Filesystem::DirName(info.dli_fname);
-
+  char dirname[4096];
+  jalib::Filesystem::DirName(dirname, info.dli_fname);
+  
   const ElfW(Dyn) *dyn = map->l_ld;
   const ElfW(Dyn) *rpath = NULL;
   const ElfW(Dyn) *runpath = NULL;
@@ -71,29 +75,51 @@ getRpathRunPath(void *caller, string *rpathStr, string *runpathStr)
   ASSERT_NOT_NULL(strtab);
 
   if (rpath != NULL) {
-    *rpathStr = strtab + rpath->d_un.d_val;
-    *rpathStr = dmtcp::Util::replace(*rpathStr, "$ORIGIN", dirname);
-  } else {
-    rpathStr->clear();
+    strcpy(rpathStr, strtab + rpath->d_un.d_val);
+    Util::replace(rpathStr, "$ORIGIN", dirname);
+    Util::replace(rpathStr, "${ORIGIN}", dirname);
+
+    ASSERT_NULL(strstr(rpathStr, "$LIB")) (rpathStr);
+    ASSERT_NULL(strstr(rpathStr, "${LIB}")) (rpathStr);
+    ASSERT_NULL(strstr(rpathStr, "$PLATFORM")) (rpathStr);
+    ASSERT_NULL(strstr(rpathStr, "${PLATFORM}")) (rpathStr);
   }
 
   if (runpath != NULL) {
-    *runpathStr = strtab + runpath->d_un.d_val;
-    *runpathStr = dmtcp::Util::replace(*runpathStr, "$ORIGIN", dirname);
-  } else {
-    runpathStr->clear();
+    strcpy(rpathStr, strtab + runpath->d_un.d_val);
+    Util::replace(runpathStr, "$ORIGIN", dirname);
+    Util::replace(runpathStr, "${ORIGIN}", dirname);
+
+    ASSERT_NULL(strstr(runpathStr, "$LIB")) (runpathStr);
+    ASSERT_NULL(strstr(runpathStr, "${LIB}")) (runpathStr);
+    ASSERT_NULL(strstr(runpathStr, "$PLATFORM")) (runpathStr);
+    ASSERT_NULL(strstr(runpathStr, "${PLATFORM}")) (runpathStr);
   }
 }
 
 static void *
-dlopen_try_paths(const char *filename, int flag, string path)
+dlopen_try_paths(const char *filename, int flag, const char *paths)
 {
-  vector<string> paths = tokenizeString(path, ":");
-  for (auto path : paths) {
-    string newFilename = path + "/" + filename;
-    if (_real_dlopen(newFilename.c_str(), flag) != NULL) {
-      break;
+  // Iterate over each path in the colon separated list of paths.
+  // Try to dlopen the file using the path.
+  // If successful, return the handle.
+  // If unsuccessful, continue to the next path.
+  // If all paths fail, return NULL.
+
+  char path[4096];
+  strncpy(path, paths, sizeof(path));
+  path[sizeof(path) - 1] = '\0';
+
+  char *saveptr;
+  char *pathToken = strtok_r(path, ":", &saveptr);
+  while (pathToken != NULL) {
+    char newFilename[4096];
+    snprintf(newFilename, sizeof(newFilename), "%s/%s", pathToken, filename);
+    void *handle = _real_dlopen(newFilename, flag);
+    if (handle != NULL) {
+      return handle;
     }
+    pathToken = strtok_r(NULL, ":", &saveptr);
   }
 
   return NULL;
@@ -136,18 +162,23 @@ dlopen_try_paths(const char *filename, int flag, string path)
 extern "C"
 void *dlopen(const char *filename, int flag)
 {
+  LibDlWrapperLock wrapperLock;
+
   // TODO(kapil): Replace with scoped lock once we have it.
-  bool lockAcquired = dmtcp_libdlLockLock();
-  string rpath;
-  string runpath;
+  char rpath[4096];
+  char runpath[4096];
   void *ret = NULL;
 
-  getRpathRunPath(__builtin_return_address(0), &rpath, &runpath);
+  // If filename is null. The user just wants a handle to the main program.
+  if (filename == NULL || strlen(filename) == 0) {
+    return _real_dlopen(filename, flag);
+  }
+
+  getRpathRunPath(__builtin_return_address(0), rpath, runpath);
 
   // 1. We call libc dlopen:
-  //    * if filename is null. The user just wants a handle to the main program.
   //    * if RPATH exists. We let libc handle RPATH when locating the file.
-  if (filename == NULL || !rpath.empty()) {
+  if (strlen(rpath) != 0) {
     ret = _real_dlopen(filename, flag);
   }
 
@@ -163,17 +194,13 @@ void *dlopen(const char *filename, int flag)
   }
 
   // 3. Attempt dlopen using RUNPATH.
-  if (ret == NULL && !runpath.empty()) {
+  if (ret == NULL && strlen(runpath) != 0) {
     ret = dlopen_try_paths(filename, flag, runpath);
   }
 
   // 4. Finally try dlopen using filename as is.
   if (ret == NULL) {
     ret = _real_dlopen(filename, flag);
-  }
-
-  if (lockAcquired) {
-    dmtcp_libdlLockUnlock();
   }
 
   if (ret == NULL) {
@@ -187,11 +214,6 @@ extern "C"
 int
 dlclose(void *handle)
 {
-  bool lockAcquired = dmtcp_libdlLockLock();
-  int ret = _real_dlclose(handle);
-
-  if (lockAcquired) {
-    dmtcp_libdlLockUnlock();
-  }
-  return ret;
+  LibDlWrapperLock wrapperLock;
+  return _real_dlclose(handle);
 }

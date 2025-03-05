@@ -69,22 +69,6 @@ static pid_t libdlLockOwner = 0;
 
 static DmtcpMutex presuspendEventHookLock = DMTCP_MUTEX_INITIALIZER;
 
-
-/* The following two functions dmtcp_libdlLock{Lock,Unlock} are used by dlopen
- * plugin.
- */
-extern "C" int
-dmtcp_libdlLockLock()
-{
-  return ThreadSync::libdlLockLock();
-}
-
-extern "C" void
-dmtcp_libdlLockUnlock()
-{
-  ThreadSync::libdlLockUnlock();
-}
-
 void
 ThreadSync::initMotherOfAll()
 {

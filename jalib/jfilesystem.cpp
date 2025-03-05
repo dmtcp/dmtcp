@@ -151,6 +151,53 @@ jalib::Filesystem::DirName(const dmtcp::string &str)
   return str.substr(0, lastSlash);
 }
 
+void jalib::Filesystem::DirName(char *dirname, const char *fname)
+{
+  if (fname == NULL ||
+      fname[0] == '\0' ||
+      strcmp(fname, ".") == 0 ||
+      strcmp(fname, "..") == 0) {
+    strcpy(dirname, ".");
+    return;
+  }
+
+  if (strcmp(fname, "/") == 0) {
+    strcpy(dirname, fname);
+    return;
+  }
+
+  size_t len = strlen(fname);
+
+  // Remove trailing slashes
+  while (len > 0 && fname[len - 1] == '/') {
+    len--;
+  }
+
+  // Find last slash.
+  size_t lastSlash = -1;
+  for (size_t i = 0; i < len; i++) {
+    if (fname[i] == '/') {
+      lastSlash = i;
+    }
+  }
+
+  // fname = "usr///"
+  if (lastSlash == -1) {
+    strcpy(dirname, ".");
+    return;
+  }
+
+  // fname = "/usr///"
+  if (lastSlash == 0) {
+    strcpy(dirname, "/");
+    return;
+  }
+
+  strncpy(dirname, fname, lastSlash);
+  dirname[lastSlash] = '\0';
+  return;
+}
+
 int
 jalib::Filesystem::mkdir_r(const dmtcp::string &dir, mode_t mode)
 {

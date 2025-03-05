@@ -39,4 +39,14 @@ WrapperLock::~WrapperLock()
   ThreadSync::wrapperExecutionLockUnlock();
 }
 
+LibDlWrapperLock::LibDlWrapperLock()
+{
+  ThreadSync::libdlLockLock();
+}
+
+LibDlWrapperLock::~LibDlWrapperLock()
+{
+  ThreadSync::libdlLockUnlock();
+}
+
 }

@@ -705,6 +705,21 @@ Util::getTimestampStr()
   return buf2;
 }
 
+void
+Util::replace(char *str, const char *match, const char *replace)
+{
+  // find first occurance of match in src and replace it with replace and copy it into str.
+  char *pos = strstr(str, match);
+  if (pos == NULL) {
+    return;
+  }
+
+  char buffer[4096];
+  strcpy(buffer, pos);
+  strcpy(pos, replace);
+  strcat(str, buffer);
+}
+
 string
 Util::replace(const string &in, const string &match, const string &replace)
 {

@@ -40,5 +40,15 @@ class WrapperLockExcl : public WrapperLock
     WrapperLockExcl() : WrapperLock(true) { }
 };
 
+class LibDlWrapperLock
+{
+  public:
+    LibDlWrapperLock(const LibDlWrapperLock&) = delete; // no copies
+    LibDlWrapperLock& operator=(const LibDlWrapperLock&) = delete; // no self-assignments
+
+    LibDlWrapperLock();
+    virtual ~LibDlWrapperLock();
+};
+
 }
 #endif // ifndef DMTCP_WRAPPER_LOCK_H
