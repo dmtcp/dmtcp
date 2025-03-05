@@ -125,6 +125,11 @@ ThreadSync::libdlLockLock()
   int saved_errno = errno;
   bool lockAcquired = false;
 
+  // The process is still initializing. We don't need to acquire lock.
+  if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    return false;
+  }
+
   if (libdlLockOwner != gettid()) {
     JASSERT(DmtcpMutexLock(&libdlLock) == 0);
     libdlLockOwner = gettid();
@@ -139,6 +144,11 @@ ThreadSync::libdlLockUnlock()
 {
   int saved_errno = errno;
 
+  // The process is still initializing. We don't need to acquire lock.
+  if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    return;
+  }
+
   JASSERT(libdlLockOwner == 0 || libdlLockOwner == gettid())
     (libdlLockOwner) (gettid());
   libdlLockOwner = 0;
@@ -150,6 +160,11 @@ void
 ThreadSync::wrapperExecutionLockLock()
 {
   int saved_errno = errno;
+
+  // The process is still initializing. We don't need to acquire lock.
+  if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    return;
+  }
 
   Thread *thread = dmtcp_get_current_thread();
 
@@ -236,6 +251,11 @@ ThreadSync::wrapperExecutionLockLockExcl()
 {
   int saved_errno = errno;
 
+  // The process is still initializing. We don't need to acquire lock.
+  if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    return;
+  }
+
   Thread *thread = dmtcp_get_current_thread();
 
   if (DmtcpRWLockWrLock(&_wrapperExecutionLock) != 0) {
@@ -253,6 +273,11 @@ void
 ThreadSync::wrapperExecutionLockUnlock()
 {
   int saved_errno = errno;
+
+  // The process is still initializing. We don't need to acquire lock.
+  if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    return;
+  }
 
   Thread *thread = dmtcp_get_current_thread();
 
