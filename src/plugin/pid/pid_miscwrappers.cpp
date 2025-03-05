@@ -77,7 +77,7 @@ fork()
 }
 
 extern VirtualPidTable *virtPidTableInst;
-VirtualPidTable vfork_saved_virtPidTableInst;
+VirtualPidTable *vfork_saved_virtPidTableInst = nullptr;
 
 LIB_PRIVATE void
 pidVirt_vfork_prepare()
@@ -86,7 +86,11 @@ pidVirt_vfork_prepare()
   vfork_saved_real_pid = VIRTUAL_TO_REAL_PID(getpid());
   vfork_saved_ppid = getppid();
   vfork_saved_tid = dmtcp_gettid();
-  vfork_saved_virtPidTableInst = *virtPidTableInst;
+  if (vfork_saved_virtPidTableInst == nullptr) {
+    vfork_saved_virtPidTableInst = new VirtualPidTable(*virtPidTableInst);
+  } else {
+    *vfork_saved_virtPidTableInst = *virtPidTableInst;
+  }
 
   Util::getVirtualPidFromEnvVar(&childVirtualPid, NULL, NULL, NULL);
 }
@@ -138,7 +142,7 @@ vfork()
   if (vforkPid == 0) {
     pidVirt_atfork_child();
   } else { /* Parent Process */
-    *virtPidTableInst = vfork_saved_virtPidTableInst;
+    *virtPidTableInst = *vfork_saved_virtPidTableInst;
 
     Util::setVirtualPidEnvVar(vfork_saved_virt_pid,
                               vfork_saved_real_pid,
