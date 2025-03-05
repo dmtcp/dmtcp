@@ -505,7 +505,7 @@ readCkptHeader(const string &path, DmtcpCkptHeader *ckptHdr)
   int fd = openCkptFileToRead(path);
   ASSERT_NE(-1, fd);
 
-  ASSERT_EQ(sizeof(*ckptHdr), Util::readAll(fd, ckptHdr, sizeof(*ckptHdr)));
+  ASSERT_EQ(sizeof(*ckptHdr), (size_t)Util::readAll(fd, ckptHdr, sizeof(*ckptHdr)));
   ASSERT_EQ(DMTCP_CKPT_SIGNATURE, string(ckptHdr->ckptSignature));
 
   return fd;
@@ -539,7 +539,7 @@ openCkptFileToRead(const string &filename)
   JASSERT(fd >= 0)(filename).Text("Failed to open file.");
 
   DmtcpCkptHeader ckptHdr;
-  ASSERT_EQ(sizeof(ckptHdr), Util::readAll(fd, &ckptHdr, sizeof(ckptHdr)));
+  ASSERT_EQ(sizeof(ckptHdr), (size_t)Util::readAll(fd, &ckptHdr, sizeof(ckptHdr)));
   if (string(ckptHdr.ckptSignature) == DMTCP_CKPT_SIGNATURE) {
     // Uncompressed file. Rewind and return.
     ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
