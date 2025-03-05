@@ -177,6 +177,7 @@ char **getDmtcpArgs();
 void allowGdbDebug(int currentDebugLevel);
 
 string getTimestampStr();
+void replace(char *str, const char *match, const char *replace);
 string replace(const string &in, const string &match, const string &replace);
 void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
                            int fd, off_t offset);
