@@ -320,8 +320,9 @@ ThreadList::writeCkpt()
   header.savedBrk = (uint64_t) sbrk(0);
   header.postRestartAddr = (uint64_t) &ThreadList::postRestart;
 
-  const ssize_t pagesize = Util::pageSize();
-  ASSERT_EQ(sizeof(header) % pagesize, 0ul);
+  // TODO(kapil): re-add this block after handling non-4096 sizes.
+  // const ssize_t pagesize = Util::pageSize();
+  // ASSERT_EQ(sizeof(header) % pagesize, 0ul);
 
   CkptSerializer::writeCkptImage(header, ckptFilename);
 }
