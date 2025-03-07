@@ -448,16 +448,23 @@ else
 fi
 
 AC_MSG_CHECKING([whether ARM64/aarch64 and g++ (if we need to use -mno-outline)])
-AM_CONDITIONAL(AARCH64_GCC_HOST,
-	       [test "$is_aarch64_host" == "yes" -a "$CC" == "gcc"])
+has_aarch64_gcc='no'
 if test "$is_aarch64_host" == "yes" -a "$CC" == "gcc"; then
-  AC_SUBST([AARCH64_GCC_HOST], [yes])
-  is_aarch64_gcc="yes"
-else
-  AC_SUBST([AARCH64_GCC_HOST], [no])
-  is_aarch64_gcc="no"
+  # For gcc-12:
+  # See  https://lore.kernel.org/linux-arm-kernel/20240109082647.GJ19790@gate.crashing.org/T/#m2b7753c4dab70f67497dd4e618e80150649c133d
+  # I suspect this is down to your toolchain enabling -moutline-atomics by default;
+  # I suspect your # cross-compile toolchain doesn't enable that by default.
+  # Unfortunately, '-mno-outline' will cause arum64 to use the slower futexes.
+  # Arguably, this is a bug.
+  # If this is a problem, then use clang (LLVM) instead of gcc,r or wait and see
+  # if Debian/GNU gcc.will fix this toolchain misfeature.
+  # See configure.ac for further discussion.
+  AX_CHECK_COMPILE_FLAG([-mno-outline-atomics],
+                        [AX_APPEND_FLAG([-mno-outline-atomics])],
+                        [AC_MSG_WARN([-mno-outline-atomics not supported.])])
+  has_aarch64_gcc='yes'
 fi
-AC_MSG_RESULT([$is_aarch64_gcc])
+AC_MSG_RESULT([$has_aarch64_gcc])
 
 AC_MSG_CHECKING([whether tid offset for glibc is correct])
 CFLAGS_orig="$CFLAGS"

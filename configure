@@ -683,9 +683,6 @@ am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
-AARCH64_GCC_HOST
-AARCH64_GCC_HOST_FALSE
-AARCH64_GCC_HOST_TRUE
 AARCH64_HOST
 AARCH64_HOST_FALSE
 AARCH64_HOST_TRUE
@@ -7563,8 +7560,8 @@ printf %s "checking whether C compiler accepts -std=gnu11... " >&6; }
 if test ${ax_cv_check_cflags___std_gnu11+y}
 then :
   printf %s "(cached) " >&6
-else $as_nop
-
+else case e in #(
+  e)
   ax_check_save_flags=$CFLAGS
   CFLAGS="$CFLAGS  -std=gnu11"
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
@@ -7581,11 +7578,13 @@ _ACEOF
 if ac_fn_c_try_compile "$LINENO"
 then :
   ax_cv_check_cflags___std_gnu11=yes
-else $as_nop
-  ax_cv_check_cflags___std_gnu11=no
+else case e in #(
+  e) ax_cv_check_cflags___std_gnu11=no ;;
+esac
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-  CFLAGS=$ax_check_save_flags
+  CFLAGS=$ax_check_save_flags ;;
+esac
 fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___std_gnu11" >&5
 printf "%s\n" "$ax_cv_check_cflags___std_gnu11" >&6; }
@@ -7613,19 +7612,21 @@ then :
      ;;
 esac
 
-else $as_nop
-
+else case e in #(
+  e)
   CFLAGS=-std=gnu11
   { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: : CFLAGS=\"\$CFLAGS\""; } >&5
   (: CFLAGS="$CFLAGS") 2>&5
   ac_status=$?
   printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }
-
+   ;;
+esac
 fi
 
-else $as_nop
-  as_fn_error $? "-std=gnu11 not supported, you may have to set CFLAGS to enable C11 support." "$LINENO" 5
+else case e in #(
+  e) as_fn_error $? "-std=gnu11 not supported, you may have to set CFLAGS to enable C11 support." "$LINENO" 5 ;;
+esac
 fi
 
 
@@ -8460,25 +8461,96 @@ fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether ARM64/aarch64 and g++ (if we need to use -mno-outline)" >&5
 printf %s "checking whether ARM64/aarch64 and g++ (if we need to use -mno-outline)... " >&6; }
- if test "$is_aarch64_host" == "yes" -a "$CC" == "gcc"; then
-  AARCH64_GCC_HOST_TRUE=
-  AARCH64_GCC_HOST_FALSE='#'
-else
-  AARCH64_GCC_HOST_TRUE='#'
-  AARCH64_GCC_HOST_FALSE=
-fi
-
+has_aarch64_gcc='no'
 if test "$is_aarch64_host" == "yes" -a "$CC" == "gcc"; then
-  AARCH64_GCC_HOST=yes
+  # For gcc-12:
+  # See  https://lore.kernel.org/linux-arm-kernel/20240109082647.GJ19790@gate.crashing.org/T/#m2b7753c4dab70f67497dd4e618e80150649c133d
+  # I suspect this is down to your toolchain enabling -moutline-atomics by default;
+  # I suspect your # cross-compile toolchain doesn't enable that by default.
+  # Unfortunately, '-mno-outline' will cause arum64 to use the slower futexes.
+  # Arguably, this is a bug.
+  # If this is a problem, then use clang (LLVM) instead of gcc,r or wait and see
+  # if Debian/GNU gcc.will fix this toolchain misfeature.
+  # See configure.ac for further discussion.
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -mno-outline-atomics" >&5
+printf %s "checking whether C compiler accepts -mno-outline-atomics... " >&6; }
+if test ${ax_cv_check_cflags___mno_outline_atomics+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e)
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -mno-outline-atomics"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
 
-  is_aarch64_gcc="yes"
-else
-  AARCH64_GCC_HOST=no
+int
+main (void)
+{
 
-  is_aarch64_gcc="no"
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  ax_cv_check_cflags___mno_outline_atomics=yes
+else case e in #(
+  e) ax_cv_check_cflags___mno_outline_atomics=no ;;
+esac
 fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $is_aarch64_gcc" >&5
-printf "%s\n" "$is_aarch64_gcc" >&6; }
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___mno_outline_atomics" >&5
+printf "%s\n" "$ax_cv_check_cflags___mno_outline_atomics" >&6; }
+if test "x$ax_cv_check_cflags___mno_outline_atomics" = xyes
+then :
+
+if test ${CFLAGS+y}
+then :
+
+  case " $CFLAGS " in #(
+  *" -mno-outline-atomics "*) :
+    { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: : CFLAGS already contains -mno-outline-atomics"; } >&5
+  (: CFLAGS already contains -mno-outline-atomics) 2>&5
+  ac_status=$?
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; } ;; #(
+  *) :
+
+     as_fn_append CFLAGS " -mno-outline-atomics"
+     { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: : CFLAGS=\"\$CFLAGS\""; } >&5
+  (: CFLAGS="$CFLAGS") 2>&5
+  ac_status=$?
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+     ;;
+esac
+
+else case e in #(
+  e)
+  CFLAGS=-mno-outline-atomics
+  { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: : CFLAGS=\"\$CFLAGS\""; } >&5
+  (: CFLAGS="$CFLAGS") 2>&5
+  ac_status=$?
+  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+   ;;
+esac
+fi
+
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: -mno-outline-atomics not supported." >&5
+printf "%s\n" "$as_me: WARNING: -mno-outline-atomics not supported." >&2;} ;;
+esac
+fi
+
+  has_aarch64_gcc='yes'
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $has_aarch64_gcc" >&5
+printf "%s\n" "$has_aarch64_gcc" >&6; }
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether tid offset for glibc is correct" >&5
 printf %s "checking whether tid offset for glibc is correct... " >&6; }
@@ -8699,10 +8771,6 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${AARCH64_HOST_TRUE}" && test -z "${AARCH64_HOST_FALSE}"; then
   as_fn_error $? "conditional \"AARCH64_HOST\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
-if test -z "${AARCH64_GCC_HOST_TRUE}" && test -z "${AARCH64_GCC_HOST_FALSE}"; then
-  as_fn_error $? "conditional \"AARCH64_GCC_HOST\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 
@@ -12442,10 +12510,6 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${AARCH64_HOST_TRUE}" && test -z "${AARCH64_HOST_FALSE}"; then
   as_fn_error $? "conditional \"AARCH64_HOST\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
-if test -z "${AARCH64_GCC_HOST_TRUE}" && test -z "${AARCH64_GCC_HOST_FALSE}"; then
-  as_fn_error $? "conditional \"AARCH64_GCC_HOST\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__EXEEXT_TRUE}" && test -z "${am__EXEEXT_FALSE}"; then
