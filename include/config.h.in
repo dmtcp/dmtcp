@@ -63,6 +63,9 @@
 /* Define to 1 if you have the <readline/readline.h> header file. */
 #undef HAVE_READLINE_READLINE_H
 
+/* Define to 1 if you have the <selinux/selinux.h> header file. */
+#undef HAVE_SELINUX_SELINUX_H
+
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
 

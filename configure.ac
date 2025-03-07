@@ -637,6 +637,15 @@ else
   AC_SUBST([HAS_READLINE], [no])
 fi
 
+#check for -lreadline -lhistory v5; does not require curses
+AC_CHECK_LIB([selinux], [getcon], [linksSelinux=yes], [linksSelinux=no], [-lselinux])
+AC_CHECK_HEADERS([selinux/selinux.h], [includeSelinux=yes], [includeSelinux=no],)
+if test "$linksSelinux" = "yes" -a "$includeSelinux" = "yes"; then
+  AC_SUBST([HAS_SELINUX], [yes])
+else
+  AC_SUBST([HAS_SELINUX], [no])
+fi
+
 #check for ps
 AC_CHECK_PROG(HAS_PS, [ps], [yes], [no], [/usr/bin:/bin])
 

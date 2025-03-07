@@ -16,6 +16,7 @@ CXXFLAGS = @CXXFLAGS@
 HAS_JAVA= @HAS_JAVA@
 HAS_JAVAC= @HAS_JAVAC@
 HAS_CMA= @HAS_CMA@
+HAS_SELINUX= @HAS_SELINUX@
 LDFLAGS = @LDFLAGS@
 MKDIR_P = @MKDIR_P@
 PACKAGE = @PACKAGE@
@@ -132,6 +133,13 @@ clock: clock.c
 
 mmap1: mmap1.c
 	$(CC) -o $@ $< $(CFLAGS) -ldl
+
+selinux1: selinux1.c
+ifeq ($(HAS_SELINUX),yes)
+	$(CC) -o $@ $< $(CFLAGS) -lselinux
+else
+	#$@: required libraries missing, skipping test
+endif
 
 # Assume OpenMP exists only if OPENMP_CFLAGS is set.
 openmp-%: openmp-%.c
