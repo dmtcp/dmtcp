@@ -192,12 +192,13 @@ typedef funcptr_t (*signal_funcptr_t) ();
  *
  */
 
-static void *_real_func_addr[numLibcWrappers];
+static void *dmtcp_real_func_addr[numLibcWrappers];
 static int dmtcp_wrappers_initialized = 0;
 
 #define GET_FUNC_ADDR(name) \
-  _real_func_addr[ENUM(name)] = dlsym_default_internal_flag_handler(RTLD_NEXT, NULL, #name, NULL, __builtin_return_address(0), NULL, NULL);
+  dmtcp_real_func_addr[ENUM(name)] = dlsym_default_internal_flag_handler(RTLD_NEXT, NULL, #name, NULL, __builtin_return_address(0), NULL, NULL);
 
+__attribute__((noinline))
 static void
 initialize_libc_wrappers()
 {
@@ -219,10 +220,11 @@ initialize_libc_wrappers()
     __builtin_return_address(0), NULL, NULL);
 
   if (addr != NULL) {
-    _real_func_addr[ENUM(pthread_create)] = addr;
+    dmtcp_real_func_addr[ENUM(pthread_create)] = addr;
   }
 }
 
+__attribute__((noinline))
 void
 dmtcp_prepare_wrappers(void)
 {
@@ -239,10 +241,10 @@ dmtcp_prepare_wrappers(void)
 
 #define REAL_FUNC_PASSTHROUGH_WORK(name)                                      \
   if (fn == NULL) {                                                           \
-    if (_real_func_addr[ENUM(name)] == NULL) {                                \
+    if (dmtcp_real_func_addr[ENUM(name)] == NULL) {                                \
       dmtcp_prepare_wrappers();                                               \
     }                                                                         \
-    fn = _real_func_addr[ENUM(name)];                                         \
+    fn = dmtcp_real_func_addr[ENUM(name)];                                         \
     if (fn == NULL) {                                                         \
       fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n"             \
                       "           The symbol wasn't found in current library" \
