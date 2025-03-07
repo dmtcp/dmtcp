@@ -26,18 +26,6 @@ SUBDIRS = mtcp plugin
 if X86_64_HOST
  JALLOC_ATOMIC_128_CXXFLAG_x86_64 = -mx86-64-v2
 endif
-if AARCH64_GCC_HOST
-# For gcc-12:
-# See  https://lore.kernel.org/linux-arm-kernel/20240109082647.GJ19790@gate.crashing.org/T/#m2b7753c4dab70f67497dd4e618e80150649c133d
-# I suspect this is down to your toolchain enabling -moutline-atomics by default;
-# I suspect your # cross-compile toolchain doesn't enable that by default.
-# Unfortunately, '-mno-outline' will cause arum64 to use the slower futexes.
-# Arguably, this is a bug.
-# If this is a problem, then use clang (LLVM) instead of gcc,r or wait and see
-# if Debian/GNU gcc.will fix this toolchain misfeature.
-# See configure.ac for further discussion.
- JALLOC_ATOMIC_128_CXXFLAG_AARCH64 = -mno-outline-atomics
-endif
 ## risc-v does not appear to support sync_bool_compare_and_swap as of 2024.
 ## So, jalib/jalloc.cpp will use a futex for risc-v.
 
