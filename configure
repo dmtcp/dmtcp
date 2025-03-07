@@ -675,6 +675,7 @@ HAS_DASH
 HAS_PYTHON3
 HAS_PYTHON
 HAS_PS
+HAS_SELINUX
 HAS_EPOLL_CREATE1
 HAS_FSGSBASE
 HAS_CMA
@@ -10473,6 +10474,79 @@ if test "$linksReadline" = "yes" -a "$includeReadline" != "no"; then
 
 else
   HAS_READLINE=no
+
+fi
+
+#check for -lreadline -lhistory v5; does not require curses
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for getcon in -lselinux" >&5
+printf %s "checking for getcon in -lselinux... " >&6; }
+if test ${ac_cv_lib_selinux_getcon+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_lib_save_LIBS=$LIBS
+LIBS="-lselinux -lselinux $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char getcon (void);
+int
+main (void)
+{
+return getcon ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_selinux_getcon=yes
+else case e in #(
+  e) ac_cv_lib_selinux_getcon=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_selinux_getcon" >&5
+printf "%s\n" "$ac_cv_lib_selinux_getcon" >&6; }
+if test "x$ac_cv_lib_selinux_getcon" = xyes
+then :
+  linksSelinux=yes
+else case e in #(
+  e) linksSelinux=no ;;
+esac
+fi
+
+       for ac_header in selinux/selinux.h
+do :
+  ac_fn_c_check_header_compile "$LINENO" "selinux/selinux.h" "ac_cv_header_selinux_selinux_h" "$ac_includes_default"
+if test "x$ac_cv_header_selinux_selinux_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_SELINUX_SELINUX_H 1" >>confdefs.h
+ includeSelinux=yes
+else case e in #(
+  e) includeSelinux=no ;;
+esac
+fi
+
+done
+if test "$linksSelinux" = "yes" -a "$includeSelinux" = "yes"; then
+  HAS_SELINUX=yes
+
+else
+  HAS_SELINUX=no
 
 fi
 

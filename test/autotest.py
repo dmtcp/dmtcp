@@ -894,6 +894,9 @@ runTest("stat",         1, ["./test/stat"])
 
 runTest("mmap1", 1, ["./test/mmap1"])
 
+if HAS_SELINUX == "yes":
+  runTest("selinux1", 1, ["./test/selinux1"])
+
 # FIXME:  Copy test/stack-growsdown from DMTCP-2.6 when PR is ready.
 # # Test if it works for stack growing on restart
 # runTest("stack-growsdown",         1, ["./test/stack-growsdown"])
