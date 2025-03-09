@@ -1434,6 +1434,9 @@ DmtcpCoordinator::eventLoop()
   }
 
   while (true) {
+    // Update plugins in case there was some client activity.
+    CoordPluginMgr::tick(getStatus());
+
     printPrompt();
 
     // Wait until either there is some activity on client sockets, or the timer
@@ -1441,15 +1444,12 @@ DmtcpCoordinator::eventLoop()
     int nfds;
     do {
       nfds = epoll_wait(epollFd, events, MAX_EVENTS, 1000);
-      if (nfds >= 0) {
-        // Epoll either returned due to activity on one of the client sockets,
-        // or timeout. In either case, we want to trigger a tick() for plugins.
+      if (nfds == 0) {
+        // Epoll due to timeout. Let's trigger a tick() for plugins.
         // The plugins can use status.timestamp to handle timeouts, etc.
-        ComputationStatus s = getStatus();
-        clearPrompt();
-        CoordPluginMgr::tick(s);
+        CoordPluginMgr::tick(getStatus());
       }
-    } while (nfds < 0 && errno == EINTR);
+    } while (nfds == 0 || (nfds < 0 && errno == EINTR));
 
     clearPrompt();
 
