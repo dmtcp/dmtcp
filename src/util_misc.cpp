@@ -729,30 +729,51 @@ Util::replace(const string &in, const string &match, const string &replace)
 //         check that in the function, and either issue an error in that
 //         case, or else simulate the action of MAP_FIXED_NOREPLACE.
 void*
-Util::mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
-                           int fd, off_t offset)
+Util::mmap_fixed_noreplace_private(void *addr, size_t len, int prot, int flags,
+                                   int fd, off_t offset)
 {
   if (flags & MAP_FIXED) {
     flags ^= MAP_FIXED;
   }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
-#ifndef MAP_FIXED_NOREPLACE
-#define MAP_FIXED_NOREPLACE 0x100000
+# ifndef MAP_FIXED_NOREPLACE
+#   define MAP_FIXED_NOREPLACE 0x100000
+# endif
+  return mmap(addr, len, prot, flags | MAP_FIXED_NOREPLACE, fd, offset);
 #endif
-  // This flag should force: 'addr == addr2' or 'addr2 == MAP_FAILED'
-  flags |= MAP_FIXED_NOREPLACE;
-#endif
-  void *addr2 = mmap(addr, len, prot, flags, fd, offset);
-  if (addr == addr2) {
-    return addr2;
-  } else if (addr2 != MAP_FAILED) {
-    // undo the mmap
-    munmap(addr2, len);
+  // The Linux kernel is observed to _not_ use the address hint even
+  // for mapping a single page, when the previous and next pages are
+  // mapped, but the current page address is unmapped.
+  //
+  // We check if the memory range has any overlap with existing memory
+  // by calling mlock page by page. If the mlock fails and the error
+  // is ENOMEM, we know that this page is not mapped.
+  //
+  // Using mlock here only works for private memory, not shared memory.
+  // In Linux 2.6.8 and earlieri (ancient), a process must be privileged.
+  size_t page_size = sysconf(_SC_PAGESIZE);
+  int has_overlap = 0;
+  char *check_addr = (char*)addr;
+  char *end_addr = check_addr + len;
+  while (check_addr < end_addr) {
+    int flag = mlock(addr, page_size);
+    if (flag == -1 && errno == ENOMEM) {
+      check_addr += page_size;
+      continue;
+    } else if (flag == 0) {
+      has_overlap = 1;
+      munlock(addr, len);
+      break;
+    } else {
+      fprintf(stderr, "%s(%d): DMTCP cannot map addr %p\n",
+              __FILE__, __LINE__, addr);
+      abort();
+    }
+  }
+  if (has_overlap) {
     errno = EEXIST;
     return MAP_FAILED;
   } else {
-    // the mmap really did fail
-    return MAP_FAILED;
+    return mmap(addr, len, prot, flags | MAP_FIXED, fd, offset);
   }
 }
-

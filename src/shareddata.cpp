@@ -190,9 +190,9 @@ SharedData::initialize(const char *tmpDir,
                 PROT_READ | PROT_WRITE, MAP_SHARED,
                 PROTECTED_SHM_FD, 0);
   } else {
-    addr = Util::mmap_fixed_noreplace((void *)sharedDataHeader, size,
-                                      PROT_READ | PROT_WRITE, MAP_SHARED,
-                                      PROTECTED_SHM_FD, 0);
+    addr = Util::mmap_fixed_noreplace_private((void *)sharedDataHeader, size,
+                                              PROT_READ | PROT_WRITE, MAP_SHARED,
+                                              PROTECTED_SHM_FD, 0);
     // If the checkpointed program has parent and child processes,
     // the child process will try to map the shared area at the same
     // address that was mapped by the dmtcp_restart. We ignore this
