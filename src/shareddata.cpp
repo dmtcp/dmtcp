@@ -561,7 +561,7 @@ SharedData::setPidMap(pid_t virt, pid_t real)
 }
 
 int32_t
-SharedData::getRealIPCId(int type, int32_t virt)
+SharedData::getRealIPCId(int type, int32_t virt, bool insertIfNotFound)
 {
   int32_t res = -1;
   uint32_t nmaps = 0;
@@ -596,11 +596,23 @@ SharedData::getRealIPCId(int type, int32_t virt)
     JASSERT(false) (type).Text("Unknown IPC-Id type.");
     break;
   }
+
+  bool found = false;
   for (size_t i = 0; i < nmaps; i++) {
     if (map[i].virt == virt) {
       res = map[i].real;
+      found = true;
     }
   }
+
+  if (!found && insertIfNotFound) {
+    JASSERT(nmaps < MAX_IPC_ID_MAPS);
+    map[nmaps].virt = virt;
+    map[nmaps].real = virt;
+    res = virt;
+    nmaps++;
+  }
+
   Util::unlockFile(PROTECTED_SHM_FD);
   return res;
 }

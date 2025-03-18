@@ -198,7 +198,8 @@ void updateDlsymOffset(int32_t dlsymOffset, int32_t dlsymOffset_m32 = 0);
 int32_t getDlsymOffset(void);
 int32_t getDlsymOffset_m32(void);
 
-int32_t getRealIPCId(int type, int32_t virt);
+int32_t getRealIPCId(int type, int32_t virt,
+                     bool insertIfNotFound = false);
 void setIPCIdMap(int type, int32_t virt, int32_t real);
 
 pid_t getRealPid(pid_t virt);
