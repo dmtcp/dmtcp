@@ -1449,7 +1449,7 @@ DmtcpCoordinator::eventLoop()
         // The plugins can use status.timestamp to handle timeouts, etc.
         CoordPluginMgr::tick(getStatus());
       }
-    } while (nfds == 0 || (nfds < 0 && errno == EINTR));
+    } while ((nfds == 0 || (nfds < 0 && errno == EINTR)) && !checkpointQueued);
 
     clearPrompt();
 
