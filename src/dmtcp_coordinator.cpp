@@ -157,6 +157,7 @@ static const char *theUsage =
 
 
 CoordFlags flags;
+static int offset_after_first_line = 0;
 static bool blockUntilDone = false;
 static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
@@ -219,6 +220,35 @@ vector<CoordinatorPlugin*> CoordPluginMgr::plugins;
 StaleTimeoutManager *CoordPluginMgr::staleTimeoutManager;
 TimeoutManager *CoordPluginMgr::timeoutManager;
 CkptIntervalManager *CoordPluginMgr::ckptIntervalManager;
+
+char *get_ftime(char *buf, int size) {
+  time_t rawtime;
+  struct tm *timeinfo;
+  time(&rawtime);
+  timeinfo = localtime(&rawtime);
+  strftime(buf, size, "%Y-%m-%d %H:%M:%S", timeinfo);
+  return buf;
+}
+
+// This handler will be called on exit(), or signal termination,
+//   but not if _exit() is called.
+void atexit_handler() {
+  FILE *file_ptr = std::fopen(flags.theStatusFile.c_str(), "a");
+  char buffer[80];
+  fprintf(file_ptr,
+           "Coordinator exited: %s\n", get_ftime(buffer, sizeof(buffer)));
+  fclose(file_ptr);
+}
+
+void signal_handler(int signum) {
+  FILE *file_ptr = std::fopen(flags.theStatusFile.c_str(), "a");
+  fprintf(file_ptr, "\n> Exiting due to signal %d received.\n", signum);
+  fclose(file_ptr);
+  atexit_handler();
+  // Re-raise the signal to terminate this process.
+  signal(signum, SIG_DFL);
+  kill(getpid(), signum);
+}
 
 static inline void
 ltrim(string &s)
@@ -392,8 +422,10 @@ void DmtcpCoordinator::getStatusStr(ostream *o)
 void
 DmtcpCoordinator::writeStatusToFile()
 {
+  truncate(flags.theStatusFile.c_str(), offset_after_first_line);
   ofstream o;
-  o.open(flags.theStatusFile.c_str(), std::ios::out | std::ios::trunc);
+  // Don't use std::ios::trunc.  A timestamp was previously written.
+  o.open(flags.theStatusFile.c_str(), std::ios::app);
   JASSERT(!o.fail()) (flags.theStatusFile)
     .Text("Failed to truncate and open status file");
 
@@ -1784,7 +1816,26 @@ main(int argc, char **argv)
   }
 
   if (!flags.theStatusFile.empty()) {
+    FILE *file_ptr = std::fopen(flags.theStatusFile.c_str(), "w");
+    if (file_ptr == NULL) {
+      fprintf(stderr, "Error opening file %s\n", flags.theStatusFile.c_str());
+      return 1;
+    }
+    char buffer[80];
+    char output[80];
+    snprintf(output, sizeof(output),
+             "Coordinator started: %s\n", get_ftime(buffer, sizeof(buffer)));
+    offset_after_first_line = strlen(output);
+    fprintf(file_ptr, "%s", output);
+    fclose(file_ptr);
     theCoordinator.writeStatusToFile();
+
+    atexit(atexit_handler);
+    signal(SIGINT, signal_handler);  // Ctrl+C
+    signal(SIGTERM, signal_handler); // Termination request
+    signal(SIGABRT, signal_handler); // Abort signal
+    signal(SIGSEGV, signal_handler); // segfault
+    signal(SIGQUIT, signal_handler); // quit signal
   }
 
   CoordPluginMgr::initialize(flags);
