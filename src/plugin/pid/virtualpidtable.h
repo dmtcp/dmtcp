@@ -54,7 +54,12 @@ class VirtualPidTable : public VirtualIdTable<pid_t>
     VirtualPidTable();
     static VirtualPidTable &instance();
     static pid_t getPidFromEnvVar();
-
+    static void initializeInstance(pid_t pid);
+    static void resetPidPpid();
+    static void resetTid(pid_t tid);
+    static pid_t getpid();
+    static pid_t gettid();
+    static pid_t getppid();
     virtual void postRestart();
     virtual void resetOnFork();
 
