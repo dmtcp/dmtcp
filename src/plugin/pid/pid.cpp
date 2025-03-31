@@ -128,8 +128,7 @@ void dmtcp_init_virtual_tid()
 {
   removeExitedChildTids();
   pid_t virtualTid = VirtualPidTable::instance().getNewVirtualTid();
-  dmtcpResetTid(virtualTid);
-  VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
+  VirtualPidTable::resetTid(virtualTid);
 
   dmtcp_pthread_set_tid(pthread_self(), virtualTid);
 }
@@ -276,8 +275,6 @@ pidVirt_PostRestart()
   // We can't just send two SIGWINCH's now, since window size has not
   // changed yet, and 'screen' will assume that there's nothing to do.
 
-  dmtcp_update_ppid();
-
   ostringstream o;
   o << dmtcp_get_tmpdir() << "/dmtcpPidMap."
     << dmtcp_get_computation_id_str() << "."
@@ -304,7 +301,7 @@ pidVirt_ThreadExit(DmtcpEventData_t *data)
    *  FIXME: What if the process gets checkpointed after erase() but before the
    *  thread actually exits?
    */
-  pid_t tid = dmtcp_gettid();
+  pid_t tid = VirtualPidTable::gettid();
   DmtcpMutexLock(&exitedChildTidsLock);
   exitedChildTids->push_back(tid);
   DmtcpMutexUnlock(&exitedChildTidsLock);

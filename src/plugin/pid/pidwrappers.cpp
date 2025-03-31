@@ -40,86 +40,10 @@
 
 using namespace dmtcp;
 
-static __thread pid_t _dmtcp_thread_tid ATTR_TLS_INITIAL_EXEC = -1;
-
-static pid_t _dmtcp_pid = -1;
-static pid_t _dmtcp_ppid = -1;
-
-LIB_PRIVATE pid_t
-getPidFromEnvVar()
-{
-  const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
-
-  if (pidstr == NULL) {
-    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
-            __FILE__, __LINE__);
-    sleep(5);
-    _exit(DMTCP_FAIL_RC);
-  }
-  return strtol(pidstr, NULL, 10);
-}
-
-extern "C" LIB_PRIVATE
-void
-dmtcpResetPidPpid()
-{
-  pid_t realPid;
-  pid_t realPpid;
-
-  Util::getVirtualPidFromEnvVar(&_dmtcp_pid, &realPid, &_dmtcp_ppid, &realPpid);
-
-  if (realPid == 0) {
-    realPid = _real_getpid();
-  }
-
-  VirtualPidTable::instance().updateMapping(_dmtcp_pid, realPid);
-  VirtualPidTable::instance().updateMapping(_dmtcp_ppid, realPpid);
-}
-
-extern "C" LIB_PRIVATE
-void
-dmtcpResetTid(pid_t tid)
-{
-  _dmtcp_thread_tid = tid;
-}
-
-/* FIXME: Once we have implemented the plugin calling mechanism in which the
- * plugins are called in the reverse order during restart/resume phase, we can
- * call this function while processing RESTART event.
- */
-extern "C"
-void
-dmtcp_update_ppid()
-{
-  if (_dmtcp_ppid != 1) {
-    VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
-                                              _real_getppid());
-  }
-}
-
-LIB_PRIVATE pid_t
-dmtcp_gettid()
-{
-  /* dmtcp::ThreadList::updateTid calls gettid() before calling
-   *  ThreadSync::decrementUninitializedThreadCount() and so the value is
-   * cached before it is accessed by some other DMTCP code.
-   */
-  if (_dmtcp_thread_tid == -1) {
-    _dmtcp_thread_tid = getpid();
-
-    // Make sure this is the motherofall thread.
-    JASSERT(_real_gettid() == _real_getpid()) (_real_gettid()) (_real_getpid());
-  }
-  return _dmtcp_thread_tid;
-}
-
 extern "C" pid_t
 getpid()
 {
-  if (_dmtcp_pid == -1) {
-    dmtcpResetPidPpid();
-  }
-  return _dmtcp_pid;
+  return VirtualPidTable::getpid();
 }
 
 // glibc-2.30 added support for gettid()
@@ -127,28 +51,14 @@ getpid()
 pid_t
 gettid(void)
 {
-  if (_dmtcp_thread_tid == -1) {
-    _dmtcp_thread_tid = dmtcp_gettid();
-  }
-  return _dmtcp_thread_tid;
+  return VirtualPidTable::gettid();
 }
 #endif // if !__GLIBC_PREREQ(2, 30)
 
 extern "C" pid_t
 getppid()
 {
-  if (_dmtcp_ppid == -1) {
-    dmtcpResetPidPpid();
-  }
-  if (_real_getppid() != VIRTUAL_TO_REAL_PID(_dmtcp_ppid)) {
-    // The original parent died; reset our ppid.
-    //
-    // On older systems, a process is inherited by init (pid = 1) after its
-    // parent dies. However, with the new per-user init process, the parent
-    // pid is no longer "1"; it's the pid of the user-specific init process.
-    _dmtcp_ppid = _real_getppid();
-  }
-  return _dmtcp_ppid;
+  return VirtualPidTable::getppid();
 }
 
 #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD

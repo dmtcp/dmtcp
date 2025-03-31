@@ -36,14 +36,17 @@
 using namespace dmtcp;
 
 static int _numTids = 1;
+static __thread pid_t _dmtcp_thread_tid ATTR_TLS_INITIAL_EXEC = -1;
+
+static pid_t _dmtcp_pid = -1;
+static pid_t _dmtcp_ppid = -1;
+static pid_t _dmtcp_realPid = -1;
+static pid_t _dmtcp_realPpid = -1;
+
 
 VirtualPidTable::VirtualPidTable()
-  : VirtualIdTable<pid_t>("Pid", getpid())
+  : VirtualIdTable<pid_t>("Pid", _dmtcp_pid)
 {
-  // _do_lock_tbl();
-  // _idMapTable[getpid()] = _real_getpid();
-  // _idMapTable[getppid()] = _real_getppid();
-  // _do_unlock_tbl();
 }
 
 VirtualPidTable *virtPidTableInst = NULL;
@@ -52,14 +55,85 @@ VirtualPidTable&
 VirtualPidTable::instance()
 {
   if (virtPidTableInst == NULL) {
+    Util::getVirtualPidFromEnvVar(&_dmtcp_pid, &_dmtcp_realPid,
+                                  &_dmtcp_ppid, &_dmtcp_realPpid);
+
     virtPidTableInst = new VirtualPidTable();
   }
   return *virtPidTableInst;
 }
 
 void
+VirtualPidTable::resetPidPpid()
+{
+  Util::getVirtualPidFromEnvVar(&_dmtcp_pid, &_dmtcp_realPid,
+                                &_dmtcp_ppid, &_dmtcp_realPpid);
+
+  if (_dmtcp_realPid == 0) {
+    _dmtcp_realPid = _real_getpid();
+  }
+
+  VirtualPidTable::instance().updateMapping(_dmtcp_pid, _dmtcp_realPid);
+  VirtualPidTable::instance().updateMapping(_dmtcp_ppid, _dmtcp_realPpid);
+}
+
+void
+VirtualPidTable::resetTid(pid_t tid)
+{
+  _dmtcp_thread_tid = tid;
+  instance().updateMapping(_dmtcp_thread_tid, _real_gettid());
+}
+
+pid_t
+VirtualPidTable::getpid()
+{
+  if (_dmtcp_pid == -1) {
+    resetPidPpid();
+  }
+
+  return _dmtcp_pid;
+}
+
+pid_t
+VirtualPidTable::getppid()
+{
+  if (_dmtcp_ppid == -1) {
+    resetPidPpid();
+  }
+  if (_real_getppid() != VIRTUAL_TO_REAL_PID(_dmtcp_ppid)) {
+    // The original parent died; reset our ppid.
+    //
+    // On older systems, a process is inherited by init (pid = 1) after its
+    // parent dies. However, with the new per-user init process, the parent
+    // pid is no longer "1"; it's the pid of the user-specific init process.
+    _dmtcp_ppid = _real_getppid();
+  }
+  return _dmtcp_ppid;
+}
+
+pid_t
+VirtualPidTable::gettid()
+{
+  /* dmtcp::ThreadList::updateTid calls gettid() before calling
+   * ThreadSync::decrementUninitializedThreadCount() and so the value is
+   * cached before it is accessed by some other DMTCP code.
+   */
+  if (_dmtcp_thread_tid == -1) {
+    _dmtcp_thread_tid = getpid();
+
+    // Make sure this is the motherofall thread.
+    JASSERT(_real_gettid() == _real_getpid()) (_real_gettid()) (_real_getpid());
+  }
+  return _dmtcp_thread_tid;
+}
+
+void
 VirtualPidTable::postRestart()
 {
+  if (_dmtcp_ppid != 1) {
+    updateMapping(_dmtcp_ppid, _real_getppid());
+  }
+
   VirtualIdTable<pid_t>::postRestart();
   _do_lock_tbl();
   _idMapTable[getpid()] = _real_getpid();
@@ -105,6 +179,8 @@ VirtualPidTable::getNewVirtualTid()
 void
 VirtualPidTable::resetOnFork()
 {
+  resetPidPpid();
+  resetTid(getpid());
   VirtualIdTable<pid_t>::resetOnFork(getpid());
   _numTids = 1;
   _idMapTable[getpid()] = _real_getpid();

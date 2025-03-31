@@ -56,8 +56,6 @@ pidVirt_atfork_prepare()
 LIB_PRIVATE void
 pidVirt_atfork_child()
 {
-  dmtcpResetPidPpid();
-  dmtcpResetTid(getpid());
   VirtualPidTable::instance().resetOnFork();
 }
 
@@ -85,7 +83,7 @@ pidVirt_vfork_prepare()
   vfork_saved_virt_pid = getpid();
   vfork_saved_real_pid = VIRTUAL_TO_REAL_PID(getpid());
   vfork_saved_ppid = getppid();
-  vfork_saved_tid = dmtcp_gettid();
+  vfork_saved_tid = VirtualPidTable::gettid();
   if (vfork_saved_virtPidTableInst == nullptr) {
     vfork_saved_virtPidTableInst = new VirtualPidTable(*virtPidTableInst);
   } else {
@@ -148,8 +146,8 @@ vfork()
                               vfork_saved_real_pid,
                               vfork_saved_ppid,
                               _real_getppid());
-    dmtcpResetPidPpid();
-    dmtcpResetTid(getpid());
+    VirtualPidTable::resetPidPpid();
+    VirtualPidTable::resetTid(getpid());
 
     if (vforkPid > 0) {
       VirtualPidTable::instance().updateMapping(childVirtualPid, vforkPid);
@@ -321,7 +319,7 @@ syscall(long sys_num, ...)
   switch (sys_num) {
   case SYS_gettid:
   {
-    ret = dmtcp_gettid();
+    ret = VirtualPidTable::gettid();
     break;
   }
   case SYS_tkill:
