@@ -56,10 +56,21 @@ glibc_lll_unlock(int *futex)
   }
 }
 
+extern "C" void dmtcp_initialize_entry_point();
 struct libc_pthread_addr dmtcp_pthread_get_addrs(pthread_t th)
 {
-  static int libcMinor = glibcMinorVersion();
+  // If dmtcp_initialize_entry_point() is not called, then we need to call it
+  // here.  This is because dmtcp_pthread_get_addrs() is called by several
+  // low-level function relying on pthread_t. We need pthread_t->tid to be
+  // virtualized. This is done during the pid pluging initialization (which in
+  // turn is done as part of DMTCP initialization).
+  static bool dmtcp_pthread_get_addrs_initialized = false;
+  if (!dmtcp_pthread_get_addrs_initialized) {
+    dmtcp_pthread_get_addrs_initialized = true;
+    dmtcp_initialize_entry_point();
+  }
 
+  static int libcMinor = glibcMinorVersion();
   struct libc_pthread_addr ret;
 
   if (libcMinor >= 33) {
