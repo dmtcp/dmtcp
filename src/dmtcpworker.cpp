@@ -198,6 +198,23 @@ dmtcp_initialize()
   dmtcp_prepare_wrappers();
 }
 
+#ifdef DEBUG
+// This is a test function which we can use to simulate foreign constructors
+// that might be invoked before dmtcp_initialize_entry_point is called. We
+// should be able to put arbitrary code here without worrying about the order of
+// initialization. The constructor attribute priority is set to 100, so it will
+// be called before dmtcp_initialize_entry_point.
+// Note that 1-100 are reserved for implementation, but we are okay since this
+// function is only enabled for debugging.
+extern "C" void __attribute__((constructor(100)))
+dmtcp_initialize_entry_point_test()
+{
+  cpu_set_t cpuset;
+  pthread_t thread = pthread_self();
+  pthread_getaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
+}
+#endif
+
 // Initialize remaining components.
 extern "C" void __attribute__((constructor(101)))
 dmtcp_initialize_entry_point()
