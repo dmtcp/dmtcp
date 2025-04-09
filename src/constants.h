@@ -55,8 +55,9 @@
 // #define X11_LISTENER_PORT_START 6000
 
 // Virtual pids used by coordinator.
-#define INITIAL_VIRTUAL_PID         40000
-#define MAX_VIRTUAL_PID             400000000
+#define INITIAL_VIRTUAL_PID         ((pid_t)40000)
+#define VIRTUAL_PID_STEP            ((pid_t)1000)
+#define MAX_VIRTUAL_PID             ((pid_t)1000000)
 
 // NEEDED FOR STRINGIFY(DEFAULT_PORT)
 #define QUOTE(arg) #arg
