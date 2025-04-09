@@ -158,7 +158,6 @@ VirtualPidTable::refresh()
     }
   }
   _do_unlock_tbl();
-  printMaps();
 }
 
 pid_t
