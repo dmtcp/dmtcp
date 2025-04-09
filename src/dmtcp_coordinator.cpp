@@ -300,11 +300,11 @@ DmtcpCoordinator::getNewVirtualPid()
 {
   pid_t pid = -1;
 
-  JASSERT(_virtualPidToClientMap.size() < MAX_VIRTUAL_PID / 1000)
-  .Text("Exceeded maximum number of processes allowed");
+  ASSERT_LT(_virtualPidToClientMap.size(), (size_t)MAX_VIRTUAL_PID);
+
   while (1) {
     pid = _nextVirtualPid;
-    _nextVirtualPid += 1000;
+    _nextVirtualPid += VIRTUAL_PID_STEP;
     if (_nextVirtualPid > MAX_VIRTUAL_PID) {
       _nextVirtualPid = INITIAL_VIRTUAL_PID;
     }
@@ -757,14 +757,11 @@ DmtcpCoordinator::onData(CoordClient *client)
     break;
   }
 
-  case DMT_NULL:
+  default:
     JWARNING(false) (msg.type).Text(
       "unexpected message from worker. Closing connection");
     onDisconnect(client);
     break;
-  default:
-    JASSERT(false) (msg.from) (msg.type)
-    .Text("unexpected message from worker");
   }
 
   delete[] extraData;
@@ -933,19 +930,16 @@ DmtcpCoordinator::onConnect()
     client->virtualPid(hello_remote.from.pid());
     _virtualPidToClientMap[client->virtualPid()] = client;
   } else if (hello_remote.type == DMT_NEW_WORKER) {
-    // Coming from dmtcp_launch or fork(), ssh(), etc.
-    JASSERT(hello_remote.state == WorkerState::RUNNING ||
-            hello_remote.state == WorkerState::UNKNOWN);
-    JASSERT(hello_remote.virtualPid == -1);
-    client->virtualPid(getNewVirtualPid());
     if (!validateNewWorkerProcess(hello_remote, remote, client,
                                   &remoteAddr, remoteLen)) {
       return;
     }
     _virtualPidToClientMap[client->virtualPid()] = client;
   } else {
-    JASSERT(false) (hello_remote.type)
-    .Text("Connect request from Unknown Remote Process Type");
+    JWARNING(false) (hello_remote.type)
+    .Text("Rejecting connect request from unknown remote process type.");
+    remote.close();
+    return;
   }
 
   JNOTE("worker connected") (hello_remote.from) (client->progname());
@@ -1008,11 +1002,16 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
   const struct sockaddr_storage *remoteAddr,
   socklen_t remoteLen)
 {
+  if (hello_remote.state != WorkerState::RESTARTING) {
+    JWARNING(false) (hello_remote.state)
+    .Text("Rejecting restarting worker process with non-RESTARTING state.");
+    remote.close();
+    return false;
+  }
+
   const struct sockaddr_in *sin = (const struct sockaddr_in *)remoteAddr;
   string remoteIP = inet_ntoa(sin->sin_addr);
   DmtcpMessage hello_local(DMT_ACCEPT);
-
-  JASSERT(hello_remote.state == WorkerState::RESTARTING) (hello_remote.state);
 
   if (compId == UniquePid(0, 0, 0)) {
     lookupService.reset();
@@ -1110,15 +1109,28 @@ DmtcpCoordinator::validateNewWorkerProcess(
   const struct sockaddr_storage *remoteAddr,
   socklen_t remoteLen)
 {
+  // Coming from dmtcp_launch or fork(), ssh(), etc.
+  if (hello_remote.state != WorkerState::RUNNING &&
+      hello_remote.state != WorkerState::UNKNOWN) {
+    JWARNING(false) (hello_remote.state)
+    .Text("state is not RUNNING or UNKNOWN; rejecting new connection");
+    return false;
+  }
+
+  if (hello_remote.virtualPid != -1) {
+    JWARNING(false) (hello_remote.virtualPid)
+    .Text("virtualPid is not -1; rejecting new connection");
+    return false;
+  }
+
   const struct sockaddr_in *sin = (const struct sockaddr_in *)remoteAddr;
   string remoteIP = inet_ntoa(sin->sin_addr);
   DmtcpMessage hello_local(DMT_ACCEPT);
 
+  client->virtualPid(getNewVirtualPid());
+
   hello_local.virtualPid = client->virtualPid();
   ComputationStatus s = getStatus();
-
-  JASSERT(hello_remote.state == WorkerState::RUNNING ||
-          hello_remote.state == WorkerState::UNKNOWN) (hello_remote.state);
 
   if (workersRunningAndSuspendMsgSent == true) {
     // Handshake
@@ -1296,7 +1308,7 @@ signalHandler(int signum)
   if (signum == SIGINT) {
     theCoordinator.handleUserCommand("q");
   } else {
-    JASSERT(false).Text("Not reached");
+    JWARNING(false)(signum).Text("Ignoring unexpected signal");
   }
 }
 

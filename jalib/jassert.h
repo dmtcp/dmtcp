@@ -333,6 +333,20 @@ void open_log_file();
     .JASSERT_CONT_A;                                              \
   } while (0)
 
+#define ASSERT_LT(expected, term)                                 \
+  do {                                                            \
+  auto lhs = (expected);                                          \
+  auto rhs = (term);                                              \
+  if (lhs < rhs) {                                               \
+  } else                                                          \
+    jassert_internal::JAssert()                                   \
+    .JASSERT_CONTEXT_NO_NEWLINE("ASSERT_LT failed; ")             \
+    .Print("<" #expected "(").Print(lhs)                          \
+    .Print(")> < <" #term "(").Print(rhs)                        \
+    .Print(")>.\n")                                               \
+    .JASSERT_CONT_A;                                              \
+  } while (0)
+
 #define ASSERT_NULL(term)                                         \
   if (nullptr == (term)) {                                        \
   } else                                                          \
