@@ -96,15 +96,18 @@ callback(struct dl_phdr_info *info, size_t size, void *data) {
   // Turn on JTRACE for an overview of this logic in action.
   if (address != NULL) {
     dlsym_addr_instance++;
-    JTRACE("Symbol dlsym_symbol in info->dlpi_name; found at address")
-          (dlsym_symbol) (info->dlpi_name) (address);
+    // Can't use JTRACE here because it can deadlock due to memory allocation.
+    // JTRACE("Symbol dlsym_symbol in info->dlpi_name; found at address")
+    //       (dlsym_symbol) (info->dlpi_name) (address);
   }
   if (dlsym_addr_instance == 1) {
-    JTRACE("Caller of dlsym_symbol() in info->dlpi_name; wrapper fnc. address")
-          (dlsym_symbol) (info->dlpi_name) (address);
+    // Can't use JTRACE here because it can deadlock due to memory allocation.
+    // JTRACE("Caller of dlsym_symbol() in info->dlpi_name; wrapper fnc. address")
+    //       (dlsym_symbol) (info->dlpi_name) (address);
   }
   if (dlsym_addr_instance == 2) {
-    JTRACE("RTLD_NEXT") (address);
+    // Can't use JTRACE here because it can deadlock due to memory allocation.
+    // JTRACE("RTLD_NEXT") (address);
     dlsym_retval = address;
   }
   return 0;

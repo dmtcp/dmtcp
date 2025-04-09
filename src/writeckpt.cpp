@@ -454,11 +454,11 @@ writememoryarea(int fd, Area area)
   }
 
   if (!(area.flags & MAP_ANONYMOUS)) {
-    JTRACE("save region") (area.addr) (area.size) (area.name) (area.offset);
+    JTRACE("save region") ((void*)area.addr) (area.size) (area.name) (area.offset);
   } else if (area.name[0] == '\0') {
-    JTRACE("save anonymous") (area.addr) (area.size);
+    JTRACE("save anonymous") ((void*)area.addr) (area.size);
   } else {
-    JTRACE("save anonymous") (area.addr) (area.size) (area.name) (area.offset);
+    JTRACE("save anonymous") ((void*)area.addr) (area.size) (area.name) (area.offset);
   }
 
   if (area.name[0] == '\0') {
