@@ -201,13 +201,17 @@ VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
 pid_t
 VirtualPidTable::realToVirtual(pid_t realPid)
 {
+  if (realPid == -1 || realPid == 0) {
+    return realPid;
+  }
+
   return VirtualIdTable<pid_t>::realToVirtual(realPid);
 }
 
 pid_t
 VirtualPidTable::virtualToReal(pid_t virtualId)
 {
-  if (virtualId == -1) {
+  if (virtualId == -1 || virtualId == 0) {
     return virtualId;
   }
 
