@@ -41,12 +41,14 @@ WrapperLock::~WrapperLock()
 
 LibDlWrapperLock::LibDlWrapperLock()
 {
-  ThreadSync::libdlLockLock();
+  acquired = ThreadSync::libdlLockLock();
 }
 
 LibDlWrapperLock::~LibDlWrapperLock()
 {
-  ThreadSync::libdlLockUnlock();
+  if (acquired) {
+    ThreadSync::libdlLockUnlock();
+  }
 }
 
 }

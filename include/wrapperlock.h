@@ -48,6 +48,8 @@ class LibDlWrapperLock
 
     LibDlWrapperLock();
     virtual ~LibDlWrapperLock();
+  private:
+    bool acquired = false;
 };
 
 }
