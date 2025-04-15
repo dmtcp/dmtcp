@@ -180,7 +180,9 @@ SharedData::initialize(const char *tmpDir,
     JASSERT(fd != -1) (JASSERT_ERRNO);
     JASSERT(_real_dup2(fd, PROTECTED_SHM_FD) == PROTECTED_SHM_FD)
       (JASSERT_ERRNO);
-    _real_close(fd);
+    if (fd != PROTECTED_SHM_FD) {
+      _real_close(fd);
+    }
   }
 
   size_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
