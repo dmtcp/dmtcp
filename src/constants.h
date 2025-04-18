@@ -113,6 +113,7 @@
 
 // Set to "1" if the system supports FSGSBASE feature.
 #define ENV_VAR_FSGSBASE_ENABLED        "DMTCP_FSGSBASE_ENABLED"
+#define ENV_VAR_LOG_FILE                "DMTCP_LOG_FILE"
 
 // this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL                  \
@@ -135,7 +136,8 @@
   ENV_VAR_SIGCKPT,                    \
   ENV_VAR_SCREENDIR,                  \
   ENV_VAR_VIRTUAL_PID,                \
-  ENV_VAR_FSGSBASE_ENABLED
+  ENV_VAR_FSGSBASE_ENABLED,           \
+  ENV_VAR_LOG_FILE
 
 #define DMTCP_RESTART_CMD       "dmtcp_restart"
 
