@@ -121,12 +121,17 @@ Util::calcTmpDir(const char *tmpdirenv)
 void
 Util::initializeLogFile(const char *tmpDir, const char *prefix)
 {
-  ostringstream o;
-  o << tmpDir << "/" << prefix
-    << "." << Util::getTimestampStr()
-    << "." << UniquePid::ThisProcess()
-    << ".log";
-  JASSERT_SET_LOG(o.str().c_str());
+  const char *logFile = getenv(ENV_VAR_LOG_FILE);
+  if (logFile != NULL) {
+    JASSERT_SET_LOG(logFile);
+  } else {
+    ostringstream o;
+    o << tmpDir << "/" << prefix
+      << "." << Util::getTimestampStr()
+      << "." << UniquePid::ThisProcess()
+      << ".log";
+    JASSERT_SET_LOG(o.str().c_str());
+  }
 
   // This causes an error when configure is done with --enable-logging
   //   JLOG(a.str().c_str());
