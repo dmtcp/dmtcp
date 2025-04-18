@@ -240,9 +240,13 @@ template<typename T>
 inline JAssert&
 JAssert::Print(const dmtcp::vector<T> &t)
 {
-  for (size_t i = 0; i < t.size(); i++) {
-    ss << t[i] << "\n";
+  if (t.size() > 0) {
+    ss << "[" << t[0];
   }
+  for (size_t i = 1; i < t.size(); i++) {
+    ss << "," << t[i];
+  }
+  ss << "]";
   return *this;
 }
 
@@ -262,9 +266,14 @@ void open_log_file();
   jassert_internal::JAssert(jassert_internal::JAssert::JAssertType::Raw)
 #define JASSERT_STDERR_FD (jassert_internal::jassert_console_fd())
 
-#define JASSERT_CONT(AB, term)                                               \
-                              Print("     " # term " = ").Print(term).Print( \
-    "\n").JASSERT_CONT_ ## AB
+#define JASSERT_ONELINE 1
+#ifdef JASSERT_ONELINE
+# define JASSERT_CONT(AB, term)                                               \
+    Print(" (" # term " = ").Print(term).Print(");").JASSERT_CONT_ ## AB
+#else
+# define JASSERT_CONT(AB, term)                                               \
+    Print("     " # term " = ").Print(term).Print("\n").JASSERT_CONT_ ## AB
+#endif
 #define JASSERT_CONT_A(term)  JASSERT_CONT(B, term)
 #define JASSERT_CONT_B(term)  JASSERT_CONT(A, term)
 
@@ -273,11 +282,15 @@ void open_log_file();
 #define JASSERT_FUNC __FUNCTION__
 #define JASSERT_LINE JASSERT_STRINGIFY(__LINE__)
 #define JASSERT_FILE jassert_internal::jassert_basename(__FILE__)
-#define JASSERT_CONTEXT_NO_NEWLINE(reason)                                                 \
+#define JASSERT_CONTEXT_NO_NEWLINE(reason)                                 \
   Print(" at ").Print(JASSERT_FILE).Print(":" JASSERT_LINE " in ").Print(  \
     JASSERT_FUNC).Print("; REASON='" reason)
 
-#define JASSERT_CONTEXT(reason) JASSERT_CONTEXT_NO_NEWLINE(reason).Print("\n")                                                 \
+#ifdef JASSERT_ONELINE
+# define JASSERT_CONTEXT(reason) JASSERT_CONTEXT_NO_NEWLINE(reason).Print(";")
+#else
+# define JASSERT_CONTEXT(reason) JASSERT_CONTEXT_NO_NEWLINE(reason).Print("\n")
+#endif
 
 #ifdef LOGGING
 # define JTRACE(msg)                                              \
@@ -315,7 +328,7 @@ void open_log_file();
     .JASSERT_CONTEXT_NO_NEWLINE("ASSERT_EQ failed; ")             \
     .Print("<" #expected "(").Print(lhs)                          \
     .Print(")> == <" #term "(").Print(rhs)                        \
-    .Print(")>.\n")                                               \
+    .Print(")>.")                                                 \
     .JASSERT_CONT_A;                                              \
   } while (0)
 
@@ -329,7 +342,7 @@ void open_log_file();
     .JASSERT_CONTEXT_NO_NEWLINE("ASSERT_NE failed; ")             \
     .Print("<" #expected "(").Print(lhs)                          \
     .Print(")> != <" #term "(").Print(rhs)                        \
-    .Print(")>.\n")                                               \
+    .Print(")>.")                                                 \
     .JASSERT_CONT_A;                                              \
   } while (0)
 
@@ -337,13 +350,13 @@ void open_log_file();
   do {                                                            \
   auto lhs = (expected);                                          \
   auto rhs = (term);                                              \
-  if (lhs < rhs) {                                               \
+  if (lhs < rhs) {                                                \
   } else                                                          \
     jassert_internal::JAssert()                                   \
     .JASSERT_CONTEXT_NO_NEWLINE("ASSERT_LT failed; ")             \
     .Print("<" #expected "(").Print(lhs)                          \
-    .Print(")> < <" #term "(").Print(rhs)                        \
-    .Print(")>.\n")                                               \
+    .Print(")> < <" #term "(").Print(rhs)                         \
+    .Print(")>.")                                                 \
     .JASSERT_CONT_A;                                              \
   } while (0)
 
