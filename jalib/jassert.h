@@ -137,6 +137,7 @@ class JAssert
     template<typename T>
     JAssert &Print(const T &t);
     JAssert &Print(const char *t);
+    JAssert &Print(char *t);
     template<typename T>
     JAssert &Print(const dmtcp::vector<T> &t);
 
@@ -228,11 +229,22 @@ JAssert::Print(const T &t)
 }
 
 inline JAssert&
+JAssert::Print(char *t)
+{
+  return Print(static_cast<const char *>(t));
+}
+
+inline JAssert&
 JAssert::Print(const char *t)
 {
-  if (t != NULL) {
+  if (t == NULL) {
+    ss << "<NULL>";
+  } else if (t[0] == '\0') {
+    ss << "\"\"";
+  } else {
     ss << t;
   }
+
   return *this;
 }
 
