@@ -377,6 +377,40 @@ close(int fd)
 }
 
 extern "C" int
+close_range(unsigned int first, unsigned int last, int flags)
+{
+  if (flags != 0) {
+    return _real_close_range(first, last, flags);
+  }
+
+  if (dmtcp_is_protected_fd(first)) {
+    first = PROTECTED_FD_END;
+  }
+
+  if (dmtcp_is_protected_fd(last)) {
+    last = PROTECTED_FD_START;
+  }
+
+  if (first > last) {
+    return 0;
+  }
+
+  WrapperLock wrapperLock;
+  // We can optimize ListOpenFds by keeping an unordered_set of currently open
+  // fds.  However, for now, we are assuming that close_range is not called
+  // frequently enough to warrant this optimization.
+  vector<int> fds = jalib::Filesystem::ListOpenFds();
+  int ret = 0;
+  for (int fd : fds) {
+    if (fd >= first && fd <= last && !dmtcp_is_protected_fd(fd)) {
+      ret |= close(fd);
+    }
+  }
+
+  return ret;
+}
+
+extern "C" int
 fclose(FILE *fp)
 {
   WrapperLock wrapperLock;

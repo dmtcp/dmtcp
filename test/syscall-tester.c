@@ -70,6 +70,15 @@
 #include <sys/syscall.h>
 #include <sys/uio.h>
 #include <sys/vfs.h>
+#include <linux/version.h>
+
+// include the close_range.h header file only if linux kernel version is >= 5.9.0.
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+#include <linux/close_range.h>
+#endif
+
+#include "protectedfds.h"
+
 #endif /* if defined(LINUX) */
 
 #if defined(Solaris)
@@ -894,6 +903,47 @@ close_test(int fd)
   errno = save_errno;
   return ret;
 }
+
+#ifdef __linux__
+int close_range_test(unsigned int first_fd, unsigned int last_fd, unsigned int flags)
+{
+  int ret, save_errno;
+  int passed;
+
+  printf("close_range(): first_fd=%u, last_fd=%u, flags=%u\n",
+         first_fd, last_fd, flags);
+  fflush(NULL);
+
+  testbreak();
+  passed = handle_zng(ret = syscall(SYS_close_range, first_fd, last_fd, flags));
+  testbreak();
+  save_errno = errno;
+
+  switch (passed) {
+  case FAILURE:
+    is_errno_valid(save_errno, EBADF, EINVAL, EINTR, ENDLIST);
+    /* FALL THROUGH */
+  case SUCCESS:
+    /* Good return values */
+    printf("\t\tret = %d\n", ret);
+    printf("\tSucceeded Phase 1\n");
+    fflush(NULL);
+    break;
+  case UNDEFINED:
+    print_error("\tFailed Phase 1: returned undefined value! "
+                "ret = %d\n", ret);
+    fflush(NULL);
+    break;
+  default:
+    printf("Internal syscalltester error: passed = %d\n", passed);
+    fflush(NULL);
+    break;
+  }
+
+  errno = save_errno;
+  return ret;
+}
+#endif
 
 int
 creat_test(const char *path, mode_t mode)
@@ -3714,6 +3764,196 @@ BasicFile(void)
   return block;
 }
 
+/* Test the stuff you don't need a file descriptor for */
+/*    printf("BEGIN Test %d\n", test);*/
+/*    handle( setregid_test()                 );*/
+/*    handle( setreuid_test()                 );*/
+/*    printf("END Test %d\n\n", test);*/
+/*    test++;*/
+
+#ifdef __linux__
+/* Test the close_range system call functionality */
+int BasicCloseRange(void)
+{
+  char tf1[NAMEBUF] = { 0 };
+  char tf2[NAMEBUF] = { 0 };
+  char tf3[NAMEBUF] = { 0 };
+  int tmpfd1, tmpfd2, tmpfd3;
+  int fd1, fd2, fd3;
+  int fd_before_protected, fd_after_protected;
+  int passed;
+  int block = SUCCESS;
+  int flags;
+
+  xtmpnam(tf1);
+  xtmpnam(tf2);
+  xtmpnam(tf3);
+
+  testbreak();
+
+  /* Basic close_range test */
+  /* Create 3 files and get their descriptors, ensuring they're above fd 2 */
+  passed = expect_gez(SUCCESS, tmpfd1 = open_test(tf1, O_RDWR | O_CREAT, S_IRWXU));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_gez(SUCCESS, fd1 = fcntl_test(tmpfd1, F_DUPFD, 300));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_zng(SUCCESS, close_test(tmpfd1));
+  EXPECTED_RESP;
+
+  passed = expect_gez(SUCCESS, tmpfd2 = open_test(tf2, O_RDWR | O_CREAT, S_IRWXU));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_gez(SUCCESS, fd2 = fcntl_test(tmpfd2, F_DUPFD, fd1 + 1));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_zng(SUCCESS, close_test(tmpfd2));
+  EXPECTED_RESP;
+
+  passed = expect_gez(SUCCESS, tmpfd3 = open_test(tf3, O_RDWR | O_CREAT, S_IRWXU));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_gez(SUCCESS, fd3 = fcntl_test(tmpfd3, F_DUPFD, fd2 + 1));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_zng(SUCCESS, close_test(tmpfd3));
+  EXPECTED_RESP;
+
+  printf("Using test fds: fd1=%d, fd2=%d, fd3=%d\n", fd1, fd2, fd3);
+  fflush(NULL);
+
+  /* Test closing a range of file descriptors */
+  passed = expect_zng(SUCCESS, close_range_test(fd1, fd2, 0));
+  testbreak();
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+
+  testbreak();
+  /* Verify fd1 and fd2 are closed by trying to use them */
+  passed = expect_zng(FAILURE, write_test(fd1, passage, strlen(passage)));
+  EXPECTED_RESP;
+  testbreak();
+  passed = expect_zng(FAILURE, write_test(fd2, passage, strlen(passage)));
+  EXPECTED_RESP;
+  testbreak();
+
+  /* Verify fd3 is still usable */
+  passed = expect_gez(SUCCESS, write_test(fd3, passage, strlen(passage)));
+  EXPECTED_RESP;
+  testbreak();
+
+  /* Clean up */
+  passed = expect_zng(SUCCESS, close_test(fd3));
+  EXPECTED_RESP;
+  testbreak();
+
+  testbreak();
+
+  /* Protected FDs test */
+  printf("Testing close_range around protected FDs (PROTECTED_FD_START=%d, PROTECTED_FD_END=%d)\n",
+         PROTECTED_FD_START, PROTECTED_FD_END);
+  fflush(NULL);
+
+  /* Create files and dup them to specific FDs around protected range */
+  passed = expect_gez(SUCCESS, tmpfd1 = open_test(tf1, O_RDWR | O_CREAT, S_IRWXU));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_gez(SUCCESS, fd1 = fcntl_test(tmpfd1, F_DUPFD, PROTECTED_FD_START - 1));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_zng(SUCCESS, close_test(tmpfd1));
+  EXPECTED_RESP;
+
+  passed = expect_gez(SUCCESS, tmpfd2 = open_test(tf2, O_RDWR | O_CREAT, S_IRWXU));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_gez(SUCCESS, fd2 = fcntl_test(tmpfd2, F_DUPFD, PROTECTED_FD_END + 1));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_zng(SUCCESS, close_test(tmpfd2));
+  EXPECTED_RESP;
+
+  /* Try to close entire range including protected fds */
+  passed = expect_zng(SUCCESS, close_range_test(fd1, fd2, 0));
+  EXPECTED_RESP;
+
+  /* Verify both fds are closed */
+  passed = expect_zng(FAILURE, write_test(fd1, passage, strlen(passage)));
+  EXPECTED_RESP;
+  passed = expect_zng(FAILURE, write_test(fd2, passage, strlen(passage)));
+  EXPECTED_RESP;
+
+  testbreak();
+
+  /* CLOSE_RANGE_CLOEXEC test */
+  // Only run the rest of the test if CLOSE_RANGE_CLOEXEC is defined.
+#if !defined(CLOSE_RANGE_CLOEXEC)
+  printf("Skipping CLOSE_RANGE_CLOEXEC test - CLOSE_RANGE_CLOEXEC not defined\n");
+  fflush(NULL);
+  return block;
+#endif
+
+  printf("Testing close_range with CLOSE_RANGE_CLOEXEC flag\n");
+  fflush(NULL);
+
+  /* Create test files */
+  passed = expect_gez(SUCCESS, tmpfd1 = open_test(tf1, O_RDWR | O_CREAT, S_IRWXU));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_gez(SUCCESS, fd1 = fcntl_test(tmpfd1, F_DUPFD, 300));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_zng(SUCCESS, close_test(tmpfd1));
+  EXPECTED_RESP;
+
+  passed = expect_gez(SUCCESS, tmpfd2 = open_test(tf2, O_RDWR | O_CREAT, S_IRWXU));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_gez(SUCCESS, fd2 = fcntl_test(tmpfd2, F_DUPFD, fd1 + 1));
+  EXPECTED_RESP; IF_FAILED ABORT_TEST;
+  passed = expect_zng(SUCCESS, close_test(tmpfd2));
+  EXPECTED_RESP;
+
+  /* Verify FD_CLOEXEC is not set initially */
+  flags = fcntl(fd1, F_GETFD);
+  if ((flags & FD_CLOEXEC) != 0) {
+    print_error("\tFailed Phase 2: FD_CLOEXEC unexpectedly set on fd1\n");
+    fflush(NULL);
+    block = FAILURE;
+  }
+
+  flags = fcntl(fd2, F_GETFD);
+  if ((flags & FD_CLOEXEC) != 0) {
+    print_error("\tFailed Phase 2: FD_CLOEXEC unexpectedly set on fd2\n");
+    fflush(NULL);
+    block = FAILURE;
+  }
+
+  /* Set CLOEXEC using close_range */
+  passed = expect_zng(SUCCESS, close_range_test(fd1, fd2, CLOSE_RANGE_CLOEXEC));
+  EXPECTED_RESP;
+
+  /* Verify FD_CLOEXEC is now set */
+  flags = fcntl(fd1, F_GETFD);
+  if ((flags & FD_CLOEXEC) == 0) {
+    print_error("\tFailed Phase 2: FD_CLOEXEC not set on fd1 after CLOSE_RANGE_CLOEXEC\n");
+    fflush(NULL);
+    block = FAILURE;
+  }
+
+  flags = fcntl(fd2, F_GETFD);
+  if ((flags & FD_CLOEXEC) == 0) {
+    print_error("\tFailed Phase 2: FD_CLOEXEC not set on fd2 after CLOSE_RANGE_CLOEXEC\n");
+    fflush(NULL);
+    block = FAILURE;
+  }
+
+  /* Clean up */
+  passed = expect_zng(SUCCESS, close_test(fd1));
+  EXPECTED_RESP;
+  passed = expect_zng(SUCCESS, close_test(fd2));
+  EXPECTED_RESP;
+
+  /* Final cleanup */
+  passed = expect_zng(SUCCESS, unlink_test(tf1));
+  EXPECTED_RESP;
+  passed = expect_zng(SUCCESS, unlink_test(tf2));
+  EXPECTED_RESP;
+  passed = expect_zng(SUCCESS, unlink_test(tf3));
+  EXPECTED_RESP;
+
+  testbreak();
+  return block;
+}
+#endif
+
 /* can I do simple writes, reads, and seeks? */
 int
 BasicFileIO(void)
@@ -5011,6 +5251,9 @@ testall()
     char *desc;
   } tests[] = {
     { BasicFile, "BasicFile: simple open/close/access/unlink tests." },
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+    { BasicCloseRange, "BasicCloseRange: Test close_range system call functionality." },
+#endif
     { BasicFileIO, "BasicFileIO: simple write/read/seek tests." },
 
     /*            {BasicIOV, "BasicIOV: Basic vector reads and writes"},*/
