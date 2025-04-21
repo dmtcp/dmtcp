@@ -339,6 +339,13 @@ syscall(long sys_num, ...)
     break;
   }
 
+  case SYS_close_range:
+  {
+    SYSCALL_GET_ARGS_3(int, fd1, int, fd2, unsigned int, flags);
+    ret = close_range(fd1, fd2, flags);
+    break;
+  }
+
   case SYS_rt_sigaction:
   {
     SYSCALL_GET_ARGS_3(int,

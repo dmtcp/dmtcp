@@ -227,6 +227,7 @@ extern int dmtcp_wrappers_initializing;
   MACRO(openat64)                     \
   MACRO(opendir)                      \
   MACRO(close)                        \
+  MACRO(close_range)                  \
   MACRO(fclose)                       \
   MACRO(closedir)                     \
                                       \
@@ -351,6 +352,7 @@ int _real_openat(int dirfd, const char *pathname, int flags, ...);
 int _real_openat64(int dirfd, const char *pathname, int flags, ...);
 DIR *_real_opendir(const char *name);
 int _real_close(int fd);
+int _real_close_range(unsigned int first, unsigned int last, int flags);
 int _real_fclose(FILE *fp);
 int _real_closedir(DIR *dir);
 int _real_setrlimit(int resource, const struct rlimit *rlim);

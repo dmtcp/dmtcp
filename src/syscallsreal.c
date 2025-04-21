@@ -445,6 +445,13 @@ _real_close(int fd)
 
 LIB_PRIVATE
 int
+_real_close_range(unsigned int first, unsigned int last, int flags)
+{
+  REAL_FUNC_PASSTHROUGH(close_range) (first, last, flags);
+}
+
+LIB_PRIVATE
+int
 _real_fclose(FILE *fp)
 {
   REAL_FUNC_PASSTHROUGH(fclose) (fp);
