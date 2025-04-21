@@ -698,7 +698,7 @@ Util::getTimestampStr()
   char buf2[148] = {0}; // Must contain "%s.%03ld", which contains buf1
 
   if (clock_gettime(CLOCK_REALTIME_COARSE, &ts) == -1) {
-    return "";
+    return "1970-01-01T00:00:00.000";
   }
 
   gmtime_r(&ts.tv_sec, &utcTime);
