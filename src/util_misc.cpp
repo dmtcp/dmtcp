@@ -692,15 +692,18 @@ Util::allowGdbDebug(int currentDebugLevel)
 string
 Util::getTimestampStr()
 {
-  struct timeval tv;
-  struct tm localTime;
+  struct timespec  ts;
+  struct tm utcTime;
   char buf1[128] = {0};
   char buf2[148] = {0}; // Must contain "%s.%03ld", which contains buf1
 
-  gettimeofday(&tv, NULL);
-  localtime_r(&tv.tv_sec, &localTime);
-  strftime(buf1, sizeof(buf1), "%FT%T", &localTime);
-  snprintf(buf2, sizeof(buf2), "%s.%03ld", buf1, tv.tv_usec / 1000);
+  if (clock_gettime(CLOCK_REALTIME_COARSE, &ts) == -1) {
+    return "";
+  }
+
+  gmtime_r(&ts.tv_sec, &utcTime);
+  strftime(buf1, sizeof(buf1), "%FT%T", &utcTime);
+  snprintf(buf2, sizeof(buf2), "%s.%03ld", buf1, ts.tv_nsec / 1000000);
 
   return buf2;
 }
