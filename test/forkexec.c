@@ -1,4 +1,5 @@
 #define _POSIX_SOURCE
+#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,6 +52,9 @@ main(int argc, char **argv)
         sprintf(ldpath, "LD_LIBRARY_PATH=%s", getenv("LD_LIBRARY_PATH"));
         env[3] = ldpath;
       }
+
+      // Try to trigger a execve failure.
+      assert(execve("/some/random/binary", t, env) != 0);
 
       execve(argv[0], t, env);
       perror("execve");
