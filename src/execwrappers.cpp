@@ -470,11 +470,9 @@ dmtcpProcessFailedExec(const char *path, const char *newArgv[])
     Util::freePatchedArgv(newArgv);
   }
 
-  restoreUserLDPRELOAD();
-
   JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
-  errno = saved_errno;
   JASSERT(_real_close(PROTECTED_LIFEBOAT_FD) == 0) (JASSERT_ERRNO);
+  errno = saved_errno;
 }
 
 static string
