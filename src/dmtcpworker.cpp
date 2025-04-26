@@ -270,6 +270,11 @@ dmtcp_initialize_entry_point()
   // In libdmtcp.so, notify this event for each plugin.
   PluginManager::eventHook(DMTCP_EVENT_INIT, NULL);
 
+  // Initialize the timezone.
+  // tzset() requires a malloc during initialization. We want to do it here to
+  // avoid a later malloc during gmtime_r/localtime_r.
+  tzset();
+
   // Create checkpoint-thread at the very end of the initialization process.
   ThreadList::createCkptThread();
 }

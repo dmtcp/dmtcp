@@ -692,20 +692,22 @@ Util::allowGdbDebug(int currentDebugLevel)
 string
 Util::getTimestampStr()
 {
-  struct timespec  ts;
-  struct tm utcTime;
-  char buf1[128] = {0};
-  char buf2[148] = {0}; // Must contain "%s.%03ld", which contains buf1
+  struct timeval tv;
+  struct tm localTime;
+  char buf[128] = {0};
 
-  if (clock_gettime(CLOCK_REALTIME_COARSE, &ts) == -1) {
-    return "1970-01-01T00:00:00.000";
-  }
+  // Do not use clock_gettime() because its wrapper needs to acquire wrapper
+  // lock which might cause a deadlock during checkpoint/restart.
+  gettimeofday(&tv, NULL);
+  localtime_r(&tv.tv_sec, &localTime);
 
-  gmtime_r(&ts.tv_sec, &utcTime);
-  strftime(buf1, sizeof(buf1), "%FT%T", &utcTime);
-  snprintf(buf2, sizeof(buf2), "%s.%03ld", buf1, ts.tv_nsec / 1000000);
+  // Print localTime into buf1 in YYYY-MM-DDTHH:MM:SS.Milliseconds format.
+  snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02d.%03ld",
+           localTime.tm_year + 1900, localTime.tm_mon + 1, localTime.tm_mday,
+           localTime.tm_hour, localTime.tm_min, localTime.tm_sec,
+           tv.tv_usec / 1000);
 
-  return buf2;
+  return buf;
 }
 
 void
