@@ -606,15 +606,7 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
       blockUntilDoneRemote = -1;
     }
 
-    if (flags.killAfterCkpt || killAfterCkptOnce) {
-      JNOTE("Checkpoint Done. Killing all peers.");
-      broadcastMessage(DMT_KILL_PEER);
-      killAfterCkptOnce = false;
-    } else {
-      // On checkpoint/resume, we should not be resetting the lookup service.
-      //   This is absolutely required by the InfiniBand plugin.
-      // lookupService.reset();
-    }
+    killAfterCkptOnce = false;
     _numRestartFilenames = 0;
     _numCkptWorkers = 0;
 
@@ -630,7 +622,12 @@ DmtcpCoordinator::onData(CoordClient *client)
 
   JASSERT(client != NULL);
 
-  client->sock() >> msg;
+  if (client->sock().readAll((char*)&msg, sizeof(msg)) != sizeof(msg)) {
+    JTRACE("Failed to read DmtcpMessage; probably dead connection.")
+      (client->identity());
+    return;
+  }
+
   msg.assertValid();
   char *extraData = 0;
   if (msg.extraBytes > 0) {
@@ -758,7 +755,7 @@ DmtcpCoordinator::onData(CoordClient *client)
   }
 
   default:
-    JWARNING(false) (msg.type).Text(
+    JWARNING(false) (msg.type) (client->identity()) .Text(
       "unexpected message from worker. Closing connection");
     onDisconnect(client);
     break;
@@ -1503,20 +1500,17 @@ DmtcpCoordinator::eventLoop()
 
     for (int n = 0; n < nfds; ++n) {
       void *ptr = events[n].data.ptr;
-      if ((events[n].events & EPOLLHUP) ||
-#ifdef EPOLLRDHUP
-          (events[n].events & EPOLLRDHUP) ||
-#endif // ifdef EPOLLRDHUP
-          (events[n].events & EPOLLERR)) {
-        JASSERT(ptr != listenSock);
-        if (ptr == (void *)STDIN_FILENO) {
-          JASSERT(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1)
-            (JASSERT_ERRNO);
-          close(STDIN_FD);
-        } else {
-          onDisconnect((CoordClient *)ptr);
-        }
-      } else if (events[n].events & EPOLLIN) {
+
+      // Epoll wait may return EPOLLIN along with EPOLLHUP if the client closed
+      // the socket right after sending a message to the coordinator. This is
+      // noticed when using kill-after-checkpoint flag where the client sends
+      // the checkpoint filename to the coordinator and immediately calls exit()
+      // (which in turn closes the coordinator socket). If we don't process
+      // EPOLLIN before processing EPOLLHUP, we lose the DMTCP_CKPT_FILENAME
+      // message altogether and fail to write restart script.
+
+      // First read any available data from the client socket.
+      if (events[n].events & EPOLLIN) {
         if (ptr == (void *)listenSock) {
           onConnect();
         } else if (ptr == (void *)STDIN_FILENO) {
@@ -1537,6 +1531,22 @@ DmtcpCoordinator::eventLoop()
           }
         } else {
           onData((CoordClient *)ptr);
+        }
+      }
+
+      // Now check if the client socket is closed.
+      if ((events[n].events & EPOLLHUP) ||
+#ifdef EPOLLRDHUP
+          (events[n].events & EPOLLRDHUP) ||
+#endif // ifdef EPOLLRDHUP
+          (events[n].events & EPOLLERR)) {
+        JASSERT(ptr != listenSock);
+        if (ptr == (void *)STDIN_FILENO) {
+          JASSERT(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1)
+            (JASSERT_ERRNO);
+          close(STDIN_FD);
+        } else {
+          onDisconnect((CoordClient *)ptr);
         }
       }
     }
