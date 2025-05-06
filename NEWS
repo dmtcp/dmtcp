@@ -3,6 +3,15 @@ DMTCP NEWS -- history of user-visible changes.
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>,
 or "Issues" at https://github.com/dmtcp/dmtcp .
 
+Version 3.3.0 release notes (May 5, 2025)
+===========================================
+This minor release includes:
+* bug-fixes related to corner cases related to initialization.
+* bug-fixes to support custom malloc libraries.
+* bug-fix related to a regression involving interval checkpointing.
+* support for close_range system call.
+* Logging improvements.
+
 Version 3.2.0 release notes (Feb. 26, 2025)
 ===========================================
 This minor release includes:
