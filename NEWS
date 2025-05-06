@@ -3,6 +3,19 @@ DMTCP NEWS -- history of user-visible changes.
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>,
 or "Issues" at https://github.com/dmtcp/dmtcp .
 
+Version 4.0.0 release notes (June 25, 2025)
+===========================================
+This is a major release which introduces breaking checkpoint-image format. As
+such, the checkpoint images are not compatible with older releases.
+
+Other fixes include:
+* bug-fixes related to corner cases related to initialization.
+* bug-fixes to support custom malloc libraries.
+* bug-fix related to a regression involving interval checkpointing.
+* fixed a regression involving --restartdir.
+* support for close_range system call.
+* Logging improvements.
+
 Version 3.2.0 release notes (Feb. 26, 2025)
 ===========================================
 This minor release includes:
