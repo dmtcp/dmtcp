@@ -33,15 +33,6 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 
-
-#if defined(__aarch64__) || defined(__riscv)
-
-// FIXME:  We should use SYS_getdents64, and not SYS_getdents for all arch's.
-// SYS_getdents not supported in aarch64.
-# undef SYS_getdents
-# define SYS_getdents       SYS_getdents64
-#endif // ifdef __aarch64__
-
 #define DELETED_FILE_SUFFIX " (deleted)"
 
 namespace
@@ -317,39 +308,27 @@ jalib::Filesystem::FileExists(const dmtcp::string &str)
 dmtcp::vector<dmtcp::string>
 ListDirEntriesInternal(const dmtcp::string& dir, int *procSelfFd = nullptr)
 {
-  int fd = jalib::open(dir.c_str(),
-                       O_RDONLY | O_NDELAY | O_LARGEFILE | O_DIRECTORY);
-
-  JASSERT(fd >= 0);
+  DIR *dir_stream = opendir(dir.c_str());
+  JASSERT(dir_stream != NULL);
 
   if (procSelfFd != nullptr) {
+    int fd = dirfd(dir_stream);
+    JASSERT(fd >= 0);
     *procSelfFd = fd;
   }
 
-  const size_t allocation = (4 * BUFSIZ < sizeof(struct dirent64)
-                             ? sizeof(struct dirent64) : 4 * BUFSIZ);
-  char *buf = (char *)JALLOC_HELPER_MALLOC(allocation);
-
+  struct dirent *entry;
   dmtcp::vector<dmtcp::string> result;
 
   while (true) {
-    int nread = jalib::syscall(SYS_getdents, fd, buf, allocation);
-    if (nread == 0) {
+    entry = readdir(dir_stream);
+    if (entry == NULL) {
       break;
     }
-    JASSERT(nread > 0);
-    for (int pos = 0; pos < nread;) {
-      struct jalib::linux_dirent *d = (struct jalib::linux_dirent *)(&buf[pos]);
-      if (d->d_ino > 0) {
-        result.push_back(d->d_name);
-      }
-      pos += d->d_reclen;
-    }
+    result.push_back(entry->d_name);
   }
 
-  jalib::close(fd);
-
-  JALLOC_HELPER_FREE(buf);
+  closedir(dir_stream);
   return result;
 }
 
