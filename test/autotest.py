@@ -642,9 +642,12 @@ def runTestRaw(name, numProcs, cmds):
   def testRestart():
     #build restart command
     cmd=BIN+"dmtcp_restart --quiet"
-    for i in os.listdir(ckptDir):
-      if i.endswith(".dmtcp"):
-        cmd+= " "+ckptDir+"/"+i
+    if name == "restartdir":
+      cmd+= " --restartdir "+ckptDir
+    else:
+      for i in os.listdir(ckptDir):
+        if i.endswith(".dmtcp"):
+          cmd+= " "+ckptDir+"/"+i
     #run restart and test if it worked
     procs.append(runCmd(cmd))
     sleep(POST_RESTART_SLEEP)
@@ -1269,6 +1272,9 @@ if HAS_OPENMPI == "yes":
     os.environ['PATH'] = oldPath
   if oldPath == None:
     del os.environ['PATH']
+
+# Test --restartdir
+runTest("restartdir", 1, ["./test/dmtcp1"])
 
 # Test DMTCP utilities:
 runTest("nocheckpoint",        [1,2], ["./test/nocheckpoint"])
