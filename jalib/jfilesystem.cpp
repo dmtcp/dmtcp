@@ -33,14 +33,33 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#if defined(__aarch64__) || defined(__riscv) || defined(__x86_64__)
+#define SYS_GETDENTS SYS_getdents64
+struct jalib_linux_dirent {
+  ino64_t d_ino;           /* 64-bit inode number */
+  off64_t d_off;           /* Not an offset; see getdents() */
+  unsigned short d_reclen; /* Size of this dirent */
+  unsigned char d_type;    /* File type */
+  char d_name[];           /* Filename (null-terminated) */
+};
+#else
+#define SYS_GETDENTS SYS_getdents
+struct jalib_linux_dirent {
+  unsigned long d_ino;        /* Inode number */
+  unsigned long d_off;        /* Offset to next linux_dirent */
+  unsigned short d_reclen;    /* Length of this linux_dirent */
+  char d_name[];              /* Filename (null-terminated) */
 
-#if defined(__aarch64__) || defined(__riscv)
+  /* length is actually (d_reclen - 2 -
+     offsetof(struct linux_dirent, d_name) */
 
-// FIXME:  We should use SYS_getdents64, and not SYS_getdents for all arch's.
-// SYS_getdents not supported in aarch64.
-# undef SYS_getdents
-# define SYS_getdents       SYS_getdents64
-#endif // ifdef __aarch64__
+  /*
+     char           pad;       // Zero padding byte
+     char           d_type;    // File type (only since Linux 2.6.4;
+                               // offset is (d_reclen - 1))
+  */
+};
+#endif
 
 #define DELETED_FILE_SUFFIX " (deleted)"
 
@@ -333,13 +352,13 @@ ListDirEntriesInternal(const dmtcp::string& dir, int *procSelfFd = nullptr)
   dmtcp::vector<dmtcp::string> result;
 
   while (true) {
-    int nread = jalib::syscall(SYS_getdents, fd, buf, allocation);
+    int nread = jalib::syscall(SYS_GETDENTS, fd, buf, allocation);
     if (nread == 0) {
       break;
     }
     JASSERT(nread > 0);
     for (int pos = 0; pos < nread;) {
-      struct jalib::linux_dirent *d = (struct jalib::linux_dirent *)(&buf[pos]);
+      struct jalib_linux_dirent *d = (struct jalib_linux_dirent *)(&buf[pos]);
       if (d->d_ino > 0) {
         result.push_back(d->d_name);
       }
