@@ -810,33 +810,63 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
 
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
 
-  for (; argc > 0; shift) {
-    string restorename(argv[0]);
-    struct stat buf;
-    JASSERT(stat(restorename.c_str(), &buf) != -1);
-
-    if (Util::strEndsWith(restorename.c_str(), "_files")) {
-      continue;
-    } else if (!Util::strEndsWith(restorename.c_str(), ".dmtcp")) {
-      JNOTE("File doesn't have .dmtcp extension. Check Usage.") (restorename);
-      // Don't test for --quiet here.  We're aborting.  We need to say why.
-      JASSERT_STDERR << theUsage;
-      exit(DMTCP_FAIL_RC);
-    } else if (buf.st_uid != getuid() && !noStrictChecking) {
-      /*Could also run if geteuid() matches*/
-      JASSERT(false) (getuid()) (buf.st_uid) (restorename)
-        .Text("Process uid doesn't match uid of checkpoint image.\n"      \
-              "This is dangerous.  Aborting for security reasons.\n"      \
-              "If you still want to do this, then re-run dmtcp_restart\n" \
-              "  with the --no-strict-checking flag.\n");
-    }
-
-    JTRACE("Will restart ckpt image") (argv[0]);
-    ckptImages.push_back(argv[0]);
+  // If there are still arguments not processed (argc > 0), the remaining
+  // arguments should be ckpt images. Can't specify ckpt images
+  // with --restartdir flag.
+  if (restartDir.empty() ^ (argc > 0)) {
+    JASSERT_STDERR << theUsage;
+    exit(DMTCP_FAIL_RC);
   }
 
-  // Can't specify ckpt images with --restartdir flag.
-  if (restartDir.empty() ^ (ckptImages.size() > 0)) {
+  if (!restartDir.empty()) { // --restartdir is provided
+    vector<string> files = jalib::Filesystem::ListDirEntries(restartDir);
+    for (const string &file : files) {
+      if (Util::strEndsWith(file.c_str(), ".dmtcp")) {
+        string restorename(restartDir + "/" + file);
+        struct stat buf;
+        JASSERT(stat(restorename.c_str(), &buf) != -1);
+        if (buf.st_uid != getuid() && !noStrictChecking) {
+          /*Could also run if geteuid() matches*/
+          JASSERT(false) (getuid()) (buf.st_uid) (restorename)
+            .Text("Process uid doesn't match uid of checkpoint image.\n"      \
+                  "This is dangerous.  Aborting for security reasons.\n"      \
+                  "If you still want to do this, then re-run dmtcp_restart\n" \
+                  "  with the --no-strict-checking flag.\n");
+        }
+
+        JTRACE("Will restart ckpt image") (restorename);
+        ckptImages.push_back(restorename);
+      }
+    }
+  } else { // Explicit ckpt images are provided
+    for (; argc > 0; shift) {
+      string restorename(argv[0]);
+      struct stat buf;
+      JASSERT(stat(restorename.c_str(), &buf) != -1);
+
+      if (Util::strEndsWith(restorename.c_str(), "_files")) {
+        continue;
+      } else if (!Util::strEndsWith(restorename.c_str(), ".dmtcp")) {
+        JNOTE("File doesn't have .dmtcp extension. Check Usage.") (restorename);
+        // Don't test for --quiet here.  We're aborting.  We need to say why.
+        JASSERT_STDERR << theUsage;
+        exit(DMTCP_FAIL_RC);
+      } else if (buf.st_uid != getuid() && !noStrictChecking) {
+        /*Could also run if geteuid() matches*/
+        JASSERT(false) (getuid()) (buf.st_uid) (restorename)
+          .Text("Process uid doesn't match uid of checkpoint image.\n"      \
+                "This is dangerous.  Aborting for security reasons.\n"      \
+                "If you still want to do this, then re-run dmtcp_restart\n" \
+                "  with the --no-strict-checking flag.\n");
+      }
+
+      JTRACE("Will restart ckpt image") (argv[0]);
+      ckptImages.push_back(argv[0]);
+    }
+  }
+
+  // If ckptImages is empty, there's no ckpt file provided.
+  if (ckptImages.empty()) {
     JASSERT_STDERR << theUsage;
     exit(DMTCP_FAIL_RC);
   }
