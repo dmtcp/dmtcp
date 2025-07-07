@@ -72,8 +72,8 @@
 #include <sys/vfs.h>
 #include <linux/version.h>
 
-// include the close_range.h header file only if linux kernel version is >= 5.9.0.
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+// include the close_range.h header file only if linux kernel version is >= 5.9.0 and glibc version is >= 2.34
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) && __GLIBC_PREREQ(2, 34)
 #include <linux/close_range.h>
 #endif
 
@@ -904,7 +904,7 @@ close_test(int fd)
   return ret;
 }
 
-#ifdef __linux__
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) && __GLIBC_PREREQ(2, 34)
 int close_range_test(unsigned int first_fd, unsigned int last_fd, unsigned int flags)
 {
   int ret, save_errno;
@@ -3771,7 +3771,7 @@ BasicFile(void)
 /*    printf("END Test %d\n\n", test);*/
 /*    test++;*/
 
-#ifdef __linux__
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) && __GLIBC_PREREQ(2, 34)
 /* Test the close_range system call functionality */
 int BasicCloseRange(void)
 {
@@ -5251,7 +5251,7 @@ testall()
     char *desc;
   } tests[] = {
     { BasicFile, "BasicFile: simple open/close/access/unlink tests." },
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) && __GLIBC_PREREQ(2, 34)
     { BasicCloseRange, "BasicCloseRange: Test close_range system call functionality." },
 #endif
     { BasicFileIO, "BasicFileIO: simple write/read/seek tests." },

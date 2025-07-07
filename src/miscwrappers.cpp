@@ -43,6 +43,11 @@
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) &&
         // __GLIBC_PREREQ(2,
 // 8)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) && __GLIBC_PREREQ(2, 34)
+#include <linux/close_range.h>
+#endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) &&
+        // __GLIBC_PREREQ(2,
+// 34)
 
 #ifdef __aarch64__
 
@@ -339,12 +344,14 @@ syscall(long sys_num, ...)
     break;
   }
 
+#ifdef SYS_close_range
   case SYS_close_range:
   {
     SYSCALL_GET_ARGS_3(int, fd1, int, fd2, unsigned int, flags);
     ret = close_range(fd1, fd2, flags);
     break;
   }
+#endif
 
   case SYS_rt_sigaction:
   {
