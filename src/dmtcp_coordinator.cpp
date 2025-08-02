@@ -1597,7 +1597,7 @@ char *short_name(char short_buf[], char *name, unsigned int len, char *suffix) {
 void set_short_cmdline(char *argv0, const char *port) {
   char buf[16] = "               ";
   char port_str[16] =":";
-  strncpy(port_str+1, port, sizeof(port_str)+1-strlen(port));
+  strncpy(port_str+1, port, sizeof(port_str)-2);
   short_name(buf, argv0, sizeof buf, port_str);
   // For debugging
   // printf("buf: %s\n", buf);
