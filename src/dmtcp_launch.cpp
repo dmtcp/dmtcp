@@ -138,7 +138,7 @@ static const char *theUsage =
   "  --coord-logfile PATH (environment variable DMTCP_COORD_LOG_FILENAME\n"
   "              Coordinator will dump its logs to the given file\n"
   "  --kernel-loader\n"
-  "              Enable kernel loader mode for plugins that uses the\n"
+  "              Enable kernel loader mode for plugins that use the\n"
   "              Split Process architecture.\n"
   "              Set ADDR_NO_RANDOMIZE personality, and set UH_PRELOAD\n"
   "              instead of LD_PRELOAD for the upper half program\n"
@@ -841,11 +841,10 @@ setLDPreloadLibs(bool is32bitElf)
           "  ./configure --enable-m32 && make clean && make -j && "
           "make install\n"
           "  ./configure && make clean && make -j && make install\n");
-    setenv("LD_PRELOAD", preloadLibs32.c_str(), 1);
     if (enableKernelLoader) {
-      setenv("UH_PRELOAD", preloadLibs.c_str(), 1);
+      setenv("UH_PRELOAD", preloadLibs32.c_str(), 1);
     } else {
-      setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
+      setenv("LD_PRELOAD", preloadLibs32.c_str(), 1);
     }
   }
 #endif // if defined(__x86_64__) || defined(__aarch64__)
