@@ -137,7 +137,11 @@ static const char *theUsage =
   "              Skip NOTE messages; if given twice, also skip WARNINGs\n"
   "  --coord-logfile PATH (environment variable DMTCP_COORD_LOG_FILENAME\n"
   "              Coordinator will dump its logs to the given file\n"
-  "  --mpi       Use ADDR_NO_RANDOMIZE personality, etc, for MPI applications\n"
+  "  --kernel-loader\n"
+  "              Enable kernel loader mode for plugins that uses the\n"
+  "              Split Process architecture.\n"
+  "              Set ADDR_NO_RANDOMIZE personality, and set UH_PRELOAD\n"
+  "              instead of LD_PRELOAD for the upper half program\n"
   "  --help\n"
   "              Print this message and exit.\n"
   "  --version\n"
@@ -178,7 +182,7 @@ static bool enableLibDMTCP = true;
 // PID plugin must come last.
 static bool enablePIDPlugin = true;
 
-// Kernel loader for MANA
+// Kernel loader
 static bool enableKernelLoader = false;
 
 struct PluginInfo {
@@ -314,7 +318,7 @@ processArgs(int *orig_argc, const char ***orig_argv)
       // Just in case a non-standard version of setenv is being used:
       setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
       shift;
-    } else if (s == "--mpi") {
+    } else if (s == "--kernel-loader") {
       enableKernelLoader = true;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
       personality(ADDR_NO_RANDOMIZE);
@@ -492,7 +496,8 @@ main(int argc, const char **argv)
     argv = newArgv;
   }
 
-  // Test and set env var for FSGSBASE. The env var is used by MANA.
+  // Test and set env var for FSGSBASE. The env var is used by plugins that uses
+  // the Split Process architecture.
 #ifdef __x86_64__
   testFsGsBase(); // Fsgsbase is used only on Intel/AMD x86_64.
 #endif
