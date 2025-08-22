@@ -24,6 +24,7 @@ int DmtcpRWLockRdLock(DmtcpRWLock *rwlock)
 
   DmtcpRWLockStatus oldStatus;
   DmtcpRWLockStatus newStatus;
+  int ret;
 
   __atomic_load(&rwlock->status, &oldStatus, __ATOMIC_RELAXED);
 
@@ -40,7 +41,10 @@ int DmtcpRWLockRdLock(DmtcpRWLock *rwlock)
                                      false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED));
 
   if (oldStatus.nWriters > 0) {
-    int ret = futex_wait(&rwlock->readerFutex, waitVal);
+    do {
+      ret = futex_wait(&rwlock->readerFutex, waitVal);
+    } while (ret != 0 && errno == EINTR);
+    
     JASSERT(ret == 0 || errno == EAGAIN);
   }
 
@@ -79,6 +83,7 @@ int DmtcpRWLockWrLock(DmtcpRWLock *rwlock)
 
   DmtcpRWLockStatus oldStatus;
   DmtcpRWLockStatus newStatus;
+  int ret;
 
   __atomic_load(&rwlock->status, &oldStatus, __ATOMIC_RELAXED);
 
@@ -91,7 +96,10 @@ int DmtcpRWLockWrLock(DmtcpRWLock *rwlock)
     &rwlock->status, &oldStatus, &newStatus, false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED));
 
   if (newStatus.nWriters > 1 || newStatus.nReaders > 0) {
-    int ret = futex_wait(&rwlock->writerFutex, waitVal);
+    do {
+      ret = futex_wait(&rwlock->writerFutex, waitVal);
+    } while (ret != 0 && errno == EINTR);
+
     JASSERT(ret == 0 || errno == EAGAIN);
   }
 
