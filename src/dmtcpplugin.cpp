@@ -409,6 +409,12 @@ dmtcp_get_restart_env(const char *name,   // IN
   return rc;
 }
 
+EXTERNC void
+dmtcp_update_env_from_restart_env(const char *name)
+{
+
+}
+
 EXTERNC int
 dmtcp_get_readlog_fd(void)
 {
