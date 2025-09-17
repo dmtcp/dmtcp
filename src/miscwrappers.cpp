@@ -344,7 +344,7 @@ syscall(long sys_num, ...)
     break;
   }
 
-#ifdef SYS_close_range
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) && __GLIBC_PREREQ(2, 34)
   case SYS_close_range:
   {
     SYSCALL_GET_ARGS_3(int, fd1, int, fd2, unsigned int, flags);
