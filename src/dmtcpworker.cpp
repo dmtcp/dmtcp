@@ -475,12 +475,14 @@ DmtcpWorker::postCheckpoint()
     kvdb::set(workerPath, "ProcSelfMaps_JAllocArenas", o.str());
   }
 
+#ifndef FORKED_CHECKPOINTING
   {
     kvdb::set(
       workerPath,
       "ProcSelfMaps_Ckpt",
       procSelfMaps->getData());
   }
+#endif
 
   WorkerState::setCurrentState(WorkerState::CHECKPOINTED);
 

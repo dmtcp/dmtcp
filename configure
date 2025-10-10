@@ -1525,7 +1525,8 @@ Optional Features:
   --enable-forked-checkpointing
                           fork a child process to do checkpointing, so that
                           parent sees only minor delay during checkpoint.
-                          (EXPERIMENTAL)
+                          (EXPERIMENTAL: Currently, shared memory is not
+                          supported.)
   --enable-fast-restart   uses tricks to mmap from checkpoint image file;
                           disables all kinds of compression (EXPERIMENTAL)
   --disable-test-suite    disables "make check"; target apps for testing (e.g.
