@@ -52,7 +52,11 @@ class JSeqpacketReader : public jalib::JReaderInterface
       // First peek the next message length without removing it from the queue
       struct msghdr peekMsg;
       memset(&peekMsg, 0, sizeof(peekMsg));
-      // No iovecs; MSG_TRUNC returns full packet length for seqpacket
+      // Use a 1-byte iovec; MSG_TRUNC returns the full packet length.
+      char dummy;
+      struct iovec iovPeek = { .iov_base = &dummy, .iov_len = 1 };
+      peekMsg.msg_iov = &iovPeek;
+      peekMsg.msg_iovlen = 1;
       ssize_t needed = ::recvmsg(fd, &peekMsg, MSG_PEEK | MSG_TRUNC);
       if (needed <= 0) {
         if (errno != EAGAIN && errno != EINTR) {
