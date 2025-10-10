@@ -155,7 +155,8 @@ AC_ARG_ENABLE([forked_checkpointing],
             [AS_HELP_STRING([--enable-forked-checkpointing],
                             [fork a child process to do checkpointing, so that
                             parent sees only minor delay during checkpoint.
-			    (EXPERIMENTAL)])],
+			    (EXPERIMENTAL: Currently, shared memory is not
+                             supported.)])],
             [use_forked_ckpt=$enableval],
             [use_forked_ckpt=no])
 
