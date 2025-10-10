@@ -1020,6 +1020,8 @@ if not USE_M32:  # waitpid forks a 64-bit child process, /bin/sleep
 
 runTest("client-server", 2, ["./test/client-server"])
 
+runTest("seqpacket", 2, ["./test/seqpacket"])
+
 # frisbee creates three processes, each with 14 MB, if no gzip is used
 os.environ['DMTCP_GZIP'] = "1"
 POST_LAUNCH_SLEEP=2
