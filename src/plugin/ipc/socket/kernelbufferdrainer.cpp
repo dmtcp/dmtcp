@@ -26,12 +26,74 @@
 #include "connectionmessage.h"
 #include "socketwrappers.h"
 #include "util.h"
+#include <sys/ioctl.h>
+#include <sys/socket.h>
 
 #define SOCKET_DRAIN_MAGIC_COOKIE_STR "[dmtcp{v0<DRAIN!"
 
 using namespace dmtcp;
 
 const char theMagicDrainCookie[] = SOCKET_DRAIN_MAGIC_COOKIE_STR;
+
+// Reader for SOCK_SEQPACKET that preserves message boundaries by reading
+// exactly one frame per readOnce() using FIONREAD to determine size.
+class JSeqpacketReader : public jalib::JReaderInterface
+{
+  public:
+    JSeqpacketReader(jalib::JSocket sock)
+      : jalib::JReaderInterface(sock), _hadError(false) {}
+
+    bool readOnce() override
+    {
+      if (!_frame.empty()) {
+        return true;
+      }
+      int fd = _sock.sockfd();
+      // First peek the next message length without removing it from the queue
+      struct msghdr peekMsg;
+      memset(&peekMsg, 0, sizeof(peekMsg));
+      // No iovecs; MSG_TRUNC returns full packet length for seqpacket
+      ssize_t needed = ::recvmsg(fd, &peekMsg, MSG_PEEK | MSG_TRUNC);
+      if (needed <= 0) {
+        if (errno != EAGAIN && errno != EINTR) {
+          _hadError = true;
+        }
+        return false;
+      }
+      _frame.resize((size_t)needed);
+      struct iovec iov;
+      iov.iov_base = _frame.data();
+      iov.iov_len = _frame.size();
+      struct msghdr readMsg;
+      memset(&readMsg, 0, sizeof(readMsg));
+      readMsg.msg_iov = &iov;
+      readMsg.msg_iovlen = 1;
+      ssize_t got = ::recvmsg(fd, &readMsg, 0);
+      if (got <= 0) {
+        if (errno != EAGAIN && errno != EINTR) {
+          _hadError = true;
+        }
+        _frame.clear();
+        return false;
+      }
+      _frame.resize((size_t)got);
+      return true;
+    }
+
+    bool hadError() const override { return _hadError || !_sock.isValid(); }
+
+    void reset() override { _frame.clear(); }
+
+    bool ready() const override { return !_frame.empty(); }
+
+    const char *buffer() const override { return _frame.empty() ? NULL : _frame.data(); }
+
+    int bytesRead() const override { return (int)_frame.size(); }
+
+  private:
+    dmtcp::vector<char> _frame;
+    bool _hadError;
+};
 
 void
 scaleSendBuffers(int fd, double factor)
@@ -76,13 +138,24 @@ KernelBufferDrainer::onConnect(const jalib::JSocket &sock,
 void
 KernelBufferDrainer::onData(jalib::JReaderInterface *sock)
 {
-  vector<char> &buffer = _drainedData[sock->socket().sockfd()];
-  buffer.resize(buffer.size() + sock->bytesRead());
-  int startIdx = buffer.size() - sock->bytesRead();
-  memcpy(&buffer[startIdx], sock->buffer(), sock->bytesRead());
+  int fd = sock->socket().sockfd();
+  // Detect and cache socket type
+  JASSERT(_isSeqpacket.find(fd) != _isSeqpacket.end()) (fd);
 
-  // JTRACE("got buffer chunk") (sock->bytesRead());
-  sock->reset();
+  if (_isSeqpacket[fd]) {
+    // Each onData corresponds to one full frame from JSeqpacketReader
+    dmtcp::vector<char> frame;
+    frame.resize(sock->bytesRead());
+    memcpy(frame.data(), sock->buffer(), sock->bytesRead());
+    _drainedFrames[fd].push_back(frame);
+    sock->reset();
+  } else {
+    vector<char> &buffer = _drainedData[fd];
+    buffer.resize(buffer.size() + sock->bytesRead());
+    int startIdx = buffer.size() - sock->bytesRead();
+    memcpy(&buffer[startIdx], sock->buffer(), sock->bytesRead());
+    sock->reset();
+  }
 }
 
 void
@@ -116,17 +189,36 @@ KernelBufferDrainer::onTimeoutInterval()
     if (_dataSockets[i]->bytesRead() > 0) {
       onData(_dataSockets[i]);
     }
-    vector<char> &buffer = _drainedData[_dataSockets[i]->socket().sockfd()];
-    if (buffer.size() >= sizeof(theMagicDrainCookie)
-        && memcmp(&buffer[buffer.size() - sizeof(theMagicDrainCookie)],
-                  theMagicDrainCookie,
-                  sizeof(theMagicDrainCookie)) == 0) {
-      buffer.resize(buffer.size() - sizeof(theMagicDrainCookie));
-      JTRACE("buffer drain complete") (_dataSockets[i]->socket().sockfd())
-        (buffer.size()) ((_dataSockets.size()));
-      _dataSockets[i]->socket() = -1; // poison socket
-    } else {
+    int fd = _dataSockets[i]->socket().sockfd();
+    if (_isSeqpacket[fd]) {
+      dmtcp::vector< dmtcp::vector<char> > &frames = _drainedFrames[fd];
+      if (!frames.empty()) {
+        dmtcp::vector<char> &last = frames.back();
+        if ((size_t)last.size() == sizeof(theMagicDrainCookie) &&
+            memcmp(last.data(), theMagicDrainCookie,
+                   sizeof(theMagicDrainCookie)) == 0) {
+          // Remove cookie frame and mark drained
+          frames.pop_back();
+          JTRACE("seqpacket drain complete") (fd) (frames.size())
+            ((_dataSockets.size()));
+          _dataSockets[i]->socket() = -1; // poison socket
+          continue;
+        }
+      }
       ++count;
+    } else {
+      vector<char> &buffer = _drainedData[fd];
+      if (buffer.size() >= sizeof(theMagicDrainCookie)
+          && memcmp(&buffer[buffer.size() - sizeof(theMagicDrainCookie)],
+                    theMagicDrainCookie,
+                    sizeof(theMagicDrainCookie)) == 0) {
+        buffer.resize(buffer.size() - sizeof(theMagicDrainCookie));
+        JTRACE("buffer drain complete") (fd)
+          (buffer.size()) ((_dataSockets.size()));
+        _dataSockets[i]->socket() = -1; // poison socket
+      } else {
+        ++count;
+      }
     }
   }
 
@@ -168,17 +260,22 @@ KernelBufferDrainer::onTimeoutInterval()
 }
 
 void
-KernelBufferDrainer::beginDrainOf(int fd, const ConnectionIdentifier &id)
+KernelBufferDrainer::beginDrainOf(int fd, const ConnectionIdentifier &id, int baseType)
 {
   // JTRACE("will drain socket") (fd);
   _drainedData[fd]; // create buffer
+  _drainedFrames[fd]; // create frames list (possibly unused)
   // this is the simple way:  jalib::JSocket(fd) << theMagicDrainCookie;
   // instead used delayed write in case kernel buffer is full:
   addWrite(new jalib::JChunkWriter(fd, theMagicDrainCookie,
                                    sizeof theMagicDrainCookie));
 
   // now setup a reader:
-  addDataSocket(new jalib::JChunkReader(fd, 512));
+  if (_isSeqpacket[fd] = (baseType == SOCK_SEQPACKET)) {
+    addDataSocket(new JSeqpacketReader(fd));
+  } else {
+    addDataSocket(new jalib::JChunkReader(fd, 512));
+  }
 
   // insert it in reverse lookup
   _reverseLookup[fd] = id;
@@ -189,9 +286,13 @@ KernelBufferDrainer::refillAllSockets()
 {
   JTRACE("refilling socket buffers") (_drainedData.size());
 
-  // write all buffers out
+  // write all buffers out (stream sockets only)
   map<int, vector<char> >::iterator i;
   for (i = _drainedData.begin(); i != _drainedData.end(); ++i) {
+    int fd = i->first;
+    if (_isSeqpacket[fd]) {
+      continue;
+    }
     int size = i->second.size();
     JWARNING(size >= 0) (size).Text("a failed drain is in our table???");
     if (size < 0) {
@@ -199,10 +300,10 @@ KernelBufferDrainer::refillAllSockets()
     }
 
     // Double the send buffer
-    scaleSendBuffers(i->first, 2);
+    scaleSendBuffers(fd, 2);
     ConnMsg msg(ConnMsg::REFILL);
     msg.extraBytes = size;
-    jalib::JSocket sock(i->first);
+    jalib::JSocket sock(fd);
     if (size > 0) {
       JTRACE("requesting repeat buffer...") (sock.sockfd()) (size);
     }
@@ -217,9 +318,13 @@ KernelBufferDrainer::refillAllSockets()
 
   // read all buffers in
   for (i = _drainedData.begin(); i != _drainedData.end(); ++i) {
+    int fd = i->first;
+    if (_isSeqpacket[fd]) {
+      continue;
+    }
     ConnMsg msg;
     msg.poison();
-    jalib::JSocket sock(i->first);
+    jalib::JSocket sock(fd);
     sock >> msg;
 
     msg.assertValid(ConnMsg::REFILL);
@@ -233,7 +338,57 @@ KernelBufferDrainer::refillAllSockets()
     }
 
     // Reset the send buffer
-    scaleSendBuffers(i->first, 0.5);
+    scaleSendBuffers(fd, 0.5);
+  }
+
+  // Now handle seqpacket sockets: send frames and echo back peer frames
+  map<int, dmtcp::vector< dmtcp::vector<char> > >::iterator f;
+  for (f = _drainedFrames.begin(); f != _drainedFrames.end(); ++f) {
+    int fd = f->first;
+    if (!_isSeqpacket[fd]) {
+      continue;
+    }
+    // Send our frames
+    scaleSendBuffers(fd, 2);
+    jalib::JSocket sock(fd);
+    ConnMsg msgOut(ConnMsg::REFILL);
+    msgOut.extraBytes = (int)f->second.size();
+    sock << msgOut;
+    for (size_t k = 0; k < f->second.size(); ++k) {
+      uint32_t len32 = (uint32_t)f->second[k].size();
+      sock.writeAll((const char *)&len32, sizeof(len32));
+      if (len32 > 0) {
+        sock.writeAll(f->second[k].data(), len32);
+      }
+    }
+    f->second.clear();
+  }
+
+  // Read peer frames and echo back
+  for (f = _drainedFrames.begin(); f != _drainedFrames.end(); ++f) {
+    int fd = f->first;
+    if (!_isSeqpacket[fd]) {
+      continue;
+    }
+    jalib::JSocket sock(fd);
+    ConnMsg msgIn;
+    msgIn.poison();
+    sock >> msgIn;
+    msgIn.assertValid(ConnMsg::REFILL);
+    int count = msgIn.extraBytes;
+    for (int c = 0; c < count; ++c) {
+      uint32_t len32 = 0;
+      sock.readAll((char *)&len32, sizeof(len32));
+      if (len32 > 0) {
+        jalib::JBuffer tmp(len32);
+        sock.readAll(tmp, len32);
+        sock.writeAll((const char *)&len32, sizeof(len32));
+        sock.writeAll(tmp, len32);
+      } else {
+        sock.writeAll((const char *)&len32, sizeof(len32));
+      }
+    }
+    scaleSendBuffers(fd, 0.5);
   }
 
   JTRACE("buffers refilled");

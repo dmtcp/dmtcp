@@ -61,6 +61,8 @@ class SocketConnection
     void restoreSocketOptions(vector<int32_t> &fds);
     void serialize(jalib::JBinarySerializer &o);
     int sockDomain() const { return _sockDomain; }
+    int sockType() const { return _sockType; }
+    int baseType() const { return _sockType & 077; }
 
     virtual void onBind(const struct sockaddr *addr, socklen_t len);
     virtual void onListen(int backlog);
