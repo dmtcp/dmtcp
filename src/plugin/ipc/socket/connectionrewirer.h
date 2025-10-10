@@ -67,6 +67,8 @@ class ConnectionRewirer
     socklen_t _ip6RestoreAddrlen;
     struct sockaddr_un _udsRestoreAddr;
     socklen_t _udsRestoreAddrlen;
+    struct sockaddr_un _udsSeqRestoreAddr;
+    socklen_t _udsSeqRestoreAddrlen;
 
     typedef ConnectionListT::iterator iterator;
     typedef ConnectionListT::const_iterator const_iterator;
@@ -76,6 +78,7 @@ class ConnectionRewirer
     ConnectionListT _pendingIP4Incoming;
     ConnectionListT _pendingIP6Incoming;
     ConnectionListT _pendingUDSIncoming;
+    ConnectionListT _pendingUDSSeqIncoming;
 
     ConnectionListT _pendingOutgoing;
     RemoteInfoT _remoteInfo;

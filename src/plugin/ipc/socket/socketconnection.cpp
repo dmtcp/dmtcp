@@ -236,9 +236,14 @@ TcpConnection::TcpConnection(int domain, int type, int protocol)
       .Text("Datagram Sockets not supported. "
             "Hopefully, this is a short lived connection!");
     } else {
-      JWARNING((domain == AF_INET || domain == AF_UNIX || domain == AF_INET6)
-               && (type & 077) == SOCK_STREAM)
+      int baseType = (type & 077);
+      if (domain == AF_UNIX) {
+        JWARNING(baseType == SOCK_STREAM || baseType == SOCK_SEQPACKET)
         (domain) (type) (protocol);
+      } else if (domain == AF_INET || domain == AF_INET6) {
+        JWARNING(baseType == SOCK_STREAM)
+        (domain) (type) (protocol);
+      }
     }
     JTRACE("Creating TcpConnection.") (id()) (domain) (type) (protocol);
   }
@@ -562,7 +567,7 @@ TcpConnection::drain()
   case TCP_CONNECT:
   case TCP_ACCEPT:
     JTRACE("Will drain socket") (_hasLock) (_fds[0]) (_id) (_remotePeerId);
-    KernelBufferDrainer::instance().beginDrainOf(_fds[0], _id);
+    KernelBufferDrainer::instance().beginDrainOf(_fds[0], _id, baseType());
     break;
   case TCP_LISTEN:
     KernelBufferDrainer::instance().addListenSocket(_fds[0]);
@@ -650,10 +655,15 @@ TcpConnection::postRestart()
   case TCP_LISTEN:
 
     // Sometimes _sockType contains SOCK_CLOEXEC/SOCK_NONBLOCK flags.
-    JWARNING((_sockDomain == AF_INET || _sockDomain == AF_UNIX ||
-              _sockDomain == AF_INET6) && (_sockType & 077) == SOCK_STREAM)
-      (id()) (_sockDomain) (_sockType) (_sockProtocol)
-    .Text("Socket type not yet [fully] supported.");
+    {
+      if (_sockDomain == AF_UNIX) {
+        JWARNING(baseType() == SOCK_STREAM || baseType() == SOCK_SEQPACKET)
+        (id()) (_sockDomain) (_sockType) (_sockProtocol);
+      } else if (_sockDomain == AF_INET || _sockDomain == AF_INET6) {
+        JWARNING(baseType() == SOCK_STREAM)
+        (id()) (_sockDomain) (_sockType) (_sockProtocol);
+      }
+    }
 
     if (really_verbose) {
       JTRACE("Restoring socket.") (id()) (_fds[0]);

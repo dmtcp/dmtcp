@@ -80,6 +80,7 @@ ConnectionRewirer::destroy()
   dmtcp_close_protected_fd(PROTECTED_RESTORE_IP4_SOCK_FD);
   dmtcp_close_protected_fd(PROTECTED_RESTORE_IP6_SOCK_FD);
   dmtcp_close_protected_fd(PROTECTED_RESTORE_UDS_SOCK_FD);
+  dmtcp_close_protected_fd(PROTECTED_RESTORE_UDS_SEQ_SOCK_FD);
 
   // Free up the object.
   delete theRewirer;
@@ -158,6 +159,13 @@ ConnectionRewirer::doReconnect()
                             &_pendingUDSIncoming);
     _real_close(PROTECTED_RESTORE_UDS_SOCK_FD);
   }
+  if (_pendingUDSSeqIncoming.size() > 0) {
+    // Add O_NONBLOCK flag to the listener sockets.
+    markSocketBlocking(PROTECTED_RESTORE_UDS_SEQ_SOCK_FD);
+    checkForPendingIncoming(PROTECTED_RESTORE_UDS_SEQ_SOCK_FD,
+                            &_pendingUDSSeqIncoming);
+    _real_close(PROTECTED_RESTORE_UDS_SEQ_SOCK_FD);
+  }
   JTRACE("Closed restore sockets");
 }
 
@@ -169,6 +177,7 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
   memset(&_ip4RestoreAddr, 0, sizeof(_ip4RestoreAddr));
   memset(&_ip6RestoreAddr, 0, sizeof(_ip6RestoreAddr));
   memset(&_udsRestoreAddr, 0, sizeof(_udsRestoreAddr));
+  memset(&_udsSeqRestoreAddr, 0, sizeof(_udsSeqRestoreAddr));
 
   // Open IP4 Restore Socket
   if (hasIPv4Sock) {
@@ -223,7 +232,9 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
   // Open UDS Restore Socket
   if (hasUNIXSock) {
     ostringstream o;
-    o << dmtcp_get_uniquepid_str() << "_" << dmtcp_get_coordinator_timestamp();
+    // We should use the original path along with the unique pid and timestamp.
+    // That will ensure that the socket is unique.
+    o << dmtcp_get_uniquepid_str() << "_" << dmtcp_get_coordinator_timestamp() << "_" << _udsRestoreAddr.sun_path;
     string str = o.str();
     int udsfd = _real_socket(AF_UNIX, SOCK_STREAM, 0);
     JASSERT(udsfd != -1);
@@ -240,6 +251,29 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     JTRACE("opened UDS listen socket")
       (PROTECTED_RESTORE_UDS_SOCK_FD) (&_udsRestoreAddr.sun_path[1]);
     markSocketNonBlocking(PROTECTED_RESTORE_UDS_SOCK_FD);
+
+    // Also open a seqpacket listener for AF_UNIX SOCK_SEQPACKET reconnections
+    int udsseqfd = _real_socket(AF_UNIX, SOCK_SEQPACKET, 0);
+    JASSERT(udsseqfd != -1);
+    memset(&_udsSeqRestoreAddr, 0, sizeof(struct sockaddr_un));
+    _udsSeqRestoreAddr.sun_family = AF_UNIX;
+    // Use a different abstract path suffix to avoid collision
+    ostringstream o2;
+    // We should use the original path along with the unique pid and timestamp.
+    // That will ensure that the socket is unique.
+    o2 << dmtcp_get_uniquepid_str() << "_" << dmtcp_get_coordinator_timestamp() << "_" << _udsRestoreAddr.sun_path;
+    string strSeq = o2.str();
+    strncpy(&_udsSeqRestoreAddr.sun_path[1], strSeq.c_str(), strSeq.length());
+    _udsSeqRestoreAddrlen = sizeof(sa_family_t) + strSeq.length() + 1;
+    JASSERT(_real_bind(udsseqfd, (struct sockaddr *)&_udsSeqRestoreAddr,
+                       _udsSeqRestoreAddrlen) == 0)
+      (JASSERT_ERRNO);
+    JASSERT(_real_listen(udsseqfd, 32) == 0) (JASSERT_ERRNO);
+    Util::changeFd(udsseqfd, PROTECTED_RESTORE_UDS_SEQ_SOCK_FD);
+
+    JTRACE("opened UDS SEQPACKET listen socket")
+      (PROTECTED_RESTORE_UDS_SEQ_SOCK_FD) (&_udsSeqRestoreAddr.sun_path[1]);
+    markSocketNonBlocking(PROTECTED_RESTORE_UDS_SEQ_SOCK_FD);
   }
 }
 
@@ -250,6 +284,8 @@ ConnectionRewirer::registerIncoming(const ConnectionIdentifier &local,
 {
   JASSERT(domain == AF_INET || domain == AF_INET6 || domain == AF_UNIX)
     (domain).Text("Unsupported domain.");
+  SocketConnection *sc = dynamic_cast<SocketConnection *>(con);
+  JASSERT(sc != NULL);
 
   if (domain == AF_INET) {
     _pendingIP4Incoming[local] = con;
@@ -260,7 +296,12 @@ ConnectionRewirer::registerIncoming(const ConnectionIdentifier &local,
     _pendingIP4Incoming[local] = con;
 #endif // ifdef ENABLE_IP6_SUPPORT
   } else if (domain == AF_UNIX) {
-    _pendingUDSIncoming[local] = con;
+    // Route AF_UNIX by base type: stream vs seqpacket
+    if (sc->baseType() == SOCK_SEQPACKET) {
+      _pendingUDSSeqIncoming[local] = con;
+    } else {
+      _pendingUDSIncoming[local] = con;
+    }
   } else {
     JASSERT(false).Text("Not implemented");
   }
@@ -285,6 +326,8 @@ ConnectionRewirer::registerNSData()
                  &_pendingIP6Incoming);
   registerNSData((void *)&_udsRestoreAddr, _udsRestoreAddrlen,
                  &_pendingUDSIncoming);
+  registerNSData((void *)&_udsSeqRestoreAddr, _udsSeqRestoreAddrlen,
+                 &_pendingUDSSeqIncoming);
 }
 
 void

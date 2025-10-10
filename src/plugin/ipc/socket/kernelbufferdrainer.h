@@ -40,7 +40,7 @@ class KernelBufferDrainer : public jalib::JMultiSocketProgram
     static KernelBufferDrainer &instance();
 
     // void drainAllSockets();
-    void beginDrainOf(int fd, const ConnectionIdentifier &id);
+    void beginDrainOf(int fd, const ConnectionIdentifier &id, int baseType);
     void refillAllSockets();
     virtual void onData(jalib::JReaderInterface *sock);
     virtual void onConnect(const jalib::JSocket &sock,
@@ -58,7 +58,12 @@ class KernelBufferDrainer : public jalib::JMultiSocketProgram
     const vector<char> &getDrainedData(ConnectionIdentifier id);
 
   private:
+    // Stream-drained data (TCP/UDS stream)
     map<int, vector<char> >_drainedData;
+    // Seqpacket-drained frames (per message)
+    map<int, vector< vector<char> > >_drainedFrames;
+    // Socket type detection cache
+    map<int, bool>_isSeqpacket;
     map<int, ConnectionIdentifier>_reverseLookup;
     map<ConnectionIdentifier, vector<char> >_disconnectedSockets;
     int _timeoutCount;
