@@ -236,12 +236,13 @@ TcpConnection::TcpConnection(int domain, int type, int protocol)
       .Text("Datagram Sockets not supported. "
             "Hopefully, this is a short lived connection!");
     } else {
-      int baseType = (type & 077);
+// In the domain/type check (around lines 239–247):
+      int bt = baseType();
       if (domain == AF_UNIX) {
-        JWARNING(baseType == SOCK_STREAM || baseType == SOCK_SEQPACKET)
+        JWARNING(bt == SOCK_STREAM || bt == SOCK_SEQPACKET)
         (domain) (type) (protocol);
       } else if (domain == AF_INET || domain == AF_INET6) {
-        JWARNING(baseType == SOCK_STREAM)
+        JWARNING(bt == SOCK_STREAM)
         (domain) (type) (protocol);
       }
     }
