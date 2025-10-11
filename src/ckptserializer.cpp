@@ -253,7 +253,7 @@ perform_open_ckpt_image_fd(const char *tempCkptFilename,
 }
 
 static int
-test_and_prepare_for_forked_ckpt()
+test_and_fork_if_forked_ckpt()
 {
 #ifdef TEST_FORKED_CHECKPOINTING
   return 1;
@@ -282,11 +282,8 @@ test_and_prepare_for_forked_ckpt()
     JWARNING(grandchild_pid != -1)
       .Text("WARNING: Forked checkpoint failed, no checkpoint available");
     if (grandchild_pid > 0) {
-    // Uses rename() syscall, which doesn't change i-nodes.
-    // So, gzip process can continue to write to file even after renaming.
-// FIXME:  The sleep stmt is needed, to wait for the original process
-//         to catch up, and to write the restart script.  Why?
-sleep(1);
+      // Uses rename() syscall, which doesn't change i-nodes.
+      // So, gzip process can continue to write to file even after renaming.
       JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
             ProcessInfo::instance().getCkptFilename().c_str()) == 0);
       // Use _exit() instead of exit() to avoid popping atexit() handlers
@@ -393,15 +390,6 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
 {
   JTRACE("Thread performing checkpoint.");
   createCkptDir();
-  forked_ckpt_status = test_and_prepare_for_forked_ckpt();
-  if (forked_ckpt_status == FORKED_CKPT_PARENT) {
-    // Delete the previous checkpoint filename now.  It may take a while
-    // time before the gradnchild process create ckpt file and users
-    // should not be fooled by seeing a previous checkpoint image.
-    JASSERT(unlink(ckptFilename.c_str()) == 0 || errno == ENOENT);
-    JTRACE("*** Using forked checkpointing.\n");
-    return;
-  }
 
   /* fd will either point to the ckpt file to write, or else the write end
    * of a pipe leading to a compression child process.
@@ -420,12 +408,32 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
   JASSERT(Util::writeAll(fd, &ckptHdr, sizeof(ckptHdr)) == sizeof(ckptHdr));
   JASSERT(Util::writeAll(fd, &ckptHdr, sizeof(ckptHdr)) == sizeof(ckptHdr));
 
+  forked_ckpt_status = test_and_fork_if_forked_ckpt();
+  if (forked_ckpt_status == FORKED_CKPT_PARENT) {
+    close(fd);  // grandchild process will finish writing ckpt.
+    // Delete the previous checkpoint filename now.  It may take a while
+    // time before the gradnchild process create ckpt file and users
+    // should not be fooled by seeing a previous checkpoint image.
+    JASSERT(unlink(ckptFilename.c_str()) == 0 || errno == ENOENT);
+    JTRACE("*** Using forked checkpointing.\n");
+    return;
+  }
+  // NOTE:  if (forked_ckpt_status == FORKED_CKPT_CHILD), then
+  //        it continues writing the ckpt image file, below.
+
+// FIXME:  Write any shared memory areas first, and then fork grandchild.
+//         To do this, add a second argument to  mtcp_writememoryareas()
+//           to write shared memory areas (and then fork child)
+//           and then again, to write non-shared memory areas.
+//           Maybe to write all memory areas if no forked ckpt.
+// TODO:  When is fd closed.  It's not same as fdCkptFileOnDisk if compression.
+//        Where do we close fd?  Or add a comment about this.
   JTRACE("MTCP is about to write checkpoint image.")(ckptFilename);
   mtcp_writememoryareas(fd);
 
   if (use_compression) {
     /* In perform_open_ckpt_image_fd(), we set SIGCHLD to our own handler.
-     * Restore it now.
+     * Restore it now, and wait on compression process (e.g., gzip).
      */
     restore_sigchld_handler_and_wait_for_zombie(ckpt_extcomp_child_pid);
 

@@ -151,6 +151,7 @@ if test "$use_unique_checkpoint_filenames" = "yes"; then
   AC_DEFINE([UNIQUE_CHECKPOINT_FILENAMES],[1],[Use unique filenames for checkpoint images])
 fi
 
+dnf FIXME:  Remove EXPERIMENTAL, once this PR works.
 AC_ARG_ENABLE([forked_checkpointing],
             [AS_HELP_STRING([--enable-forked-checkpointing],
                             [fork a child process to do checkpointing, so that
