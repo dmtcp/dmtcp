@@ -305,6 +305,11 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
 {
   pid_t cpid;
 
+// FIXME:  We should create a grandchild and let the parent exit.
+//         Then we don't have to worry about Zombie processes
+//           SIGCHILD_HANDLER, and waiting for the child.
+//         When the grandchild reads the end of the pipe to write areas,
+//           it sees EOF and exits.
   cpid = _real_sys_fork();
   if (cpid == -1) {
     JWARNING(false) (extcomp_args[0]) (JASSERT_ERRNO)

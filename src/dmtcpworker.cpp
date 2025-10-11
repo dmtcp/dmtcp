@@ -504,6 +504,7 @@ DmtcpWorker::postCheckpoint()
   //       not finished writing the checkpoint file.
   //       Any user code that waits to see the restart script
   //       could assume the checkpoint is finished, even though it is not.
+  //       And do we need to do this when reading from gzip?
   CoordinatorAPI::sendCkptFilename();
 
   if (exitAfterCkpt) {
