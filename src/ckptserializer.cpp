@@ -280,8 +280,15 @@ test_and_prepare_for_forked_ckpt()
   } else {
     pid_t grandchild_pid = _real_sys_fork();
     JWARNING(grandchild_pid != -1)
-    .Text("WARNING: Forked checkpoint failed, no checkpoint available");
+      .Text("WARNING: Forked checkpoint failed, no checkpoint available");
     if (grandchild_pid > 0) {
+    // Uses rename() syscall, which doesn't change i-nodes.
+    // So, gzip process can continue to write to file even after renaming.
+// FIXME:  The sleep stmt is needed, to wait for the original process
+//         to catch up, and to write the restart script.  Why?
+sleep(1);
+      JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+            ProcessInfo::instance().getCkptFilename().c_str()) == 0);
       // Use _exit() instead of exit() to avoid popping atexit() handlers
       // registered by the parent process.
       _exit(0); /* child exits */
@@ -383,6 +390,10 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
   createCkptDir();
   forked_ckpt_status = test_and_prepare_for_forked_ckpt();
   if (forked_ckpt_status == FORKED_CKPT_PARENT) {
+    // Delete the previous checkpoint filename now.  It may take a while
+    // time before the gradnchild process create ckpt file and users
+    // should not be fooled by seeing a previous checkpoint image.
+    JASSERT(unlink(ckptFilename.c_str()) == 0 || errno == ENOENT);
     JTRACE("*** Using forked checkpointing.\n");
     return;
   }
