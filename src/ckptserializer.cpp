@@ -58,6 +58,7 @@
 
 using namespace dmtcp;
 
+// FIXME: Can remove if this logic is in writeckpt.cpp
 #define FORKED_CKPT_FAILED 0
 #define FORKED_CKPT_PARENT 1
 #define FORKED_CKPT_CHILD  2
@@ -66,7 +67,10 @@ static int forked_ckpt_status = -1;
 static pid_t ckpt_extcomp_child_pid = -1;
 static struct sigaction saved_sigchld_action;
 static int open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args);
-void mtcp_writememoryareas(int fd) __attribute__((weak));
+// FIXME:  Add these next two to "procmapsarea.h", instead.
+enum memory_area_type {AREA_SHARED, AREA_NOTSHARED, AREA_END, AREA_ALL};
+void mtcp_writememoryareas(int fd, memory_area_type type)
+  __attribute__((weak));
 
 /* We handle SIGCHLD while checkpointing. */
 static void
@@ -93,7 +97,7 @@ prepare_sigchld_handler()
   sigaction(SIGCHLD, &default_sigchld_action, &saved_sigchld_action);
 }
 
-static void
+void
 restore_sigchld_handler_and_wait_for_zombie(pid_t pid)
 {
   /* This is done to avoid calling the user SIGCHLD handler when gzip
@@ -252,7 +256,8 @@ perform_open_ckpt_image_fd(const char *tempCkptFilename,
   return fd;
 }
 
-static int
+// FIXME: DELETE THIS: Moved to writeckpt.cpp
+int
 test_and_fork_if_forked_ckpt()
 {
 #ifdef TEST_FORKED_CHECKPOINTING
@@ -408,28 +413,38 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
   JASSERT(Util::writeAll(fd, &ckptHdr, sizeof(ckptHdr)) == sizeof(ckptHdr));
   JASSERT(Util::writeAll(fd, &ckptHdr, sizeof(ckptHdr)) == sizeof(ckptHdr));
 
-  forked_ckpt_status = test_and_fork_if_forked_ckpt();
-  if (forked_ckpt_status == FORKED_CKPT_PARENT) {
-    close(fd);  // grandchild process will finish writing ckpt.
-    // Delete the previous checkpoint filename now.  It may take a while
-    // time before the gradnchild process create ckpt file and users
-    // should not be fooled by seeing a previous checkpoint image.
-    JASSERT(unlink(ckptFilename.c_str()) == 0 || errno == ENOENT);
-    JTRACE("*** Using forked checkpointing.\n");
-    return;
-  }
-  // NOTE:  if (forked_ckpt_status == FORKED_CKPT_CHILD), then
-  //        it continues writing the ckpt image file, below.
-
 // FIXME:  Write any shared memory areas first, and then fork grandchild.
 //         To do this, add a second argument to  mtcp_writememoryareas()
 //           to write shared memory areas (and then fork child)
 //           and then again, to write non-shared memory areas.
 //           Maybe to write all memory areas if no forked ckpt.
-// TODO:  When is fd closed.  It's not same as fdCkptFileOnDisk if compression.
+// TODO:  When is fd closed?  It's not same as fdCkptFileOnDisk if compression.
 //        Where do we close fd?  Or add a comment about this.
   JTRACE("MTCP is about to write checkpoint image.")(ckptFilename);
-  mtcp_writememoryareas(fd);
+  mtcp_writememoryareas(fd, AREA_SHARED);
+  // forked_ckpt_status = test_and_fork_if_forked_ckpt();
+  // if (forked_ckpt_status == FORKED_CKPT_PARENT) {
+  //   close(fd);  // grandchild process will finish writing ckpt.
+  //   // Delete the previous checkpoint filename now.  It may take a while
+  //   // time before the gradnchild process create ckpt file and users
+  //   // should not be fooled by seeing a previous checkpoint image.
+  //   JASSERT(unlink(ckptFilename.c_str()) == 0 || errno == ENOENT);
+  //   JTRACE("*** Using forked checkpointing.\n");
+  //   return;
+  // }
+  // // NOTE:  if (forked_ckpt_status == FORKED_CKPT_CHILD), then
+  // //        it continues writing the ckpt image file, below.
+  // mtcp_writememoryareas(fd, AREA_NOTSHARED);
+  // mtcp_writememoryareas(fd, AREA_END);
+// mtcp_writememoryareas(fd, AREA_ALL);
+// JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+//         ProcessInfo::instance().getCkptFilename().c_str()) == 0);
+
+  if (forked_ckpt_status == FORKED_CKPT_CHILD) {
+    // Use _exit() instead of exit() to avoid popping atexit() handlers
+    // registered by the parent process.
+    _exit(0); /* grandchild exits */
+  }
 
   if (use_compression) {
     /* In perform_open_ckpt_image_fd(), we set SIGCHLD to our own handler.
@@ -442,12 +457,6 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
     .Text("(compression): fsync error on checkpoint file");
     JASSERT(_real_close(fdCkptFileOnDisk) == 0) (JASSERT_ERRNO)
     .Text("(compression): error closing checkpoint file.");
-  }
-
-  if (forked_ckpt_status == FORKED_CKPT_CHILD) {
-    // Use _exit() instead of exit() to avoid popping atexit() handlers
-    // registered by the parent process.
-    _exit(0); /* grandchild exits */
   }
 
   JTRACE("checkpoint complete");
