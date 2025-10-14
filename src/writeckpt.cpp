@@ -71,6 +71,9 @@ using namespace dmtcp;
 #define FORKED_CKPT_CHILD  2
 
 EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
+// The next two functions are defined in ckptserialize.cpp.
+void prepare_sigchld_handler();
+void restore_sigchld_handler_and_wait_for_zombie(pid_t pid);
 
 // FIXME:  Why do we create two global variable here?  They should at least
 // be static (file-private), and preferably local to a function.
@@ -117,7 +120,7 @@ test_and_fork_if_forked_ckpt()
   /* Set SIGCHLD to our own handler;
    *     User handling is restored after forking child process.
    */
-  // prepare_sigchld_handler();
+  prepare_sigchld_handler(); // Save any user SIGCHLD handler
 
   pid_t forked_cpid = _real_sys_fork();
   if (forked_cpid == -1) {
@@ -125,8 +128,8 @@ test_and_fork_if_forked_ckpt()
     .Text("Failed to do forked checkpointing, trying normal checkpoint");
     return FORKED_CKPT_FAILED;
   } else if (forked_cpid > 0) {
-    // FIXME: Avoid calling SIGCHLD on original user process
-    // restore_sigchld_handler_and_wait_for_zombie(forked_cpid);
+    // Original user process may define SIGCHLD handler.  Don't invoke it.
+    restore_sigchld_handler_and_wait_for_zombie(forked_cpid);
     JTRACE("checkpoint complete\n");
     return FORKED_CKPT_PARENT;
   } else {
@@ -134,10 +137,6 @@ test_and_fork_if_forked_ckpt()
     JWARNING(grandchild_pid != -1)
       .Text("WARNING: Forked checkpoint failed, no checkpoint available");
     if (grandchild_pid > 0) {
-      // Uses rename() syscall, which doesn't change i-nodes.
-      // So, gzip process can continue to write to file even after renaming.
-      JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
-            ProcessInfo::instance().getCkptFilename().c_str()) == 0);
       // Use _exit() instead of exit() to avoid popping atexit() handlers
       // registered by the parent process.
       _exit(0); /* child exits */
@@ -249,8 +248,14 @@ mtcp_writememoryareas(int fd, memory_area_type type)
 memory_area_type phase[3] = {AREA_SHARED, AREA_NOTSHARED, AREA_END};
 for (int i = 0; i < 3; i++) {
   type = phase[i];
+  int forked_ckpt_status;
   if (phase[i] == AREA_NOTSHARED) {
-    test_and_fork_if_forked_ckpt(); }
+    forked_ckpt_status = test_and_fork_if_forked_ckpt();
+    if (forked_ckpt_status == FORKED_CKPT_PARENT) {
+      i = AREA_END + 1;
+      break;
+    }
+  }
   procSelfMaps->reset();
   // We must not cause an mmap() here, or the mem regions will not be correct.
   while (procSelfMaps->getNextArea(&area)) {
@@ -298,6 +303,10 @@ for (int i = 0; i < 3; i++) {
 
     /* That's all folks */
     JASSERT(_real_close(fd) == 0);
+    // Uses rename() syscall, which doesn't change i-nodes.
+    // Grandchild process will rename from *.dmtcp.temp to *.dmtcp
+    JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+                   ProcessInfo::instance().getCkptFilename().c_str()) == 0);
   }
 }
 

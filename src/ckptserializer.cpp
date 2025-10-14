@@ -25,6 +25,7 @@
 #include <sys/wait.h>
 #if defined(__aarch64__) || defined(__riscv)
 
+// FIXME:  Remove this when doing it with writeckpt.cpp
 /* On aarch64 and riscv, fork() is not implemented, in favor of clone().
  *   A true fork call would include CLONE_CHILD_SETTID and set the thread id
  * in the thread area of the child (using set_thread_area).  We don't do that.
@@ -54,6 +55,7 @@
 #else  // if defined(__aarch64__)
 # define _real_pipe(a)         _real_syscall(SYS_pipe, a)
 #endif  // if defined(__aarch64__)
+// FIXME:  Remove this when doing it with writeckpt.cpp
 #define _real_waitpid(a, b, c) _real_syscall(SYS_wait4, a, b, c, NULL)
 
 using namespace dmtcp;
@@ -63,7 +65,6 @@ using namespace dmtcp;
 #define FORKED_CKPT_PARENT 1
 #define FORKED_CKPT_CHILD  2
 
-static int forked_ckpt_status = -1;
 static pid_t ckpt_extcomp_child_pid = -1;
 static struct sigaction saved_sigchld_action;
 static int open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args);
@@ -79,7 +80,8 @@ default_sigchld_handler(int sig)
   JASSERT(sig == SIGCHLD);
 }
 
-static void
+// Used for gzip compression process and forked ckpt process
+void
 prepare_sigchld_handler()
 {
   /* 3a. Set SIGCHLD to our own handler;
@@ -97,6 +99,29 @@ prepare_sigchld_handler()
   sigaction(SIGCHLD, &default_sigchld_action, &saved_sigchld_action);
 }
 
+/*************************************************************
+ * FIXME:  A better idea is to block SIGCHLD in parent,
+ *         waitpid, and then restore the original mask.
+ * sigset_t mask, oldmask;
+ * sigemptyset(&mask);
+ * sigaddset(&mask, SIGCHLD);
+ * JASSERT(sigprocmask(SIG_BLOCK, &mask, &oldmask) == 0);
+ * waitpid(...); // This assumes the child quickly exits.
+ *                // This works if doing double-fork.  So, we need to also
+ *                // do the double-fork for the gzip process, while
+ *                // keeping the pipe.
+ * sigprocmask(SIG_SETMASK, &oldmask, NULL);
+ * // NOTE:  The previous implementation of forked ckpt had a child gzip
+ * //        process, and we did a waitpid on that child gzip.  But the
+ * //        child gzip would not exit until the ckpt image was created.
+ * //        So, that forked ckpt was no faster than non-forking.
+ * // Note that the child will inherit the SIGCHLD blocking mask, but the
+ * //   children are our own processes in this usage, and so that's fine.
+ * // Then we don't need prepare_sigchld_handler()
+ * //   and restore_sigchld_handler_and_wait_for_zombie(pid_t pid)
+ *************************************************************/
+// Used by gzip compression process, and used in forked ckpt, where
+//   we create a grandchild to write to the ckpt file asynchronously.
 void
 restore_sigchld_handler_and_wait_for_zombie(pid_t pid)
 {
@@ -440,12 +465,6 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
 // JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
 //         ProcessInfo::instance().getCkptFilename().c_str()) == 0);
 
-  if (forked_ckpt_status == FORKED_CKPT_CHILD) {
-    // Use _exit() instead of exit() to avoid popping atexit() handlers
-    // registered by the parent process.
-    _exit(0); /* grandchild exits */
-  }
-
   if (use_compression) {
     /* In perform_open_ckpt_image_fd(), we set SIGCHLD to our own handler.
      * Restore it now, and wait on compression process (e.g., gzip).
@@ -455,9 +474,12 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
     /* IF OUT OF DISK SPACE, REPORT IT HERE. */
     JASSERT(fsync(fdCkptFileOnDisk) != -1) (JASSERT_ERRNO)
     .Text("(compression): fsync error on checkpoint file");
+    // close fdCkptFileOnDisk here; grandchild process retains a dup of this.
     JASSERT(_real_close(fdCkptFileOnDisk) == 0) (JASSERT_ERRNO)
     .Text("(compression): error closing checkpoint file.");
   }
+  // close fd here; grandchild process retains a dup of this.
+  JASSERT(_real_close(fd) == 0);
 
   JTRACE("checkpoint complete");
 }
