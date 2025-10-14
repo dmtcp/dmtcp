@@ -28,6 +28,8 @@ class ProcSelfMaps
 
     const char* getData() const { return data; }
 
+    void reset() { dataIdx = 0; }
+
   private:
     unsigned long int readDec();
     unsigned long int readHex();

@@ -29,6 +29,7 @@
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include "jassert.h"
 #include "jfilesystem.h"
 #include "constants.h"
@@ -37,7 +38,22 @@
 #include "procmapsarea.h"
 #include "procselfmaps.h"
 #include "shareddata.h"
+#include "syscallwrappers.h"
 #include "util.h"
+#if defined(__aarch64__) || defined(__riscv)
+/* On aarch64 and riscv, fork() is not implemented, in favor of clone().
+ *   A true fork call would include CLONE_CHILD_SETTID and set the thread id
+ * in the thread area of the child (using set_thread_area).  We don't do that.
+ */
+# define _real_sys_fork()                                            \
+  _real_syscall(SYS_clone,                                           \
+                CLONE_CHILD_CLEARTID | CLONE_CHILD_SETTID | SIGCHLD, \
+                NULL,                                                \
+                NULL,                                                \
+                NULL)
+#else  // ifdef __aarch64__
+# define _real_sys_fork() _real_syscall(SYS_fork)
+#endif  // ifdef __aarch64__
 
 #define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
 #define DEV_NULL_DELETED_STR "/dev/null (deleted)"
@@ -50,7 +66,14 @@
 
 using namespace dmtcp;
 
+#define FORKED_CKPT_FAILED 0
+#define FORKED_CKPT_PARENT 1
+#define FORKED_CKPT_CHILD  2
+
 EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
+// The next two functions are defined in ckptserialize.cpp.
+void prepare_sigchld_handler();
+void restore_sigchld_handler_and_wait_for_zombie(pid_t pid);
 
 // FIXME:  Why do we create two global variable here?  They should at least
 // be static (file-private), and preferably local to a function.
@@ -83,6 +106,48 @@ writeAreaHeader(int fd, Area *area)
   JASSERT(Util::writeAll(fd, area, sizeof(*area)) == (ssize_t) sizeof(*area));
 }
 
+static int
+test_and_fork_if_forked_ckpt()
+{
+#ifdef TEST_FORKED_CHECKPOINTING
+  return 1;
+#endif  // ifdef TEST_FORKED_CHECKPOINTING
+
+  if (getenv(ENV_VAR_FORKED_CKPT) == NULL) {
+    return 0;
+  }
+
+  /* Set SIGCHLD to our own handler;
+   *     User handling is restored after forking child process.
+   */
+  prepare_sigchld_handler(); // Save any user SIGCHLD handler
+
+  pid_t forked_cpid = _real_sys_fork();
+  if (forked_cpid == -1) {
+    JWARNING(false)
+    .Text("Failed to do forked checkpointing, trying normal checkpoint");
+    return FORKED_CKPT_FAILED;
+  } else if (forked_cpid > 0) {
+    // Original user process may define SIGCHLD handler.  Don't invoke it.
+    restore_sigchld_handler_and_wait_for_zombie(forked_cpid);
+    JTRACE("checkpoint complete\n");
+    return FORKED_CKPT_PARENT;
+  } else {
+    pid_t grandchild_pid = _real_sys_fork();
+    JWARNING(grandchild_pid != -1)
+      .Text("WARNING: Forked checkpoint failed, no checkpoint available");
+    if (grandchild_pid > 0) {
+      // Use _exit() instead of exit() to avoid popping atexit() handlers
+      // registered by the parent process.
+      _exit(0); /* child exits */
+    }
+
+    /* grandchild continues; no need now to waitpid() on grandchild */
+    JTRACE("inside grandchild process");
+  }
+  return FORKED_CKPT_CHILD;
+}
+
 /*****************************************************************************
  *
  *  This routine is called from time-to-time to write a new checkpoint file.
@@ -93,8 +158,11 @@ writeAreaHeader(int fd, Area *area)
  *  this function which can cause memory leaks.
  *
  *****************************************************************************/
+// FIXME:  Add this enum to "procmapsarea.h", instead
+//         Or maybe remove it everywhere, and use it only in the body.
+enum memory_area_type {AREA_SHARED, AREA_NOTSHARED, AREA_END, AREA_ALL};
 void
-mtcp_writememoryareas(int fd)
+mtcp_writememoryareas(int fd, memory_area_type type)
 {
   Area area;
 
@@ -177,6 +245,18 @@ mtcp_writememoryareas(int fd)
     (ProcessInfo::instance().restoreBuf.endAddr);
   procSelfMaps = new ProcSelfMaps();
 
+memory_area_type phase[3] = {AREA_SHARED, AREA_NOTSHARED, AREA_END};
+for (int i = 0; i < 3; i++) {
+  type = phase[i];
+  int forked_ckpt_status;
+  if (phase[i] == AREA_NOTSHARED) {
+    forked_ckpt_status = test_and_fork_if_forked_ckpt();
+    if (forked_ckpt_status == FORKED_CKPT_PARENT) {
+      i = AREA_END + 1;
+      break;
+    }
+  }
+  procSelfMaps->reset();
   // We must not cause an mmap() here, or the mem regions will not be correct.
   while (procSelfMaps->getNextArea(&area)) {
     Area unchecked_area;
@@ -193,6 +273,17 @@ mtcp_writememoryareas(int fd)
         break;
       }
 
+      if ((type == AREA_SHARED) && (area.flags &= MAP_PRIVATE)) {
+        skip = 1;
+      }
+      if ((type == AREA_NOTSHARED) && !(area.flags &= MAP_PRIVATE)) {
+        skip = 1;
+      }
+      if (type == AREA_END) {
+        skip = 1;
+      }
+      if (skip) { break; }
+
       unchecked_area.addr = area.endAddr;
       unchecked_area.size = unchecked_area.endAddr - area.endAddr;
       
@@ -200,16 +291,23 @@ mtcp_writememoryareas(int fd)
       writememoryarea(fd, area);
     } while (unchecked_area.size != 0);
   }
+}
 
   /* It's now safe to do this, since we're done using writememoryarea() */
   remap_nscd_areas(*nscdAreas);
 
-  area.addr = NULL; // End of data
-  area.size = -1; // End of data
-  JASSERT(Util::writeAll(fd, &area, sizeof(area)) == sizeof(area));
+  if (type == AREA_ALL || type == AREA_END) {
+    area.addr = NULL; // End of data
+    area.size = -1; // End of data
+    JASSERT(Util::writeAll(fd, &area, sizeof(area)) == sizeof(area));
 
-  /* That's all folks */
-  JASSERT(_real_close(fd) == 0);
+    /* That's all folks */
+    JASSERT(_real_close(fd) == 0);
+    // Uses rename() syscall, which doesn't change i-nodes.
+    // Grandchild process will rename from *.dmtcp.temp to *.dmtcp
+    JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+                   ProcessInfo::instance().getCkptFilename().c_str()) == 0);
+  }
 }
 
 static void

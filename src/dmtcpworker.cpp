@@ -490,13 +490,21 @@ DmtcpWorker::postCheckpoint()
   JTRACE("Waiting for Write-Ckpt barrier");
   CoordinatorAPI::waitForBarrier("DMT:WriteCkpt");
 
+#ifndef FORKED_CHECKPOINTING
   /* Now that temp checkpoint file is complete, rename it over old permanent
    * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
    * So, gzip process can continue to write to file even after renaming.
    */
   JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
                  ProcessInfo::instance().getCkptFilename().c_str()) == 0);
+#endif
 
+  // NOTE: If FORKED_CHECKPOINTING, then the coordinator will write
+  //       the restart script now, even though the grandchild has
+  //       not finished writing the checkpoint file.
+  //       Any user code that waits to see the restart script
+  //       could assume the checkpoint is finished, even though it is not.
+  //       And do we need to do this when reading from gzip?
   CoordinatorAPI::sendCkptFilename();
 
   if (exitAfterCkpt) {
