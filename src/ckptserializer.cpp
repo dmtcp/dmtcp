@@ -280,39 +280,7 @@ test_and_prepare_for_forked_ckpt()
     return FORKED_CKPT_FAILED;
   }
 
-  /* Set SIGCHLD to our own handler;
-   *     User handling is restored after forking child process.
-   */
-  struct sigaction trivial_sigchld_action;
-  struct sigaction saved_sigchld_action;
-  set_trivial_sigchld_action(&trivial_sigchld_action);
-  sigaction(SIGCHLD, &trivial_sigchld_action, &saved_sigchld_action);
-
-  pid_t forked_cpid = _real_sys_fork();
-  if (forked_cpid == -1) {
-    JWARNING(false)
-    .Text("Failed to do forked checkpointing, trying normal checkpoint");
-    return FORKED_CKPT_FAILED;
-  } else if (forked_cpid > 0) {
-    JWARNING(_real_waitpid(forked_cpid, NULL, 0) != -1)
-            (forked_cpid) (JASSERT_ERRNO);
-    sigaction(SIGCHLD, &saved_sigchld_action, NULL);
-    JTRACE("checkpoint complete\n");
-    return FORKED_CKPT_PARENT;
-  } else {
-    pid_t grandchild_pid = _real_sys_fork();
-    JWARNING(grandchild_pid != -1)
-    .Text("WARNING: Forked checkpoint failed, no checkpoint available");
-    if (grandchild_pid > 0) {
-      // Use _exit() instead of exit() to avoid popping atexit() handlers
-      // registered by the parent process.
-      _exit(0); /* child exits */
-    }
-
-    /* grandchild continues; no need now to waitpid() on grandchild */
-    JTRACE("inside grandchild process");
-  }
-  return FORKED_CKPT_GRANDCHILD;
+  return double_fork();
 }
 
 int
