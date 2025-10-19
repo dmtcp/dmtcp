@@ -73,9 +73,6 @@ void cancel_and_join_thread(pthread_t th)
 int
 main()
 {
-  pthread_t thread;
-  int *arg;
-
   pthread_attr_t attr;
   pthread_attr_init(&attr);
 

@@ -165,7 +165,7 @@ void jalib::Filesystem::DirName(char *dirname, const char *fname)
     return;
   }
 
-  size_t len = strlen(fname);
+  int len = strlen(fname);
 
   // Remove trailing slashes
   while (len > 0 && fname[len - 1] == '/') {
@@ -173,8 +173,8 @@ void jalib::Filesystem::DirName(char *dirname, const char *fname)
   }
 
   // Find last slash.
-  size_t lastSlash = -1;
-  for (size_t i = 0; i < len; i++) {
+  int lastSlash = -1;
+  for (int i = 0; i < len; i++) {
     if (fname[i] == '/') {
       lastSlash = i;
     }
