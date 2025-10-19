@@ -23,8 +23,9 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#if defined(__aarch64__) || defined(__riscv)
+#include "coordinatorapi.h"
 
+#if defined(__aarch64__) || defined(__riscv)
 /* On aarch64 and riscv, fork() is not implemented, in favor of clone().
  *   A true fork call would include CLONE_CHILD_SETTID and set the thread id
  * in the thread area of the child (using set_thread_area).  We don't do that.
@@ -421,6 +422,13 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
   }
 
   if (forked_ckpt_status == FORKED_CKPT_CHILD) {
+    /* Now that temp checkpoint file is complete, rename it over old permanent
+     * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
+     * So, gzip process can continue to write to file even after renaming.
+     */
+    JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+                   ProcessInfo::instance().getCkptFilename().c_str()) == 0);
+
     // Use _exit() instead of exit() to avoid popping atexit() handlers
     // registered by the parent process.
     _exit(0); /* grandchild exits */

@@ -490,14 +490,23 @@ DmtcpWorker::postCheckpoint()
   JTRACE("Waiting for Write-Ckpt barrier");
   CoordinatorAPI::waitForBarrier("DMT:WriteCkpt");
 
-  /* Now that temp checkpoint file is complete, rename it over old permanent
-   * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
-   * So, gzip process can continue to write to file even after renaming.
-   */
-  JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
-                 ProcessInfo::instance().getCkptFilename().c_str()) == 0);
-
-  CoordinatorAPI::sendCkptFilename();
+  // NOTE:  If FORKED_CHECKPOINTING, the grandchild may still be checkpointing.
+  //        Grandchild process will do renaming and inform coordinator.
+  if (getenv(ENV_VAR_FORKED_CKPT) == NULL) { 
+    /* Now that temp checkpoint file is complete, rename it over old permanent
+     * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
+     * So, gzip process can continue to write to file even after renaming.
+     */
+    JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+                   ProcessInfo::instance().getCkptFilename().c_str()) == 0);
+    CoordinatorAPI::sendCkptFilename();
+  } else { // else FORKED CHECKPOINTING.  Write temp name; grandchild not done.
+    string ckptFilename = ProcessInfo::instance().getCkptFilename();
+    ProcessInfo::instance().setCkptFilename(
+                       ProcessInfo::instance().getTempCkptFilename().c_str());
+    CoordinatorAPI::sendCkptFilename();
+    ProcessInfo::instance().setCkptFilename(ckptFilename.c_str());
+  }
 
   if (exitAfterCkpt) {
     JTRACE("Asked to exit after checkpoint. Exiting!");
