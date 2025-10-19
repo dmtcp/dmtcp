@@ -401,7 +401,7 @@ close_range(unsigned int first, unsigned int last, int flags)
   // frequently enough to warrant this optimization.
   vector<int> fds = jalib::Filesystem::ListOpenFds();
   int ret = 0;
-  for (int fd : fds) {
+  for (unsigned int fd : fds) {
     if (fd >= first && fd <= last && !dmtcp_is_protected_fd(fd)) {
       ret |= close(fd);
     }
