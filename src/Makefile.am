@@ -168,6 +168,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  glibcsystem.cpp 		\
 				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
+				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\
 				  popen.cpp 			\
