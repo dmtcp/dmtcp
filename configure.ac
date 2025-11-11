@@ -229,6 +229,19 @@ AC_ARG_ENABLE([experts_only],
 	    [], [])
 AC_ARG_ENABLE([experts_only_after], [AS_HELP_STRING([ ], [])], [], [])
 
+AC_ARG_ENABLE([prgname-prefix],
+            [AS_HELP_STRING([--disable-prgname-prefix],
+                            [On restart, disables 'DMTCP:' prefix of comm field
+                             in ps for CUDA ckpt compatibility; Default: enabled
+                             (Alternative:  set DMTCP_DISABLE_PRGNAME_PREFIX
+                             env var during dmtcp_launch)])],
+            [use_prgname_prefix=$enableval],
+            [use_prgname_prefix=yes])
+if test "$use_prgname_prefix" = "yes"; then
+  AC_DEFINE([ENABLE_PRGNAME_PREFIX],[1],[Enable 'DMTCP:' prefix in comm
+                                         field of 'ps' (for CUDA ckpt)])
+fi
+
 AC_ARG_ENABLE([fsgsbase-override],
             [AS_HELP_STRING([--enable-fsgsbase-override],
                             [Defines HAS_FSGSBASE for cross-configure; The
