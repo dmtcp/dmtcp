@@ -846,6 +846,7 @@ enable_test_suite
 enable_experts_only_space1
 enable_experts_only
 enable_experts_only_after
+enable_prgname_prefix
 enable_fsgsbase_override
 enable_m32
 enable_multilib
@@ -1535,6 +1536,11 @@ Optional Features:
                  === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===
                           (Use at your own risk!!)
 
+  --disable-prgname-prefix
+                          On restart, disables 'DMTCP:' prefix of comm field
+                          in ps for CUDA ckpt compatibility; Default: enabled
+                          (Alternative: set DMTCP_DISABLE_PRGNAME_PREFIX
+                          env var during dmtcp_launch)
   --enable-fsgsbase-override
                           Defines HAS_FSGSBASE for cross-configure; The target
                           computer must have the FSGSBASE kernel patch.
@@ -8072,6 +8078,20 @@ then :
   enableval=$enable_experts_only_after;
 fi
 
+
+# Check whether --enable-prgname-prefix was given.
+if test ${enable_prgname_prefix+y}
+then :
+  enableval=$enable_prgname_prefix; use_prgname_prefix=$enableval
+else $as_nop
+  use_prgname_prefix=yes
+fi
+
+if test "$use_prgname_prefix" = "yes"; then
+
+printf "%s\n" "#define ENABLE_PRGNAME_PREFIX 1" >>confdefs.h
+
+fi
 
 # Check whether --enable-fsgsbase-override was given.
 if test ${enable_fsgsbase_override+y}

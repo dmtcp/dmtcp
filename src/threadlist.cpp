@@ -659,6 +659,7 @@ stopthisthread(int signum)
       JASSERT(DmtcpRWLockUnlock(&threadResumeLock) == 0);
     } else {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
+# ifdef ENABLE_PRGNAME_PREFIX
       if (!Util::strStartsWith(curThread->procname, DMTCP_PRGNAME_PREFIX)) {
         // Add the "DMTCP:" prefix.
         string newName = string(DMTCP_PRGNAME_PREFIX) + curThread->procname;
@@ -669,6 +670,7 @@ stopthisthread(int signum)
         // Add a NULL at the end to make sure the string terminates in all cases
         curThread->procname[sizeof(curThread->procname) - 1] = '\0';
       }
+# endif
       JASSERT(prctl(PR_SET_NAME, curThread->procname) != -1 || errno == EINVAL)
         (curThread->procname) (JASSERT_ERRNO)
       .Text("prctl(PR_SET_NAME, ...) failed");
