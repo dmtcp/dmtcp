@@ -13,6 +13,7 @@
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11) ||
 // defined(HAS_PR_SET_PTRACER)
 #include "ckptserializer.h"
+#include "constants.h"
 #include "coordinatorapi.h"
 #include "dmtcpalloc.h"
 #include "dmtcpworker.h"
@@ -658,9 +659,11 @@ stopthisthread(int signum)
 
       JASSERT(DmtcpRWLockUnlock(&threadResumeLock) == 0);
     } else {
+      // If the user defined DMTCP_DISABLE_PRGNAME_PREFIX, skip this prefix.
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 # ifdef ENABLE_PRGNAME_PREFIX
-      if (!Util::strStartsWith(curThread->procname, DMTCP_PRGNAME_PREFIX)) {
+      if (getenv(ENV_VAR_DISABLE_PRGNAME_PREFIX) == NULL &&
+          ! Util::strStartsWith(curThread->procname, DMTCP_PRGNAME_PREFIX)) {
         // Add the "DMTCP:" prefix.
         string newName = string(DMTCP_PRGNAME_PREFIX) + curThread->procname;
         strncpy(curThread->procname,
