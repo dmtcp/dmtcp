@@ -897,6 +897,8 @@ runTest("stat",         1, ["./test/stat"])
 
 runTest("mmap1", 1, ["./test/mmap1"])
 
+runTest("mremap", 1, ["./test/mremap"])
+
 if HAS_SELINUX == "yes":
   runTest("selinux1", 1, ["./test/selinux1"])
 
