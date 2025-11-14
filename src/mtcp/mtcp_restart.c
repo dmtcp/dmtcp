@@ -647,7 +647,8 @@ compute_regions_to_munmap(RestoreInfo *rinfo)
 
 NO_OPTIMIZE
 static void
-restore_vdso_vvar_work(MemRegion *currentRegion, MemRegion *ckptRegion, const char *regionName)
+restore_vdso_vvar_work(MemRegion *currentRegion, MemRegion *ckptRegion,
+                       const char *regionName)
 {
   int mtcp_sys_errno;
 
@@ -677,7 +678,8 @@ restore_vdso_vvar(RestoreInfo *rinfo)
 {
   restore_vdso_vvar_work(&rinfo->currentVdso, &rinfo->ckptHdr.vdso, "[vdso]");
   restore_vdso_vvar_work(&rinfo->currentVvar, &rinfo->ckptHdr.vvar, "[vvar]");
-  restore_vdso_vvar_work(&rinfo->currentVvarVClock, &rinfo->ckptHdr.vvarVClock, "[vvar_vclock]");
+  restore_vdso_vvar_work(&rinfo->currentVvarVClock, &rinfo->ckptHdr.vvarVClock,
+                         "[vvar_vclock]");
 
   if (rinfo->currentVdso.startAddr != 0) {
     mtcp_setauxval(rinfo->environ, AT_SYSINFO_EHDR,
@@ -967,9 +969,9 @@ doAreasOverlap(Area *area, MemRegion *memRegion)
 }
 
 /* This uses MREMAP_FIXED | MREMAP_MAYMOVE to move a memory segment.
- * Note that we need 'MREMAP_MAYMOVE'.  With only 'MREMAP_FIXED', the
- * kernel can overwrite an existing memory region.
- * Note that 'mremap' and hence 'mremap_move' do not allow overlapping src and dest.
+ * Note that 'MREMAP_MAYMOVE' is required, if using 'MREMAP_FIXED'.
+ * Note that 'mremap' and hence 'mremap_move' do not allow overlapping
+ *   src and dest.
  */
 NO_OPTIMIZE
 static int
@@ -987,7 +989,7 @@ mremap_move(void *dest, void *src, size_t size) {
     return -1; // Error
   } else {
     // Else 'MREMAP_MAYMOVE' forced the remap to the wrong location.  So, the
-    // memory was moved to the wrong desgination.  Undo the move, and return -1.
+    // memory was moved to the wrong destination.  Undo the move, and return -1.
     mremap_move(src, rc, size);
     return -1; // Error
   }
