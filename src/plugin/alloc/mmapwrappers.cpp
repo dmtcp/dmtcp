@@ -60,7 +60,7 @@ extern "C" void *mremap(void *old_address, size_t old_size,
   void *retval;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
-  if (flags == MREMAP_FIXED) {
+  if (flags & MREMAP_FIXED) {
     va_list ap;
     va_start(ap, flags);
     void *new_address = va_arg(ap, void *);
