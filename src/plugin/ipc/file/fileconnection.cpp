@@ -464,9 +464,7 @@ FileConnection::postRestart()
 
   JASSERT(_fds.size() > 0);
 
-  if (dmtcp_get_new_file_path) {
-    refreshPath();
-  }
+  refreshPath();
 
   if (!_ckpted_file) {
     return;
