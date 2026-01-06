@@ -3,6 +3,15 @@ DMTCP NEWS -- history of user-visible changes.
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>,
 or "Issues" at https://github.com/dmtcp/dmtcp .
 
+Version 4.1.0 release notes (Jan. 6, 2026)
+==========================================
+This is a minor release which includes feature enhancements and bug fixes.
+Some important changes are:
+* New PathTranslator plugin for virtualized paths.
+* --disable-prgname-prefix configure option that disables 'DMTCP:' prefix of
+  comm field in ps.
+* Added support for SOCK_SEQPACKET
+
 Version 4.0.0 release notes (June 25, 2025)
 ===========================================
 This is a major release which introduces breaking checkpoint-image format. As

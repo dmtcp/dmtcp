@@ -1,10 +1,6 @@
-AC_INIT([DMTCP],
-        m4_esyscmd([tr -d '\n' < VERSION]),
-        [dmtcp-forum@lists.sourceforge.net],
-        [dmtcp],
-        [https://dmtcp.sourceforge.io/ ; https://github.com/dmtcp/dmtcp])
+AC_INIT([DMTCP],[m4_esyscmd(tr -d '\n' < VERSION)],[dmtcp-forum@lists.sourceforge.net],[dmtcp],[https://dmtcp.sourceforge.io/ ; https://github.com/dmtcp/dmtcp])
 
-AC_PREREQ([2.71])
+AC_PREREQ([2.72])
 # TODO(kapil): Add 'subdir-objects after automake 1.16 has been released.
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AM_MAINTAINER_MODE
