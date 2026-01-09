@@ -221,10 +221,6 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
     if (mtcp_strcmp(argv[0], "--use-gdb") == 0) {
       rinfo.use_gdb = 1;
       shift;
-    } else if (mtcp_strcmp(argv[0], "--mpi") == 0) {
-      rinfo.mpiMode = 1;
-      shift;
-      // Flags for call by dmtcp_restart follow here:
     } else if (mtcp_strcmp(argv[0], "--fd") == 0) {
       rinfo.fd = mtcp_strtol(argv[1]);
       shift; shift;
@@ -247,10 +243,6 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
       // We would use MTCP_PRINTF, but it's also for output of util/readdmtcp.sh
       mtcp_printf("Considering '%s' as a ckpt image.\n", argv[0]);
       mtcp_strcpy(rinfo.ckptImage, argv[0]);
-      break;
-    } else if (rinfo.mpiMode) {
-      // N.B.: The assumption here is that the user provides the `--mpi` flag
-      // followed by a list of checkpoint images
       break;
     } else {
       MTCP_PRINTF("MTCP Internal Error: Unknown argument: %s\n", argv[0]);
