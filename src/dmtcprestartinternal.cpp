@@ -98,7 +98,6 @@ static const char *theUsage =
   "              Directory to store checkpoint images\n"
   "              (default: use the same dir used in previous checkpoint)\n"
   "  --restartdir Directory that contains checkpoint image directories\n"
-  "  --mpi       Use as MPI proxy (default: no MPI proxy)\n"
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
   "              Directory to store temp files (default: $TMDPIR or /tmp)\n"
   "  -q, --quiet (or set environment variable DMTCP_QUIET = 0, 1, or 2)\n"
@@ -755,9 +754,6 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
     } else if (argc > 1 && (s == "--gdb")) {
       requestedDebugLevel = atoi(argv[1]);
       shift; shift;
-    } else if (s == "--mpi") {
-      runMpiProxy = true;
-      shift;
     } else if (s == "-q" || s == "--quiet") {
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
 
