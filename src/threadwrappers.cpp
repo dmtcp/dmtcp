@@ -111,6 +111,26 @@ pthread_create(pthread_t *pth,
 
   if (retval == 0) {
     ProcessInfo::instance().clearPthreadJoinState(*pth);
+    // Since glibc 2.42, pthread_create adds a lightweight guard page
+    // at the beginning of the new thread's stack using madvise() and
+    // MADV_GUARD_INSTALL. DMTCP may reads from this guard page and
+    // cause a segfault. As a quick fix, we remove the guard page
+    // immediately.
+    //
+    // FIXME: A better solution will be keep a record or added
+    // lightweight guard page. Remove them at checkpoint time and
+    // restore them at restart time.
+#if __GLIBC__ == 2 && __GLIBC_MINOR__ >= 42
+    pthread_attr_t new_attr;
+    void *stack_addr;
+    size_t stack_size, guard_size;
+    pthread_getattr_np(*pth, &new_attr);
+    pthread_attr_getstack(&new_attr, &stack_addr, &stack_size);
+    pthread_attr_getguardsize(&new_attr, &guard_size);
+    madvise((void*)((char*)stack_addr - guard_size), guard_size,
+            MADV_GUARD_REMOVE);
+    pthread_attr_destroy(&new_attr);
+#endif
   } else { // if we failed to create new pthread
     ThreadSync::wrapperExecutionLockUnlockForNewThread(newThread);
     ThreadList::threadIsDead(newThread);
