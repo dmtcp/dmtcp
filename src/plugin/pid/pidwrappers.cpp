@@ -114,14 +114,17 @@ pthread_cancel (pthread_t th)
   WrapperLock wrapperLock;
   int result = 0;
   pid_t *tidAddr = dmtcp_pthread_get_tid_addr(th);
-  pid_t virtTid = *tidAddr;
-  pid_t realTid = VIRTUAL_TO_REAL_PID(virtTid);
+  if (tidAddr == NULL) {
+    return ESRCH;
+  }
 
+  pid_t virtTid = *tidAddr;
   if (virtTid == 0) {
     return result;
   }
 
   // Patch the pthread data structure to use the real tid.
+  pid_t realTid = VIRTUAL_TO_REAL_PID(virtTid);
   *tidAddr = realTid;
   result = _real_pthread_cancel(th);
   // Restore the pthread data structure to use the virtual tid.
