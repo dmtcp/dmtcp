@@ -572,6 +572,47 @@ isImportantEnv(string str)
   return false;
 }
 
+// Parse sudo argv and return the index of the first command token (after
+// sudo options). Options like -u user, -n, -i, -- are consumed; see sudo(8).
+static size_t
+parseSudoArgvCommandStart(const char *const *argv_in)
+{
+  size_t cmd_start = 1;
+  static const char sudo_opts_with_arg[] = "ughpCDRTUe";
+  size_t i = 1;
+  while (argv_in[i] != NULL) {
+    const char *arg = argv_in[i];
+    if (arg[0] != '-') {
+      cmd_start = i;
+      break;
+    }
+    if (arg[1] == '-' && arg[2] == '\0') {
+      cmd_start = i + 1;
+      break;
+    }
+    if (arg[1] == '-') {
+      i++;
+      continue;
+    }
+    char c = arg[1];
+    if (strchr(sudo_opts_with_arg, (int)(unsigned char)c) != NULL &&
+        arg[2] == '\0') {
+      i++;
+      if (argv_in[i] == NULL) {
+        cmd_start = i;
+        break;
+      }
+      i++;
+      continue;
+    }
+    i++;
+  }
+  if (argv_in[i] == NULL) {
+    cmd_start = i;
+  }
+  return cmd_start;
+}
+
 static vector<string>
 patchUserEnv(const char *env[], const char *filename)
 {
@@ -870,19 +911,31 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
   }
 
   // Exec the real 'sudo' (so privileges propagate) but wrap the command so
-  // the child runs under DMTCP: sudo -E dmtcp_launch <original_cmd> ...
-  // -E preserves our env so dmtcp_launch gets DMTCP_COORD_* and joins the
-  // same coordinator; the child is then checkpointed.
+  // the child runs under DMTCP: sudo [sudo_opts] -E dmtcp_launch [cmd] ...
   if (programName == "sudo") {
+    const char *const *argv_in = data.preExec.argv;
+    size_t cmd_start = parseSudoArgvCommandStart(argv_in);
+
     char *dmtcp_launch_path = Util::getPath("dmtcp_launch", false);
     vector<string> sudoArgvStrs;
-    sudoArgvStrs.push_back(data.preExec.argv[0] != NULL ? data.preExec.argv[0]
-                                                        : "sudo");
-    sudoArgvStrs.push_back("-E");
+    sudoArgvStrs.push_back(argv_in[0] != NULL ? argv_in[0] : "sudo");
+    for (size_t j = 1; j < cmd_start && argv_in[j] != NULL; j++) {
+      sudoArgvStrs.push_back(argv_in[j]);
+    }
+    bool has_E = false;
+    for (size_t j = 1; j < sudoArgvStrs.size(); j++) {
+      if (sudoArgvStrs[j] == "-E") {
+        has_E = true;
+        break;
+      }
+    }
+    if (!has_E) {
+      sudoArgvStrs.push_back("-E");
+    }
     sudoArgvStrs.push_back(dmtcp_launch_path != NULL ? dmtcp_launch_path
-                                                    : "dmtcp_launch");
-    for (size_t i = 1; data.preExec.argv[i] != NULL; i++) {
-      sudoArgvStrs.push_back(data.preExec.argv[i]);
+                                                      : "dmtcp_launch");
+    for (size_t j = cmd_start; argv_in[j] != NULL; j++) {
+      sudoArgvStrs.push_back(argv_in[j]);
     }
     JALLOC_FREE(dmtcp_launch_path);
 
