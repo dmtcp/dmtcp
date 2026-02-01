@@ -960,6 +960,8 @@ runTest("environ",       1, ["./test/environ"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
+runTest("forkexec-sudo", 2, ["./test/forkexec --command /usr/bin/sudo ls /root"])
+
 # vfork1 test creates a child process using vfork. The child executes the
 # command passed via command line using "sh -c".
 
