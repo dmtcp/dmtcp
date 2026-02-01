@@ -863,10 +863,45 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
   // Does anybody know the reason?
   if (programName == "dmtcp_nocheckpoint" || programName == "dmtcp_command" ||
       programName == "ssh" || programName == "rsh" ||
-      programName == "dmtcp_get_libc_offset" ) {
+      programName == "dmtcp_get_libc_offset") {
     return _real_execvpe(data.preExec.filename,
                          (char* const*) data.preExec.argv,
                          (char* const*) data.preExec.envp);
+  }
+
+  // Exec the real 'sudo' (so privileges propagate) but wrap the command so
+  // the child runs under DMTCP: sudo -E dmtcp_launch <original_cmd> ...
+  // -E preserves our env so dmtcp_launch gets DMTCP_COORD_* and joins the
+  // same coordinator; the child is then checkpointed.
+  if (programName == "sudo") {
+    char *dmtcp_launch_path = Util::getPath("dmtcp_launch", false);
+    vector<string> sudoArgvStrs;
+    sudoArgvStrs.push_back(data.preExec.argv[0] != NULL ? data.preExec.argv[0]
+                                                        : "sudo");
+    sudoArgvStrs.push_back("-E");
+    sudoArgvStrs.push_back(dmtcp_launch_path != NULL ? dmtcp_launch_path
+                                                    : "dmtcp_launch");
+    for (size_t i = 1; data.preExec.argv[i] != NULL; i++) {
+      sudoArgvStrs.push_back(data.preExec.argv[i]);
+    }
+    JALLOC_FREE(dmtcp_launch_path);
+
+    const char **newSudoArgv =
+      (const char **)JALLOC_MALLOC((sudoArgvStrs.size() + 1) * sizeof(char *));
+    if (newSudoArgv == NULL) {
+      errno = ENOMEM;
+      return -1;
+    }
+    for (size_t i = 0; i < sudoArgvStrs.size(); i++) {
+      newSudoArgv[i] = sudoArgvStrs[i].c_str();
+    }
+    newSudoArgv[sudoArgvStrs.size()] = NULL;
+
+    int ret = _real_execvpe(data.preExec.filename,
+                            (char *const *)newSudoArgv,
+                            (char *const *)data.preExec.envp);
+    JALLOC_FREE(newSudoArgv);
+    return ret;
   }
 
   const char *newFilename;
