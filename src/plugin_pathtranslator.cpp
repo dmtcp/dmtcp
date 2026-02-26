@@ -137,12 +137,16 @@ pathTranslator_VirtualToReal(DmtcpEventData_t *data)
   for (const auto &mapping : *pathMapping) {
     const string &oldp = mapping.first;
     const string &newp = mapping.second;
-    if (Util::strStartsWith(virtPath, oldp.c_str())) {
+    if (Util::strStartsWith(virtPath, oldp.c_str()) &&!(Util::strStartsWith(virtPath, newp.c_str()))) {
       // boundary check: next char must be '/' or end
       char next = virtPath[oldp.size()];
       if (next == '/' || next == '\0') {
-        const char* suffix = virtPath + oldp.size();
-        int n = snprintf(data->virtualToRealPath.path, PATH_MAX, "%s%s", newp.c_str(), suffix);
+        string original = virtPath;  
+        string replaced = newp + original.substr(oldp.size());
+        int n = snprintf(data->virtualToRealPath.path,
+                         PATH_MAX,
+                         "%s",
+                         replaced.c_str());
         JASSERT(n > 0 && n < PATH_MAX).Text("Translated path exceeds PATH_MAX");
       }
     }
