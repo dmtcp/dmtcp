@@ -137,7 +137,7 @@ pathTranslator_VirtualToReal(DmtcpEventData_t *data)
   for (const auto &mapping : *pathMapping) {
     const string &oldp = mapping.first;
     const string &newp = mapping.second;
-    if (Util::strStartsWith(virtPath, oldp.c_str()) &&!(Util::strStartsWith(virtPath, newp.c_str()))) {
+    if (Util::strStartsWith(virtPath, oldp.c_str())) {
       // boundary check: next char must be '/' or end
       char next = virtPath[oldp.size()];
       if (next == '/' || next == '\0') {
