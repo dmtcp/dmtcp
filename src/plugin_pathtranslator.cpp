@@ -141,12 +141,12 @@ pathTranslator_VirtualToReal(DmtcpEventData_t *data)
       // boundary check: next char must be '/' or end
       char next = virtPath[oldp.size()];
       if (next == '/' || next == '\0') {
-        string original = virtPath;  
-        string replaced = newp + original.substr(oldp.size());
+        string suffix = &virtPath[oldp.size()];  
         int n = snprintf(data->virtualToRealPath.path,
                          PATH_MAX,
-                         "%s",
-                         replaced.c_str());
+                         "%s%s",
+                         newp.c_str(),
+                         suffix.c_str());
         JASSERT(n > 0 && n < PATH_MAX).Text("Translated path exceeds PATH_MAX");
       }
     }
