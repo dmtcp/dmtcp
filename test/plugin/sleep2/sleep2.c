@@ -25,7 +25,8 @@ sleep(unsigned int seconds)
 unsigned int
 real_sleep(unsigned int seconds)
 {
-  static unsigned int (*real_fnc)(unsigned int) = NULL; /* Same type signature as sleep */
+  /* Same type signature as sleep */
+  static unsigned int (*real_fnc)(unsigned int) = NULL;
   static void *handle = NULL;
 
   if (!handle) {
