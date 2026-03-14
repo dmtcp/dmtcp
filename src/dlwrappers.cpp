@@ -25,11 +25,10 @@
 #include <link.h>
 
 #include "jassert.h"
+#include "config.h"
 #include "dmtcp.h"
 
-#define ENABLE_DLSYM_WRAPPER
 #ifdef ENABLE_DLSYM_WRAPPER
-
 /* NOTE:  'dlsym' is used in DMTCP in two different ways.
  *   CASE A:  Internally, in libdmtcp*.so, we have wrappers around
  *     functions in libc.so.  In order to implement that easily, we use
