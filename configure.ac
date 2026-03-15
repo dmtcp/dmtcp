@@ -464,9 +464,9 @@ if test "$is_aarch64_host" == "yes" -a "$CC" == "gcc"; then
   # See  https://lore.kernel.org/linux-arm-kernel/20240109082647.GJ19790@gate.crashing.org/T/#m2b7753c4dab70f67497dd4e618e80150649c133d
   # I suspect this is down to your toolchain enabling -moutline-atomics by default;
   # I suspect your # cross-compile toolchain doesn't enable that by default.
-  # Unfortunately, '-mno-outline' will cause arum64 to use the slower futexes.
+  # Unfortunately, '-mno-outline' will cause arm64 to use the slower futexes.
   # Arguably, this is a bug.
-  # If this is a problem, then use clang (LLVM) instead of gcc,r or wait and see
+  # If this is a problem, then use clang (LLVM) instead of gcc, or wait and see
   # if Debian/GNU gcc.will fix this toolchain misfeature.
   # See configure.ac for further discussion.
   AX_CHECK_COMPILE_FLAG([-mno-outline-atomics],
@@ -933,11 +933,29 @@ AC_LINK_IFELSE(
   ]])
 ], [gccAtomicBuiltins='yes'], [gccAtomicBuiltins='no'])
 LDFLAGS="$LDFLAGS_orig"
+
+dnl __atomic_compare_exchange_16 is often in libatomic
+AC_SEARCH_LIBS([__atomic_compare_exchange_16], [atomic], [], [
+  AC_MSG_WARN([Could not find 128-bit atomic support in libatomic.])
+])
+
 AC_LANG_POP([C++])
 AC_MSG_RESULT([$gccAtomicBuiltins])
 
 if test "$gccAtomicBuiltins" = "yes"; then
   AC_DEFINE([HAS_128_ATOMIC],[1],[Define to 1 if 'gcc test.c -latomic' works for __atomic_compare_exchange])
+fi
+dnl $CXX might be "clang++ -std=c++14".  Further, we need "-x c++"
+dnl   or else clang++ defaults to assuming a C file.
+is_clang_cpp=no
+$CXX -x c++ -dM -E - < /dev/null | grep -q "__clang__" && is_clang_cpp=yes
+if test "$gccAtomicBuiltins" = "no" -a "$is_clang_cpp" = "yes"; then
+  AC_MSG_FAILURE([Using C++14 with clang++ to support atomic built-ins.
+                  Missing Linux packages.  If Ubuntu/Debian, consider:
+                  sudo apt install clang libclang-rt-dev libc++abi-dev
+                  libstdc++-14-dev (or later version of libstdc++-14-dev).
+                  If Red Hat/Fedora/CentOS/Rocky Linux, consider:
+                  sudo dnf install clang-devel libstdc++-devel libatomic])
 fi
 if test "$gccAtomicBuiltins" = "no"; then
   AC_MSG_FAILURE([Using C++14, which should support both sync and atomic
