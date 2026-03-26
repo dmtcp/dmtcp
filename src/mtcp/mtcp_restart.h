@@ -86,7 +86,9 @@
    */                                                                         \
   rinfoPtr->restorememoryareas_fptr(rinfoPtr)
 
-typedef void (*fnptr_t)();
+struct RestoreInfo;
+typedef void (*fnptr_t)(struct RestoreInfo *);
+typedef void (*fnptr_post_restart_t)(double, int);
 
 #define MAX_REGIONS_TO_MUNMAP 16
 

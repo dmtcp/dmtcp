@@ -603,7 +603,8 @@ restorememoryareas(RestoreInfo *rinfo)
     );
   }
 
-  fnptr_t post_restart_fptr = (fnptr_t) rinfo->ckptHdr.postRestartAddr;
+  fnptr_post_restart_t post_restart_fptr =
+    (fnptr_post_restart_t) rinfo->ckptHdr.postRestartAddr;
   post_restart_fptr(readTime, rinfo->restart_pause);
   // NOTREACHED
 }
