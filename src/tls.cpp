@@ -37,7 +37,7 @@
 #include "jassert.h"
 #include "mtcp/mtcp_sys.h"
 
-#if defined(__x86_64__) || defined(__aarch64__)
+#if defined(__x86_64__) || defined(__aarch64__) || defined(__powerpc64__) || defined(__ppc64__)
 # define ELF_AUXV_T Elf64_auxv_t
 # define UINT_T     uint64_t
 #else /* if defined(__x86_64__) || defined(__aarch64__) */
@@ -370,6 +370,28 @@ tls_set_thread_area(Thread *thread)
 }
 #endif  /* end __riscv */
 
+#if defined(__powerpc64__) || defined(__ppc64__)
+/* PowerPC64 uses r13 register for thread pointer.
+ * Similar to ARM/AArch64/RISC-V, we need to save/restore the TLS address.
+ * The thread pointer points to the thread control block (TCB).
+ */
+
+static void
+tls_get_thread_area(Thread *thread)
+{
+  unsigned long int addr;
+  asm volatile ("mr %0, 13" : "=r" (addr));
+  thread->tlsInfo.tlsAddr = addr;
+}
+
+static void
+tls_set_thread_area(Thread *thread)
+{
+  unsigned long int addr = thread->tlsInfo.tlsAddr;
+  asm volatile ("mr 13, %[gs]" : : [gs] "r" (addr));
+}
+#endif  /* end __powerpc64__ || __ppc64__ */
+
 /*****************************************************************************
  *
  *****************************************************************************/
@@ -438,7 +460,7 @@ TLSInfo_HaveThreadSysinfoOffset()
     void *sysinfo;
 #if defined(__i386__) || defined(__x86_64__)
     asm volatile (CLEAN_FOR_64_BIT(mov %%
-                                   gs:) DEFAULT_SYSINFO_OFFSET ", %0\n\t"
+                  gs:) DEFAULT_SYSINFO_OFFSET ", %0\n\t"
                   : "=r" (sysinfo));
 #elif defined(__arm__)
     asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t"
@@ -447,6 +469,8 @@ TLSInfo_HaveThreadSysinfoOffset()
     asm volatile ("mrs     %0, tpidr_el0" : "=r" (sysinfo));
 #elif defined(__riscv)
     asm volatile("addi %0, tp, 0" : "=r" (sysinfo));
+#elif defined(__powerpc64__) || defined(__ppc64__)
+    asm volatile("mr %0, 13" : "=r" (sysinfo));
 #else /* if defined(__i386__) || defined(__x86_64__) */
 # error "current architecture not supported"
 #endif /* if defined(__i386__) || defined(__x86_64__) */
@@ -473,6 +497,8 @@ TLSInfo_GetThreadSysinfo()
   asm volatile ("mrs     %0, tpidr_el0" : "=r" (sysinfo));
 #elif defined(__riscv)
   asm volatile ("addi %0, tp, 0" : "=r" (sysinfo));
+#elif defined(__powerpc64__) || defined(__ppc64__)
+  asm volatile("mr %0, 13" : "=r" (sysinfo));
 #else /* if defined(__i386__) || defined(__x86_64__) */
 # error "current architecture not supported"
 #endif /* if defined(__i386__) || defined(__x86_64__) */
@@ -491,6 +517,8 @@ TLSInfo_SetThreadSysinfo(void *sysinfo)
   asm volatile ("msr     tpidr_el0, %[gs]" : :[gs] "r" (sysinfo));
 #elif defined(__riscv)
   asm volatile("addi tp, %[gs], 0" :: [gs] "r" (sysinfo));
+#elif defined(__powerpc64__) || defined(__ppc64__)
+  asm volatile("mr 13, %[gs]" :: [gs] "r" (sysinfo));
 #else /* if defined(__i386__) || defined(__x86_64__) */
 # error "current architecture not supported"
 #endif /* if defined(__i386__) || defined(__x86_64__) */
