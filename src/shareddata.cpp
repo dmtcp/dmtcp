@@ -47,9 +47,9 @@ static struct SharedData::Header *sharedDataHeader = NULL;
 static uint32_t nextVirtualPtyId = (uint32_t)-1;
 
 #if defined(__x86_64__) || defined(__aarch64__) || defined(__riscv) || defined(__powerpc64__) || defined(__ppc64__)
-static const SharedData::DMTCP_ARCH_MODE archMode = SharedData::DMTCP_ARCH_32;
-#else
 static const SharedData::DMTCP_ARCH_MODE archMode = SharedData::DMTCP_ARCH_64;
+#else
+static const SharedData::DMTCP_ARCH_MODE archMode = SharedData::DMTCP_ARCH_32;
 #endif
 
 void

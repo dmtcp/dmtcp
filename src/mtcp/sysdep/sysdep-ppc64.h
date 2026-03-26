@@ -21,6 +21,13 @@
 #ifndef _LINUX_PPC64_SYSDEP_H
 #define _LINUX_PPC64_SYSDEP_H 1
 
+/* This implementation currently supports only ELFv2 ABI (ppc64le).
+ * ELFv1 ABI (ppc64 big-endian) uses function descriptors and requires
+ * different entry point handling. */
+#if defined(_CALL_ELF) && _CALL_ELF != 2
+# error "PowerPC64 ELFv1 ABI is not yet supported. Only ELFv2 (ppc64le) is currently implemented."
+#endif
+
 #ifdef __ASSEMBLER__
 
 # define ENTRY(name) \
@@ -112,10 +119,13 @@
 
 # define INTERNAL_SYSCALL_DECL(err) long int err __attribute__ ((unused))
 
+/* PowerPC64 syscall error detection uses cr0.SO bit (bit 28 of CR).
+ * When SO is set, r3 contains the positive errno value.
+ * The err parameter from internal_syscall* contains the CR value. */
 # define INTERNAL_SYSCALL_ERROR_P(val, err) \
-	        ((void)(err), __builtin_expect ((val) >= -4095UL, 0))
+	        ((void)(val), __builtin_expect ((err) & (1 << 28), 0))
 
-# define INTERNAL_SYSCALL_ERRNO(val, err)     (-(val))
+# define INTERNAL_SYSCALL_ERRNO(val, err)     (val)
 
 # define INTERNAL_SYSCALL(name, err, nr, args...) \
 		internal_syscall##nr (SYS_ify (name), err, args)
@@ -136,7 +146,7 @@
 				"mfcr %0"			\
 				: "=&r" (r0), "=&r" (r3)	\
 				: "0" (r0)			\
-				: "memory", "cr0", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12"); \
+				: "memory", "cr0", "ctr", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12"); \
 			err = r0;				\
 			_sys_result = r3;			\
 		}						\
@@ -157,7 +167,7 @@
 				"mfcr %0"			\
 				: "=&r" (r0), "+&r" (r3)	\
 				: "0" (r0)			\
-				: "memory", "cr0", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12"); \
+				: "memory", "cr0", "ctr", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12"); \
 			err = r0;				\
 			_sys_result = r3;			\
 		}						\
@@ -180,7 +190,7 @@
 				"mfcr %0"			\
 				: "=&r" (r0), "+&r" (r3)	\
 				: "0" (r0), "r" (r4)		\
-				: "memory", "cr0", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12"); \
+				: "memory", "cr0", "ctr", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12"); \
 			err = r0;				\
 			_sys_result = r3;			\
 		}						\
@@ -205,7 +215,7 @@
 				"mfcr %0"			\
 				: "=&r" (r0), "+&r" (r3)	\
 				: "0" (r0), "r" (r4), "r" (r5)	\
-				: "memory", "cr0", "r6", "r7", "r8", "r9", "r10", "r11", "r12"); \
+				: "memory", "cr0", "ctr", "r6", "r7", "r8", "r9", "r10", "r11", "r12"); \
 			err = r0;				\
 			_sys_result = r3;			\
 		}						\
@@ -232,7 +242,7 @@
 				"mfcr %0"			\
 				: "=&r" (r0), "+&r" (r3)	\
 				: "0" (r0), "r" (r4), "r" (r5), "r" (r6) \
-				: "memory", "cr0", "r7", "r8", "r9", "r10", "r11", "r12"); \
+				: "memory", "cr0", "ctr", "r7", "r8", "r9", "r10", "r11", "r12"); \
 			err = r0;				\
 			_sys_result = r3;			\
 		}						\
@@ -261,7 +271,7 @@
 				"mfcr %0"			\
 				: "=&r" (r0), "+&r" (r3)	\
 				: "0" (r0), "r" (r4), "r" (r5), "r" (r6), "r" (r7) \
-				: "memory", "cr0", "r8", "r9", "r10", "r11", "r12"); \
+				: "memory", "cr0", "ctr", "r8", "r9", "r10", "r11", "r12"); \
 			err = r0;				\
 			_sys_result = r3;			\
 		}						\
@@ -292,7 +302,7 @@
 				"mfcr %0"			\
 				: "=&r" (r0), "+&r" (r3)	\
 				: "0" (r0), "r" (r4), "r" (r5), "r" (r6), "r" (r7), "r" (r8) \
-				: "memory", "cr0", "r9", "r10", "r11", "r12"); \
+				: "memory", "cr0", "ctr", "r9", "r10", "r11", "r12"); \
 			err = r0;				\
 			_sys_result = r3;			\
 		}						\

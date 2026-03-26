@@ -38,7 +38,9 @@
 #elif __i386__
 # define CLEAN_FOR_64_BIT(args ...)        # args
 #elif defined(__powerpc64__) || defined(__ppc64__)
-# define CLEAN_FOR_64_BIT(args ...)        # args
+# ifndef CLEAN_FOR_64_BIT
+#  define CLEAN_FOR_64_BIT(args ...)        # args
+# endif
 #else // ifdef __x86_64__
 # define CLEAN_FOR_64_BIT(args ...)        "CLEAN_FOR_64_BIT_undefined"
 #endif // ifdef __x86_64__
