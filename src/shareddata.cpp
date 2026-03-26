@@ -46,7 +46,10 @@ using namespace dmtcp;
 static struct SharedData::Header *sharedDataHeader = NULL;
 static uint32_t nextVirtualPtyId = (uint32_t)-1;
 
-#if defined(__x86_64__) || defined(__aarch64__) || defined(__riscv) || defined(__powerpc64__) || defined(__ppc64__)
+/* Detect 64-bit architecture by pointer size to avoid maintaining architecture list */
+#if defined(__SIZEOF_POINTER__) && __SIZEOF_POINTER__ == 8
+static const SharedData::DMTCP_ARCH_MODE archMode = SharedData::DMTCP_ARCH_64;
+#elif defined(__LP64__) || defined(_LP64) || defined(_WIN64)
 static const SharedData::DMTCP_ARCH_MODE archMode = SharedData::DMTCP_ARCH_64;
 #else
 static const SharedData::DMTCP_ARCH_MODE archMode = SharedData::DMTCP_ARCH_32;

@@ -65,7 +65,7 @@
 		  b __syscall_error;
 
 /* Performs a system call, not setting errno.  */
-# undef PSEUDO_NEORRNO
+# undef PSEUDO_NOERRNO
 # define PSEUDO_NOERRNO(name, syscall_name, args)	\
 	  .align 2;					\
 	    ENTRY (name);				\
@@ -318,5 +318,3 @@ extern long int __syscall_error (long int neg_errno);
 #define PTR_DEMANGLE(var) (void) (var)
 
 #endif /* linux/ppc64/sysdep.h */
-
-// Made with Bob

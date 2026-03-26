@@ -459,8 +459,8 @@ else
   AC_SUBST([AARCH64_HOST], [no])
 fi
 
-AM_CONDITIONAL(PPC64_HOST, [test "$is_ppc64_host" == "yes"])
-if test "$is_ppc64_host" == "yes"; then
+AM_CONDITIONAL(PPC64_HOST, [test "$is_ppc64_host" = "yes"])
+if test "$is_ppc64_host" = "yes"; then
   AC_SUBST([PPC64_HOST], [yes])
 else
   AC_SUBST([PPC64_HOST], [no])
