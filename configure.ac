@@ -434,6 +434,8 @@ case "$host_cpu" in
   aarch64*) is_aarch64_host=yes ;;
   i?86) is_i486_host=yes ;;
   x86_64) is_x86_64_host=yes ;;
+  powerpc64*) is_ppc64_host=yes ;;
+  ppc64*) is_ppc64_host=yes ;;
 esac
 
 AM_CONDITIONAL(X86_64_HOST, [test "$is_x86_64_host" == "yes"])
@@ -455,6 +457,13 @@ if test "$is_aarch64_host" == "yes"; then
   AC_SUBST([AARCH64_HOST], [yes])
 else
   AC_SUBST([AARCH64_HOST], [no])
+fi
+
+AM_CONDITIONAL(PPC64_HOST, [test "$is_ppc64_host" = "yes"])
+if test "$is_ppc64_host" = "yes"; then
+  AC_SUBST([PPC64_HOST], [yes])
+else
+  AC_SUBST([PPC64_HOST], [no])
 fi
 
 AC_MSG_CHECKING([whether ARM64/aarch64 and g++ (if we need to use -mno-outline)])

@@ -56,6 +56,11 @@
 			   : : : "memory")
 # define IMB
 
+#elif defined(__powerpc64__) || defined(__ppc64__)
+# define RMB asm volatile ("lwsync" : : : "memory")
+# define WMB asm volatile ("lwsync" : : : "memory")
+# define IMB asm volatile ("isync" : : : "memory")
+
 #else // if defined(__i386__) || defined(__x86_64__)
 # error "instruction architecture not implemented"
 #endif // if defined(__i386__) || defined(__x86_64__)
