@@ -1578,10 +1578,8 @@ DmtcpCoordinator::addDataSocket(CoordClient *client)
 // Copy name+suffix into short_buf of length len, and truncate name to fit.
 // This keeps only the last component of name (after last '/')
 char *short_name(char short_buf[], char *name, unsigned int len, char *suffix) {
-  char name_copy[strlen(name)+1];
-  memcpy(name_copy, name, strlen(name)+1);
-  char *base_name = strrchr(name_copy, '/') == NULL ?
-                    name_copy : strrchr(name_copy, '/') + 1;
+  const char* last_slash = strrchr(name, '/');
+  const char* base_name = (last_slash == nullptr) ? name : last_slash + 1;
   int suffix_len = strlen(suffix);
   if (6 + strlen(suffix) > len) {
     return NULL;
