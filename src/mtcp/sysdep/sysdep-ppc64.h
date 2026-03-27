@@ -82,8 +82,7 @@
 /* Performs a system call, returning the error code.  */
 # undef PSEUDO_ERRVAL
 # define PSEUDO_ERRVAL(name, syscall_name, args) 	\
-	  PSEUDO_NOERRNO (name, syscall_name, args)	\
-	    neg 3, 3;
+	  PSEUDO_NOERRNO (name, syscall_name, args)
 
 # undef PSEUDO_END_ERRVAL
 # define PSEUDO_END_ERRVAL(name)			\
@@ -313,8 +312,26 @@ extern long int __syscall_error (long int neg_errno);
 
 #endif /* ! __ASSEMBLER__ */
 
-/* Pointer mangling is not supported.  */
-#define PTR_MANGLE(var) (void) (var)
-#define PTR_DEMANGLE(var) (void) (var)
+/* Pointer mangling support for PowerPC64.
+ * Uses XOR with thread-local POINTER_GUARD value for security hardening.
+ * The POINTER_GUARD is stored in the TCB (Thread Control Block) at a fixed offset.
+ * For PowerPC64, we access it via r13 (the thread pointer register).
+ */
+#ifndef __ASSEMBLER__
+# define PTR_MANGLE(var)                                    \
+  do {                                                      \
+    void *__guard_ptr;                                      \
+    __asm__ ("ld %0, %1(13)"                                \
+             : "=r" (__guard_ptr)                           \
+             : "i" (0x28));  /* POINTER_GUARD offset */     \
+    (var) = (void *) ((uintptr_t) (var) ^ (uintptr_t) __guard_ptr); \
+  } while (0)
+# define PTR_DEMANGLE(var) PTR_MANGLE(var)
+#else
+# define PTR_MANGLE(reg)                                    \
+  ld 0, 0x28(13);                                           \
+  xor reg, reg, 0
+# define PTR_DEMANGLE(reg) PTR_MANGLE(reg)
+#endif
 
 #endif /* linux/ppc64/sysdep.h */
