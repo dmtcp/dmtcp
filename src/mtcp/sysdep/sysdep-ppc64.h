@@ -96,6 +96,7 @@
 /* In order to get __set_errno() definition in INLINE_SYSCALL.  */
 #ifndef __ASSEMBLER__
 # include <errno.h>
+# include <stdint.h>
 #endif
 
 #undef SYS_ify
@@ -321,16 +322,18 @@ extern long int __syscall_error (long int neg_errno);
 # define PTR_MANGLE(var)                                    \
   do {                                                      \
     void *__guard_ptr;                                      \
-    __asm__ ("ld %0, %1(13)"                                \
+    register void *__tp __asm__ ("r13");                    \
+    __asm__ __volatile__ ("ld %0, %1(%2)"                   \
              : "=r" (__guard_ptr)                           \
-             : "i" (0x28));  /* POINTER_GUARD offset */     \
+             : "i" (0x28), "r" (__tp)                       \
+             : "memory");  /* POINTER_GUARD offset */       \
     (var) = (void *) ((uintptr_t) (var) ^ (uintptr_t) __guard_ptr); \
   } while (0)
 # define PTR_DEMANGLE(var) PTR_MANGLE(var)
 #else
 # define PTR_MANGLE(reg)                                    \
   ld 0, 0x28(13);                                           \
-  xor reg, reg, 0
+  xor reg, reg, r0
 # define PTR_DEMANGLE(reg) PTR_MANGLE(reg)
 #endif
 
