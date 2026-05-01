@@ -127,6 +127,7 @@ FileConnection::drain()
   // Read the current file descriptor offset
   _offset = lseek(_fds[0], 0, SEEK_CUR);
   fstat(_fds[0], &statbuf);
+  _mode = statbuf.st_mode;
   _st_dev = statbuf.st_dev;
   _st_ino = statbuf.st_ino;
   _st_size = statbuf.st_size;
@@ -370,7 +371,8 @@ FileConnection::refill(bool isRestart)
       tempfd = openFile();
     } else if (_fcntlFlags & O_WRONLY) {
       // File doesn't exist. If it's a WRONLY file, we'll create a new one.
-      tempfd = _real_open(_path.c_str(), O_CREAT|O_WRONLY|O_TRUNC);
+      mode_t createMode = (_mode == 0) ? 0600 : (_mode & 0777);
+      tempfd = _real_open(_path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, createMode);
       ASSERT_NE(-1, tempfd);
       ASSERT_EQ(0, ftruncate(tempfd, _st_size));
     } else {
@@ -633,7 +635,7 @@ FileConnection::serializeSubClass(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("FileConnection");
   o&_path &_rel_path;
-  o&_offset&_st_dev&_st_ino&_st_size&_ckpted_file &_rmtype;
+  o&_mode &_offset&_st_dev&_st_ino&_st_size&_ckpted_file &_rmtype;
   JTRACE("Serializing FileConn.") (_path) (_rel_path)
     (dmtcp_get_ckpt_files_subdir()) (_ckpted_file) (_allow_overwrite) (
     _fcntlFlags);

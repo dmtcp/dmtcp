@@ -892,6 +892,9 @@ S=10*DEFAULT_S
 runTest("file2",         1, ["./test/file2"])
 S=DEFAULT_S
 
+# Test for files where restart restores mode when file is missing.
+runTest("file3", 1, ["./test/file3"])
+
 # Test for normal file, /dev/tty, proc file, and illegal pathname
 runTest("stat",         1, ["./test/stat"])
 

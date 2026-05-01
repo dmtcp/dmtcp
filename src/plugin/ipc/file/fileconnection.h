@@ -82,7 +82,8 @@ class FileConnection : public Connection
       FILE_BATCH_QUEUE
     };
 
-    FileConnection() {}
+    FileConnection()
+      : _mode(0) {}
 
     FileConnection(const string &path,
                    int flags,
@@ -90,6 +91,7 @@ class FileConnection : public Connection
                    int type = FILE_REGULAR)
       : Connection(type)
       , _path(path)
+      , _mode(mode)
       , _fileAlreadyExists(false) {}
 
     virtual void doLocking() override;
@@ -140,9 +142,7 @@ class FileConnection : public Connection
     int32_t _rmtype;
 
     // int64_t       _flags;
-
-    /* No method uses _mode yet.  Stop compiler from issuing warning. */
-    /* int64_t       _mode; */
+    int64_t _mode;
     int64_t _offset;
     uint64_t _st_dev;
     uint64_t _st_ino;
