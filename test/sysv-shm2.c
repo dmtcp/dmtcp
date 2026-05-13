@@ -13,7 +13,14 @@
 void parent(int fd)
 {
   int shmid;
-  if ((shmid = shmget((key_t) 9979, SIZE, IPC_CREAT | 0666)) < 0) {
+  key_t key;
+
+  srand(getpid());
+  key = (key_t) rand();
+  if (key == IPC_PRIVATE) {
+    key++;
+  }
+  if ((shmid = shmget(key, SIZE, IPC_CREAT | 0666)) < 0) {
     perror("shmget");
     exit(1);
   }
