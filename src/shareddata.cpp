@@ -594,7 +594,7 @@ bool SharedData::getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id)
   JASSERT(id != NULL);
   if (sharedDataHeader->numInodeConnIdMaps > 0) {
     for (int i = sharedDataHeader->numInodeConnIdMaps - 1; i >= 0; i--) {
-      InodeConnIdMap& map = sharedDataHeader->inodeConnIdMap[i];
+      InodeConnIdMap map = sharedDataHeader->inodeConnIdMap[i];
       if (map.devnum == devnum && map.inode== inode) {
         memcpy(id, map.id, sizeof(map.id));
         return true;
