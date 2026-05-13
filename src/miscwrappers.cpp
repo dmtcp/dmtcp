@@ -43,22 +43,7 @@
 # define __ARCH_WANT_SYSCALL_DEPRECATED
 # define __ARCH_WANT_SYSCALL_NO_AT
 # define __ARCH_WANT_SYSCALL_NO_FLAGS
-// SYS_fork is a deprecated kernel call in aarch64; in favor of SYS_clone?
 # include <asm-generic/unistd.h>
-// SYS_fork undefined in aarch64, but add extra insurance
-# undef SYS_fork
-# undef SYS_open
-# undef SYS_pipe
-# undef SYS_poll
-# define SYS_fork __NR_fork
-# define SYS_open __NR_open
-# define SYS_pipe __NR_pipe
-# define SYS_poll __NR_poll
-// These kernel calls are not deprecated.  But SYS_XXX is not defined for them.
-# define SYS_epoll_create __NR_epoll_create
-# define SYS_inotify_init __NR_inotify_init
-# define SYS_signalfd __NR_signalfd
-# define SYS_eventfd __NR_eventfd
 #endif
 
 using namespace dmtcp;
@@ -303,23 +288,31 @@ extern "C" long syscall(long sys_num, ... )
       break;
     }
 
+#ifndef __aarch64__
+#ifndef __riscv
     case SYS_fork:
     {
       ret = fork();
       break;
     }
+#endif
+#endif
     case SYS_exit:
     {
       SYSCALL_GET_ARG(int,status);
       exit(status);
       break;
     }
+#ifndef __aarch64__
+#ifndef __riscv
     case SYS_open:
     {
       SYSCALL_GET_ARGS_3(const char*,pathname,int,flags,mode_t,mode);
       ret = open(pathname, flags, mode);
       break;
     }
+#endif
+#endif
     case SYS_close:
     {
       SYSCALL_GET_ARG(int,fd);
@@ -425,12 +418,16 @@ extern "C" long syscall(long sys_num, ... )
     }
 #endif
 
+#ifndef __aarch64__
+#ifndef __riscv
     case SYS_pipe:
     {
       SYSCALL_GET_ARG(int*,fds);
       ret = pipe(fds);
       break;
     }
+#endif
+#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)) && __GLIBC_PREREQ(2,9)
     case SYS_pipe2:
     {
@@ -480,32 +477,48 @@ extern "C" long syscall(long sys_num, ... )
     }
 # endif
 #endif
+#ifndef __aarch64__
+#ifndef __riscv
     case SYS_poll:
     {
       SYSCALL_GET_ARGS_3(struct pollfd *,fds,nfds_t,nfds,int,timeout);
       ret = poll(fds, nfds, timeout);
       break;
     }
+#endif
+#endif
+#ifndef __aarch64__
+#ifndef __riscv
     case SYS_epoll_create:
     {
       SYSCALL_GET_ARG(int,size);
       ret = epoll_create(size);
       break;
     }
+#endif
+#endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13) && __GLIBC_PREREQ(2,4)
+#ifndef __aarch64__
+#ifndef __riscv
     case SYS_inotify_init:
     {
       ret = inotify_init();
       break;
     }
 #endif
+#endif
+#endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22) && __GLIBC_PREREQ(2,8)
+#ifndef __aarch64__
+#ifndef __riscv
     case SYS_signalfd:
     {
       SYSCALL_GET_ARGS_3(int,fd,sigset_t *,mask,int,flags);
       ret = signalfd(fd, mask, flags);
       break;
     }
+#endif
+#endif
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,8)
     case SYS_signalfd4:
@@ -516,12 +529,16 @@ extern "C" long syscall(long sys_num, ... )
     }
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22) && __GLIBC_PREREQ(2,8)
+#ifndef __aarch64__
+#ifndef __riscv
     case SYS_eventfd:
     {
       SYSCALL_GET_ARGS_2(unsigned int,initval,int,flags);
       ret = eventfd(initval, flags);
       break;
     }
+#endif
+#endif
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,8)
     case SYS_eventfd2:
