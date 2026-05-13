@@ -354,8 +354,8 @@ SysVShm::virtualToRealKey(key_t k)
   if (_keyMap.find(k) != _keyMap.end()) {
     return _keyMap[k];
   } else {
-    int realId = SharedData::getRealIPCId(SYSV_SHM_KEY, k);
-    if (realId != -1) {
+    int realId = SharedData::getRealIPCId(SYSV_SHM_KEY, k, true);
+    if (realId == k) {
       updateKeyMapping(k, realId);
     }
     return realId;
