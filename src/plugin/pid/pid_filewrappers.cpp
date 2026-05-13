@@ -56,6 +56,15 @@
 #include "dmtcp.h"
 #include "pid.h"
 
+// glibc 2.33 and later stopped defining _STAT_VER and routes applications
+// through stat/lstat instead of the old xstat family.
+#ifndef _STAT_VER
+# define _real_xstat(vers,path,buf)     _real_stat(path, buf)
+# define _real_xstat64(vers,path,buf)   _real_stat64(path, buf)
+# define _real_lxstat(vers,path,buf)    _real_lstat(path, buf)
+# define _real_lxstat64(vers,path,buf)  _real_lstat64(path, buf)
+#endif
+
 #define PROC_PREFIX "/proc/"
 
 using namespace dmtcp;
@@ -246,6 +255,28 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
   }
   return retval;
 }
+
+#ifndef _STAT_VER
+extern "C" int stat(const char *path, struct stat *buf)
+{
+  return __xstat(0, path, buf);
+}
+
+extern "C" int stat64(const char *path, struct stat64 *buf)
+{
+  return __xstat64(0, path, buf);
+}
+
+extern "C" int lstat(const char *path, struct stat *buf)
+{
+  return __lxstat(0, path, buf);
+}
+
+extern "C" int lstat64(const char *path, struct stat64 *buf)
+{
+  return __lxstat64(0, path, buf);
+}
+#endif
 
 extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
 {

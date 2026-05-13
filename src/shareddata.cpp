@@ -352,7 +352,8 @@ void SharedData::setPidMap(pid_t virt, pid_t real)
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-int32_t SharedData::getRealIPCId(int type, int32_t virt)
+int32_t SharedData::getRealIPCId(int type, int32_t virt,
+                                 bool insertIfNotFound)
 {
   int32_t res = -1;
   uint32_t nmaps = 0;
@@ -384,11 +385,22 @@ int32_t SharedData::getRealIPCId(int type, int32_t virt)
       JASSERT(false) (type) .Text("Unknown IPC-Id type.");
       break;
   }
+  bool found = false;
   for (size_t i = 0; i < nmaps; i++) {
     if (map[i].virt == virt) {
       res = map[i].real;
+      found = true;
     }
   }
+
+  if (!found && insertIfNotFound) {
+    JASSERT(nmaps < MAX_IPC_ID_MAPS);
+    map[nmaps].virt = virt;
+    map[nmaps].real = virt;
+    res = virt;
+    nmaps++;
+  }
+
   Util::unlockFile(PROTECTED_SHM_FD);
   return res;
 }
@@ -594,7 +606,7 @@ bool SharedData::getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id)
   JASSERT(id != NULL);
   if (sharedDataHeader->numInodeConnIdMaps > 0) {
     for (int i = sharedDataHeader->numInodeConnIdMaps - 1; i >= 0; i--) {
-      InodeConnIdMap& map = sharedDataHeader->inodeConnIdMap[i];
+      InodeConnIdMap map = sharedDataHeader->inodeConnIdMap[i];
       if (map.devnum == devnum && map.inode== inode) {
         memcpy(id, map.id, sizeof(map.id));
         return true;

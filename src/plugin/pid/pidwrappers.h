@@ -154,6 +154,10 @@ extern "C"
   MACRO(__xstat64)          \
   MACRO(__lxstat)           \
   MACRO(__lxstat64)         \
+  MACRO(stat)               \
+  MACRO(stat64)             \
+  MACRO(lstat)              \
+  MACRO(lstat64)            \
   MACRO(readlink)
 
 #define FOREACH_SYSVIPC_CTL_WRAPPER(MACRO)\
@@ -267,6 +271,10 @@ extern "C"
   int _real_xstat64(int vers, const char *path, struct stat64 *buf);
   int _real_lxstat(int vers, const char *path, struct stat *buf);
   int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
+  int _real_stat(const char *path, struct stat *buf);
+  int _real_stat64(const char *path, struct stat64 *buf);
+  int _real_lstat(const char *path, struct stat *buf);
+  int _real_lstat64(const char *path, struct stat64 *buf);
   ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
 #ifdef HAS_CMA
   ssize_t _real_process_vm_readv(pid_t pid,
@@ -299,4 +307,3 @@ extern "C"
 #endif
 
 #endif
-
