@@ -145,6 +145,10 @@ static void *pthread_start(void *arg)
   JASSERT(pthread_fn != 0x0);
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
 
+  ThreadSync::initThread();
+  ThreadList::initCurrentThreadForPthread(pthread_fn, thread_arg);
+  DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_START, NULL);
+
   // Unblock ckpt signal (unblocking a non-blocked signal has no effect).
   // Normally, DMTCP wouldn't allow the ckpt signal to be blocked. However, in
   // some situations (e.g., timer_create), libc would internally block all

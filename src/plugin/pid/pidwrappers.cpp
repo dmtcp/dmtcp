@@ -107,7 +107,7 @@ void dmtcpResetPidPpid()
 }
 
 
-extern "C" LIB_PRIVATE
+extern "C"
 void dmtcpResetTid(pid_t tid)
 {
   _dmtcp_thread_tid = tid;
@@ -716,4 +716,3 @@ extern "C" int setuid(uid_t uid)
 // 				    struct robust_list_head __user * __user *head_ptr,
 // 				    size_t __user *len_ptr);
 //
-

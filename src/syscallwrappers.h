@@ -294,7 +294,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   void _dmtcp_unlock();
 
   void _dmtcp_remutex_on_fork();
-  LIB_PRIVATE void dmtcpResetTid(pid_t tid);
+  void dmtcpResetTid(pid_t tid) __attribute((weak));
   LIB_PRIVATE void dmtcpResetPidPpid();
 
   int _dmtcp_unsetenv(const char *name);
@@ -496,4 +496,3 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 #endif
 
 #endif
-
