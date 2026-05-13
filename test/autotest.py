@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from random import randint
 from time   import sleep
@@ -21,12 +21,12 @@ try:
   from autotest_config import *
 
 except ImportError:
-  print "\n*** Error importing autotest_config.py: "
+  print("\n*** Error importing autotest_config.py: ")
   sys.exit()
 
 if USE_TEST_SUITE == "no":
-  print "\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" + \
-        "***  re-configure _without_ './configure --disable-test-suite'\n"
+  print("\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" + \
+        "***  re-configure _without_ './configure --disable-test-suite'\n")
   sys.exit()
 
 # Disable ptrace tests for now.
@@ -34,25 +34,18 @@ PTRACE_SUPPORT="no"
 
 signal.alarm(1800)  # half hour
 
-if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
-  print "test/autotest.py works only with Python 2.x for 2.x greater than 2.3"
-  print "Change the beginning of test/autotest.py if you believe you can run."
+if sys.version_info[0] < 3:
+  print("test/autotest.py works only with Python 3.x")
   sys.exit(1)
 
-if sys.version_info[0] == 2 and sys.version_info[1] >= 7:
-  uname_m = subprocess.check_output(['uname', '-m'])
-  uname_p = subprocess.check_output(['uname', '-p'])
-else:
-  uname_m = subprocess.Popen(['uname', '-m'],
-                             stdout=subprocess.PIPE).communicate()[0]
-  uname_p = subprocess.Popen(['uname', '-p'],
-                             stdout=subprocess.PIPE).communicate()[0]
+uname_m = subprocess.check_output(['uname', '-m']).decode().strip()
+uname_p = subprocess.check_output(['uname', '-p']).decode().strip()
 
 # This assumes Makefile.in in main dir, but only Makefile in test dir.
 os.system("test -f Makefile || ./configure")
 if USE_TEST_SUITE == "no":
-  print "\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" + \
-          "***  re-configure _without_ './configure --disable-test-suite'\n"
+  print("\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" + \
+          "***  re-configure _without_ './configure --disable-test-suite'\n")
   sys.exit()
 
 #number of checkpoint/restart cycles
@@ -70,7 +63,6 @@ if uname_p[0:3] == 'arm':
 DEFAULT_POST_LAUNCH_SLEEP = 0.0
 POST_LAUNCH_SLEEP = 0.0
 
-uname_m = uname_m.strip() # strip off any whitespace characters
 #Allow extra time for slower CPUs
 if uname_m in ["i386", "i486", "i586", "i686", "armv7", "armv7l", "aarch64"]:
   DEFAULT_S *= 4
@@ -133,8 +125,8 @@ for i in sys.argv:
   #   else:
   #     os.environ['LD_PRELOAD'] = 'libcatchsigsegv.so'
   if i=="-h" or i=="--help":
-    print ("USAGE "+sys.argv[0]+
-      " [-v] [--stress] [--slow] [testname] [testname ...]")
+    print(("USAGE "+sys.argv[0]+
+      " [-v] [--stress] [--slow] [testname] [testname ...]"))
     sys.exit(1)
 
 stats = [0, 0]
@@ -196,15 +188,13 @@ else:
 
 #make sure dmtcp is built
 if os.system("make -s --no-print-directory tests") != 0:
-  print "`make all tests` FAILED"
+  print("`make all tests` FAILED")
   sys.exit(1)
 
 #pad a string and print/flush it
-def printFixed(str, w=1):
+def printFixed(text, w=1):
   # The comma at end of print prevents a "newline", but still adds space.
-  if sys.version_info[0] == 2:
-    # Replace "print str.ljust(w),"  by version compatible w/ python3:
-    os.write(sys.stdout.fileno(), str.ljust(w).encode("ascii"))
+  os.write(sys.stdout.fileno(), text.ljust(w).encode("ascii"))
   sys.stdout.flush()
 
 #exception on failed check
@@ -222,7 +212,7 @@ class MySubprocess:
 
 def master_read(fd):
   os.read(fd, 4096)
-  return ''
+  return b''
 
 #run a child process
 # NOTE:  Can eventually migrate to Python 2.7:  subprocess.check_output
@@ -231,7 +221,7 @@ def runCmd(cmd):
   global devnullFd
   global master_read
   if VERBOSE:
-    print "Launching... ", cmd
+    print("Launching... ", cmd)
   cmd = splitWithQuotes(cmd);
   # Example cmd:  dmtcp_launch screen ...
   ptyMode = False
@@ -248,8 +238,8 @@ def runCmd(cmd):
     # FOR DEBUGGING:  This can mysteriously fail, causing pty.fork() to fail
     try:
       (fd1, fd2) = os.openpty()
-    except OSError, e:
-      print "\n\n/dev/ptmx:"; os.system("ls -l /dev/ptmx /dev/pts")
+    except OSError as e:
+      print("\n\n/dev/ptmx:"); os.system("ls -l /dev/ptmx /dev/pts")
       raise e
     else:
       os.close(fd1); os.close(fd2)
@@ -280,7 +270,8 @@ def runCmd(cmd):
     # NOTE:  This might be replaced by shell=True in call to subprocess.Popen
     proc = subprocess.Popen(cmd, bufsize=BUFFER_SIZE,
                  stdin=subprocess.PIPE, stdout=childStdout,
-                 stderr=childStderr, close_fds=True)
+                 stderr=childStderr, close_fds=True,
+                 universal_newlines=True)
   return proc
 
 #randomize port and dir, so multiple processes works
@@ -297,7 +288,7 @@ os.unsetenv('MTCP_SIGCKPT')
 if not VERBOSE:
   os.environ['JALIB_STDERR_PATH'] = os.devnull
 if VERBOSE:
-  print "coordinator port:  " + os.environ['DMTCP_COORD_PORT']
+  print("coordinator port:  " + os.environ['DMTCP_COORD_PORT'])
 
 # We'll copy ckptdir to DMTCP_TMPDIR in case of error.
 def dmtcp_tmpdir():
@@ -323,14 +314,14 @@ tmpfile=ckptDir + "/freeSpaceTest.tmp"
 if os.system("dd if=/dev/zero of=" + tmpfile + " bs=1MB count=" +
              str(REQUIRE_MB) + " 2>/dev/null") != 0:
   GZIP="1"
-  print '''
+  print('''
 
 !!!WARNING!!!
 Fewer than '''+str(REQUIRE_MB)+'''MB are available on the current volume.
 Many of the tests below may fail due to insufficient space.
 !!!WARNING!!!
 
-'''
+''')
 os.system("rm -f "+tmpfile)
 
 os.environ['DMTCP_GZIP'] = GZIP
@@ -346,7 +337,7 @@ coordinator = runCmd(BIN+"dmtcp_coordinator")
 def coordinatorCmd(cmd):
   try:
     if VERBOSE and cmd != "s":
-      print "COORDINATORCMD(",cmd,")"
+      print("COORDINATORCMD(",cmd,")")
     coordinator.stdin.write(cmd+"\n")
     coordinator.stdin.flush()
   except:
@@ -359,7 +350,7 @@ def SHUTDOWN():
     coordinatorCmd('q')
     sleep(S*SLOW)
   except:
-    print "SHUTDOWN() failed"
+    print("SHUTDOWN() failed")
   os.system("kill -9 %d" % coordinator.pid)
   os.system("rm -rf  %s" % ckptDir)
   os.close(devnullFd)
@@ -385,7 +376,7 @@ def getStatus():
   returncode = coordinator.poll()
   if returncode:
     if returncode < 0:
-      print "Coordinator terminated by signal ", str(-returncode)
+      print("Coordinator terminated by signal ", str(-returncode))
     CHECK(False, "coordinator died unexpectedly")
     return (-1, False)
 
@@ -396,20 +387,21 @@ def getStatus():
         CHECK(False, "coordinator died unexpectedly")
         return (-1, False)
 
-      m = re.search('NUM_PEERS=(\d+)', line)
+      m = re.search(r'NUM_PEERS=(\d+)', line)
       if m != None:
         peers = int(m.group(1))
         continue
 
-      m = re.search('RUNNING=(\w+)', line)
+      m = re.search(r'RUNNING=(\w+)', line)
       if m != None:
         running = m.group(1)
         break
 
-    except IOError, (errno, strerror):
+    except IOError as xxx_todo_changeme:
+      (errno, strerror) = xxx_todo_changeme.args
       if coordinator.poll():
         if coordinator.poll() < 0:
-          print "Coordinator terminated by signal ", str(-returncode)
+          print("Coordinator terminated by signal ", str(-returncode))
         CHECK(False, "coordinator died unexpectedly")
         return (-1, False)
       if errno==4: #Interrupted system call
@@ -417,7 +409,7 @@ def getStatus():
       raise CheckFailed("I/O error(%s): %s" % (errno, strerror))
 
   if VERBOSE:
-    print "STATUS: peers=%d, running=%s" % (peers,running)
+    print("STATUS: peers=%d, running=%s" % (peers,running))
 
   return (peers, (running=="yes"))
 
@@ -434,15 +426,14 @@ def clearCkptDir():
           # else:
           #   os.remove(os.path.join(root, name))
           os.remove(os.path.join(root, name))
-        except OSError, e:
+        except OSError as e:
           if e.errno != errno.ENOENT:  # Maybe ckpt_*_dmtcp.temp was renamed.
             raise e
       for name in dirs:
         os.rmdir(os.path.join(root, name))
 
 def getNumCkptFiles(dir):
-  return len(filter(lambda f: f.startswith("ckpt_") and f.endswith(".dmtcp"),\
-                              os.listdir(dir)))
+  return len([f for f in os.listdir(dir) if f.startswith("ckpt_") and f.endswith(".dmtcp")])
 
 
 # Test a given list of commands to see if they checkpoint
@@ -481,7 +472,7 @@ def runTestRaw(name, numProcs, cmds):
       global coordinator
       coordinatorCmd('q')
       os.system("kill -9 %d" % coordinator.pid)
-      print "Trying to kill old coordinator, and run new one on same port"
+      print("Trying to kill old coordinator, and run new one on same port")
       coordinator = runCmd(BIN+"dmtcp_coordinator")
     for x in procs:
       #cleanup proc
@@ -502,7 +493,7 @@ def runTestRaw(name, numProcs, cmds):
         None
       try:
         os.waitpid(x.pid, os.WNOHANG)
-      except OSError, e:
+      except OSError as e:
         if e.errno != errno.ECHILD:
           raise e
       procs.remove(x)
@@ -556,7 +547,7 @@ def runTestRaw(name, numProcs, cmds):
     printFixed(name,15)
 
     if not shouldRunTest(name):
-      print "SKIPPED"
+      print("SKIPPED")
       return
 
     stats[1]+=1
@@ -577,7 +568,7 @@ def runTestRaw(name, numProcs, cmds):
 
     for i in range(CYCLES):
       if i!=0 and i%2==0:
-        print #newline
+        print() #newline
         printFixed("",15)
       printFixed("ckpt:")
       # NOTE:  If this faile, it will throw an exception to CheckFailed
@@ -594,14 +585,14 @@ def runTestRaw(name, numProcs, cmds):
           testRestart()
           printFixed("PASSED")
           break
-        except CheckFailed, e:
+        except CheckFailed as e:
           if j == RETRIES-1:
             # Save checkpoint images for later diagnosis.
             if os.path.isdir(dmtcp_tmpdir()) and os.path.isdir(ckptDir):
               if subprocess.call( ("cp -pr " + ckptDir + ' '
                                    + dmtcp_tmpdir()).split() ) == 0:
-                print "\n***** Copied checkpoint images to " + dmtcp_tmpdir() \
-                      + "/" + ckptDir
+                print("\n***** Copied checkpoint images to " + dmtcp_tmpdir() \
+                      + "/" + ckptDir)
             raise e
           else:
             printFixed("FAILED ")
@@ -628,17 +619,17 @@ def runTestRaw(name, numProcs, cmds):
         printFixed("; ")
 
     testKill()
-    print #newline
+    print() #newline
     stats[0]+=1
 
-  except CheckFailed, e:
-    print "FAILED"
+  except CheckFailed as e:
+    print("FAILED")
     printFixed("",15)
-    print "root-pids:", map(lambda x: x.pid, procs), "msg:", e.value
+    print("root-pids:", [x.pid for x in procs], "msg:", e.value)
     try:
       testKill()
-    except CheckFailed, e:
-      print "CLEANUP ERROR:", e.value
+    except CheckFailed as e:
+      print("CLEANUP ERROR:", e.value)
       SHUTDOWN()
       saveResultsNMI()
       sys.exit(1)
@@ -650,7 +641,8 @@ def runTestRaw(name, numProcs, cmds):
 
 def getProcessChildren(pid):
     p = subprocess.Popen("ps --no-headers -o pid --ppid %d" % pid, shell = True,
-                         stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+                         stdout = subprocess.PIPE, stderr = subprocess.PIPE,
+                         universal_newlines=True)
     stdout, stderr = p.communicate()
     return [int(pid) for pid in stdout.split()]
 
@@ -666,12 +658,12 @@ def runTest(name, numProcs, cmds):
           os.kill(pid, signal.SIGKILL)
         except OSError: # This happens if pid already died.
           pass
-    except CheckFailed, e:
+    except CheckFailed as e:
       if not RETRY_ONCE:
         break
       if i == 0:
         stats[1]-=1
-        print "Trying once again"
+        print("Trying once again")
 
 def saveResultsNMI():
   if DEBUG == "yes":
@@ -690,10 +682,10 @@ def saveResultsNMI():
       os.system(cmd)
       cmd = "tar zcf ../results.tar.gz ./results; rm -rf results"
       os.system(cmd)
-      print "\n*** results.tar.gz ("+tmpdir+"/"+target+ \
-                                              ") written to DMTCP_ROOT/.. ***"
+      print("\n*** results.tar.gz ("+tmpdir+"/"+target+ \
+                                              ") written to DMTCP_ROOT/.. ***")
 
-print "== Tests =="
+print("== Tests ==")
 
 #tmp port
 p0=str(randint(2000,10000))
@@ -722,9 +714,9 @@ runTest("sched_test",    2, ["./test/sched_test"])
 oldLimit = resource.getrlimit(resource.RLIMIT_STACK)
 # oldLimit[1] is old hard limit
 if oldLimit[1] == resource.RLIM_INFINITY:
-  newCurrLimit = 8L*1024*1024
+  newCurrLimit = 8*1024*1024
 else:
-  newCurrLimit = min(8L*1024*1024, oldLimit[1])
+  newCurrLimit = min(8*1024*1024, oldLimit[1])
 resource.setrlimit(resource.RLIMIT_STACK, [newCurrLimit, oldLimit[1]])
 runTest("dmtcp5",        2, ["./test/dmtcp5"])
 resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
@@ -835,7 +827,7 @@ if uname_m != "armv7" and uname_m != "armv7l" and uname_m != "aarch64":
     os.environ["LD_LIBRARY_PATH"] = \
       os.getenv("LD_LIBRARY_PATH")[:-len(":./test")]
 else:
-  print "Skipping pthread_atfork test; doesn't build on ARM/aarch64/glibc/Linux"
+  print("Skipping pthread_atfork test; doesn't build on ARM/aarch64/glibc/Linux")
 
 if not USE_M32:  # ssh (a 64-bit child process) is forked
   if HAS_SSH_LOCALHOST == "yes":
@@ -877,7 +869,7 @@ if HAS_CMA == "yes":
 
 # ARM glibc 2.16 with Linux kernel 3.0 doesn't support mq_send, etc.
 if uname_p[0:3] == 'arm':
-  print "Skipping posix-mq1/mq2 tests; ARM/glibc/Linux does not support mq_send"
+  print("Skipping posix-mq1/mq2 tests; ARM/glibc/Linux does not support mq_send")
 elif TEST_POSIX_MQ == "yes":
   runTest("posix-mq1",     2, ["./test/posix-mq1"])
   runTest("posix-mq2",     2, ["./test/posix-mq2"])
@@ -957,7 +949,8 @@ if HAS_VIM == "yes":
         return
       ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o',
                              'pid,command'],
-                            stdout=subprocess.PIPE).communicate()[0]
+                            stdout=subprocess.PIPE,
+                            universal_newlines=True).communicate()[0]
       for row in ps.split('\n')[1:]:
         cmd = row.split(None, 1) # maxsplit=1
         if len(cmd) > 1 and cmd[1] == cmdToKill:
@@ -1027,8 +1020,8 @@ if PTRACE_SUPPORT == "yes" and ARM_HOST == "no" and \
 
   if HAS_GDB == "yes":
     if uname_p[0:3] == 'arm':
-      print "On ARM, there is a known issue with DMTCP for gdb-* test." + \
-            "  Not running it."
+      print("On ARM, there is a known issue with DMTCP for gdb-* test." + \
+            "  Not running it.")
     else:
       os.system("echo 'run' > dmtcp-gdbinit.tmp")
       S=10*DEFAULT_S
@@ -1100,7 +1093,7 @@ if HAS_OPENMPI == "yes":
               ' ps auxw | grep $USER | grep -v grep | grep -q orted &&'
               ' touch ./uses_openmpi_orted" 2>/dev/null')
     os.system("/bin/kill -9 `ps -eo pid,args | grep test_openmpi |" +
-              " sed -e 's%\([0-9]\) .*$%\1%'` 2>/dev/null")
+              r" sed -e 's%\([0-9]\) .*$%\1%'` 2>/dev/null")
     if os.path.exists('./uses_openmpi_orted'):
       os.system('rm -f ./uses_openmpi_orted')
       USES_OPENMPI_ORTED = "yes"
@@ -1116,7 +1109,7 @@ if HAS_OPENMPI == "yes":
   # FIXME: Replace "[5,6]" by numProcesses when bug in configure is fixed.
   # /usr/bin/openmpi does not work if /usr/bin is not also in user's PATH
   oldPath = ""
-  if not os.environ.has_key('PATH'):
+  if 'PATH' not in os.environ:
     oldPath = None
     os.environ['PATH'] = os.path.dirname(OPENMPI_MPIRUN)
   elif (not re.search(os.path.dirname(OPENMPI_MPIRUN),
@@ -1135,16 +1128,16 @@ if HAS_OPENMPI == "yes":
 # Test DMTCP utilities:
 runTest("nocheckpoint",        1, ["./test/nocheckpoint"])
 
-print "== Summary =="
-print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
+print("== Summary ==")
+print("%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1]))
 
 saveResultsNMI()
 
 try:
   SHUTDOWN()
-except CheckFailed, e:
-  print "Error in SHUTDOWN():", e.value
+except CheckFailed as e:
+  print("Error in SHUTDOWN():", e.value)
 except:
-  print "Error in SHUTDOWN()"
+  print("Error in SHUTDOWN()")
 
 sys.exit( stats[1] - stats[0] )  # Return code is number of failing tests.
