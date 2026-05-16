@@ -4,6 +4,12 @@ Reader: a DMTCP maintainer or future implementation agent preparing the M003 con
 
 This file is the migration appendix for folding selected internal plugin behavior into `libdmtcp.so`. It starts with a current-source stage map, then defines the implementation gates that future M003/M004 work must satisfy one stage at a time before removing an old internal DSO boundary.
 
+## S01 preflight first gate
+
+Before the timer stage or any later source movement, the mandatory first review gate is the S01 preflight in `doc/internal-plugin-consolidation-preflight.md`. Reviewers should run `python3 test/verify-consolidation-preflight.py integration` and then `python3 test/verify-consolidation-preflight.py full` before timer, SysV IPC, IPC, PID, alloc, or DL source movement to confirm the enable-state model, wrapper ownership, duplicate-symbol command classes, stale-artifact cleanup, rollback gates, and external ABI boundary are named.
+
+This gate is still a source-backed contract, not runtime proof. It blocks starting a stage when the preflight is missing or uncross-linked, but clean rebuilds, checkpoint/restart behavior, sanitizer behavior, `RTLD_NEXT`, `dl_iterate_phdr`, and external plugin compatibility evidence remain M003, M004, or M005 handoffs.
+
 ## Scope and evidence boundary
 
 This stage map is limited to non-hidden repository sources and two prior source-backed consolidation appendices. It does not rely on generated planning state, branch notes outside the repository, or broad mainline assumptions. The current evidence boundary is the existing registration architecture appendix, the wrapper-order appendix, launch-time preload construction, and PluginManager registration/event traversal. [doc/internal-plugin-consolidation-registration-architecture.md] [doc/internal-plugin-consolidation-wrapper-order-tsan.md] [src/dmtcp_launch.cpp] [src/pluginmanager.cpp]
