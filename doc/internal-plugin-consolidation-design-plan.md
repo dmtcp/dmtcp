@@ -1,0 +1,183 @@
+# Internal Plugin Consolidation Final Design Plan
+
+Reader: a DMTCP maintainer deciding whether to accept the M001 architecture for consolidating DMTCP built-in internal plugin shared objects into `libdmtcp.so`.
+
+Post-read action: accept the `libdmtcp.so`-centered architecture as the M001 design baseline, then hand implementation to M002 through M005 with the stage order, gates, rollback points, and runtime proof boundaries below.
+
+Executive recommendation: use the final clean `libdmtcp.so` centered architecture. Former descriptor-based internal plugins should register through a PluginManager-owned built-in table and a built-in descriptor table, while external plugins keep the public `DMTCP_DECL_PLUGIN`, `dmtcp_initialize_plugin`, `NEXT_FNC(dmtcp_initialize_plugin)`, and `dmtcp_register_plugin` ABI. Do not add a transitional internal DSO shim. Preserve alloc and dl as wrapper-only enable groups with fast-pass disable behavior. M001 is a static design proof; live build, checkpoint/restart, sanitizer, `dlsym(RTLD_NEXT)`, and `dl_iterate_phdr` runtime validation are deferred to later milestones.
+
+## Scope and evidence boundary
+
+This plan synthesizes three source-backed appendices: the S01 wrapper-order TSAN appendix, the S02 registration architecture appendix, and the S03 migration plan appendix. The motivation and sanitizer risk boundary come from `gene-email.txt`; the evidence appendices are `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, `doc/internal-plugin-consolidation-registration-architecture.md`, and `doc/internal-plugin-consolidation-migration-plan.md`.
+
+The M001 scope is intentionally static. It decides the architecture, order, gates, rollback boundaries, and later validation ownership. It does not claim live build success, checkpoint/restart success, sanitizer success, `dlsym(RTLD_NEXT)` success, or `dl_iterate_phdr` success. Those runtime checks belong to M003 and M004 after code changes exist. The static evidence is still useful because it names the launch, registration, ABI, build, wrapper, and focused-test surfaces that future implementation must preserve.
+
+The core answer is feasible but not trivial. Feasibility comes from the current descriptor model: DMTCP already centralizes event delivery through PluginManager and already represents plugins through `DmtcpPluginDescriptor_t`. Burden comes from removing multiple DMTCP-owned preload nodes while preserving launch-time disable behavior, exec-time preload propagation, external plugin ordering, IPC reverse restart order, pid-last placement, duplicate-symbol avoidance, stale artifact cleanup, and wrapper-only fast-pass behavior.
+
+## Source appendix synthesis map
+
+Evidence inventory for this synthesis: `gene-email.txt`, `doc/dmtcp_dlsym.txt`, `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, `doc/internal-plugin-consolidation-registration-architecture.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `src/dmtcp_launch.cpp`, `src/util_exec.cpp`, `src/execwrappers.cpp`, `src/dmtcpworker.cpp`, `src/pluginmanager.cpp`, `src/pluginmanager.h`, `include/dmtcp.h`, `src/Makefile.am`, `src/plugin/Makefile.am`, `src/dlwrappers.cpp`, `src/dmtcp_dlsym_wrappers.cpp`, `src/dmtcp_dlsym.cpp`, `src/plugin/timer/timerlist.cpp`, `src/plugin/svipc/sysvipc.cpp`, `src/plugin/ipc/ipc.cpp`, `src/plugin/pid/pid.cpp`, `src/plugin/alloc/mallocwrappers.cpp`, `src/plugin/alloc/mmapwrappers.cpp`, `src/plugin/dl/dlwrappers.cpp`, `test/autotest.py`, `test/sysv-shm1.c`, `test/sysv-shm2.c`, `test/timer1.c`, `test/timer2.c`, `test/dlopen1.c`, `test/dlopen2.cpp`, and `test/plugin-init.cpp`.
+
+| Source appendix or source group | What it contributes to the final design |
+|---|---|
+| S01 wrapper-order TSAN appendix: `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, with the motivating scenario in `gene-email.txt` and lookup details in `doc/dmtcp_dlsym.txt`, `src/dlwrappers.cpp`, `src/dmtcp_dlsym_wrappers.cpp`, and `src/dmtcp_dlsym.cpp` | Establishes current preload order, constructor entry, wrapper preparation, external `dlsym(RTLD_NEXT)` behavior, the `dl_iterate_phdr` risk path, and why TSAN remains a deferred runtime validation topic rather than an M001 success claim. |
+| S02 registration architecture appendix: `doc/internal-plugin-consolidation-registration-architecture.md`, plus `src/pluginmanager.cpp`, `src/pluginmanager.h`, `include/dmtcp.h`, `src/plugin/timer/timerlist.cpp`, `src/plugin/svipc/sysvipc.cpp`, `src/plugin/ipc/ipc.cpp`, and `src/plugin/pid/pid.cpp` | Establishes the PluginManager-owned built-in table, built-in descriptor table, external plugin ABI boundary, descriptor accessor shape, IPC subplugin ordering, and pid-last rule. |
+| S03 migration plan appendix: `doc/internal-plugin-consolidation-migration-plan.md`, plus `src/dmtcp_launch.cpp`, `src/util_exec.cpp`, `src/execwrappers.cpp`, `src/Makefile.am`, `src/plugin/Makefile.am`, and focused tests in `test/autotest.py` | Establishes the accepted migration order, stage gates, rollback boundaries, stale artifact cleanup gates, launch and exec propagation checks, build-boundary moves, and focused-test handles. |
+| Wrapper-only sources: `src/plugin/alloc/mallocwrappers.cpp`, `src/plugin/alloc/mmapwrappers.cpp`, and `src/plugin/dl/dlwrappers.cpp` | Establishes that alloc and dl are not descriptor plugins; they are wrapper-only groups whose disable path must fast-pass to real functions without PluginManager event rows. |
+| Runtime test anchors: `test/sysv-shm1.c`, `test/sysv-shm2.c`, `test/timer1.c`, `test/timer2.c`, `test/dlopen1.c`, `test/dlopen2.cpp`, and `test/plugin-init.cpp` | Establishes later focused gates for SysV shared memory, timer wrappers, dlopen/dlsym behavior, startup initialization, and external plugin smoke checks. |
+
+S01, S02, and S03 agree on the same final direction: reduce DMTCP-owned link-map layering, centralize internal descriptor registration, keep the public external plugin chain intact, and keep sanitizer and wrapper-order conclusions within a static evidence boundary. The wrapper-order TSAN appendix, registration architecture appendix, and migration plan appendix therefore compose into one M001 recommendation instead of three independent notes.
+
+## Accepted consolidation design
+
+The accepted design is a `libdmtcp.so`-centered architecture. The final runtime shape should remove the separate built-in internal plugin DSOs for timer, SysV IPC, IPC, PID, alloc, and DL as implementation stages mature, while leaving optional and external plugins as shared-object plugins. The launch and build evidence for the current split lives in `src/dmtcp_launch.cpp`, `src/Makefile.am`, and `src/plugin/Makefile.am`; the registration and ABI evidence lives in `src/pluginmanager.cpp`, `src/pluginmanager.h`, and `include/dmtcp.h`; the architecture source is `doc/internal-plugin-consolidation-registration-architecture.md`, with stage details in `doc/internal-plugin-consolidation-migration-plan.md`.
+
+The center of the design is a PluginManager-owned built-in table. The existing `libdmtcp.so` `dmtcp_initialize_plugin` chain node should call an internal helper that iterates a built-in descriptor table and calls `dmtcp_register_plugin` for each descriptor row. This keeps descriptor ownership explicit, keeps the core event engine in PluginManager, and avoids leaving former internal built-ins with duplicate exported `dmtcp_initialize_plugin` functions after they are linked into `libdmtcp.so`. Current descriptor sources provide the conversion targets: `src/plugin/timer/timerlist.cpp`, `src/plugin/svipc/sysvipc.cpp`, `src/plugin/ipc/ipc.cpp`, and `src/plugin/pid/pid.cpp`.
+
+The default descriptor order should preserve current behavior: external plugin descriptors first, then IPC subplugins in their current forward order, then SysV IPC, then timer, then the existing `libdmtcp.so` core descriptors in the current `src/pluginmanager.cpp` order, and finally pid. `PluginManager::eventHook` should remain unchanged in principle: forward events traverse registration order, while restart and resume classes traverse reverse registration order. That is why IPC is an order-sensitive stage rather than a simple source move.
+
+The burden assessment is manageable only if implementation remains staged. Each stage must move source ownership, update `src/Makefile.am` and `src/plugin/Makefile.am`, remove the old entry from `src/dmtcp_launch.cpp`, keep `ENV_VAR_HIJACK_LIBS` and exec propagation coherent through `src/execwrappers.cpp`, preserve restart argument propagation through `src/util_exec.cpp` where a user-facing flag exists, and run focused tests through `test/autotest.py`. The plan is feasible because each burden has a named source boundary and rollback point.
+
+## Built-in registration and external plugin ABI boundary
+
+The external plugin ABI remains unchanged. External shared-object plugins may still use the external plugin ABI through `DMTCP_DECL_PLUGIN`, their own `dmtcp_initialize_plugin` definitions, `NEXT_FNC(dmtcp_initialize_plugin)`, and `dmtcp_register_plugin` as defined in `include/dmtcp.h` and consumed by `src/pluginmanager.cpp`. The external dmtcp_initialize_plugin chain must stay visible to external plugins before the built-in table registers DMTCP internals. Required source anchors for this boundary are `doc/internal-plugin-consolidation-registration-architecture.md`, `src/pluginmanager.cpp`, `src/pluginmanager.h`, `include/dmtcp.h`, `src/plugin/timer/timerlist.cpp`, `src/plugin/svipc/sysvipc.cpp`, `src/plugin/ipc/ipc.cpp`, and `src/plugin/pid/pid.cpp`.
+
+Internal consolidated built-ins should stop using the public macro as their own registration surface. Timer, SysV IPC, and PID currently use `DMTCP_DECL_PLUGIN`; IPC currently has a handwritten `dmtcp_initialize_plugin` that initializes SSH, event, file, pty, and socket subplugins before chaining. After consolidation, those internal definitions become internal descriptor accessors consumed by the PluginManager-owned built-in table. External plugins keep the macro and chain; internal built-ins get one central registration path.
+
+Descriptor accessors should return existing descriptor data by value and avoid new startup side effects. Names should be internal, for example timer, SysV IPC, PID, and IPC subplugin accessors consumed from `src/pluginmanager.cpp`, not public APIs in `include/dmtcp.h`. Alloc and dl are excluded from this descriptor-accessor model because their current source files provide wrappers and no `DmtcpPluginDescriptor_t` registration.
+
+The ABI preservation invariant is: one `libdmtcp.so` chain node for DMTCP internals, no duplicate internal `dmtcp_initialize_plugin` definitions for consolidated built-ins, external `DMTCP_DECL_PLUGIN` compatibility preserved, and event-order behavior still owned by PluginManager.
+
+## Staged migration order and gate handoff
+
+Static order marker: timer,svipc,ipc,pid,alloc,dl. The accepted migration order is timer stage, SysV IPC stage, IPC stage, PID stage, alloc stage, and DL stage. This order comes from the migration appendix and current source boundaries in `doc/internal-plugin-consolidation-migration-plan.md`, `src/dmtcp_launch.cpp`, `src/util_exec.cpp`, `src/execwrappers.cpp`, `src/pluginmanager.cpp`, `src/Makefile.am`, `src/plugin/Makefile.am`, `src/plugin/timer/timerlist.cpp`, `src/plugin/svipc/sysvipc.cpp`, `src/plugin/ipc/ipc.cpp`, `src/plugin/pid/pid.cpp`, `src/plugin/alloc/mallocwrappers.cpp`, and `src/plugin/dl/dlwrappers.cpp`.
+
+| Stage | Primary source boundary | Gate and rollback boundary |
+|---|---|---|
+| timer stage | `src/plugin/timer/timerlist.cpp`, timer wrapper sources, `src/pluginmanager.cpp`, `src/Makefile.am`, `src/plugin/Makefile.am`, and `test/timer1.c` / `test/timer2.c` through `test/autotest.py` | Use timer as the descriptor tracer bullet. Keep the old timer DSO boundary until the accessor, table row, build move, launch-chain deletion, duplicate-symbol audit, and focused timer gate land together. |
+| SysV IPC stage | `src/plugin/svipc/sysvipc.cpp`, SysV IPC wrappers, `src/pluginmanager.cpp`, build files, and `test/sysv-shm1.c` / `test/sysv-shm2.c` through `test/autotest.py` | Move SysV shared-memory, semaphore, and message-queue behavior as one bounded descriptor stage. Roll back to the old DSO boundary if `IPC_PRIVATE`, keyed shared-memory, launch, exec, or symbol checks fail. |
+| IPC stage | `src/plugin/ipc/ipc.cpp`, the IPC subplugin descriptor sources, `src/pluginmanager.cpp`, build files, and `test/autotest.py` | Replace the handwritten initializer with explicit rows for SSH, event, file, pty, and socket. Preserve forward `ssh,event,file,pty,socket` and reverse `socket,pty,file,event,ssh`; roll back before PID if ordering or duplicate-initializer checks fail. |
+| PID stage | `src/plugin/pid/pid.cpp`, PID wrappers, `src/dmtcp_launch.cpp`, `src/pluginmanager.cpp`, build files, and `test/plugin-init.cpp` | Move PID only after IPC ordering is stable. Preserve pid last in the default descriptor order; keep the old PID DSO if the pid-last or startup smoke check fails. |
+| alloc stage | `src/dmtcp_launch.cpp`, `src/util_exec.cpp`, `src/plugin/alloc/mallocwrappers.cpp`, `src/plugin/alloc/mmapwrappers.cpp`, build files, and `test/plugin-init.cpp` | Move allocator wrappers into `libdmtcp.so` without adding a descriptor row. Roll back if `ENV_VAR_ALLOC_PLUGIN`, `--disable-alloc-plugin`, `--disable-all-plugins`, duplicate-wrapper, or fast-pass behavior regresses. |
+| DL stage | `src/dmtcp_launch.cpp`, `src/util_exec.cpp`, `src/execwrappers.cpp`, `src/plugin/dl/dlwrappers.cpp`, build files, `test/dlopen1.c`, and `test/dlopen2.cpp` | Move DL last because it is wrapper-only and closest to `RTLD_NEXT`, `dlopen`, `dlclose`, and sanitizer-sensitive lookup behavior. Roll back if disable semantics, duplicate-wrapper checks, or focused DL behavior regresses. |
+
+Each stage has the same shape: do not remove the old DSO boundary until the new libdmtcp source ownership, PluginManager or wrapper-only behavior, launch-chain update, exec propagation, duplicate-symbol or duplicate-wrapper audit, stale artifact cleanup, and focused tests are all ready for that stage. This prevents a half-migrated state where an old DSO and new `libdmtcp.so` object both own the same registration or wrapper surface.
+
+## Wrapper-only alloc/dl and runtime-risk boundary
+
+Alloc and dl remain wrapper-only. They should not appear in the built-in descriptor table, should not gain descriptor accessors, and should not register `DmtcpPluginDescriptor_t` rows. Their final behavior is engine-controlled wrapper enablement and disabled fast-pass behavior around the current launch variables `ENV_VAR_ALLOC_PLUGIN` and `ENV_VAR_DL_PLUGIN`. Source evidence for this split comes from `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `doc/dmtcp_dlsym.txt`, `src/dmtcp_launch.cpp`, `src/dlwrappers.cpp`, `src/dmtcp_dlsym_wrappers.cpp`, `src/dmtcp_dlsym.cpp`, `src/plugin/alloc/mallocwrappers.cpp`, `src/plugin/alloc/mmapwrappers.cpp`, and `src/plugin/dl/dlwrappers.cpp`.
+
+The alloc stage must preserve allocator wrapper behavior in `src/plugin/alloc/mallocwrappers.cpp` and mapping wrapper behavior in `src/plugin/alloc/mmapwrappers.cpp`. When disabled by launch or restart configuration, wrappers should fast-pass to the real functions rather than participate in PluginManager event dispatch. The DL stage must preserve the `dlopen` and `dlclose` wrapper lock and fast-pass semantics in `src/plugin/dl/dlwrappers.cpp`.
+
+This design reduces DMTCP-owned internal preload layers, but it does not remove every wrapper-order risk. TSAN runtime validation deferred to M004. dlsym/RTLD_NEXT runtime validation deferred to M004. dl_iterate_phdr runtime validation deferred to M004. The deferred runtime validation boundary remains explicit for all three risk surfaces. The current external `dlsym` wrapper path in `src/dlwrappers.cpp` still reaches `dl_iterate_phdr`, while `src/dmtcp_dlsym.cpp`, `src/dmtcp_dlsym_wrappers.cpp`, and `doc/dmtcp_dlsym.txt` preserve important default-version and caller-link-map semantics. M004 must decide whether to wrap, bypass, or replace that path after runtime evidence exists.
+
+The M001 risk posture is therefore conservative: consolidation is a prerequisite simplification, not the TSAN fix. It makes the internal DMTCP topology easier to reason about before TSAN, `dlsym(RTLD_NEXT)`, and `dl_iterate_phdr` experiments run.
+
+## Alternatives considered
+
+| Alternative | Decision | Why |
+|---|---|---|
+| Status quo: keep separate DSOs as the long-term architecture | rejected | The status quo preserves the current DMTCP-owned link-map layering and keeps registration order dependent on multiple internal `dmtcp_initialize_plugin` definitions. Evidence: `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, `doc/internal-plugin-consolidation-registration-architecture.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `src/dmtcp_launch.cpp`, and `src/pluginmanager.cpp`. |
+| Broad mainline merge before local consolidation | rejected | A broad merge would mix unrelated history into a targeted architecture change and would not by itself answer the current 2.5 source questions about `pluginInfo[]`, PluginManager order, wrapper-only groups, or focused gates. Evidence: `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, `doc/internal-plugin-consolidation-registration-architecture.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `src/dmtcp_launch.cpp`, and `src/pluginmanager.cpp`. |
+| Transitional internal DSO shims that keep old internal DSO boundaries alive | rejected | A transitional shim hides the desired final state and risks duplicate wrapper or duplicate initializer machinery. The direct staged migration keeps the old DSO boundary only as a rollback boundary until each stage passes, then removes it. Evidence: `doc/internal-plugin-consolidation-registration-architecture.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `src/dmtcp_launch.cpp`, and `src/pluginmanager.cpp`. |
+| All-at-once migration of timer, svipc, IPC, PID, alloc, and DL | rejected | All-at-once migration would blur source ownership, launch updates, exec propagation, duplicate-symbol audits, wrapper-only gates, and rollback diagnosis across six behavior surfaces. The accepted order `timer,svipc,ipc,pid,alloc,dl` keeps each stage reversible. Evidence: `doc/internal-plugin-consolidation-migration-plan.md`, `src/dmtcp_launch.cpp`, `src/execwrappers.cpp`, `src/Makefile.am`, and `src/plugin/Makefile.am`. |
+| Merge optional and external plugins into `libdmtcp.so` with the internal built-ins | rejected | Merging external plugins would expand the scope beyond DMTCP-owned internal DSOs, break the separate shared-object compatibility boundary, and remove wrapper autonomy that M005 must evaluate. Evidence: `doc/internal-plugin-consolidation-registration-architecture.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `include/dmtcp.h`, and `src/pluginmanager.cpp`. |
+| Make full TSAN checkpoint/restart the first acceptance gate | rejected | Full TSAN checkpoint/restart remains a north-star validation topic, not the first M001/M003 acceptance gate. The design must first remove internal layering and then let M004 run TSAN, `dlsym(RTLD_NEXT)`, and `dl_iterate_phdr` experiments with implementation evidence. Evidence: `gene-email.txt`, `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, `doc/dmtcp_dlsym.txt`, and `src/dmtcp_dlsym.cpp`. |
+| Move built-in registration directly into `PluginManager::initialize` before the external chain | rejected | That would risk changing external plugin registration order. The chosen design keeps the external chain node and lets that node call the PluginManager-owned built-in table at the same observable ABI boundary. Evidence: `doc/internal-plugin-consolidation-registration-architecture.md`, `include/dmtcp.h`, and `src/pluginmanager.cpp`. |
+
+The recommendation is the final clean `libdmtcp.so` centered design, not a compatibility shim, not the status quo, not an all-at-once migration, and not an external-plugin merge. It gives implementation a narrow sequence of reversible changes while preserving the external plugin model and keeping unsupported runtime claims out of M001.
+
+## Decision coverage D001-D008
+
+Decision coverage sources: `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, `doc/internal-plugin-consolidation-registration-architecture.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `src/dmtcp_launch.cpp`, `src/pluginmanager.cpp`, and `include/dmtcp.h`.
+
+| Decision | Final design coverage |
+|---|---|
+| D001 | Use PluginManager-owned explicit built-in descriptor/accessor registration when internals move into `libdmtcp.so`, while preserving external `DMTCP_DECL_PLUGIN` and the public `dmtcp_initialize_plugin` chain. |
+| D002 | Keep the risk-ordered stage sequence timer, svipc, ipc, pid, alloc, dl, with descriptor stages before wrapper-only stages. |
+| D003 | Keep TSAN, `dlsym(RTLD_NEXT)`, and `dl_iterate_phdr` runtime validation deferred to M004 rather than treating consolidation as a runtime sanitizer result. |
+| D004 | Keep optional, contrib, test, and user-provided external plugins as separate shared-object plugins outside the internal built-in consolidation. |
+| D005 | Preserve user-facing disable behavior inside the DMTCP engine; descriptor plugins may be skipped or disabled, while alloc and dl fast-pass as wrapper-only groups. |
+| D006 | Recommend the final clean `libdmtcp.so` centered architecture and no transitional shim. |
+| D007 | Do not plan a broad external-plugin migration script in M001; instead preserve compatibility assumptions and hand any recipe work to M005. |
+| D008 | Invoke the PluginManager-owned built-in table from the existing `libdmtcp.so` chain node so external plugins remain before DMTCP internals and alloc/dl stay wrapper-only. |
+
+## Requirement coverage R001 R002 R003 R006 R009 R010 R011 R014
+
+Requirement coverage sources: `gene-email.txt`, `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, `doc/internal-plugin-consolidation-registration-architecture.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `src/dmtcp_launch.cpp`, `src/util_exec.cpp`, `src/execwrappers.cpp`, `src/pluginmanager.cpp`, `include/dmtcp.h`, `src/plugin/alloc/mallocwrappers.cpp`, `src/plugin/dl/dlwrappers.cpp`, and `test/autotest.py`.
+
+| Requirement | M001 status in this design plan | Downstream owner |
+|---|---|---|
+| R001 | Satisfied at M001 design-proof level: feasibility, burden, recommended architecture, migration order, alternatives, known risks, requirement coverage, and source-backed proof boundaries are stated in one accepted markdown design plan. | M001/S04 acceptance. |
+| R002 | Preserved from the S01 wrapper-order appendix. That appendix source-mapped constructor order, wrapper order, TSAN concern, `dlsym(RTLD_NEXT)`, and `dl_iterate_phdr`; runtime experiments remain later. | M004 executes runtime experiments. |
+| R003 | Advanced by the timer, SysV IPC, IPC, PID, alloc, and DL stage gates with rollback points and focused-test handles; not validated by M001 static documentation. | M002 turns this into implementation work; M003 executes code migration. |
+| R006 | Advanced by one central built-in ownership model: PluginManager-owned descriptor rows for descriptor plugins, no duplicate internal initializers, and alloc/dl wrapper-only dispatch; not validated until implementation proves ownership and wrapper behavior. | M003 verifies implementation ownership and duplicate-wrapper avoidance. |
+| R009 | Advanced by keeping optional and external plugins separate from the internal consolidation while preserving the external chain boundary; not validated by the static design. | M005 evaluates optional and external plugin behavior. |
+| R010 | Advanced by documenting the compatibility recipe: external plugins keep `DMTCP_DECL_PLUGIN`, `dmtcp_initialize_plugin`, `NEXT_FNC(dmtcp_initialize_plugin)`, and separate shared-object loading; user-facing guidance remains downstream. | M005 produces maintainer-facing update guidance if implementation creates user-visible changes. |
+| R011 | Advanced only as a handoff: TSAN runtime validation deferred, dlsym/RTLD_NEXT runtime validation deferred, and dl_iterate_phdr runtime validation deferred to the sanitizer and wrapper-order milestone. | M004 owns sanitizer and wrapper-order stress evidence. |
+| R014 | Advanced by preserving external plugin ABI and wrapper autonomy outside the centralized internal built-in set; compatibility evidence remains downstream. | M005 verifies separate external plugin compatibility after implementation. |
+| R012 | deferred TSAN checkpoint/restart scope; no hard M001 or M003 acceptance gate; future M004 or future TSAN runtime evidence before any checkpoint restart guarantee. |
+| R013 | deferred runtime-overhead threshold scope; no concrete runtime overhead threshold defined or enforced in M001; future measurement gate or benchmark only if maintainers define a threshold. |
+
+Deferred implementation/sanitizer/external-plugin requirements remain active handoffs. R003 and R006 stay active for M002/M003 implementation planning and migration evidence, R011 stays active for M004 sanitizer and wrapper-order stress evidence, and R009, R010, and R014 stay active for M005 external-plugin evaluation and guidance.
+
+## No-transitional-shim recommendation
+
+Recommendation: no transitional shim. Use direct staged migration toward the final clean `libdmtcp.so` centered architecture. Evidence for this recommendation comes from `doc/internal-plugin-consolidation-registration-architecture.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `src/dmtcp_launch.cpp`, `src/util_exec.cpp`, `src/execwrappers.cpp`, `src/Makefile.am`, and `src/plugin/Makefile.am`.
+
+A shim would keep the old DSO boundary alive as a compatibility mechanism while adding a new central ownership path. That is exactly the state this refactor is trying to avoid: duplicate initializer ownership, duplicate wrapper machinery, unclear `NEXT_FNC` behavior, and stale artifact risk. The old DSO boundary should exist only as a rollback boundary during a stage, not as a long-lived architecture.
+
+Direct staged migration is safer because each stage has one reversible cut: add the new libdmtcp ownership, update build files, update launcher and exec propagation, run symbol or wrapper audits, run focused checks, then perform stale artifact cleanup for the removed internal DSO. If any gate fails, restore the old DSO boundary before starting the next stage.
+
+## Runtime proof boundaries and deferred validation
+
+This final design is not runtime proof. TSAN runtime validation deferred to M004. dlsym/RTLD_NEXT runtime validation deferred to M004. dl_iterate_phdr runtime validation deferred to M004. Runtime-boundary evidence sources are `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `doc/dmtcp_dlsym.txt`, `src/dlwrappers.cpp`, `src/dmtcp_dlsym_wrappers.cpp`, `src/dmtcp_dlsym.cpp`, `src/plugin/dl/dlwrappers.cpp`, `test/dlopen1.c`, and `test/dlopen2.cpp`.
+
+M001 proves traceability and architectural consistency, not execution under a moved build. M003 must provide build regeneration where needed, clean rebuild evidence, focused stage tests, duplicate-symbol and duplicate-wrapper audits, stale installed-DSO audits, and final batch validation after implementation edits. M004 must provide sanitizer and wrapper-order experiments, including the TSAN constructor scenario, external `dlsym(RTLD_NEXT)` behavior, and the `dl_iterate_phdr` interception or bypass decision.
+
+The runtime boundary matters because consolidation can reduce DMTCP-owned internal link-map nodes but cannot by itself control sanitizer constructor order or prove the correct target for every next-symbol lookup. The accepted design therefore keeps source-backed risks visible and assigns runtime evidence to the milestones that can produce it.
+
+## M002 through M005 handoff
+
+Handoff sources: `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, `doc/internal-plugin-consolidation-registration-architecture.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `src/dmtcp_launch.cpp`, `src/util_exec.cpp`, `src/execwrappers.cpp`, `src/pluginmanager.cpp`, `include/dmtcp.h`, and `test/autotest.py`.
+
+| Milestone | Handoff | Required acceptance evidence |
+|---|---|---|
+| M002 | Turn this accepted design into executable implementation slices without changing the architecture unless source or runtime evidence contradicts it. | Preserve ABI preservation, event-order preservation, wrapper-only disable behavior, and static-initialization safety as named acceptance gates. |
+| M003 | Implement the direct staged migration in the order timer,svipc,ipc,pid,alloc,dl. | Build regeneration where needed, clean rebuild, focused `test/autotest.py` selections, duplicate-symbol and duplicate-wrapper audits, stale artifact cleanup, pid-last checks, and full batch validation after stage groups. |
+| M004 | Run sanitizer and wrapper-order validation after implementation changes exist. | TSAN runtime validation deferred until this milestone; `dlsym(RTLD_NEXT)` and `dl_iterate_phdr` experiments must record behavior before any claim of sanitizer safety. |
+| M005 | Evaluate optional and external plugins as separate shared-object plugins under the cleaned-up internal architecture. | External plugin ABI preservation, separate shared-object loadability, external wrapper coexistence, and maintainer-facing compatibility guidance where needed. |
+
+### M002 handoff
+
+M002 should translate this accepted architecture into executable slices. The implementation plan must keep ABI preservation, event-order preservation, wrapper-only disable behavior, static-initialization safety, stage-specific rollback boundaries, and the no-transitional-shim recommendation visible as acceptance gates. Source anchors for the planner are `doc/internal-plugin-consolidation-registration-architecture.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `src/pluginmanager.cpp`, `include/dmtcp.h`, and `test/autotest.py`.
+
+### M003 handoff
+
+M003 owns the code migration. It should implement the stages in the static order `timer,svipc,ipc,pid,alloc,dl`, with build regeneration, clean rebuild evidence, launch and exec propagation checks, duplicate-symbol and duplicate-wrapper audits, stale artifact cleanup, pid-last checks, focused `test/autotest.py` selections, and final batch validation after stage groups. Source anchors are `src/dmtcp_launch.cpp`, `src/util_exec.cpp`, `src/execwrappers.cpp`, `src/pluginmanager.cpp`, `src/Makefile.am`, and `src/plugin/Makefile.am`.
+
+### M004 handoff
+
+M004 owns sanitizer and wrapper-order stress evidence after implementation exists. TSAN runtime validation deferred to M004, dlsym/RTLD_NEXT runtime validation deferred to M004, and dl_iterate_phdr runtime validation deferred to M004; only this milestone can convert those deferred risks into runtime results. Source anchors are `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, `doc/dmtcp_dlsym.txt`, `src/dmtcp_dlsym.cpp`, and `src/plugin/dl/dlwrappers.cpp`.
+
+### M005 handoff
+
+M005 owns optional and external plugin compatibility under the cleaned-up internal architecture. It should verify that external plugins remain separate shared-object plugins, can still use `DMTCP_DECL_PLUGIN`, `dmtcp_initialize_plugin`, `NEXT_FNC(dmtcp_initialize_plugin)`, and `dmtcp_register_plugin`, and retain wrapper autonomy for symbols not centralized by DMTCP. Source anchors are `doc/internal-plugin-consolidation-registration-architecture.md`, `include/dmtcp.h`, `src/pluginmanager.cpp`, and `test/plugin-init.cpp`.
+
+The handoff rule is simple: do not reopen the M001 architecture unless implementation or runtime evidence contradicts the source-backed assumptions in this plan. If evidence does contradict an assumption, preserve the conflict explicitly and revise the relevant stage gate rather than smoothing it over.
+
+## Known risks and diagnostics
+
+Risk and diagnostic sources: `doc/internal-plugin-consolidation-wrapper-order-tsan.md`, `doc/internal-plugin-consolidation-registration-architecture.md`, `doc/internal-plugin-consolidation-migration-plan.md`, `src/dmtcp_launch.cpp`, `src/pluginmanager.cpp`, and `test/autotest.py`.
+
+| Gate | Documentation artifact outcome | Diagnostic or mitigation |
+|---|---|---|
+| Q3 | Threat-surface outcome: no direct user input or data exposure is introduced by this documentation artifact, but the plan could be abused to justify implementation without ABI, sanitizer, or external-plugin boundaries. | Keep M001 as static proof only; reject unsupported TSAN, `dlsym(RTLD_NEXT)`, or `dl_iterate_phdr` runtime claims. |
+| Q4 | Requirement-impact outcome: R001 is satisfied at M001 design-proof level, R002 remains validated by S01, and R003, R006, R009, R010, R011, and R014 remain active downstream handoffs. | Keep R001/R002 in M001, hand R003/R006 to M002/M003, hand R011 to M004, and hand R009/R010/R014 to M005 with explicit evidence boundaries. |
+| Q5 | Failure-mode outcome: later implementation could create duplicate internal initializers, duplicate wrappers, wrong IPC reverse order, wrong pid-last placement, or stale removed DSOs. | Preserve per-stage symbol audits, wrapper audits, order checks, rollback boundaries, and stale artifact cleanup gates. |
+| Q6 | Load-profile outcome: this closeout performs bounded static verification over explicit docs and source anchors; it does not measure runtime load, concurrency, sanitizer behavior, or full checkpoint/restart behavior. | Treat runtime load profile, sanitizer behavior, and full checkpoint/restart behavior as implementation and validation milestone responsibilities. |
+| Q7 | Negative-test outcome: full mode must reject hidden planning paths, template-token leakage, missing decisions or requirements, missing M002-M005 handoffs, wrong migration order, and unsupported deferred-runtime success claims. | Run `python3 test/verify-consolidation-design-plan.py full` and the source appendix verifiers before final slice closeout. |
+
+Out-of-scope testing-harness note: designing a new coordinator-worker protocol unit-test harness or refactoring `test/autotest.py` is outside this internal-plugin consolidation design closeout. Future implementation milestones may add focused tests through `test/autotest.py`, but harness redesign is a separate project and should not be used as an M001 acceptance blocker.
+
+Primary diagnostic command for the final design artifact: `python3 test/verify-consolidation-design-plan.py full`. During T02, the narrower synthesis diagnostic is `python3 test/verify-consolidation-design-plan.py synthesis-map`; T03 should run coverage and full verifier modes plus the S01 through S03 appendix verifiers.
