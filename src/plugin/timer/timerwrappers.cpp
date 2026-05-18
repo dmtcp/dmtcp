@@ -20,14 +20,29 @@
  ****************************************************************************/
 
 #include "timerwrappers.h"
+#include <stdlib.h>
+#include <string.h>
+
 #include "timerlist.h"
 #include "wrapperlock.h"
+#include "../../constants.h"
 
 using namespace dmtcp;
+
+static bool
+timerPluginEnabled()
+{
+  const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
+  return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
+}
 
 extern "C" int
 timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
 {
+  if (!timerPluginEnabled()) {
+    return _real_timer_create(clockid, sevp, timerid);
+  }
+
   struct sigevent sevOut;
   timer_t realId;
   timer_t virtId;
@@ -58,6 +73,10 @@ timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
 extern "C" int
 timer_delete(timer_t timerid)
 {
+  if (!timerPluginEnabled()) {
+    return _real_timer_delete(timerid);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(timerid);
   int ret = _real_timer_delete(realId);
@@ -75,6 +94,10 @@ timer_settime(timer_t timerid,
               const struct itimerspec *new_value,
               struct itimerspec *old_value)
 {
+  if (!timerPluginEnabled()) {
+    return _real_timer_settime(timerid, flags, new_value, old_value);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(timerid);
   int ret = _real_timer_settime(realId, flags, new_value, old_value);
@@ -88,6 +111,10 @@ timer_settime(timer_t timerid,
 extern "C" int
 timer_gettime(timer_t timerid, struct itimerspec *curr_value)
 {
+  if (!timerPluginEnabled()) {
+    return _real_timer_gettime(timerid, curr_value);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(timerid);
   int ret = _real_timer_gettime(realId, curr_value);
@@ -98,6 +125,10 @@ timer_gettime(timer_t timerid, struct itimerspec *curr_value)
 extern "C" int
 timer_getoverrun(timer_t timerid)
 {
+  if (!timerPluginEnabled()) {
+    return _real_timer_getoverrun(timerid);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(timerid);
   int ret = _real_timer_getoverrun(realId);
@@ -111,6 +142,10 @@ timer_getoverrun(timer_t timerid)
 extern "C" int
 clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
 {
+  if (!timerPluginEnabled()) {
+    return _real_clock_getcpuclockid(pid, clock_id);
+  }
+
   clockid_t realId;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -125,6 +160,10 @@ clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
 extern "C" int
 pthread_getcpuclockid(pthread_t thread, clockid_t *clock_id)
 {
+  if (!timerPluginEnabled()) {
+    return _real_pthread_getcpuclockid(thread, clock_id);
+  }
+
   // We need to acquire an exclusive lock here because the corresponding Pid
   // plugin wrapper requires an exclusive lock.
   WrapperLockExcl wrapperLock;
@@ -139,6 +178,10 @@ pthread_getcpuclockid(pthread_t thread, clockid_t *clock_id)
 extern "C" int
 clock_getres(clockid_t clk_id, struct timespec *res)
 {
+  if (!timerPluginEnabled()) {
+    return _real_clock_getres(clk_id, res);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   // See comment on VIRTUAL_TO_REAL_CLOCK_ID() in timer_create()
@@ -151,6 +194,10 @@ clock_getres(clockid_t clk_id, struct timespec *res)
 extern "C" int
 clock_gettime(clockid_t clk_id, struct timespec *tp)
 {
+  if (!timerPluginEnabled()) {
+    return _real_clock_gettime(clk_id, tp);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   // See comment on VIRTUAL_TO_REAL_CLOCK_ID() in timer_create()
@@ -163,6 +210,10 @@ clock_gettime(clockid_t clk_id, struct timespec *tp)
 extern "C" int
 clock_settime(clockid_t clk_id, const struct timespec *tp)
 {
+  if (!timerPluginEnabled()) {
+    return _real_clock_settime(clk_id, tp);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   // See comment on VIRTUAL_TO_REAL_CLOCK_ID() in timer_create()
@@ -182,6 +233,10 @@ clock_nanosleep(clockid_t clock_id,
                 const struct timespec *request,
                 struct timespec *remain)
 {
+  if (!timerPluginEnabled()) {
+    return _real_clock_nanosleep(clock_id, flags, request, remain);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   // See comment on VIRTUAL_TO_REAL_CLOCK_ID() in timer_create()

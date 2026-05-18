@@ -210,6 +210,9 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	dmtcpplugin.$(OBJEXT) dmtcpworker.$(OBJEXT) \
 	dmtcp_dlsym_wrappers.$(OBJEXT) execwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) kvdb.$(OBJEXT) miscwrappers.$(OBJEXT) \
+	plugin/timer/timer_create.$(OBJEXT) \
+	plugin/timer/timerlist.$(OBJEXT) \
+	plugin/timer/timerwrappers.$(OBJEXT) \
 	plugin_pathtranslator.$(OBJEXT) plugininfo.$(OBJEXT) \
 	pluginmanager.$(OBJEXT) popen.$(OBJEXT) tls.$(OBJEXT) \
 	posix_spawn.$(OBJEXT) rlimitfloatenv.$(OBJEXT) \
@@ -259,6 +262,9 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	./$(DEPDIR)/execwrappers.Po ./$(DEPDIR)/glibcsystem.Po \
 	./$(DEPDIR)/jalibinterface.Po ./$(DEPDIR)/kvdb.Po \
 	./$(DEPDIR)/lookup_service.Po ./$(DEPDIR)/miscwrappers.Po \
+	plugin/timer/$(DEPDIR)/timer_create.Po \
+	plugin/timer/$(DEPDIR)/timerlist.Po \
+	plugin/timer/$(DEPDIR)/timerwrappers.Po \
 	./$(DEPDIR)/mutex.Po ./$(DEPDIR)/nosyscallsreal.Po \
 	./$(DEPDIR)/plugin_pathtranslator.Po ./$(DEPDIR)/plugininfo.Po \
 	./$(DEPDIR)/pluginmanager.Po ./$(DEPDIR)/popen.Po \
@@ -690,6 +696,11 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  glibcsystem.cpp 		\
 				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
+				  plugin/timer/timer_create.cpp 	\
+				  plugin/timer/timerlist.cpp 	\
+				  plugin/timer/timerlist.h 	\
+				  plugin/timer/timerwrappers.cpp 	\
+				  plugin/timer/timerwrappers.h 	\
 				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\
@@ -947,6 +958,18 @@ $(d_bindir)/dmtcp_restart$(EXEEXT): $(__d_bindir__dmtcp_restart_OBJECTS) $(__d_b
 $(d_libdir)/$(am__dirstamp):
 	@$(MKDIR_P) $(d_libdir)
 	@: >>$(d_libdir)/$(am__dirstamp)
+plugin/timer/$(am__dirstamp):
+	@$(MKDIR_P) plugin/timer
+	@: >>plugin/timer/$(am__dirstamp)
+plugin/timer/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/timer/$(DEPDIR)
+	@: >>plugin/timer/$(DEPDIR)/$(am__dirstamp)
+plugin/timer/timer_create.$(OBJEXT): plugin/timer/$(am__dirstamp) \
+	plugin/timer/$(DEPDIR)/$(am__dirstamp)
+plugin/timer/timerlist.$(OBJEXT): plugin/timer/$(am__dirstamp) \
+	plugin/timer/$(DEPDIR)/$(am__dirstamp)
+plugin/timer/timerwrappers.$(OBJEXT): plugin/timer/$(am__dirstamp) \
+	plugin/timer/$(DEPDIR)/$(am__dirstamp)
 
 $(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdir__libdmtcp_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp.so$(EXEEXT)
@@ -955,6 +978,7 @@ $(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdi
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f $(jalibdir)/*.$(OBJEXT)
+	-rm -f plugin/timer/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -990,6 +1014,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/kvdb.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lookup_service.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/miscwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timer_create.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timerlist.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timerwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mutex.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nosyscallsreal.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugin_pathtranslator.Po@am__quote@ # am--include-marker

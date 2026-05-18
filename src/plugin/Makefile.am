@@ -163,14 +163,9 @@ __d_libdir__libdmtcp_svipc_so_LDFLAGS = $(dmtcp_ldflags)
 #
 # Timer plugin
 #
-libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_timer.so
-__d_libdir__libdmtcp_timer_so_SOURCES =                                \
-	timer/timer_create.cpp                                         \
-	timer/timerlist.cpp                                            \
-	timer/timerlist.h                                              \
-	timer/timerwrappers.cpp                                        \
-	timer/timerwrappers.h
-__d_libdir__libdmtcp_timer_so_LDFLAGS = $(dmtcp_ldflags)
+# Timer wrappers and the timer descriptor are now built into libdmtcp.so.
+# Keep no timer DSO target here, or the moved wrappers would have two
+# DMTCP-owned exporting artifacts.
 
 install-libs: install-libdmtcpPROGRAMS
 

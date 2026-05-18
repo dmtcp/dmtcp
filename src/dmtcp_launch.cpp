@@ -168,7 +168,6 @@ static bool enableDlPlugin = true;
 static bool enableIPCPlugin = true;
 static bool enableSvipcPlugin = true;
 static bool enablePathVirtPlugin = false;
-static bool enableTimerPlugin = true;
 
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
 static bool enableUniqueCkptPlugin = true;
@@ -198,7 +197,6 @@ static struct PluginInfo pluginInfo[] = {               // Default value
   { &enableIPCPlugin, "libdmtcp_ipc.so" },              // Enabled
   { &enableSvipcPlugin, "libdmtcp_svipc.so" },          // Enabled
   { &enablePathVirtPlugin,  "libdmtcp_pathvirt.so"},    // Disabled
-  { &enableTimerPlugin, "libdmtcp_timer.so" },          // Enabled
   { &enableLibDMTCP, "libdmtcp.so" },                   // Enabled
   // PID plugin must come last.
   { &enablePIDPlugin, "libdmtcp_pid.so" }               // Enabled
@@ -810,6 +808,8 @@ setLDPreloadLibs(bool is32bitElf)
       }
     }
   }
+
+  setenv(ENV_VAR_DISABLE_ALL_PLUGINS, disableAllPlugins ? "1" : "0", 1);
 
   setenv(ENV_VAR_HIJACK_LIBS, preloadLibs.c_str(), 1);
 #if defined(__x86_64__) || defined(__aarch64__)

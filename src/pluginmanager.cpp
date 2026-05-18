@@ -1,5 +1,9 @@
+#include <stdlib.h>
+#include <string.h>
+
 #include "pluginmanager.h"
 
+#include "constants.h"
 #include "coordinatorapi.h"
 #include "config.h"
 #include "dmtcp.h"
@@ -27,6 +31,14 @@ DmtcpPluginDescriptor_t dmtcp_Alarm_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Terminal_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_ProcessInfo_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_PathTranslator_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_Timer_PluginDescr();
+
+static bool
+timerPluginEnabled()
+{
+  const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
+  return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
+}
 
 void
 PluginManager::initialize()
@@ -57,7 +69,12 @@ PluginManager::registerPlugin(DmtcpPluginDescriptor_t descr)
 extern "C" void
 dmtcp_initialize_plugin()
 {
-  // Now register the "in-built" plugins.
+  // Now register the "in-built" plugins.  The timer plugin used to be a
+  // separate DSO omitted by --disable-all-plugins; now that it is linked into
+  // libdmtcp.so, keep that global-disable behavior by skipping its built-in row.
+  if (timerPluginEnabled()) {
+    dmtcp_register_plugin(dmtcp_Timer_PluginDescr());
+  }
   dmtcp_register_plugin(dmtcp_PathTranslator_PluginDescr());
   dmtcp_register_plugin(dmtcp_Syslog_PluginDescr());
   dmtcp_register_plugin(dmtcp_Rlimit_Float_PluginDescr());

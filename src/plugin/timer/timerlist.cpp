@@ -95,7 +95,7 @@ timer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-DmtcpPluginDescriptor_t timerPlugin = {
+static DmtcpPluginDescriptor_t timerPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "timer",
@@ -105,7 +105,14 @@ DmtcpPluginDescriptor_t timerPlugin = {
   timer_event_hook
 };
 
-DMTCP_DECL_PLUGIN(timerPlugin);
+namespace dmtcp
+{
+DmtcpPluginDescriptor_t
+dmtcp_Timer_PluginDescr()
+{
+  return timerPlugin;
+}
+}
 
 
 /*
