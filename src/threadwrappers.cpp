@@ -47,7 +47,13 @@ gettid(void) __THROW
 static void
 processChildThread(Thread *thread)
 {
-  dmtcp_init_virtual_tid();
+  // dmtcp_init_virtual_tid() is provided by the PID plugin.  A
+  // --disable-all-plugins launch preloads only libdmtcp.so, so the weak symbol
+  // is intentionally absent there; keep thread startup on real tids in that
+  // reduced mode instead of calling through a null hook.
+  if (dmtcp_init_virtual_tid != NULL) {
+    dmtcp_init_virtual_tid();
+  }
   JASSERT(thread->wrapperLockCount != 0);
 
   ThreadList::initThread(thread);

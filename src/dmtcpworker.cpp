@@ -155,6 +155,13 @@ prepareLogAndProcessdDataFromSerialFile()
     edata.postExec.serializationFd = PROTECTED_LIFEBOAT_FD;
     PluginManager::eventHook(DMTCP_EVENT_POST_EXEC, &edata);
     _real_close(PROTECTED_LIFEBOAT_FD);
+
+    // A disable-all exec path omits the PID plugin, whose INIT hook normally
+    // touches SharedData early.  Ensure the shared area is mapped before the
+    // checkpoint thread starts and calls SharedData::resetBarrierInfo().
+    if (!SharedData::initialized()) {
+      Util::initializeLogFile(SharedData::getTmpDir());
+    }
   } else {
     // Brand new process (was never under ckpt-control),
 
