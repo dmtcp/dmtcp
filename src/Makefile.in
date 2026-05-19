@@ -210,6 +210,8 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	dmtcpplugin.$(OBJEXT) dmtcpworker.$(OBJEXT) \
 	dmtcp_dlsym_wrappers.$(OBJEXT) execwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) kvdb.$(OBJEXT) miscwrappers.$(OBJEXT) \
+	plugin/svipc/sysvipc.$(OBJEXT) \
+	plugin/svipc/sysvipcwrappers.$(OBJEXT) \
 	plugin/timer/timer_create.$(OBJEXT) \
 	plugin/timer/timerlist.$(OBJEXT) \
 	plugin/timer/timerwrappers.$(OBJEXT) \
@@ -262,6 +264,8 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	./$(DEPDIR)/execwrappers.Po ./$(DEPDIR)/glibcsystem.Po \
 	./$(DEPDIR)/jalibinterface.Po ./$(DEPDIR)/kvdb.Po \
 	./$(DEPDIR)/lookup_service.Po ./$(DEPDIR)/miscwrappers.Po \
+	plugin/svipc/$(DEPDIR)/sysvipc.Po \
+	plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po \
 	plugin/timer/$(DEPDIR)/timer_create.Po \
 	plugin/timer/$(DEPDIR)/timerlist.Po \
 	plugin/timer/$(DEPDIR)/timerwrappers.Po \
@@ -696,6 +700,10 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  glibcsystem.cpp 		\
 				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
+				  plugin/svipc/sysvipc.cpp 	\
+				  plugin/svipc/sysvipc.h 		\
+				  plugin/svipc/sysvipcwrappers.cpp 	\
+				  plugin/svipc/sysvipcwrappers.h 	\
 				  plugin/timer/timer_create.cpp 	\
 				  plugin/timer/timerlist.cpp 	\
 				  plugin/timer/timerlist.h 	\
@@ -958,6 +966,16 @@ $(d_bindir)/dmtcp_restart$(EXEEXT): $(__d_bindir__dmtcp_restart_OBJECTS) $(__d_b
 $(d_libdir)/$(am__dirstamp):
 	@$(MKDIR_P) $(d_libdir)
 	@: >>$(d_libdir)/$(am__dirstamp)
+plugin/svipc/$(am__dirstamp):
+	@$(MKDIR_P) plugin/svipc
+	@: >>plugin/svipc/$(am__dirstamp)
+plugin/svipc/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/svipc/$(DEPDIR)
+	@: >>plugin/svipc/$(DEPDIR)/$(am__dirstamp)
+plugin/svipc/sysvipc.$(OBJEXT): plugin/svipc/$(am__dirstamp) \
+	plugin/svipc/$(DEPDIR)/$(am__dirstamp)
+plugin/svipc/sysvipcwrappers.$(OBJEXT): plugin/svipc/$(am__dirstamp) \
+	plugin/svipc/$(DEPDIR)/$(am__dirstamp)
 plugin/timer/$(am__dirstamp):
 	@$(MKDIR_P) plugin/timer
 	@: >>plugin/timer/$(am__dirstamp)
@@ -978,6 +996,7 @@ $(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdi
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f $(jalibdir)/*.$(OBJEXT)
+	-rm -f plugin/svipc/*.$(OBJEXT)
 	-rm -f plugin/timer/*.$(OBJEXT)
 
 distclean-compile:
@@ -1014,6 +1033,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/kvdb.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lookup_service.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/miscwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/svipc/$(DEPDIR)/sysvipc.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timer_create.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timerlist.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timerwrappers.Po@am__quote@ # am--include-marker

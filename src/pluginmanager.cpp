@@ -31,10 +31,18 @@ DmtcpPluginDescriptor_t dmtcp_Alarm_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Terminal_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_ProcessInfo_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_PathTranslator_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_SysVIPC_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Timer_PluginDescr();
 
 static bool
 timerPluginEnabled()
+{
+  const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
+  return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
+}
+
+static bool
+sysvipcPluginEnabled()
 {
   const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
   return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
@@ -74,6 +82,9 @@ dmtcp_initialize_plugin()
   // libdmtcp.so, keep that global-disable behavior by skipping its built-in row.
   if (timerPluginEnabled()) {
     dmtcp_register_plugin(dmtcp_Timer_PluginDescr());
+  }
+  if (sysvipcPluginEnabled()) {
+    dmtcp_register_plugin(dmtcp_SysVIPC_PluginDescr());
   }
   dmtcp_register_plugin(dmtcp_PathTranslator_PluginDescr());
   dmtcp_register_plugin(dmtcp_Syslog_PluginDescr());

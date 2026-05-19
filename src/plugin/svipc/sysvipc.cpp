@@ -224,7 +224,7 @@ sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-DmtcpPluginDescriptor_t sysvipcPlugin = {
+static DmtcpPluginDescriptor_t sysvipcPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "sysvipc",
@@ -234,7 +234,14 @@ DmtcpPluginDescriptor_t sysvipcPlugin = {
   sysvipc_event_hook
 };
 
-DMTCP_DECL_PLUGIN(sysvipcPlugin);
+namespace dmtcp
+{
+DmtcpPluginDescriptor_t
+dmtcp_SysVIPC_PluginDescr()
+{
+  return sysvipcPlugin;
+}
+}
 
 
 static void

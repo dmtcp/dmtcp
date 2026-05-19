@@ -112,6 +112,10 @@ LIB_PRIVATE pid_t dmtcp_gettid();
 LIB_PRIVATE int dmtcp_tkill(int tid, int sig);
 LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
 
+#ifdef __cplusplus
+extern "C" bool dmtcp_svipc_inside_shmdt() __attribute((weak));
+#endif
+
 #define FOREACH_PIDVIRT_WRAPPER(MACRO) \
   MACRO(fork)                          \
   MACRO(vfork)                         \

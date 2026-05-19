@@ -24,6 +24,8 @@
 #define msgrcv msgrcv_glibc
 
 #include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/shm.h>
@@ -31,6 +33,7 @@
 #undef msgrcv
 
 #include "jassert.h"
+#include "constants.h"
 #include "dmtcp.h"
 #include "sysvipc.h"
 #include "sysvipcwrappers.h"
@@ -38,6 +41,13 @@
 using namespace dmtcp;
 
 static struct timespec ts_100ms = { 0, 100 * 1000 * 1000 };
+
+static bool
+sysvipcPluginEnabled()
+{
+  const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
+  return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
+}
 
 /*
  * In Open MPI 2.0, shmdt() is intercepted by modifying libraries' global
@@ -64,6 +74,10 @@ extern "C"
 int
 shmget(key_t key, size_t size, int shmflg)
 {
+  if (!sysvipcPluginEnabled()) {
+    return _real_shmget(key, size, shmflg);
+  }
+
   int realId = -1;
   int virtId = -1;
 
@@ -103,6 +117,10 @@ shmget(key_t key, size_t size, int shmflg)
 extern "C"
 void *shmat(int shmid, const void *shmaddr, int shmflg)
 {
+  if (!sysvipcPluginEnabled()) {
+    return _real_shmat(shmid, shmaddr, shmflg);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int realShmid = VIRTUAL_TO_REAL_SHM_ID(shmid);
   JASSERT(realShmid != -1).Text("Not Implemented");
@@ -159,6 +177,10 @@ extern "C"
 int
 shmdt(const void *shmaddr)
 {
+  if (!sysvipcPluginEnabled()) {
+    return _real_shmdt(shmaddr);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   inside_shmdt = true;
   int ret = _real_shmdt(shmaddr);
@@ -175,6 +197,10 @@ extern "C"
 int
 shmctl(int shmid, int cmd, struct shmid_ds *buf)
 {
+  if (!sysvipcPluginEnabled()) {
+    return _real_shmctl(shmid, cmd, buf);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int realShmid = VIRTUAL_TO_REAL_SHM_ID(shmid);
   JASSERT(realShmid != -1);
@@ -193,6 +219,10 @@ extern "C"
 int
 semget(key_t key, int nsems, int semflg)
 {
+  if (!sysvipcPluginEnabled()) {
+    return _real_semget(key, nsems, semflg);
+  }
+
   int realId = -1;
   int virtId = -1;
 
@@ -211,6 +241,10 @@ extern "C"
 int
 semop(int semid, struct sembuf *sops, size_t nsops)
 {
+  if (!sysvipcPluginEnabled()) {
+    return _real_semop(semid, sops, nsops);
+  }
+
   return semtimedop(semid, sops, nsops, NULL);
 }
 
@@ -221,6 +255,10 @@ semtimedop(int semid,
            size_t nsops,
            const struct timespec *timeout)
 {
+  if (!sysvipcPluginEnabled()) {
+    return _real_semtimedop(semid, sops, nsops, timeout);
+  }
+
   struct timespec totaltime = { 0, 0 };
   int ret;
   int realId;
@@ -283,6 +321,11 @@ semctl(int semid, int semnum, int cmd, ...)
   va_start(arg, cmd);
   uarg = va_arg(arg, union semun);
   va_end(arg);
+
+  if (!sysvipcPluginEnabled()) {
+    return _real_semctl(semid, semnum, cmd, uarg);
+  }
+
   int ret = -1;
 
   if (cmd == SEM_INFO || cmd == IPC_INFO) {
@@ -311,6 +354,10 @@ extern "C"
 int
 msgget(key_t key, int msgflg)
 {
+  if (!sysvipcPluginEnabled()) {
+    return _real_msgget(key, msgflg);
+  }
+
   int realId = -1;
   int virtId = -1;
 
@@ -329,6 +376,10 @@ extern "C"
 int
 msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
 {
+  if (!sysvipcPluginEnabled()) {
+    return _real_msgsnd(msqid, msgp, msgsz, msgflg);
+  }
+
   int ret;
   int realId;
 
@@ -364,6 +415,10 @@ extern "C"
 ssize_t
 msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
 {
+  if (!sysvipcPluginEnabled()) {
+    return _real_msgrcv(msqid, msgp, msgsz, msgtyp, msgflg);
+  }
+
   int ret;
   int realId;
 
@@ -399,6 +454,10 @@ extern "C"
 int
 msgctl(int msqid, int cmd, struct msqid_ds *buf)
 {
+  if (!sysvipcPluginEnabled()) {
+    return _real_msgctl(msqid, cmd, buf);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
   JASSERT(realId != -1);

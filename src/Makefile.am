@@ -168,6 +168,10 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  glibcsystem.cpp 		\
 				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
+				  plugin/svipc/sysvipc.cpp 	\
+				  plugin/svipc/sysvipc.h 		\
+				  plugin/svipc/sysvipcwrappers.cpp 	\
+				  plugin/svipc/sysvipcwrappers.h 	\
 				  plugin/timer/timer_create.cpp 	\
 				  plugin/timer/timerlist.cpp 	\
 				  plugin/timer/timerlist.h 	\
