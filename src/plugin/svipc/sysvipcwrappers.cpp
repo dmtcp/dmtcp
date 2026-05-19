@@ -49,6 +49,29 @@ sysvipcPluginEnabled()
   return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
 }
 
+static bool
+semctlCmdUsesArg(int cmd)
+{
+  switch (cmd) {
+    case SETVAL:
+    case SETALL:
+    case GETALL:
+    case IPC_STAT:
+    case IPC_SET:
+    case IPC_INFO:
+    case SEM_INFO:
+#ifdef SEM_STAT
+    case SEM_STAT:
+#endif
+#ifdef SEM_STAT_ANY
+    case SEM_STAT_ANY:
+#endif
+      return true;
+    default:
+      return false;
+  }
+}
+
 /*
  * In Open MPI 2.0, shmdt() is intercepted by modifying libraries' global
  * offset table, meaning that _real_shmdt() will be redirected into
@@ -178,17 +201,22 @@ int
 shmdt(const void *shmaddr)
 {
   if (!sysvipcPluginEnabled()) {
-    return _real_shmdt(shmaddr);
+    bool wasInside = inside_shmdt;
+    inside_shmdt = true;
+    int ret = _real_shmdt(shmaddr);
+    inside_shmdt = wasInside;
+    return ret;
   }
 
   DMTCP_PLUGIN_DISABLE_CKPT();
+  bool wasInside = inside_shmdt;
   inside_shmdt = true;
   int ret = _real_shmdt(shmaddr);
   if (ret != -1) {
     SysVShm::instance().on_shmdt(shmaddr);
     JTRACE("Unmapping Shared memory segment") (shmaddr);
   }
-  inside_shmdt = false;
+  inside_shmdt = wasInside;
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
@@ -315,14 +343,25 @@ extern "C"
 int
 semctl(int semid, int semnum, int cmd, ...)
 {
+  const bool enabled = sysvipcPluginEnabled();
+  const bool hasArg = semctlCmdUsesArg(cmd);
+
+  if (!enabled && !hasArg) {
+    return _real_semctl(semid, semnum, cmd);
+  }
+
   union semun uarg;
-  va_list arg;
+  memset(&uarg, 0, sizeof(uarg));
 
-  va_start(arg, cmd);
-  uarg = va_arg(arg, union semun);
-  va_end(arg);
+  if (hasArg) {
+    va_list arg;
 
-  if (!sysvipcPluginEnabled()) {
+    va_start(arg, cmd);
+    uarg = va_arg(arg, union semun);
+    va_end(arg);
+  }
+
+  if (!enabled) {
     return _real_semctl(semid, semnum, cmd, uarg);
   }
 
@@ -335,7 +374,11 @@ semctl(int semid, int semnum, int cmd, ...)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int realId = VIRTUAL_TO_REAL_SEM_ID(semid);
   JASSERT(realId != -1) (semid) (semnum) (cmd);
-  ret = _real_semctl(realId, semnum, cmd, uarg);
+  if (hasArg) {
+    ret = _real_semctl(realId, semnum, cmd, uarg);
+  } else {
+    ret = _real_semctl(realId, semnum, cmd);
+  }
   if (ret != -1) {
     SysVSem::instance().on_semctl(semid, semnum, cmd, uarg);
   }
