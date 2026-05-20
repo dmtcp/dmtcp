@@ -86,7 +86,7 @@ dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 
-DmtcpPluginDescriptor_t sshPlugin = {
+static DmtcpPluginDescriptor_t sshPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   DMTCP_PACKAGE_VERSION,
   "ssh",
@@ -96,10 +96,13 @@ DmtcpPluginDescriptor_t sshPlugin = {
   dmtcp_SSH_EventHook
 };
 
-void
-ipc_initialize_plugin_ssh()
+namespace dmtcp
 {
-  dmtcp_register_plugin(sshPlugin);
+DmtcpPluginDescriptor_t
+dmtcp_IpcSsh_PluginDescr()
+{
+  return sshPlugin;
+}
 }
 
 void

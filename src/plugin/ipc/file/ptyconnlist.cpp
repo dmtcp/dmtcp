@@ -95,7 +95,7 @@ dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 
-DmtcpPluginDescriptor_t ptyPlugin = {
+static DmtcpPluginDescriptor_t ptyPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "pty",
@@ -105,10 +105,13 @@ DmtcpPluginDescriptor_t ptyPlugin = {
   dmtcp_PtyConnList_EventHook
 };
 
-void
-ipc_initialize_plugin_pty()
+namespace dmtcp
 {
-  dmtcp_register_plugin(ptyPlugin);
+DmtcpPluginDescriptor_t
+dmtcp_IpcPty_PluginDescr()
+{
+  return ptyPlugin;
+}
 }
 
 void

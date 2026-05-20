@@ -33,6 +33,11 @@ DmtcpPluginDescriptor_t dmtcp_ProcessInfo_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_PathTranslator_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_SysVIPC_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Timer_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_IpcSsh_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_IpcEvent_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_IpcFile_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_IpcPty_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_IpcSocket_PluginDescr();
 
 static bool
 timerPluginEnabled()
@@ -43,6 +48,13 @@ timerPluginEnabled()
 
 static bool
 sysvipcPluginEnabled()
+{
+  const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
+  return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
+}
+
+static bool
+ipcPluginEnabled()
 {
   const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
   return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
@@ -85,6 +97,18 @@ dmtcp_initialize_plugin()
   }
   if (sysvipcPluginEnabled()) {
     dmtcp_register_plugin(dmtcp_SysVIPC_PluginDescr());
+  }
+  if (ipcPluginEnabled()) {
+    /*
+     * Keep the IPC subplugin forward registration order from the former
+     * IPC DSO.  Restart/resume hooks run in reverse order, so this preserves
+     * socket before SSH during restoration while avoiding a nested initializer.
+     */
+    dmtcp_register_plugin(dmtcp_IpcSsh_PluginDescr());
+    dmtcp_register_plugin(dmtcp_IpcEvent_PluginDescr());
+    dmtcp_register_plugin(dmtcp_IpcFile_PluginDescr());
+    dmtcp_register_plugin(dmtcp_IpcPty_PluginDescr());
+    dmtcp_register_plugin(dmtcp_IpcSocket_PluginDescr());
   }
   dmtcp_register_plugin(dmtcp_PathTranslator_PluginDescr());
   dmtcp_register_plugin(dmtcp_Syslog_PluginDescr());

@@ -85,7 +85,7 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-DmtcpPluginDescriptor_t socketPlugin = {
+static DmtcpPluginDescriptor_t socketPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "socket",
@@ -95,10 +95,13 @@ DmtcpPluginDescriptor_t socketPlugin = {
   dmtcp_SocketConnList_EventHook
 };
 
-void
-ipc_initialize_plugin_socket()
+namespace dmtcp
 {
-  dmtcp_register_plugin(socketPlugin);
+DmtcpPluginDescriptor_t
+dmtcp_IpcSocket_PluginDescr()
+{
+  return socketPlugin;
+}
 }
 
 SocketConnList&

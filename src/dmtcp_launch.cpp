@@ -165,7 +165,6 @@ static bool enableModifyEnvPlugin = false;
 
 static bool enableAllocPlugin = true;
 static bool enableDlPlugin = true;
-static bool enableIPCPlugin = true;
 static bool enablePathVirtPlugin = false;
 
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
@@ -193,7 +192,6 @@ static struct PluginInfo pluginInfo[] = {               // Default value
   { &enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so" }, // Disabled
   { &enableAllocPlugin, "libdmtcp_alloc.so" },          // Enabled
   { &enableDlPlugin, "libdmtcp_dl.so" },                // Enabled
-  { &enableIPCPlugin, "libdmtcp_ipc.so" },              // Enabled
   { &enablePathVirtPlugin,  "libdmtcp_pathvirt.so"},    // Disabled
   { &enableLibDMTCP, "libdmtcp.so" },                   // Enabled
   // PID plugin must come last.

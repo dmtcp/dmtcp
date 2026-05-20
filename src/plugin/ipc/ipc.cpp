@@ -20,52 +20,10 @@
  ****************************************************************************/
 
 #include "ipc.h"
-#include <linux/version.h>
-#include <errno.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-#include "jassert.h"
-#include "config.h"
-#include "dmtcp.h"
 
-#include "event/eventconnlist.h"
-#include "file/fileconnlist.h"
-#include "file/filewrappers.h"
-#include "file/ptyconnlist.h"
-#include "socket/socketconnlist.h"
-#include "ssh/ssh.h"
-
-using namespace dmtcp;
-
-void ipc_initialize_plugin_socket();
-void ipc_initialize_plugin_file();
-void ipc_initialize_plugin_pty();
-void ipc_initialize_plugin_event();
-void ipc_initialize_plugin_ssh();
-
-EXTERNC void
-dmtcp_initialize_plugin()
-{
-  /* A note on the ordering of plugins:
-   * 1. The file, pty, and socket plugins are independent of each other. Thus the
-   *    relative ordering doesn't matter.
-   * 2. The event plugin must be restored _after_ all other plugins that deal
-   *    with file descriptors have been restored. This is because an epoll call
-   *    would require the to-be-monitored fds to be valid at the time of calling
-   *    epoll_ctl. (See github issue #405)
-   * 3. The SSH plugin should be restored _after_ the socket plugin because it
-   *    relies on the out-of-band socket to be restored in order to determine
-   *    the current network address of the remote ssh-child.
-   */
-
-  ipc_initialize_plugin_ssh();
-  ipc_initialize_plugin_event();
-  ipc_initialize_plugin_file();
-  ipc_initialize_plugin_pty();
-  ipc_initialize_plugin_socket();
-
-  void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);
-  if (fn != NULL) {
-    (*fn)();
-  }
-}
+/*
+ * IPC subplugin descriptors are registered by PluginManager now that their
+ * implementation is linked into libdmtcp.so.  Keep this translation unit in
+ * the IPC source boundary for existing build/source ownership contracts, but
+ * do not define an IPC-local dmtcp_initialize_plugin() chain here.
+ */

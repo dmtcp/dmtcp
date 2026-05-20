@@ -48,7 +48,7 @@ endif
 
 #HEADERS
 #set the include path found by configure
-AM_CPPFLAGS= -I$(dmtcpincludedir) -I$(jalibdir)
+AM_CPPFLAGS= -I$(dmtcpincludedir) -I$(jalibdir) -I$(srcdir)/plugin/ipc
 
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a 				\
@@ -177,6 +177,51 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  plugin/timer/timerlist.h 	\
 				  plugin/timer/timerwrappers.cpp 	\
 				  plugin/timer/timerwrappers.h 	\
+				  plugin/ipc/connection.cpp 	\
+				  plugin/ipc/connection.h 	\
+				  plugin/ipc/connectionidentifier.cpp 	\
+				  plugin/ipc/connectionidentifier.h 	\
+				  plugin/ipc/connectionlist.cpp 	\
+				  plugin/ipc/connectionlist.h 	\
+				  plugin/ipc/ipc.cpp 	\
+				  plugin/ipc/ipc.h 	\
+				  plugin/ipc/event/eventconnection.cpp 	\
+				  plugin/ipc/event/eventconnection.h 	\
+				  plugin/ipc/event/eventconnlist.cpp 	\
+				  plugin/ipc/event/eventconnlist.h 	\
+				  plugin/ipc/event/eventwrappers.cpp 	\
+				  plugin/ipc/event/eventwrappers.h 	\
+				  plugin/ipc/event/util_descriptor.cpp 	\
+				  plugin/ipc/event/util_descriptor.h 	\
+				  plugin/ipc/file/fileconnection.cpp 	\
+				  plugin/ipc/file/fileconnection.h 	\
+				  plugin/ipc/file/fileconnlist.cpp 	\
+				  plugin/ipc/file/fileconnlist.h 	\
+				  plugin/ipc/file/filewrappers.cpp 	\
+				  plugin/ipc/file/filewrappers.h 	\
+				  plugin/ipc/file/openwrappers.cpp 	\
+				  plugin/ipc/file/posixipcwrappers.cpp 	\
+				  plugin/ipc/file/ptyconnection.cpp 	\
+				  plugin/ipc/file/ptyconnection.h 	\
+				  plugin/ipc/file/ptyconnlist.cpp 	\
+				  plugin/ipc/file/ptyconnlist.h 	\
+				  plugin/ipc/file/ptywrappers.cpp 	\
+				  plugin/ipc/file/ptywrappers.h 	\
+				  plugin/ipc/socket/connectionmessage.h 	\
+				  plugin/ipc/socket/connectionrewirer.cpp 	\
+				  plugin/ipc/socket/connectionrewirer.h 	\
+				  plugin/ipc/socket/kernelbufferdrainer.cpp 	\
+				  plugin/ipc/socket/kernelbufferdrainer.h 	\
+				  plugin/ipc/socket/socketconnection.cpp 	\
+				  plugin/ipc/socket/socketconnection.h 	\
+				  plugin/ipc/socket/socketconnlist.cpp 	\
+				  plugin/ipc/socket/socketconnlist.h 	\
+				  plugin/ipc/socket/socketwrappers.cpp 	\
+				  plugin/ipc/socket/socketwrappers.h 	\
+				  plugin/ipc/ssh/ssh.cpp 	\
+				  plugin/ipc/ssh/sshdrainer.cpp 	\
+				  plugin/ipc/ssh/sshdrainer.h 	\
+				  plugin/ipc/ssh/ssh.h 	\
 				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\

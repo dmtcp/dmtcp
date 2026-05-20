@@ -262,6 +262,9 @@ else
 	#$@: required 'cilkc' missing, skipping test
 endif
 
+ipc-built-in-preload: ipc-built-in-preload.c
+	$(CC) -o $@ $< $(CFLAGS) -lrt
+
 %: %.c
 	$(CC) -o $@ $< $(CFLAGS)
 
