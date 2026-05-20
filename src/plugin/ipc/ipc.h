@@ -27,8 +27,14 @@
 #include <linux/version.h>
 #include <poll.h>
 #include <signal.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include "dmtcp.h"
+
+#ifndef ENV_VAR_DISABLE_ALL_PLUGINS
+# define ENV_VAR_DISABLE_ALL_PLUGINS "DMTCP_DISABLE_ALL_PLUGINS"
+#endif
 
 # define CONNECTION_ID_START        99000
 
@@ -53,4 +59,11 @@
 # define _real_fcntl                NEXT_FNC(fcntl)
 # define _real_select               NEXT_FNC(select)
 # define _real_poll                 NEXT_FNC(poll)
+
+static inline bool
+dmtcp_ipc_wrappers_enabled()
+{
+  const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
+  return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
+}
 #endif // ifndef DMTCP_IPC_H

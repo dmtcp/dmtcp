@@ -72,6 +72,7 @@
 #include "jfilesystem.h"
 #include "fileconnection.h"
 #include "filewrappers.h"
+#include "ipc.h"
 #include "procselfmaps.h"
 #include "ptywrappers.h"
 #include "ptyconnlist.h"
@@ -86,6 +87,10 @@ static FileConnList *vfork_fileConnList = NULL;
 void
 dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return;
+  }
+
   FileConnList::instance().eventHook(event, data);
 
   switch (event) {
@@ -188,10 +193,46 @@ dmtcp_IpcFile_PluginDescr()
 }
 }
 
-static vector<ProcMapsArea>shmAreas;
-static vector<ProcMapsArea>unlinkedShmAreas;
-static vector<ProcMapsArea>missingUnlinkedShmFiles;
-static vector<FileConnection *>shmAreaConn;
+static vector<ProcMapsArea> *shmAreasPtr = NULL;
+static vector<ProcMapsArea> *unlinkedShmAreasPtr = NULL;
+static vector<ProcMapsArea> *missingUnlinkedShmFilesPtr = NULL;
+static vector<FileConnection *> *shmAreaConnPtr = NULL;
+
+static vector<ProcMapsArea> &
+shmAreas()
+{
+  if (shmAreasPtr == NULL) {
+    shmAreasPtr = new vector<ProcMapsArea>();
+  }
+  return *shmAreasPtr;
+}
+
+static vector<ProcMapsArea> &
+unlinkedShmAreas()
+{
+  if (unlinkedShmAreasPtr == NULL) {
+    unlinkedShmAreasPtr = new vector<ProcMapsArea>();
+  }
+  return *unlinkedShmAreasPtr;
+}
+
+static vector<ProcMapsArea> &
+missingUnlinkedShmFiles()
+{
+  if (missingUnlinkedShmFilesPtr == NULL) {
+    missingUnlinkedShmFilesPtr = new vector<ProcMapsArea>();
+  }
+  return *missingUnlinkedShmFilesPtr;
+}
+
+static vector<FileConnection *> &
+shmAreaConn()
+{
+  if (shmAreaConnPtr == NULL) {
+    shmAreaConnPtr = new vector<FileConnection *>();
+  }
+  return *shmAreaConnPtr;
+}
 
 // This hook is called after a successful completion of freopen or freopen64.
 // Since the new path might be different from the old path, and the new
@@ -337,15 +378,15 @@ FileConnList::postRestart()
 {
   /* Try to map the file as is, if it already exists on the disk.
    */
-  for (size_t i = 0; i < unlinkedShmAreas.size(); i++) {
-    if (jalib::Filesystem::FileExists(unlinkedShmAreas[i].name)) {
+  for (size_t i = 0; i < unlinkedShmAreas().size(); i++) {
+    if (jalib::Filesystem::FileExists(unlinkedShmAreas()[i].name)) {
       // TODO(kapil): Verify the file contents.
-      JWARNING(false) (unlinkedShmAreas[i].name)
+      JWARNING(false) (unlinkedShmAreas()[i].name)
       .Text("File was unlinked at ckpt but is currently present on disk; "
             "remove it and try again.");
-      restoreShmArea(unlinkedShmAreas[i]);
+      restoreShmArea(unlinkedShmAreas()[i]);
     } else {
-      missingUnlinkedShmFiles.push_back(unlinkedShmAreas[i]);
+      missingUnlinkedShmFiles().push_back(unlinkedShmAreas()[i]);
     }
   }
 
@@ -358,8 +399,8 @@ FileConnList::refill(bool isRestart)
   if (isRestart) {
     // The backing file will be created as a result of restoreShmArea. We need
     // to unlink all such files in the resume() call below.
-    for (size_t i = 0; i < missingUnlinkedShmFiles.size(); i++) {
-      recreateShmFileAndMap(missingUnlinkedShmFiles[i]);
+    for (size_t i = 0; i < missingUnlinkedShmFiles().size(); i++) {
+      recreateShmFileAndMap(missingUnlinkedShmFiles()[i]);
     }
   }
 
@@ -375,9 +416,9 @@ FileConnList::resume(bool isRestart)
 
   if (isRestart) {
     // Now unlink the files that we created as a side-effect of restoreShmArea.
-    for (size_t i = 0; i < missingUnlinkedShmFiles.size(); i++) {
-      JWARNING(unlink(missingUnlinkedShmFiles[i].name) != -1)
-        (missingUnlinkedShmFiles[i].name) (JASSERT_ERRNO)
+    for (size_t i = 0; i < missingUnlinkedShmFiles().size(); i++) {
+      JWARNING(unlink(missingUnlinkedShmFiles()[i].name) != -1)
+        (missingUnlinkedShmFiles()[i].name) (JASSERT_ERRNO)
       .Text("The file was unlinked at the time of checkpoint. "
             "Unlinking it after restart failed");
     }
@@ -390,10 +431,10 @@ FileConnList::prepareShmList()
   ProcSelfMaps procSelfMaps;
   ProcMapsArea area;
 
-  shmAreas.clear();
-  unlinkedShmAreas.clear();
-  missingUnlinkedShmFiles.clear();
-  shmAreaConn.clear();
+  shmAreas().clear();
+  unlinkedShmAreas().clear();
+  missingUnlinkedShmFiles().clear();
+  shmAreaConn().clear();
   while (procSelfMaps.getNextArea(&area)) {
     if ((area.flags & MAP_SHARED) && area.prot != 0) {
       if (strstr(area.name, "dmtcpPidMap") != NULL ||
@@ -431,8 +472,8 @@ FileConnList::prepareShmList()
           FileConnection *fileConn =
             new FileConnection(area.name, flags, 0, FileConnection::FILE_SHM);
           add(fd, fileConn);
-          shmAreas.push_back(area);
-          shmAreaConn.push_back(fileConn);
+          shmAreas().push_back(area);
+          shmAreaConn().push_back(fileConn);
 
           /* Instead of unmapping the shared memory area, we make it
            * non-readable. This way mtcp will skip the region while at the same
@@ -463,7 +504,7 @@ FileConnList::prepareShmList()
 
           // Remove the DELETED suffix.
           area.name[strlen(area.name) - strlen(DELETED_FILE_SUFFIX)] = '\0';
-          unlinkedShmAreas.push_back(area);
+          unlinkedShmAreas().push_back(area);
         }
       }
     }
@@ -569,9 +610,9 @@ FileConnList::restoreShmArea(const ProcMapsArea &area, int fd)
 void
 FileConnList::remapShmMaps()
 {
-  for (size_t i = 0; i < shmAreas.size(); i++) {
-    ProcMapsArea *area = &shmAreas[i];
-    FileConnection *fileCon = shmAreaConn[i];
+  for (size_t i = 0; i < shmAreas().size(); i++) {
+    ProcMapsArea *area = &shmAreas()[i];
+    FileConnection *fileCon = shmAreaConn()[i];
     int fd = fileCon->getFds()[0];
     JTRACE("Restoring shared memory area") (area->name) ((void *)area->addr);
     void *addr = mmap(area->addr, area->size, area->prot,
@@ -581,8 +622,8 @@ FileConnList::remapShmMaps()
     _real_close(fd);
     processClose(fd);
   }
-  shmAreas.clear();
-  shmAreaConn.clear();
+  shmAreas().clear();
+  shmAreaConn().clear();
 }
 
 // examine /proc/self/fd for unknown connections

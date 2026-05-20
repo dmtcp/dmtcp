@@ -23,6 +23,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include "dmtcp.h"
+#include "ipc.h"
 #include "util.h"
 
 #include "fileconnection.h"
@@ -47,6 +48,10 @@ mq_open(const char *name, int oflag, ...)
     va_end(arg);
   }
 
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_mq_open(name, oflag, mode, attr);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_mq_open(name, oflag, mode, attr);
   if (res != -1) {
@@ -62,6 +67,10 @@ extern "C"
 int
 mq_close(mqd_t mqdes)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_mq_close(mqdes);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_mq_close(mqdes);
   if (res != -1) {
@@ -94,11 +103,13 @@ mq_notify_thread_start(union sigval sv)
 
   JALLOC_HELPER_FREE(m);
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  PosixMQConnection *con = (PosixMQConnection *)
-    FileConnList::instance().getConnection(mqdes);
-  con->on_mq_notify(NULL);
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  if (dmtcp_ipc_wrappers_enabled()) {
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    PosixMQConnection *con = (PosixMQConnection *)
+      FileConnList::instance().getConnection(mqdes);
+    con->on_mq_notify(NULL);
+    DMTCP_PLUGIN_ENABLE_CKPT();
+  }
 
   start_routine(s);
 }
@@ -108,6 +119,10 @@ int
 mq_notify(mqd_t mqdes, const struct sigevent *sevp)
 {
   int res;
+
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_mq_notify(mqdes, sevp);
+  }
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   if (sevp != NULL && sevp->sigev_notify == SIGEV_THREAD) {
@@ -139,6 +154,10 @@ extern "C"
 int
 mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned msg_prio)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_mq_send(mqdes, msg_ptr, msg_len, msg_prio);
+  }
+
   int res;
   struct timespec ts;
 
@@ -154,6 +173,10 @@ extern "C"
 ssize_t
 mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned *msg_prio)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_mq_receive(mqdes, msg_ptr, msg_len, msg_prio);
+  }
+
   ssize_t res;
   struct timespec ts;
 
@@ -174,6 +197,10 @@ mq_timedsend(mqd_t mqdes,
              unsigned msg_prio,
              const struct timespec *abs_timeout)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_mq_timedsend(mqdes, msg_ptr, msg_len, msg_prio, abs_timeout);
+  }
+
   struct timespec ts;
   int ret = -1;
 
@@ -203,6 +230,10 @@ mq_timedreceive(mqd_t mqdes,
                 unsigned *msg_prio,
                 const struct timespec *abs_timeout)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_mq_timedreceive(mqdes, msg_ptr, msg_len, msg_prio, abs_timeout);
+  }
+
   struct timespec ts;
   int ret = -1;
 

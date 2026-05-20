@@ -33,6 +33,7 @@
 #include "eventconnection.h"
 #include "eventconnlist.h"
 #include "eventwrappers.h"
+#include "ipc.h"
 
 using namespace dmtcp;
 
@@ -72,6 +73,10 @@ using namespace dmtcp;
 extern "C" int
 poll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_poll(fds, nfds, timeout);
+  }
+
   int rc;
 
   while (1) {
@@ -95,6 +100,10 @@ poll(struct pollfd *fds, nfds_t nfds, int timeout)
 extern "C" int
 __poll_chk(struct pollfd *fds, nfds_t nfds, int timeout, size_t fdslen)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_poll_chk(fds, nfds, timeout, fdslen);
+  }
+
   JASSERT((fdslen / sizeof(*fds)) >= nfds) (nfds) (fdslen)
   .Text("Buffer Overflow detected!");
 
@@ -121,6 +130,10 @@ pselect(int nfds,
         const struct timespec *timeout,
         const sigset_t *sigmask)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_pselect(nfds, readfds, writefds, exceptfds, timeout, sigmask);
+  }
+
   int rc;
 
   while (1) {
@@ -143,6 +156,10 @@ select(int nfds,
        fd_set *exceptfds,
        struct timeval *timeout)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_select(nfds, readfds, writefds, exceptfds, timeout);
+  }
+
   int rc;
 
   while (1) {
@@ -165,6 +182,10 @@ select(int nfds,
 extern "C" int
 signalfd(int fd, const sigset_t *mask, int flags)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_signalfd(fd, mask, flags);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_signalfd(fd, mask, flags);
   if (ret != -1) {
@@ -180,6 +201,10 @@ signalfd(int fd, const sigset_t *mask, int flags)
 extern "C" int
 eventfd(EVENTFD_VAL_TYPE initval, int flags)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_eventfd(initval, flags);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_eventfd(initval, flags);
   if (ret != -1) {
@@ -195,6 +220,10 @@ eventfd(EVENTFD_VAL_TYPE initval, int flags)
 extern "C" int
 epoll_create(int size)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_epoll_create(size);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_create(size);
   if (ret != -1) {
@@ -209,6 +238,10 @@ epoll_create(int size)
 extern "C" int
 epoll_create1(int flags)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_epoll_create1(flags);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_create1(flags);
   if (ret != -1) {
@@ -223,6 +256,10 @@ epoll_create1(int flags)
 extern "C" int
 epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_epoll_ctl(epfd, op, fd, event);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_ctl(epfd, op, fd, event);
   if (ret != -1) {
@@ -238,6 +275,10 @@ epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 extern "C" int
 epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_epoll_wait(epfd, events, maxevents, timeout);
+  }
+
   int readyFds = 0;
   int timeLeft = timeout;
   int mytime;
@@ -278,6 +319,10 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 EXTERNC int
 inotify_init()
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_inotify_init();
+  }
+
   JWARNING(false).Text("Inotify not yet supported by DMTCP");
   errno = ENOMEM;
   return -1;
@@ -286,6 +331,10 @@ inotify_init()
 EXTERNC int
 inotify_init1(int flags)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_inotify_init1(flags);
+  }
+
   JWARNING(false).Text("Inotify not yet supported by DMTCP");
   errno = ENOMEM;
   return -1;
@@ -304,6 +353,10 @@ inotify_init1(int flags)
 EXTERNC int
 inotify_init()
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_inotify_init();
+  }
+
   int fd;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -331,6 +384,10 @@ inotify_init()
 EXTERNC int
 inotify_init1(int flags)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_inotify_init1(flags);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_inotify_init1(flags);
   if (ret != -1) {
@@ -355,6 +412,10 @@ inotify_init1(int flags)
 EXTERNC int
 inotify_add_watch(int fd, const char *pathname, uint32_t mask)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_inotify_add_watch(fd, pathname, mask);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_inotify_add_watch(fd, pathname, mask);
   if (ret != -1) {
@@ -386,6 +447,10 @@ inotify_add_watch(int fd, const char *pathname, uint32_t mask)
 EXTERNC int
 inotify_rm_watch(int fd, int wd)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return _real_inotify_rm_watch(fd, wd);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_inotify_rm_watch(fd, wd);
   if (ret != -1) {

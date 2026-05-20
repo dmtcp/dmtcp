@@ -315,10 +315,10 @@ TcpConnection::isBlacklistedTcp(const sockaddr *saddr, socklen_t len)
     }
   } else if (saddr->sa_family == AF_UNIX) {
     struct sockaddr_un *uaddr = (struct sockaddr_un *)saddr;
-    static string blacklist[] = { "" };
-    for (size_t i = 0; blacklist[i] != ""; i++) {
-      if (Util::strStartsWith(uaddr->sun_path, blacklist[i].c_str()) ||
-          Util::strStartsWith(&uaddr->sun_path[1], blacklist[i].c_str())) {
+    static const char *blacklist[] = { "" };
+    for (size_t i = 0; blacklist[i][0] != '\0'; i++) {
+      if (Util::strStartsWith(uaddr->sun_path, blacklist[i]) ||
+          Util::strStartsWith(&uaddr->sun_path[1], blacklist[i])) {
         JTRACE("Blacklisted socket address") (uaddr->sun_path);
         return true;
       }

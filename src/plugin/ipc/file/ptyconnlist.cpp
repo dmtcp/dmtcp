@@ -27,6 +27,7 @@
 #include "ptyconnection.h"
 #include "ptyconnlist.h"
 #include "ptywrappers.h"
+#include "ipc.h"
 
 using namespace dmtcp;
 
@@ -43,6 +44,10 @@ pty_real_to_virtual_filepath(DmtcpEventData_t *data);
 void
 dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return;
+  }
+
   PtyConnList::instance().eventHook(event, data);
 
   switch (event) {

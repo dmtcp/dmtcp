@@ -4,6 +4,7 @@
 #include "jfilesystem.h"
 #include "connectionrewirer.h"
 #include "kernelbufferdrainer.h"
+#include "ipc.h"
 #include "protectedfds.h"
 #include "socketconnection.h"
 #include "socketconnlist.h"
@@ -21,6 +22,10 @@ static SocketConnList *vfork_socketConnList = NULL;
 void
 dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return;
+  }
+
   SocketConnList::instance().eventHook(event, data);
 
   switch (event) {

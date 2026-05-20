@@ -2,6 +2,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include "eventconnection.h"
+#include "ipc.h"
 
 using namespace dmtcp;
 
@@ -11,6 +12,10 @@ static EventConnList *vfork_eventConnList = NULL;
 void
 dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return;
+  }
+
   EventConnList::instance().eventHook(event, data);
 
   switch (event) {

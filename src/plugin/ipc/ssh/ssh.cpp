@@ -21,12 +21,46 @@ using namespace dmtcp;
 #define ENV_ORIG_DPP "DMTCP_ORIGINAL_PATH_PREFIX"
 #define ENV_NEW_DPP  "DMTCP_NEW_PATH_PREFIX"
 
-static string cmd;
-static string prefix;
-static string dmtcp_launch_path;
-static string dmtcp_ssh_path;
-static string dmtcp_sshd_path;
-static string dmtcp_nocheckpoint_path;
+static string *cmdPtr = NULL;
+static string *dmtcpSshPathPtr = NULL;
+static string *dmtcpSshdPathPtr = NULL;
+static string *dmtcpNocheckpointPathPtr = NULL;
+
+static string &
+sshCommand()
+{
+  if (cmdPtr == NULL) {
+    cmdPtr = new string();
+  }
+  return *cmdPtr;
+}
+
+static string &
+dmtcpSshPath()
+{
+  if (dmtcpSshPathPtr == NULL) {
+    dmtcpSshPathPtr = new string();
+  }
+  return *dmtcpSshPathPtr;
+}
+
+static string &
+dmtcpSshdPath()
+{
+  if (dmtcpSshdPathPtr == NULL) {
+    dmtcpSshdPathPtr = new string();
+  }
+  return *dmtcpSshdPathPtr;
+}
+
+static string &
+dmtcpNocheckpointPath()
+{
+  if (dmtcpNocheckpointPathPtr == NULL) {
+    dmtcpNocheckpointPathPtr = new string();
+  }
+  return *dmtcpNocheckpointPathPtr;
+}
 
 static SSHDrainer *theDrainer = NULL;
 static int sshStdin = -1;
@@ -63,6 +97,10 @@ process_close_fd_event(int fd)
 void
 dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return;
+  }
+
   switch (event) {
   case DMTCP_EVENT_PRE_EXEC:
     prepareForExec(data);
@@ -241,9 +279,9 @@ createNewDmtcpSshdProcess()
   char *ip = inet_ntoa(sshdSockAddr.sin_addr);
   strcpy(remoteHost, ip);
 
-  if (dmtcp_nocheckpoint_path.length() == 0) {
-    dmtcp_nocheckpoint_path = Util::getPath("dmtcp_nocheckpoint");
-    dmtcp_sshd_path = Util::getPath("dmtcp_sshd");
+  if (dmtcpNocheckpointPath().length() == 0) {
+    dmtcpNocheckpointPath() = Util::getPath("dmtcp_nocheckpoint");
+    dmtcpSshdPath() = Util::getPath("dmtcp_sshd");
   }
 
 
@@ -258,7 +296,7 @@ createNewDmtcpSshdProcess()
     char *argv[16];
     int idx = 0;
 
-    argv[idx++] = (char*) dmtcp_nocheckpoint_path.c_str();
+    argv[idx++] = (char*) dmtcpNocheckpointPath().c_str();
 
     const char* shellType = NULL;
 
@@ -275,7 +313,7 @@ createNewDmtcpSshdProcess()
       argv[idx++] = const_cast<char *>("StrictHostKeyChecking=no");
     }
     argv[idx++] = remoteHost;
-    argv[idx++] = (char *)dmtcp_sshd_path.c_str();
+    argv[idx++] = (char *)dmtcpSshdPath().c_str();
     argv[idx++] = const_cast<char *>("--listenAddr");
     argv[idx++] = abstractSockName;
     argv[idx++] = NULL;
@@ -327,6 +365,10 @@ dmtcp_ssh_register_fds(int isSshd,
                        int noStrictChecking,
                        int rshProcess)
 {
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return;
+  }
+
   if (isSshd) { // dmtcp_sshd
     process_close_fd_event(STDIN_FILENO);
     process_close_fd_event(STDOUT_FILENO);
@@ -418,16 +460,16 @@ prepareForExec(DmtcpEventData_t *data)
 
   char **dmtcp_args = Util::getDmtcpArgs();
 
-  dmtcp_launch_path = Util::getPath("dmtcp_launch");
-  dmtcp_ssh_path = Util::getPath("dmtcp_ssh");
-  dmtcp_sshd_path = Util::getPath("dmtcp_sshd");
-  dmtcp_nocheckpoint_path = Util::getPath("dmtcp_nocheckpoint");
+  string dmtcp_launch_path = Util::getPath("dmtcp_launch");
+  dmtcpSshPath() = Util::getPath("dmtcp_ssh");
+  dmtcpSshdPath() = Util::getPath("dmtcp_sshd");
+  dmtcpNocheckpointPath() = Util::getPath("dmtcp_nocheckpoint");
 
-  prefix = dmtcp_launch_path + " ";
+  string prefix = dmtcp_launch_path + " ";
   for (size_t i = 0; dmtcp_args[i] != NULL; i++) {
     prefix.append(dmtcp_args[i]).append(" ");
   }
-  prefix += dmtcp_sshd_path + " ";
+  prefix += dmtcpSshdPath() + " ";
 
   if (isRshProcess) {
     prefix += " --rsh-slave ";
@@ -470,13 +512,13 @@ prepareForExec(DmtcpEventData_t *data)
     postcmd = tempcmd;
   }
 
-  cmd = precmd;
+  sshCommand() = precmd;
 
   // convert "exec cmd" to "exec <dmtcp-prefix> cmd"
   if (Util::strStartsWith(postcmd.c_str(), "exec")) {
-    cmd += "exec " + prefix + postcmd.substr(strlen("exec"));
+    sshCommand() += "exec " + prefix + postcmd.substr(strlen("exec"));
   } else {
-    cmd += prefix + postcmd;
+    sshCommand() += prefix + postcmd;
   }
 
   // now repack args
@@ -488,7 +530,7 @@ prepareForExec(DmtcpEventData_t *data)
   memset(new_argv, 0, sizeof(char *) * (nargs + 11));
 
   size_t idx = 0;
-  new_argv[idx++] = (char *)dmtcp_ssh_path.c_str();
+  new_argv[idx++] = (char *)dmtcpSshPath().c_str();
   if (noStrictChecking) {
     new_argv[idx++] = const_cast<char *>("--noStrictHostKeyChecking");
   }
@@ -498,7 +540,7 @@ prepareForExec(DmtcpEventData_t *data)
     new_argv[idx++] = const_cast<char*>("--ssh-slave");
   }
 
-  new_argv[idx++] = (char*) dmtcp_nocheckpoint_path.c_str();
+  new_argv[idx++] = (char*) dmtcpNocheckpointPath().c_str();
 
   string newCommand = string(new_argv[0]) + " " +
                       string(new_argv[1]) + " " + string(new_argv[2]) + " ";
@@ -509,8 +551,8 @@ prepareForExec(DmtcpEventData_t *data)
       newCommand += ' ';
     }
   }
-  new_argv[idx++] = (char *)cmd.c_str();
-  newCommand += cmd + " ";
+  new_argv[idx++] = (char *)sshCommand().c_str();
+  newCommand += sshCommand() + " ";
 
   for (size_t i = commandStart + 1; i < nargs; ++i) {
     new_argv[idx++] = (char *)argv[i];
