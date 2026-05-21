@@ -841,6 +841,12 @@ PosixMQConnection::drain()
 
   JTRACE("Checkpoint Posix Message Queue.") (_fds[0]);
 
+  if (_notifyReg) {
+    errno = 0;
+    JASSERT(_real_mq_notify(_fds[0], NULL) != -1) (_name) (JASSERT_ERRNO)
+      .Text("Failed to temporarily unregister POSIX message queue notification.");
+  }
+
   struct stat statbuf;
   JASSERT(fstat(_fds[0], &statbuf) != -1) (JASSERT_ERRNO);
   if (_mode == 0) {
@@ -856,13 +862,28 @@ PosixMQConnection::drain()
 
   _qnum = attr.mq_curmsgs;
   char *buf = (char *)JALLOC_HELPER_MALLOC(attr.mq_msgsize);
+  long drained = 0;
   for (long i = 0; i < _qnum; i++) {
     unsigned prio;
-    ssize_t numBytes = _real_mq_receive(_fds[0], buf, attr.mq_msgsize, &prio);
+    struct timespec timeout;
+    JASSERT(clock_gettime(CLOCK_REALTIME, &timeout) != -1) (JASSERT_ERRNO);
+    timeout.tv_nsec += 100 * 1000 * 1000;
+    if (timeout.tv_nsec >= 1000 * 1000 * 1000) {
+      timeout.tv_sec++;
+      timeout.tv_nsec -= 1000 * 1000 * 1000;
+    }
+    errno = 0;
+    ssize_t numBytes = _real_mq_timedreceive(_fds[0], buf, attr.mq_msgsize,
+                                             &prio, &timeout);
+    if (numBytes == -1 && errno == ETIMEDOUT) {
+      break;
+    }
     JASSERT(numBytes != -1) (JASSERT_ERRNO);
     _msgInQueue.push_back(jalib::JBuffer((const char *)buf, numBytes));
     _msgInQueuePrio.push_back(prio);
+    drained++;
   }
+  _qnum = drained;
   JALLOC_HELPER_FREE(buf);
 }
 
@@ -875,6 +896,12 @@ PosixMQConnection::refill(bool isRestart)
   }
   _msgInQueue.clear();
   _msgInQueuePrio.clear();
+
+  if (_notifyReg) {
+    errno = 0;
+    JASSERT(mq_notify(_fds[0], &_sevp) != -1) (_name) (JASSERT_ERRNO)
+      .Text("Failed to restore POSIX message queue notification.");
+  }
 }
 
 void
