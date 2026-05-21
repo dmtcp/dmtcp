@@ -38,6 +38,7 @@ DmtcpPluginDescriptor_t dmtcp_IpcEvent_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_IpcFile_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_IpcPty_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_IpcSocket_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_Pid_PluginDescr();
 
 static bool
 timerPluginEnabled()
@@ -55,6 +56,13 @@ sysvipcPluginEnabled()
 
 static bool
 ipcPluginEnabled()
+{
+  const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
+  return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
+}
+
+static bool
+pidPluginEnabled()
 {
   const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
   return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
@@ -118,6 +126,9 @@ dmtcp_initialize_plugin()
   dmtcp_register_plugin(CoordinatorAPI::pluginDescr());
   dmtcp_register_plugin(dmtcp_ProcessInfo_PluginDescr());
   dmtcp_register_plugin(UniquePid::pluginDescr());
+  if (pidPluginEnabled()) {
+    dmtcp_register_plugin(dmtcp_Pid_PluginDescr());
+  }
 
   void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);
   if (fn != NULL) {

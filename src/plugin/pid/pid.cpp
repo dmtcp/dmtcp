@@ -19,6 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include "jalloc.h"
 #include "jassert.h"
@@ -44,6 +46,13 @@ using namespace dmtcp;
 extern "C" pid_t dmtcp_update_ppid();
 static volatile bool restartInProgress = false;
 
+static bool
+pidVirt_disabledByEnv()
+{
+  const char *disableAll = getenv("DMTCP_DISABLE_ALL_PLUGINS");
+  return disableAll != NULL && strcmp(disableAll, "1") == 0;
+}
+
 static string pidMapFile;
 
 static vector<pid_t> *exitedChildTids = NULL;
@@ -57,6 +66,10 @@ extern "C"
 pid_t
 dmtcp_real_to_virtual_pid(pid_t realPid)
 {
+  if (pidVirt_disabledByEnv()) {
+    return realPid;
+  }
+
   return REAL_TO_VIRTUAL_PID(realPid);
 }
 
@@ -64,6 +77,10 @@ extern "C"
 pid_t
 dmtcp_virtual_to_real_pid(pid_t virtualPid)
 {
+  if (pidVirt_disabledByEnv()) {
+    return virtualPid;
+  }
+
   return VIRTUAL_TO_REAL_PID(virtualPid);
 }
 
@@ -73,33 +90,37 @@ extern "C"
 pid_t
 dmtcp_get_real_pid()
 {
-  return _real_getpid();
+  return pid_real_getpid();
 }
 
 extern "C"
 pid_t
 dmtcp_get_real_tid()
 {
-  return _real_gettid();
+  return pid_real_gettid();
 }
 
 extern "C"
 int
 dmtcp_real_tgkill(pid_t tgid, pid_t tid, int sig)
 {
-  return _real_tgkill(tgid, tid, sig);
+  return pid_real_tgkill(tgid, tid, sig);
 }
 
 extern "C"
 void
 dmtcp_update_virtual_to_real_tid(pid_t tid)
 {
+  if (pidVirt_disabledByEnv()) {
+    return;
+  }
+
   if (!restartInProgress) {
     restartInProgress = true;
     VirtualPidTable::instance().postRestart();
   }
 
-  VirtualPidTable::instance().updateMapping(tid, _real_gettid());
+  VirtualPidTable::instance().updateMapping(tid, pid_real_gettid());
 
   dmtcp_pthread_set_tid(pthread_self(), tid);
 }
@@ -108,12 +129,12 @@ static
 void removeExitedChildTids()
 {
   // First remove stale thread ids.
-  pid_t realPid = _real_getpid();
+  pid_t realPid = pid_real_getpid();
   DmtcpMutexLock(&exitedChildTidsLock);
   for (auto it = exitedChildTids->begin(); it != exitedChildTids->end();) {
     pid_t tid = *it;
     pid_t realTid = VIRTUAL_TO_REAL_PID(tid);
-    if (_real_tgkill(realPid, realTid, 0) == 0) {
+    if (pid_real_tgkill(realPid, realTid, 0) == 0) {
       it++;
     } else {
       it = exitedChildTids->erase(it);
@@ -126,6 +147,10 @@ void removeExitedChildTids()
 extern "C"
 void dmtcp_init_virtual_tid()
 {
+  if (pidVirt_disabledByEnv()) {
+    return;
+  }
+
   removeExitedChildTids();
   pid_t virtualTid = VirtualPidTable::instance().getNewVirtualTid();
   VirtualPidTable::resetTid(virtualTid);
@@ -312,7 +337,7 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
   case DMTCP_EVENT_INIT:
-    SharedData::setPidMap(getpid(), _real_getpid());
+    SharedData::setPidMap(getpid(), pid_real_getpid());
     exitedChildTids = new vector<pid_t>();
     dmtcp_pthread_set_tid(pthread_self(), getpid());
     break;
@@ -372,7 +397,7 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 
-DmtcpPluginDescriptor_t pidPlugin = {
+static DmtcpPluginDescriptor_t pidPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "pid",
@@ -382,4 +407,11 @@ DmtcpPluginDescriptor_t pidPlugin = {
   pid_event_hook
 };
 
-DMTCP_DECL_PLUGIN(pidPlugin);
+namespace dmtcp
+{
+DmtcpPluginDescriptor_t
+dmtcp_Pid_PluginDescr()
+{
+  return pidPlugin;
+}
+}

@@ -230,6 +230,14 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	plugin/ipc/socket/socketwrappers.$(OBJEXT) \
 	plugin/ipc/ssh/ssh.$(OBJEXT) \
 	plugin/ipc/ssh/sshdrainer.$(OBJEXT) \
+	plugin/pid/glibc_pthread.$(OBJEXT) \
+	plugin/pid/pid.$(OBJEXT) \
+	plugin/pid/pid_filewrappers.$(OBJEXT) \
+	plugin/pid/pid_miscwrappers.$(OBJEXT) \
+	plugin/pid/pidwrappers.$(OBJEXT) \
+	plugin/pid/sched_wrappers.$(OBJEXT) \
+	plugin/pid/virtualpidtable.$(OBJEXT) \
+	plugin/pid/pid_syscallsreal.$(OBJEXT) \
 	plugin_pathtranslator.$(OBJEXT) plugininfo.$(OBJEXT) \
 	pluginmanager.$(OBJEXT) popen.$(OBJEXT) tls.$(OBJEXT) \
 	posix_spawn.$(OBJEXT) rlimitfloatenv.$(OBJEXT) \
@@ -318,6 +326,14 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	plugin/ipc/socket/$(DEPDIR)/socketwrappers.Po \
 	plugin/ipc/ssh/$(DEPDIR)/ssh.Po \
 	plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po \
+	plugin/pid/$(DEPDIR)/glibc_pthread.Po \
+	plugin/pid/$(DEPDIR)/pid.Po \
+	plugin/pid/$(DEPDIR)/pid_filewrappers.Po \
+	plugin/pid/$(DEPDIR)/pid_miscwrappers.Po \
+	plugin/pid/$(DEPDIR)/pidwrappers.Po \
+	plugin/pid/$(DEPDIR)/sched_wrappers.Po \
+	plugin/pid/$(DEPDIR)/virtualpidtable.Po \
+	plugin/pid/$(DEPDIR)/pid_syscallsreal.Po \
 	plugin/svipc/$(DEPDIR)/sysvipc.Po \
 	plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po \
 	plugin/timer/$(DEPDIR)/timer_create.Po \
@@ -791,6 +807,18 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  plugin/ipc/ssh/sshdrainer.cpp 	\
 				  plugin/ipc/ssh/sshdrainer.h 	\
 				  plugin/ipc/ssh/ssh.h 	\
+				  plugin/pid/glibc_pthread.cpp 	\
+				  plugin/pid/glibc_pthread.h 	\
+				  plugin/pid/pid.cpp 		\
+				  plugin/pid/pid_filewrappers.cpp 	\
+				  plugin/pid/pid.h 		\
+				  plugin/pid/pid_miscwrappers.cpp 	\
+				  plugin/pid/pid_syscallsreal.c 	\
+				  plugin/pid/pidwrappers.cpp 	\
+				  plugin/pid/pidwrappers.h 	\
+				  plugin/pid/sched_wrappers.cpp 	\
+				  plugin/pid/virtualpidtable.cpp 	\
+				  plugin/pid/virtualpidtable.h 	\
 				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\
@@ -1160,6 +1188,28 @@ plugin/ipc/ssh/ssh.$(OBJEXT): plugin/ipc/ssh/$(am__dirstamp) \
 	plugin/ipc/ssh/$(DEPDIR)/$(am__dirstamp)
 plugin/ipc/ssh/sshdrainer.$(OBJEXT): plugin/ipc/ssh/$(am__dirstamp) \
 	plugin/ipc/ssh/$(DEPDIR)/$(am__dirstamp)
+plugin/pid/$(am__dirstamp):
+	@$(MKDIR_P) plugin/pid
+	@: > plugin/pid/$(am__dirstamp)
+plugin/pid/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/pid/$(DEPDIR)
+	@: > plugin/pid/$(DEPDIR)/$(am__dirstamp)
+plugin/pid/glibc_pthread.$(OBJEXT): plugin/pid/$(am__dirstamp) \
+	plugin/pid/$(DEPDIR)/$(am__dirstamp)
+plugin/pid/pid.$(OBJEXT): plugin/pid/$(am__dirstamp) \
+	plugin/pid/$(DEPDIR)/$(am__dirstamp)
+plugin/pid/pid_filewrappers.$(OBJEXT): plugin/pid/$(am__dirstamp) \
+	plugin/pid/$(DEPDIR)/$(am__dirstamp)
+plugin/pid/pid_miscwrappers.$(OBJEXT): plugin/pid/$(am__dirstamp) \
+	plugin/pid/$(DEPDIR)/$(am__dirstamp)
+plugin/pid/pidwrappers.$(OBJEXT): plugin/pid/$(am__dirstamp) \
+	plugin/pid/$(DEPDIR)/$(am__dirstamp)
+plugin/pid/sched_wrappers.$(OBJEXT): plugin/pid/$(am__dirstamp) \
+	plugin/pid/$(DEPDIR)/$(am__dirstamp)
+plugin/pid/virtualpidtable.$(OBJEXT): plugin/pid/$(am__dirstamp) \
+	plugin/pid/$(DEPDIR)/$(am__dirstamp)
+plugin/pid/pid_syscallsreal.$(OBJEXT): plugin/pid/$(am__dirstamp) \
+	plugin/pid/$(DEPDIR)/$(am__dirstamp)
 $(d_libdir)/$(am__dirstamp):
 	@$(MKDIR_P) $(d_libdir)
 	@: > $(d_libdir)/$(am__dirstamp)
@@ -1176,6 +1226,7 @@ mostlyclean-compile:
 	-rm -f plugin/ipc/file/*.$(OBJEXT)
 	-rm -f plugin/ipc/socket/*.$(OBJEXT)
 	-rm -f plugin/ipc/ssh/*.$(OBJEXT)
+	-rm -f plugin/pid/*.$(OBJEXT)
 	-rm -f plugin/svipc/*.$(OBJEXT)
 	-rm -f plugin/timer/*.$(OBJEXT)
 
@@ -1268,6 +1319,14 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/socket/$(DEPDIR)/socketwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/ssh/$(DEPDIR)/ssh.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/glibc_pthread.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/pid.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/pid_filewrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/pid_miscwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/pidwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/sched_wrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/virtualpidtable.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/pid_syscallsreal.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/svipc/$(DEPDIR)/sysvipc.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timer_create.Po@am__quote@ # am--include-marker
@@ -1533,6 +1592,8 @@ distclean-generic:
 	-rm -f plugin/ipc/socket/$(am__dirstamp)
 	-rm -f plugin/ipc/ssh/$(DEPDIR)/$(am__dirstamp)
 	-rm -f plugin/ipc/ssh/$(am__dirstamp)
+	-rm -f plugin/pid/$(DEPDIR)/$(am__dirstamp)
+	-rm -f plugin/pid/$(am__dirstamp)
 	-rm -f plugin/svipc/$(DEPDIR)/$(am__dirstamp)
 	-rm -f plugin/svipc/$(am__dirstamp)
 	-rm -f plugin/timer/$(DEPDIR)/$(am__dirstamp)
@@ -1637,6 +1698,14 @@ distclean: distclean-recursive
 	-rm -f plugin/ipc/socket/$(DEPDIR)/socketwrappers.Po
 	-rm -f plugin/ipc/ssh/$(DEPDIR)/ssh.Po
 	-rm -f plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po
+	-rm -f plugin/pid/$(DEPDIR)/glibc_pthread.Po
+	-rm -f plugin/pid/$(DEPDIR)/pid.Po
+	-rm -f plugin/pid/$(DEPDIR)/pid_filewrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/pid_miscwrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/pidwrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/sched_wrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/virtualpidtable.Po
+	-rm -f plugin/pid/$(DEPDIR)/pid_syscallsreal.Po
 	-rm -f plugin/svipc/$(DEPDIR)/sysvipc.Po
 	-rm -f plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po
 	-rm -f plugin/timer/$(DEPDIR)/timer_create.Po
@@ -1773,6 +1842,14 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f plugin/ipc/socket/$(DEPDIR)/socketwrappers.Po
 	-rm -f plugin/ipc/ssh/$(DEPDIR)/ssh.Po
 	-rm -f plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po
+	-rm -f plugin/pid/$(DEPDIR)/glibc_pthread.Po
+	-rm -f plugin/pid/$(DEPDIR)/pid.Po
+	-rm -f plugin/pid/$(DEPDIR)/pid_filewrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/pid_miscwrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/pidwrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/sched_wrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/virtualpidtable.Po
+	-rm -f plugin/pid/$(DEPDIR)/pid_syscallsreal.Po
 	-rm -f plugin/svipc/$(DEPDIR)/sysvipc.Po
 	-rm -f plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po
 	-rm -f plugin/timer/$(DEPDIR)/timer_create.Po

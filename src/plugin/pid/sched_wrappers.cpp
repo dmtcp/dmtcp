@@ -164,7 +164,7 @@ pthread_sigqueue (pthread_t th, int signo, const union sigval value)
   info.si_uid = getuid ();
   info.si_value = value;
 
-  return _real_syscall(SYS_rt_sigqueueinfo, real_pid, real_tid, signo, &info);
+  return pid_real_syscall(SYS_rt_sigqueueinfo, real_pid, real_tid, signo, &info);
 #else
   return ENOSYS;
 #endif
@@ -400,7 +400,7 @@ sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
   if (pid != 0) {
     real_pid = VIRTUAL_TO_REAL_PID(pid);
   }
-  result = _real_sched_setaffinity(real_pid, cpusetsize, mask);
+  result = pid_real_sched_setaffinity(real_pid, cpusetsize, mask);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
@@ -414,7 +414,7 @@ sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
   if (pid != 0) {
     real_pid = VIRTUAL_TO_REAL_PID(pid);
   }
-  result = _real_sched_getaffinity(real_pid, cpusetsize, mask);
+  result = pid_real_sched_getaffinity(real_pid, cpusetsize, mask);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
@@ -428,7 +428,7 @@ sched_setscheduler(pid_t pid, int policy, const struct sched_param *param)
   if (pid != 0) {
     real_pid = VIRTUAL_TO_REAL_PID(pid);
   }
-  result = _real_sched_setscheduler(real_pid, policy, param);
+  result = pid_real_sched_setscheduler(real_pid, policy, param);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
@@ -442,7 +442,7 @@ sched_getscheduler(pid_t pid)
   if (pid != 0) {
     real_pid = VIRTUAL_TO_REAL_PID(pid);
   }
-  result = _real_sched_getscheduler(real_pid);
+  result = pid_real_sched_getscheduler(real_pid);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
@@ -456,7 +456,7 @@ sched_setparam(pid_t pid, const struct sched_param *param)
   if (pid != 0) {
     real_pid = VIRTUAL_TO_REAL_PID(pid);
   }
-  result = _real_sched_setparam(real_pid, param);
+  result = pid_real_sched_setparam(real_pid, param);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
@@ -470,7 +470,7 @@ sched_getparam(pid_t pid, struct sched_param *param)
   if (pid != 0) {
     real_pid = VIRTUAL_TO_REAL_PID(pid);
   }
-  result = _real_sched_getparam(real_pid, param);
+  result = pid_real_sched_getparam(real_pid, param);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
@@ -487,7 +487,7 @@ sched_setattr(pid_t pid, const struct sched_attr *attr, unsigned int flags)
   if (pid != 0) {
     real_pid = VIRTUAL_TO_REAL_PID(pid);
   }
-  result = _real_sched_setattr(real_pid, attr, flags);
+  result = pid_real_sched_setattr(real_pid, attr, flags);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
@@ -504,7 +504,7 @@ sched_getattr(pid_t pid,
   if (pid != 0) {
     real_pid = VIRTUAL_TO_REAL_PID(pid);
   }
-  result = _real_sched_getattr(real_pid, attr, size, flags);
+  result = pid_real_sched_getattr(real_pid, attr, size, flags);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }

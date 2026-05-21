@@ -70,7 +70,7 @@ VirtualPidTable::resetPidPpid()
                                 &_dmtcp_ppid, &_dmtcp_realPpid);
 
   if (_dmtcp_realPid == 0) {
-    _dmtcp_realPid = _real_getpid();
+    _dmtcp_realPid = pid_real_getpid();
   }
 
   VirtualPidTable::instance().updateMapping(_dmtcp_pid, _dmtcp_realPid);
@@ -81,7 +81,7 @@ void
 VirtualPidTable::resetTid(pid_t tid)
 {
   _dmtcp_thread_tid = tid;
-  instance().updateMapping(_dmtcp_thread_tid, _real_gettid());
+  instance().updateMapping(_dmtcp_thread_tid, pid_real_gettid());
 }
 
 pid_t
@@ -100,13 +100,13 @@ VirtualPidTable::getppid()
   if (_dmtcp_ppid == -1) {
     resetPidPpid();
   }
-  if (_real_getppid() != VIRTUAL_TO_REAL_PID(_dmtcp_ppid)) {
+  if (pid_real_getppid() != VIRTUAL_TO_REAL_PID(_dmtcp_ppid)) {
     // The original parent died; reset our ppid.
     //
     // On older systems, a process is inherited by init (pid = 1) after its
     // parent dies. However, with the new per-user init process, the parent
     // pid is no longer "1"; it's the pid of the user-specific init process.
-    _dmtcp_ppid = _real_getppid();
+    _dmtcp_ppid = pid_real_getppid();
   }
   return _dmtcp_ppid;
 }
@@ -122,7 +122,7 @@ VirtualPidTable::gettid()
     _dmtcp_thread_tid = getpid();
 
     // Make sure this is the motherofall thread.
-    JASSERT(_real_gettid() == _real_getpid()) (_real_gettid()) (_real_getpid());
+    JASSERT(pid_real_gettid() == pid_real_getpid()) (pid_real_gettid()) (pid_real_getpid());
   }
   return _dmtcp_thread_tid;
 }
@@ -131,12 +131,12 @@ void
 VirtualPidTable::postRestart()
 {
   if (_dmtcp_ppid != 1) {
-    updateMapping(_dmtcp_ppid, _real_getppid());
+    updateMapping(_dmtcp_ppid, pid_real_getppid());
   }
 
   VirtualIdTable<pid_t>::postRestart();
   _do_lock_tbl();
-  _idMapTable[getpid()] = _real_getpid();
+  _idMapTable[getpid()] = pid_real_getpid();
   _do_unlock_tbl();
 }
 
@@ -145,7 +145,7 @@ VirtualPidTable::refresh()
 {
   id_iterator i;
   id_iterator next;
-  pid_t _real_pid = _real_getpid();
+  pid_t _real_pid = pid_real_getpid();
 
   JASSERT(getpid() != -1);
 
@@ -153,7 +153,7 @@ VirtualPidTable::refresh()
   for (i = _idMapTable.begin(), next = i; i != _idMapTable.end(); i = next) {
     next++;
     if (isIdCreatedByCurrentProcess(i->first)
-        && _real_tgkill(_real_pid, i->second, 0) == -1) {
+        && pid_real_tgkill(_real_pid, i->second, 0) == -1) {
       _idMapTable.erase(i);
     }
   }
@@ -182,7 +182,7 @@ VirtualPidTable::resetOnFork()
   resetTid(getpid());
   VirtualIdTable<pid_t>::resetOnFork(getpid());
   _numTids = 1;
-  _idMapTable[getpid()] = _real_getpid();
+  _idMapTable[getpid()] = pid_real_getpid();
   refresh();
   printMaps();
 }

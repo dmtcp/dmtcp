@@ -19,9 +19,17 @@
  ****************************************************************************/
 
 #include <mqueue.h>
+#include <dlfcn.h>
 #include <stdarg.h>
 #include <time.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <pthread.h>
+#include <stdint.h>
+#include <sys/socket.h>
+#include <linux/netlink.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 #include "dmtcp.h"
 #include "ipc.h"
 #include "util.h"
@@ -31,6 +39,38 @@
 #include "filewrappers.h"
 
 using namespace dmtcp;
+
+typedef pid_t (*PidTranslateFn)(pid_t pid);
+
+static PidTranslateFn
+ipcPidVirtualToRealFn()
+{
+  static PidTranslateFn nextFn = NULL;
+  static bool nextFnResolved = false;
+
+  if (dmtcp_virtual_to_real_pid != NULL) {
+    return dmtcp_virtual_to_real_pid;
+  }
+
+  if (!nextFnResolved && dmtcp_dlsym != NULL) {
+    nextFn = (PidTranslateFn)dmtcp_dlsym(RTLD_NEXT,
+                                         "dmtcp_virtual_to_real_pid");
+    nextFnResolved = true;
+  }
+
+  return nextFn;
+}
+
+static pid_t
+virtualToRealPidIfEnabled(pid_t pid)
+{
+  if (!dmtcp_ipc_wrappers_enabled()) {
+    return pid;
+  }
+
+  PidTranslateFn fn = ipcPidVirtualToRealFn();
+  return fn != NULL ? fn(pid) : pid;
+}
 
 extern "C"
 mqd_t
@@ -88,6 +128,24 @@ struct mqNotifyData {
   mqd_t mqdes;
 };
 
+static pthread_once_t mq_notify_helper_once = PTHREAD_ONCE_INIT;
+static int mq_notify_sock = -1;
+
+static void mq_notify_reset_on_fork(void);
+static void *mq_notify_helper_thread(void *arg);
+static void start_mq_notify_helper(void);
+static int mq_notify_sigev_thread(mqd_t mqdes, const struct sigevent *sevp);
+
+static void
+mq_notify_reset_on_fork(void)
+{
+  if (mq_notify_sock != -1) {
+    _real_close(mq_notify_sock);
+  }
+  mq_notify_helper_once = PTHREAD_ONCE_INIT;
+  mq_notify_sock = -1;
+}
+
 static void
 mq_notify_thread_start(union sigval sv)
 {
@@ -114,31 +172,117 @@ mq_notify_thread_start(union sigval sv)
   start_routine(s);
 }
 
+// Linux implements SIGEV_THREAD mqueue notifications by asking the kernel to
+// deliver a copy of the sigevent over a netlink socket.  We keep that socket
+// and helper thread under DMTCP control instead of relying on glibc's internal
+// helper state, which can point at a stale socket after restart.
+static void *
+mq_notify_helper_thread(void *arg)
+{
+  int sock = (int)(intptr_t)arg;
+
+  while (1) {
+    struct sigevent se;
+    ssize_t ret = recv(sock, &se, sizeof(se), MSG_WAITALL | MSG_NOSIGNAL);
+    if (ret == -1 && errno == EINTR) {
+      continue;
+    }
+    if (ret != (ssize_t)sizeof(se)) {
+      break;
+    }
+
+    // Run the callback on this tracked helper thread.  Creating a fresh
+    // pthread here can collide with DMTCP checkpoint/restart state transitions.
+    union sigval sv;
+    sv.sival_ptr = se.sigev_value.sival_ptr;
+    mq_notify_thread_start(sv);
+  }
+
+  _real_close(sock);
+  return NULL;
+}
+
+static void
+start_mq_notify_helper(void)
+{
+  mq_notify_sock = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
+  if (mq_notify_sock == -1) {
+    return;
+  }
+
+  pthread_attr_t attr;
+  pthread_t thread;
+  pthread_attr_init(&attr);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+  int rc = pthread_create(&thread, &attr, mq_notify_helper_thread,
+                          (void *)(intptr_t)mq_notify_sock);
+  pthread_attr_destroy(&attr);
+  if (rc != 0) {
+    _real_close(mq_notify_sock);
+    mq_notify_sock = -1;
+    return;
+  }
+
+  pthread_atfork(NULL, NULL, mq_notify_reset_on_fork);
+}
+
+static int
+mq_notify_sigev_thread(mqd_t mqdes, const struct sigevent *sevp)
+{
+  pthread_once(&mq_notify_helper_once, start_mq_notify_helper);
+  if (mq_notify_sock == -1) {
+    errno = EAGAIN;
+    return -1;
+  }
+
+  struct mqNotifyData *mdata = (struct mqNotifyData *)
+    JALLOC_HELPER_MALLOC(sizeof(struct mqNotifyData));
+  if (mdata == NULL) {
+    errno = EAGAIN;
+    return -1;
+  }
+
+  struct sigevent se = *sevp;
+  mdata->start_routine = sevp->sigev_notify_function;
+  mdata->sv = sevp->sigev_value;
+  mdata->mqdes = mqdes;
+  se.sigev_signo = mq_notify_sock;
+  se.sigev_value.sival_ptr = mdata;
+  se.sigev_notify_function = mq_notify_thread_start;
+  se.sigev_notify_attributes = NULL;
+
+  int ret = (int)_real_syscall(SYS_mq_notify, mqdes, &se);
+  if (ret == -1) {
+    JALLOC_HELPER_FREE(mdata);
+  }
+  return ret;
+}
+
 extern "C"
 int
 mq_notify(mqd_t mqdes, const struct sigevent *sevp)
 {
   int res;
+  struct sigevent translatedSev;
+  const struct sigevent *sevpForKernel = sevp;
 
   if (!dmtcp_ipc_wrappers_enabled()) {
     return _real_mq_notify(mqdes, sevp);
   }
 
   DMTCP_PLUGIN_DISABLE_CKPT();
-  if (sevp != NULL && sevp->sigev_notify == SIGEV_THREAD) {
-    struct sigevent se;
-    struct mqNotifyData *mdata;
-    mdata = (struct mqNotifyData *)
-      JALLOC_HELPER_MALLOC(sizeof(struct mqNotifyData));
-    se = *sevp;
-    mdata->start_routine = sevp->sigev_notify_function;
-    mdata->sv = sevp->sigev_value;
-    mdata->mqdes = mqdes;
-    se.sigev_notify_function = mq_notify_thread_start;
-    se.sigev_value.sival_ptr = mdata;
-    res = _real_mq_notify(mqdes, &se);
+  if (sevpForKernel != NULL &&
+      sevpForKernel->sigev_notify == SIGEV_THREAD_ID) {
+    translatedSev = *sevpForKernel;
+    translatedSev._sigev_un._tid =
+      virtualToRealPidIfEnabled(translatedSev._sigev_un._tid);
+    sevpForKernel = &translatedSev;
+  }
+
+  if (sevpForKernel != NULL && sevpForKernel->sigev_notify == SIGEV_THREAD) {
+    res = mq_notify_sigev_thread(mqdes, sevpForKernel);
   } else {
-    res = _real_mq_notify(mqdes, sevp);
+    res = _real_mq_notify(mqdes, sevpForKernel);
   }
 
   if (res != -1) {

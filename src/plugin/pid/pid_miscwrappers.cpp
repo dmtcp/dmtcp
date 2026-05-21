@@ -21,6 +21,8 @@
 
 #include <semaphore.h>
 #include <signal.h>  // needed for SIGEV_THREAD_ID
+#include <stdlib.h>
+#include <string.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
 #include <linux/version.h>
@@ -60,10 +62,19 @@ pidVirt_atfork_child()
 }
 
 
-extern "C" pid_t
-fork()
+static bool
+pidVirt_disabledByEnv()
 {
-  pid_t realPid = _real_fork();
+  const char *disableAll = getenv("DMTCP_DISABLE_ALL_PLUGINS");
+  return disableAll != NULL && strcmp(disableAll, "1") == 0;
+}
+
+extern "C" pid_t
+dmtcp_pid_virtualize_child_pid(pid_t realPid)
+{
+  if (pidVirt_disabledByEnv()) {
+    return realPid;
+  }
 
   if (realPid > 0) { /* Parent Process */
     VirtualPidTable::instance().updateMapping(childVirtualPid, realPid);
@@ -72,6 +83,24 @@ fork()
   }
 
   return realPid;
+}
+
+extern "C" pid_t
+dmtcp_pid_get_virtual_tid(void)
+{
+  if (pidVirt_disabledByEnv()) {
+    return pid_real_gettid();
+  }
+
+  return VirtualPidTable::gettid();
+}
+
+extern "C" void
+dmtcp_pid_erase_virtual_pid(pid_t virtualPid)
+{
+  if (!pidVirt_disabledByEnv()) {
+    VirtualPidTable::instance().erase(virtualPid);
+  }
 }
 
 extern VirtualPidTable *virtPidTableInst;
@@ -98,8 +127,8 @@ static char* stackStart;
 static size_t stackSize;
 static void* newStackAddr;
 
-extern "C" pid_t
-vfork()
+LIB_PRIVATE pid_t
+pidVirt_vfork()
 {
   char dummy = 0;
 
@@ -145,7 +174,7 @@ vfork()
     Util::setVirtualPidEnvVar(vfork_saved_virt_pid,
                               vfork_saved_real_pid,
                               vfork_saved_ppid,
-                              _real_getppid());
+                              pid_real_getppid());
     VirtualPidTable::resetPidPpid();
     VirtualPidTable::resetTid(getpid());
 
@@ -161,367 +190,10 @@ vfork()
   return vforkPid;
 }
 
-extern "C"
-int
-shmctl(int shmid, int cmd, struct shmid_ds *buf)
-{
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int ret = _real_shmctl(shmid, cmd, buf);
-  if (buf != NULL) {
-    buf->shm_cpid = REAL_TO_VIRTUAL_PID(buf->shm_cpid);
-    buf->shm_lpid = REAL_TO_VIRTUAL_PID(buf->shm_lpid);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return ret;
-}
-
-extern "C"
-int
-semctl(int semid, int semnum, int cmd, ...)
-{
-  union semun uarg;
-  va_list arg;
-
-  va_start(arg, cmd);
-  uarg = va_arg(arg, union semun);
-  va_end(arg);
-
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int ret = _real_semctl(semid, semnum, cmd, uarg);
-  if (ret != -1 && (cmd & GETPID)) {
-    ret = REAL_TO_VIRTUAL_PID(ret);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return ret;
-}
-
-extern "C"
-int
-msgctl(int msqid, int cmd, struct msqid_ds *buf)
-{
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int ret = _real_msgctl(msqid, cmd, buf);
-  if (ret != -1 && buf != NULL && ((cmd & IPC_STAT) || (cmd & MSG_STAT))) {
-    buf->msg_lspid = REAL_TO_VIRTUAL_PID(buf->msg_lspid);
-    buf->msg_lrpid = REAL_TO_VIRTUAL_PID(buf->msg_lrpid);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return ret;
-}
-
-extern "C"
-int
-clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
-{
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  pid_t realPid = VIRTUAL_TO_REAL_PID(pid);
-  int ret = _real_clock_getcpuclockid(realPid, clock_id);
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return ret;
-}
-
-extern "C" int
-timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
-{
-  if (sevp != NULL && (sevp->sigev_notify == SIGEV_THREAD_ID)) {
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    pid_t virtPid = sevp->_sigev_un._tid;
-    sevp->_sigev_un._tid = VIRTUAL_TO_REAL_PID(virtPid);
-    int ret = _real_timer_create(clockid, sevp, timerid);
-    sevp->_sigev_un._tid = virtPid;
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return ret;
-  }
-  return _real_timer_create(clockid, sevp, timerid);
-}
-
-#if 0
-extern "C"
-int
-mq_notify(mqd_t mqdes, const struct sigevent *sevp)
-{
-  struct sigevent n;
-  int ret;
-
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  if (sevp != NULL) {
-    n = *sevp;
-    n.sigev_notify_thread_id = VIRTUAL_TO_REAL_PID(n.sigev_notify_thread_id);
-    ret = _real_mq_notify(mqdes, &n);
-  } else {
-    ret = _real_mq_notify(mqdes, sevp);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return ret;
-}
-#endif // if 0
-
-#define SYSCALL_VA_START() \
-  va_list ap;              \
-  va_start(ap, sys_num)
-
-#define SYSCALL_VA_END() \
-  va_end(ap)
-
-#define SYSCALL_GET_ARG(type, arg) type arg = va_arg(ap, type)
-
-#define SYSCALL_GET_ARGS_2(type1, arg1, type2, arg2) \
-  SYSCALL_GET_ARG(type1, arg1);                      \
-  SYSCALL_GET_ARG(type2, arg2)
-
-#define SYSCALL_GET_ARGS_3(type1, arg1, type2, arg2, type3, arg3) \
-  SYSCALL_GET_ARGS_2(type1, arg1, type2, arg2);                   \
-  SYSCALL_GET_ARG(type3, arg3)
-
-#define SYSCALL_GET_ARGS_4(type1, arg1, type2, arg2, type3, arg3, type4, arg4) \
-  SYSCALL_GET_ARGS_3(type1, arg1, type2, arg2, type3, arg3);                   \
-  SYSCALL_GET_ARG(type4, arg4)
-
-#define SYSCALL_GET_ARGS_5(type1, arg1, type2, arg2, type3, arg3, type4, arg4, \
-                           type5, arg5)                                        \
-  SYSCALL_GET_ARGS_4(type1, arg1, type2, arg2, type3, arg3, type4, arg4);      \
-  SYSCALL_GET_ARG(type5, arg5)
-
-#define SYSCALL_GET_ARGS_6(type1, arg1, type2, arg2, type3, arg3, type4, arg4, \
-                           type5, arg5, type6, arg6)                           \
-  SYSCALL_GET_ARGS_5(type1, arg1, type2, arg2, type3, arg3, type4, arg4,       \
-                     type5, arg5);                                             \
-  SYSCALL_GET_ARG(type6, arg6)
-
-#define SYSCALL_GET_ARGS_7(type1, arg1, type2, arg2, type3, arg3, type4, arg4, \
-                           type5, arg5, type6, arg6, type7, arg7)              \
-  SYSCALL_GET_ARGS_6(type1, arg1, type2, arg2, type3, arg3, type4, arg4,       \
-                     type5, arg5, type6, arg6);                                \
-  SYSCALL_GET_ARG(type7, arg7)
-
-/* Comments by Gene:
- * Here, syscall is the wrapper, and the call to syscall would be _real_syscall
- * We would add a special case for SYS_gettid, while all others default as below
- * It depends on the idea that arguments are stored in registers, whose
- *  natural size is:  sizeof(void*)
- * So, we pass six arguments to syscall, and it will ignore any extra arguments
- * I believe that all Linux system calls have no more than 7 args.
- * clone() is an example of one with 7 arguments.
- * If we discover system calls for which the 7 args strategy doesn't work,
- *  we can special case them.
- *
- * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
- *      use any STL here.  (--Kapil)
- */
-extern "C" long
-syscall(long sys_num, ...)
-{
-  long ret;
-  va_list ap;
-
-  va_start(ap, sys_num);
-
-  switch (sys_num) {
-  case SYS_gettid:
-  {
-    ret = VirtualPidTable::gettid();
-    break;
-  }
-  case SYS_tkill:
-  {
-    SYSCALL_GET_ARGS_2(int, tid, int, sig);
-    ret = dmtcp_tkill(tid, sig);
-    break;
-  }
-  case SYS_tgkill:
-  {
-    SYSCALL_GET_ARGS_3(int, tgid, int, tid, int, sig);
-    ret = dmtcp_tgkill(tgid, tid, sig);
-    break;
-  }
-
-  case SYS_getpid:
-  {
-    ret = getpid();
-    break;
-  }
-  case SYS_getppid:
-  {
-    ret = getppid();
-    break;
-  }
-
-// SYS_getpgrp undefined in aarch64.
-// Presumably, it's handled by libc, and is not a kernel call
-//   in AARCH64 (e.g., v5.01).
-//  Tested: __NR_getpgrp not defined on RISCV
-#ifndef __aarch64__
-#ifndef __riscv
-  case SYS_getpgrp:
-  {
-    ret = getpgrp();
-    break;
-  }
-#endif
-#endif
-
-  case SYS_getpgid:
-  {
-    SYSCALL_GET_ARG(pid_t, pid);
-    ret = getpgid(pid);
-    break;
-  }
-  case SYS_setpgid:
-  {
-    SYSCALL_GET_ARGS_2(pid_t, pid, pid_t, pgid);
-    ret = setpgid(pid, pgid);
-    break;
-  }
-
-  case SYS_getsid:
-  {
-    SYSCALL_GET_ARG(pid_t, pid);
-    ret = getsid(pid);
-    break;
-  }
-  case SYS_setsid:
-  {
-    ret = setsid();
-    break;
-  }
-
-  case SYS_kill:
-  {
-    SYSCALL_GET_ARGS_2(pid_t, pid, int, sig);
-    ret = kill(pid, sig);
-    break;
-  }
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 9))
-  case SYS_waitid:
-  {
-    // SYSCALL_GET_ARGS_4(idtype_t,idtype,id_t,id,siginfo_t*,infop,int,options);
-    SYSCALL_GET_ARGS_4(int, idtype, id_t, id, siginfo_t *, infop, int, options);
-    ret = waitid((idtype_t)idtype, id, infop, options);
-    break;
-  }
-#endif // if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 9))
-  case SYS_wait4:
-  {
-    SYSCALL_GET_ARGS_4(pid_t, pid, __WAIT_STATUS, status, int, options,
-                       struct rusage *, rusage);
-    ret = wait4(pid, status, options, rusage);
-    break;
-  }
-#ifdef __i386__
-  case SYS_waitpid:
-  {
-    SYSCALL_GET_ARGS_3(pid_t, pid, int *, status, int, options);
-    ret = waitpid(pid, status, options);
-    break;
-  }
-#endif // ifdef __i386__
-
-  case SYS_setgid:
-  {
-    SYSCALL_GET_ARG(gid_t, gid);
-    ret = setgid(gid);
-    break;
-  }
-  case SYS_setuid:
-  {
-    SYSCALL_GET_ARG(uid_t, uid);
-    ret = setuid(uid);
-    break;
-  }
-
-#ifndef DISABLE_SYS_V_IPC
-# ifdef __x86_64__
-
-  // These SYS_xxx are only defined for 64-bit Linux
-  case SYS_shmget:
-  {
-    SYSCALL_GET_ARGS_3(key_t, key, size_t, size, int, shmflg);
-    ret = shmget(key, size, shmflg);
-    break;
-  }
-  case SYS_shmat:
-  {
-    SYSCALL_GET_ARGS_3(int, shmid, const void *, shmaddr, int, shmflg);
-    ret = (unsigned long)shmat(shmid, shmaddr, shmflg);
-    break;
-  }
-  case SYS_shmdt:
-  {
-    SYSCALL_GET_ARG(const void *, shmaddr);
-    if (dmtcp_svipc_inside_shmdt != NULL &&
-        dmtcp_svipc_inside_shmdt()) {
-      ret = _real_syscall(SYS_shmdt, shmaddr);
-    } else {
-      ret = shmdt(shmaddr);
-    }
-    break;
-  }
-  case SYS_shmctl:
-  {
-    SYSCALL_GET_ARGS_3(int, shmid, int, cmd, struct shmid_ds *, buf);
-    ret = shmctl(shmid, cmd, buf);
-    break;
-  }
-# endif // ifdef __x86_64__
-#endif // ifndef DISABLE_SYS_V_IPC
-
-#ifdef HAS_CMA
-  case SYS_process_vm_readv:
-  {
-    pid_t realPid;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    SYSCALL_GET_ARGS_6(pid_t, pid,
-                       const struct iovec *, local_iov,
-                       unsigned long, liovcnt,
-                       const struct iovec *, remote_iov,
-                       unsigned long, riovcnt,
-                       unsigned long, flags);
-    realPid = VIRTUAL_TO_REAL_PID(pid);
-    ret = _real_syscall(SYS_process_vm_readv,
-                        realPid,
-                        local_iov,
-                        liovcnt,
-                        remote_iov,
-                        riovcnt,
-                        flags);
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    break;
-  }
-  case SYS_process_vm_writev:
-  {
-    pid_t realPid;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    SYSCALL_GET_ARGS_6(pid_t, pid,
-                       const struct iovec *, local_iov,
-                       unsigned long, liovcnt,
-                       const struct iovec *, remote_iov,
-                       unsigned long, riovcnt,
-                       unsigned long, flags);
-    realPid = VIRTUAL_TO_REAL_PID(pid);
-    ret = _real_syscall(SYS_process_vm_writev,
-                        realPid,
-                        local_iov,
-                        liovcnt,
-                        remote_iov,
-                        riovcnt,
-                        flags);
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    break;
-  }
-#endif // ifdef HAS_CMA
-
-  default:
-  {
-    SYSCALL_GET_ARGS_7(void *, arg1, void *, arg2, void *, arg3, void *, arg4,
-                       void *, arg5, void *, arg6, void *, arg7);
-    ret = _real_syscall(sys_num, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
-    break;
-  }
-  }
-  va_end(ap);
-  return ret;
-}
+// Wait/fcntl/syscall wrappers are composed in src/miscwrappers.cpp and
+// src/wrappers.cpp.  Timer, SysV IPC, and POSIX mqueue PID translations are
+// now composed in their built-in owners, leaving this file with only
+// non-duplicated PID helper wrappers.
 
 #ifdef HAS_CMA
 EXTERNC
@@ -538,7 +210,7 @@ process_vm_readv(pid_t pid,
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   realPid = VIRTUAL_TO_REAL_PID(pid);
-  ret = _real_process_vm_readv(realPid, local_iov, liovcnt,
+  ret = pid_real_process_vm_readv(realPid, local_iov, liovcnt,
                                remote_iov, riovcnt, flags);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -559,7 +231,7 @@ process_vm_writev(pid_t pid,
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   realPid = VIRTUAL_TO_REAL_PID(pid);
-  ret = _real_process_vm_writev(realPid, local_iov, liovcnt,
+  ret = pid_real_process_vm_writev(realPid, local_iov, liovcnt,
                                 remote_iov, riovcnt, flags);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -568,19 +240,6 @@ process_vm_writev(pid_t pid,
 #endif // ifdef HAS_CMA
 
 #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
-extern "C" int
-pthread_getcpuclockid (pthread_t th, clockid_t *clockid)
-{
-  // TODO(kapil): Validate th.
-  pid_t tid = dmtcp_pthread_get_tid(th);
-
-  /* The clockid_t value is a simple computation from the TID.  */
-  const clockid_t tidclock = make_thread_cpuclock (tid, CPUCLOCK_SCHED);
-
-  *clockid = tidclock;
-  return 0;
-}
-
 /* Unfortunately the kernel headers do not export the TASK_COMM_LEN
    macro.  So we have to define it here.  */
 #define TASK_COMM_LEN 16

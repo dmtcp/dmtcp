@@ -61,7 +61,7 @@ struct user_desc {
 #include <syslog.h>
 #include <thread_db.h>
 
-// FIXME:   We define _real_msgctl() in terms of msgctl() here.  So,
+// FIXME:   We define pid_real_msgctl() in terms of msgctl() here.  So,
 // we need sys/msg.h.  But sys/msg.h also declares msgrcv().
 // SLES 10 declares msgrcv() one way, and others define it differently.
 // So, we need this hack.  (Do we really need msgctl() defined here?
@@ -112,10 +112,11 @@ LIB_PRIVATE pid_t dmtcp_gettid();
 LIB_PRIVATE int dmtcp_tkill(int tid, int sig);
 LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
 
-#ifdef __cplusplus
-extern "C" bool dmtcp_svipc_inside_shmdt() __attribute((weak));
-#endif
-
+/* wait/fcntl/syscall entries remain in this lookup list for pid_real_*
+ * pass-through helpers.  Their exported wrappers are composed in libdmtcp.so's
+ * core owners (src/miscwrappers.cpp and src/wrappers.cpp).  Timer, SysV IPC,
+ * and POSIX mqueue wrappers now own their PID translations directly.
+ */
 #define FOREACH_PIDVIRT_WRAPPER(MACRO) \
   MACRO(fork)                          \
   MACRO(vfork)                         \
@@ -124,12 +125,6 @@ extern "C" bool dmtcp_svipc_inside_shmdt() __attribute((weak));
   MACRO(tkill)                         \
   MACRO(tgkill)                        \
   MACRO(syscall)                       \
-  MACRO(shmget)                        \
-  MACRO(shmat)                         \
-  MACRO(shmdt)                         \
-  MACRO(mq_notify)                     \
-  MACRO(clock_getcpuclockid)           \
-  MACRO(timer_create)                  \
   MACRO(getppid)                       \
   MACRO(tcgetsid)                      \
   MACRO(tcgetpgrp)                     \
@@ -153,11 +148,6 @@ extern "C" bool dmtcp_svipc_inside_shmdt() __attribute((weak));
   MACRO(pthread_exit)                  \
   MACRO(fcntl)
 
-#define FOREACH_SYSVIPC_CTL_WRAPPER(MACRO) \
-  MACRO(shmctl)                            \
-  MACRO(semctl)                            \
-  MACRO(msgctl)
-
 #define FOREACH_SCHED_WRAPPER(MACRO) \
   MACRO(sched_setaffinity)           \
   MACRO(sched_getaffinity)           \
@@ -178,7 +168,6 @@ extern "C" bool dmtcp_svipc_inside_shmdt() __attribute((weak));
 #define PIDVIRT_GEN_ENUM(x) PIDVIRT_ENUM(x),
 typedef enum {
   FOREACH_PIDVIRT_WRAPPER(PIDVIRT_GEN_ENUM)
-  FOREACH_SYSVIPC_CTL_WRAPPER(PIDVIRT_GEN_ENUM)
   FOREACH_SCHED_WRAPPER(PIDVIRT_GEN_ENUM)
 #ifdef HAS_CMA
   FOREACH_CMA_WRAPPER(PIDVIRT_GEN_ENUM)
@@ -186,11 +175,11 @@ typedef enum {
   numPidVirtWrappers
 } PidVirtWrapperOffset;
 
-void *_real_func_addr(PidVirtWrapperOffset func);
+void *pid_real_func_addr_at(PidVirtWrapperOffset func);
 
-pid_t _real_fork();
-pid_t _real_vfork();
-int _real_clone(int (*fn)(void *arg),
+pid_t pid_real_fork();
+pid_t pid_real_vfork();
+int pid_real_clone(int (*fn)(void *arg),
                 void *child_stack,
                 int flags,
                 void *arg,
@@ -198,61 +187,48 @@ int _real_clone(int (*fn)(void *arg),
                 struct user_desc *newtls,
                 int *child_tidptr);
 
-pid_t _real_gettid(void);
-int _real_tkill(int tid, int sig);
-int _real_tgkill(int tgid, int tid, int sig);
+pid_t pid_real_gettid(void);
+int pid_real_tkill(int tid, int sig);
+int pid_real_tgkill(int tgid, int tid, int sig);
 
-long int _real_syscall(long int sys_num, ...);
+long int pid_real_syscall(long int sys_num, ...);
 
-/* System V shared memory */
-int _real_shmget(key_t key, size_t size, int shmflg);
-void *_real_shmat(int shmid, const void *shmaddr, int shmflg);
-int _real_shmdt(const void *shmaddr);
-int _real_shmctl(int shmid, int cmd, struct shmid_ds *buf);
-int _real_semctl(int semid, int semnum, int cmd, ...);
-int _real_msgctl(int msqid, int cmd, struct msqid_ds *buf);
-int _real_mq_notify(mqd_t mqdes, const struct sigevent *sevp);
-int _real_clock_getcpuclockid(pid_t pid, clockid_t *clock_id);
-int _real_timer_create(clockid_t clockid,
-                       struct sigevent *sevp,
-                       timer_t *timerid);
+pid_t pid_real_getpid(void);
+pid_t pid_real_getppid(void);
 
-pid_t _real_getpid(void);
-pid_t _real_getppid(void);
+pid_t pid_real_tcgetsid(int fd);
+pid_t pid_real_tcgetpgrp(int fd);
+int pid_real_tcsetpgrp(int fd, pid_t pgrp);
 
-pid_t _real_tcgetsid(int fd);
-pid_t _real_tcgetpgrp(int fd);
-int _real_tcsetpgrp(int fd, pid_t pgrp);
+pid_t pid_real_getpgrp(void);
+pid_t pid_real_setpgrp(void);
 
-pid_t _real_getpgrp(void);
-pid_t _real_setpgrp(void);
+pid_t pid_real_getpgid(pid_t pid);
+int pid_real_setpgid(pid_t pid, pid_t pgid);
 
-pid_t _real_getpgid(pid_t pid);
-int _real_setpgid(pid_t pid, pid_t pgid);
+pid_t pid_real_getsid(pid_t pid);
+pid_t pid_real_setsid(void);
 
-pid_t _real_getsid(pid_t pid);
-pid_t _real_setsid(void);
+int pid_real_kill(pid_t pid, int sig);
 
-int _real_kill(pid_t pid, int sig);
+pid_t pid_real_wait(__WAIT_STATUS stat_loc);
+pid_t pid_real_waitpid(pid_t pid, int *stat_loc, int options);
+int pid_real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
 
-pid_t _real_wait(__WAIT_STATUS stat_loc);
-pid_t _real_waitpid(pid_t pid, int *stat_loc, int options);
-int _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
-
-pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage);
-pid_t _real_wait4(pid_t pid,
+pid_t pid_real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage);
+pid_t pid_real_wait4(pid_t pid,
                   __WAIT_STATUS status,
                   int options,
                   struct rusage *rusage);
 LIB_PRIVATE extern int send_sigwinch;
-int _real_ioctl(int d, unsigned long int request, ...) __THROW;
+int pid_real_ioctl(int d, unsigned long int request, ...) __THROW;
 
-int _real_setgid(gid_t gid);
-int _real_setuid(uid_t uid);
+int pid_real_setgid(gid_t gid);
+int pid_real_setuid(uid_t uid);
 
-int _real_pthread_cancel(pthread_t th);
-void _real_pthread_exit(void *retval);
-int _real_fcntl(int fd, int cmd, void *arg);
+int pid_real_pthread_cancel(pthread_t th);
+void pid_real_pthread_exit(void *retval);
+int pid_real_fcntl(int fd, int cmd, void *arg);
 
 int _real_open(const char *pathname, int flags, ...);
 int _real_open64(const char *pathname, int flags, ...);
@@ -268,13 +244,13 @@ int _real_lxstat(int vers, const char *path, struct stat *buf);
 int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
 ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
 #ifdef HAS_CMA
-ssize_t _real_process_vm_readv(pid_t pid,
+ssize_t pid_real_process_vm_readv(pid_t pid,
                                const struct iovec *local_iov,
                                unsigned long liovcnt,
                                const struct iovec *remote_iov,
                                unsigned long riovcnt,
                                unsigned long flags);
-ssize_t _real_process_vm_writev(pid_t pid,
+ssize_t pid_real_process_vm_writev(pid_t pid,
                                 const struct iovec *local_iov,
                                 unsigned long liovcnt,
                                 const struct iovec *remote_iov,
@@ -282,20 +258,20 @@ ssize_t _real_process_vm_writev(pid_t pid,
                                 unsigned long flags);
 #endif // ifdef HAS_CMA
 
-int _real_sched_setaffinity(pid_t pid, size_t cpusetsize,
+int pid_real_sched_setaffinity(pid_t pid, size_t cpusetsize,
                             const cpu_set_t *mask);
-int _real_sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);
-int _real_sched_setscheduler(pid_t pid,
+int pid_real_sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);
+int pid_real_sched_setscheduler(pid_t pid,
                              int policy,
                              const struct sched_param *param);
-int _real_sched_getscheduler(pid_t pid);
-int _real_sched_setparam(pid_t pid, const struct sched_param *param);
-int _real_sched_getparam(pid_t pid, struct sched_param *param);
+int pid_real_sched_getscheduler(pid_t pid);
+int pid_real_sched_setparam(pid_t pid, const struct sched_param *param);
+int pid_real_sched_getparam(pid_t pid, struct sched_param *param);
 #if 0
-int _real_sched_setattr(pid_t pid,
+int pid_real_sched_setattr(pid_t pid,
                         const struct sched_attr *attr,
                         unsigned int flags);
-int _real_sched_getattr(pid_t pid,
+int pid_real_sched_getattr(pid_t pid,
                         const struct sched_attr *attr,
                         unsigned int size,
                         unsigned int flags);

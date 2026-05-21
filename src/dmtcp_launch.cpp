@@ -176,9 +176,6 @@ static bool enableUniqueCkptPlugin = false;
 // This is the base library.
 static bool enableLibDMTCP = true;
 
-// PID plugin must come last.
-static bool enablePIDPlugin = true;
-
 // Kernel loader
 static bool enableKernelLoader = false;
 
@@ -193,9 +190,7 @@ static struct PluginInfo pluginInfo[] = {               // Default value
   { &enableAllocPlugin, "libdmtcp_alloc.so" },          // Enabled
   { &enableDlPlugin, "libdmtcp_dl.so" },                // Enabled
   { &enablePathVirtPlugin,  "libdmtcp_pathvirt.so"},    // Disabled
-  { &enableLibDMTCP, "libdmtcp.so" },                   // Enabled
-  // PID plugin must come last.
-  { &enablePIDPlugin, "libdmtcp_pid.so" }               // Enabled
+  { &enableLibDMTCP, "libdmtcp.so" }                    // Enabled
 };
 
 const size_t numLibs = sizeof(pluginInfo) / sizeof(struct PluginInfo);

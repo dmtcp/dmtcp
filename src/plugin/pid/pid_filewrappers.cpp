@@ -74,7 +74,7 @@ ioctl(int d, unsigned long int request, ...)
     va_start(local_ap, request);
     struct winsize *win = va_arg(local_ap, struct winsize *);
     va_end(local_ap);
-    retval = _real_ioctl(d, request, win);  // This fills in win
+    retval = pid_real_ioctl(d, request, win);  // This fills in win
     win->ws_col--; // Lie to application, and force it to resize window,
                    // reset any scroll regions, etc.
     kill(getpid(), SIGWINCH); // Tell application to look up true winsize
@@ -84,7 +84,7 @@ ioctl(int d, unsigned long int request, ...)
     va_start(ap, request);
     arg = va_arg(ap, void *);
     va_end(ap);
-    retval = _real_ioctl(d, request, arg);
+    retval = pid_real_ioctl(d, request, arg);
   }
   return retval;
 }

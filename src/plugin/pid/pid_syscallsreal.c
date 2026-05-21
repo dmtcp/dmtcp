@@ -60,26 +60,12 @@ static int pid_wrappers_initialized = 0;
     GET_FUNC_ADDR(name);                                                   \
   }
 
-#ifdef __i386__
-
-// On 32-bit Linuxes, glibc provides two versions (GLIBC_2.0 and GLIBC_2.2) for
-// semctl, msgctl and shmctl. dlsym(RTLD_NEXT, ...) returns the address of the
-// GLIBC_2.0 version, whereas we need the GLIBC_2.2 version. In 64-bit glibc,
-// there is only one version.
-// Similarly, for fopen/fclose/fdopen, there is a GLIBC_2.1 in addition to
-// GLIBC_2.0 version.
-# define GET_SYSVIPC_CTL_FUNC_ADDR(name) GET_FUNC_ADDR_V(name, "GLIBC_2.2")
-#else /* ifdef __i386__ */
-# define GET_SYSVIPC_CTL_FUNC_ADDR(name) GET_FUNC_ADDR(name)
-#endif /* ifdef __i386__ */
-
 LIB_PRIVATE
 void
 pid_initialize_wrappers()
 {
   if (!pid_wrappers_initialized) {
     FOREACH_PIDVIRT_WRAPPER(GET_FUNC_ADDR);
-    FOREACH_SYSVIPC_CTL_WRAPPER(GET_SYSVIPC_CTL_FUNC_ADDR);
     FOREACH_SCHED_WRAPPER(GET_FUNC_ADDR);
 #if HAS_CMA
     FOREACH_CMA_WRAPPER(GET_FUNC_ADDR);
@@ -116,7 +102,7 @@ pid_initialize_wrappers()
 
 LIB_PRIVATE
 void *
-_real_func_addr(PidVirtWrapperOffset func)
+pid_real_func_addr_at(PidVirtWrapperOffset func)
 {
   pid_initialize_wrappers();
   return pid_real_func_addr[func];
@@ -126,130 +112,130 @@ _real_func_addr(PidVirtWrapperOffset func)
 //   won't depend on libdmtcp_pid.sp
 LIB_PRIVATE
 pid_t
-_real_getpid(void)
+pid_real_getpid(void)
 {
   // libc caches pid of the process and hence after restart, libc:getpid()
   // returns the pre-ckpt value.
-  return (pid_t)_real_syscall(SYS_getpid);
+  return (pid_t)pid_real_syscall(SYS_getpid);
 }
 
 LIB_PRIVATE
 pid_t
-_real_getppid(void)
+pid_real_getppid(void)
 {
   // libc caches ppid of the process and hence after restart, libc:getppid()
   // returns the pre-ckpt value.
-  return (pid_t)_real_syscall(SYS_getppid);
+  return (pid_t)pid_real_syscall(SYS_getppid);
 }
 
 LIB_PRIVATE
 pid_t
-_real_tcgetsid(int fd)
+pid_real_tcgetsid(int fd)
 {
   REAL_FUNC_PASSTHROUGH(tcgetsid) (fd);
 }
 
 LIB_PRIVATE
 int
-_real_tcsetpgrp(int fd, pid_t pgrp)
+pid_real_tcsetpgrp(int fd, pid_t pgrp)
 {
   REAL_FUNC_PASSTHROUGH(tcsetpgrp) (fd, pgrp);
 }
 
 LIB_PRIVATE
 pid_t
-_real_tcgetpgrp(int fd)
+pid_real_tcgetpgrp(int fd)
 {
   REAL_FUNC_PASSTHROUGH(tcgetpgrp) (fd);
 }
 
 LIB_PRIVATE
 pid_t
-_real_getpgrp(void)
+pid_real_getpgrp(void)
 {
   REAL_FUNC_PASSTHROUGH(getpgrp) ();
 }
 
 LIB_PRIVATE
 pid_t
-_real_setpgrp(void)
+pid_real_setpgrp(void)
 {
   REAL_FUNC_PASSTHROUGH(setpgrp) ();
 }
 
 LIB_PRIVATE
 pid_t
-_real_getpgid(pid_t pid)
+pid_real_getpgid(pid_t pid)
 {
   REAL_FUNC_PASSTHROUGH(getpgid) (pid);
 }
 
 LIB_PRIVATE
 int
-_real_setpgid(pid_t pid, pid_t pgid)
+pid_real_setpgid(pid_t pid, pid_t pgid)
 {
   REAL_FUNC_PASSTHROUGH(setpgid) (pid, pgid);
 }
 
 LIB_PRIVATE
 pid_t
-_real_getsid(pid_t pid)
+pid_real_getsid(pid_t pid)
 {
   REAL_FUNC_PASSTHROUGH(getsid) (pid);
 }
 
 LIB_PRIVATE
 pid_t
-_real_setsid(void)
+pid_real_setsid(void)
 {
   REAL_FUNC_PASSTHROUGH(setsid) ();
 }
 
 LIB_PRIVATE
 int
-_real_kill(pid_t pid, int sig)
+pid_real_kill(pid_t pid, int sig)
 {
   REAL_FUNC_PASSTHROUGH(kill) (pid, sig);
 }
 
 LIB_PRIVATE
 pid_t
-_real_wait(__WAIT_STATUS stat_loc)
+pid_real_wait(__WAIT_STATUS stat_loc)
 {
   REAL_FUNC_PASSTHROUGH(wait) (stat_loc);
 }
 
 LIB_PRIVATE
 pid_t
-_real_waitpid(pid_t pid, int *stat_loc, int options)
+pid_real_waitpid(pid_t pid, int *stat_loc, int options)
 {
   REAL_FUNC_PASSTHROUGH(waitpid) (pid, stat_loc, options);
 }
 
 LIB_PRIVATE
 int
-_real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
+pid_real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 {
   REAL_FUNC_PASSTHROUGH(waitid) (idtype, id, infop, options);
 }
 
 LIB_PRIVATE
 pid_t
-_real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
+pid_real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
 {
   REAL_FUNC_PASSTHROUGH(wait3) (status, options, rusage);
 }
 
 LIB_PRIVATE
 pid_t
-_real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
+pid_real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
 {
   REAL_FUNC_PASSTHROUGH(wait4) (pid, status, options, rusage);
 }
 
 LIB_PRIVATE
 int
-_real_ioctl(int d, unsigned long int request, ...)
+pid_real_ioctl(int d, unsigned long int request, ...)
 {
   void *arg;
   va_list ap;
@@ -266,14 +252,14 @@ _real_ioctl(int d, unsigned long int request, ...)
 
 LIB_PRIVATE
 int
-_real_setgid(gid_t gid)
+pid_real_setgid(gid_t gid)
 {
   REAL_FUNC_PASSTHROUGH(setgid) (gid);
 }
 
 LIB_PRIVATE
 int
-_real_setuid(uid_t uid)
+pid_real_setuid(uid_t uid)
 {
   REAL_FUNC_PASSTHROUGH(setuid) (uid);
 }
@@ -281,34 +267,34 @@ _real_setuid(uid_t uid)
 // gettid / tkill / tgkill are not defined in libc.
 LIB_PRIVATE
 pid_t
-_real_gettid(void)
+pid_real_gettid(void)
 {
   // No glibc wrapper for gettid, although even if it had one, we would have
   // the issues similar to getpid/getppid().
-  return (pid_t)_real_syscall(SYS_gettid);
+  return (pid_t)pid_real_syscall(SYS_gettid);
 }
 
 LIB_PRIVATE
 int
-_real_tkill(int tid, int sig)
+pid_real_tkill(int tid, int sig)
 {
   // No glibc wrapper for tkill, although even if it had one, we would have
   // the issues similar to getpid/getppid().
-  return (int)_real_syscall(SYS_tkill, tid, sig);
+  return (int)pid_real_syscall(SYS_tkill, tid, sig);
 }
 
 LIB_PRIVATE
 int
-_real_tgkill(int tgid, int tid, int sig)
+pid_real_tgkill(int tgid, int tid, int sig)
 {
   // No glibc wrapper for tgkill, although even if it had one, we would have
   // the issues similar to getpid/getppid().
-  return (int)_real_syscall(SYS_tgkill, tgid, tid, sig);
+  return (int)pid_real_syscall(SYS_tgkill, tgid, tid, sig);
 }
 
 LIB_PRIVATE
 long
-_real_syscall(long sys_num, ...)
+pid_real_syscall(long sys_num, ...)
 {
   int i;
   void *arg[7];
@@ -327,14 +313,14 @@ _real_syscall(long sys_num, ...)
 
 LIB_PRIVATE
 pid_t
-_real_fork()
+pid_real_fork()
 {
   REAL_FUNC_PASSTHROUGH(fork) ();
 }
 
 LIB_PRIVATE
 pid_t
-_real_vfork()
+pid_real_vfork()
 {
   REAL_FUNC_PASSTHROUGH(vfork) ();
 }
@@ -343,7 +329,7 @@ extern int __clone (int (*__fn) (void *__arg), void *__child_stack,
                     int __flags, void *__arg, ...);
 LIB_PRIVATE
 int
-_real_clone(int (*function)(
+pid_real_clone(int (*function)(
               void *), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls,
             int *child_tidptr)
 {
@@ -353,132 +339,63 @@ _real_clone(int (*function)(
 
 LIB_PRIVATE
 int
-_real_shmget(key_t key, size_t size, int shmflg)
-{
-  REAL_FUNC_PASSTHROUGH(shmget) (key, size, shmflg);
-}
-
-LIB_PRIVATE
-void *
-_real_shmat(int shmid, const void *shmaddr, int shmflg)
-{
-  REAL_FUNC_PASSTHROUGH(shmat) (shmid, shmaddr, shmflg);
-}
-
-LIB_PRIVATE
-int
-_real_shmdt(const void *shmaddr)
-{
-  REAL_FUNC_PASSTHROUGH(shmdt) (shmaddr);
-}
-
-LIB_PRIVATE
-int
-_real_shmctl(int shmid, int cmd, struct shmid_ds *buf)
-{
-  REAL_FUNC_PASSTHROUGH(shmctl) (shmid, cmd, buf);
-}
-
-LIB_PRIVATE
-int
-_real_semctl(int semid, int semnum, int cmd, ...)
-{
-  union semun uarg;
-  va_list arg;
-
-  va_start(arg, cmd);
-  uarg = va_arg(arg, union semun);
-  va_end(arg);
-  REAL_FUNC_PASSTHROUGH(semctl) (semid, semnum, cmd, uarg);
-}
-
-LIB_PRIVATE
-int
-_real_msgctl(int msqid, int cmd, struct msqid_ds *buf)
-{
-  REAL_FUNC_PASSTHROUGH(msgctl) (msqid, cmd, buf);
-}
-
-LIB_PRIVATE
-int
-_real_mq_notify(mqd_t mqdes, const struct sigevent *sevp)
-{
-  REAL_FUNC_PASSTHROUGH(mq_notify) (mqdes, sevp);
-}
-
-LIB_PRIVATE
-int
-_real_clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
-{
-  REAL_FUNC_PASSTHROUGH(clock_getcpuclockid) (pid, clock_id);
-}
-
-LIB_PRIVATE
-int
-_real_timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
-{
-  REAL_FUNC_PASSTHROUGH(timer_create) (clockid, sevp, timerid);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_cancel(pthread_t th)
+pid_real_pthread_cancel(pthread_t th)
 {
   REAL_FUNC_PASSTHROUGH(pthread_cancel) (th);
 }
 
 LIB_PRIVATE
 void
-_real_pthread_exit(void *retval)
+pid_real_pthread_exit(void *retval)
 {
   REAL_FUNC_PASSTHROUGH_NORETURN(pthread_exit) (retval);
 }
 
 LIB_PRIVATE
 int
-_real_fcntl(int fd, int cmd, void *arg)
+pid_real_fcntl(int fd, int cmd, void *arg)
 {
   REAL_FUNC_PASSTHROUGH(fcntl) (fd, cmd, arg);
 }
 
 LIB_PRIVATE
 int
-_real_sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
+pid_real_sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
 {
   REAL_FUNC_PASSTHROUGH(sched_setaffinity) (pid, cpusetsize, mask);
 }
 
 LIB_PRIVATE
 int
-_real_sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
+pid_real_sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
 {
   REAL_FUNC_PASSTHROUGH(sched_getaffinity) (pid, cpusetsize, mask);
 }
 
 LIB_PRIVATE
 int
-_real_sched_setscheduler(pid_t pid, int policy, const struct sched_param *param)
+pid_real_sched_setscheduler(pid_t pid, int policy, const struct sched_param *param)
 {
   REAL_FUNC_PASSTHROUGH(sched_setscheduler) (pid, policy, param);
 }
 
 LIB_PRIVATE
 int
-_real_sched_getscheduler(pid_t pid)
+pid_real_sched_getscheduler(pid_t pid)
 {
   REAL_FUNC_PASSTHROUGH(sched_getscheduler) (pid);
 }
 
 LIB_PRIVATE
 int
-_real_sched_setparam(pid_t pid, const struct sched_param *param)
+pid_real_sched_setparam(pid_t pid, const struct sched_param *param)
 {
   REAL_FUNC_PASSTHROUGH(sched_setparam) (pid, param);
 }
 
 LIB_PRIVATE
 int
-_real_sched_getparam(pid_t pid, struct sched_param *param)
+pid_real_sched_getparam(pid_t pid, struct sched_param *param)
 {
   REAL_FUNC_PASSTHROUGH(sched_getparam) (pid, param);
 }
@@ -486,7 +403,7 @@ _real_sched_getparam(pid_t pid, struct sched_param *param)
 #if 0
 LIB_PRIVATE
 int
-_real_sched_setattr(pid_t pid, const struct sched_attr *attr,
+pid_real_sched_setattr(pid_t pid, const struct sched_attr *attr,
                     unsigned int flags)
 {
   REAL_FUNC_PASSTHROUGH(sched_setattr) (pid, attr, flags);
@@ -494,7 +411,7 @@ _real_sched_setattr(pid_t pid, const struct sched_attr *attr,
 
 LIB_PRIVATE
 int
-_real_sched_getattr(pid_t pid,
+pid_real_sched_getattr(pid_t pid,
                     const struct sched_attr *attr,
                     unsigned int size,
                     unsigned int flags)
@@ -505,7 +422,7 @@ _real_sched_getattr(pid_t pid,
 
 #if HAS_CMA
 ssize_t
-_real_process_vm_readv(pid_t pid,
+pid_real_process_vm_readv(pid_t pid,
                        const struct iovec *local_iov,
                        unsigned long liovcnt,
                        const struct iovec *remote_iov,
@@ -517,7 +434,7 @@ _real_process_vm_readv(pid_t pid,
 }
 
 ssize_t
-_real_process_vm_writev(pid_t pid,
+pid_real_process_vm_writev(pid_t pid,
                         const struct iovec *local_iov,
                         unsigned long liovcnt,
                         const struct iovec *remote_iov,

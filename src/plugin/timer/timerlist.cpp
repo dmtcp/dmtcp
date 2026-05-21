@@ -137,9 +137,10 @@ TimerList::removeStaleClockIds()
        clockPidListIter != _clockPidList.end();
        clockPidListIter++) {
     pid_t pid = clockPidListIter->second;
+    pid_t realPid = dmtcp_timer_virtual_to_real_pid(pid);
     clockid_t realId = VIRTUAL_TO_REAL_CLOCK_ID(clockPidListIter->first);
     clockid_t clockid;
-    if (_real_clock_getcpuclockid(pid, &clockid) != 0 || clockid != realId) {
+    if (_real_clock_getcpuclockid(realPid, &clockid) != 0 || clockid != realId) {
       staleClockIds.push_back(clockPidListIter->first);
     }
   }
@@ -156,7 +157,7 @@ TimerList::removeStaleClockIds()
     pthread_t pth = clockPthreadListIter->second;
     clockid_t realId = VIRTUAL_TO_REAL_CLOCK_ID(clockPthreadListIter->first);
     clockid_t clockid;
-    if (_real_pthread_getcpuclockid(pth, &clockid) != 0 || clockid != realId) {
+    if (dmtcp_timer_pthread_getcpuclockid(pth, &clockid) != 0 || clockid != realId) {
       staleClockIds.push_back(clockPthreadListIter->first);
     }
   }
@@ -199,9 +200,11 @@ TimerList::postRestart()
   map<clockid_t, pid_t>::iterator it1;
   for (it1 = _clockPidList.begin(); it1 != _clockPidList.end(); it1++) {
     pid_t pid = it1->second;
+    pid_t realPid = dmtcp_timer_virtual_to_real_pid(pid);
     clockid_t virtId = it1->first;
     clockid_t realId;
-    JASSERT(_real_clock_getcpuclockid(pid, &realId) == 0) (pid) (JASSERT_ERRNO);
+    JASSERT(_real_clock_getcpuclockid(realPid, &realId) == 0) (pid) (realPid)
+      (JASSERT_ERRNO);
     _clockVirtIdTable.updateMapping(virtId, realId);
   }
 
@@ -210,7 +213,7 @@ TimerList::postRestart()
     pthread_t pth = it2->second;
     clockid_t virtId = it2->first;
     clockid_t realId;
-    JASSERT(_real_pthread_getcpuclockid(pth, &realId) == 0) (pth)
+    JASSERT(dmtcp_timer_pthread_getcpuclockid(pth, &realId) == 0) (pth)
       (JASSERT_ERRNO);
     _clockVirtIdTable.updateMapping(virtId, realId);
   }

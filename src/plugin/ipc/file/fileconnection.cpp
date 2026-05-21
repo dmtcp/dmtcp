@@ -38,6 +38,7 @@
 #include "jfilesystem.h"
 #include "jsocket.h"
 #include "dmtcp.h"
+#include "pluginmanager.h"
 #include "shareddata.h"
 #include "util.h"
 
@@ -48,7 +49,21 @@
 using namespace dmtcp;
 
 static void writeFileFromFd(int fd, int destFd);
-static bool areFilesEqual(int fd, int destFd, size_t size);
+static bool
+areFilesEqual(int fd, int destFd, size_t size);
+
+static const char *
+virtualToRealFilePath(const string &path, char realPath[PATH_MAX])
+{
+  strncpy(realPath, path.c_str(), PATH_MAX);
+  realPath[PATH_MAX - 1] = '\0';
+
+  DmtcpEventData_t data;
+  data.virtualToRealPath.path = realPath;
+  PluginManager::eventHook(DMTCP_EVENT_VIRTUAL_TO_REAL_PATH, &data);
+
+  return realPath;
+}
 
 static bool
 _isVimApp()
@@ -543,13 +558,17 @@ FileConnection::checkDup(int fd, const char *npath)
 int
 FileConnection::openFile()
 {
-  JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
+  char realPath[PATH_MAX] = { 0 };
+  const char *path = virtualToRealFilePath(_path, realPath);
+
+  JASSERT(jalib::Filesystem::FileExists(_path) ||
+          jalib::Filesystem::FileExists(path)) (_path) (path)
   .Text("File not present");
 
-  int fd = _real_open(_path.c_str(), _fcntlFlags);
-  JASSERT(fd != -1) (_path) (JASSERT_ERRNO).Text("open() failed");
+  int fd = _real_open(path, _fcntlFlags);
+  JASSERT(fd != -1) (_path) (path) (JASSERT_ERRNO).Text("open() failed");
 
-  JTRACE("open(_path.c_str(), _fcntlFlags)") (fd) (_path.c_str()) (_fcntlFlags);
+  JTRACE("open(path, _fcntlFlags)") (fd) (_path.c_str()) (path) (_fcntlFlags);
   return fd;
 }
 
@@ -899,7 +918,8 @@ PosixMQConnection::refill(bool isRestart)
 
   if (_notifyReg) {
     errno = 0;
-    JASSERT(mq_notify(_fds[0], &_sevp) != -1) (_name) (JASSERT_ERRNO)
+    JASSERT(mq_notify(_fds[0], &_sevp) != -1) (_name) (_fds[0]) (_oflag)
+      (JASSERT_ERRNO)
       .Text("Failed to restore POSIX message queue notification.");
   }
 }

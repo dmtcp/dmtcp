@@ -222,6 +222,18 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  plugin/ipc/ssh/sshdrainer.cpp 	\
 				  plugin/ipc/ssh/sshdrainer.h 	\
 				  plugin/ipc/ssh/ssh.h 	\
+				  plugin/pid/glibc_pthread.cpp 	\
+				  plugin/pid/glibc_pthread.h 	\
+				  plugin/pid/pid.cpp 		\
+				  plugin/pid/pid_filewrappers.cpp 	\
+				  plugin/pid/pid.h 		\
+				  plugin/pid/pid_miscwrappers.cpp 	\
+				  plugin/pid/pid_syscallsreal.c 	\
+				  plugin/pid/pidwrappers.cpp 	\
+				  plugin/pid/pidwrappers.h 	\
+				  plugin/pid/sched_wrappers.cpp 	\
+				  plugin/pid/virtualpidtable.cpp 	\
+				  plugin/pid/virtualpidtable.h 	\
 				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\

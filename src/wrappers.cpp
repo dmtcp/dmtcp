@@ -14,9 +14,12 @@
 #define open     open_always_inline
 #define open64   open64_always_inline
 
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <limits.h>  // for PATH_MAX
 #include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -512,6 +515,75 @@ dup3(int oldfd, int newfd, int flags)
 # define F_DUPFD_CLOEXEC 0
 #endif
 
+typedef pid_t (*PidTranslateFn)(pid_t pid);
+
+static bool
+pidPluginsDisabledByEnv()
+{
+  const char *disableAll = getenv("DMTCP_DISABLE_ALL_PLUGINS");
+  return disableAll != NULL && strcmp(disableAll, "1") == 0;
+}
+
+static PidTranslateFn
+pidVirtualToRealFn()
+{
+  static PidTranslateFn nextFn = NULL;
+  static bool nextFnResolved = false;
+
+  if (dmtcp_virtual_to_real_pid != NULL) {
+    return dmtcp_virtual_to_real_pid;
+  }
+
+  if (!nextFnResolved && dmtcp_dlsym != NULL) {
+    nextFn = (PidTranslateFn)dmtcp_dlsym(RTLD_NEXT,
+                                         "dmtcp_virtual_to_real_pid");
+    nextFnResolved = true;
+  }
+
+  return nextFn;
+}
+
+static PidTranslateFn
+pidRealToVirtualFn()
+{
+  static PidTranslateFn nextFn = NULL;
+  static bool nextFnResolved = false;
+
+  if (dmtcp_real_to_virtual_pid != NULL) {
+    return dmtcp_real_to_virtual_pid;
+  }
+
+  if (!nextFnResolved && dmtcp_dlsym != NULL) {
+    nextFn = (PidTranslateFn)dmtcp_dlsym(RTLD_NEXT,
+                                         "dmtcp_real_to_virtual_pid");
+    nextFnResolved = true;
+  }
+
+  return nextFn;
+}
+
+static bool
+pidVirtualizationEnabled()
+{
+  return !pidPluginsDisabledByEnv() &&
+         pidVirtualToRealFn() != NULL &&
+         pidRealToVirtualFn() != NULL;
+}
+
+static pid_t
+virtualToRealPidIfEnabled(pid_t pid)
+{
+  PidTranslateFn fn = pidVirtualToRealFn();
+  return fn != NULL ? fn(pid) : pid;
+}
+
+static pid_t
+realToVirtualPidIfEnabled(pid_t pid)
+{
+  PidTranslateFn fn = pidRealToVirtualFn();
+  return fn != NULL ? fn(pid) : pid;
+}
+
 
 extern "C" int
 fcntl(int fd, int cmd, ...)
@@ -519,19 +591,31 @@ fcntl(int fd, int cmd, ...)
   WrapperLock wrapperLock;
 
   void *arg = NULL;
+  void *realArg = NULL;
   va_list ap;
 
   va_start(ap, cmd);
   arg = va_arg(ap, void *);
   va_end(ap);
 
-  int res = _real_fcntl(fd, cmd, arg);
+  realArg = arg;
+  if (pidVirtualizationEnabled() && cmd == F_SETOWN) {
+    pid_t realPid = virtualToRealPidIfEnabled((pid_t)(unsigned long)arg);
+    realArg = (void *)(unsigned long)realPid;
+  }
+
+  int res = _real_fcntl(fd, cmd, realArg);
+  int retval = res;
 
   if (res != -1 && (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC)) {
     processDupFd(fd, res);
   }
 
-  return res;
+  if (pidVirtualizationEnabled() && cmd == F_GETOWN) {
+    retval = realToVirtualPidIfEnabled(res);
+  }
+
+  return retval;
 }
 
 extern "C" FILE *

@@ -22,12 +22,17 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
+#include <sys/uio.h>
+#include <dlfcn.h>
 #include <poll.h>
+#include <stdlib.h>
+#include <string.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "constants.h"
 #include "dmtcpworker.h"
 #include "processinfo.h"
+#include "plugin/pid/pid.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
 #include "util.h"
@@ -155,6 +160,125 @@ pipe2(int fds[2], int flags)
 // return origPid;
 // }
 
+typedef pid_t (*PidTranslateFn)(pid_t pid);
+typedef pid_t (*PidGetVirtualTidFn)(void);
+typedef void (*PidEraseVirtualPidFn)(pid_t pid);
+
+static bool
+pidPluginsDisabledByEnv()
+{
+  const char *disableAll = getenv("DMTCP_DISABLE_ALL_PLUGINS");
+  return disableAll != NULL && strcmp(disableAll, "1") == 0;
+}
+
+static PidTranslateFn
+pidVirtualToRealFn()
+{
+  static PidTranslateFn nextFn = NULL;
+  static bool nextFnResolved = false;
+
+  if (dmtcp_virtual_to_real_pid != NULL) {
+    return dmtcp_virtual_to_real_pid;
+  }
+
+  if (!nextFnResolved && dmtcp_dlsym != NULL) {
+    nextFn = (PidTranslateFn)dmtcp_dlsym(RTLD_NEXT,
+                                         "dmtcp_virtual_to_real_pid");
+    nextFnResolved = true;
+  }
+
+  return nextFn;
+}
+
+static PidTranslateFn
+pidRealToVirtualFn()
+{
+  static PidTranslateFn nextFn = NULL;
+  static bool nextFnResolved = false;
+
+  if (dmtcp_real_to_virtual_pid != NULL) {
+    return dmtcp_real_to_virtual_pid;
+  }
+
+  if (!nextFnResolved && dmtcp_dlsym != NULL) {
+    nextFn = (PidTranslateFn)dmtcp_dlsym(RTLD_NEXT,
+                                         "dmtcp_real_to_virtual_pid");
+    nextFnResolved = true;
+  }
+
+  return nextFn;
+}
+
+static PidGetVirtualTidFn
+pidGetVirtualTidFn()
+{
+  static PidGetVirtualTidFn nextFn = NULL;
+  static bool nextFnResolved = false;
+
+  if (dmtcp_pid_get_virtual_tid != NULL) {
+    return dmtcp_pid_get_virtual_tid;
+  }
+
+  if (!nextFnResolved && dmtcp_dlsym != NULL) {
+    nextFn = (PidGetVirtualTidFn)dmtcp_dlsym(RTLD_NEXT,
+                                             "dmtcp_pid_get_virtual_tid");
+    nextFnResolved = true;
+  }
+
+  return nextFn;
+}
+
+static PidEraseVirtualPidFn
+pidEraseVirtualPidFn()
+{
+  static PidEraseVirtualPidFn nextFn = NULL;
+  static bool nextFnResolved = false;
+
+  if (dmtcp_pid_erase_virtual_pid != NULL) {
+    return dmtcp_pid_erase_virtual_pid;
+  }
+
+  if (!nextFnResolved && dmtcp_dlsym != NULL) {
+    nextFn = (PidEraseVirtualPidFn)dmtcp_dlsym(
+      RTLD_NEXT, "dmtcp_pid_erase_virtual_pid");
+    nextFnResolved = true;
+  }
+
+  return nextFn;
+}
+
+static bool
+pidVirtualizationEnabled()
+{
+  return !pidPluginsDisabledByEnv() &&
+         dmtcp_is_running_state() &&
+         pidVirtualToRealFn() != NULL &&
+         pidRealToVirtualFn() != NULL;
+}
+
+static pid_t
+virtualToRealPidIfEnabled(pid_t pid)
+{
+  PidTranslateFn fn = pidVirtualToRealFn();
+  return fn != NULL ? fn(pid) : pid;
+}
+
+static pid_t
+realToVirtualPidIfEnabled(pid_t pid)
+{
+  PidTranslateFn fn = pidRealToVirtualFn();
+  return fn != NULL ? fn(pid) : pid;
+}
+
+static void
+eraseVirtualPidIfEnabled(pid_t virtualPid)
+{
+  PidEraseVirtualPidFn fn = pidEraseVirtualPidFn();
+  if (fn != NULL) {
+    fn(virtualPid);
+  }
+}
+
 #if 1
 extern "C" pid_t
 wait(__WAIT_STATUS stat_loc)
@@ -179,25 +303,93 @@ pid_t
 wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
 {
   int stat;
+  int saved_errno = errno;
   pid_t retval = 0;
+  pid_t virtualPid = 0;
+  struct timespec ts = { 0, 1000 };
+  const struct timespec maxts = { 1, 0 };
 
   if (status == NULL) {
     status = (__WAIT_STATUS)&stat;
   }
 
-  retval = _real_wait4(pid, status, options, rusage);
+  if (!pidVirtualizationEnabled()) {
+    return _real_wait4(pid, status, options, rusage);
+  }
 
-  return retval;
+  while (retval == 0) {
+    pid_t currPid = virtualToRealPidIfEnabled(pid);
+    retval = _real_wait4(currPid, status, options | WNOHANG, rusage);
+    saved_errno = errno;
+    virtualPid = realToVirtualPidIfEnabled(retval);
+
+    if (retval > 0 &&
+        (WIFEXITED(*(int *)status) || WIFSIGNALED(*(int *)status))) {
+      eraseVirtualPidIfEnabled(virtualPid);
+    }
+
+    if ((options & WNOHANG) || retval != 0) {
+      break;
+    } else {
+      nanosleep(&ts, NULL);
+      if (TIMESPEC_CMP(&ts, &maxts, <)) {
+        TIMESPEC_ADD(&ts, &ts, &ts);
+      }
+    }
+  }
+
+  errno = saved_errno;
+  return virtualPid;
 }
 
 extern "C" int
 waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 {
+  int retval = 0;
   siginfo_t siginfop;
+  struct timespec ts = { 0, 1000 };
+  const struct timespec maxts = { 1, 0 };
 
   memset(&siginfop, 0, sizeof(siginfop));
 
-  int retval = _real_waitid(idtype, id, &siginfop, options);
+  if (!pidVirtualizationEnabled()) {
+    retval = _real_waitid(idtype, id, &siginfop, options);
+
+    if (retval == 0 && infop != NULL) {
+      *infop = siginfop;
+    }
+
+    return retval;
+  }
+
+  /* waitid returns 0 both for success and WNOHANG/no-child-ready.  Force
+   * WNOHANG while checkpointing is disabled, then retry with backoff until a
+   * waitable child appears or the caller requested nonblocking behavior.
+   */
+  while (retval == 0) {
+    id_t currId = (id_t)virtualToRealPidIfEnabled((pid_t)id);
+    retval = _real_waitid(idtype, currId, &siginfop, options | WNOHANG);
+
+    if (retval != -1) {
+      pid_t virtualPid = realToVirtualPidIfEnabled(siginfop.si_pid);
+      siginfop.si_pid = virtualPid;
+
+      if (siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED) {
+        eraseVirtualPidIfEnabled(virtualPid);
+      }
+    }
+
+    if ((options & WNOHANG) ||
+        retval == -1 ||
+        siginfop.si_pid != 0) {
+      break;
+    } else {
+      nanosleep(&ts, NULL);
+      if (TIMESPEC_CMP(&ts, &maxts, <)) {
+        TIMESPEC_ADD(&ts, &ts, &ts);
+      }
+    }
+  }
 
   if (retval == 0 && infop != NULL) {
     *infop = siginfop;
@@ -276,6 +468,149 @@ syscall(long sys_num, ...)
   va_start(ap, sys_num);
 
   switch (sys_num) {
+  case SYS_gettid:
+  {
+    PidGetVirtualTidFn fn = pidGetVirtualTidFn();
+    if (pidVirtualizationEnabled() && fn != NULL) {
+      ret = fn();
+    } else {
+      ret = _real_syscall(SYS_gettid);
+    }
+    break;
+  }
+  case SYS_tkill:
+  {
+    SYSCALL_GET_ARGS_2(int, tid, int, sig);
+    if (pidVirtualizationEnabled()) {
+      tid = virtualToRealPidIfEnabled(tid);
+    }
+    ret = _real_syscall(SYS_tkill, tid, sig);
+    break;
+  }
+  case SYS_tgkill:
+  {
+    SYSCALL_GET_ARGS_3(int, tgid, int, tid, int, sig);
+    if (pidVirtualizationEnabled()) {
+      tgid = virtualToRealPidIfEnabled(tgid);
+      tid = virtualToRealPidIfEnabled(tid);
+    }
+    ret = _real_syscall(SYS_tgkill, tgid, tid, sig);
+    break;
+  }
+  case SYS_getpid:
+  {
+    ret = _real_syscall(SYS_getpid);
+    if (pidVirtualizationEnabled()) {
+      ret = realToVirtualPidIfEnabled((pid_t)ret);
+    }
+    break;
+  }
+  case SYS_getppid:
+  {
+    ret = _real_syscall(SYS_getppid);
+    if (pidVirtualizationEnabled()) {
+      ret = realToVirtualPidIfEnabled((pid_t)ret);
+    }
+    break;
+  }
+#ifndef __aarch64__
+#ifndef __riscv
+  case SYS_getpgrp:
+  {
+    ret = _real_syscall(SYS_getpgrp);
+    if (pidVirtualizationEnabled()) {
+      ret = realToVirtualPidIfEnabled((pid_t)ret);
+    }
+    break;
+  }
+#endif
+#endif
+  case SYS_getpgid:
+  {
+    SYSCALL_GET_ARG(pid_t, pid);
+    if (pidVirtualizationEnabled()) {
+      pid = virtualToRealPidIfEnabled(pid);
+    }
+    ret = _real_syscall(SYS_getpgid, pid);
+    if (pidVirtualizationEnabled()) {
+      ret = realToVirtualPidIfEnabled((pid_t)ret);
+    }
+    break;
+  }
+  case SYS_setpgid:
+  {
+    SYSCALL_GET_ARGS_2(pid_t, pid, pid_t, pgid);
+    if (pidVirtualizationEnabled()) {
+      pid = virtualToRealPidIfEnabled(pid);
+      pgid = virtualToRealPidIfEnabled(pgid);
+    }
+    ret = _real_syscall(SYS_setpgid, pid, pgid);
+    break;
+  }
+  case SYS_getsid:
+  {
+    SYSCALL_GET_ARG(pid_t, pid);
+    if (pidVirtualizationEnabled()) {
+      pid = virtualToRealPidIfEnabled(pid);
+    }
+    ret = _real_syscall(SYS_getsid, pid);
+    if (pidVirtualizationEnabled()) {
+      ret = realToVirtualPidIfEnabled((pid_t)ret);
+    }
+    break;
+  }
+  case SYS_setsid:
+  {
+    ret = _real_syscall(SYS_setsid);
+    if (pidVirtualizationEnabled()) {
+      ret = realToVirtualPidIfEnabled((pid_t)ret);
+    }
+    break;
+  }
+  case SYS_kill:
+  {
+    SYSCALL_GET_ARGS_2(pid_t, pid, int, sig);
+    if (pidVirtualizationEnabled()) {
+      pid = virtualToRealPidIfEnabled(pid);
+    }
+    ret = _real_syscall(SYS_kill, pid, sig);
+    break;
+  }
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 9))
+  case SYS_waitid:
+  {
+    SYSCALL_GET_ARGS_4(int, idtype, id_t, id, siginfo_t *, infop, int, options);
+    ret = waitid((idtype_t)idtype, id, infop, options);
+    break;
+  }
+#endif // if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 9))
+  case SYS_wait4:
+  {
+    SYSCALL_GET_ARGS_4(pid_t, pid, __WAIT_STATUS, status, int, options,
+                       struct rusage *, rusage);
+    ret = wait4(pid, status, options, rusage);
+    break;
+  }
+#ifdef __i386__
+  case SYS_waitpid:
+  {
+    SYSCALL_GET_ARGS_3(pid_t, pid, int *, status, int, options);
+    ret = waitpid(pid, status, options);
+    break;
+  }
+#endif // ifdef __i386__
+  case SYS_setgid:
+  {
+    SYSCALL_GET_ARG(gid_t, gid);
+    ret = _real_syscall(SYS_setgid, gid);
+    break;
+  }
+  case SYS_setuid:
+  {
+    SYSCALL_GET_ARG(uid_t, uid);
+    ret = _real_syscall(SYS_setuid, uid);
+    break;
+  }
   case SYS_clone:
   {
     typedef int (*fnc) (void *);
@@ -528,12 +863,6 @@ syscall(long sys_num, ...)
 #endif  // if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) &&
        // __GLIBC_PREREQ(2, 9)
 
-  case SYS_setsid:
-  {
-    ret = setsid();
-    break;
-  }
-
 #ifndef DISABLE_SYS_V_IPC
 # ifdef __x86_64__
 
@@ -682,6 +1011,69 @@ syscall(long sys_num, ...)
   }
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27) && __GLIBC_PREREQ(2,
        // 9)
+
+#ifdef HAS_CMA
+  case SYS_process_vm_readv:
+  {
+    SYSCALL_GET_ARGS_6(pid_t, pid,
+                       const struct iovec *, local_iov,
+                       unsigned long, liovcnt,
+                       const struct iovec *, remote_iov,
+                       unsigned long, riovcnt,
+                       unsigned long, flags);
+    if (pidVirtualizationEnabled()) {
+      DMTCP_PLUGIN_DISABLE_CKPT();
+      pid = virtualToRealPidIfEnabled(pid);
+      ret = _real_syscall(SYS_process_vm_readv,
+                          pid,
+                          local_iov,
+                          liovcnt,
+                          remote_iov,
+                          riovcnt,
+                          flags);
+      DMTCP_PLUGIN_ENABLE_CKPT();
+    } else {
+      ret = _real_syscall(SYS_process_vm_readv,
+                          pid,
+                          local_iov,
+                          liovcnt,
+                          remote_iov,
+                          riovcnt,
+                          flags);
+    }
+    break;
+  }
+  case SYS_process_vm_writev:
+  {
+    SYSCALL_GET_ARGS_6(pid_t, pid,
+                       const struct iovec *, local_iov,
+                       unsigned long, liovcnt,
+                       const struct iovec *, remote_iov,
+                       unsigned long, riovcnt,
+                       unsigned long, flags);
+    if (pidVirtualizationEnabled()) {
+      DMTCP_PLUGIN_DISABLE_CKPT();
+      pid = virtualToRealPidIfEnabled(pid);
+      ret = _real_syscall(SYS_process_vm_writev,
+                          pid,
+                          local_iov,
+                          liovcnt,
+                          remote_iov,
+                          riovcnt,
+                          flags);
+      DMTCP_PLUGIN_ENABLE_CKPT();
+    } else {
+      ret = _real_syscall(SYS_process_vm_writev,
+                          pid,
+                          local_iov,
+                          liovcnt,
+                          remote_iov,
+                          riovcnt,
+                          flags);
+    }
+    break;
+  }
+#endif // ifdef HAS_CMA
 
   default:
   {

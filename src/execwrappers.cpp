@@ -19,6 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <sched.h>
+#include <signal.h>
 #include <sys/syscall.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
@@ -76,6 +78,58 @@ isPerformingCkptRestart()
     return true;
   }
   return false;
+}
+
+static pid_t
+forkWithoutCoordinatorHandshake()
+{
+#if defined(__aarch64__) || defined(__riscv)
+  /*
+   * These architectures do not provide a dedicated fork syscall.  Match the
+   * raw clone shape already used by forked checkpointing so that plugin helper
+   * children can be created without invoking libc pthread_atfork handlers.
+   */
+  return (pid_t)_real_syscall(SYS_clone,
+                              CLONE_CHILD_CLEARTID | CLONE_CHILD_SETTID |
+                                SIGCHLD,
+                              NULL,
+                              NULL,
+                              NULL);
+#else
+  return (pid_t)_real_syscall(SYS_fork);
+#endif
+}
+
+extern "C" pid_t dmtcp_pid_virtualize_child_pid(pid_t realPid)
+  __attribute__((weak));
+
+typedef pid_t (*PidVirtualizeChildPidFn)(pid_t realPid);
+
+static pid_t
+virtualizeChildPidIfPidPluginEnabled(pid_t realPid)
+{
+  static PidVirtualizeChildPidFn nextFn = NULL;
+  static bool nextFnResolved = false;
+
+  if (realPid <= 0) {
+    return realPid;
+  }
+
+  if (dmtcp_pid_virtualize_child_pid != NULL) {
+    return dmtcp_pid_virtualize_child_pid(realPid);
+  }
+
+  if (!nextFnResolved) {
+    nextFn = (PidVirtualizeChildPidFn)dmtcp_dlsym(
+      RTLD_NEXT, "dmtcp_pid_virtualize_child_pid");
+    nextFnResolved = true;
+  }
+
+  if (nextFn != NULL) {
+    return nextFn(realPid);
+  }
+
+  return realPid;
 }
 
 LIB_PRIVATE void
@@ -172,15 +226,25 @@ fork()
   dmtcp_initialize_entry_point();
 
   if (isPerformingCkptRestart()) {
-    // We shouldn't be using _real_syscall here because that won't reset
-    // internal locks both for libc and DMTCP. If needed, we should have a
-    // slimmed-down version of this fork wrapper which skips connecting to the
-    // coordinator as well as creation of the ckpt thread.
-#ifndef __aarch64__
-    // return _real_syscall(SYS_fork);
-#else
-    // return _real_fork();
-#endif
+    /*
+     * Plugin hooks may need short-lived helper children while the computation
+     * is CHECKPOINTING/CHECKPOINTED/RESTARTING.  Those helpers are internal to
+     * the hook and must not be registered as new coordinator workers: during
+     * restart the coordinator is intentionally not accepting DMT_NEW_WORKER
+     * handshakes yet.  Bypass libc fork() so our pthread_atfork handler does
+     * not call CoordinatorAPI::atForkPrepare(), and leave the child in the
+     * current non-running state so exec wrappers continue to fast-pass to the
+     * real exec path.
+     */
+    pid_t childPid = forkWithoutCoordinatorHandshake();
+    if (childPid == 0) {
+      ThreadSync::resetLocks();
+      JTRACE("internal fork during checkpoint/restart [CHILD]")
+        (UniquePid::ThisProcess()) (UniquePid::ParentProcess());
+    } else if (childPid > 0) {
+      JTRACE("internal fork during checkpoint/restart [PARENT]") (childPid);
+    }
+    return childPid;
   }
 
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
@@ -215,7 +279,9 @@ fork()
     JTRACE("fork() done [CHILD]")
       (UniquePid::ThisProcess()) (UniquePid::ParentProcess());
   } else if (childPid > 0) { /* Parent Process */
-    JTRACE("fork()ed [PARENT] done") (childPid);
+    pid_t realChildPid = childPid;
+    childPid = virtualizeChildPidIfPidPluginEnabled(realChildPid);
+    JTRACE("fork()ed [PARENT] done") (realChildPid) (childPid);
   }
 
   if (childPid != 0) {

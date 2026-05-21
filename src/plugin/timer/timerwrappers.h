@@ -23,6 +23,7 @@
 #ifndef TIMER_WRAPPERS_H
 #define TIMER_WRAPPERS_H
 
+#include <pthread.h>
 #include <signal.h>
 #include <time.h>
 #include "dmtcp.h"
@@ -43,4 +44,7 @@ int timer_create_sigev_thread(clockid_t clock_id,
                               struct sigevent *evp,
                               timer_t *timerid,
                               struct sigevent *sevOut);
+LIB_PRIVATE pid_t dmtcp_timer_virtual_to_real_pid(pid_t pid);
+LIB_PRIVATE int dmtcp_timer_pthread_getcpuclockid(pthread_t thread,
+                                                  clockid_t *clock_id);
 #endif // ifndef TIMER_WRAPPERS_H

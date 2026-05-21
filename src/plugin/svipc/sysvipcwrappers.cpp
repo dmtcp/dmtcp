@@ -23,6 +23,7 @@
 // So, we temporarily rename it so that type declarations are not for msgrcv.
 #define msgrcv msgrcv_glibc
 
+#include <dlfcn.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,6 +48,72 @@ sysvipcPluginEnabled()
 {
   const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
   return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
+}
+
+typedef pid_t (*PidTranslateFn)(pid_t pid);
+
+static PidTranslateFn
+sysvipcPidRealToVirtualFn()
+{
+  static PidTranslateFn nextFn = NULL;
+  static bool nextFnResolved = false;
+
+  if (dmtcp_real_to_virtual_pid != NULL) {
+    return dmtcp_real_to_virtual_pid;
+  }
+
+  if (!nextFnResolved && dmtcp_dlsym != NULL) {
+    nextFn = (PidTranslateFn)dmtcp_dlsym(RTLD_NEXT,
+                                         "dmtcp_real_to_virtual_pid");
+    nextFnResolved = true;
+  }
+
+  return nextFn;
+}
+
+static pid_t
+realToVirtualPidIfEnabled(pid_t pid)
+{
+  if (!sysvipcPluginEnabled()) {
+    return pid;
+  }
+
+  PidTranslateFn fn = sysvipcPidRealToVirtualFn();
+  return fn != NULL ? fn(pid) : pid;
+}
+
+static bool
+shmctlReturnsPidFields(int cmd)
+{
+  switch (cmd) {
+    case IPC_STAT:
+#ifdef SHM_STAT
+    case SHM_STAT:
+#endif
+#ifdef SHM_STAT_ANY
+    case SHM_STAT_ANY:
+#endif
+      return true;
+    default:
+      return false;
+  }
+}
+
+static bool
+msgctlReturnsPidFields(int cmd)
+{
+  switch (cmd) {
+    case IPC_STAT:
+#ifdef MSG_STAT
+    case MSG_STAT:
+#endif
+#ifdef MSG_STAT_ANY
+    case MSG_STAT_ANY:
+#endif
+      return true;
+    default:
+      return false;
+  }
 }
 
 static bool
@@ -233,6 +300,10 @@ shmctl(int shmid, int cmd, struct shmid_ds *buf)
   int realShmid = VIRTUAL_TO_REAL_SHM_ID(shmid);
   JASSERT(realShmid != -1);
   int ret = _real_shmctl(realShmid, cmd, buf);
+  if (ret != -1 && buf != NULL && shmctlReturnsPidFields(cmd)) {
+    buf->shm_cpid = realToVirtualPidIfEnabled(buf->shm_cpid);
+    buf->shm_lpid = realToVirtualPidIfEnabled(buf->shm_lpid);
+  }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
@@ -379,6 +450,9 @@ semctl(int semid, int semnum, int cmd, ...)
   } else {
     ret = _real_semctl(realId, semnum, cmd);
   }
+  if (ret != -1 && cmd == GETPID) {
+    ret = realToVirtualPidIfEnabled(ret);
+  }
   if (ret != -1) {
     SysVSem::instance().on_semctl(semid, semnum, cmd, uarg);
   }
@@ -505,6 +579,10 @@ msgctl(int msqid, int cmd, struct msqid_ds *buf)
   int realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
   JASSERT(realId != -1);
   int ret = _real_msgctl(realId, cmd, buf);
+  if (ret != -1 && buf != NULL && msgctlReturnsPidFields(cmd)) {
+    buf->msg_lspid = realToVirtualPidIfEnabled(buf->msg_lspid);
+    buf->msg_lrpid = realToVirtualPidIfEnabled(buf->msg_lrpid);
+  }
   if (ret != -1) {
     SysVMsq::instance().on_msgctl(msqid, cmd, buf);
   }

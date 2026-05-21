@@ -20,11 +20,13 @@
  ****************************************************************************/
 
 #include "timerwrappers.h"
+#include <dlfcn.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "timerlist.h"
 #include "wrapperlock.h"
+#include "../pid/glibc_pthread.h"
 #include "../../constants.h"
 
 using namespace dmtcp;
@@ -36,6 +38,51 @@ timerPluginEnabled()
   return disableAllPlugins == NULL || strcmp(disableAllPlugins, "1") != 0;
 }
 
+typedef pid_t (*PidTranslateFn)(pid_t pid);
+
+static PidTranslateFn
+timerPidVirtualToRealFn()
+{
+  static PidTranslateFn nextFn = NULL;
+  static bool nextFnResolved = false;
+
+  if (dmtcp_virtual_to_real_pid != NULL) {
+    return dmtcp_virtual_to_real_pid;
+  }
+
+  if (!nextFnResolved && dmtcp_dlsym != NULL) {
+    nextFn = (PidTranslateFn)dmtcp_dlsym(RTLD_NEXT,
+                                         "dmtcp_virtual_to_real_pid");
+    nextFnResolved = true;
+  }
+
+  return nextFn;
+}
+
+LIB_PRIVATE pid_t
+dmtcp_timer_virtual_to_real_pid(pid_t pid)
+{
+  if (!timerPluginEnabled()) {
+    return pid;
+  }
+
+  PidTranslateFn fn = timerPidVirtualToRealFn();
+  return fn != NULL ? fn(pid) : pid;
+}
+
+LIB_PRIVATE int
+dmtcp_timer_pthread_getcpuclockid(pthread_t thread, clockid_t *clock_id)
+{
+#ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
+  pid_t virtualTid = dmtcp_pthread_get_tid(thread);
+  pid_t realTid = dmtcp_timer_virtual_to_real_pid(virtualTid);
+  *clock_id = make_thread_cpuclock(realTid, CPUCLOCK_SCHED);
+  return 0;
+#else
+  return _real_pthread_getcpuclockid(thread, clock_id);
+#endif
+}
+
 extern "C" int
 timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
 {
@@ -44,6 +91,9 @@ timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
   }
 
   struct sigevent sevOut;
+  struct sigevent pidTranslatedSev;
+  struct sigevent *sevpForCreate = sevp;
+  struct sigevent *sevpForSave = sevp;
   timer_t realId;
   timer_t virtId;
   int ret;
@@ -55,14 +105,24 @@ timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
   // return its argument if no virtual id is found.
   // See:  virtualidtable.h: dmtcp::VirtualIdTable::virtualToReal(...)
   clockid_t realClockId = VIRTUAL_TO_REAL_CLOCK_ID(clockid);
-  if (sevp != NULL && sevp->sigev_notify == SIGEV_THREAD) {
-    ret = timer_create_sigev_thread(realClockId, sevp, &realId, &sevOut);
-    sevp = &sevOut;
+  if (sevpForCreate != NULL &&
+      sevpForCreate->sigev_notify == SIGEV_THREAD_ID) {
+    pidTranslatedSev = *sevpForCreate;
+    pidTranslatedSev._sigev_un._tid =
+      dmtcp_timer_virtual_to_real_pid(pidTranslatedSev._sigev_un._tid);
+    sevpForCreate = &pidTranslatedSev;
+  }
+
+  if (sevpForCreate != NULL && sevpForCreate->sigev_notify == SIGEV_THREAD) {
+    ret = timer_create_sigev_thread(realClockId, sevpForCreate, &realId,
+                                    &sevOut);
+    sevpForSave = &sevOut;
   } else {
-    ret = _real_timer_create(realClockId, sevp, &realId);
+    ret = _real_timer_create(realClockId, sevpForCreate, &realId);
   }
   if (ret != -1 && timerid != NULL) {
-    virtId = TimerList::instance().on_timer_create(realId, clockid, sevp);
+    virtId = TimerList::instance().on_timer_create(realId, clockid,
+                                                   sevpForSave);
     JTRACE("Creating new timer") (clockid) (realClockId) (realId) (virtId);
     *timerid = virtId;
   }
@@ -147,9 +207,10 @@ clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
   }
 
   clockid_t realId;
+  pid_t realPid = dmtcp_timer_virtual_to_real_pid(pid);
 
   DMTCP_PLUGIN_DISABLE_CKPT();
-  int ret = _real_clock_getcpuclockid(pid, &realId);
+  int ret = _real_clock_getcpuclockid(realPid, &realId);
   if (ret == 0) {
     *clock_id = REAL_TO_VIRTUAL_CLOCK_ID(pid, realId);
   }
@@ -165,10 +226,10 @@ pthread_getcpuclockid(pthread_t thread, clockid_t *clock_id)
   }
 
   // We need to acquire an exclusive lock here because the corresponding Pid
-  // plugin wrapper requires an exclusive lock.
+  // plugin translation requires an exclusive lock.
   WrapperLockExcl wrapperLock;
   clockid_t realId;
-  int ret = _real_pthread_getcpuclockid(thread, &realId);
+  int ret = dmtcp_timer_pthread_getcpuclockid(thread, &realId);
   if (ret == 0) {
     *clock_id = TimerList::instance().on_pthread_getcpuclockid(thread, realId);
   }

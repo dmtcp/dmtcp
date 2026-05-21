@@ -66,6 +66,9 @@ tidy:
 clean: tidy
 	rm -rf pv-test file-test file-test2
 	rm -f /tmp/msg $(PATHVIRT)/msg $(PATHVIRT)/restart_process
+	mkdir -p ../misc/slot7/bin7 ../misc/slot7/doc7 ../misc/slot7/lib7
+	mkdir -p ../misc/slot9/bin9 ../misc/slot9/doc9 ../misc/slot9/lib9
+	mkdir -p bin5 doc5 lib5
 	> ../misc/slot7/bin7/pv-test.txt
 	> ../misc/slot7/doc7/pv-test.txt
 	> ../misc/slot7/lib7/pv-test.txt
