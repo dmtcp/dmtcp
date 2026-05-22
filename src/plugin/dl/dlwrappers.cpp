@@ -22,6 +22,7 @@
 #include <elf.h>
 #include <link.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "../jalib/jassert.h"
@@ -33,6 +34,33 @@
 
 #define _real_dlopen  NEXT_FNC(dlopen)
 #define _real_dlclose NEXT_FNC(dlclose)
+
+#ifndef ENV_VAR_DL_PLUGIN
+# define ENV_VAR_DL_PLUGIN "DMTCP_DL_PLUGIN"
+#endif // ifndef ENV_VAR_DL_PLUGIN
+#ifndef ENV_VAR_DISABLE_ALL_PLUGINS
+# define ENV_VAR_DISABLE_ALL_PLUGINS "DMTCP_DISABLE_ALL_PLUGINS"
+#endif // ifndef ENV_VAR_DISABLE_ALL_PLUGINS
+
+static int dmtcpDlEnabledCache = -1;
+
+EXTERNC LIB_PRIVATE int
+dmtcp_dl_enabled()
+{
+  int enabled = __atomic_load_n(&dmtcpDlEnabledCache, __ATOMIC_RELAXED);
+  if (enabled == -1) {
+    const char *disableAll = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
+    if (disableAll != NULL && strcmp(disableAll, "1") == 0) {
+      enabled = 0;
+    } else {
+      const char *dlPlugin = getenv(ENV_VAR_DL_PLUGIN);
+      enabled = dlPlugin != NULL && strcmp(dlPlugin, "0") == 0 ? 0 : 1;
+    }
+    __atomic_store_n(&dmtcpDlEnabledCache, enabled, __ATOMIC_RELAXED);
+  }
+
+  return enabled;
+}
 
 extern "C" int dmtcp_libdlLockLock();
 extern "C" void dmtcp_libdlLockUnlock();
@@ -162,6 +190,10 @@ dlopen_try_paths(const char *filename, int flag, const char *paths)
 extern "C"
 void *dlopen(const char *filename, int flag)
 {
+  if (!dmtcp_dl_enabled()) {
+    return _real_dlopen(filename, flag);
+  }
+
   LibDlWrapperLock wrapperLock;
 
   // TODO(kapil): Replace with scoped lock once we have it.
@@ -214,6 +246,10 @@ extern "C"
 int
 dlclose(void *handle)
 {
+  if (!dmtcp_dl_enabled()) {
+    return _real_dlclose(handle);
+  }
+
   LibDlWrapperLock wrapperLock;
   return _real_dlclose(handle);
 }
