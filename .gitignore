@@ -54,6 +54,8 @@ test/testconfig.py
 *.deps*
 
 ckpt_*.dmtcp
+ckpt_*.dmtcp.temp
+dmtcp-autotest-*/
 dmtcp_restart_script*
 
 am--include-marker
