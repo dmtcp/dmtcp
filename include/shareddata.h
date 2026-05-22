@@ -46,6 +46,7 @@
 #define SYSV_SHM_ID 1
 #define SYSV_SEM_ID 2
 #define SYSV_MSQ_ID 3
+#define SYSV_SHM_KEY 4
 
 namespace dmtcp {
 
@@ -107,6 +108,7 @@ namespace dmtcp {
       uint32_t             numSysVShmIdMaps;
       uint32_t             numSysVSemIdMaps;
       uint32_t             numSysVMsqIdMaps;
+      uint32_t             numSysVShmKeyMaps;
 
       uint32_t             numPtyNameMaps;
       uint32_t             nextPtyName;
@@ -119,6 +121,7 @@ namespace dmtcp {
       struct IPCIdMap      sysvShmIdMap[MAX_IPC_ID_MAPS];
       struct IPCIdMap      sysvSemIdMap[MAX_IPC_ID_MAPS];
       struct IPCIdMap      sysvMsqIdMap[MAX_IPC_ID_MAPS];
+      struct IPCIdMap      sysvShmKeyMap[MAX_IPC_ID_MAPS];
       struct PtraceIdMaps  ptraceIdMap[MAX_PTRACE_ID_MAPS];
       struct PtyNameMap    ptyNameMap[MAX_PTY_NAME_MAPS];
       struct IncomingConMap incomingConMap[MAX_INCOMING_CONNECTIONS];
@@ -128,7 +131,7 @@ namespace dmtcp {
       DmtcpUniqueProcessId compId;
       CoordinatorInfo      coordInfo;
       //char                 coordHost[NI_MAXHOST];
-    };
+    } __attribute__((packed));
 
     bool initialized();
 
@@ -168,7 +171,8 @@ namespace dmtcp {
     int32_t getDlsymOffset(void);
     int32_t getDlsymOffset_m32(void);
 
-    int32_t  getRealIPCId(int type, int32_t virt);
+    int32_t  getRealIPCId(int type, int32_t virt,
+                          bool insertIfNotFound = false);
     void setIPCIdMap(int type, int32_t virt, int32_t real);
 
     pid_t  getRealPid(pid_t virt);
