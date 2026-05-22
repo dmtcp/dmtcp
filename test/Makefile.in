@@ -265,6 +265,9 @@ endif
 ipc-built-in-preload: ipc-built-in-preload.c
 	$(CC) -o $@ $< $(CFLAGS) -lrt
 
+alloc-built-in-preload: alloc-built-in-preload.c
+	$(CC) -o $@ $< $(CFLAGS)
+
 pid-built-in-preload: pid-built-in-preload.c
 	$(CC) -o $@ $< $(CFLAGS)
 
