@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "jassert.h"
+#include "plugin/pid/pid.h"
 #include "syscallwrappers.h"
 #include "threadinfo.h"
 #include "threadsync.h"
@@ -65,12 +66,15 @@ using namespace dmtcp;
 // NOTE: PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP is not POSIX.
 static DmtcpRWLock _wrapperExecutionLock;
 
-static DmtcpMutex libdlLock = DMTCP_MUTEX_INITIALIZER;
+static DmtcpMutex libdlLock = DMTCP_MUTEX_INITIALIZER_LLL;
 static pid_t libdlLockOwner = 0;
 
 static pid_t
 threadSyncTid()
 {
+  if (dmtcp_pid_get_virtual_tid != NULL) {
+    return dmtcp_pid_get_virtual_tid();
+  }
   return (pid_t)_real_syscall(SYS_gettid);
 }
 
@@ -117,7 +121,7 @@ ThreadSync::resetLocks(bool resetPresuspendEventHookLock)
   Thread *thread = dmtcp_get_current_thread();
   thread->wrapperLockCount = 0;
 
-  DmtcpMutexInit(&libdlLock, DMTCP_MUTEX_NORMAL);
+  DmtcpMutexInit(&libdlLock, DMTCP_MUTEX_LLL);
 
   libdlLockOwner = 0;
 
