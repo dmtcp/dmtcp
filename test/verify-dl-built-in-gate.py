@@ -295,10 +295,12 @@ def validate_disable_dl_launch_contract(result, reader):
     details.append('processArgs() has no --disable-dl-plugin branch')
   if 'setenv(ENV_VAR_DL_PLUGIN, "0", 1)' not in text:
     details.append('--disable-dl-plugin branch does not set ENV_VAR_DL_PLUGIN=0')
-  if 'getenv(ENV_VAR_DL_PLUGIN)' not in text:
-    details.append('setLDPreloadLibs() no longer reads direct DMTCP_DL_PLUGIN')
-  if 'strcmp(ptr, "0")' not in text or 'strcmp(ptr, "1")' not in text:
-    details.append('direct DMTCP_DL_PLUGIN handling no longer preserves 0/1 values')
+  if ('validateBuiltInWrapperEnableEnv(ENV_VAR_DL_PLUGIN)' not in text and
+      'getenv(ENV_VAR_DL_PLUGIN)' not in text):
+    details.append('setLDPreloadLibs() no longer validates direct DMTCP_DL_PLUGIN')
+  if not ((('strcmp(ptr, "0")' in text and 'strcmp(ptr, "1")' in text) or
+           ('strcmp(value, "0")' in text and 'strcmp(value, "1")' in text))):
+    details.append('direct DMTCP_DL_PLUGIN handling no longer preserves 0/1 validation')
   if 'setenv(ENV_VAR_DISABLE_ALL_PLUGINS, disableAllPlugins ? "1" : "0", 1)' not in text:
     details.append('disable-all state is not propagated through ENV_VAR_DISABLE_ALL_PLUGINS')
   if details:
@@ -717,7 +719,6 @@ extern "C" int dlclose(void *handle)
 static const char *theUsage =
   "  --disable-dl-plugin: (environment variable DMTCP_DL_PLUGIN=[01])\n";
 static bool disableAllPlugins = false;
-static bool enableDlPlugin = true;
 static struct PluginInfo pluginInfo[] = {
   { &enableLibDMTCP, "libdmtcp.so" }
 };
@@ -725,12 +726,17 @@ static void processArgs(int *argc, const char ***argv) {
   string s = "--disable-dl-plugin";
   if (s == "--disable-dl-plugin") { setenv(ENV_VAR_DL_PLUGIN, "0", 1); }
 }
-static void setLDPreloadLibs(bool is32bitElf) {
-  if (getenv(ENV_VAR_DL_PLUGIN) != NULL) {
-    const char *ptr = getenv(ENV_VAR_DL_PLUGIN);
-    if (strcmp(ptr, "1") == 0) { enableDlPlugin = true; }
-    else if (strcmp(ptr, "0") == 0) { enableDlPlugin = false; }
+static void
+validateBuiltInWrapperEnableEnv(const char *envVar)
+{
+  const char *value = getenv(envVar);
+  if (value == NULL || strcmp(value, "1") == 0 || strcmp(value, "0") == 0) {
+    return;
   }
+  JASSERT(false) (value);
+}
+static void setLDPreloadLibs(bool is32bitElf) {
+  validateBuiltInWrapperEnableEnv(ENV_VAR_DL_PLUGIN);
   setenv(ENV_VAR_DISABLE_ALL_PLUGINS, disableAllPlugins ? "1" : "0", 1);
 }
 '''

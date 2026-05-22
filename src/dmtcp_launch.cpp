@@ -163,8 +163,6 @@ static bool checkpointOpenFiles = false;
 
 static bool enableModifyEnvPlugin = false;
 
-static bool enableAllocPlugin = true;
-static bool enableDlPlugin = true;
 static bool enablePathVirtPlugin = false;
 
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
@@ -738,6 +736,18 @@ testFsGsBase()
 }
 
 static void
+validateBuiltInWrapperEnableEnv(const char *envVar)
+{
+  const char *value = getenv(envVar);
+  if (value == NULL || strcmp(value, "1") == 0 || strcmp(value, "0") == 0) {
+    return;
+  }
+
+  JASSERT(false) (value)
+  .Text("Invalid value for the environment variable.");
+}
+
+static void
 setLDPreloadLibs(bool is32bitElf)
 {
   // preloadLibs are to set LD_PRELOAD:
@@ -753,31 +763,8 @@ setLDPreloadLibs(bool is32bitElf)
   }
   string preloadLibs32 = preloadLibs;
 
-  // set up Alloc plugin
-  if (getenv(ENV_VAR_ALLOC_PLUGIN) != NULL) {
-    const char *ptr = getenv(ENV_VAR_ALLOC_PLUGIN);
-    if (strcmp(ptr, "1") == 0) {
-      enableAllocPlugin = true;
-    } else if (strcmp(ptr, "0") == 0) {
-      enableAllocPlugin = false;
-    } else {
-      JASSERT(false) (getenv(ENV_VAR_ALLOC_PLUGIN))
-      .Text("Invalid value for the environment variable.");
-    }
-  }
-
-  // Setup Dl plugin
-  if (getenv(ENV_VAR_DL_PLUGIN) != NULL) {
-    const char *ptr = getenv(ENV_VAR_DL_PLUGIN);
-    if (strcmp(ptr, "1") == 0) {
-      enableDlPlugin = true;
-    } else if (strcmp(ptr, "0") == 0) {
-      enableDlPlugin = false;
-    } else {
-      JASSERT(false) (getenv(ENV_VAR_DL_PLUGIN))
-      .Text("Invalid value for the environment variable.");
-    }
-  }
+  validateBuiltInWrapperEnableEnv(ENV_VAR_ALLOC_PLUGIN);
+  validateBuiltInWrapperEnableEnv(ENV_VAR_DL_PLUGIN);
 
   if (disableAllPlugins) {
     preloadLibs = Util::getPath("libdmtcp.so");

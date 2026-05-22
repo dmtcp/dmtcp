@@ -58,8 +58,8 @@ SOURCE_MAP_CHECKS = (
     file_check(
         "src/dmtcp_launch.cpp",
         marker("launch global disable switch", "static bool disableAllPlugins = false;"),
-        marker("alloc plugin enable state", "static bool enableAllocPlugin = true;"),
-        marker("dl plugin enable state", "static bool enableDlPlugin = true;"),
+        marker("alloc wrapper env validation", "validateBuiltInWrapperEnableEnv(ENV_VAR_ALLOC_PLUGIN);"),
+        marker("dl wrapper env validation", "validateBuiltInWrapperEnableEnv(ENV_VAR_DL_PLUGIN);"),
         marker("pathvirt plugin enable state", "static bool enablePathVirtPlugin = false;"),
         marker("internal disable-all env export", "setenv(ENV_VAR_DISABLE_ALL_PLUGINS"),
         marker("pathvirt preload entry", "{ &enablePathVirtPlugin,  \"libdmtcp_pathvirt.so\"}"),
