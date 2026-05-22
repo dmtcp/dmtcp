@@ -20,15 +20,37 @@
  ****************************************************************************/
 
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include "alloc.h"
 #include "dmtcp.h"
 
-EXTERNC int
-dmtcp_alloc_enabled() { return 1; }
+static int dmtcpAllocEnabledCache = -1;
+
+EXTERNC LIB_PRIVATE int
+dmtcp_alloc_enabled()
+{
+  int enabled = __atomic_load_n(&dmtcpAllocEnabledCache, __ATOMIC_RELAXED);
+  if (enabled == -1) {
+    const char *disableAll = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
+    if (disableAll != NULL && strcmp(disableAll, "1") == 0) {
+      enabled = 0;
+    } else {
+      const char *allocPlugin = getenv(ENV_VAR_ALLOC_PLUGIN);
+      enabled = allocPlugin != NULL && strcmp(allocPlugin, "0") == 0 ? 0 : 1;
+    }
+    __atomic_store_n(&dmtcpAllocEnabledCache, enabled, __ATOMIC_RELAXED);
+  }
+
+  return enabled;
+}
 
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
+  if (!dmtcp_alloc_enabled()) {
+    return _real_calloc(nmemb, size);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_calloc(nmemb, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -37,6 +59,10 @@ extern "C" void *calloc(size_t nmemb, size_t size)
 
 extern "C" void *malloc(size_t size)
 {
+  if (!dmtcp_alloc_enabled()) {
+    return _real_malloc(size);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_malloc(size);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -45,6 +71,10 @@ extern "C" void *malloc(size_t size)
 
 extern "C" void *memalign(size_t boundary, size_t size)
 {
+  if (!dmtcp_alloc_enabled()) {
+    return _real_memalign(boundary, size);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_memalign(boundary, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -54,6 +84,10 @@ extern "C" void *memalign(size_t boundary, size_t size)
 extern "C" int
 posix_memalign(void **memptr, size_t alignment, size_t size)
 {
+  if (!dmtcp_alloc_enabled()) {
+    return _real_posix_memalign(memptr, alignment, size);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = _real_posix_memalign(memptr, alignment, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -62,6 +96,10 @@ posix_memalign(void **memptr, size_t alignment, size_t size)
 
 extern "C" void *valloc(size_t size)
 {
+  if (!dmtcp_alloc_enabled()) {
+    return _real_valloc(size);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_valloc(size);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -71,6 +109,11 @@ extern "C" void *valloc(size_t size)
 extern "C" void
 free(void *ptr)
 {
+  if (!dmtcp_alloc_enabled()) {
+    _real_free(ptr);
+    return;
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   _real_free(ptr);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -78,6 +121,10 @@ free(void *ptr)
 
 extern "C" void *realloc(void *ptr, size_t size)
 {
+  if (!dmtcp_alloc_enabled()) {
+    return _real_realloc(ptr, size);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_realloc(ptr, size);
   DMTCP_PLUGIN_ENABLE_CKPT();

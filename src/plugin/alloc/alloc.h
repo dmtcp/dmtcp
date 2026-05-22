@@ -24,6 +24,15 @@
 
 #include "dmtcp.h"
 
+#ifndef ENV_VAR_ALLOC_PLUGIN
+# define ENV_VAR_ALLOC_PLUGIN "DMTCP_ALLOC_PLUGIN"
+#endif // ifndef ENV_VAR_ALLOC_PLUGIN
+#ifndef ENV_VAR_DISABLE_ALL_PLUGINS
+# define ENV_VAR_DISABLE_ALL_PLUGINS "DMTCP_DISABLE_ALL_PLUGINS"
+#endif // ifndef ENV_VAR_DISABLE_ALL_PLUGINS
+
+EXTERNC int dmtcp_alloc_enabled(void) LIB_PRIVATE;
+
 extern "C" void *__libc_memalign(size_t boundary, size_t size);
 
 #define _real_malloc         NEXT_FNC(malloc)
