@@ -92,7 +92,7 @@ build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = $(d_bindir)/dmtcp_ssh$(EXEEXT) \
 	$(d_bindir)/dmtcp_sshd$(EXEEXT)
-libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_dl.so$(EXEEXT)
+libdmtcp_PROGRAMS = 
 subdir = src/plugin
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_append_flag.m4 \
@@ -128,12 +128,6 @@ __d_bindir__dmtcp_ssh_DEPENDENCIES = libssh.a $(am__DEPENDENCIES_1)
 am___d_bindir__dmtcp_sshd_OBJECTS = ipc/ssh/i-dmtcp_sshd.$(OBJEXT)
 __d_bindir__dmtcp_sshd_OBJECTS = $(am___d_bindir__dmtcp_sshd_OBJECTS)
 __d_bindir__dmtcp_sshd_DEPENDENCIES = libssh.a $(am__DEPENDENCIES_1)
-am___d_libdir__libdmtcp_dl_so_OBJECTS = dl/dlwrappers.$(OBJEXT)
-__d_libdir__libdmtcp_dl_so_OBJECTS =  \
-	$(am___d_libdir__libdmtcp_dl_so_OBJECTS)
-__d_libdir__libdmtcp_dl_so_DEPENDENCIES = $(am__DEPENDENCIES_1)
-__d_libdir__libdmtcp_dl_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
-	$(__d_libdir__libdmtcp_dl_so_LDFLAGS) $(LDFLAGS) -o $@
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -177,8 +171,7 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = dl/$(DEPDIR)/dlwrappers.Po \
-	ipc/ssh/$(DEPDIR)/i-dmtcp_ssh.Po \
+am__depfiles_remade = ipc/ssh/$(DEPDIR)/i-dmtcp_ssh.Po \
 	ipc/ssh/$(DEPDIR)/i-dmtcp_sshd.Po \
 	ipc/ssh/$(DEPDIR)/i-util_ssh.Po
 am__mv = mv -f
@@ -212,11 +205,9 @@ am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
 am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
 SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
-	$(__d_bindir__dmtcp_sshd_SOURCES) \
-	$(__d_libdir__libdmtcp_dl_so_SOURCES)
+	$(__d_bindir__dmtcp_sshd_SOURCES)
 DIST_SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
-	$(__d_bindir__dmtcp_sshd_SOURCES) \
-	$(__d_libdir__libdmtcp_dl_so_SOURCES)
+	$(__d_bindir__dmtcp_sshd_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -432,11 +423,6 @@ dist_bin_SCRIPTS =
 # TODO(kapil): Split SSH plugin into its own.
 #
 noinst_LIBRARIES = libssh.a
-__d_libdir__libdmtcp_dl_so_SOURCES = \
-	dl/dlwrappers.cpp
-
-__d_libdir__libdmtcp_dl_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_dl_so_LDADD = $(LDADD)
 libssh_a_SOURCES = \
 	ipc/ssh/util_ssh.cpp                                           \
 	ipc/ssh/util_ssh.h
@@ -607,18 +593,6 @@ $(d_libdir)/$(am__dirstamp):
 	@$(MKDIR_P) $(d_libdir)
 	@: > $(d_libdir)/$(am__dirstamp)
 
-dl/$(am__dirstamp):
-	@$(MKDIR_P) dl
-	@: > dl/$(am__dirstamp)
-dl/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) dl/$(DEPDIR)
-	@: > dl/$(DEPDIR)/$(am__dirstamp)
-dl/dlwrappers.$(OBJEXT): dl/$(am__dirstamp) \
-	dl/$(DEPDIR)/$(am__dirstamp)
-
-$(d_libdir)/libdmtcp_dl.so$(EXEEXT): $(__d_libdir__libdmtcp_dl_so_OBJECTS) $(__d_libdir__libdmtcp_dl_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_dl_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
-	@rm -f $(d_libdir)/libdmtcp_dl.so$(EXEEXT)
-	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_dl_so_LINK) $(__d_libdir__libdmtcp_dl_so_OBJECTS) $(__d_libdir__libdmtcp_dl_so_LDADD) $(LIBS)
 install-binSCRIPTS: $(bin_SCRIPTS)
 	@$(NORMAL_INSTALL)
 	@list='$(bin_SCRIPTS)'; test -n "$(bindir)" || list=; \
@@ -692,13 +666,11 @@ uninstall-dist_binSCRIPTS:
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
-	-rm -f dl/*.$(OBJEXT)
 	-rm -f ipc/ssh/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@dl/$(DEPDIR)/dlwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ipc/ssh/$(DEPDIR)/i-dmtcp_ssh.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ipc/ssh/$(DEPDIR)/i-dmtcp_sshd.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ipc/ssh/$(DEPDIR)/i-util_ssh.Po@am__quote@ # am--include-marker
@@ -901,8 +873,6 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
-	-rm -f dl/$(DEPDIR)/$(am__dirstamp)
-	-rm -f dl/$(am__dirstamp)
 	-rm -f ipc/ssh/$(DEPDIR)/$(am__dirstamp)
 	-rm -f ipc/ssh/$(am__dirstamp)
 	-test -z "$(d_bindir)/$(am__dirstamp)" || rm -f $(d_bindir)/$(am__dirstamp)
@@ -917,7 +887,6 @@ clean-am: clean-binPROGRAMS clean-generic clean-libdmtcpPROGRAMS \
 	clean-noinstLIBRARIES mostlyclean-am
 
 distclean: distclean-am
-		-rm -f dl/$(DEPDIR)/dlwrappers.Po
 	-rm -f ipc/ssh/$(DEPDIR)/i-dmtcp_ssh.Po
 	-rm -f ipc/ssh/$(DEPDIR)/i-dmtcp_sshd.Po
 	-rm -f ipc/ssh/$(DEPDIR)/i-util_ssh.Po
@@ -967,7 +936,6 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-		-rm -f dl/$(DEPDIR)/dlwrappers.Po
 	-rm -f ipc/ssh/$(DEPDIR)/i-dmtcp_ssh.Po
 	-rm -f ipc/ssh/$(DEPDIR)/i-dmtcp_sshd.Po
 	-rm -f ipc/ssh/$(DEPDIR)/i-util_ssh.Po

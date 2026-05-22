@@ -42,11 +42,9 @@ noinst_LIBRARIES =
 #
 # Dl plugin
 #
-libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_dl.so
-__d_libdir__libdmtcp_dl_so_SOURCES =                                   \
-	dl/dlwrappers.cpp
-__d_libdir__libdmtcp_dl_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_dl_so_LDADD = $(LDADD)
+# DL wrappers are now built into the core DMTCP library.  Keep no DL DSO
+# target here, or the moved wrappers would have two DMTCP-owned exporting
+# artifacts.
 
 #
 # IPC plugin

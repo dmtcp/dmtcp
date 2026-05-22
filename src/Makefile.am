@@ -161,6 +161,7 @@ libnohijack_a_SOURCES = dmtcpnohijackstubs.cpp			\
 __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  ckptserializer.cpp 		\
 				  dlwrappers.cpp 		\
+				  plugin/dl/dlwrappers.cpp 	\
 				  dmtcpplugin.cpp 		\
 				  dmtcpworker.cpp 		\
 				  dmtcp_dlsym_wrappers.cpp 	\
