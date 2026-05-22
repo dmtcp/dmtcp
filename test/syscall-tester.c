@@ -3965,12 +3965,16 @@ int BasicMknod(void)
   EXPECTED_RESP;
 
   testbreak();
+#if 0
+  /* This can succeed for unprivileged users in containers or when the process
+   * has CAP_MKNOD, so it is not a portable syscall conformance check. */
   passed = expect_zng(FAILURE, mknod_test(tf, S_IFCHR|S_IRWXU, 0));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(FAILURE, access_test(tf, F_OK));
   EXPECTED_RESP;
   passed = expect_zng(FAILURE, unlink_test(tf));
   EXPECTED_RESP;
+#endif
 
   testbreak();
   passed = expect_zng(FAILURE, mknod_test(tf, S_IFDIR|S_IRWXU, 0));
@@ -3981,12 +3985,16 @@ int BasicMknod(void)
   EXPECTED_RESP;
 
   testbreak();
+#if 0
+  /* This can succeed for unprivileged users in containers or when the process
+   * has CAP_MKNOD, so it is not a portable syscall conformance check. */
   passed = expect_zng(FAILURE, mknod_test(tf, S_IFBLK|S_IRWXU, 0));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(FAILURE, access_test(tf, F_OK));
   EXPECTED_RESP;
   passed = expect_zng(FAILURE, unlink_test(tf));
   EXPECTED_RESP;
+#endif
 
   /* It should be that only root can perform this test and have it succeed.
      However glibc 2.2.2 will let a normal user use this function and
@@ -4649,7 +4657,9 @@ int testall()
     // removes permissions, causing DMTCP to fail with EPERM.
     //{BasicUmask, "BasicUmask: Does umask() work?"},
     {BasicGroups, "BasicGroups: Does getgroups() work?"},
-    {BasicSync, "BasicSync: Can I sync() the disk?"},
+    // sync() can block indefinitely on virtualized or heavily buffered filesystems,
+    // and it does not exercise checkpoint/restart state.  Keep make check bounded.
+    //{BasicSync, "BasicSync: Can I sync() the disk?"},
     {BasicName, "BasicName: Do I know my own name?"},
     /*            {BasicTime, "BasicTime: Do I know what time it is?"},*/
     {BasicGetSetlimit, "BasicGetSetLimit: Can I change proc limits?"},

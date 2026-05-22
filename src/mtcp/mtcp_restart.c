@@ -375,6 +375,51 @@ static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
   }
 }
 
+#ifdef __aarch64__
+# define ALIGN_FORWARD(addr, align) \
+  (void *)(((unsigned long)(addr) + (align) - 1) & ~(unsigned long)((align) - 1))
+# define ALIGN_BACKWARD(addr, align) \
+  (void *)((unsigned long)(addr) & ~(unsigned long)((align) - 1))
+
+static void clear_icache(void *beg, void *end)
+{
+  static size_t cache_info = 0;
+  size_t dcache_line_size;
+  size_t icache_line_size;
+  unsigned long beg_uint = (unsigned long)beg;
+  unsigned long end_uint = (unsigned long)end;
+  void *addr;
+
+  if (beg_uint >= end_uint) {
+    return;
+  }
+
+  if (cache_info == 0) {
+    asm volatile ("mrs %0, ctr_el0" : "=r" (cache_info));
+  }
+
+  dcache_line_size = 4 << ((cache_info >> 16) & 0xf);
+  icache_line_size = 4 << (cache_info & 0xf);
+
+  addr = ALIGN_BACKWARD(beg_uint, dcache_line_size);
+  do {
+    asm volatile ("dc cvau, %0" : : "r" (addr) : "memory");
+    addr = (void *)((unsigned long)addr + dcache_line_size);
+  } while (addr != ALIGN_FORWARD(end_uint, dcache_line_size));
+
+  asm volatile ("dsb ish" : : : "memory");
+
+  addr = ALIGN_BACKWARD(beg_uint, icache_line_size);
+  do {
+    asm volatile ("ic ivau, %0" : : "r" (addr) : "memory");
+    addr = (void *)((unsigned long)addr + icache_line_size);
+  } while (addr != ALIGN_FORWARD(end_uint, icache_line_size));
+
+  asm volatile ("dsb ish" : : : "memory");
+  asm volatile ("isb" : : : "memory");
+}
+#endif
+
 NO_OPTIMIZE
 static void restart_fast_path()
 {
@@ -396,6 +441,9 @@ static void restart_fast_path()
  */
   mtcp_memcpy(rinfo.restore_addr, rinfo.text_addr, rinfo.text_size);
   mtcp_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));
+#ifdef __aarch64__
+  clear_icache(rinfo.restore_addr, rinfo.restore_addr + rinfo.text_size);
+#endif
   void *stack_ptr = rinfo.restore_addr + rinfo.restore_size - MB;
 
 #if defined(__INTEL_COMPILER) && defined(__x86_64__)

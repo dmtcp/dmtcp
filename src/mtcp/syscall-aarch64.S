@@ -56,7 +56,8 @@ name:
 ENTRY (mtcp_syscall)
 #ifdef MTCP_SYS_ERRNO_ON_STACK
 	mov	x9, x8 /* Save last argument here temporarily */
-	mov	x10, x1 /* Save address of mtcp_sys_errno here */
+	sub	sp, sp, #16
+	str	x1, [sp] /* Save address of mtcp_sys_errno across svc */
 	uxtw	x8, w0
 	mov	x0, x2
 	mov	x1, x3
@@ -78,10 +79,16 @@ ENTRY (mtcp_syscall)
 	svc	0x0
 	cmn	x0, #4095
 	b.cs	1f   /* Branch on error */
+#ifdef MTCP_SYS_ERRNO_ON_STACK
+	add	sp, sp, #16
+#endif
 	RET        /* assembler treats this as "ret" */
 1:
 #ifdef MTCP_SYS_ERRNO_ON_STACK
-// x10 has &mtcp_sys_errno and x0 has encoded errno
+// The errno address was saved on the stack before svc; caller-saved registers
+// are not reliable across the kernel entry on all aarch64 environments.
+	ldr	x10, [sp]
+	add	sp, sp, #16
 	neg	x0, x0 /* If x0-4096 was negative, 4096-x0 is the errno. */
 	str	x0, [x10, #0] /* Save the errno in mtcp_sys_errno */
 	mov	x0, #-1 /* return -1 */
