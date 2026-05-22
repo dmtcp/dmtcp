@@ -271,6 +271,12 @@ alloc-built-in-preload: alloc-built-in-preload.c
 pid-built-in-preload: pid-built-in-preload.c
 	$(CC) -o $@ $< $(CFLAGS)
 
+dl-built-in-preload: dl-built-in-preload.c libdlopen-lib1.so libdlopen-lib2.so
+	$(CC) -o $@ $< $(CFLAGS) -ldl
+
+libdl-built-in-user-preload.so: dl-built-in-user-preload.c
+	$(CC) $(CFLAGS) -shared -fPIC -o $@ $<
+
 %: %.c
 	$(CC) -o $@ $< $(CFLAGS)
 
