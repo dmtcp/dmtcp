@@ -78,7 +78,7 @@ endif
 
 PWD=$(shell pwd)
 
-TESTS=${notdir ${basename ${shell ls $(srcdir)/*.c $(srcdir)/*.cpp $(srcdir)/*.cilk | grep -v 'hellompi.c'}}} \
+TESTS=${notdir ${basename ${shell ls $(srcdir)/*.c $(srcdir)/*.cpp $(srcdir)/*.cilk | grep -v -e 'hellompi.c' -e 'dl-built-in-user-preload.c'}}} \
 	${addsuffix .class,${notdir ${basename ${shell ls $(srcdir)/java*.java}}}} \
 	hellompich openmpi
 

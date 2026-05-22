@@ -53,8 +53,6 @@ pidVirt_disabledByEnv()
   return disableAll != NULL && strcmp(disableAll, "1") == 0;
 }
 
-static string pidMapFile;
-
 static vector<pid_t> *exitedChildTids = NULL;
 static DmtcpMutex exitedChildTidsLock = DMTCP_MUTEX_INITIALIZER_LLL;
 
@@ -306,9 +304,11 @@ pidVirt_PostRestart()
     << dmtcp_get_computation_id_str() << "."
     << std::hex << dmtcp_get_coordinator_timestamp();
 
+  string pidMapFile = o.str();
+
   // Open and create pidMapFile if it doesn't exist.
-  JTRACE("Open dmtcpPidMapFile")(o.str());
-  int fd = openSharedFile(o.str(), O_RDWR);
+  JTRACE("Open dmtcpPidMapFile")(pidMapFile);
+  int fd = openSharedFile(pidMapFile, O_RDWR);
   JASSERT(fd != -1);
 
   VirtualPidTable::instance().writeMapsToFile(fd);
