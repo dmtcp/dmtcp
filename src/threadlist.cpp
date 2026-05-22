@@ -217,6 +217,28 @@ void ThreadList::initThread(Thread* th, int (*fn)(void*), void *arg, int flags,
 
 /*****************************************************************************
  *
+ *****************************************************************************/
+void ThreadList::initCurrentThreadForPthread(void *(*fn)(void *), void *arg)
+{
+  if (curThread != NULL) {
+    return;
+  }
+
+  Thread *th = ThreadList::getNewThread();
+  int *tidAddr = (int *)((char *)pthread_self() + TLSInfo_GetTidOffset());
+  int flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND |
+              CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS |
+              CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID;
+
+  if (dmtcpResetTid != NULL) {
+    dmtcpResetTid(THREAD_REAL_TID());
+  }
+  ThreadList::initThread(th, (int (*)(void *))fn, arg, flags, tidAddr, tidAddr);
+  ThreadList::updateTid(th);
+}
+
+/*****************************************************************************
+ *
  * Thread exited/exiting.
  *
  *****************************************************************************/
@@ -977,4 +999,3 @@ void ThreadList::emptyFreeList()
 
   unlk_threads();
 }
-

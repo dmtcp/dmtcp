@@ -159,6 +159,7 @@ static void pidVirt_PostRestart(DmtcpEventData_t *data)
   // We can't just send two SIGWINCH's now, since window size has not
   // changed yet, and 'screen' will assume that there's nothing to do.
 
+  VirtualPidTable::instance().postRestart();
   dmtcp_update_ppid();
   openOriginalToCurrentMappingFiles();
   VirtualPidTable::instance().writeMapsToFile(PROTECTED_PIDMAP_FD);

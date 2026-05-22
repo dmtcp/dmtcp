@@ -37,6 +37,7 @@ namespace dmtcp
     void init();
     void initThread(Thread* th, int (*fn)(void*), void *arg, int flags,
                     int *ptid, int *ctid);
+    void initCurrentThreadForPthread(void *(*fn)(void *), void *arg);
     void updateTid(Thread *);
     void resetOnFork();
     void killCkpthread();
