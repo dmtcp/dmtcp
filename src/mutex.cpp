@@ -1,3 +1,5 @@
+#include <sys/syscall.h>
+
 #include "dmtcp.h"
 #include "futex.h"
 #include "jassert.h"
@@ -8,6 +10,12 @@ typedef uint32_t mutex_owner_t; // See 'include/dmtcp.h' for why 'uint32_t'
 static const uint32_t LOCK_FREE = 0;
 static const uint32_t LOCK_ACQUIRED = 1;
 static const uint32_t LOCK_ACQUIRED_WAITERS_MAY_BE_QUEUED = 2;
+
+static pid_t
+mutexTid()
+{
+  return (pid_t)_real_syscall(SYS_gettid);
+}
 
 /*
  * Mutex has following fields:
@@ -66,7 +74,7 @@ DmtcpMutexLock(DmtcpMutex *mutex)
            != LOCK_FREE);
 
   mutex->owner = (mutex->type == DMTCP_MUTEX_LLL) ? 1
-                                                :(mutex_owner_t) gettid();
+                                                :(mutex_owner_t) mutexTid();
   mutex->count = 1;
 
   return 0;
@@ -79,7 +87,7 @@ DmtcpMutexTryLock(DmtcpMutex *mutex)
   pid_t owner = 1;
 
   if (mutex->type != DMTCP_MUTEX_LLL) {
-    owner = gettid();
+    owner = mutexTid();
 
     if ((pid_t)(mutex->owner) == owner) {
       if (mutex->type == DMTCP_MUTEX_RECURSIVE) {
@@ -115,7 +123,7 @@ DmtcpMutexUnlock(DmtcpMutex *mutex)
   pid_t owner = 1;
 
   if (mutex->type != DMTCP_MUTEX_LLL) {
-    owner = gettid();
+    owner = mutexTid();
   }
 
   JASSERT((pid_t)(mutex->owner) == owner);

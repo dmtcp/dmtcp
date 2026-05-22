@@ -21,6 +21,7 @@
 
 #include <pthread.h>
 #include <stdlib.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -66,6 +67,12 @@ static DmtcpRWLock _wrapperExecutionLock;
 
 static DmtcpMutex libdlLock = DMTCP_MUTEX_INITIALIZER;
 static pid_t libdlLockOwner = 0;
+
+static pid_t
+threadSyncTid()
+{
+  return (pid_t)_real_syscall(SYS_gettid);
+}
 
 static DmtcpMutex presuspendEventHookLock = DMTCP_MUTEX_INITIALIZER;
 
@@ -130,9 +137,11 @@ ThreadSync::libdlLockLock()
     return false;
   }
 
-  if (libdlLockOwner != gettid()) {
+  pid_t tid = threadSyncTid();
+
+  if (libdlLockOwner != tid) {
     JASSERT(DmtcpMutexLock(&libdlLock) == 0);
-    libdlLockOwner = gettid();
+    libdlLockOwner = tid;
     lockAcquired = true;
   }
   errno = saved_errno;
@@ -149,8 +158,9 @@ ThreadSync::libdlLockUnlock()
     return;
   }
 
-  JASSERT(libdlLockOwner == 0 || libdlLockOwner == gettid())
-    (libdlLockOwner) (gettid());
+  pid_t tid = threadSyncTid();
+  JASSERT(libdlLockOwner == 0 || libdlLockOwner == tid)
+    (libdlLockOwner) (tid);
   libdlLockOwner = 0;
   JASSERT(DmtcpMutexUnlock(&libdlLock) == 0);
   errno = saved_errno;

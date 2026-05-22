@@ -41,6 +41,10 @@ using namespace dmtcp;
 extern "C" pid_t
 gettid(void) __THROW
 {
+  if (!dmtcp_is_running_state()) {
+    return (pid_t)_real_syscall(SYS_gettid);
+  }
+
   if (dmtcp_pid_get_virtual_tid != NULL) {
     return dmtcp_pid_get_virtual_tid();
   }

@@ -1,11 +1,17 @@
 #include <limits.h>
 #include <atomic>
+#include <sys/syscall.h>
 
 #include "dmtcp.h"
 #include "futex.h"
 #include "jassert.h"
 #include "syscallwrappers.h"
 
+static pid_t
+rwlockTid()
+{
+  return (pid_t)_real_syscall(SYS_gettid);
+}
 
 extern "C"
 void DmtcpRWLockInit(DmtcpRWLock *rwlock)
@@ -18,7 +24,7 @@ extern "C"
 int DmtcpRWLockRdLock(DmtcpRWLock *rwlock)
 {
   // Detect deadlock.
-  if (rwlock->writerTid == gettid()) {
+  if (rwlock->writerTid == rwlockTid()) {
     return EDEADLK;
   }
 
@@ -77,7 +83,7 @@ extern "C"
 int DmtcpRWLockWrLock(DmtcpRWLock *rwlock)
 {
   // Detect deadlock.
-  if (rwlock->writerTid == gettid()) {
+  if (rwlock->writerTid == rwlockTid()) {
     return EDEADLK;
   }
 
@@ -103,7 +109,7 @@ int DmtcpRWLockWrLock(DmtcpRWLock *rwlock)
     JASSERT(ret == 0 || errno == EAGAIN);
   }
 
-  rwlock->writerTid = gettid();
+  rwlock->writerTid = rwlockTid();
 
   return 0;
 }
@@ -114,7 +120,7 @@ int DmtcpRWLockWrUnlock(DmtcpRWLock *rwlock)
   DmtcpRWLockStatus oldStatus;
   DmtcpRWLockStatus newStatus;
 
-  ASSERT_EQ(gettid(), rwlock->writerTid);
+  ASSERT_EQ(rwlockTid(), rwlock->writerTid);
   ASSERT_EQ(0, rwlock->status.nReaders);
 
   rwlock->writerTid = 0;
@@ -144,7 +150,7 @@ int DmtcpRWLockWrUnlock(DmtcpRWLock *rwlock)
 
 int DmtcpRWLockUnlock(DmtcpRWLock *rwlock)
 {
-  if (rwlock->writerTid == gettid()) {
+  if (rwlock->writerTid == rwlockTid()) {
     return DmtcpRWLockWrUnlock(rwlock);
   }
 
