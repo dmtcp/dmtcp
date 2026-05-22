@@ -35,13 +35,9 @@ noinst_LIBRARIES =
 #
 # Alloc plugin
 #
-libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_alloc.so
-__d_libdir__libdmtcp_alloc_so_SOURCES =                                \
-	alloc/alloc.h                                                  \
-	alloc/mallocwrappers.cpp                                       \
-	alloc/mmapwrappers.cpp
-__d_libdir__libdmtcp_alloc_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_alloc_so_LDADD = $(LDADD)
+# Alloc wrappers are now built into the core DMTCP library.  Keep no
+# allocator DSO target here, or the moved wrappers would have two
+# DMTCP-owned exporting artifacts.
 
 #
 # Dl plugin

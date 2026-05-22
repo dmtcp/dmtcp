@@ -168,6 +168,9 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  glibcsystem.cpp 		\
 				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
+				  plugin/alloc/alloc.h 	\
+				  plugin/alloc/mallocwrappers.cpp 	\
+				  plugin/alloc/mmapwrappers.cpp 	\
 				  plugin/svipc/sysvipc.cpp 	\
 				  plugin/svipc/sysvipc.h 		\
 				  plugin/svipc/sysvipcwrappers.cpp 	\

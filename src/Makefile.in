@@ -203,6 +203,8 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	dmtcpplugin.$(OBJEXT) dmtcpworker.$(OBJEXT) \
 	dmtcp_dlsym_wrappers.$(OBJEXT) execwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) kvdb.$(OBJEXT) miscwrappers.$(OBJEXT) \
+	plugin/alloc/mallocwrappers.$(OBJEXT) \
+	plugin/alloc/mmapwrappers.$(OBJEXT) \
 	plugin/svipc/sysvipc.$(OBJEXT) \
 	plugin/svipc/sysvipcwrappers.$(OBJEXT) \
 	plugin/timer/timer_create.$(OBJEXT) \
@@ -303,6 +305,8 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	./$(DEPDIR)/util_init.Po ./$(DEPDIR)/util_misc.Po \
 	./$(DEPDIR)/workerstate.Po ./$(DEPDIR)/wrapperlock.Po \
 	./$(DEPDIR)/wrappers.Po ./$(DEPDIR)/writeckpt.Po \
+	plugin/alloc/$(DEPDIR)/mallocwrappers.Po \
+	plugin/alloc/$(DEPDIR)/mmapwrappers.Po \
 	plugin/ipc/$(DEPDIR)/connection.Po \
 	plugin/ipc/$(DEPDIR)/connectionidentifier.Po \
 	plugin/ipc/$(DEPDIR)/connectionlist.Po \
@@ -753,6 +757,9 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  glibcsystem.cpp 		\
 				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
+				  plugin/alloc/alloc.h 	\
+				  plugin/alloc/mallocwrappers.cpp 	\
+				  plugin/alloc/mmapwrappers.cpp 	\
 				  plugin/svipc/sysvipc.cpp 	\
 				  plugin/svipc/sysvipc.h 		\
 				  plugin/svipc/sysvipcwrappers.cpp 	\
@@ -1073,6 +1080,16 @@ $(d_bindir)/dmtcp_nocheckpoint$(EXEEXT): $(__d_bindir__dmtcp_nocheckpoint_OBJECT
 $(d_bindir)/dmtcp_restart$(EXEEXT): $(__d_bindir__dmtcp_restart_OBJECTS) $(__d_bindir__dmtcp_restart_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_restart_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
 	@rm -f $(d_bindir)/dmtcp_restart$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_restart_OBJECTS) $(__d_bindir__dmtcp_restart_LDADD) $(LIBS)
+plugin/alloc/$(am__dirstamp):
+	@$(MKDIR_P) plugin/alloc
+	@: > plugin/alloc/$(am__dirstamp)
+plugin/alloc/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/alloc/$(DEPDIR)
+	@: > plugin/alloc/$(DEPDIR)/$(am__dirstamp)
+plugin/alloc/mallocwrappers.$(OBJEXT): plugin/alloc/$(am__dirstamp) \
+	plugin/alloc/$(DEPDIR)/$(am__dirstamp)
+plugin/alloc/mmapwrappers.$(OBJEXT): plugin/alloc/$(am__dirstamp) \
+	plugin/alloc/$(DEPDIR)/$(am__dirstamp)
 plugin/svipc/$(am__dirstamp):
 	@$(MKDIR_P) plugin/svipc
 	@: > plugin/svipc/$(am__dirstamp)
@@ -1221,6 +1238,7 @@ $(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdi
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f $(jalibdir)/*.$(OBJEXT)
+	-rm -f plugin/alloc/*.$(OBJEXT)
 	-rm -f plugin/ipc/*.$(OBJEXT)
 	-rm -f plugin/ipc/event/*.$(OBJEXT)
 	-rm -f plugin/ipc/file/*.$(OBJEXT)
@@ -1296,6 +1314,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wrapperlock.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/writeckpt.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/alloc/$(DEPDIR)/mallocwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/alloc/$(DEPDIR)/mmapwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/$(DEPDIR)/connection.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/$(DEPDIR)/connectionidentifier.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/$(DEPDIR)/connectionlist.Po@am__quote@ # am--include-marker
@@ -1582,6 +1602,8 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
+	-rm -f plugin/alloc/$(DEPDIR)/$(am__dirstamp)
+	-rm -f plugin/alloc/$(am__dirstamp)
 	-rm -f plugin/ipc/$(DEPDIR)/$(am__dirstamp)
 	-rm -f plugin/ipc/$(am__dirstamp)
 	-rm -f plugin/ipc/event/$(DEPDIR)/$(am__dirstamp)
@@ -1675,6 +1697,8 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/wrapperlock.Po
 	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
+	-rm -f plugin/alloc/$(DEPDIR)/mallocwrappers.Po
+	-rm -f plugin/alloc/$(DEPDIR)/mmapwrappers.Po
 	-rm -f plugin/ipc/$(DEPDIR)/connection.Po
 	-rm -f plugin/ipc/$(DEPDIR)/connectionidentifier.Po
 	-rm -f plugin/ipc/$(DEPDIR)/connectionlist.Po
@@ -1819,6 +1843,8 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/wrapperlock.Po
 	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
+	-rm -f plugin/alloc/$(DEPDIR)/mallocwrappers.Po
+	-rm -f plugin/alloc/$(DEPDIR)/mmapwrappers.Po
 	-rm -f plugin/ipc/$(DEPDIR)/connection.Po
 	-rm -f plugin/ipc/$(DEPDIR)/connectionidentifier.Po
 	-rm -f plugin/ipc/$(DEPDIR)/connectionlist.Po

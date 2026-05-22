@@ -187,7 +187,6 @@ struct PluginInfo {
 static struct PluginInfo pluginInfo[] = {               // Default value
   { &enableModifyEnvPlugin, "libdmtcp_modify-env.so" },  // Disabled
   { &enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so" }, // Disabled
-  { &enableAllocPlugin, "libdmtcp_alloc.so" },          // Enabled
   { &enableDlPlugin, "libdmtcp_dl.so" },                // Enabled
   { &enablePathVirtPlugin,  "libdmtcp_pathvirt.so"},    // Disabled
   { &enableLibDMTCP, "libdmtcp.so" }                    // Enabled
