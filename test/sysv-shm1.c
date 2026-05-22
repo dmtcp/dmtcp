@@ -1,6 +1,7 @@
 // shmget() needs sysv/ipc.h, which needs )XOPEN_SOURCE
 #define _XOPEN_SOURCE
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +12,34 @@
 
 #define SIZE 1024
 #define NUM_SHMIDS 3
+
+static int
+create_named_shm(size_t size)
+{
+  for (int attempt = 0; attempt < 1024; attempt++) {
+    key_t key = (key_t) rand();
+    int existing = shmget(key, size, 0666);
+    if (existing >= 0 || errno == EINVAL || errno == EACCES) {
+      continue;
+    }
+    if (errno != ENOENT) {
+      perror("shmget");
+      exit(1);
+    }
+
+    int shmid = shmget(key, size, IPC_CREAT | 0666);
+    if (shmid >= 0) {
+      return shmid;
+    }
+    if (errno != EINVAL && errno != EEXIST && errno != EACCES) {
+      perror("shmget");
+      exit(1);
+    }
+  }
+
+  fprintf(stderr, "shmget: exhausted named key retries\n");
+  exit(1);
+}
 
 void
 parent(int shmid[])
@@ -88,10 +117,7 @@ main(int argc, char **argv)
   assert(shmid[0] != shmid[1]);
 
   srand(getpid());
-  if ((shmid[2] = shmget((key_t)rand(), SIZE, IPC_CREAT | 0666)) < 0) {
-    perror("shmget");
-    exit(1);
-  }
+  shmid[2] = create_named_shm(SIZE);
   printf("pid: %d, Shm1: %d, Shm2: %d, Shm3: %d\n", getpid(), shmid[0], shmid[1], shmid[2]);
 
   struct shmid_ds shmid_ds;

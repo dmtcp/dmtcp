@@ -1,5 +1,6 @@
 // shmget() needs sysv/ipc.h, which needs )XOPEN_SOURCE
 #define _XOPEN_SOURCE
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,16 +12,41 @@
 
 #define SIZE 4096
 
+static int
+create_named_shm(size_t size)
+{
+  for (int attempt = 0; attempt < 1024; attempt++) {
+    key_t key = (key_t) rand();
+    int existing = shmget(key, size, 0666);
+    if (existing >= 0 || errno == EINVAL || errno == EACCES) {
+      continue;
+    }
+    if (errno != ENOENT) {
+      perror("shmget");
+      exit(1);
+    }
+
+    int shmid = shmget(key, size, IPC_CREAT | 0666);
+    if (shmid >= 0) {
+      return shmid;
+    }
+    if (errno != EINVAL && errno != EEXIST && errno != EACCES) {
+      perror("shmget");
+      exit(1);
+    }
+  }
+
+  fprintf(stderr, "shmget: exhausted named key retries\n");
+  exit(1);
+}
+
 void
 parent(int fd)
 {
   int shmid;
   srand(getpid());
 
-  if ((shmid = shmget((key_t)rand(), SIZE, IPC_CREAT | 0666)) < 0) {
-    perror("shmget");
-    exit(1);
-  }
+  shmid = create_named_shm(SIZE);
   struct shmid_ds shmid_ds;
   if (shmctl(shmid, IPC_STAT, &shmid_ds) == -1) {
     perror("shmctl: shmctl failed");

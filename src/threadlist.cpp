@@ -197,7 +197,10 @@ ThreadList::init()
    */
 
   /* libc/getpid can lie if we had used kernel fork() instead of libc fork(). */
-  motherpid = getpid();
+  /* Core thread signalling uses raw tgkill and must therefore track the
+   * kernel PID even when the PID built-in virtualizes getpid() for user code.
+   */
+  motherpid = (pid_t)_real_syscall(SYS_getpid);
 
 }
 
@@ -726,7 +729,7 @@ ThreadList::waitForAllRestored(Thread *thread)
      */
     for (i = SIGRTMAX; i > 0; --i) {
       if (sigismember(&sigpending_global, i) == 1) {
-        kill(getpid(), i);
+        _real_syscall(SYS_kill, motherpid, i);
       }
     }
 
@@ -754,6 +757,11 @@ ThreadList::waitForAllRestored(Thread *thread)
 void
 ThreadList::postRestart(double readTime, int restartPause)
 {
+  /* Restart gives the process a new real PID.  Keep core thread signalling on
+   * the kernel PID; PID virtualization owns user-visible pid translation.
+   */
+  motherpid = (pid_t)_real_syscall(SYS_getpid);
+
   // This function and related ones are defined in src/mtcp/restore_libc.c
   TLSInfo_RestoreTLSState(motherofall);
   TLSInfo_RestoreTLSTidPid(motherofall);
@@ -777,7 +785,10 @@ ThreadList::postRestartWork(double readTime)
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
   }
 
-  dmtcp_update_virtual_to_real_tid(motherofall->tid);
+  if (dmtcp_update_virtual_to_real_tid != NULL) {
+    dmtcp_update_virtual_to_real_tid(motherofall->tid);
+  }
+  motherofall->tid = (pid_t)_real_syscall(SYS_gettid);
 
   DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 3);
 
@@ -831,7 +842,10 @@ restarthread(void *threadv)
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
   }
 
-  dmtcp_update_virtual_to_real_tid(thread->tid);
+  if (dmtcp_update_virtual_to_real_tid != NULL) {
+    dmtcp_update_virtual_to_real_tid(thread->tid);
+  }
+  thread->tid = (pid_t)_real_syscall(SYS_gettid);
 
   if (thread == motherofall) {  // if this is a user thread
     DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 4);

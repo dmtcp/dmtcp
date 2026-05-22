@@ -120,9 +120,10 @@ dmtcp_update_virtual_to_real_tid(pid_t tid)
     VirtualPidTable::instance().postRestart();
   }
 
-  VirtualPidTable::instance().updateMapping(tid, pid_real_gettid());
+  pid_t virtualTid = VirtualPidTable::gettid();
+  VirtualPidTable::instance().updateMapping(virtualTid, pid_real_gettid());
 
-  dmtcp_pthread_set_tid(pthread_self(), tid);
+  dmtcp_pthread_set_tid(pthread_self(), virtualTid);
 }
 
 static

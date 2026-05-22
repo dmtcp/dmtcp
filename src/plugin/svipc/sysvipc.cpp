@@ -94,6 +94,14 @@ static SysVShm *vfork_sysvShmInst = NULL;
 static SysVSem *vfork_sysvSemInst = NULL;
 static SysVMsq *vfork_sysvMsqInst = NULL;
 
+static pid_t
+sysvipcRealPid()
+{
+  pid_t pid = getpid();
+  return dmtcp_virtual_to_real_pid != NULL ?
+         dmtcp_virtual_to_real_pid(pid) : pid;
+}
+
 static void
 preCheckpoint()
 {
@@ -807,7 +815,7 @@ ShmSegment::preCkptDrain()
   _dmtcpMappedAddr = false;
   _isCkptLeader = false;
 
-  if (info.shm_lpid == getpid()) {
+  if (info.shm_lpid == sysvipcRealPid()) {
     _isCkptLeader = true;
     if (_shmaddrToFlag.size() == 0) {
       void *addr = _real_shmat(_realId, NULL, 0);
@@ -858,7 +866,7 @@ ShmSegment::postRestart()
   }
 
   int tmpShmFlags = (_flags & IPC_CREAT) ? _flags : (_flags | IPC_CREAT);
-  key_t realKey = dmtcp_virtual_to_real_pid(getpid());
+  key_t realKey = sysvipcRealPid();
   _realId = _real_shmget(realKey, _size, tmpShmFlags);
   JASSERT(_realId != -1);
   SysVShm::instance().updateMapping(_id, _realId);
@@ -1006,7 +1014,7 @@ void
 Semaphore::preCkptDrain()
 {
   _isCkptLeader = false;
-  if (getpid() == _real_semctl(_realId, 0, GETPID)) {
+  if (sysvipcRealPid() == _real_semctl(_realId, 0, GETPID)) {
     union semun info;
     info.array = &_semval[0];
     JASSERT(_real_semctl(_realId, 0, GETALL, info) != -1);
@@ -1131,7 +1139,7 @@ MsgQueue::preCheckpoint()
   memset(&buf, 0, sizeof buf);
   JASSERT(_real_msgctl(_realId, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
 
-  if (buf.msg_lspid == getpid()) {
+  if (buf.msg_lspid == sysvipcRealPid()) {
     size_t size = buf.__msg_cbytes;
     size_t msgBufSize = sizeof(struct msgbuf) + size;
     struct msgbuf *msgBuf = (struct msgbuf*) JALLOC_MALLOC(msgBufSize);
