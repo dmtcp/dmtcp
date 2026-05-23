@@ -12,7 +12,6 @@ usr/bin/mtcp_restart
 usr/include/dmtcp.h
 usr/lib/dmtcp/libdmtcp.so
 usr/lib/dmtcp/libdmtcp_batch-queue.so
-usr/lib/dmtcp/libdmtcp_ipc.so
 usr/lib/dmtcp/libdmtcp_modify-env.so
 usr/lib/dmtcp/libdmtcp_pathvirt.so 
 usr/lib/dmtcp/libdmtcp_pid.so

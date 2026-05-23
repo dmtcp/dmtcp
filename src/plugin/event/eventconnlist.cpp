@@ -69,10 +69,13 @@ DmtcpPluginDescriptor_t eventPlugin = {
   dmtcp_EventConnList_EventHook
 };
 
-void
-ipc_initialize_plugin_event()
+namespace dmtcp
 {
-  dmtcp_register_plugin(eventPlugin);
+DmtcpPluginDescriptor_t
+dmtcp_EventPlugin_PluginDescr()
+{
+  return eventPlugin;
+}
 }
 
 EventConnList&

@@ -95,10 +95,13 @@ DmtcpPluginDescriptor_t socketPlugin = {
   dmtcp_SocketConnList_EventHook
 };
 
-void
-ipc_initialize_plugin_socket()
+namespace dmtcp
 {
-  dmtcp_register_plugin(socketPlugin);
+DmtcpPluginDescriptor_t
+dmtcp_SocketPlugin_PluginDescr()
+{
+  return socketPlugin;
+}
 }
 
 SocketConnList&
