@@ -203,7 +203,6 @@ static struct PluginInfo pluginInfo[] = {               // Default value
   { &enableModifyEnvPlugin, "libdmtcp_modify-env.so" },  // Disabled
   { &enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so" }, // Disabled
   { &enableLibDMTCP, "libdmtcp.so" },                   // Enabled
-  { &enableSvipcPlugin, "libdmtcp_svipc.so" },          // Enabled
   { &enablePathVirtPlugin,  "libdmtcp_pathvirt.so"},    // Disabled
   { &enableTimerPlugin, "libdmtcp_timer.so" },          // Enabled
   // PID plugin must come last.

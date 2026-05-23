@@ -95,7 +95,6 @@ host_triplet = @host@
 bin_PROGRAMS = $(d_bindir)/dmtcp_ssh$(EXEEXT) \
 	$(d_bindir)/dmtcp_sshd$(EXEEXT)
 libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_pid.so$(EXEEXT) \
-	$(d_libdir)/libdmtcp_svipc.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_timer.so$(EXEEXT)
 subdir = src/plugin
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -144,15 +143,6 @@ __d_libdir__libdmtcp_pid_so_LDADD = $(LDADD)
 __d_libdir__libdmtcp_pid_so_DEPENDENCIES =
 __d_libdir__libdmtcp_pid_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(__d_libdir__libdmtcp_pid_so_LDFLAGS) $(LDFLAGS) -o $@
-am___d_libdir__libdmtcp_svipc_so_OBJECTS = svipc/sysvipc.$(OBJEXT) \
-	svipc/sysvipcwrappers.$(OBJEXT)
-__d_libdir__libdmtcp_svipc_so_OBJECTS =  \
-	$(am___d_libdir__libdmtcp_svipc_so_OBJECTS)
-__d_libdir__libdmtcp_svipc_so_LDADD = $(LDADD)
-__d_libdir__libdmtcp_svipc_so_DEPENDENCIES =
-__d_libdir__libdmtcp_svipc_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
-	$(CXXFLAGS) $(__d_libdir__libdmtcp_svipc_so_LDFLAGS) \
-	$(LDFLAGS) -o $@
 am___d_libdir__libdmtcp_timer_so_OBJECTS =  \
 	timer/timer_create.$(OBJEXT) timer/timerlist.$(OBJEXT) \
 	timer/timerwrappers.$(OBJEXT)
@@ -212,9 +202,8 @@ am__depfiles_remade = ipc/ssh/$(DEPDIR)/i-dmtcp_ssh.Po \
 	pid/$(DEPDIR)/pid_miscwrappers.Po \
 	pid/$(DEPDIR)/pid_syscallsreal.Po pid/$(DEPDIR)/pidwrappers.Po \
 	pid/$(DEPDIR)/sched_wrappers.Po \
-	pid/$(DEPDIR)/virtualpidtable.Po svipc/$(DEPDIR)/sysvipc.Po \
-	svipc/$(DEPDIR)/sysvipcwrappers.Po \
-	timer/$(DEPDIR)/timer_create.Po timer/$(DEPDIR)/timerlist.Po \
+	pid/$(DEPDIR)/virtualpidtable.Po timer/$(DEPDIR)/timer_create.Po \
+	timer/$(DEPDIR)/timerlist.Po \
 	timer/$(DEPDIR)/timerwrappers.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
@@ -249,12 +238,10 @@ am__v_CXXLD_1 =
 SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
 	$(__d_bindir__dmtcp_sshd_SOURCES) \
 	$(__d_libdir__libdmtcp_pid_so_SOURCES) \
-	$(__d_libdir__libdmtcp_svipc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_timer_so_SOURCES)
 DIST_SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
 	$(__d_bindir__dmtcp_sshd_SOURCES) \
 	$(__d_libdir__libdmtcp_pid_so_SOURCES) \
-	$(__d_libdir__libdmtcp_svipc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_timer_so_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
@@ -506,13 +493,6 @@ __d_libdir__libdmtcp_pid_so_SOURCES = \
 	pid/virtualpidtable.h
 
 __d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_svipc_so_SOURCES = \
-	svipc/sysvipc.cpp                                              \
-	svipc/sysvipc.h                                                \
-	svipc/sysvipcwrappers.cpp                                      \
-	svipc/sysvipcwrappers.h
-
-__d_libdir__libdmtcp_svipc_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_timer_so_SOURCES = \
 	timer/timer_create.cpp                                         \
 	timer/timerlist.cpp                                            \
@@ -697,20 +677,6 @@ pid/virtualpidtable.$(OBJEXT): pid/$(am__dirstamp) \
 $(d_libdir)/libdmtcp_pid.so$(EXEEXT): $(__d_libdir__libdmtcp_pid_so_OBJECTS) $(__d_libdir__libdmtcp_pid_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_pid_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp_pid.so$(EXEEXT)
 	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_pid_so_LINK) $(__d_libdir__libdmtcp_pid_so_OBJECTS) $(__d_libdir__libdmtcp_pid_so_LDADD) $(LIBS)
-svipc/$(am__dirstamp):
-	@$(MKDIR_P) svipc
-	@: >>svipc/$(am__dirstamp)
-svipc/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) svipc/$(DEPDIR)
-	@: >>svipc/$(DEPDIR)/$(am__dirstamp)
-svipc/sysvipc.$(OBJEXT): svipc/$(am__dirstamp) \
-	svipc/$(DEPDIR)/$(am__dirstamp)
-svipc/sysvipcwrappers.$(OBJEXT): svipc/$(am__dirstamp) \
-	svipc/$(DEPDIR)/$(am__dirstamp)
-
-$(d_libdir)/libdmtcp_svipc.so$(EXEEXT): $(__d_libdir__libdmtcp_svipc_so_OBJECTS) $(__d_libdir__libdmtcp_svipc_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_svipc_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
-	@rm -f $(d_libdir)/libdmtcp_svipc.so$(EXEEXT)
-	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_svipc_so_LINK) $(__d_libdir__libdmtcp_svipc_so_OBJECTS) $(__d_libdir__libdmtcp_svipc_so_LDADD) $(LIBS)
 timer/$(am__dirstamp):
 	@$(MKDIR_P) timer
 	@: >>timer/$(am__dirstamp)
@@ -802,7 +768,6 @@ mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f ipc/ssh/*.$(OBJEXT)
 	-rm -f pid/*.$(OBJEXT)
-	-rm -f svipc/*.$(OBJEXT)
 	-rm -f timer/*.$(OBJEXT)
 
 distclean-compile:
@@ -819,8 +784,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@pid/$(DEPDIR)/pidwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@pid/$(DEPDIR)/sched_wrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@pid/$(DEPDIR)/virtualpidtable.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@svipc/$(DEPDIR)/sysvipc.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@svipc/$(DEPDIR)/sysvipcwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@timer/$(DEPDIR)/timer_create.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@timer/$(DEPDIR)/timerlist.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@timer/$(DEPDIR)/timerwrappers.Po@am__quote@ # am--include-marker
@@ -1031,8 +994,6 @@ distclean-generic:
 	-$(am__rm_f) ipc/ssh/$(am__dirstamp)
 	-$(am__rm_f) pid/$(DEPDIR)/$(am__dirstamp)
 	-$(am__rm_f) pid/$(am__dirstamp)
-	-$(am__rm_f) svipc/$(DEPDIR)/$(am__dirstamp)
-	-$(am__rm_f) svipc/$(am__dirstamp)
 	-$(am__rm_f) timer/$(DEPDIR)/$(am__dirstamp)
 	-$(am__rm_f) timer/$(am__dirstamp)
 
@@ -1056,8 +1017,6 @@ distclean: distclean-am
 	-rm -f pid/$(DEPDIR)/pidwrappers.Po
 	-rm -f pid/$(DEPDIR)/sched_wrappers.Po
 	-rm -f pid/$(DEPDIR)/virtualpidtable.Po
-	-rm -f svipc/$(DEPDIR)/sysvipc.Po
-	-rm -f svipc/$(DEPDIR)/sysvipcwrappers.Po
 	-rm -f timer/$(DEPDIR)/timer_create.Po
 	-rm -f timer/$(DEPDIR)/timerlist.Po
 	-rm -f timer/$(DEPDIR)/timerwrappers.Po
@@ -1118,8 +1077,6 @@ maintainer-clean: maintainer-clean-am
 	-rm -f pid/$(DEPDIR)/pidwrappers.Po
 	-rm -f pid/$(DEPDIR)/sched_wrappers.Po
 	-rm -f pid/$(DEPDIR)/virtualpidtable.Po
-	-rm -f svipc/$(DEPDIR)/sysvipc.Po
-	-rm -f svipc/$(DEPDIR)/sysvipcwrappers.Po
 	-rm -f timer/$(DEPDIR)/timer_create.Po
 	-rm -f timer/$(DEPDIR)/timerlist.Po
 	-rm -f timer/$(DEPDIR)/timerwrappers.Po

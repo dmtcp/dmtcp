@@ -33,6 +33,7 @@ DmtcpPluginDescriptor_t dmtcp_EventPlugin_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_FilePlugin_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_PtyPlugin_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_SocketPlugin_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_SysVIPC_PluginDescr();
 
 typedef DmtcpPluginDescriptor_t (*BuiltinDescriptorFn)();
 
@@ -59,10 +60,13 @@ static BuiltinDescriptorEntry ipcBuiltinDescriptors[] = {
   { dmtcp_SocketPlugin_PluginDescr }
 };
 
-// Final descriptor fold target:
-// ssh, event, file, pty, socket, sysvipc, timer, core descriptors, pid.
-// Until SysV/timer/PID are folded, keep only the currently linked rows in
-// this table and preserve the relative order above.
+static BuiltinDescriptorEntry sysVIPCBuiltinDescriptors[] = {
+  { dmtcp_SysVIPC_PluginDescr }
+};
+
+// Folded descriptor order:
+// ssh, event, file, pty, socket, sysvipc, core descriptors.
+// Timer/PID still register through their separate DSOs after libdmtcp.
 static void
 registerIpcBuiltinDescriptors()
 {
@@ -74,6 +78,21 @@ registerIpcBuiltinDescriptors()
        i < sizeof(ipcBuiltinDescriptors) / sizeof(ipcBuiltinDescriptors[0]);
        i++) {
     dmtcp_register_plugin(ipcBuiltinDescriptors[i].descriptorFn());
+  }
+}
+
+static void
+registerSysVIPCBuiltinDescriptors()
+{
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
+    return;
+  }
+
+  for (size_t i = 0;
+       i < sizeof(sysVIPCBuiltinDescriptors) /
+           sizeof(sysVIPCBuiltinDescriptors[0]);
+       i++) {
+    dmtcp_register_plugin(sysVIPCBuiltinDescriptors[i].descriptorFn());
   }
 }
 
@@ -118,6 +137,7 @@ dmtcp_initialize_plugin()
 {
   initializeBuiltinPluginState();
   registerIpcBuiltinDescriptors();
+  registerSysVIPCBuiltinDescriptors();
   registerCoreBuiltinDescriptors();
 
   void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);

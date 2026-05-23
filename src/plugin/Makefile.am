@@ -78,17 +78,6 @@ __d_libdir__libdmtcp_pid_so_SOURCES =                                  \
 __d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
 
 #
-# SysV Plugin
-#
-libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_svipc.so
-__d_libdir__libdmtcp_svipc_so_SOURCES =                                \
-	svipc/sysvipc.cpp                                              \
-	svipc/sysvipc.h                                                \
-	svipc/sysvipcwrappers.cpp                                      \
-	svipc/sysvipcwrappers.h
-__d_libdir__libdmtcp_svipc_so_LDFLAGS = $(dmtcp_ldflags)
-
-#
 # Timer plugin
 #
 libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_timer.so

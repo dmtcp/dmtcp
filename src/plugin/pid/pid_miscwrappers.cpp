@@ -188,7 +188,7 @@ semctl(int semid, int semnum, int cmd, ...)
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_semctl(semid, semnum, cmd, uarg);
-  if (ret != -1 && (cmd & GETPID)) {
+  if (ret != -1 && cmd == GETPID) {
     ret = REAL_TO_VIRTUAL_PID(ret);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
