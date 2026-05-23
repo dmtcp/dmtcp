@@ -22,11 +22,220 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
+#include <elf.h>
+#include <errno.h>
 #include <link.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-#include "jassert.h"
+#include "builtinplugins.h"
 #include "config.h"
 #include "dmtcp.h"
+#include "jassert.h"
+#include "jfilesystem.h"
+#include "util.h"
+#include "wrapperevents.h"
+#include "wrapperlock.h"
+
+#define _real_dlopen  NEXT_FNC(dlopen)
+#define _real_dlclose NEXT_FNC(dlclose)
+
+using namespace dmtcp;
+
+static pthread_once_t registerDlWrapperHooksOnceControl = PTHREAD_ONCE_INIT;
+
+static void
+dlWrapperNoopHook(WrapperEvent event, void *ctx)
+{
+  (void)event;
+  (void)ctx;
+}
+
+static void
+registerDlWrapperHooksOnce()
+{
+  registerBuiltinWrapperHook(BUILTIN_PLUGIN_DL, WRAPPER_EVENT_DLOPEN_PRE,
+                             dlWrapperNoopHook);
+  registerBuiltinWrapperHook(BUILTIN_PLUGIN_DL, WRAPPER_EVENT_DLOPEN_POST,
+                             dlWrapperNoopHook);
+  registerBuiltinWrapperHook(BUILTIN_PLUGIN_DL, WRAPPER_EVENT_DLCLOSE_PRE,
+                             dlWrapperNoopHook);
+  registerBuiltinWrapperHook(BUILTIN_PLUGIN_DL, WRAPPER_EVENT_DLCLOSE_POST,
+                             dlWrapperNoopHook);
+}
+
+namespace dmtcp
+{
+static void
+ensureDlWrapperHooksRegistered()
+{
+  int rc = pthread_once(&registerDlWrapperHooksOnceControl,
+                        registerDlWrapperHooksOnce);
+  JASSERT(rc == 0) (rc).Text("Failed to register dl wrapper hooks.");
+}
+}
+
+extern "C" int
+dmtcp_dl_enabled()
+{
+  return builtinPluginEnabled(BUILTIN_PLUGIN_DL) ? 1 : 0;
+}
+
+static void
+getRpathRunPath(void *caller, char *rpathStr, char *runpathStr)
+{
+  Dl_info info;
+  struct link_map *map;
+
+  ASSERT_NOT_NULL(rpathStr);
+  ASSERT_NOT_NULL(runpathStr);
+
+  rpathStr[0] = '\0';
+  runpathStr[0] = '\0';
+
+  int ret = dladdr1(caller, &info, (void **)&map, RTLD_DL_LINKMAP);
+  ASSERT_NE(0, ret);
+
+  char dirname[4096];
+  jalib::Filesystem::DirName(dirname, info.dli_fname);
+
+  const ElfW(Dyn) *dyn = map->l_ld;
+  const ElfW(Dyn) *rpath = NULL;
+  const ElfW(Dyn) *runpath = NULL;
+  const char *strtab = NULL;
+  for (; dyn->d_tag != DT_NULL; ++dyn) {
+    if (dyn->d_tag == DT_RPATH) {
+      rpath = dyn;
+    } else if (dyn->d_tag == DT_RUNPATH) {
+      runpath = dyn;
+    } else if (dyn->d_tag == DT_STRTAB) {
+      strtab = (const char *)dyn->d_un.d_val;
+    }
+  }
+
+  ASSERT_NOT_NULL(strtab);
+
+  if (rpath != NULL) {
+    strcpy(rpathStr, strtab + rpath->d_un.d_val);
+    Util::replace(rpathStr, "$ORIGIN", dirname);
+    Util::replace(rpathStr, "${ORIGIN}", dirname);
+
+    ASSERT_NULL(strstr(rpathStr, "$LIB")) (rpathStr);
+    ASSERT_NULL(strstr(rpathStr, "${LIB}")) (rpathStr);
+    ASSERT_NULL(strstr(rpathStr, "$PLATFORM")) (rpathStr);
+    ASSERT_NULL(strstr(rpathStr, "${PLATFORM}")) (rpathStr);
+  }
+
+  if (runpath != NULL) {
+    strcpy(runpathStr, strtab + runpath->d_un.d_val);
+    Util::replace(runpathStr, "$ORIGIN", dirname);
+    Util::replace(runpathStr, "${ORIGIN}", dirname);
+
+    ASSERT_NULL(strstr(runpathStr, "$LIB")) (runpathStr);
+    ASSERT_NULL(strstr(runpathStr, "${LIB}")) (runpathStr);
+    ASSERT_NULL(strstr(runpathStr, "$PLATFORM")) (runpathStr);
+    ASSERT_NULL(strstr(runpathStr, "${PLATFORM}")) (runpathStr);
+  }
+}
+
+static void *
+dlopen_try_paths(const char *filename, int flags, const char *paths)
+{
+  char path[4096];
+  strncpy(path, paths, sizeof(path));
+  path[sizeof(path) - 1] = '\0';
+
+  char *saveptr;
+  char *pathToken = strtok_r(path, ":", &saveptr);
+  while (pathToken != NULL) {
+    char newFilename[4096];
+    snprintf(newFilename, sizeof(newFilename), "%s/%s", pathToken, filename);
+    void *handle = _real_dlopen(newFilename, flags);
+    if (handle != NULL) {
+      return handle;
+    }
+    pathToken = strtok_r(NULL, ":", &saveptr);
+  }
+
+  return NULL;
+}
+
+static void *
+dmtcp_dlopen_with_search_policy(const char *filename, int flags, void *caller)
+{
+  if (filename == NULL || strlen(filename) == 0) {
+    return _real_dlopen(filename, flags);
+  }
+
+  char rpath[4096];
+  char runpath[4096];
+  void *ret = NULL;
+
+  getRpathRunPath(caller, rpath, runpath);
+
+  if (strlen(rpath) != 0) {
+    ret = _real_dlopen(filename, flags);
+  }
+
+  const char *ldLibraryPath = getenv("LD_LIBRARY_PATH");
+  if (ret == NULL && ldLibraryPath != NULL) {
+    ret = dlopen_try_paths(filename, flags, ldLibraryPath);
+  }
+
+  if (ret == NULL && strlen(runpath) != 0) {
+    ret = dlopen_try_paths(filename, flags, runpath);
+  }
+
+  if (ret == NULL) {
+    ret = _real_dlopen(filename, flags);
+  }
+
+  return ret;
+}
+
+extern "C"
+void *
+dlopen(const char *filename, int flags)
+{
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_DL)) {
+    return _real_dlopen(filename, flags);
+  }
+
+  LibDlWrapperLock wrapperLock;
+  ensureDlWrapperHooksRegistered();
+  DlopenWrapperCtx ctx = { filename, flags, NULL, errno };
+  dispatchWrapperPre(WRAPPER_EVENT_DLOPEN_PRE, &ctx);
+  errno = ctx.savedErrno;
+  ctx.result = dmtcp_dlopen_with_search_policy(ctx.filename, ctx.flags,
+                                               __builtin_return_address(0));
+  ctx.savedErrno = errno;
+  dispatchWrapperPost(WRAPPER_EVENT_DLOPEN_POST, &ctx);
+  errno = ctx.savedErrno;
+  return ctx.result;
+}
+
+extern "C"
+int
+dlclose(void *handle)
+{
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_DL)) {
+    return _real_dlclose(handle);
+  }
+
+  LibDlWrapperLock wrapperLock;
+  ensureDlWrapperHooksRegistered();
+  DlcloseWrapperCtx ctx = { handle, 0, errno };
+  dispatchWrapperPre(WRAPPER_EVENT_DLCLOSE_PRE, &ctx);
+  errno = ctx.savedErrno;
+  ctx.result = _real_dlclose(ctx.handle);
+  ctx.savedErrno = errno;
+  dispatchWrapperPost(WRAPPER_EVENT_DLCLOSE_POST, &ctx);
+  errno = ctx.savedErrno;
+  return ctx.result;
+}
 
 #ifdef ENABLE_DLSYM_WRAPPER
 /* NOTE:  'dlsym' is used in DMTCP in two different ways.
@@ -69,8 +278,6 @@
  *     imitate the logic in glibc.  But for simplicity, we should avoid
  *     this for now.
  */
-
-using namespace dmtcp;
 
 // Open MPI 2.x uses dlsym() to locate the address of certain functions
 // in order to install its own hooks. For us, shmdt() is the only interesting

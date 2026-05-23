@@ -34,6 +34,8 @@ enum WrapperEvent {
   WRAPPER_EVENT_MREMAP_POST,
   WRAPPER_EVENT_DLOPEN_PRE,
   WRAPPER_EVENT_DLOPEN_POST,
+  WRAPPER_EVENT_DLCLOSE_PRE,
+  WRAPPER_EVENT_DLCLOSE_POST,
   WRAPPER_EVENT_COUNT
 };
 
@@ -127,6 +129,12 @@ struct DlopenWrapperCtx {
   const char *filename;
   int flags;
   void *result;
+  int savedErrno;
+};
+
+struct DlcloseWrapperCtx {
+  void *handle;
+  int result;
   int savedErrno;
 };
 

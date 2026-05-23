@@ -33,15 +33,6 @@ libdmtcp_PROGRAMS =
 noinst_LIBRARIES =
 
 #
-# Dl plugin
-#
-libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_dl.so
-__d_libdir__libdmtcp_dl_so_SOURCES =                                   \
-	dl/dlwrappers.cpp
-__d_libdir__libdmtcp_dl_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_dl_so_LDADD = $(LDADD)
-
-#
 # IPC plugin
 # TODO(kapil): Split SSH plugin into its own.
 #
