@@ -94,8 +94,7 @@ build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = $(d_bindir)/dmtcp_ssh$(EXEEXT) \
 	$(d_bindir)/dmtcp_sshd$(EXEEXT)
-libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_dl.so$(EXEEXT) \
-	$(d_libdir)/libdmtcp_ipc.so$(EXEEXT) \
+libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_ipc.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_pid.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_svipc.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_timer.so$(EXEEXT)
@@ -135,12 +134,6 @@ __d_bindir__dmtcp_ssh_DEPENDENCIES = libssh.a $(am__DEPENDENCIES_1)
 am___d_bindir__dmtcp_sshd_OBJECTS = ipc/ssh/i-dmtcp_sshd.$(OBJEXT)
 __d_bindir__dmtcp_sshd_OBJECTS = $(am___d_bindir__dmtcp_sshd_OBJECTS)
 __d_bindir__dmtcp_sshd_DEPENDENCIES = libssh.a $(am__DEPENDENCIES_1)
-am___d_libdir__libdmtcp_dl_so_OBJECTS = dl/dlwrappers.$(OBJEXT)
-__d_libdir__libdmtcp_dl_so_OBJECTS =  \
-	$(am___d_libdir__libdmtcp_dl_so_OBJECTS)
-__d_libdir__libdmtcp_dl_so_DEPENDENCIES = $(am__DEPENDENCIES_1)
-__d_libdir__libdmtcp_dl_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
-	$(__d_libdir__libdmtcp_dl_so_LDFLAGS) $(LDFLAGS) -o $@
 am___d_libdir__libdmtcp_ipc_so_OBJECTS = ipc/i-connection.$(OBJEXT) \
 	ipc/i-connectionidentifier.$(OBJEXT) \
 	ipc/i-connectionlist.$(OBJEXT) ipc/i-ipc.$(OBJEXT) \
@@ -239,8 +232,7 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = dl/$(DEPDIR)/dlwrappers.Po \
-	ipc/$(DEPDIR)/i-connection.Po \
+am__depfiles_remade = ipc/$(DEPDIR)/i-connection.Po \
 	ipc/$(DEPDIR)/i-connectionidentifier.Po \
 	ipc/$(DEPDIR)/i-connectionlist.Po ipc/$(DEPDIR)/i-ipc.Po \
 	ipc/event/$(DEPDIR)/i-eventconnection.Po \
@@ -304,14 +296,12 @@ am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
 SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
 	$(__d_bindir__dmtcp_sshd_SOURCES) \
-	$(__d_libdir__libdmtcp_dl_so_SOURCES) \
 	$(__d_libdir__libdmtcp_ipc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_pid_so_SOURCES) \
 	$(__d_libdir__libdmtcp_svipc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_timer_so_SOURCES)
 DIST_SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
 	$(__d_bindir__dmtcp_sshd_SOURCES) \
-	$(__d_libdir__libdmtcp_dl_so_SOURCES) \
 	$(__d_libdir__libdmtcp_ipc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_pid_so_SOURCES) \
 	$(__d_libdir__libdmtcp_svipc_so_SOURCES) \
@@ -533,11 +523,6 @@ dist_bin_SCRIPTS =
 # TODO(kapil): Split SSH plugin into its own.
 #
 noinst_LIBRARIES = libssh.a
-__d_libdir__libdmtcp_dl_so_SOURCES = \
-	dl/dlwrappers.cpp
-
-__d_libdir__libdmtcp_dl_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_dl_so_LDADD = $(LDADD)
 libssh_a_SOURCES = \
 	ipc/ssh/util_ssh.cpp                                           \
 	ipc/ssh/util_ssh.h
@@ -789,18 +774,6 @@ $(d_libdir)/$(am__dirstamp):
 	@$(MKDIR_P) $(d_libdir)
 	@: >>$(d_libdir)/$(am__dirstamp)
 
-dl/$(am__dirstamp):
-	@$(MKDIR_P) dl
-	@: >>dl/$(am__dirstamp)
-dl/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) dl/$(DEPDIR)
-	@: >>dl/$(DEPDIR)/$(am__dirstamp)
-dl/dlwrappers.$(OBJEXT): dl/$(am__dirstamp) \
-	dl/$(DEPDIR)/$(am__dirstamp)
-
-$(d_libdir)/libdmtcp_dl.so$(EXEEXT): $(__d_libdir__libdmtcp_dl_so_OBJECTS) $(__d_libdir__libdmtcp_dl_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_dl_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
-	@rm -f $(d_libdir)/libdmtcp_dl.so$(EXEEXT)
-	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_dl_so_LINK) $(__d_libdir__libdmtcp_dl_so_OBJECTS) $(__d_libdir__libdmtcp_dl_so_LDADD) $(LIBS)
 ipc/$(am__dirstamp):
 	@$(MKDIR_P) ipc
 	@: >>ipc/$(am__dirstamp)
@@ -1003,7 +976,6 @@ uninstall-dist_binSCRIPTS:
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
-	-rm -f dl/*.$(OBJEXT)
 	-rm -f ipc/*.$(OBJEXT)
 	-rm -f ipc/event/*.$(OBJEXT)
 	-rm -f ipc/file/*.$(OBJEXT)
@@ -1016,7 +988,6 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@dl/$(DEPDIR)/dlwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ipc/$(DEPDIR)/i-connection.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ipc/$(DEPDIR)/i-connectionidentifier.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ipc/$(DEPDIR)/i-connectionlist.Po@am__quote@ # am--include-marker
@@ -1579,8 +1550,6 @@ distclean-generic:
 	-test . = "$(srcdir)" || $(am__rm_f) $(CONFIG_CLEAN_VPATH_FILES)
 	-$(am__rm_f) $(d_bindir)/$(am__dirstamp)
 	-$(am__rm_f) $(d_libdir)/$(am__dirstamp)
-	-$(am__rm_f) dl/$(DEPDIR)/$(am__dirstamp)
-	-$(am__rm_f) dl/$(am__dirstamp)
 	-$(am__rm_f) ipc/$(DEPDIR)/$(am__dirstamp)
 	-$(am__rm_f) ipc/$(am__dirstamp)
 	-$(am__rm_f) ipc/event/$(DEPDIR)/$(am__dirstamp)
@@ -1607,7 +1576,6 @@ clean-am: clean-binPROGRAMS clean-generic clean-libdmtcpPROGRAMS \
 	clean-noinstLIBRARIES mostlyclean-am
 
 distclean: distclean-am
-	-rm -f dl/$(DEPDIR)/dlwrappers.Po
 	-rm -f ipc/$(DEPDIR)/i-connection.Po
 	-rm -f ipc/$(DEPDIR)/i-connectionidentifier.Po
 	-rm -f ipc/$(DEPDIR)/i-connectionlist.Po
@@ -1693,7 +1661,6 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-	-rm -f dl/$(DEPDIR)/dlwrappers.Po
 	-rm -f ipc/$(DEPDIR)/i-connection.Po
 	-rm -f ipc/$(DEPDIR)/i-connectionidentifier.Po
 	-rm -f ipc/$(DEPDIR)/i-connectionlist.Po
