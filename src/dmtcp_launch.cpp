@@ -125,7 +125,16 @@ static const char *theUsage =
   "              Disable alloc plugin (default: enabled).\n"
   "  --disable-dl-plugin: (environment variable DMTCP_DL_PLUGIN=[01])\n"
   "              Disable dl plugin (default: enabled).\n"
-  "  --disable-all-plugins (EXPERTS ONLY, FOR DEBUGGING)\n"
+  "  --disable-ipc-plugin: (environment variable DMTCP_IPC_PLUGIN=[01])\n"
+  "              Disable ipc plugin (default: enabled).\n"
+  "  --disable-svipc-plugin: (environment variable DMTCP_SVIPC_PLUGIN=[01])\n"
+  "              Disable svipc plugin (default: enabled).\n"
+  "  --disable-timer-plugin: (environment variable DMTCP_TIMER_PLUGIN=[01])\n"
+  "              Disable timer plugin (default: enabled).\n"
+  "  --disable-pid-plugin: (environment variable DMTCP_PID_PLUGIN=[01])\n"
+  "              Disable pid plugin (default: enabled).\n"
+  "  --disable-all-plugins: (environment variable DMTCP_DISABLE_ALL_PLUGINS=[01])\n"
+  "              (EXPERTS ONLY, FOR DEBUGGING)\n"
   "              Disable all plugins.\n"
   "\n"
   "Other options:\n"
@@ -306,8 +315,25 @@ processArgs(int *orig_argc, const char ***orig_argv)
     } else if (s == "--disable-dl-plugin") {
       setenv(ENV_VAR_DL_PLUGIN, "0", 1);
       shift;
+    } else if (s == "--disable-ipc-plugin") {
+      enableIPCPlugin = false;
+      setenv(ENV_VAR_IPC_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-svipc-plugin") {
+      enableSvipcPlugin = false;
+      setenv(ENV_VAR_SVIPC_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-timer-plugin") {
+      enableTimerPlugin = false;
+      setenv(ENV_VAR_TIMER_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-pid-plugin") {
+      enablePIDPlugin = false;
+      setenv(ENV_VAR_PID_PLUGIN, "0", 1);
+      shift;
     } else if (s == "--no-plugins" || s == "--disable-all-plugins") {
       disableAllPlugins = true;
+      setenv(ENV_VAR_DISABLE_ALL_PLUGINS, "1", 1);
       shift;
     } else if (s == "--with-plugin") {
       setenv(ENV_VAR_PLUGIN, argv[1], 1);
@@ -750,6 +776,37 @@ testFsGsBase()
 #endif
 }
 
+static bool
+readBooleanEnv(const char *envName, bool defaultValue)
+{
+  const char *value = getenv(envName);
+  if (value == NULL) {
+    return defaultValue;
+  }
+
+  if (strcmp(value, "1") == 0) {
+    return true;
+  }
+
+  if (strcmp(value, "0") == 0) {
+    return false;
+  }
+
+  JASSERT(false) (envName) (value)
+  .Text("Invalid value for the environment variable.");
+  return defaultValue;
+}
+
+static void
+syncPluginEnvWithLauncherState(const char *envName, bool *enabled)
+{
+  if (getenv(envName) != NULL) {
+    *enabled = readBooleanEnv(envName, *enabled);
+  } else {
+    setenv(envName, *enabled ? "1" : "0", 0);
+  }
+}
+
 static void
 setLDPreloadLibs(bool is32bitElf)
 {
@@ -766,31 +823,23 @@ setLDPreloadLibs(bool is32bitElf)
   }
   string preloadLibs32 = preloadLibs;
 
+  disableAllPlugins =
+    readBooleanEnv(ENV_VAR_DISABLE_ALL_PLUGINS, disableAllPlugins);
+
   // set up Alloc plugin
   if (getenv(ENV_VAR_ALLOC_PLUGIN) != NULL) {
-    const char *ptr = getenv(ENV_VAR_ALLOC_PLUGIN);
-    if (strcmp(ptr, "1") == 0) {
-      enableAllocPlugin = true;
-    } else if (strcmp(ptr, "0") == 0) {
-      enableAllocPlugin = false;
-    } else {
-      JASSERT(false) (getenv(ENV_VAR_ALLOC_PLUGIN))
-      .Text("Invalid value for the environment variable.");
-    }
+    enableAllocPlugin = readBooleanEnv(ENV_VAR_ALLOC_PLUGIN, enableAllocPlugin);
   }
 
   // Setup Dl plugin
   if (getenv(ENV_VAR_DL_PLUGIN) != NULL) {
-    const char *ptr = getenv(ENV_VAR_DL_PLUGIN);
-    if (strcmp(ptr, "1") == 0) {
-      enableDlPlugin = true;
-    } else if (strcmp(ptr, "0") == 0) {
-      enableDlPlugin = false;
-    } else {
-      JASSERT(false) (getenv(ENV_VAR_DL_PLUGIN))
-      .Text("Invalid value for the environment variable.");
-    }
+    enableDlPlugin = readBooleanEnv(ENV_VAR_DL_PLUGIN, enableDlPlugin);
   }
+
+  syncPluginEnvWithLauncherState(ENV_VAR_IPC_PLUGIN, &enableIPCPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_SVIPC_PLUGIN, &enableSvipcPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_TIMER_PLUGIN, &enableTimerPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_PID_PLUGIN, &enablePIDPlugin);
 
   if (disableAllPlugins) {
     preloadLibs = Util::getPath("libdmtcp.so");
