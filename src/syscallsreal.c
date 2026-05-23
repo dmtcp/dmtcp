@@ -994,17 +994,40 @@ _real_shmdt(const void *shmaddr)
 # define IPC_64     0x0100 /* New version (support 32-bit UIDs, bigger
                           message sizes, etc. */
 #endif /* ifndef IPC_64 */
-#ifdef __i386__
-# define IPC64_FLAG IPC_64
-#else /* ifdef __i386__ */
-# define IPC64_FLAG 0
-#endif /* ifdef __i386__ */
+#if defined(__i386__)
+# define DMTCP_IPC64_FLAG IPC_64
+#else
+# define DMTCP_IPC64_FLAG 0
+#endif
+
+static int
+semctl_cmd_requires_arg(int cmd)
+{
+  switch (cmd) {
+  case IPC_STAT:
+  case IPC_SET:
+  case IPC_INFO:
+  case SEM_INFO:
+  case GETALL:
+  case SETALL:
+  case SETVAL:
+#ifdef SEM_STAT
+  case SEM_STAT:
+#endif
+#ifdef SEM_STAT_ANY
+  case SEM_STAT_ANY:
+#endif
+    return 1;
+  default:
+    return 0;
+  }
+}
 
 LIB_PRIVATE
 int
 _real_shmctl(int shmid, int cmd, struct shmid_ds *buf)
 {
-  REAL_FUNC_PASSTHROUGH(shmctl) (shmid, cmd | IPC64_FLAG, buf);
+  REAL_FUNC_PASSTHROUGH(shmctl) (shmid, cmd | DMTCP_IPC64_FLAG, buf);
 }
 
 LIB_PRIVATE
@@ -1035,13 +1058,15 @@ LIB_PRIVATE
 int
 _real_semctl(int semid, int semnum, int cmd, ...)
 {
-  union semun uarg;
+  union semun uarg = { 0 };
   va_list arg;
 
-  va_start(arg, cmd);
-  uarg = va_arg(arg, union semun);
-  va_end(arg);
-  REAL_FUNC_PASSTHROUGH(semctl) (semid, semnum, cmd | IPC64_FLAG, uarg);
+  if (semctl_cmd_requires_arg(cmd)) {
+    va_start(arg, cmd);
+    uarg = va_arg(arg, union semun);
+    va_end(arg);
+  }
+  REAL_FUNC_PASSTHROUGH(semctl) (semid, semnum, cmd | DMTCP_IPC64_FLAG, uarg);
 }
 
 LIB_PRIVATE
@@ -1069,7 +1094,7 @@ LIB_PRIVATE
 int
 _real_msgctl(int msqid, int cmd, struct msqid_ds *buf)
 {
-  REAL_FUNC_PASSTHROUGH(msgctl) (msqid, cmd | IPC64_FLAG, buf);
+  REAL_FUNC_PASSTHROUGH(msgctl) (msqid, cmd | DMTCP_IPC64_FLAG, buf);
 }
 
 LIB_PRIVATE
