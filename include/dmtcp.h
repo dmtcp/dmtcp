@@ -44,8 +44,8 @@
 # define EXTERNC
 #endif // ifdef __cplusplus
 
-/* Define to the version of this package. */
-#define DMTCP_PLUGIN_API_VERSION "3"
+/* Bump when DmtcpPluginDescriptor_t changes ABI. */
+#define DMTCP_PLUGIN_API_VERSION "4"
 
 #ifdef __cplusplus
 namespace dmtcp {

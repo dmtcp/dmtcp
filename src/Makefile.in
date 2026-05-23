@@ -211,13 +211,13 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	dmtcp_dlsym_wrappers.$(OBJEXT) execwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) kvdb.$(OBJEXT) miscwrappers.$(OBJEXT) \
 	plugin_pathtranslator.$(OBJEXT) plugininfo.$(OBJEXT) \
-	pluginmanager.$(OBJEXT) popen.$(OBJEXT) tls.$(OBJEXT) \
+	builtinplugins.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) tls.$(OBJEXT) \
 	posix_spawn.$(OBJEXT) rlimitfloatenv.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) siginfo.$(OBJEXT) \
 	syslogwrappers.$(OBJEXT) terminal.$(OBJEXT) \
 	threadlist.$(OBJEXT) threadsync.$(OBJEXT) \
 	threadwrappers.$(OBJEXT) wrapperlock.$(OBJEXT) \
-	wrappers.$(OBJEXT) writeckpt.$(OBJEXT)
+	wrapperevents.$(OBJEXT) wrappers.$(OBJEXT) writeckpt.$(OBJEXT)
 __d_libdir__libdmtcp_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_so_OBJECTS)
 __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
@@ -247,10 +247,10 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	$(jalibdir)/$(DEPDIR)/jserialize.Po \
 	$(jalibdir)/$(DEPDIR)/jsocket.Po \
 	$(jalibdir)/$(DEPDIR)/jtimer.Po ./$(DEPDIR)/alarm.Po \
-	./$(DEPDIR)/ckptserializer.Po ./$(DEPDIR)/coordinatorapi.Po \
-	./$(DEPDIR)/dlwrappers.Po ./$(DEPDIR)/dmtcp_command.Po \
-	./$(DEPDIR)/dmtcp_coordinator.Po ./$(DEPDIR)/dmtcp_dlsym.Po \
-	./$(DEPDIR)/dmtcp_dlsym_wrappers.Po \
+	./$(DEPDIR)/builtinplugins.Po ./$(DEPDIR)/ckptserializer.Po \
+	./$(DEPDIR)/coordinatorapi.Po ./$(DEPDIR)/dlwrappers.Po \
+	./$(DEPDIR)/dmtcp_command.Po ./$(DEPDIR)/dmtcp_coordinator.Po \
+	./$(DEPDIR)/dmtcp_dlsym.Po ./$(DEPDIR)/dmtcp_dlsym_wrappers.Po \
 	./$(DEPDIR)/dmtcp_get_libc_offset.Po \
 	./$(DEPDIR)/dmtcp_launch.Po ./$(DEPDIR)/dmtcp_nocheckpoint.Po \
 	./$(DEPDIR)/dmtcp_restart.Po ./$(DEPDIR)/dmtcpmessagetypes.Po \
@@ -274,7 +274,8 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	./$(DEPDIR)/uniquepid.Po ./$(DEPDIR)/util_exec.Po \
 	./$(DEPDIR)/util_init.Po ./$(DEPDIR)/util_misc.Po \
 	./$(DEPDIR)/workerstate.Po ./$(DEPDIR)/wrapperlock.Po \
-	./$(DEPDIR)/wrappers.Po ./$(DEPDIR)/writeckpt.Po
+	./$(DEPDIR)/wrapperevents.Po ./$(DEPDIR)/wrappers.Po \
+	./$(DEPDIR)/writeckpt.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -620,14 +621,14 @@ include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
 
 
 # headers:
-nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
-	coordinatorplugin.h dmtcp_coordinator.h dmtcprestartinternal.h \
-	dmtcpmessagetypes.h dmtcpworker.h lookup_service.h ldt.h \
-	plugininfo.h pluginmanager.h processinfo.h restartscript.h \
-	tls.h siginfo.h syscallwrappers.h threadinfo.h threadlist.h \
-	threadsync.h uniquepid.h workerstate.h $(jalibdir)/jalib.h \
-	$(jalibdir)/jalloc.h $(jalibdir)/jassert.h \
-	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h \
+nobase_noinst_HEADERS = builtinplugins.h ckptserializer.h constants.h \
+	coordinatorapi.h coordinatorplugin.h dmtcp_coordinator.h \
+	dmtcprestartinternal.h dmtcpmessagetypes.h dmtcpworker.h \
+	lookup_service.h ldt.h plugininfo.h pluginmanager.h \
+	processinfo.h restartscript.h tls.h siginfo.h syscallwrappers.h \
+	threadinfo.h threadlist.h threadsync.h uniquepid.h workerstate.h \
+	wrapperevents.h $(jalibdir)/jalib.h $(jalibdir)/jalloc.h \
+	$(jalibdir)/jassert.h $(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h \
 	$(jalibdir)/jfilesystem.h $(jalibdir)/jserialize.h \
 	$(jalibdir)/jsocket.h $(jalibdir)/jtimer.h \
 	$(dmtcpincludedir)/dmtcp.h $(dmtcpincludedir)/dmtcpalloc.h \
@@ -692,6 +693,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  miscwrappers.cpp 		\
 				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
+				  builtinplugins.cpp		\
 				  pluginmanager.cpp		\
 				  popen.cpp 			\
 				  tls.cpp			\
@@ -705,8 +707,11 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\
 				  wrapperlock.cpp		\
+				  wrapperevents.cpp		\
 				  wrappers.cpp 			\
 				  writeckpt.cpp
+
+__d_libdir__libdmtcp_so_CPPFLAGS = $(AM_CPPFLAGS)
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
@@ -968,6 +973,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jsocket.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jtimer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/alarm.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/builtinplugins.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ckptserializer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coordinatorapi.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dlwrappers.Po@am__quote@ # am--include-marker
@@ -1020,6 +1026,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_misc.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/workerstate.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wrapperlock.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wrapperevents.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/writeckpt.Po@am__quote@ # am--include-marker
 
@@ -1295,6 +1302,7 @@ distclean: distclean-recursive
 	-rm -f $(jalibdir)/$(DEPDIR)/jsocket.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jtimer.Po
 	-rm -f ./$(DEPDIR)/alarm.Po
+	-rm -f ./$(DEPDIR)/builtinplugins.Po
 	-rm -f ./$(DEPDIR)/ckptserializer.Po
 	-rm -f ./$(DEPDIR)/coordinatorapi.Po
 	-rm -f ./$(DEPDIR)/dlwrappers.Po
@@ -1347,6 +1355,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/util_misc.Po
 	-rm -f ./$(DEPDIR)/workerstate.Po
 	-rm -f ./$(DEPDIR)/wrapperlock.Po
+	-rm -f ./$(DEPDIR)/wrapperevents.Po
 	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
 	-rm -f Makefile
@@ -1403,6 +1412,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f $(jalibdir)/$(DEPDIR)/jsocket.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jtimer.Po
 	-rm -f ./$(DEPDIR)/alarm.Po
+	-rm -f ./$(DEPDIR)/builtinplugins.Po
 	-rm -f ./$(DEPDIR)/ckptserializer.Po
 	-rm -f ./$(DEPDIR)/coordinatorapi.Po
 	-rm -f ./$(DEPDIR)/dlwrappers.Po
@@ -1455,6 +1465,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/util_misc.Po
 	-rm -f ./$(DEPDIR)/workerstate.Po
 	-rm -f ./$(DEPDIR)/wrapperlock.Po
+	-rm -f ./$(DEPDIR)/wrapperevents.Po
 	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
 	-rm -f Makefile

@@ -605,6 +605,11 @@ Util::getDmtcpArgs(void)
   const char *compression = getenv(ENV_VAR_COMPRESSION);
   const char *allocPlugin = getenv(ENV_VAR_ALLOC_PLUGIN);
   const char *dlPlugin = getenv(ENV_VAR_DL_PLUGIN);
+  const char *ipcPlugin = getenv(ENV_VAR_IPC_PLUGIN);
+  const char *svipcPlugin = getenv(ENV_VAR_SVIPC_PLUGIN);
+  const char *timerPlugin = getenv(ENV_VAR_TIMER_PLUGIN);
+  const char *pidPlugin = getenv(ENV_VAR_PID_PLUGIN);
+  const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
 
   const char *ckptOpenFiles = getenv(ENV_VAR_CKPT_OPEN_FILES);
   const char *ckptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
@@ -662,6 +667,26 @@ Util::getDmtcpArgs(void)
 
   if (dlPlugin != NULL && strcmp(dlPlugin, "0") == 0) {
     argVector.push_back("--disable-dl-plugin");
+  }
+
+  if (ipcPlugin != NULL && strcmp(ipcPlugin, "0") == 0) {
+    argVector.push_back("--disable-ipc-plugin");
+  }
+
+  if (svipcPlugin != NULL && strcmp(svipcPlugin, "0") == 0) {
+    argVector.push_back("--disable-svipc-plugin");
+  }
+
+  if (timerPlugin != NULL && strcmp(timerPlugin, "0") == 0) {
+    argVector.push_back("--disable-timer-plugin");
+  }
+
+  if (pidPlugin != NULL && strcmp(pidPlugin, "0") == 0) {
+    argVector.push_back("--disable-pid-plugin");
+  }
+
+  if (disableAllPlugins != NULL && strcmp(disableAllPlugins, "1") == 0) {
+    argVector.push_back("--disable-all-plugins");
   }
 
   if (dmtcp_modify_env_enabled != NULL && dmtcp_modify_env_enabled()) {

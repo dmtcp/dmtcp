@@ -103,6 +103,11 @@
 #define ENV_VAR_COMPRESSION         "DMTCP_GZIP"
 #define ENV_VAR_ALLOC_PLUGIN        "DMTCP_ALLOC_PLUGIN"
 #define ENV_VAR_DL_PLUGIN           "DMTCP_DL_PLUGIN"
+#define ENV_VAR_IPC_PLUGIN          "DMTCP_IPC_PLUGIN"
+#define ENV_VAR_SVIPC_PLUGIN        "DMTCP_SVIPC_PLUGIN"
+#define ENV_VAR_TIMER_PLUGIN        "DMTCP_TIMER_PLUGIN"
+#define ENV_VAR_PID_PLUGIN          "DMTCP_PID_PLUGIN"
+#define ENV_VAR_DISABLE_ALL_PLUGINS "DMTCP_DISABLE_ALL_PLUGINS"
 
 #define ENV_VAR_FORKED_CKPT             "DMTCP_FORKED_CHECKPOINT"
 #define ENV_VAR_SIGCKPT                 "DMTCP_SIGCKPT"
@@ -134,6 +139,11 @@
   ENV_VAR_COMPRESSION,                \
   ENV_VAR_ALLOC_PLUGIN,               \
   ENV_VAR_DL_PLUGIN,                  \
+  ENV_VAR_IPC_PLUGIN,                 \
+  ENV_VAR_SVIPC_PLUGIN,               \
+  ENV_VAR_TIMER_PLUGIN,               \
+  ENV_VAR_PID_PLUGIN,                 \
+  ENV_VAR_DISABLE_ALL_PLUGINS,        \
   ENV_VAR_SIGCKPT,                    \
   ENV_VAR_SCREENDIR,                  \
   ENV_VAR_VIRTUAL_PID,                \
