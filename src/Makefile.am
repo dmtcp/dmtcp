@@ -95,7 +95,8 @@ nobase_noinst_HEADERS =						\
 			threadsync.h				\
 			uniquepid.h				\
 			workerstate.h				\
-			wrapperevents.h
+			wrapperevents.h				\
+			plugin/alloc/alloc.h
 
 nobase_noinst_HEADERS += $(jalibdir)/jalib.h			\
 			 $(jalibdir)/jalloc.h			\
@@ -170,6 +171,8 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  glibcsystem.cpp 		\
 				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
+				  plugin/alloc/mallocwrappers.cpp \
+				  plugin/alloc/mmapwrappers.cpp	\
 				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
 				  builtinplugins.cpp		\
