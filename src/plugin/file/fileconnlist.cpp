@@ -179,10 +179,13 @@ DmtcpPluginDescriptor_t filePlugin = {
   dmtcp_FileConnList_EventHook
 };
 
-void
-ipc_initialize_plugin_file()
+namespace dmtcp
 {
-  dmtcp_register_plugin(filePlugin);
+DmtcpPluginDescriptor_t
+dmtcp_FilePlugin_PluginDescr()
+{
+  return filePlugin;
+}
 }
 
 static vector<ProcMapsArea>shmAreas;

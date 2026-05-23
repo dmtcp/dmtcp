@@ -38,6 +38,7 @@
 #include "jfilesystem.h"
 #include "jsocket.h"
 #include "dmtcp.h"
+#include "pluginmanager.h"
 #include "shareddata.h"
 #include "util.h"
 
@@ -549,7 +550,8 @@ FileConnection::openFile()
   int fd = _real_open(_path.c_str(), _fcntlFlags);
   JASSERT(fd != -1) (_path) (JASSERT_ERRNO).Text("open() failed");
 
-  JTRACE("open(_path.c_str(), _fcntlFlags)") (fd) (_path.c_str()) (_fcntlFlags);
+  JTRACE("open(_path.c_str(), _fcntlFlags)") (fd) (_path.c_str())
+    (_fcntlFlags);
   return fd;
 }
 
@@ -823,6 +825,28 @@ PosixMQConnection::on_mq_notify(const struct sigevent *sevp)
       _sevp = *sevp;
     }
   }
+}
+
+extern "C" void
+dmtcp_posix_mq_note_notify(mqd_t mqdes, const struct sigevent *sevp)
+{
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_FILE)) {
+    return;
+  }
+
+  PosixMQConnection *con = (PosixMQConnection *)
+    FileConnList::instance().getConnection(mqdes);
+  if (con != NULL) {
+    con->on_mq_notify(sevp);
+  }
+}
+
+extern "C" void
+dmtcp_posix_mq_note_notify_thread_start(mqd_t mqdes)
+{
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  dmtcp_posix_mq_note_notify(mqdes, NULL);
+  DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
 void

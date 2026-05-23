@@ -86,7 +86,7 @@ dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   break;
 
   case DMTCP_EVENT_REAL_TO_VIRTUAL_PATH:
-    pty_virtual_to_real_filepath(data);
+    pty_real_to_virtual_filepath(data);
   break;
 
   default:  // other events are not registered
@@ -105,10 +105,13 @@ DmtcpPluginDescriptor_t ptyPlugin = {
   dmtcp_PtyConnList_EventHook
 };
 
-void
-ipc_initialize_plugin_pty()
+namespace dmtcp
 {
-  dmtcp_register_plugin(ptyPlugin);
+DmtcpPluginDescriptor_t
+dmtcp_PtyPlugin_PluginDescr()
+{
+  return ptyPlugin;
+}
 }
 
 void
@@ -123,22 +126,26 @@ pty_virtual_to_real_filepath(DmtcpEventData_t *data)
                              newPath,
                              sizeof(newPath));
 
-  strncpy(data->virtualToRealPath.path, newPath, PATH_MAX);
+  if (strlen(newPath) != 0) {
+    strncpy(data->virtualToRealPath.path, newPath, PATH_MAX);
+  }
 }
 
 void
 pty_real_to_virtual_filepath(DmtcpEventData_t *data)
 {
-  if (!Util::strStartsWith(data->realToVirtualPath.path, VIRT_PTS_PREFIX_STR)) {
+  if (!Util::strStartsWith(data->realToVirtualPath.path, "/dev/pts/")) {
     return;
   }
 
   char newPath[PATH_MAX] = {0};
-  SharedData::getRealPtyName(data->realToVirtualPath.path,
+  SharedData::getVirtPtyName(data->realToVirtualPath.path,
                              newPath,
                              sizeof(newPath));
 
-  strncpy(data->realToVirtualPath.path, newPath, PATH_MAX);
+  if (strlen(newPath) != 0) {
+    strncpy(data->realToVirtualPath.path, newPath, PATH_MAX);
+  }
 
   // TODO:
   // We probably received this terminal fd over unix-domain socket using
@@ -165,6 +172,7 @@ void
 PtyConnList::drain()
 {
   virtPtyId = SharedData::getVirtualPtyId();
+  deleteStaleConnections();
   for (iterator i = begin(); i != end(); ++i) {
     PtyConnection *con = (PtyConnection *)i->second;
     con->drain();
@@ -284,6 +292,16 @@ PtyConnList::processPtyConnection(int fd,
              strcmp(path, "/dev/pts/ptmx") == 0) {
     // POSIX Master PTY
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_MASTER);
+  } else if (Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
+    // POSIX Slave PTY opened through the virtual path returned to the app.
+    char realPath[PTS_PATH_MAX] = {0};
+    SharedData::getRealPtyName(path, realPath, sizeof(realPath));
+    JASSERT(strlen(realPath) != 0) (path);
+    c = new PtyConnection(fd,
+                          realPath,
+                          flags,
+                          mode,
+                          PtyConnection::PTY_SLAVE);
   } else if (Util::strStartsWith(path, "/dev/pts/")) {
     // POSIX Slave PTY
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_SLAVE);

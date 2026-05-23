@@ -43,58 +43,6 @@ libssh_a_SOURCES =                                                     \
 libssh_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/ipc
 libssh_a_SHORTNAME = i
 
-libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_ipc.so
-__d_libdir__libdmtcp_ipc_so_SOURCES =                                  \
-	ipc/connection.cpp                                             \
-	ipc/connection.h                                               \
-	ipc/connectionidentifier.cpp                                   \
-	ipc/connectionidentifier.h                                     \
-	ipc/connectionlist.cpp                                         \
-	ipc/connectionlist.h                                           \
-	ipc/ipc.cpp                                                    \
-	ipc/ipc.h                                                      \
-	ipc/event/eventconnection.cpp                                  \
-	ipc/event/eventconnection.h                                    \
-	ipc/event/eventconnlist.cpp                                    \
-	ipc/event/eventconnlist.h                                      \
-	ipc/event/eventwrappers.cpp                                    \
-	ipc/event/eventwrappers.h                                      \
-	ipc/event/util_descriptor.cpp                                  \
-	ipc/event/util_descriptor.h                                    \
-	ipc/file/fileconnection.cpp                                    \
-	ipc/file/fileconnection.h                                      \
-	ipc/file/fileconnlist.cpp                                      \
-	ipc/file/fileconnlist.h                                        \
-	ipc/file/filewrappers.cpp                                      \
-	ipc/file/filewrappers.h                                        \
-	ipc/file/openwrappers.cpp                                      \
-	ipc/file/posixipcwrappers.cpp                                  \
-	ipc/file/ptyconnection.cpp                                     \
-	ipc/file/ptyconnection.h                                       \
-	ipc/file/ptyconnlist.cpp                                       \
-	ipc/file/ptyconnlist.h                                         \
-	ipc/file/ptywrappers.cpp                                       \
-	ipc/file/ptywrappers.h                                         \
-	ipc/socket/connectionmessage.h                                 \
-	ipc/socket/connectionrewirer.cpp                               \
-	ipc/socket/connectionrewirer.h                                 \
-	ipc/socket/kernelbufferdrainer.cpp                             \
-	ipc/socket/kernelbufferdrainer.h                               \
-	ipc/socket/socketconnection.cpp                                \
-	ipc/socket/socketconnection.h                                  \
-	ipc/socket/socketconnlist.cpp                                  \
-	ipc/socket/socketconnlist.h                                    \
-	ipc/socket/socketwrappers.cpp                                  \
-	ipc/socket/socketwrappers.h                                    \
-	ipc/ssh/ssh.cpp                                                \
-	ipc/ssh/sshdrainer.cpp                                         \
-	ipc/ssh/sshdrainer.h                                           \
-	ipc/ssh/ssh.h
-__d_libdir__libdmtcp_ipc_so_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/ipc
-__d_libdir__libdmtcp_ipc_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_ipc_so_LDADD = $(LDADD) -lrt
-__d_libdir__libdmtcp_ipc_so_SHORTNAME = i
-
 bin_PROGRAMS += $(d_bindir)/dmtcp_ssh
 __d_bindir__dmtcp_ssh_SOURCES =                                        \
 	ipc/ssh/dmtcp_ssh.cpp

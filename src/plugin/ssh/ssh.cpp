@@ -96,10 +96,13 @@ DmtcpPluginDescriptor_t sshPlugin = {
   dmtcp_SSH_EventHook
 };
 
-void
-ipc_initialize_plugin_ssh()
+namespace dmtcp
 {
-  dmtcp_register_plugin(sshPlugin);
+DmtcpPluginDescriptor_t
+dmtcp_SshPlugin_PluginDescr()
+{
+  return sshPlugin;
+}
 }
 
 void

@@ -27,13 +27,13 @@ Copyright: 2006-2013, Kapil Arya <kapil@ccs.neu.edu>
            2006-2013, Tyler Denniston <tyler@ccs.neu.edu>
 License: LGPL-3
 
-Files: src/plugin/ipc/event/eventwrappers.cpp
+Files: src/plugin/event/eventwrappers.cpp
 Copyright: 2012, Kapil Arya <kapil@ccs.neu.edu>
            2012, Gene Cooperman <gene@ccs.neu.edu>
            2012, Rohan Garg <rohgarg@ccs.neu.edu>
 License: LGPL-3
 
-Files: src/plugin/ipc/event/util_descriptor.*
+Files: src/plugin/event/util_descriptor.*
 Copyright: 2012, Onyeka Igabari
 License: LGPL-3
 

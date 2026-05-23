@@ -704,6 +704,7 @@ CONFIG_M32_TRUE
 ENABLE_FSGSBASE_OVERRIDE_FALSE
 ENABLE_FSGSBASE_OVERRIDE_TRUE
 TEST_POSIX_MQ
+HAS_SYS_MQ_OPEN
 USE_TEST_SUITE
 FAST_RST_VIA_MMAP_FALSE
 FAST_RST_VIA_MMAP_TRUE
@@ -8307,6 +8308,37 @@ See 'config.log' for more details" "$LINENO" 5; }
   fi
 fi
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether SYS_mq_open is declared" >&5
+printf %s "checking whether SYS_mq_open is declared... " >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <sys/syscall.h>
+int
+main (void)
+{
+long x = SYS_mq_open;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  has_sys_mq_open=yes
+else case e in #(
+  e) has_sys_mq_open=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $has_sys_mq_open" >&5
+printf "%s\n" "$has_sys_mq_open" >&6; }
+HAS_SYS_MQ_OPEN=$has_sys_mq_open
+
 # Check whether --enable-static_libstdcxx was given.
 if test ${enable_static_libstdcxx+y}
 then :
@@ -14031,5 +14063,3 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 printf "%s\n" "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
-
-

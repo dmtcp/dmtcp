@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include "ssh.h"
 #include "util.h"
-#include "../../../constants.h" // Needed for ENV_VAR_REMOTE_SHELL_CMD
+#include "constants.h" // Needed for ENV_VAR_REMOTE_SHELL_CMD
 #include "util_ipc.h"
 
 using dmtcp::Util::sendFd;
