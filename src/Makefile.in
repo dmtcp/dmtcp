@@ -233,6 +233,8 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	plugin/ipc/socket/socketconnlist.$(OBJEXT) \
 	plugin/ipc/socket/socketwrappers.$(OBJEXT) \
 	plugin/ipc/ssh/ssh.$(OBJEXT) plugin/ipc/ssh/sshdrainer.$(OBJEXT) \
+	plugin/svipc/sysvipc.$(OBJEXT) \
+	plugin/svipc/sysvipcwrappers.$(OBJEXT) \
 	plugin_pathtranslator.$(OBJEXT) plugininfo.$(OBJEXT) \
 	builtinplugins.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) tls.$(OBJEXT) \
 	posix_spawn.$(OBJEXT) rlimitfloatenv.$(OBJEXT) \
@@ -308,6 +310,8 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	plugin/ipc/socket/$(DEPDIR)/socketwrappers.Po \
 	plugin/ipc/ssh/$(DEPDIR)/ssh.Po \
 	plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po \
+	plugin/svipc/$(DEPDIR)/sysvipc.Po \
+	plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po \
 	./$(DEPDIR)/plugin_pathtranslator.Po ./$(DEPDIR)/plugininfo.Po \
 	./$(DEPDIR)/pluginmanager.Po ./$(DEPDIR)/popen.Po \
 	./$(DEPDIR)/posix_spawn.Po ./$(DEPDIR)/processinfo.Po \
@@ -787,6 +791,10 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  plugin/ipc/ssh/sshdrainer.cpp \
 				  plugin/ipc/ssh/sshdrainer.h	\
 				  plugin/ipc/ssh/ssh.h		\
+				  plugin/svipc/sysvipc.cpp	\
+				  plugin/svipc/sysvipc.h	\
+				  plugin/svipc/sysvipcwrappers.cpp \
+				  plugin/svipc/sysvipcwrappers.h \
 				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
 				  builtinplugins.cpp		\
@@ -1089,6 +1097,12 @@ plugin/ipc/ssh/$(am__dirstamp):
 plugin/ipc/ssh/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) plugin/ipc/ssh/$(DEPDIR)
 	@: >>plugin/ipc/ssh/$(DEPDIR)/$(am__dirstamp)
+plugin/svipc/$(am__dirstamp):
+	@$(MKDIR_P) plugin/svipc
+	@: >>plugin/svipc/$(am__dirstamp)
+plugin/svipc/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/svipc/$(DEPDIR)
+	@: >>plugin/svipc/$(DEPDIR)/$(am__dirstamp)
 plugin/ipc/connection.$(OBJEXT) plugin/ipc/connectionidentifier.$(OBJEXT) \
 plugin/ipc/connectionlist.$(OBJEXT) plugin/ipc/ipc.$(OBJEXT): \
 	plugin/ipc/$(am__dirstamp) plugin/ipc/$(DEPDIR)/$(am__dirstamp)
@@ -1118,6 +1132,9 @@ plugin/ipc/socket/socketwrappers.$(OBJEXT): \
 plugin/ipc/ssh/ssh.$(OBJEXT) plugin/ipc/ssh/sshdrainer.$(OBJEXT): \
 	plugin/ipc/ssh/$(am__dirstamp) \
 	plugin/ipc/ssh/$(DEPDIR)/$(am__dirstamp)
+plugin/svipc/sysvipc.$(OBJEXT) plugin/svipc/sysvipcwrappers.$(OBJEXT): \
+	plugin/svipc/$(am__dirstamp) \
+	plugin/svipc/$(DEPDIR)/$(am__dirstamp)
 
 $(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdir__libdmtcp_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp.so$(EXEEXT)
@@ -1132,6 +1149,7 @@ mostlyclean-compile:
 	-rm -f plugin/ipc/file/*.$(OBJEXT)
 	-rm -f plugin/ipc/socket/*.$(OBJEXT)
 	-rm -f plugin/ipc/ssh/*.$(OBJEXT)
+	-rm -f plugin/svipc/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -1195,6 +1213,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/socket/$(DEPDIR)/socketwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/ssh/$(DEPDIR)/ssh.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/svipc/$(DEPDIR)/sysvipc.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugin_pathtranslator.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugininfo.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pluginmanager.Po@am__quote@ # am--include-marker
@@ -1549,6 +1569,8 @@ distclean: distclean-recursive
 	-rm -f plugin/ipc/socket/$(DEPDIR)/socketwrappers.Po
 	-rm -f plugin/ipc/ssh/$(DEPDIR)/ssh.Po
 	-rm -f plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po
+	-rm -f plugin/svipc/$(DEPDIR)/sysvipc.Po
+	-rm -f plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po
 	-rm -f ./$(DEPDIR)/plugin_pathtranslator.Po
 	-rm -f ./$(DEPDIR)/plugininfo.Po
 	-rm -f ./$(DEPDIR)/pluginmanager.Po
@@ -1592,6 +1614,8 @@ distclean: distclean-recursive
 	-rm -f plugin/ipc/socket/$(am__dirstamp)
 	-rm -f plugin/ipc/ssh/$(DEPDIR)/$(am__dirstamp)
 	-rm -f plugin/ipc/ssh/$(am__dirstamp)
+	-rm -f plugin/svipc/$(DEPDIR)/$(am__dirstamp)
+	-rm -f plugin/svipc/$(am__dirstamp)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -1696,6 +1720,8 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f plugin/ipc/socket/$(DEPDIR)/socketwrappers.Po
 	-rm -f plugin/ipc/ssh/$(DEPDIR)/ssh.Po
 	-rm -f plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po
+	-rm -f plugin/svipc/$(DEPDIR)/sysvipc.Po
+	-rm -f plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po
 	-rm -f ./$(DEPDIR)/plugin_pathtranslator.Po
 	-rm -f ./$(DEPDIR)/plugininfo.Po
 	-rm -f ./$(DEPDIR)/pluginmanager.Po
