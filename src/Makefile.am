@@ -72,6 +72,7 @@ include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
 
 # headers:
 nobase_noinst_HEADERS =						\
+			builtinplugins.h			\
 			ckptserializer.h			\
 			constants.h 				\
 			coordinatorapi.h			\
@@ -93,7 +94,8 @@ nobase_noinst_HEADERS =						\
 			threadlist.h				\
 			threadsync.h				\
 			uniquepid.h				\
-			workerstate.h
+			workerstate.h				\
+			wrapperevents.h
 
 nobase_noinst_HEADERS += $(jalibdir)/jalib.h			\
 			 $(jalibdir)/jalloc.h			\
@@ -170,6 +172,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  miscwrappers.cpp 		\
 				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
+				  builtinplugins.cpp		\
 				  pluginmanager.cpp		\
 				  popen.cpp 			\
 				  tls.cpp			\
@@ -183,8 +186,11 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\
 				  wrapperlock.cpp		\
+				  wrapperevents.cpp		\
 				  wrappers.cpp 			\
 				  writeckpt.cpp
+
+__d_libdir__libdmtcp_so_CPPFLAGS = $(AM_CPPFLAGS)
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 

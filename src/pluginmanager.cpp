@@ -1,5 +1,6 @@
 #include "pluginmanager.h"
 
+#include "builtinplugins.h"
 #include "coordinatorapi.h"
 #include "config.h"
 #include "dmtcp.h"
@@ -28,6 +29,37 @@ DmtcpPluginDescriptor_t dmtcp_Terminal_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_ProcessInfo_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_PathTranslator_PluginDescr();
 
+typedef DmtcpPluginDescriptor_t (*BuiltinDescriptorFn)();
+
+struct BuiltinDescriptorEntry {
+  BuiltinDescriptorFn descriptorFn;
+};
+
+static BuiltinDescriptorEntry coreBuiltinDescriptors[] = {
+  { dmtcp_PathTranslator_PluginDescr },
+  { dmtcp_Syslog_PluginDescr },
+  { dmtcp_Rlimit_Float_PluginDescr },
+  { dmtcp_Alarm_PluginDescr },
+  { dmtcp_Terminal_PluginDescr },
+  { CoordinatorAPI::pluginDescr },
+  { dmtcp_ProcessInfo_PluginDescr },
+  { UniquePid::pluginDescr }
+};
+
+// Final descriptor fold target:
+// ssh, event, file, pty, socket, sysvipc, timer, core descriptors, pid.
+// Until IPC/SysV/timer/PID are folded, keep only the currently linked rows in
+// this table and preserve the relative order above.
+static void
+registerCoreBuiltinDescriptors()
+{
+  for (size_t i = 0;
+       i < sizeof(coreBuiltinDescriptors) / sizeof(coreBuiltinDescriptors[0]);
+       i++) {
+    dmtcp_register_plugin(coreBuiltinDescriptors[i].descriptorFn());
+  }
+}
+
 void
 PluginManager::initialize()
 {
@@ -48,7 +80,10 @@ PluginManager::PluginManager()
 void
 PluginManager::registerPlugin(DmtcpPluginDescriptor_t descr)
 {
-  // TODO(kapil): Validate the incoming descriptor.
+  JASSERT(descr.pluginApiVersion != NULL &&
+          strcmp(descr.pluginApiVersion, DMTCP_PLUGIN_API_VERSION) == 0)
+    (descr.pluginApiVersion) (DMTCP_PLUGIN_API_VERSION)
+    .Text("Incompatible DMTCP plugin API version");
   PluginInfo *info = new PluginInfo(descr);
 
   pluginInfos.push_back(info);
@@ -57,15 +92,8 @@ PluginManager::registerPlugin(DmtcpPluginDescriptor_t descr)
 extern "C" void
 dmtcp_initialize_plugin()
 {
-  // Now register the "in-built" plugins.
-  dmtcp_register_plugin(dmtcp_PathTranslator_PluginDescr());
-  dmtcp_register_plugin(dmtcp_Syslog_PluginDescr());
-  dmtcp_register_plugin(dmtcp_Rlimit_Float_PluginDescr());
-  dmtcp_register_plugin(dmtcp_Alarm_PluginDescr());
-  dmtcp_register_plugin(dmtcp_Terminal_PluginDescr());
-  dmtcp_register_plugin(CoordinatorAPI::pluginDescr());
-  dmtcp_register_plugin(dmtcp_ProcessInfo_PluginDescr());
-  dmtcp_register_plugin(UniquePid::pluginDescr());
+  initializeBuiltinPluginState();
+  registerCoreBuiltinDescriptors();
 
   void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);
   if (fn != NULL) {
