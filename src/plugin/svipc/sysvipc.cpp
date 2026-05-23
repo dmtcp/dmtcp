@@ -757,6 +757,12 @@ Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg)
     (_key) (_nsems) (_flags) (_id) (_isCkptLeader);
 }
 
+Semaphore::~Semaphore()
+{
+  JALLOC_HELPER_FREE(_semval);
+  JALLOC_HELPER_FREE(_semadj);
+}
+
 void Semaphore::on_semop(struct sembuf *sops, unsigned nsops)
 {
   for (unsigned i = 0; i < nsops; i++) {

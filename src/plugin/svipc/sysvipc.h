@@ -253,7 +253,7 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg);
-      ~Semaphore() { delete _semval; delete _semadj; }
+      ~Semaphore();
       void on_semop(struct sembuf *sops, unsigned nsops);
 
       virtual bool isStale();
