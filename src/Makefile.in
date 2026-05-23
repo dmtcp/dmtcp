@@ -210,6 +210,8 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	dmtcpplugin.$(OBJEXT) dmtcpworker.$(OBJEXT) \
 	dmtcp_dlsym_wrappers.$(OBJEXT) execwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) kvdb.$(OBJEXT) miscwrappers.$(OBJEXT) \
+	plugin/alloc/mallocwrappers.$(OBJEXT) \
+	plugin/alloc/mmapwrappers.$(OBJEXT) \
 	plugin_pathtranslator.$(OBJEXT) plugininfo.$(OBJEXT) \
 	builtinplugins.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) tls.$(OBJEXT) \
 	posix_spawn.$(OBJEXT) rlimitfloatenv.$(OBJEXT) \
@@ -260,6 +262,8 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	./$(DEPDIR)/jalibinterface.Po ./$(DEPDIR)/kvdb.Po \
 	./$(DEPDIR)/lookup_service.Po ./$(DEPDIR)/miscwrappers.Po \
 	./$(DEPDIR)/mutex.Po ./$(DEPDIR)/nosyscallsreal.Po \
+	plugin/alloc/$(DEPDIR)/mallocwrappers.Po \
+	plugin/alloc/$(DEPDIR)/mmapwrappers.Po \
 	./$(DEPDIR)/plugin_pathtranslator.Po ./$(DEPDIR)/plugininfo.Po \
 	./$(DEPDIR)/pluginmanager.Po ./$(DEPDIR)/popen.Po \
 	./$(DEPDIR)/posix_spawn.Po ./$(DEPDIR)/processinfo.Po \
@@ -627,8 +631,9 @@ nobase_noinst_HEADERS = builtinplugins.h ckptserializer.h constants.h \
 	lookup_service.h ldt.h plugininfo.h pluginmanager.h \
 	processinfo.h restartscript.h tls.h siginfo.h syscallwrappers.h \
 	threadinfo.h threadlist.h threadsync.h uniquepid.h workerstate.h \
-	wrapperevents.h $(jalibdir)/jalib.h $(jalibdir)/jalloc.h \
-	$(jalibdir)/jassert.h $(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h \
+	wrapperevents.h plugin/alloc/alloc.h $(jalibdir)/jalib.h \
+	$(jalibdir)/jalloc.h $(jalibdir)/jassert.h \
+	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h \
 	$(jalibdir)/jfilesystem.h $(jalibdir)/jserialize.h \
 	$(jalibdir)/jsocket.h $(jalibdir)/jtimer.h \
 	$(dmtcpincludedir)/dmtcp.h $(dmtcpincludedir)/dmtcpalloc.h \
@@ -691,6 +696,8 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  glibcsystem.cpp 		\
 				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
+				  plugin/alloc/mallocwrappers.cpp \
+				  plugin/alloc/mmapwrappers.cpp	\
 				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
 				  builtinplugins.cpp		\
@@ -952,6 +959,17 @@ $(d_bindir)/dmtcp_restart$(EXEEXT): $(__d_bindir__dmtcp_restart_OBJECTS) $(__d_b
 $(d_libdir)/$(am__dirstamp):
 	@$(MKDIR_P) $(d_libdir)
 	@: >>$(d_libdir)/$(am__dirstamp)
+plugin/alloc/$(am__dirstamp):
+	@$(MKDIR_P) plugin/alloc
+	@: >>plugin/alloc/$(am__dirstamp)
+plugin/alloc/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/alloc/$(DEPDIR)
+	@: >>plugin/alloc/$(DEPDIR)/$(am__dirstamp)
+plugin/alloc/mallocwrappers.$(OBJEXT):  \
+	plugin/alloc/$(am__dirstamp) \
+	plugin/alloc/$(DEPDIR)/$(am__dirstamp)
+plugin/alloc/mmapwrappers.$(OBJEXT): plugin/alloc/$(am__dirstamp) \
+	plugin/alloc/$(DEPDIR)/$(am__dirstamp)
 
 $(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdir__libdmtcp_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp.so$(EXEEXT)
@@ -960,6 +978,7 @@ $(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdi
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f $(jalibdir)/*.$(OBJEXT)
+	-rm -f plugin/alloc/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -998,6 +1017,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/miscwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mutex.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nosyscallsreal.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/alloc/$(DEPDIR)/mallocwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/alloc/$(DEPDIR)/mmapwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugin_pathtranslator.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugininfo.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pluginmanager.Po@am__quote@ # am--include-marker
@@ -1327,6 +1348,8 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/miscwrappers.Po
 	-rm -f ./$(DEPDIR)/mutex.Po
 	-rm -f ./$(DEPDIR)/nosyscallsreal.Po
+	-rm -f plugin/alloc/$(DEPDIR)/mallocwrappers.Po
+	-rm -f plugin/alloc/$(DEPDIR)/mmapwrappers.Po
 	-rm -f ./$(DEPDIR)/plugin_pathtranslator.Po
 	-rm -f ./$(DEPDIR)/plugininfo.Po
 	-rm -f ./$(DEPDIR)/pluginmanager.Po
@@ -1358,6 +1381,8 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/wrapperevents.Po
 	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
+	-rm -f plugin/alloc/$(DEPDIR)/$(am__dirstamp)
+	-rm -f plugin/alloc/$(am__dirstamp)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -1437,6 +1462,8 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/miscwrappers.Po
 	-rm -f ./$(DEPDIR)/mutex.Po
 	-rm -f ./$(DEPDIR)/nosyscallsreal.Po
+	-rm -f plugin/alloc/$(DEPDIR)/mallocwrappers.Po
+	-rm -f plugin/alloc/$(DEPDIR)/mmapwrappers.Po
 	-rm -f ./$(DEPDIR)/plugin_pathtranslator.Po
 	-rm -f ./$(DEPDIR)/plugininfo.Po
 	-rm -f ./$(DEPDIR)/pluginmanager.Po

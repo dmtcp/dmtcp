@@ -33,17 +33,6 @@ libdmtcp_PROGRAMS =
 noinst_LIBRARIES =
 
 #
-# Alloc plugin
-#
-libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_alloc.so
-__d_libdir__libdmtcp_alloc_so_SOURCES =                                \
-	alloc/alloc.h                                                  \
-	alloc/mallocwrappers.cpp                                       \
-	alloc/mmapwrappers.cpp
-__d_libdir__libdmtcp_alloc_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_alloc_so_LDADD = $(LDADD)
-
-#
 # Dl plugin
 #
 libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_dl.so
