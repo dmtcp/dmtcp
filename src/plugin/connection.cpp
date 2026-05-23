@@ -77,7 +77,8 @@ Connection::saveOptions()
   JASSERT(_fcntlFlags >= 0) (_fds[0]) (_fcntlFlags) (_type) (JASSERT_ERRNO);
   errno = 0;
   _fcntlOwner = fcntl(_fds[0], F_GETOWN);
-  JASSERT(_fcntlOwner != -1) (_fcntlOwner) (JASSERT_ERRNO);
+  JASSERT(_fcntlOwner != -1) (_fds[0]) (_fcntlFlags) (_type)
+    (_fcntlOwner) (JASSERT_ERRNO);
   errno = 0;
   _fcntlSignal = fcntl(_fds[0], F_GETSIG);
   JASSERT(_fcntlSignal >= 0) (_fcntlSignal) (JASSERT_ERRNO);

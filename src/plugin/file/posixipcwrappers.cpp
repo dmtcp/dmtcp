@@ -22,6 +22,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <fcntl.h>
+#include "builtinplugins.h"
 #include "dmtcp.h"
 #include "util.h"
 
@@ -47,6 +48,10 @@ mq_open(const char *name, int oflag, ...)
     va_end(arg);
   }
 
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_mq_open(name, oflag, mode, attr);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_mq_open(name, oflag, mode, attr);
   if (res != -1) {
@@ -62,74 +67,18 @@ extern "C"
 int
 mq_close(mqd_t mqdes)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_mq_close(mqdes);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_mq_close(mqdes);
   if (res != -1) {
     PosixMQConnection *con = (PosixMQConnection *)
       FileConnList::instance().getConnection(mqdes);
-    con->on_mq_close();
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return res;
-}
-
-struct mqNotifyData {
-  void (*start_routine) (union sigval);
-  union sigval sv;
-  mqd_t mqdes;
-};
-
-static void
-mq_notify_thread_start(union sigval sv)
-{
-  // FIXME: Possible race:
-  // If some other thread in this process calls mq_notify() before we
-  // make a call to con->on_mq_notify(NULL), the notify request won't be
-  // restored on restart. However, this case is rather unusual.
-  struct mqNotifyData *m = (struct mqNotifyData *)sv.sival_ptr;
-
-  void (*start_routine) (union sigval) = m->start_routine;
-  union sigval s = m->sv;
-  mqd_t mqdes = m->mqdes;
-
-  JALLOC_HELPER_FREE(m);
-
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  PosixMQConnection *con = (PosixMQConnection *)
-    FileConnList::instance().getConnection(mqdes);
-  con->on_mq_notify(NULL);
-  DMTCP_PLUGIN_ENABLE_CKPT();
-
-  start_routine(s);
-}
-
-extern "C"
-int
-mq_notify(mqd_t mqdes, const struct sigevent *sevp)
-{
-  int res;
-
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  if (sevp != NULL && sevp->sigev_notify == SIGEV_THREAD) {
-    struct sigevent se;
-    struct mqNotifyData *mdata;
-    mdata = (struct mqNotifyData *)
-      JALLOC_HELPER_MALLOC(sizeof(struct mqNotifyData));
-    se = *sevp;
-    mdata->start_routine = sevp->sigev_notify_function;
-    mdata->sv = sevp->sigev_value;
-    mdata->mqdes = mqdes;
-    se.sigev_notify_function = mq_notify_thread_start;
-    se.sigev_value.sival_ptr = mdata;
-    res = _real_mq_notify(mqdes, &se);
-  } else {
-    res = _real_mq_notify(mqdes, sevp);
-  }
-
-  if (res != -1) {
-    PosixMQConnection *con = (PosixMQConnection *)
-      FileConnList::instance().getConnection(mqdes);
-    con->on_mq_notify(sevp);
+    if (con != NULL) {
+      con->on_mq_close();
+    }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return res;
@@ -139,6 +88,10 @@ extern "C"
 int
 mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned msg_prio)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_mq_send(mqdes, msg_ptr, msg_len, msg_prio);
+  }
+
   int res;
   struct timespec ts;
 
@@ -154,6 +107,10 @@ extern "C"
 ssize_t
 mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned *msg_prio)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_mq_receive(mqdes, msg_ptr, msg_len, msg_prio);
+  }
+
   ssize_t res;
   struct timespec ts;
 
@@ -166,6 +123,20 @@ mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned *msg_prio)
 }
 
 static struct timespec ts_100ms = { 0, 100 * 1000 * 1000 };
+
+static void
+advanceTimeoutUpToDeadline(struct timespec *ts,
+                           const struct timespec *abs_timeout)
+{
+  struct timespec candidate;
+  TIMESPEC_ADD(ts, &ts_100ms, &candidate);
+  if (TIMESPEC_CMP(&candidate, abs_timeout, >)) {
+    *ts = *abs_timeout;
+  } else {
+    *ts = candidate;
+  }
+}
+
 extern "C"
 int
 mq_timedsend(mqd_t mqdes,
@@ -174,6 +145,10 @@ mq_timedsend(mqd_t mqdes,
              unsigned msg_prio,
              const struct timespec *abs_timeout)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_mq_timedsend(mqdes, msg_ptr, msg_len, msg_prio, abs_timeout);
+  }
+
   struct timespec ts;
   int ret = -1;
 
@@ -181,7 +156,7 @@ mq_timedsend(mqd_t mqdes,
     DMTCP_PLUGIN_DISABLE_CKPT();
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
     if (TIMESPEC_CMP(&ts, abs_timeout, <=)) {
-      TIMESPEC_ADD(&ts, &ts_100ms, &ts);
+      advanceTimeoutUpToDeadline(&ts, abs_timeout);
     }
     ret = _real_mq_timedsend(mqdes, msg_ptr, msg_len, msg_prio, &ts);
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -203,6 +178,11 @@ mq_timedreceive(mqd_t mqdes,
                 unsigned *msg_prio,
                 const struct timespec *abs_timeout)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_mq_timedreceive(mqdes, msg_ptr, msg_len, msg_prio,
+                                 abs_timeout);
+  }
+
   struct timespec ts;
   int ret = -1;
 
@@ -210,7 +190,7 @@ mq_timedreceive(mqd_t mqdes,
     DMTCP_PLUGIN_DISABLE_CKPT();
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
     if (TIMESPEC_CMP(&ts, abs_timeout, <=)) {
-      TIMESPEC_ADD(&ts, &ts_100ms, &ts);
+      advanceTimeoutUpToDeadline(&ts, abs_timeout);
     }
     ret = _real_mq_timedreceive(mqdes, msg_ptr, msg_len, msg_prio, &ts);
     DMTCP_PLUGIN_ENABLE_CKPT();

@@ -28,6 +28,11 @@ DmtcpPluginDescriptor_t dmtcp_Alarm_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Terminal_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_ProcessInfo_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_PathTranslator_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_SshPlugin_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_EventPlugin_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_FilePlugin_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_PtyPlugin_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_SocketPlugin_PluginDescr();
 
 typedef DmtcpPluginDescriptor_t (*BuiltinDescriptorFn)();
 
@@ -46,10 +51,32 @@ static BuiltinDescriptorEntry coreBuiltinDescriptors[] = {
   { UniquePid::pluginDescr }
 };
 
+static BuiltinDescriptorEntry ipcBuiltinDescriptors[] = {
+  { dmtcp_SshPlugin_PluginDescr },
+  { dmtcp_EventPlugin_PluginDescr },
+  { dmtcp_FilePlugin_PluginDescr },
+  { dmtcp_PtyPlugin_PluginDescr },
+  { dmtcp_SocketPlugin_PluginDescr }
+};
+
 // Final descriptor fold target:
 // ssh, event, file, pty, socket, sysvipc, timer, core descriptors, pid.
-// Until IPC/SysV/timer/PID are folded, keep only the currently linked rows in
+// Until SysV/timer/PID are folded, keep only the currently linked rows in
 // this table and preserve the relative order above.
+static void
+registerIpcBuiltinDescriptors()
+{
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return;
+  }
+
+  for (size_t i = 0;
+       i < sizeof(ipcBuiltinDescriptors) / sizeof(ipcBuiltinDescriptors[0]);
+       i++) {
+    dmtcp_register_plugin(ipcBuiltinDescriptors[i].descriptorFn());
+  }
+}
+
 static void
 registerCoreBuiltinDescriptors()
 {
@@ -93,6 +120,7 @@ extern "C" void
 dmtcp_initialize_plugin()
 {
   initializeBuiltinPluginState();
+  registerIpcBuiltinDescriptors();
   registerCoreBuiltinDescriptors();
 
   void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);

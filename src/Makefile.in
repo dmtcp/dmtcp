@@ -212,6 +212,27 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) kvdb.$(OBJEXT) miscwrappers.$(OBJEXT) \
 	plugin/alloc/mallocwrappers.$(OBJEXT) \
 	plugin/alloc/mmapwrappers.$(OBJEXT) \
+	plugin/ipc/connection.$(OBJEXT) \
+	plugin/ipc/connectionidentifier.$(OBJEXT) \
+	plugin/ipc/connectionlist.$(OBJEXT) plugin/ipc/ipc.$(OBJEXT) \
+	plugin/ipc/event/eventconnection.$(OBJEXT) \
+	plugin/ipc/event/eventconnlist.$(OBJEXT) \
+	plugin/ipc/event/eventwrappers.$(OBJEXT) \
+	plugin/ipc/event/util_descriptor.$(OBJEXT) \
+	plugin/ipc/file/fileconnection.$(OBJEXT) \
+	plugin/ipc/file/fileconnlist.$(OBJEXT) \
+	plugin/ipc/file/filewrappers.$(OBJEXT) \
+	plugin/ipc/file/openwrappers.$(OBJEXT) \
+	plugin/ipc/file/posixipcwrappers.$(OBJEXT) \
+	plugin/ipc/file/ptyconnection.$(OBJEXT) \
+	plugin/ipc/file/ptyconnlist.$(OBJEXT) \
+	plugin/ipc/file/ptywrappers.$(OBJEXT) \
+	plugin/ipc/socket/connectionrewirer.$(OBJEXT) \
+	plugin/ipc/socket/kernelbufferdrainer.$(OBJEXT) \
+	plugin/ipc/socket/socketconnection.$(OBJEXT) \
+	plugin/ipc/socket/socketconnlist.$(OBJEXT) \
+	plugin/ipc/socket/socketwrappers.$(OBJEXT) \
+	plugin/ipc/ssh/ssh.$(OBJEXT) plugin/ipc/ssh/sshdrainer.$(OBJEXT) \
 	plugin_pathtranslator.$(OBJEXT) plugininfo.$(OBJEXT) \
 	builtinplugins.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) tls.$(OBJEXT) \
 	posix_spawn.$(OBJEXT) rlimitfloatenv.$(OBJEXT) \
@@ -264,6 +285,29 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	./$(DEPDIR)/mutex.Po ./$(DEPDIR)/nosyscallsreal.Po \
 	plugin/alloc/$(DEPDIR)/mallocwrappers.Po \
 	plugin/alloc/$(DEPDIR)/mmapwrappers.Po \
+	plugin/ipc/$(DEPDIR)/connection.Po \
+	plugin/ipc/$(DEPDIR)/connectionidentifier.Po \
+	plugin/ipc/$(DEPDIR)/connectionlist.Po \
+	plugin/ipc/$(DEPDIR)/ipc.Po \
+	plugin/ipc/event/$(DEPDIR)/eventconnection.Po \
+	plugin/ipc/event/$(DEPDIR)/eventconnlist.Po \
+	plugin/ipc/event/$(DEPDIR)/eventwrappers.Po \
+	plugin/ipc/event/$(DEPDIR)/util_descriptor.Po \
+	plugin/ipc/file/$(DEPDIR)/fileconnection.Po \
+	plugin/ipc/file/$(DEPDIR)/fileconnlist.Po \
+	plugin/ipc/file/$(DEPDIR)/filewrappers.Po \
+	plugin/ipc/file/$(DEPDIR)/openwrappers.Po \
+	plugin/ipc/file/$(DEPDIR)/posixipcwrappers.Po \
+	plugin/ipc/file/$(DEPDIR)/ptyconnection.Po \
+	plugin/ipc/file/$(DEPDIR)/ptyconnlist.Po \
+	plugin/ipc/file/$(DEPDIR)/ptywrappers.Po \
+	plugin/ipc/socket/$(DEPDIR)/connectionrewirer.Po \
+	plugin/ipc/socket/$(DEPDIR)/kernelbufferdrainer.Po \
+	plugin/ipc/socket/$(DEPDIR)/socketconnection.Po \
+	plugin/ipc/socket/$(DEPDIR)/socketconnlist.Po \
+	plugin/ipc/socket/$(DEPDIR)/socketwrappers.Po \
+	plugin/ipc/ssh/$(DEPDIR)/ssh.Po \
+	plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po \
 	./$(DEPDIR)/plugin_pathtranslator.Po ./$(DEPDIR)/plugininfo.Po \
 	./$(DEPDIR)/pluginmanager.Po ./$(DEPDIR)/popen.Po \
 	./$(DEPDIR)/posix_spawn.Po ./$(DEPDIR)/processinfo.Po \
@@ -611,7 +655,7 @@ AM_LDFLAGS = $(PICFLAGS)
 
 #HEADERS
 #set the include path found by configure
-AM_CPPFLAGS = -I$(dmtcpincludedir) -I$(jalibdir)
+AM_CPPFLAGS = -I$(dmtcpincludedir) -I$(jalibdir) -I$(srcdir)/plugin/ipc
 
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a 				\
@@ -698,6 +742,51 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  miscwrappers.cpp 		\
 				  plugin/alloc/mallocwrappers.cpp \
 				  plugin/alloc/mmapwrappers.cpp	\
+				  plugin/ipc/connection.cpp	\
+				  plugin/ipc/connection.h	\
+				  plugin/ipc/connectionidentifier.cpp \
+				  plugin/ipc/connectionidentifier.h \
+				  plugin/ipc/connectionlist.cpp	\
+				  plugin/ipc/connectionlist.h	\
+				  plugin/ipc/ipc.cpp		\
+				  plugin/ipc/ipc.h		\
+				  plugin/ipc/event/eventconnection.cpp \
+				  plugin/ipc/event/eventconnection.h \
+				  plugin/ipc/event/eventconnlist.cpp \
+				  plugin/ipc/event/eventconnlist.h \
+				  plugin/ipc/event/eventwrappers.cpp \
+				  plugin/ipc/event/eventwrappers.h \
+				  plugin/ipc/event/util_descriptor.cpp \
+				  plugin/ipc/event/util_descriptor.h \
+				  plugin/ipc/file/fileconnection.cpp \
+				  plugin/ipc/file/fileconnection.h \
+				  plugin/ipc/file/fileconnlist.cpp \
+				  plugin/ipc/file/fileconnlist.h \
+				  plugin/ipc/file/filewrappers.cpp \
+				  plugin/ipc/file/filewrappers.h \
+				  plugin/ipc/file/openwrappers.cpp \
+				  plugin/ipc/file/posixipcwrappers.cpp \
+				  plugin/ipc/file/ptyconnection.cpp \
+				  plugin/ipc/file/ptyconnection.h \
+				  plugin/ipc/file/ptyconnlist.cpp \
+				  plugin/ipc/file/ptyconnlist.h \
+				  plugin/ipc/file/ptywrappers.cpp \
+				  plugin/ipc/file/ptywrappers.h \
+				  plugin/ipc/socket/connectionmessage.h \
+				  plugin/ipc/socket/connectionrewirer.cpp \
+				  plugin/ipc/socket/connectionrewirer.h \
+				  plugin/ipc/socket/kernelbufferdrainer.cpp \
+				  plugin/ipc/socket/kernelbufferdrainer.h \
+				  plugin/ipc/socket/socketconnection.cpp \
+				  plugin/ipc/socket/socketconnection.h \
+				  plugin/ipc/socket/socketconnlist.cpp \
+				  plugin/ipc/socket/socketconnlist.h \
+				  plugin/ipc/socket/socketwrappers.cpp \
+				  plugin/ipc/socket/socketwrappers.h \
+				  plugin/ipc/ssh/ssh.cpp	\
+				  plugin/ipc/ssh/sshdrainer.cpp \
+				  plugin/ipc/ssh/sshdrainer.h	\
+				  plugin/ipc/ssh/ssh.h		\
 				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
 				  builtinplugins.cpp		\
@@ -718,7 +807,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  wrappers.cpp 			\
 				  writeckpt.cpp
 
-__d_libdir__libdmtcp_so_CPPFLAGS = $(AM_CPPFLAGS)
+__d_libdir__libdmtcp_so_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/plugin/ipc
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
@@ -970,6 +1059,65 @@ plugin/alloc/mallocwrappers.$(OBJEXT):  \
 	plugin/alloc/$(DEPDIR)/$(am__dirstamp)
 plugin/alloc/mmapwrappers.$(OBJEXT): plugin/alloc/$(am__dirstamp) \
 	plugin/alloc/$(DEPDIR)/$(am__dirstamp)
+plugin/ipc/$(am__dirstamp):
+	@$(MKDIR_P) plugin/ipc
+	@: >>plugin/ipc/$(am__dirstamp)
+plugin/ipc/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/ipc/$(DEPDIR)
+	@: >>plugin/ipc/$(DEPDIR)/$(am__dirstamp)
+plugin/ipc/event/$(am__dirstamp):
+	@$(MKDIR_P) plugin/ipc/event
+	@: >>plugin/ipc/event/$(am__dirstamp)
+plugin/ipc/event/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/ipc/event/$(DEPDIR)
+	@: >>plugin/ipc/event/$(DEPDIR)/$(am__dirstamp)
+plugin/ipc/file/$(am__dirstamp):
+	@$(MKDIR_P) plugin/ipc/file
+	@: >>plugin/ipc/file/$(am__dirstamp)
+plugin/ipc/file/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/ipc/file/$(DEPDIR)
+	@: >>plugin/ipc/file/$(DEPDIR)/$(am__dirstamp)
+plugin/ipc/socket/$(am__dirstamp):
+	@$(MKDIR_P) plugin/ipc/socket
+	@: >>plugin/ipc/socket/$(am__dirstamp)
+plugin/ipc/socket/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/ipc/socket/$(DEPDIR)
+	@: >>plugin/ipc/socket/$(DEPDIR)/$(am__dirstamp)
+plugin/ipc/ssh/$(am__dirstamp):
+	@$(MKDIR_P) plugin/ipc/ssh
+	@: >>plugin/ipc/ssh/$(am__dirstamp)
+plugin/ipc/ssh/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/ipc/ssh/$(DEPDIR)
+	@: >>plugin/ipc/ssh/$(DEPDIR)/$(am__dirstamp)
+plugin/ipc/connection.$(OBJEXT) plugin/ipc/connectionidentifier.$(OBJEXT) \
+plugin/ipc/connectionlist.$(OBJEXT) plugin/ipc/ipc.$(OBJEXT): \
+	plugin/ipc/$(am__dirstamp) plugin/ipc/$(DEPDIR)/$(am__dirstamp)
+plugin/ipc/event/eventconnection.$(OBJEXT) \
+plugin/ipc/event/eventconnlist.$(OBJEXT) \
+plugin/ipc/event/eventwrappers.$(OBJEXT) \
+plugin/ipc/event/util_descriptor.$(OBJEXT): \
+	plugin/ipc/event/$(am__dirstamp) \
+	plugin/ipc/event/$(DEPDIR)/$(am__dirstamp)
+plugin/ipc/file/fileconnection.$(OBJEXT) \
+plugin/ipc/file/fileconnlist.$(OBJEXT) \
+plugin/ipc/file/filewrappers.$(OBJEXT) \
+plugin/ipc/file/openwrappers.$(OBJEXT) \
+plugin/ipc/file/posixipcwrappers.$(OBJEXT) \
+plugin/ipc/file/ptyconnection.$(OBJEXT) \
+plugin/ipc/file/ptyconnlist.$(OBJEXT) \
+plugin/ipc/file/ptywrappers.$(OBJEXT): \
+	plugin/ipc/file/$(am__dirstamp) \
+	plugin/ipc/file/$(DEPDIR)/$(am__dirstamp)
+plugin/ipc/socket/connectionrewirer.$(OBJEXT) \
+plugin/ipc/socket/kernelbufferdrainer.$(OBJEXT) \
+plugin/ipc/socket/socketconnection.$(OBJEXT) \
+plugin/ipc/socket/socketconnlist.$(OBJEXT) \
+plugin/ipc/socket/socketwrappers.$(OBJEXT): \
+	plugin/ipc/socket/$(am__dirstamp) \
+	plugin/ipc/socket/$(DEPDIR)/$(am__dirstamp)
+plugin/ipc/ssh/ssh.$(OBJEXT) plugin/ipc/ssh/sshdrainer.$(OBJEXT): \
+	plugin/ipc/ssh/$(am__dirstamp) \
+	plugin/ipc/ssh/$(DEPDIR)/$(am__dirstamp)
 
 $(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdir__libdmtcp_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp.so$(EXEEXT)
@@ -979,6 +1127,11 @@ mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f $(jalibdir)/*.$(OBJEXT)
 	-rm -f plugin/alloc/*.$(OBJEXT)
+	-rm -f plugin/ipc/*.$(OBJEXT)
+	-rm -f plugin/ipc/event/*.$(OBJEXT)
+	-rm -f plugin/ipc/file/*.$(OBJEXT)
+	-rm -f plugin/ipc/socket/*.$(OBJEXT)
+	-rm -f plugin/ipc/ssh/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -1019,6 +1172,29 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nosyscallsreal.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/alloc/$(DEPDIR)/mallocwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/alloc/$(DEPDIR)/mmapwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/$(DEPDIR)/connection.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/$(DEPDIR)/connectionidentifier.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/$(DEPDIR)/connectionlist.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/$(DEPDIR)/ipc.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/event/$(DEPDIR)/eventconnection.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/event/$(DEPDIR)/eventconnlist.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/event/$(DEPDIR)/eventwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/event/$(DEPDIR)/util_descriptor.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/file/$(DEPDIR)/fileconnection.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/file/$(DEPDIR)/fileconnlist.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/file/$(DEPDIR)/filewrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/file/$(DEPDIR)/openwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/file/$(DEPDIR)/posixipcwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/file/$(DEPDIR)/ptyconnection.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/file/$(DEPDIR)/ptyconnlist.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/file/$(DEPDIR)/ptywrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/socket/$(DEPDIR)/connectionrewirer.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/socket/$(DEPDIR)/kernelbufferdrainer.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/socket/$(DEPDIR)/socketconnection.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/socket/$(DEPDIR)/socketconnlist.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/socket/$(DEPDIR)/socketwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/ssh/$(DEPDIR)/ssh.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugin_pathtranslator.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugininfo.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pluginmanager.Po@am__quote@ # am--include-marker
@@ -1350,6 +1526,29 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/nosyscallsreal.Po
 	-rm -f plugin/alloc/$(DEPDIR)/mallocwrappers.Po
 	-rm -f plugin/alloc/$(DEPDIR)/mmapwrappers.Po
+	-rm -f plugin/ipc/$(DEPDIR)/connection.Po
+	-rm -f plugin/ipc/$(DEPDIR)/connectionidentifier.Po
+	-rm -f plugin/ipc/$(DEPDIR)/connectionlist.Po
+	-rm -f plugin/ipc/$(DEPDIR)/ipc.Po
+	-rm -f plugin/ipc/event/$(DEPDIR)/eventconnection.Po
+	-rm -f plugin/ipc/event/$(DEPDIR)/eventconnlist.Po
+	-rm -f plugin/ipc/event/$(DEPDIR)/eventwrappers.Po
+	-rm -f plugin/ipc/event/$(DEPDIR)/util_descriptor.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/fileconnection.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/fileconnlist.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/filewrappers.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/openwrappers.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/posixipcwrappers.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/ptyconnection.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/ptyconnlist.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/ptywrappers.Po
+	-rm -f plugin/ipc/socket/$(DEPDIR)/connectionrewirer.Po
+	-rm -f plugin/ipc/socket/$(DEPDIR)/kernelbufferdrainer.Po
+	-rm -f plugin/ipc/socket/$(DEPDIR)/socketconnection.Po
+	-rm -f plugin/ipc/socket/$(DEPDIR)/socketconnlist.Po
+	-rm -f plugin/ipc/socket/$(DEPDIR)/socketwrappers.Po
+	-rm -f plugin/ipc/ssh/$(DEPDIR)/ssh.Po
+	-rm -f plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po
 	-rm -f ./$(DEPDIR)/plugin_pathtranslator.Po
 	-rm -f ./$(DEPDIR)/plugininfo.Po
 	-rm -f ./$(DEPDIR)/pluginmanager.Po
@@ -1383,6 +1582,16 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/writeckpt.Po
 	-rm -f plugin/alloc/$(DEPDIR)/$(am__dirstamp)
 	-rm -f plugin/alloc/$(am__dirstamp)
+	-rm -f plugin/ipc/$(DEPDIR)/$(am__dirstamp)
+	-rm -f plugin/ipc/$(am__dirstamp)
+	-rm -f plugin/ipc/event/$(DEPDIR)/$(am__dirstamp)
+	-rm -f plugin/ipc/event/$(am__dirstamp)
+	-rm -f plugin/ipc/file/$(DEPDIR)/$(am__dirstamp)
+	-rm -f plugin/ipc/file/$(am__dirstamp)
+	-rm -f plugin/ipc/socket/$(DEPDIR)/$(am__dirstamp)
+	-rm -f plugin/ipc/socket/$(am__dirstamp)
+	-rm -f plugin/ipc/ssh/$(DEPDIR)/$(am__dirstamp)
+	-rm -f plugin/ipc/ssh/$(am__dirstamp)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -1464,6 +1673,29 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/nosyscallsreal.Po
 	-rm -f plugin/alloc/$(DEPDIR)/mallocwrappers.Po
 	-rm -f plugin/alloc/$(DEPDIR)/mmapwrappers.Po
+	-rm -f plugin/ipc/$(DEPDIR)/connection.Po
+	-rm -f plugin/ipc/$(DEPDIR)/connectionidentifier.Po
+	-rm -f plugin/ipc/$(DEPDIR)/connectionlist.Po
+	-rm -f plugin/ipc/$(DEPDIR)/ipc.Po
+	-rm -f plugin/ipc/event/$(DEPDIR)/eventconnection.Po
+	-rm -f plugin/ipc/event/$(DEPDIR)/eventconnlist.Po
+	-rm -f plugin/ipc/event/$(DEPDIR)/eventwrappers.Po
+	-rm -f plugin/ipc/event/$(DEPDIR)/util_descriptor.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/fileconnection.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/fileconnlist.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/filewrappers.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/openwrappers.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/posixipcwrappers.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/ptyconnection.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/ptyconnlist.Po
+	-rm -f plugin/ipc/file/$(DEPDIR)/ptywrappers.Po
+	-rm -f plugin/ipc/socket/$(DEPDIR)/connectionrewirer.Po
+	-rm -f plugin/ipc/socket/$(DEPDIR)/kernelbufferdrainer.Po
+	-rm -f plugin/ipc/socket/$(DEPDIR)/socketconnection.Po
+	-rm -f plugin/ipc/socket/$(DEPDIR)/socketconnlist.Po
+	-rm -f plugin/ipc/socket/$(DEPDIR)/socketwrappers.Po
+	-rm -f plugin/ipc/ssh/$(DEPDIR)/ssh.Po
+	-rm -f plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po
 	-rm -f ./$(DEPDIR)/plugin_pathtranslator.Po
 	-rm -f ./$(DEPDIR)/plugininfo.Po
 	-rm -f ./$(DEPDIR)/pluginmanager.Po

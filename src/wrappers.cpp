@@ -16,6 +16,8 @@
 
 #include <fcntl.h>
 #include <limits.h>  // for PATH_MAX
+#include <mqueue.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -34,6 +36,19 @@
 #include "threadsync.h"
 #include "util.h"
 #include "syscallwrappers.h"
+#include "plugin/file/fileconnection.h"
+
+#undef _real_socket
+#undef _real_bind
+#undef _real_close
+#undef _real_fclose
+#undef _real_closedir
+#undef _real_dup
+#undef _real_dup2
+#undef _real_dup3
+#undef _real_fcntl
+#undef _real_select
+#undef _real_poll
 
 
 namespace dmtcp
@@ -512,6 +527,166 @@ dup3(int oldfd, int newfd, int flags)
 # define F_DUPFD_CLOEXEC 0
 #endif
 
+static bool
+fcntlCmdHasNoArg(int cmd)
+{
+  switch (cmd) {
+  case F_GETFD:
+  case F_GETFL:
+  case F_GETOWN:
+#ifdef F_GETSIG
+  case F_GETSIG:
+#endif
+#ifdef F_GETLEASE
+  case F_GETLEASE:
+#endif
+#ifdef F_GETPIPE_SZ
+  case F_GETPIPE_SZ:
+#endif
+#ifdef F_GET_SEALS
+  case F_GET_SEALS:
+#endif
+    return true;
+  default:
+    return false;
+  }
+}
+
+static bool
+fcntlCmdUsesPointerArg(int cmd)
+{
+  switch (cmd) {
+  case F_GETLK:
+  case F_SETLK:
+  case F_SETLKW:
+#if defined(F_GETLK64) && F_GETLK64 != F_GETLK
+  case F_GETLK64:
+#endif
+#if defined(F_SETLK64) && F_SETLK64 != F_SETLK
+  case F_SETLK64:
+#endif
+#if defined(F_SETLKW64) && F_SETLKW64 != F_SETLKW
+  case F_SETLKW64:
+#endif
+#ifdef F_GETOWN_EX
+  case F_GETOWN_EX:
+#endif
+#ifdef F_SETOWN_EX
+  case F_SETOWN_EX:
+#endif
+#ifdef F_OFD_GETLK
+  case F_OFD_GETLK:
+#endif
+#ifdef F_OFD_SETLK
+  case F_OFD_SETLK:
+#endif
+#ifdef F_OFD_SETLKW
+  case F_OFD_SETLKW:
+#endif
+#ifdef F_GET_RW_HINT
+  case F_GET_RW_HINT:
+#endif
+#ifdef F_SET_RW_HINT
+  case F_SET_RW_HINT:
+#endif
+#ifdef F_GET_FILE_RW_HINT
+  case F_GET_FILE_RW_HINT:
+#endif
+#ifdef F_SET_FILE_RW_HINT
+  case F_SET_FILE_RW_HINT:
+#endif
+    return true;
+  default:
+    return false;
+  }
+}
+
+
+static int
+virtualToRealFcntlOwner(int owner)
+{
+  if (owner < 0) {
+    return -dmtcp_pid_virtual_to_real((pid_t)-owner);
+  }
+  return dmtcp_pid_virtual_to_real((pid_t)owner);
+}
+
+static int
+realToVirtualFcntlOwner(int owner)
+{
+  if (owner < 0) {
+    return -dmtcp_pid_real_to_virtual((pid_t)-owner);
+  }
+  return dmtcp_pid_real_to_virtual((pid_t)owner);
+}
+
+struct MqNotifyData {
+  void (*start_routine) (union sigval);
+  union sigval sv;
+  mqd_t mqdes;
+};
+
+static void
+mqNotifyThreadStart(union sigval sv)
+{
+  MqNotifyData *data = (MqNotifyData *)sv.sival_ptr;
+
+  void (*start_routine) (union sigval) = data->start_routine;
+  union sigval userSv = data->sv;
+  mqd_t mqdes = data->mqdes;
+
+  JALLOC_HELPER_FREE(data);
+
+  dmtcp_posix_mq_note_notify_thread_start(mqdes);
+  start_routine(userSv);
+}
+
+extern "C" int
+mq_notify(mqd_t mqdes, const struct sigevent *sevp)
+{
+  WrapperLock wrapperLock;
+
+  struct sigevent translated;
+  const struct sigevent *realSev = sevp;
+  MqNotifyData *mdata = NULL;
+
+  if (sevp != NULL) {
+    translated = *sevp;
+    if (translated.sigev_notify == SIGEV_THREAD_ID) {
+      translated._sigev_un._tid =
+        dmtcp_pid_virtual_to_real(translated._sigev_un._tid);
+    }
+    realSev = &translated;
+  }
+
+  if (realSev != NULL &&
+      realSev->sigev_notify == SIGEV_THREAD &&
+      internalPluginEnabled(INTERNAL_PLUGIN_FILE)) {
+    /*
+     * _real_mq_notify consumes/copies the sigevent before returning.  Only
+     * mdata must outlive this wrapper so the notification thread can clear
+     * the POSIX MQ registration before it calls the user's start routine.
+     */
+    mdata = (MqNotifyData *)JALLOC_HELPER_MALLOC(sizeof(MqNotifyData));
+    mdata->start_routine = realSev->sigev_notify_function;
+    mdata->sv = realSev->sigev_value;
+    mdata->mqdes = mqdes;
+    translated.sigev_notify_function = mqNotifyThreadStart;
+    translated.sigev_value.sival_ptr = mdata;
+    realSev = &translated;
+  }
+
+  int ret = _real_mq_notify(mqdes, realSev);
+  if (ret == -1 && mdata != NULL) {
+    JALLOC_HELPER_FREE(mdata);
+  }
+
+  if (ret != -1) {
+    dmtcp_posix_mq_note_notify(mqdes, sevp);
+  }
+
+  return ret;
+}
 
 extern "C" int
 fcntl(int fd, int cmd, ...)

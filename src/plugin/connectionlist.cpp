@@ -23,9 +23,11 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
+#include <set>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <utility>
 #include <unistd.h>
 
 #include "jassert.h"
@@ -172,10 +174,23 @@ void
 ConnectionList::deleteStaleConnections()
 {
   // build list of stale connections
-  vector<int>staleFds;
-  for (FdToConMapT::iterator i = _fdToCon.begin(); i != _fdToCon.end(); ++i) {
-    if (_isBadFd(i->first)) {
-      staleFds.push_back(i->first);
+  set<int> seenFds;
+  vector<std::pair<ConnectionIdentifier, int> > staleFds;
+  for (ConnectionMapT::iterator i = _connections.begin();
+       i != _connections.end();
+       ++i) {
+    const vector<int32_t> &fds = i->second->getFds();
+    for (size_t j = 0; j < fds.size(); ++j) {
+      if (_isBadFd(fds[j]) && seenFds.insert(fds[j]).second) {
+        staleFds.push_back(std::make_pair(i->first, fds[j]));
+      }
+    }
+  }
+  for (FdToConMapT::iterator i = _fdToCon.begin();
+       i != _fdToCon.end();
+       ++i) {
+    if (_isBadFd(i->first) && seenFds.insert(i->first).second) {
+      staleFds.push_back(std::make_pair(i->second->id(), i->first));
     }
   }
 
@@ -185,11 +200,11 @@ ConnectionList::deleteStaleConnections()
     out << "\tDevice \t\t->\t File Descriptor -> ConnectionId\n";
     out << "==================================================\n";
     for (size_t i = 0; i < staleFds.size(); ++i) {
-      Connection *c = getConnection(staleFds[i]);
+      Connection *c = getConnection(staleFds[i].first);
 
-      out << "\t[" << jalib::XToString(staleFds[i]) << "]"
+      out << "\t[" << jalib::XToString(staleFds[i].second) << "]"
           << c->str()
-          << "\t->\t" << staleFds[i]
+          << "\t->\t" << staleFds[i].second
           << "\t->\t" << c->id() << "\n";
     }
     out << "==================================================\n";
@@ -199,7 +214,24 @@ ConnectionList::deleteStaleConnections()
 
   // delete all the stale connections
   for (size_t i = 0; i < staleFds.size(); ++i) {
-    processClose(staleFds[i]);
+    ConnectionMapT::iterator conit = _connections.find(staleFds[i].first);
+    if (conit == _connections.end()) {
+      continue;
+    }
+
+    int fd = staleFds[i].second;
+    FdToConMapT::iterator fdit = _fdToCon.find(fd);
+    if (fdit != _fdToCon.end() && fdit->second == conit->second) {
+      processClose(fd);
+      continue;
+    }
+
+    Connection *con = conit->second;
+    con->removeFd(fd);
+    if (con->numFds() == 0) {
+      _connections.erase(conit);
+      delete con;
+    }
   }
 }
 

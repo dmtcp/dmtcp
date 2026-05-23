@@ -28,6 +28,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "builtinplugins.h"
 #include "jassert.h"
 #include "dmtcpalloc.h"
 #include "eventconnection.h"
@@ -165,6 +166,10 @@ select(int nfds,
 extern "C" int
 signalfd(int fd, const sigset_t *mask, int flags)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_signalfd(fd, mask, flags);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_signalfd(fd, mask, flags);
   if (ret != -1) {
@@ -180,6 +185,10 @@ signalfd(int fd, const sigset_t *mask, int flags)
 extern "C" int
 eventfd(EVENTFD_VAL_TYPE initval, int flags)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_eventfd(initval, flags);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_eventfd(initval, flags);
   if (ret != -1) {
@@ -195,6 +204,10 @@ eventfd(EVENTFD_VAL_TYPE initval, int flags)
 extern "C" int
 epoll_create(int size)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_epoll_create(size);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_create(size);
   if (ret != -1) {
@@ -209,6 +222,10 @@ epoll_create(int size)
 extern "C" int
 epoll_create1(int flags)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_epoll_create1(flags);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_create1(flags);
   if (ret != -1) {
@@ -223,6 +240,10 @@ epoll_create1(int flags)
 extern "C" int
 epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_epoll_ctl(epfd, op, fd, event);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_ctl(epfd, op, fd, event);
   if (ret != -1) {
@@ -278,6 +299,10 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 EXTERNC int
 inotify_init()
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_inotify_init();
+  }
+
   JWARNING(false).Text("Inotify not yet supported by DMTCP");
   errno = ENOMEM;
   return -1;
@@ -286,6 +311,10 @@ inotify_init()
 EXTERNC int
 inotify_init1(int flags)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_inotify_init1(flags);
+  }
+
   JWARNING(false).Text("Inotify not yet supported by DMTCP");
   errno = ENOMEM;
   return -1;
@@ -304,17 +333,21 @@ inotify_init1(int flags)
 EXTERNC int
 inotify_init()
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_inotify_init();
+  }
+
   int fd;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JTRACE("Starting to create an inotify fd.");
   fd = _real_inotify_init();
-  if (fd > 0) {
-    JTRACE("inotify fd created") (ret);
+  if (fd != -1) {
+    JTRACE("inotify fd created") (fd);
 
     // create the inotify object
     Connection *con = new InotifyConnection(0);
-    EventConnList::instance().add(ret, con);
+    EventConnList::instance().add(fd, con);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;
@@ -331,12 +364,16 @@ inotify_init()
 EXTERNC int
 inotify_init1(int flags)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_inotify_init1(flags);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_inotify_init1(flags);
   if (ret != -1) {
     JTRACE("inotify1 fd created") (ret) (flags);
     Connection *con = new InotifyConnection(flags);
-    EventConnList::instance().add(ret, flags);
+    EventConnList::instance().add(ret, con);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
@@ -355,14 +392,19 @@ inotify_init1(int flags)
 EXTERNC int
 inotify_add_watch(int fd, const char *pathname, uint32_t mask)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_inotify_add_watch(fd, pathname, mask);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_inotify_add_watch(fd, pathname, mask);
   if (ret != -1) {
     JTRACE("calling inotify class methods");
-    InotifyConnection &inotify_con =
+    InotifyConnection *inotify_con =
       (InotifyConnection *)EventConnList::instance().getConnection(fd);
-
-    inotify_con->add_watch_descriptors(ret, fd, pathname, mask);
+    if (inotify_con != NULL) {
+      inotify_con->add_watch_descriptors(ret, fd, pathname, mask);
+    }
 
     /*temp_pathname = pathname;
       inotify_con.map_inotify_fd_to_wd ( fd, ret);
@@ -386,15 +428,21 @@ inotify_add_watch(int fd, const char *pathname, uint32_t mask)
 EXTERNC int
 inotify_rm_watch(int fd, int wd)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_inotify_rm_watch(fd, wd);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_inotify_rm_watch(fd, wd);
   if (ret != -1) {
     JTRACE("remove inotify mapping from dmtcp") (ret) (fd) (wd);
-    InotifyConnection &inotify_con =
+    InotifyConnection *inotify_con =
       (InotifyConnection *)EventConnList::instance().getConnection(fd);
 
     // inotify_con.remove_mappings(fd, wd);
-    inotify_con->remove_watch_descriptors(wd);
+    if (inotify_con != NULL) {
+      inotify_con->remove_watch_descriptors(wd);
+    }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;

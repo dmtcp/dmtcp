@@ -33,11 +33,13 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "builtinplugins.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 #include "socketconnection.h"
 #include "socketconnlist.h"
 #include "socketwrappers.h"
+#include "wrapperlock.h"
 
 using namespace dmtcp;
 
@@ -53,6 +55,10 @@ static __thread bool _doNotProcessSockets ATTR_TLS_INITIAL_EXEC = false;
 extern "C" int
 socket(int domain, int type, int protocol)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_socket(domain, type, protocol);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_socket(domain, type, protocol);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
@@ -74,6 +80,10 @@ socket(int domain, int type, int protocol)
 extern "C" int
 connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_connect(sockfd, serv_addr, addrlen);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
 
   int ret = _real_connect(sockfd, serv_addr, addrlen);
@@ -100,6 +110,10 @@ connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen)
 extern "C" int
 bind(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_bind(sockfd, my_addr, addrlen);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_bind(sockfd, my_addr, addrlen);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
@@ -119,6 +133,10 @@ bind(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen)
 extern "C" int
 listen(int sockfd, int backlog)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_listen(sockfd, backlog);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_listen(sockfd, backlog);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
@@ -168,6 +186,10 @@ process_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 extern "C" int
 accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_accept(sockfd, addr, addrlen);
+  }
+
   /* FIXME: accept() is a blocking call that can alter the process state(by
    * creating a new socket-fd). This can cause problems if it happens at a time
    * when some other thread is processing inside a fork() or exec() wrapper.
@@ -186,8 +208,11 @@ accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
     addrlen = &tmp_len;
   }
   int ret = _real_accept(sockfd, addr, addrlen);
-  if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
-    process_accept(ret, sockfd, addr, addrlen);
+  if (ret != -1) {
+    WrapperLock wrapperLock;
+    if (dmtcp_is_running_state() && !_doNotProcessSockets) {
+      process_accept(ret, sockfd, addr, addrlen);
+    }
   }
   return ret;
 }
@@ -195,6 +220,10 @@ accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 extern "C" int
 accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_accept4(sockfd, addr, addrlen, flags);
+  }
+
   // Look at the comment for accept()
   struct sockaddr_storage tmp_addr;
   socklen_t tmp_len = 0;
@@ -205,8 +234,11 @@ accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags)
     addrlen = &tmp_len;
   }
   int ret = _real_accept4(sockfd, addr, addrlen, flags);
-  if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
-    process_accept(ret, sockfd, addr, addrlen);
+  if (ret != -1) {
+    WrapperLock wrapperLock;
+    if (dmtcp_is_running_state() && !_doNotProcessSockets) {
+      process_accept(ret, sockfd, addr, addrlen);
+    }
   }
   return ret;
 }
@@ -218,6 +250,10 @@ setsockopt(int sockfd,
            const void *optval,
            socklen_t optlen)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_setsockopt(sockfd, level, optname, optval, optlen);
+  }
+
   int ret = _real_setsockopt(sockfd, level, optname, optval, optlen);
 
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
@@ -255,6 +291,10 @@ getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
 extern "C" int
 socketpair(int d, int type, int protocol, int sv[2])
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_socketpair(d, type, protocol, sv);
+  }
+
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   JASSERT(sv != NULL);
@@ -283,13 +323,20 @@ getaddrinfo(const char *node,
             const struct addrinfo *hints,
             struct addrinfo **res)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_getaddrinfo(node, service, hints, res);
+  }
 
   // See comment near definition of _doNotProcessSockets;
-  _doNotProcessSockets = true;
+  {
+    WrapperLock wrapperLock;
+    _doNotProcessSockets = true;
+  }
   int ret = _real_getaddrinfo(node, service, hints, res);
-  _doNotProcessSockets = false;
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  {
+    WrapperLock wrapperLock;
+    _doNotProcessSockets = false;
+  }
   return ret;
 }
 
@@ -302,32 +349,56 @@ getnameinfo(const struct sockaddr *sa,
             size_t servlen,
             int flags)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  _doNotProcessSockets = true;
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_getnameinfo(sa, salen, host, hostlen, serv, servlen, flags);
+  }
+
+  {
+    WrapperLock wrapperLock;
+    _doNotProcessSockets = true;
+  }
   int ret = _real_getnameinfo(sa, salen, host, hostlen, serv, servlen, flags);
-  _doNotProcessSockets = false;
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  {
+    WrapperLock wrapperLock;
+    _doNotProcessSockets = false;
+  }
   return ret;
 }
 
 extern "C" struct hostent *
 gethostbyname(const char *name)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  _doNotProcessSockets = true;
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_gethostbyname(name);
+  }
+
+  {
+    WrapperLock wrapperLock;
+    _doNotProcessSockets = true;
+  }
   struct hostent *ret = _real_gethostbyname(name);
-  _doNotProcessSockets = false;
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  {
+    WrapperLock wrapperLock;
+    _doNotProcessSockets = false;
+  }
   return ret;
 }
 
 extern "C" struct hostent *
 gethostbyaddr(const void *addr, socklen_t len, int type)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  _doNotProcessSockets = true;
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+    return _real_gethostbyaddr(addr, len, type);
+  }
+
+  {
+    WrapperLock wrapperLock;
+    _doNotProcessSockets = true;
+  }
   struct hostent *ret = _real_gethostbyaddr(addr, len, type);
-  _doNotProcessSockets = false;
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  {
+    WrapperLock wrapperLock;
+    _doNotProcessSockets = false;
+  }
   return ret;
 }
