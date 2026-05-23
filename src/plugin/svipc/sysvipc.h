@@ -48,6 +48,9 @@
 #define REAL_TO_VIRTUAL_SHM_ID(id) SysVShm::instance().realToVirtualId(id)
 #define VIRTUAL_TO_REAL_SHM_ID(id) SysVShm::instance().virtualToRealId(id)
 
+#define REAL_TO_VIRTUAL_SHM_KEY(key) SysVShm::instance().realToVirtualKey(key)
+#define VIRTUAL_TO_REAL_SHM_KEY(key) SysVShm::instance().virtualToRealKey(key)
+
 #define REAL_TO_VIRTUAL_SEM_ID(id) SysVSem::instance().realToVirtualId(id)
 #define VIRTUAL_TO_REAL_SEM_ID(id) SysVSem::instance().virtualToRealId(id)
 
@@ -124,10 +127,17 @@ namespace dmtcp
       static SysVShm& instance();
 
       int  shmaddrToShmid(const void* shmaddr);
-      virtual void on_shmget(int shmid, key_t key, size_t size, int shmflg);
+      virtual void on_shmget(int shmid, key_t realKey, key_t key,
+                             size_t size, int shmflg);
       virtual void on_shmat(int shmid, const void *shmaddr, int shmflg,
                             void* newaddr);
       virtual void on_shmdt(const void *shmaddr);
+      key_t virtualToRealKey(key_t key);
+      key_t realToVirtualKey(key_t key);
+      void updateKeyMapping(key_t v, key_t r);
+    protected:
+      map<key_t, key_t>_keyMap;
+      typedef map<key_t, key_t>::iterator KIterator;
   };
 
   class SysVSem : public SysVIPC
@@ -243,7 +253,7 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg);
-      ~Semaphore() { delete _semval; delete _semadj; }
+      ~Semaphore();
       void on_semop(struct sembuf *sops, unsigned nsops);
 
       virtual bool isStale();

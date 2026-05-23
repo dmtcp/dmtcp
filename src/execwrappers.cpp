@@ -20,14 +20,6 @@
  ****************************************************************************/
 
 #include <sys/syscall.h>
-#ifdef __aarch64__
-# define __ARCH_WANT_SYSCALL_DEPRECATED
-// SYS_fork is a deprecated kernel call in aarch64; in favor of SYS_clone?
-# include <asm-generic/unistd.h>
-// SYS_fork undefined in aarch64, but add extra insurance
-# undef SYS_fork
-# define SYS_fork __NR_fork
-#endif
 #include "constants.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
@@ -167,7 +159,11 @@ extern "C" pid_t fork()
        * resuming to run under dmtcp
        */
       (dmtcp_delay_resume_blocked != NULL && dmtcp_delay_resume_blocked())) {
+#ifdef __aarch64__
+    return _real_fork();
+#else
     return _real_syscall(SYS_fork);
+#endif
   }
 
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while

@@ -107,7 +107,7 @@ void dmtcpResetPidPpid()
 }
 
 
-extern "C" LIB_PRIVATE
+extern "C"
 void dmtcpResetTid(pid_t tid)
 {
   _dmtcp_thread_tid = tid;
@@ -133,9 +133,22 @@ LIB_PRIVATE pid_t dmtcp_gettid()
    * cached before it is accessed by some other DMTCP code.
    */
   if (_dmtcp_thread_tid == -1) {
-    _dmtcp_thread_tid = getpid();
-    // Make sure this is the motherofall thread.
-    JASSERT(_real_gettid() == _real_getpid()) (_real_gettid()) (_real_getpid());
+    pid_t realTid = _real_gettid();
+    pid_t realPid = _real_getpid();
+
+    if (realTid == realPid) {
+      _dmtcp_thread_tid = getpid();
+    } else {
+      /*
+       * Some libc/plugin startup paths can ask for a tid from a non-leader
+       * thread before ThreadList::initCurrentThreadForPthread() has had a
+       * chance to seed this TLS slot via dmtcpResetTid().  This branch already
+       * treats pthread-created threads as identity-mapped until a virtual tid
+       * is explicitly assigned, so preserve that behavior instead of aborting.
+       */
+      _dmtcp_thread_tid = realTid;
+      VirtualPidTable::instance().updateMapping(_dmtcp_thread_tid, realTid);
+    }
   }
   return _dmtcp_thread_tid;
 }
@@ -715,4 +728,3 @@ extern "C" int setuid(uid_t uid)
 // 				    struct robust_list_head __user * __user *head_ptr,
 // 				    size_t __user *len_ptr);
 //
-

@@ -21,6 +21,23 @@
 #include <fcntl.h>
 #include <sys/vfs.h>
 
+// glibc 2.33 and later stopped defining _STAT_VER and the xstat family.
+// Map the old xstat wrappers onto the public stat family when needed.
+#ifndef _STAT_VER
+# undef __xstat
+# undef __xstat64
+# undef __lxstat
+# undef __lxstat64
+# define __xstat(vers,path,buf)         stat(path,buf)
+# define __xstat64(vers,path,buf)       stat64(path,buf)
+# define __lxstat(vers,path,buf)        lstat(path,buf)
+# define __lxstat64(vers,path,buf)      lstat64(path,buf)
+# define _real_xstat(vers,path,buf)     _real_stat(path,buf)
+# define _real_xstat64(vers,path,buf)   _real_stat64(path,buf)
+# define _real_lxstat(vers,path,buf)    _real_lstat(path,buf)
+# define _real_lxstat64(vers,path,buf)  _real_lstat64(path,buf)
+#endif
+
 #undef open
 #undef open64
 #undef openat
@@ -48,10 +65,17 @@
 #define _real_openat     NEXT_FNC(openat)
 #define _real_openat64   NEXT_FNC(openat64)
 #define _real_opendir    NEXT_FNC(opendir)
-#define _real_xstat      NEXT_FNC(__xstat)
-#define _real_xstat64    NEXT_FNC(__xstat64)
-#define _real_lxstat     NEXT_FNC(__lxstat)
-#define _real_lxstat64   NEXT_FNC(__lxstat64)
+#ifdef _STAT_VER
+# define _real_xstat      NEXT_FNC(__xstat)
+# define _real_xstat64    NEXT_FNC(__xstat64)
+# define _real_lxstat     NEXT_FNC(__lxstat)
+# define _real_lxstat64   NEXT_FNC(__lxstat64)
+#else
+# define _real_stat       NEXT_FNC(stat)
+# define _real_stat64     NEXT_FNC(stat64)
+# define _real_lstat      NEXT_FNC(lstat)
+# define _real_lstat64    NEXT_FNC(lstat64)
+#endif
 #define _real_readlink   NEXT_FNC(readlink)
 #define _real_realpath   NEXT_FNC(realpath)
 #define _real_access     NEXT_FNC(access)

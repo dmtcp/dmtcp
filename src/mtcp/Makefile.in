@@ -87,7 +87,7 @@ libs: build
 build: $(targetdir)/bin/$(MTCP_RESTART) libmtcp.a
 
 $(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o ${ARM_BINARIES}
-	${LINK} -fPIC -g -O0 -nodefaultlibs $^
+	${LINK} -fPIC -g -O0 -nodefaultlibs -static $^
 
 # We need to compile mtcp_restart.c with "-fno-stack-protector" to avoid
 # runtime stack smashing detection.
