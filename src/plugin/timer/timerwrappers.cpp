@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include "timerwrappers.h"
+#include "builtinplugins.h"
 #include "timerlist.h"
 #include "wrapperlock.h"
 
@@ -28,12 +29,16 @@ using namespace dmtcp;
 extern "C" int
 timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+    return _real_timer_create(clockid, sevp, timerid);
+  }
+
   struct sigevent sevOut;
   timer_t realId;
   timer_t virtId;
   int ret;
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  WrapperLock wrapperLock;
 
   // Note that clockid can be for a system-wide clock with no virtual id.
   // An example is CLOCK_REALTIME.  By luck, VIRTUAL_TO_REAL_CLOCK_ID()
@@ -51,21 +56,23 @@ timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
     JTRACE("Creating new timer") (clockid) (realClockId) (realId) (virtId);
     *timerid = virtId;
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int
 timer_delete(timer_t timerid)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+    return _real_timer_delete(timerid);
+  }
+
+  WrapperLock wrapperLock;
   timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(timerid);
   int ret = _real_timer_delete(realId);
   if (ret != -1) {
     TimerList::instance().on_timer_delete(timerid);
     JTRACE("Deleted timer") (timerid);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
@@ -75,59 +82,81 @@ timer_settime(timer_t timerid,
               const struct itimerspec *new_value,
               struct itimerspec *old_value)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+    return _real_timer_settime(timerid, flags, new_value, old_value);
+  }
+
+  WrapperLock wrapperLock;
   timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(timerid);
   int ret = _real_timer_settime(realId, flags, new_value, old_value);
   if (ret != -1) {
     TimerList::instance().on_timer_settime(timerid, flags, new_value);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int
 timer_gettime(timer_t timerid, struct itimerspec *curr_value)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+    return _real_timer_gettime(timerid, curr_value);
+  }
+
+  WrapperLock wrapperLock;
   timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(timerid);
   int ret = _real_timer_gettime(realId, curr_value);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int
 timer_getoverrun(timer_t timerid)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+    return _real_timer_getoverrun(timerid);
+  }
+
+  WrapperLock wrapperLock;
   timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(timerid);
   int ret = _real_timer_getoverrun(realId);
 
   // If there was some overrun at checkpoint time, add it to the current value
   ret += TimerList::instance().getoverrun(timerid);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int
 clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+    return _real_clock_getcpuclockid(pid, clock_id);
+  }
+
   clockid_t realId;
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  WrapperLock wrapperLock;
+  if (clock_id == NULL) {
+    return _real_clock_getcpuclockid(pid, clock_id);
+  }
   int ret = _real_clock_getcpuclockid(pid, &realId);
   if (ret == 0) {
     *clock_id = REAL_TO_VIRTUAL_CLOCK_ID(pid, realId);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int
 pthread_getcpuclockid(pthread_t thread, clockid_t *clock_id)
 {
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+    return _real_pthread_getcpuclockid(thread, clock_id);
+  }
+
   // We need to acquire an exclusive lock here because the corresponding Pid
   // plugin wrapper requires an exclusive lock.
   WrapperLockExcl wrapperLock;
+  if (clock_id == NULL) {
+    return _real_pthread_getcpuclockid(thread, clock_id);
+  }
   clockid_t realId;
   int ret = _real_pthread_getcpuclockid(thread, &realId);
   if (ret == 0) {
@@ -139,36 +168,45 @@ pthread_getcpuclockid(pthread_t thread, clockid_t *clock_id)
 extern "C" int
 clock_getres(clockid_t clk_id, struct timespec *res)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+    return _real_clock_getres(clk_id, res);
+  }
+
+  WrapperLock wrapperLock;
 
   // See comment on VIRTUAL_TO_REAL_CLOCK_ID() in timer_create()
   clockid_t realId = VIRTUAL_TO_REAL_CLOCK_ID(clk_id);
   int ret = _real_clock_getres(realId, res);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int
 clock_gettime(clockid_t clk_id, struct timespec *tp)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+    return _real_clock_gettime(clk_id, tp);
+  }
+
+  WrapperLock wrapperLock;
 
   // See comment on VIRTUAL_TO_REAL_CLOCK_ID() in timer_create()
   clockid_t realId = VIRTUAL_TO_REAL_CLOCK_ID(clk_id);
   int ret = _real_clock_gettime(realId, tp);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int
 clock_settime(clockid_t clk_id, const struct timespec *tp)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+    return _real_clock_settime(clk_id, tp);
+  }
+
+  WrapperLock wrapperLock;
 
   // See comment on VIRTUAL_TO_REAL_CLOCK_ID() in timer_create()
   clockid_t realId = VIRTUAL_TO_REAL_CLOCK_ID(clk_id);
   int ret = _real_clock_settime(realId, tp);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
@@ -182,12 +220,15 @@ clock_nanosleep(clockid_t clock_id,
                 const struct timespec *request,
                 struct timespec *remain)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+    return _real_clock_nanosleep(clock_id, flags, request, remain);
+  }
+
+  WrapperLock wrapperLock;
 
   // See comment on VIRTUAL_TO_REAL_CLOCK_ID() in timer_create()
   clockid_t realId = VIRTUAL_TO_REAL_CLOCK_ID(clock_id);
   int ret = _real_clock_nanosleep(realId, flags, request, remain);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 #endif // ifdef ENABLE_CLOCK_NANOSLEEP

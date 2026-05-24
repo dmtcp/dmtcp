@@ -235,6 +235,9 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	plugin/ipc/ssh/ssh.$(OBJEXT) plugin/ipc/ssh/sshdrainer.$(OBJEXT) \
 	plugin/svipc/sysvipc.$(OBJEXT) \
 	plugin/svipc/sysvipcwrappers.$(OBJEXT) \
+	plugin/timer/timer_create.$(OBJEXT) \
+	plugin/timer/timerlist.$(OBJEXT) \
+	plugin/timer/timerwrappers.$(OBJEXT) \
 	plugin_pathtranslator.$(OBJEXT) plugininfo.$(OBJEXT) \
 	builtinplugins.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) tls.$(OBJEXT) \
 	posix_spawn.$(OBJEXT) rlimitfloatenv.$(OBJEXT) \
@@ -312,6 +315,9 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po \
 	plugin/svipc/$(DEPDIR)/sysvipc.Po \
 	plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po \
+	plugin/timer/$(DEPDIR)/timer_create.Po \
+	plugin/timer/$(DEPDIR)/timerlist.Po \
+	plugin/timer/$(DEPDIR)/timerwrappers.Po \
 	./$(DEPDIR)/plugin_pathtranslator.Po ./$(DEPDIR)/plugininfo.Po \
 	./$(DEPDIR)/pluginmanager.Po ./$(DEPDIR)/popen.Po \
 	./$(DEPDIR)/posix_spawn.Po ./$(DEPDIR)/processinfo.Po \
@@ -795,6 +801,11 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  plugin/svipc/sysvipc.h	\
 				  plugin/svipc/sysvipcwrappers.cpp \
 				  plugin/svipc/sysvipcwrappers.h \
+				  plugin/timer/timer_create.cpp	\
+				  plugin/timer/timerlist.cpp	\
+				  plugin/timer/timerlist.h	\
+				  plugin/timer/timerwrappers.cpp \
+				  plugin/timer/timerwrappers.h \
 				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
 				  builtinplugins.cpp		\
@@ -815,7 +826,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  wrappers.cpp 			\
 				  writeckpt.cpp
 
-__d_libdir__libdmtcp_so_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/plugin/ipc
+__d_libdir__libdmtcp_so_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/plugin/ipc -I$(srcdir)/plugin/timer
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
@@ -1103,6 +1114,12 @@ plugin/svipc/$(am__dirstamp):
 plugin/svipc/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) plugin/svipc/$(DEPDIR)
 	@: >>plugin/svipc/$(DEPDIR)/$(am__dirstamp)
+plugin/timer/$(am__dirstamp):
+	@$(MKDIR_P) plugin/timer
+	@: >>plugin/timer/$(am__dirstamp)
+plugin/timer/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/timer/$(DEPDIR)
+	@: >>plugin/timer/$(DEPDIR)/$(am__dirstamp)
 plugin/ipc/connection.$(OBJEXT) plugin/ipc/connectionidentifier.$(OBJEXT) \
 plugin/ipc/connectionlist.$(OBJEXT) plugin/ipc/ipc.$(OBJEXT): \
 	plugin/ipc/$(am__dirstamp) plugin/ipc/$(DEPDIR)/$(am__dirstamp)
@@ -1135,6 +1152,9 @@ plugin/ipc/ssh/ssh.$(OBJEXT) plugin/ipc/ssh/sshdrainer.$(OBJEXT): \
 plugin/svipc/sysvipc.$(OBJEXT) plugin/svipc/sysvipcwrappers.$(OBJEXT): \
 	plugin/svipc/$(am__dirstamp) \
 	plugin/svipc/$(DEPDIR)/$(am__dirstamp)
+plugin/timer/timer_create.$(OBJEXT) plugin/timer/timerlist.$(OBJEXT) \
+plugin/timer/timerwrappers.$(OBJEXT): plugin/timer/$(am__dirstamp) \
+	plugin/timer/$(DEPDIR)/$(am__dirstamp)
 
 $(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdir__libdmtcp_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp.so$(EXEEXT)
@@ -1150,6 +1170,7 @@ mostlyclean-compile:
 	-rm -f plugin/ipc/socket/*.$(OBJEXT)
 	-rm -f plugin/ipc/ssh/*.$(OBJEXT)
 	-rm -f plugin/svipc/*.$(OBJEXT)
+	-rm -f plugin/timer/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -1215,6 +1236,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/svipc/$(DEPDIR)/sysvipc.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timer_create.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timerlist.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timerwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugin_pathtranslator.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugininfo.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pluginmanager.Po@am__quote@ # am--include-marker
@@ -1571,6 +1595,9 @@ distclean: distclean-recursive
 	-rm -f plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po
 	-rm -f plugin/svipc/$(DEPDIR)/sysvipc.Po
 	-rm -f plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po
+	-rm -f plugin/timer/$(DEPDIR)/timer_create.Po
+	-rm -f plugin/timer/$(DEPDIR)/timerlist.Po
+	-rm -f plugin/timer/$(DEPDIR)/timerwrappers.Po
 	-rm -f ./$(DEPDIR)/plugin_pathtranslator.Po
 	-rm -f ./$(DEPDIR)/plugininfo.Po
 	-rm -f ./$(DEPDIR)/pluginmanager.Po
@@ -1616,6 +1643,8 @@ distclean: distclean-recursive
 	-rm -f plugin/ipc/ssh/$(am__dirstamp)
 	-rm -f plugin/svipc/$(DEPDIR)/$(am__dirstamp)
 	-rm -f plugin/svipc/$(am__dirstamp)
+	-rm -f plugin/timer/$(DEPDIR)/$(am__dirstamp)
+	-rm -f plugin/timer/$(am__dirstamp)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -1722,6 +1751,9 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f plugin/ipc/ssh/$(DEPDIR)/sshdrainer.Po
 	-rm -f plugin/svipc/$(DEPDIR)/sysvipc.Po
 	-rm -f plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po
+	-rm -f plugin/timer/$(DEPDIR)/timer_create.Po
+	-rm -f plugin/timer/$(DEPDIR)/timerlist.Po
+	-rm -f plugin/timer/$(DEPDIR)/timerwrappers.Po
 	-rm -f ./$(DEPDIR)/plugin_pathtranslator.Po
 	-rm -f ./$(DEPDIR)/plugininfo.Po
 	-rm -f ./$(DEPDIR)/pluginmanager.Po
