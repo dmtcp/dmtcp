@@ -77,18 +77,6 @@ __d_libdir__libdmtcp_pid_so_SOURCES =                                  \
 
 __d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
 
-#
-# Timer plugin
-#
-libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_timer.so
-__d_libdir__libdmtcp_timer_so_SOURCES =                                \
-	timer/timer_create.cpp                                         \
-	timer/timerlist.cpp                                            \
-	timer/timerlist.h                                              \
-	timer/timerwrappers.cpp                                        \
-	timer/timerwrappers.h
-__d_libdir__libdmtcp_timer_so_LDFLAGS = $(dmtcp_ldflags)
-
 install-libs: install-libdmtcpPROGRAMS
 
 uninstall-libs: uninstall-libdmtcpPROGRAMS
