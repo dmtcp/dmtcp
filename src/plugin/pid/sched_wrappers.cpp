@@ -481,14 +481,13 @@ sched_getparam(pid_t pid, struct sched_param *param)
 int
 sched_setattr(pid_t pid, const struct sched_attr *attr, unsigned int flags)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  WrapperLock wrapperLock;
   int result = -1;
   pid_t real_pid = 0;
   if (pid != 0) {
     real_pid = VIRTUAL_TO_REAL_PID(pid);
   }
   result = _real_sched_setattr(real_pid, attr, flags);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
 
@@ -498,14 +497,13 @@ sched_getattr(pid_t pid,
               unsigned int size,
               unsigned int flags)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  WrapperLock wrapperLock;
   int result = -1;
   pid_t real_pid = 0;
   if (pid != 0) {
     real_pid = VIRTUAL_TO_REAL_PID(pid);
   }
   result = _real_sched_getattr(real_pid, attr, size, flags);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
 #endif // if 0
