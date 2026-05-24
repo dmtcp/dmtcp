@@ -23,6 +23,7 @@
 #include <time.h>
 #include "config.h"
 #include "dmtcp.h"
+#include "plugin/pid/pidhelpers.h"
 #include "timerwrappers.h"
 
 using namespace dmtcp;
@@ -105,7 +106,14 @@ DmtcpPluginDescriptor_t timerPlugin = {
   timer_event_hook
 };
 
-DMTCP_DECL_PLUGIN(timerPlugin);
+namespace dmtcp
+{
+DmtcpPluginDescriptor_t
+dmtcp_Timer_PluginDescr()
+{
+  return timerPlugin;
+}
+}
 
 
 /*
@@ -129,7 +137,7 @@ TimerList::removeStaleClockIds()
   for (clockPidListIter = _clockPidList.begin();
        clockPidListIter != _clockPidList.end();
        clockPidListIter++) {
-    pid_t pid = clockPidListIter->second;
+    pid_t pid = dmtcp_pid_virtual_to_real(clockPidListIter->second);
     clockid_t realId = VIRTUAL_TO_REAL_CLOCK_ID(clockPidListIter->first);
     clockid_t clockid;
     if (_real_clock_getcpuclockid(pid, &clockid) != 0 || clockid != realId) {
@@ -191,7 +199,7 @@ TimerList::postRestart()
   // Refresh clockids
   map<clockid_t, pid_t>::iterator it1;
   for (it1 = _clockPidList.begin(); it1 != _clockPidList.end(); it1++) {
-    pid_t pid = it1->second;
+    pid_t pid = dmtcp_pid_virtual_to_real(it1->second);
     clockid_t virtId = it1->first;
     clockid_t realId;
     JASSERT(_real_clock_getcpuclockid(pid, &realId) == 0) (pid) (JASSERT_ERRNO);
