@@ -32,8 +32,9 @@
 #undef msgrcv
 
 #include "jassert.h"
-#include "builtinplugins.h"
+#include "pluginmanager.h"
 #include "dmtcp.h"
+#include "plugin/pid/pidhelpers.h"
 #include "sysvipc.h"
 #include "sysvipcwrappers.h"
 #include "wrapperlock.h"
@@ -41,22 +42,6 @@
 using namespace dmtcp;
 
 static struct timespec ts_100ms = { 0, 100 * 1000 * 1000 };
-
-static bool
-shmctlCmdUsesIndex(int cmd)
-{
-  switch (cmd) {
-#ifdef SHM_STAT
-  case SHM_STAT:
-#endif
-#ifdef SHM_STAT_ANY
-  case SHM_STAT_ANY:
-#endif
-    return true;
-  default:
-    return false;
-  }
-}
 
 static bool
 semctlCmdRequiresArg(int cmd)
@@ -176,6 +161,38 @@ virtualizeMsgIndexStatResult(int realId, struct msqid_ds *buf)
   return virtId != -1 ? virtId : unsupportedIndexStatResult();
 }
 
+static int
+virtualizeSemctlPidResult(int cmd, int ret)
+{
+  if (ret != -1 && cmd == GETPID) {
+    return dmtcp_pid_real_to_virtual(ret);
+  }
+  return ret;
+}
+
+static void
+virtualizeMsgPidFields(int ret, int cmd, struct msqid_ds *buf)
+{
+  if (ret == -1 || buf == NULL) {
+    return;
+  }
+
+  switch (cmd) {
+  case IPC_STAT:
+#ifdef MSG_STAT
+  case MSG_STAT:
+#endif
+#ifdef MSG_STAT_ANY
+  case MSG_STAT_ANY:
+#endif
+    buf->msg_lspid = dmtcp_pid_real_to_virtual(buf->msg_lspid);
+    buf->msg_lrpid = dmtcp_pid_real_to_virtual(buf->msg_lrpid);
+    return;
+  default:
+    return;
+  }
+}
+
 /*
  * In Open MPI 2.0, shmdt() is intercepted by modifying libraries' global
  * offset table, meaning that _real_shmdt() will be redirected into
@@ -183,8 +200,8 @@ virtualizeMsgIndexStatResult(int realId, struct msqid_ds *buf)
  * finally calls syscall() with the corresponding syscall number. The
  * inside_shmdt variable indicates if the code is inside our shmdt()
  * wrapper. If so, our syscall wrapper simply calls _real_syscall(),
- * avoiding the recursive call to the shmdt() wrapper.  See the wrapper
- * of syscall() in miscwrappers.cpp and pid_miscwrappers.cpp.
+ * avoiding the recursive call to the shmdt() wrapper. See the wrapper
+ * of syscall() in miscwrappers.cpp.
 
  * FIXME: for the long term, we need to think about the case where user
  * code modifies its own global offset table.
@@ -201,7 +218,7 @@ extern "C"
 int
 shmget(key_t key, size_t size, int shmflg)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
     return _real_shmget(key, size, shmflg);
   }
 
@@ -243,7 +260,7 @@ shmget(key_t key, size_t size, int shmflg)
 extern "C"
 void *shmat(int shmid, const void *shmaddr, int shmflg)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
     return _real_shmat(shmid, shmaddr, shmflg);
   }
 
@@ -302,7 +319,7 @@ extern "C"
 int
 shmdt(const void *shmaddr)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
     inside_shmdt = true;
     int ret = _real_shmdt(shmaddr);
     inside_shmdt = false;
@@ -324,22 +341,57 @@ extern "C"
 int
 shmctl(int shmid, int cmd, struct shmid_ds *buf)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
-    return _real_shmctl(shmid, cmd, buf);
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    int ret = _real_shmctl(shmid, cmd, buf);
+    if (ret != -1 && buf != NULL) {
+      switch (cmd) {
+      case IPC_STAT:
+#ifdef SHM_STAT
+      case SHM_STAT:
+#endif
+#ifdef SHM_STAT_ANY
+      case SHM_STAT_ANY:
+#endif
+        buf->shm_cpid = dmtcp_pid_real_to_virtual(buf->shm_cpid);
+        buf->shm_lpid = dmtcp_pid_real_to_virtual(buf->shm_lpid);
+        break;
+      default:
+        break;
+      }
+    }
+    return ret;
   }
 
   WrapperLock wrapperLock;
-  if (shmctlCmdUsesIndex(cmd)) {
+  switch (cmd) {
+#ifdef SHM_STAT
+  case SHM_STAT:
+#endif
+#ifdef SHM_STAT_ANY
+  case SHM_STAT_ANY:
+#endif
+  {
     int realId = _real_shmctl(shmid, cmd, buf);
     if (realId == -1) {
       return -1;
     }
+    if (buf != NULL) {
+      buf->shm_cpid = dmtcp_pid_real_to_virtual(buf->shm_cpid);
+      buf->shm_lpid = dmtcp_pid_real_to_virtual(buf->shm_lpid);
+    }
     return virtualizeShmIndexStatResult(realId, buf);
+  }
+  default:
+    break;
   }
 
   int realShmid = VIRTUAL_TO_REAL_SHM_ID(shmid);
   JASSERT(realShmid != -1);
   int ret = _real_shmctl(realShmid, cmd, buf);
+  if (ret != -1 && buf != NULL && cmd == IPC_STAT) {
+    buf->shm_cpid = dmtcp_pid_real_to_virtual(buf->shm_cpid);
+    buf->shm_lpid = dmtcp_pid_real_to_virtual(buf->shm_lpid);
+  }
   return ret;
 }
 
@@ -353,7 +405,7 @@ extern "C"
 int
 semget(key_t key, int nsems, int semflg)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
     return _real_semget(key, nsems, semflg);
   }
 
@@ -374,7 +426,7 @@ extern "C"
 int
 semop(int semid, struct sembuf *sops, size_t nsops)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
     return _real_semop(semid, sops, nsops);
   }
 
@@ -388,7 +440,7 @@ semtimedop(int semid,
            size_t nsops,
            const struct timespec *timeout)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
     return _real_semtimedop(semid, sops, nsops, timeout);
   }
 
@@ -458,8 +510,9 @@ semctl(int semid, int semnum, int cmd, ...)
   }
   int ret = -1;
 
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
-    return _real_semctl(semid, semnum, cmd, uarg);
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    return virtualizeSemctlPidResult(cmd,
+                                     _real_semctl(semid, semnum, cmd, uarg));
   }
 
   if (cmd == SEM_INFO || cmd == IPC_INFO) {
@@ -472,7 +525,8 @@ semctl(int semid, int semnum, int cmd, ...)
     if (ret == -1) {
       return -1;
     }
-    return virtualizeSemIndexStatResult(ret, uarg);
+    return virtualizeSemctlPidResult(cmd, virtualizeSemIndexStatResult(ret,
+                                                                       uarg));
   }
 
   int realId = VIRTUAL_TO_REAL_SEM_ID(semid);
@@ -482,7 +536,7 @@ semctl(int semid, int semnum, int cmd, ...)
     SysVSem::instance().on_semctl(semid, semnum, cmd, uarg);
   }
 
-  return ret;
+  return virtualizeSemctlPidResult(cmd, ret);
 }
 
 /******************************************************************************
@@ -495,7 +549,7 @@ extern "C"
 int
 msgget(key_t key, int msgflg)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
     return _real_msgget(key, msgflg);
   }
 
@@ -516,7 +570,7 @@ extern "C"
 int
 msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
     return _real_msgsnd(msqid, msgp, msgsz, msgflg);
   }
 
@@ -556,7 +610,7 @@ extern "C"
 ssize_t
 msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
     return _real_msgrcv(msqid, msgp, msgsz, msgtyp, msgflg);
   }
 
@@ -596,8 +650,10 @@ extern "C"
 int
 msgctl(int msqid, int cmd, struct msqid_ds *buf)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
-    return _real_msgctl(msqid, cmd, buf);
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    int ret = _real_msgctl(msqid, cmd, buf);
+    virtualizeMsgPidFields(ret, cmd, buf);
+    return ret;
   }
 
   WrapperLock wrapperLock;
@@ -606,6 +662,7 @@ msgctl(int msqid, int cmd, struct msqid_ds *buf)
     if (realId == -1) {
       return -1;
     }
+    virtualizeMsgPidFields(realId, cmd, buf);
     return virtualizeMsgIndexStatResult(realId, buf);
   }
 
@@ -615,5 +672,6 @@ msgctl(int msqid, int cmd, struct msqid_ds *buf)
   if (ret != -1) {
     SysVMsq::instance().on_msgctl(msqid, cmd, buf);
   }
+  virtualizeMsgPidFields(ret, cmd, buf);
   return ret;
 }

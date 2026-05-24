@@ -329,10 +329,10 @@ SharedData::waitForBarrier(const string &barrierId)
 
   if (numIn < sharedDataHeader->barrierInfo.numCkptPeers) {
     if (_real_syscall(SYS_futex,
-                      &sharedDataHeader->barrierInfo.curRound,
+                      (long)&sharedDataHeader->barrierInfo.curRound,
                       FUTEX_WAIT,
                       curRound,
-                      NULL, NULL, 0) != 0) {
+                      (long)NULL, (long)NULL, 0, 0) != 0) {
       JASSERT(errno == EAGAIN);
       Util::lockFile(PROTECTED_SHM_FD);
       Util::unlockFile(PROTECTED_SHM_FD);
@@ -343,10 +343,10 @@ SharedData::waitForBarrier(const string &barrierId)
     sharedDataHeader->barrierInfo.curRound++;
     WMB;
     _real_syscall(SYS_futex,
-                  &sharedDataHeader->barrierInfo.curRound,
+                  (long)&sharedDataHeader->barrierInfo.curRound,
                   FUTEX_WAKE,
                   sharedDataHeader->barrierInfo.numCkptPeers,
-                  NULL, NULL, 0);
+                  (long)NULL, (long)NULL, 0, 0);
     Util::unlockFile(PROTECTED_SHM_FD);
   }
 }

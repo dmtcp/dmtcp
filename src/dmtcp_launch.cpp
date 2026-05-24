@@ -107,7 +107,6 @@ static const char *theUsage =
   "  --ckpt-signal signum\n"
   "              Signal number used internally by DMTCP for checkpointing\n"
   "              (default: SIGUSR2/12).\n"
-  "\n"
   "Enable/disable plugins:\n"
   "  --with-plugin (environment variable DMTCP_PLUGIN)\n"
   "              Colon-separated list of DMTCP plugins to be preloaded with\n"
@@ -125,8 +124,16 @@ static const char *theUsage =
   "              Disable alloc plugin (default: enabled).\n"
   "  --disable-dl-plugin: (environment variable DMTCP_DL_PLUGIN=[01])\n"
   "              Disable dl plugin (default: enabled).\n"
-  "  --disable-ipc-plugin: (environment variable DMTCP_IPC_PLUGIN=[01])\n"
-  "              Disable ipc plugin (default: enabled).\n"
+  "  --disable-ssh-plugin: (environment variable DMTCP_SSH_PLUGIN=[01])\n"
+  "              Disable ssh plugin (default: enabled).\n"
+  "  --disable-event-plugin: (environment variable DMTCP_EVENT_PLUGIN=[01])\n"
+  "              Disable event plugin (default: enabled).\n"
+  "  --disable-file-plugin: (environment variable DMTCP_FILE_PLUGIN=[01])\n"
+  "              Disable file plugin (default: enabled).\n"
+  "  --disable-pty-plugin: (environment variable DMTCP_PTY_PLUGIN=[01])\n"
+  "              Disable pty plugin (default: enabled).\n"
+  "  --disable-socket-plugin: (environment variable DMTCP_SOCKET_PLUGIN=[01])\n"
+  "              Disable socket plugin (default: enabled).\n"
   "  --disable-svipc-plugin: (environment variable DMTCP_SVIPC_PLUGIN=[01])\n"
   "              Disable svipc plugin (default: enabled).\n"
   "  --disable-timer-plugin: (environment variable DMTCP_TIMER_PLUGIN=[01])\n"
@@ -135,7 +142,8 @@ static const char *theUsage =
   "              Disable pid plugin (default: enabled).\n"
   "  --disable-all-plugins: (environment variable DMTCP_DISABLE_ALL_PLUGINS=[01])\n"
   "              (EXPERTS ONLY, FOR DEBUGGING)\n"
-  "              Disable all plugins.\n"
+  "              Disable all built-in plugins; external DMTCP_PLUGIN entries\n"
+  "              remain enabled.\n"
   "\n"
   "Other options:\n"
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
@@ -174,7 +182,11 @@ static bool enableModifyEnvPlugin = false;
 
 static bool enableAllocPlugin = true;
 static bool enableDlPlugin = true;
-static bool enableIPCPlugin = true;
+static bool enableSshPlugin = true;
+static bool enableEventPlugin = true;
+static bool enableFilePlugin = true;
+static bool enablePtyPlugin = true;
+static bool enableSocketPlugin = true;
 static bool enableSvipcPlugin = true;
 static bool enablePathVirtPlugin = false;
 static bool enableTimerPlugin = true;
@@ -203,9 +215,7 @@ static struct PluginInfo pluginInfo[] = {               // Default value
   { &enableModifyEnvPlugin, "libdmtcp_modify-env.so" },  // Disabled
   { &enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so" }, // Disabled
   { &enableLibDMTCP, "libdmtcp.so" },                   // Enabled
-  { &enablePathVirtPlugin,  "libdmtcp_pathvirt.so"},    // Disabled
-  // PID plugin must come last.
-  { &enablePIDPlugin, "libdmtcp_pid.so" }               // Enabled
+  { &enablePathVirtPlugin,  "libdmtcp_pathvirt.so"}     // Disabled
 };
 
 const size_t numLibs = sizeof(pluginInfo) / sizeof(struct PluginInfo);
@@ -310,9 +320,37 @@ processArgs(int *orig_argc, const char ***orig_argv)
     } else if (s == "--disable-dl-plugin") {
       setenv(ENV_VAR_DL_PLUGIN, "0", 1);
       shift;
+    } else if (s == "--disable-ssh-plugin") {
+      enableSshPlugin = false;
+      setenv(ENV_VAR_SSH_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-event-plugin") {
+      enableEventPlugin = false;
+      setenv(ENV_VAR_EVENT_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-file-plugin") {
+      enableFilePlugin = false;
+      setenv(ENV_VAR_FILE_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-pty-plugin") {
+      enablePtyPlugin = false;
+      setenv(ENV_VAR_PTY_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-socket-plugin") {
+      enableSocketPlugin = false;
+      setenv(ENV_VAR_SOCKET_PLUGIN, "0", 1);
+      shift;
     } else if (s == "--disable-ipc-plugin") {
-      enableIPCPlugin = false;
-      setenv(ENV_VAR_IPC_PLUGIN, "0", 1);
+      enableSshPlugin = false;
+      enableEventPlugin = false;
+      enableFilePlugin = false;
+      enablePtyPlugin = false;
+      enableSocketPlugin = false;
+      setenv(ENV_VAR_SSH_PLUGIN, "0", 1);
+      setenv(ENV_VAR_EVENT_PLUGIN, "0", 1);
+      setenv(ENV_VAR_FILE_PLUGIN, "0", 1);
+      setenv(ENV_VAR_PTY_PLUGIN, "0", 1);
+      setenv(ENV_VAR_SOCKET_PLUGIN, "0", 1);
       shift;
     } else if (s == "--disable-svipc-plugin") {
       enableSvipcPlugin = false;
@@ -771,32 +809,11 @@ testFsGsBase()
 #endif
 }
 
-static bool
-readBooleanEnv(const char *envName, bool defaultValue)
-{
-  const char *value = getenv(envName);
-  if (value == NULL) {
-    return defaultValue;
-  }
-
-  if (strcmp(value, "1") == 0) {
-    return true;
-  }
-
-  if (strcmp(value, "0") == 0) {
-    return false;
-  }
-
-  JASSERT(false) (envName) (value)
-  .Text("Invalid value for the environment variable.");
-  return defaultValue;
-}
-
 static void
 syncPluginEnvWithLauncherState(const char *envName, bool *enabled)
 {
   if (getenv(envName) != NULL) {
-    *enabled = readBooleanEnv(envName, *enabled);
+    *enabled = Util::readBooleanEnv(envName, *enabled);
   } else {
     setenv(envName, *enabled ? "1" : "0", 0);
   }
@@ -807,31 +824,36 @@ setLDPreloadLibs(bool is32bitElf)
 {
   // preloadLibs are to set LD_PRELOAD:
   // LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
-  string preloadLibs = "";
+  string externalPreloadLibs = "";
 
   // FIXME:  If the colon-separated elements of ENV_VAR_PLUGIN are not
   // absolute pathnames, then they must be expanded to absolute pathnames.
   // Warn user if an absolute pathname is not valid.
   if (getenv(ENV_VAR_PLUGIN) != NULL) {
-    preloadLibs += getenv(ENV_VAR_PLUGIN);
-    preloadLibs += ":";
+    externalPreloadLibs += getenv(ENV_VAR_PLUGIN);
+    externalPreloadLibs += ":";
   }
-  string preloadLibs32 = preloadLibs;
+  string preloadLibs = externalPreloadLibs;
+  string preloadLibs32 = externalPreloadLibs;
 
   disableAllPlugins =
-    readBooleanEnv(ENV_VAR_DISABLE_ALL_PLUGINS, disableAllPlugins);
+    Util::readBooleanEnv(ENV_VAR_DISABLE_ALL_PLUGINS, disableAllPlugins);
 
   syncPluginEnvWithLauncherState(ENV_VAR_ALLOC_PLUGIN, &enableAllocPlugin);
   syncPluginEnvWithLauncherState(ENV_VAR_DL_PLUGIN, &enableDlPlugin);
-  syncPluginEnvWithLauncherState(ENV_VAR_IPC_PLUGIN, &enableIPCPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_SSH_PLUGIN, &enableSshPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_EVENT_PLUGIN, &enableEventPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_FILE_PLUGIN, &enableFilePlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_PTY_PLUGIN, &enablePtyPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_SOCKET_PLUGIN, &enableSocketPlugin);
   syncPluginEnvWithLauncherState(ENV_VAR_SVIPC_PLUGIN, &enableSvipcPlugin);
   syncPluginEnvWithLauncherState(ENV_VAR_TIMER_PLUGIN, &enableTimerPlugin);
   syncPluginEnvWithLauncherState(ENV_VAR_PID_PLUGIN, &enablePIDPlugin);
 
   if (disableAllPlugins) {
-    preloadLibs = Util::getPath("libdmtcp.so");
+    preloadLibs = externalPreloadLibs + Util::getPath("libdmtcp.so");
 #if defined(__x86_64__) || defined(__aarch64__)
-    preloadLibs32 = Util::getPath("libdmtcp.so", true);
+    preloadLibs32 = externalPreloadLibs + Util::getPath("libdmtcp.so", true);
 #endif // if defined(__x86_64__) || defined(__aarch64__)
   } else {
     for (size_t i = 0; i < numLibs; i++) {

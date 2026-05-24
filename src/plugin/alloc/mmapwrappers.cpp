@@ -22,6 +22,7 @@
 #include <stdarg.h>
 #include <sys/mman.h>
 #include "alloc.h"
+#include "pluginmanager.h"
 #include "wrapperlock.h"
 
 using namespace dmtcp;

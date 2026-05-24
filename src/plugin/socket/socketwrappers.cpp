@@ -33,7 +33,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "builtinplugins.h"
+#include "pluginmanager.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 #include "socketconnection.h"
@@ -55,11 +55,11 @@ static __thread bool _doNotProcessSockets ATTR_TLS_INITIAL_EXEC = false;
 extern "C" int
 socket(int domain, int type, int protocol)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
     return _real_socket(domain, type, protocol);
   }
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  WrapperLock wrapperLock;
   int ret = _real_socket(domain, type, protocol);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     Connection *con;
@@ -73,18 +73,17 @@ socket(int domain, int type, int protocol)
     }
     SocketConnList::instance().add(ret, con);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int
 connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
     return _real_connect(sockfd, serv_addr, addrlen);
   }
 
-  DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
+  WrapperLock wrapperLock;
 
   int ret = _real_connect(sockfd, serv_addr, addrlen);
   int savedErrno = errno; // Save errno to prevent modifications by the
@@ -103,18 +102,17 @@ connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen)
   }
 
   errno = savedErrno;
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int
 bind(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
     return _real_bind(sockfd, my_addr, addrlen);
   }
 
-  DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
+  WrapperLock wrapperLock;
   int ret = _real_bind(sockfd, my_addr, addrlen);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     SocketConnection *con =
@@ -126,18 +124,17 @@ bind(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen)
       con->onBind((struct sockaddr *)my_addr, addrlen);
     }
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int
 listen(int sockfd, int backlog)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
     return _real_listen(sockfd, backlog);
   }
 
-  DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
+  WrapperLock wrapperLock;
   int ret = _real_listen(sockfd, backlog);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     SocketConnection *con =
@@ -149,7 +146,6 @@ listen(int sockfd, int backlog)
       con->onListen(backlog);
     }
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
@@ -186,7 +182,7 @@ process_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 extern "C" int
 accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
     return _real_accept(sockfd, addr, addrlen);
   }
 
@@ -207,6 +203,8 @@ accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
     addr = (struct sockaddr *)&tmp_addr;
     addrlen = &tmp_len;
   }
+  // This blocking call intentionally does not hold WrapperLock across the real
+  // call. State updates after a successful return are protected separately.
   int ret = _real_accept(sockfd, addr, addrlen);
   if (ret != -1) {
     WrapperLock wrapperLock;
@@ -220,7 +218,7 @@ accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 extern "C" int
 accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
     return _real_accept4(sockfd, addr, addrlen, flags);
   }
 
@@ -233,6 +231,8 @@ accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags)
     addr = (struct sockaddr *)&tmp_addr;
     addrlen = &tmp_len;
   }
+  // This blocking call intentionally does not hold WrapperLock across the real
+  // call. State updates after a successful return are protected separately.
   int ret = _real_accept4(sockfd, addr, addrlen, flags);
   if (ret != -1) {
     WrapperLock wrapperLock;
@@ -250,7 +250,7 @@ setsockopt(int sockfd,
            const void *optval,
            socklen_t optlen)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
     return _real_setsockopt(sockfd, level, optname, optval, optlen);
   }
 
@@ -291,11 +291,11 @@ getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
 extern "C" int
 socketpair(int d, int type, int protocol, int sv[2])
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
     return _real_socketpair(d, type, protocol, sv);
   }
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  WrapperLock wrapperLock;
 
   JASSERT(sv != NULL);
   int rv = _real_socketpair(d, type, protocol, sv);
@@ -312,8 +312,6 @@ socketpair(int d, int type, int protocol, int sv[2])
     SocketConnList::instance().add(sv[1], b);
   }
 
-  DMTCP_PLUGIN_ENABLE_CKPT();
-
   return rv;
 }
 
@@ -323,7 +321,7 @@ getaddrinfo(const char *node,
             const struct addrinfo *hints,
             struct addrinfo **res)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
     return _real_getaddrinfo(node, service, hints, res);
   }
 
@@ -349,7 +347,7 @@ getnameinfo(const struct sockaddr *sa,
             size_t servlen,
             int flags)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
     return _real_getnameinfo(sa, salen, host, hostlen, serv, servlen, flags);
   }
 
@@ -368,7 +366,7 @@ getnameinfo(const struct sockaddr *sa,
 extern "C" struct hostent *
 gethostbyname(const char *name)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
     return _real_gethostbyname(name);
   }
 
@@ -387,7 +385,7 @@ gethostbyname(const char *name)
 extern "C" struct hostent *
 gethostbyaddr(const void *addr, socklen_t len, int type)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
     return _real_gethostbyaddr(addr, len, type);
   }
 

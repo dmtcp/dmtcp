@@ -60,6 +60,68 @@ extern "C" {
 int send_sigwinch = 0;
 }
 
+static bool
+ioctlRequestTakesNoArg(unsigned long int request)
+{
+#ifdef FIOCLEX
+  if (request == FIOCLEX) {
+    return true;
+  }
+#endif
+#ifdef FIONCLEX
+  if (request == FIONCLEX) {
+    return true;
+  }
+#endif
+#ifdef TIOCEXCL
+  if (request == TIOCEXCL) {
+    return true;
+  }
+#endif
+#ifdef TIOCNXCL
+  if (request == TIOCNXCL) {
+    return true;
+  }
+#endif
+#ifdef TIOCNOTTY
+  if (request == TIOCNOTTY) {
+    return true;
+  }
+#endif
+  return false;
+}
+
+static bool
+ioctlRequestTakesIntArg(unsigned long int request)
+{
+#ifdef TCSBRK
+  if (request == TCSBRK) {
+    return true;
+  }
+#endif
+#ifdef TCSBRKP
+  if (request == TCSBRKP) {
+    return true;
+  }
+#endif
+#ifdef TCFLSH
+  if (request == TCFLSH) {
+    return true;
+  }
+#endif
+#ifdef TCXONC
+  if (request == TCXONC) {
+    return true;
+  }
+#endif
+#ifdef TIOCSCTTY
+  if (request == TIOCSCTTY) {
+    return true;
+  }
+#endif
+  return false;
+}
+
 
 extern "C" int
 ioctl(int d, unsigned long int request, ...)
@@ -69,20 +131,24 @@ ioctl(int d, unsigned long int request, ...)
 
   if (send_sigwinch && request == TIOCGWINSZ) {
     send_sigwinch = 0;
-    va_list local_ap;
-    va_copy(local_ap, ap);
-    va_start(local_ap, request);
-    struct winsize *win = va_arg(local_ap, struct winsize *);
-    va_end(local_ap);
+    va_start(ap, request);
+    struct winsize *win = va_arg(ap, struct winsize *);
+    va_end(ap);
     retval = _real_ioctl(d, request, win);  // This fills in win
     win->ws_col--; // Lie to application, and force it to resize window,
                    // reset any scroll regions, etc.
     kill(getpid(), SIGWINCH); // Tell application to look up true winsize
                               // and resize again.
-  } else {
-    void *arg;
+  } else if (ioctlRequestTakesNoArg(request)) {
+    retval = _real_ioctl(d, request);
+  } else if (ioctlRequestTakesIntArg(request)) {
     va_start(ap, request);
-    arg = va_arg(ap, void *);
+    int arg = va_arg(ap, int);
+    va_end(ap);
+    retval = _real_ioctl(d, request, arg);
+  } else {
+    va_start(ap, request);
+    void *arg = va_arg(ap, void *);
     va_end(ap);
     retval = _real_ioctl(d, request, arg);
   }

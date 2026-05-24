@@ -605,7 +605,11 @@ Util::getDmtcpArgs(void)
   const char *compression = getenv(ENV_VAR_COMPRESSION);
   const char *allocPlugin = getenv(ENV_VAR_ALLOC_PLUGIN);
   const char *dlPlugin = getenv(ENV_VAR_DL_PLUGIN);
-  const char *ipcPlugin = getenv(ENV_VAR_IPC_PLUGIN);
+  const char *sshPlugin = getenv(ENV_VAR_SSH_PLUGIN);
+  const char *eventPlugin = getenv(ENV_VAR_EVENT_PLUGIN);
+  const char *filePlugin = getenv(ENV_VAR_FILE_PLUGIN);
+  const char *ptyPlugin = getenv(ENV_VAR_PTY_PLUGIN);
+  const char *socketPlugin = getenv(ENV_VAR_SOCKET_PLUGIN);
   const char *svipcPlugin = getenv(ENV_VAR_SVIPC_PLUGIN);
   const char *timerPlugin = getenv(ENV_VAR_TIMER_PLUGIN);
   const char *pidPlugin = getenv(ENV_VAR_PID_PLUGIN);
@@ -669,8 +673,24 @@ Util::getDmtcpArgs(void)
     argVector.push_back("--disable-dl-plugin");
   }
 
-  if (ipcPlugin != NULL && strcmp(ipcPlugin, "0") == 0) {
-    argVector.push_back("--disable-ipc-plugin");
+  if (sshPlugin != NULL && strcmp(sshPlugin, "0") == 0) {
+    argVector.push_back("--disable-ssh-plugin");
+  }
+
+  if (eventPlugin != NULL && strcmp(eventPlugin, "0") == 0) {
+    argVector.push_back("--disable-event-plugin");
+  }
+
+  if (filePlugin != NULL && strcmp(filePlugin, "0") == 0) {
+    argVector.push_back("--disable-file-plugin");
+  }
+
+  if (ptyPlugin != NULL && strcmp(ptyPlugin, "0") == 0) {
+    argVector.push_back("--disable-pty-plugin");
+  }
+
+  if (socketPlugin != NULL && strcmp(socketPlugin, "0") == 0) {
+    argVector.push_back("--disable-socket-plugin");
   }
 
   if (svipcPlugin != NULL && strcmp(svipcPlugin, "0") == 0) {

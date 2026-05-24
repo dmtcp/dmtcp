@@ -29,6 +29,7 @@
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "coordinatorapi.h"
+#include "plugin/pid/pidhelpers.h"
 #include "procselfmaps.h"
 #include "syscallwrappers.h"
 #include "uniquepid.h"
@@ -136,7 +137,7 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 static DmtcpPluginDescriptor_t processInfoPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "processInfo",
+  "PROCESS_INFO",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "processInfo plugin",
@@ -538,21 +539,25 @@ ProcessInfo::restart()
 void
 ProcessInfo::restoreProcessGroupInfo()
 {
-  // Restore group assignment
-  if (dmtcp_virtual_to_real_pid && dmtcp_virtual_to_real_pid(gid) != gid) {
-    pid_t cgid = getpgid(0);
+  pid_t curPid = getpid();
+  pid_t curSid = getsid(0);
 
-    // Group ID is known inside checkpointed processes
-    if (gid != cgid) {
-      JTRACE("Restore Group Assignment")
-        (gid) (fgid) (cgid) (pid) (ppid) (getppid());
-      JWARNING(setpgid(0, gid) == 0) (gid) (JASSERT_ERRNO)
-      .Text("Cannot change group information");
-    } else {
-      JTRACE("Group is already assigned") (gid) (cgid);
-    }
+  if (sid == pid && curSid != curPid) {
+    JTRACE("Restore Session Leadership") (sid) (pid) (curSid) (curPid);
+    JWARNING(setsid() != -1) (sid) (pid) (curSid) (curPid)
+      (JASSERT_ERRNO).Text("Cannot restore session leadership");
+  }
+
+  // Restore group assignment
+  pid_t cgid = getpgid(0);
+  if (gid != cgid) {
+    JTRACE("Restore Group Assignment")
+      (gid) (fgid) (cgid) (pid) (ppid) (getppid());
+    JWARNING(setpgid(0, gid) == 0) (gid)
+      (JASSERT_ERRNO)
+    .Text("Cannot change group information");
   } else {
-    JTRACE("SKIP Group information, GID unknown");
+    JTRACE("Group is already assigned") (gid) (cgid);
   }
 }
 

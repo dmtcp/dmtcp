@@ -118,8 +118,8 @@ SigInfo::saveSigHandlers()
   /* Now save all the signal handlers */
   JTRACE("saving signal handlers");
   for (sig = SIGRTMAX; sig > 0; --sig) {
-    if (_real_syscall(SYS_rt_sigaction, sig, NULL, &sigactions[sig],
-                      _NSIG / 8) < 0) {
+    if (_real_syscall(SYS_rt_sigaction, sig, (long)NULL,
+                      (long)&sigactions[sig], _NSIG / 8, 0, 0, 0) < 0) {
       JASSERT(errno == EINVAL) (sig) (JASSERT_ERRNO)
       .Text("error saving signal action");
       memset(&sigactions[sig], 0, sizeof sigactions[sig]);
@@ -147,8 +147,9 @@ SigInfo::restoreSigHandlers()
     JTRACE("restore signal handler for") (sig);
 #endif // ifdef VERBOSE_LOGGING
 
-    JASSERT(_real_syscall(SYS_rt_sigaction, sig, &sigactions[sig], NULL,
-                          _NSIG / 8) == 0 || errno == EINVAL)
+    JASSERT(_real_syscall(SYS_rt_sigaction, sig, (long)&sigactions[sig],
+                          (long)NULL, _NSIG / 8, 0, 0, 0) == 0 ||
+            errno == EINVAL)
       (sig) (JASSERT_ERRNO)
     .Text("error restoring signal handler");
   }

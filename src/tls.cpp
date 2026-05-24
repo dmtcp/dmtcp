@@ -36,6 +36,7 @@
 #include "config.h"  // define WSL if present
 #include "jassert.h"
 #include "mtcp/mtcp_sys.h"
+#include "syscallwrappers.h"
 
 #if defined(__x86_64__) || defined(__aarch64__)
 # define ELF_AUXV_T Elf64_auxv_t
@@ -201,9 +202,11 @@ TLSInfo_GetPidOffset(void)
 static void
 tls_get_thread_area(Thread *thread)
 {
-  JASSERT(_real_syscall(SYS_arch_prctl, ARCH_GET_FS, &thread->tlsInfo.fs) == 0)
+  JASSERT(_real_syscall(SYS_arch_prctl, ARCH_GET_FS,
+                        (long)&thread->tlsInfo.fs, 0, 0, 0, 0, 0) == 0)
     (JASSERT_ERRNO);
-  JASSERT(_real_syscall(SYS_arch_prctl, ARCH_GET_GS, &thread->tlsInfo.gs) == 0)
+  JASSERT(_real_syscall(SYS_arch_prctl, ARCH_GET_GS,
+                        (long)&thread->tlsInfo.gs, 0, 0, 0, 0, 0) == 0)
     (JASSERT_ERRNO);
 }
 
@@ -238,7 +241,8 @@ tls_get_thread_area(Thread *thread)
   thread->tlsInfo.gdtentrytls.entry_number = thread->tlsInfo.gs / 8;
 
   JASSERT(_real_syscall(SYS_get_thread_area,
-                        &thread->tlsInfo.gdtentrytls) == 0)
+                        (long)&thread->tlsInfo.gdtentrytls,
+                        0, 0, 0, 0, 0, 0) == 0)
     (JASSERT_ERRNO);
 }
 
@@ -563,5 +567,5 @@ TLSInfo_RestoreTLSTidPid(Thread *thread)
   }
 
   *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetTidOffset()) =
-     gettid();
+     thread->tid;
 }

@@ -150,6 +150,28 @@ typedef union _DmtcpEventData_t {
 
 typedef void (*HookFunctionPtr_t)(DmtcpEvent_t, DmtcpEventData_t *);
 
+typedef enum eDmtcpInternalPluginId {
+  INTERNAL_PLUGIN_PATHVIRT = 0,
+  INTERNAL_PLUGIN_SYSLOG,
+  INTERNAL_PLUGIN_RLIMIT_FLOAT,
+  INTERNAL_PLUGIN_ALARM,
+  INTERNAL_PLUGIN_TERMINAL,
+  INTERNAL_PLUGIN_COORDINATOR_API,
+  INTERNAL_PLUGIN_PROCESS_INFO,
+  INTERNAL_PLUGIN_UNIQUE_PID,
+  INTERNAL_PLUGIN_SSH,
+  INTERNAL_PLUGIN_EVENT,
+  INTERNAL_PLUGIN_FILE,
+  INTERNAL_PLUGIN_PTY,
+  INTERNAL_PLUGIN_SOCKET,
+  INTERNAL_PLUGIN_SVIPC,
+  INTERNAL_PLUGIN_TIMER,
+  INTERNAL_PLUGIN_PID,
+  INTERNAL_PLUGIN_ALLOC,
+  INTERNAL_PLUGIN_DL,
+  INTERNAL_PLUGIN_COUNT
+} DmtcpInternalPluginId_t;
+
 typedef struct {
   const char *pluginApiVersion;
   const char *dmtcpVersion;
@@ -493,8 +515,8 @@ int dmtcp_protected_environ_fd(void);
  *  discovers a pid without going through a system call (e.g., through
  *  the proc filesystem), use this to virtualize the pid.
  */
-pid_t dmtcp_real_to_virtual_pid(pid_t realPid) __attribute((weak));
-pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid) __attribute((weak));
+pid_t dmtcp_pid_real_to_virtual(pid_t realPid) __attribute((weak));
+pid_t dmtcp_pid_virtual_to_real(pid_t virtualPid) __attribute((weak));
 
 // bq_file -> "batch queue file"; used only by batch-queue plugin
 int dmtcp_is_bq_file(const char *path) __attribute((weak));
@@ -505,7 +527,7 @@ int dmtcp_bq_restore_file(const char *path,
                           int type) __attribute((weak));
 
 /*  These next two functions are defined in contrib/ckptfile/ckptfile.cpp
- *  But they are currently used only in src/plugin/ipc/file/fileconnection.cpp
+ *  But they are currently used only in src/plugin/file/fileconnection.cpp
  *    and in a trivial fashion.  These are intended for future extensions.
  */
 int dmtcp_must_ckpt_file(const char *path) __attribute((weak));

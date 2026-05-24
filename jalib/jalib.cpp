@@ -156,12 +156,12 @@ long
 syscall(long sys_num, ...)
 {
   int i;
-  void *arg[7];
+  long arg[7];
   va_list ap;
 
   va_start(ap, sys_num);
   for (i = 0; i < 7; i++) {
-    arg[i] = va_arg(ap, void *);
+    arg[i] = va_arg(ap, long);
   }
   va_end(ap);
 

@@ -45,11 +45,34 @@
 #include "fileconnection.h"
 #include "fileconnlist.h"
 #include "filewrappers.h"
+#include "wrapperlock.h"
 
 using namespace dmtcp;
 
 static void writeFileFromFd(int fd, int destFd);
 static bool areFilesEqual(int fd, int destFd, size_t size);
+
+static const char *
+virtualToRealPathForInternalOpen(const string& virtualPath, char *realPath)
+{
+  JASSERT(virtualPath.size() < PATH_MAX) (virtualPath)
+    .Text("Path too long for internal open translation");
+
+  strncpy(realPath, virtualPath.c_str(), PATH_MAX);
+  realPath[PATH_MAX - 1] = '\0';
+
+  /*
+   * FileConnection must use _real_open() while rebuilding internal fd state,
+   * but saved paths can still contain virtual /proc pid components.  Since
+   * _real_open() bypasses wrappers, fire the same path translation event that
+   * the public open wrappers would have fired.
+   */
+  DmtcpEventData_t data;
+  data.virtualToRealPath.path = realPath;
+  PluginManager::eventHook(DMTCP_EVENT_VIRTUAL_TO_REAL_PATH, &data);
+
+  return realPath;
+}
 
 static bool
 _isVimApp()
@@ -547,10 +570,12 @@ FileConnection::openFile()
   JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
   .Text("File not present");
 
-  int fd = _real_open(_path.c_str(), _fcntlFlags);
+  char realPath[PATH_MAX];
+  int fd = _real_open(virtualToRealPathForInternalOpen(_path, realPath),
+                      _fcntlFlags);
   JASSERT(fd != -1) (_path) (JASSERT_ERRNO).Text("open() failed");
 
-  JTRACE("open(_path.c_str(), _fcntlFlags)") (fd) (_path.c_str())
+  JTRACE("open(_path.c_str(), _fcntlFlags)") (fd) (_path.c_str()) (realPath)
     (_fcntlFlags);
   return fd;
 }
@@ -828,7 +853,7 @@ PosixMQConnection::on_mq_notify(const struct sigevent *sevp)
 }
 
 extern "C" void
-dmtcp_posix_mq_note_notify(mqd_t mqdes, const struct sigevent *sevp)
+dmtcp_posix_on_mq_notify(mqd_t mqdes, const struct sigevent *sevp)
 {
   if (!internalPluginEnabled(INTERNAL_PLUGIN_FILE)) {
     return;
@@ -842,11 +867,10 @@ dmtcp_posix_mq_note_notify(mqd_t mqdes, const struct sigevent *sevp)
 }
 
 extern "C" void
-dmtcp_posix_mq_note_notify_thread_start(mqd_t mqdes)
+dmtcp_posix_on_mq_notify_thread_start(mqd_t mqdes)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  dmtcp_posix_mq_note_notify(mqdes, NULL);
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  WrapperLock wrapperLock;
+  dmtcp_posix_on_mq_notify(mqdes, NULL);
 }
 
 void

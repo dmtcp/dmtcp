@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "alloc.h"
-#include "builtinplugins.h"
+#include "pluginmanager.h"
 #include "wrapperlock.h"
 
 using namespace dmtcp;
@@ -31,7 +31,7 @@ EXTERNC int
 dmtcp_alloc_enabled()
 {
   static const int enabled =
-    builtinPluginEnabled(BUILTIN_PLUGIN_ALLOC) ? 1 : 0;
+    internalPluginEnabled(INTERNAL_PLUGIN_ALLOC) ? 1 : 0;
   return enabled;
 }
 

@@ -41,7 +41,14 @@ typedef struct JalibFuncPtrs {
   int (*dup2)(int oldfd, int newfd);
   ssize_t (*readlink)(const char *path, char *buf, size_t bufsiz);
 
-  long (*syscall)(long sys_num, ...);
+  long (*syscall)(long sys_num,
+                  long arg1,
+                  long arg2,
+                  long arg3,
+                  long arg4,
+                  long arg5,
+                  long arg6,
+                  long arg7);
 
   int (*socket)(int domain, int type, int protocol);
   int (*connect)(int sockfd, const struct sockaddr *saddr, socklen_t addrlen);

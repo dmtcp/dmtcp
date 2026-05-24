@@ -1022,6 +1022,7 @@ if not USE_M32:  # ssh (a 64-bit child process) is forked
 if not USE_M32:  # waitpid forks a 64-bit child process, /bin/sleep
   S=2*DEFAULT_S
   runTest("waitpid",      2, ["./test/waitpid"])
+  runTest("waitid-syscall", 1, ["./test/waitid-syscall"])
   S=DEFAULT_S
 
 runTest("client-server", 2, ["./test/client-server"])

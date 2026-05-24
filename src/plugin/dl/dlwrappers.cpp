@@ -34,7 +34,7 @@
 #include "dmtcp.h"
 #include "jassert.h"
 #include "jfilesystem.h"
-#include "builtinplugins.h"
+#include "pluginmanager.h"
 #include "util.h"
 #include "wrapperlock.h"
 
@@ -47,7 +47,7 @@ extern "C" int
 dmtcp_dl_enabled()
 {
   static const int enabled =
-    builtinPluginEnabled(BUILTIN_PLUGIN_DL) ? 1 : 0;
+    internalPluginEnabled(INTERNAL_PLUGIN_DL) ? 1 : 0;
   return enabled;
 }
 

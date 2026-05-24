@@ -28,6 +28,9 @@
 
 namespace dmtcp
 {
+bool internalPluginEnabled(DmtcpInternalPluginId_t id);
+bool internalPluginEnabledByName(const char *name);
+
 class PluginManager
 {
   public:

@@ -102,7 +102,7 @@ rlimitfloat_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 static DmtcpPluginDescriptor_t rlimitFloatPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "rlimit_float",
+  "RLIMIT_FLOAT",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Rlimit/floating point plugin",

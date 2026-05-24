@@ -25,6 +25,7 @@
 #include "constants.h"
 #include "dmtcp.h"
 #include "dmtcpworker.h"
+#include "plugin/pid/pidhelpers.h"
 #include "pluginmanager.h"
 #include "processinfo.h"
 #include "siginfo.h"
@@ -40,8 +41,13 @@ using namespace dmtcp;
 extern "C" pid_t
 gettid(void) __THROW
 {
-  Thread *thread = dmtcp_get_current_thread();
-  return thread->tid;
+  return dmtcp_gettid();
+}
+
+LIB_PRIVATE pid_t
+dmtcp_gettid()
+{
+  return dmtcp_get_current_thread()->tid;
 }
 
 static void
