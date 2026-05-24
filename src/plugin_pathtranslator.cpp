@@ -185,7 +185,7 @@ pathTranslator_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 DmtcpPluginDescriptor_t pathTranslator_plugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "pathTranslator",
+  "PATHVIRT",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "PathTranslator plugin",

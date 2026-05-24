@@ -110,9 +110,10 @@ EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
 EXTERNC pid_t dmtcp_get_real_pid() __attribute((weak));
 EXTERNC int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig)
   __attribute((weak));
-EXTERNC void dmtcp_update_virtual_to_real_tid(pid_t tid) __attribute((weak));
+EXTERNC pid_t dmtcp_update_virtual_to_real_tid(pid_t tid) __attribute((weak));
 EXTERNC void dmtcp_init_virtual_tid() __attribute((weak));
 
-#define THREAD_TGKILL(pid, tid, sig) _real_syscall(SYS_tgkill, pid, tid, sig)
+#define THREAD_TGKILL(pid, tid, sig) \
+  _real_syscall(SYS_tgkill, pid, tid, sig, 0, 0, 0, 0)
 
 #endif // ifndef THREADINFO_H

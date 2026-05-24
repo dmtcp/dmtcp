@@ -34,11 +34,6 @@
 #include "dmtcpalloc.h"
 #include "virtualidtable.h"
 
-#define REAL_TO_VIRTUAL_PID(pid) \
-  dmtcp::VirtualPidTable::instance().realToVirtual(pid)
-#define VIRTUAL_TO_REAL_PID(pid) \
-  dmtcp::VirtualPidTable::instance().virtualToReal(pid)
-
 namespace dmtcp
 {
 class VirtualPidTable : public VirtualIdTable<pid_t>

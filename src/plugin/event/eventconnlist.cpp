@@ -62,7 +62,7 @@ dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 DmtcpPluginDescriptor_t eventPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "event",
+  "EVENT",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Event plugin",

@@ -14,6 +14,7 @@
 #define open     open_always_inline
 #define open64   open64_always_inline
 
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>  // for PATH_MAX
 #include <mqueue.h>
@@ -32,6 +33,7 @@
 #include "dmtcp.h"
 #include "jassert.h"
 #include "jfilesystem.h"
+#include "plugin/pid/pidhelpers.h"
 #include "pluginmanager.h"
 #include "threadsync.h"
 #include "util.h"
@@ -568,12 +570,6 @@ fcntlCmdUsesPointerArg(int cmd)
 #if defined(F_SETLKW64) && F_SETLKW64 != F_SETLKW
   case F_SETLKW64:
 #endif
-#ifdef F_GETOWN_EX
-  case F_GETOWN_EX:
-#endif
-#ifdef F_SETOWN_EX
-  case F_SETOWN_EX:
-#endif
 #ifdef F_OFD_GETLK
   case F_OFD_GETLK:
 #endif
@@ -620,6 +616,34 @@ realToVirtualFcntlOwner(int owner)
   return dmtcp_pid_real_to_virtual((pid_t)owner);
 }
 
+#if defined(F_GETOWN_EX) || defined(F_SETOWN_EX)
+static pid_t
+virtualToRealFcntlOwnerEx(int type, pid_t owner)
+{
+  switch (type) {
+  case F_OWNER_TID:
+  case F_OWNER_PID:
+  case F_OWNER_PGRP:
+    return dmtcp_pid_virtual_to_real(owner);
+  default:
+    return owner;
+  }
+}
+
+static pid_t
+realToVirtualFcntlOwnerEx(int type, pid_t owner)
+{
+  switch (type) {
+  case F_OWNER_TID:
+  case F_OWNER_PID:
+  case F_OWNER_PGRP:
+    return dmtcp_pid_real_to_virtual(owner);
+  default:
+    return owner;
+  }
+}
+#endif
+
 struct MqNotifyData {
   void (*start_routine) (union sigval);
   union sigval sv;
@@ -637,7 +661,7 @@ mqNotifyThreadStart(union sigval sv)
 
   JALLOC_HELPER_FREE(data);
 
-  dmtcp_posix_mq_note_notify_thread_start(mqdes);
+  dmtcp_posix_on_mq_notify_thread_start(mqdes);
   start_routine(userSv);
 }
 
@@ -682,7 +706,7 @@ mq_notify(mqd_t mqdes, const struct sigevent *sevp)
   }
 
   if (ret != -1) {
-    dmtcp_posix_mq_note_notify(mqdes, sevp);
+    dmtcp_posix_on_mq_notify(mqdes, sevp);
   }
 
   return ret;
@@ -693,14 +717,71 @@ fcntl(int fd, int cmd, ...)
 {
   WrapperLock wrapperLock;
 
-  void *arg = NULL;
-  va_list ap;
+  int res;
+  if (fcntlCmdHasNoArg(cmd)) {
+    res = _real_fcntl(fd, cmd);
+#ifdef F_SETOWN_EX
+  } else if (cmd == F_SETOWN_EX) {
+    struct f_owner_ex *owner = NULL;
+    va_list ap;
+    va_start(ap, cmd);
+    owner = va_arg(ap, struct f_owner_ex *);
+    va_end(ap);
 
-  va_start(ap, cmd);
-  arg = va_arg(ap, void *);
-  va_end(ap);
+    struct f_owner_ex translated;
+    struct f_owner_ex *realOwner = owner;
+    if (owner != NULL) {
+      translated = *owner;
+      translated.pid = virtualToRealFcntlOwnerEx(translated.type,
+                                                 translated.pid);
+      realOwner = &translated;
+    }
+    res = _real_fcntl(fd, cmd, realOwner);
+#endif
+#ifdef F_GETOWN_EX
+  } else if (cmd == F_GETOWN_EX) {
+    struct f_owner_ex *owner = NULL;
+    va_list ap;
+    va_start(ap, cmd);
+    owner = va_arg(ap, struct f_owner_ex *);
+    va_end(ap);
 
-  int res = _real_fcntl(fd, cmd, arg);
+    res = _real_fcntl(fd, cmd, owner);
+    if (res != -1 && owner != NULL) {
+      owner->pid = realToVirtualFcntlOwnerEx(owner->type, owner->pid);
+    }
+#endif
+  } else if (fcntlCmdUsesPointerArg(cmd)) {
+    void *arg = NULL;
+    va_list ap;
+    va_start(ap, cmd);
+    arg = va_arg(ap, void *);
+    va_end(ap);
+    res = _real_fcntl(fd, cmd, arg);
+  } else {
+    int arg;
+    va_list ap;
+    va_start(ap, cmd);
+    arg = va_arg(ap, int);
+    va_end(ap);
+    // PID F_SETOWN/F_GETOWN handling is a PID-owned wrapper concern. If fcntl
+    // must remain core-owned for fd bookkeeping, this is a documented
+    // composition point.
+    if (cmd == F_SETOWN) {
+      arg = virtualToRealFcntlOwner(arg);
+    }
+    int savedErrno = errno;
+    if (cmd == F_GETOWN) {
+      errno = 0;
+    }
+    res = _real_fcntl(fd, cmd, arg);
+    if (cmd == F_GETOWN && (res != -1 || errno == 0)) {
+      res = realToVirtualFcntlOwner(res);
+      if (res != -1) {
+        errno = savedErrno;
+      }
+    }
+  }
 
   if (res != -1 && (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC)) {
     processDupFd(fd, res);

@@ -1,6 +1,11 @@
 #include "pluginmanager.h"
 
-#include "builtinplugins.h"
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "constants.h"
 #include "coordinatorapi.h"
 #include "config.h"
 #include "dmtcp.h"
@@ -35,94 +40,168 @@ DmtcpPluginDescriptor_t dmtcp_PtyPlugin_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_SocketPlugin_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_SysVIPC_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Timer_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_PidPlugin_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_AllocPlugin_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_DlPlugin_PluginDescr();
 
 typedef DmtcpPluginDescriptor_t (*BuiltinDescriptorFn)();
-
-struct BuiltinDescriptorEntry {
+struct InternalPluginEntry {
+  DmtcpInternalPluginId_t id;
+  const char *name;
   BuiltinDescriptorFn descriptorFn;
+  DmtcpPluginDescriptor_t descriptor;
+  bool enabled;
 };
 
-static BuiltinDescriptorEntry coreBuiltinDescriptors[] = {
-  { dmtcp_PathTranslator_PluginDescr },
-  { dmtcp_Syslog_PluginDescr },
-  { dmtcp_Rlimit_Float_PluginDescr },
-  { dmtcp_Alarm_PluginDescr },
-  { dmtcp_Terminal_PluginDescr },
-  { CoordinatorAPI::pluginDescr },
-  { dmtcp_ProcessInfo_PluginDescr },
-  { UniquePid::pluginDescr }
+static DmtcpPluginDescriptor_t allocPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "ALLOC",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Allocation wrappers",
+  NULL
 };
 
-static BuiltinDescriptorEntry ipcBuiltinDescriptors[] = {
-  { dmtcp_SshPlugin_PluginDescr },
-  { dmtcp_EventPlugin_PluginDescr },
-  { dmtcp_FilePlugin_PluginDescr },
-  { dmtcp_PtyPlugin_PluginDescr },
-  { dmtcp_SocketPlugin_PluginDescr }
-};
-
-static BuiltinDescriptorEntry sysVIPCBuiltinDescriptors[] = {
-  { dmtcp_SysVIPC_PluginDescr }
-};
-
-static BuiltinDescriptorEntry timerBuiltinDescriptors[] = {
-  { dmtcp_Timer_PluginDescr }
-};
-
-// Folded descriptor order:
-// ssh, event, file, pty, socket, sysvipc, timer, core descriptors.
-// PID still registers through its separate DSO after libdmtcp.
-static void
-registerIpcBuiltinDescriptors()
+DmtcpPluginDescriptor_t
+dmtcp_AllocPlugin_PluginDescr()
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
-    return;
-  }
+  return allocPlugin;
+}
 
-  for (size_t i = 0;
-       i < sizeof(ipcBuiltinDescriptors) / sizeof(ipcBuiltinDescriptors[0]);
-       i++) {
-    dmtcp_register_plugin(ipcBuiltinDescriptors[i].descriptorFn());
+static DmtcpPluginDescriptor_t dlPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "DL",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Dynamic loader wrappers",
+  NULL
+};
+
+DmtcpPluginDescriptor_t
+dmtcp_DlPlugin_PluginDescr()
+{
+  return dlPlugin;
+}
+
+static InternalPluginEntry internalPlugins[] = {
+  { INTERNAL_PLUGIN_PATHVIRT, "PATHVIRT", dmtcp_PathTranslator_PluginDescr },
+  { INTERNAL_PLUGIN_SYSLOG, "SYSLOG", dmtcp_Syslog_PluginDescr },
+  { INTERNAL_PLUGIN_RLIMIT_FLOAT, "RLIMIT_FLOAT",
+    dmtcp_Rlimit_Float_PluginDescr },
+  { INTERNAL_PLUGIN_ALARM, "ALARM", dmtcp_Alarm_PluginDescr },
+  { INTERNAL_PLUGIN_TERMINAL, "TERMINAL", dmtcp_Terminal_PluginDescr },
+  { INTERNAL_PLUGIN_COORDINATOR_API, "COORDINATOR_API",
+    CoordinatorAPI::pluginDescr },
+  { INTERNAL_PLUGIN_PROCESS_INFO, "PROCESS_INFO",
+    dmtcp_ProcessInfo_PluginDescr },
+  { INTERNAL_PLUGIN_UNIQUE_PID, "UNIQUE_PID", UniquePid::pluginDescr },
+  { INTERNAL_PLUGIN_SSH, "SSH", dmtcp_SshPlugin_PluginDescr },
+  { INTERNAL_PLUGIN_EVENT, "EVENT", dmtcp_EventPlugin_PluginDescr },
+  { INTERNAL_PLUGIN_FILE, "FILE", dmtcp_FilePlugin_PluginDescr },
+  { INTERNAL_PLUGIN_PTY, "PTY", dmtcp_PtyPlugin_PluginDescr },
+  { INTERNAL_PLUGIN_SOCKET, "SOCKET", dmtcp_SocketPlugin_PluginDescr },
+  { INTERNAL_PLUGIN_SVIPC, "SVIPC", dmtcp_SysVIPC_PluginDescr },
+  { INTERNAL_PLUGIN_TIMER, "TIMER", dmtcp_Timer_PluginDescr },
+  { INTERNAL_PLUGIN_PID, "PID", dmtcp_PidPlugin_PluginDescr },
+  { INTERNAL_PLUGIN_ALLOC, "ALLOC", dmtcp_AllocPlugin_PluginDescr },
+  { INTERNAL_PLUGIN_DL, "DL", dmtcp_DlPlugin_PluginDescr }
+};
+
+static InternalPluginEntry *internalPluginById[INTERNAL_PLUGIN_COUNT];
+
+static pthread_once_t internalPluginInitOnce = PTHREAD_ONCE_INIT;
+static bool disableAllInternalPlugins = false;
+
+static size_t
+numInternalPlugins()
+{
+  return sizeof(internalPlugins) / sizeof(internalPlugins[0]);
+}
+
+static const char *
+internalPluginEnvName(const char *pluginName,
+                      char *envName,
+                      size_t size)
+{
+  int len = snprintf(envName, size, "DMTCP_%s_PLUGIN", pluginName);
+  JASSERT(len > 0 && (size_t)len < size) (pluginName) (size)
+  .Text("Internal plugin environment variable name is too long.");
+  return envName;
+}
+
+static void
+initializeInternalPluginStateOnce()
+{
+  JASSERT(numInternalPlugins() == INTERNAL_PLUGIN_COUNT)
+  .Text("Internal plugin metadata table is out of sync.");
+
+  disableAllInternalPlugins =
+    Util::readBooleanEnv(ENV_VAR_DISABLE_ALL_PLUGINS, false);
+
+  for (size_t i = 0; i < numInternalPlugins(); i++) {
+    InternalPluginEntry *entry = &internalPlugins[i];
+    JASSERT(entry->id >= 0 && entry->id < INTERNAL_PLUGIN_COUNT)
+      (entry->name) (entry->id)
+    .Text("Internal plugin table has an invalid id.");
+    JASSERT(internalPluginById[entry->id] == NULL) (entry->name) (entry->id)
+    .Text("Duplicate internal plugin id.");
+
+    entry->descriptor = entry->descriptorFn();
+    JASSERT(strcmp(entry->descriptor.pluginName, entry->name) == 0)
+      (entry->descriptor.pluginName) (entry->name)
+    .Text("Internal plugin descriptor name does not match its plugin id.");
+    char envName[64];
+    entry->enabled =
+      Util::readBooleanEnv(internalPluginEnvName(entry->name, envName,
+                                                 sizeof(envName)), true);
+    internalPluginById[entry->id] = entry;
   }
 }
 
 static void
-registerSysVIPCBuiltinDescriptors()
+initializeInternalPluginState()
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_SVIPC)) {
-    return;
-  }
-
-  for (size_t i = 0;
-       i < sizeof(sysVIPCBuiltinDescriptors) /
-           sizeof(sysVIPCBuiltinDescriptors[0]);
-       i++) {
-    dmtcp_register_plugin(sysVIPCBuiltinDescriptors[i].descriptorFn());
-  }
+  int rc = pthread_once(&internalPluginInitOnce,
+                        initializeInternalPluginStateOnce);
+  JASSERT(rc == 0) (rc)
+  .Text("Failed to initialize internal plugin state.");
 }
 
-static void
-registerTimerBuiltinDescriptors()
+static InternalPluginEntry *
+findInternalPluginEntry(DmtcpInternalPluginId_t id)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
-    return;
-  }
-
-  for (size_t i = 0;
-       i < sizeof(timerBuiltinDescriptors) / sizeof(timerBuiltinDescriptors[0]);
-       i++) {
-    dmtcp_register_plugin(timerBuiltinDescriptors[i].descriptorFn());
-  }
+  JASSERT(id >= 0 && id < INTERNAL_PLUGIN_COUNT) (id)
+  .Text("Invalid internal plugin id.");
+  InternalPluginEntry *entry = internalPluginById[id];
+  JASSERT(entry != NULL) (id).Text("Unknown internal plugin id.");
+  return entry;
 }
 
-static void
-registerCoreBuiltinDescriptors()
+bool
+internalPluginEnabled(DmtcpInternalPluginId_t id)
 {
-  for (size_t i = 0;
-       i < sizeof(coreBuiltinDescriptors) / sizeof(coreBuiltinDescriptors[0]);
-       i++) {
-    dmtcp_register_plugin(coreBuiltinDescriptors[i].descriptorFn());
+  initializeInternalPluginState();
+  InternalPluginEntry *entry = findInternalPluginEntry(id);
+
+  return !disableAllInternalPlugins && entry->enabled;
+}
+
+bool
+internalPluginEnabledByName(const char *name)
+{
+  JASSERT(name != NULL).Text("Invalid internal plugin name.");
+  initializeInternalPluginState();
+
+  for (size_t i = 0; i < numInternalPlugins(); i++) {
+    InternalPluginEntry *entry = &internalPlugins[i];
+    if (strcmp(entry->name, name) == 0) {
+      return !disableAllInternalPlugins && entry->enabled;
+    }
   }
+
+  return false;
 }
 
 void
@@ -157,11 +236,14 @@ PluginManager::registerPlugin(DmtcpPluginDescriptor_t descr)
 extern "C" void
 dmtcp_initialize_plugin()
 {
-  initializeBuiltinPluginState();
-  registerIpcBuiltinDescriptors();
-  registerSysVIPCBuiltinDescriptors();
-  registerTimerBuiltinDescriptors();
-  registerCoreBuiltinDescriptors();
+  initializeInternalPluginState();
+  for (size_t i = 0; i < numInternalPlugins(); i++) {
+    InternalPluginEntry *entry = &internalPlugins[i];
+    if (entry->descriptor.event_hook != NULL &&
+        internalPluginEnabled(entry->id)) {
+      dmtcp_register_plugin(entry->descriptor);
+    }
+  }
 
   void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);
   if (fn != NULL) {

@@ -114,6 +114,31 @@ Util::strEndsWith(const char *str, const char *pattern)
   return false;
 }
 
+bool
+Util::readBooleanEnv(const char *envName, bool defaultValue)
+{
+  if (envName == NULL) {
+    return defaultValue;
+  }
+
+  const char *value = getenv(envName);
+  if (value == NULL) {
+    return defaultValue;
+  }
+
+  if (strcmp(value, "1") == 0) {
+    return true;
+  }
+
+  if (strcmp(value, "0") == 0) {
+    return false;
+  }
+
+  JASSERT(false) (envName) (value)
+  .Text("Invalid value for the environment variable.");
+  return defaultValue;
+}
+
 // Add it back if needed.
 #if 0
 
@@ -483,45 +508,6 @@ Util::memProtToOpenFlags(int prot)
     return O_WRONLY;
   }
   return 0;
-}
-
-#define TRACER_PID_STR "TracerPid:"
-pid_t
-Util::getTracerPid(pid_t tid)
-{
-  if (!dmtcp_real_to_virtual_pid) {
-    return 0;
-  }
-
-  char buf[512];
-  char *str;
-  static int tracerStrLen = strlen(TRACER_PID_STR);
-  int fd;
-
-  if (tid == -1) {
-    tid = gettid();
-  }
-  sprintf(buf, "/proc/%d/status", tid);
-  fd = _real_open(buf, O_RDONLY, 0);
-  JASSERT(fd != -1) (buf) (JASSERT_ERRNO);
-  readAll(fd, buf, sizeof buf);
-  _real_close(fd);
-  str = strstr(buf, TRACER_PID_STR);
-  JASSERT(str != NULL);
-  str += tracerStrLen;
-
-  while (*str == ' ' || *str == '\t') {
-    str++;
-  }
-
-  pid_t tracerPid = (pid_t)strtol(str, NULL, 10);
-  return tracerPid == 0 ? tracerPid : dmtcp_real_to_virtual_pid(tracerPid);
-}
-
-bool
-Util::isPtraced()
-{
-  return getTracerPid() != 0;
 }
 
 bool

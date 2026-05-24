@@ -294,10 +294,10 @@ _real_getpgrp(void)
   REAL_FUNC_PASSTHROUGH_PID_T(getpgrp) ();
 }
 
-pid_t
+int
 _real_setpgrp(void)
 {
-  REAL_FUNC_PASSTHROUGH_PID_T(setpgrp) ();
+  REAL_FUNC_PASSTHROUGH(setpgrp) ();
 }
 
 pid_t
@@ -360,42 +360,106 @@ _real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
   REAL_FUNC_PASSTHROUGH_PID_T(wait4) (pid, status, options, rusage);
 }
 
+static int
+ioctl_request_takes_no_arg(unsigned long int request)
+{
+#ifdef FIOCLEX
+  if (request == FIOCLEX) {
+    return 1;
+  }
+#endif
+#ifdef FIONCLEX
+  if (request == FIONCLEX) {
+    return 1;
+  }
+#endif
+#ifdef TIOCEXCL
+  if (request == TIOCEXCL) {
+    return 1;
+  }
+#endif
+#ifdef TIOCNXCL
+  if (request == TIOCNXCL) {
+    return 1;
+  }
+#endif
+#ifdef TIOCNOTTY
+  if (request == TIOCNOTTY) {
+    return 1;
+  }
+#endif
+  return 0;
+}
+
+static int
+ioctl_request_takes_int_arg(unsigned long int request)
+{
+#ifdef TCSBRK
+  if (request == TCSBRK) {
+    return 1;
+  }
+#endif
+#ifdef TCSBRKP
+  if (request == TCSBRKP) {
+    return 1;
+  }
+#endif
+#ifdef TCFLSH
+  if (request == TCFLSH) {
+    return 1;
+  }
+#endif
+#ifdef TCXONC
+  if (request == TCXONC) {
+    return 1;
+  }
+#endif
+#ifdef TIOCSCTTY
+  if (request == TIOCSCTTY) {
+    return 1;
+  }
+#endif
+  return 0;
+}
+
 int send_sigwinch; /* not used.  Only version in pidwrappers.cpp is used */
 int
 _real_ioctl(int d, unsigned long int request, ...)
 {
-  void *arg;
   va_list ap;
 
-  // Most calls to ioctl take 'void *', 'int' or no extra argument
-  // A few specialized ones take more args, but we don't need to handle those.
-  va_start(ap, request);
-  arg = va_arg(ap, void *);
-  va_end(ap);
+  if (ioctl_request_takes_no_arg(request)) {
+    REAL_FUNC_PASSTHROUGH_TYPED(int, ioctl) (d, request);
+  }
 
-  ///usr/include/unistd.h says syscall returns long int (contrary to man page)
-  REAL_FUNC_PASSTHROUGH_TYPED(int, ioctl) (d, request, arg);
+  va_start(ap, request);
+  if (ioctl_request_takes_int_arg(request)) {
+    int arg = va_arg(ap, int);
+    va_end(ap);
+    REAL_FUNC_PASSTHROUGH_TYPED(int, ioctl) (d, request, arg);
+  } else {
+    void *arg = va_arg(ap, void *);
+    va_end(ap);
+    REAL_FUNC_PASSTHROUGH_TYPED(int, ioctl) (d, request, arg);
+  }
 }
 
 // Needed for _real_gettid, etc.
 long
-_real_syscall(long sys_num, ...)
+_real_syscall(long sys_num,
+              long arg1,
+              long arg2,
+              long arg3,
+              long arg4,
+              long arg5,
+              long arg6,
+              long arg7)
 {
-  int i;
-  void *arg[7];
-  va_list ap;
-
-  va_start(ap, sys_num);
-  for (i = 0; i < 7; i++) {
-    arg[i] = va_arg(ap, void *);
-  }
-  va_end(ap);
-
   ///usr/include/unistd.h says syscall returns long int (contrary to man page)
-  REAL_FUNC_PASSTHROUGH_TYPED(long, syscall) (sys_num, arg[0],
-                                              arg[1], arg[2],
-                                              arg[3], arg[4],
-                                              arg[5], arg[6]);
+  REAL_FUNC_PASSTHROUGH_TYPED(long, syscall) (sys_num, arg1,
+                                              arg2, arg3,
+                                              arg4, arg5,
+                                              arg6, arg7);
 }
 
 LIB_PRIVATE pid_t

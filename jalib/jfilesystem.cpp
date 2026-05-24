@@ -332,7 +332,8 @@ ListDirEntriesInternal(const dmtcp::string& dir, int *procSelfFd = nullptr)
   dmtcp::vector<dmtcp::string> result;
 
   while (true) {
-    int nread = jalib::syscall(SYS_getdents64, fd, buf, allocation);
+    int nread = jalib::syscall(SYS_getdents64, (long)fd, (long)buf,
+                               (long)allocation, 0, 0, 0, 0);
     if (nread == 0) {
       break;
     }

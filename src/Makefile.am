@@ -42,6 +42,16 @@ d_libdir = $(top_builddir)/lib/$(PACKAGE)
 d_bindir = $(top_builddir)/bin
 endif
 
+stale_folded_plugin_dsos = \
+	$(d_libdir)/libdmtcp_alloc.so \
+	$(d_libdir)/libdmtcp_dl.so \
+	$(d_libdir)/libdmtcp_ipc.so \
+	$(d_libdir)/libdmtcp_pid.so \
+	$(d_libdir)/libdmtcp_svipc.so \
+	$(d_libdir)/libdmtcp_timer.so
+
+CLEANFILES = $(stale_folded_plugin_dsos)
+
 if FAST_RST_VIA_MMAP
   AM_CXXFLAGS += -DFAST_RST_VIA_MMAP
 endif
@@ -433,6 +443,7 @@ install-libs: install-dmtcplibPROGRAMS
 	(cd mtcp && ${MAKE} install-libs)
 
 uninstall-libs: uninstall-dmtcplibPROGRAMS
+	rm -f $(stale_folded_plugin_dsos)
 	(cd mtcp && ${MAKE} uninstall-libs)
 
 .PHONY: install-libs uninstall-libs

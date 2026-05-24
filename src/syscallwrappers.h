@@ -68,6 +68,9 @@
 #ifdef HAVE_SYS_INOTIFY_H
 # include <sys/inotify.h>
 #endif // ifdef HAVE_SYS_INOTIFY_H
+#ifdef HAS_CMA
+# include <sys/uio.h>
+#endif
 
 #include "config.h"
 #include "constants.h"
@@ -151,6 +154,7 @@ extern int dmtcp_wrappers_initializing;
   MACRO(getppid)                      \
   MACRO(kill)                         \
                                       \
+  MACRO(tcgetsid)                     \
   MACRO(tcgetpgrp)                    \
   MACRO(tcsetpgrp)                    \
   MACRO(getpgrp)                      \
@@ -272,11 +276,19 @@ extern int dmtcp_wrappers_initializing;
   MACRO(mq_notify)                    \
                                       \
   MACRO(pthread_create)               \
+  MACRO(pthread_cancel)               \
   MACRO(pthread_exit)                 \
   MACRO(pthread_tryjoin_np)           \
   MACRO(pthread_timedjoin_np)         \
   MACRO(pthread_sigmask)              \
   MACRO(pthread_getspecific)          \
+                                      \
+  MACRO(sched_setaffinity)            \
+  MACRO(sched_getaffinity)            \
+  MACRO(sched_setscheduler)           \
+  MACRO(sched_getscheduler)           \
+  MACRO(sched_setparam)               \
+  MACRO(sched_getparam)               \
   FOREACH_DMTCP_STAT_WRAPPER(MACRO)
 
 #define ENUM(x)     enum_ ## x
@@ -418,7 +430,30 @@ int _real_sigtimedwait(const sigset_t *set,
                        siginfo_t *info,
                        const struct timespec *timeout);
 
-long _real_syscall(long sys_num, ...);
+long _real_syscall(long sys_num,
+                   long arg1,
+                   long arg2,
+                   long arg3,
+                   long arg4,
+                   long arg5,
+                   long arg6,
+                   long arg7);
+pid_t _real_getpid(void);
+pid_t _real_getppid(void);
+pid_t _real_gettid(void);
+int _real_tkill(int tid, int sig);
+int _real_tgkill(int tgid, int tid, int sig);
+
+pid_t _real_tcgetsid(int fd);
+pid_t _real_tcgetpgrp(int fd);
+int _real_tcsetpgrp(int fd, pid_t pgrp);
+pid_t _real_getpgrp(void);
+int _real_setpgrp(void);
+pid_t _real_getpgid(pid_t pid);
+int _real_setpgid(pid_t pid, pid_t pgid);
+pid_t _real_getsid(pid_t pid);
+pid_t _real_setsid(void);
+int _real_kill(pid_t pid, int sig);
 
 int _real_pthread_create(pthread_t *thread,
                          const pthread_attr_t *attr,
@@ -429,6 +464,17 @@ int _real_pthread_tryjoin_np(pthread_t thread, void **retval);
 int _real_pthread_timedjoin_np(pthread_t thread,
                                void **retval,
                                const struct timespec *abstime);
+int _real_pthread_cancel(pthread_t th);
+
+int _real_sched_setaffinity(pid_t pid, size_t cpusetsize,
+                            const cpu_set_t *mask);
+int _real_sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);
+int _real_sched_setscheduler(pid_t pid,
+                             int policy,
+                             const struct sched_param *param);
+int _real_sched_getscheduler(pid_t pid);
+int _real_sched_setparam(pid_t pid, const struct sched_param *param);
+int _real_sched_getparam(pid_t pid, struct sched_param *param);
 
 int _real___xstat(int vers, const char *path, struct stat *buf);
 int _real___xstat64(int vers, const char *path, struct stat64 *buf);
@@ -484,6 +530,20 @@ int _real_mq_timedsend(mqd_t mqdes,
                        size_t msg_len,
                        unsigned int msg_prio,
                        const struct timespec *abs_timeout);
+#ifdef HAS_CMA
+ssize_t _real_process_vm_readv(pid_t pid,
+                               const struct iovec *local_iov,
+                               unsigned long liovcnt,
+                               const struct iovec *remote_iov,
+                               unsigned long riovcnt,
+                               unsigned long flags);
+ssize_t _real_process_vm_writev(pid_t pid,
+                                const struct iovec *local_iov,
+                                unsigned long liovcnt,
+                                const struct iovec *remote_iov,
+                                unsigned long riovcnt,
+                                unsigned long flags);
+#endif
 
 #ifdef __cplusplus
 }
