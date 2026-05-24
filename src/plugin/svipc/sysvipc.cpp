@@ -228,11 +228,16 @@ sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 DmtcpPluginDescriptor_t sysvipcPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "sysvipc",
+  "SVIPC",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Sys V IPC virtualization plugin",
-  sysvipc_event_hook
+  sysvipc_event_hook,
+  1,
+  INTERNAL_PLUGIN_SVIPC,
+  1,
+  1,
+  1
 };
 
 namespace dmtcp

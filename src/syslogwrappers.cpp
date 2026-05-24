@@ -68,11 +68,16 @@ syslog_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 static DmtcpPluginDescriptor_t syslogPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "syslog",
+  "SYSLOG",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Syslog plugin",
-  syslog_event_hook
+  syslog_event_hook,
+  1,
+  INTERNAL_PLUGIN_SYSLOG,
+  1,
+  0,
+  1
 };
 
 

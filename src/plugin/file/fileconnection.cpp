@@ -45,6 +45,7 @@
 #include "fileconnection.h"
 #include "fileconnlist.h"
 #include "filewrappers.h"
+#include "wrapperlock.h"
 
 using namespace dmtcp;
 
@@ -844,7 +845,7 @@ PosixMQConnection::on_mq_notify(const struct sigevent *sevp)
 }
 
 extern "C" void
-dmtcp_posix_mq_note_notify(mqd_t mqdes, const struct sigevent *sevp)
+dmtcp_posix_on_mq_notify(mqd_t mqdes, const struct sigevent *sevp)
 {
   if (!internalPluginEnabled(INTERNAL_PLUGIN_FILE)) {
     return;
@@ -858,11 +859,10 @@ dmtcp_posix_mq_note_notify(mqd_t mqdes, const struct sigevent *sevp)
 }
 
 extern "C" void
-dmtcp_posix_mq_note_notify_thread_start(mqd_t mqdes)
+dmtcp_posix_on_mq_notify_thread_start(mqd_t mqdes)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  dmtcp_posix_mq_note_notify(mqdes, NULL);
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  WrapperLock wrapperLock;
+  dmtcp_posix_on_mq_notify(mqdes, NULL);
 }
 
 void

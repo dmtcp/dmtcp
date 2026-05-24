@@ -22,11 +22,15 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
+#ifdef HAS_CMA
+#include <sys/uio.h>
+#endif
 #include <poll.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "constants.h"
 #include "dmtcpworker.h"
+#include "plugin/pid/pidhelpers.h"
 #include "processinfo.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
@@ -155,58 +159,6 @@ pipe2(int fds[2], int flags)
 // return origPid;
 // }
 
-#if 1
-extern "C" pid_t
-wait(__WAIT_STATUS stat_loc)
-{
-  return waitpid(-1, (int *)stat_loc, 0);
-}
-
-extern "C" pid_t
-waitpid(pid_t pid, int *stat_loc, int options)
-{
-  return wait4(pid, stat_loc, options, NULL);
-}
-
-extern "C" pid_t
-wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
-{
-  return wait4(-1, status, options, rusage);
-}
-
-extern "C"
-pid_t
-wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
-{
-  int stat;
-  pid_t retval = 0;
-
-  if (status == NULL) {
-    status = (__WAIT_STATUS)&stat;
-  }
-
-  retval = _real_wait4(pid, status, options, rusage);
-
-  return retval;
-}
-
-extern "C" int
-waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
-{
-  siginfo_t siginfop;
-
-  memset(&siginfop, 0, sizeof(siginfop));
-
-  int retval = _real_waitid(idtype, id, &siginfop, options);
-
-  if (retval == 0 && infop != NULL) {
-    *infop = siginfop;
-  }
-
-  return retval;
-}
-#endif // if 1
-
 extern "C" int __clone(int (*fn)(void *arg),
                        void *child_stack,
                        int flags,
@@ -294,6 +246,102 @@ syscall(long sys_num, ...)
                        char *const *,
                        envp);
     ret = execve(filename, argv, envp);
+    break;
+  }
+
+  case SYS_gettid:
+  {
+    ret = dmtcp_pid_gettid();
+    break;
+  }
+  case SYS_tkill:
+  {
+    SYSCALL_GET_ARGS_2(int, tid, int, sig);
+    ret = dmtcp_tkill(tid, sig);
+    break;
+  }
+  case SYS_tgkill:
+  {
+    SYSCALL_GET_ARGS_3(int, tgid, int, tid, int, sig);
+    ret = dmtcp_tgkill(tgid, tid, sig);
+    break;
+  }
+  case SYS_getpid:
+  {
+    ret = getpid();
+    break;
+  }
+  case SYS_getppid:
+  {
+    ret = getppid();
+    break;
+  }
+#ifndef __aarch64__
+#ifndef __riscv
+  case SYS_getpgrp:
+  {
+    ret = getpgrp();
+    break;
+  }
+#endif
+#endif
+  case SYS_getpgid:
+  {
+    SYSCALL_GET_ARG(pid_t, pid);
+    ret = getpgid(pid);
+    break;
+  }
+  case SYS_setpgid:
+  {
+    SYSCALL_GET_ARGS_2(pid_t, pid, pid_t, pgid);
+    ret = setpgid(pid, pgid);
+    break;
+  }
+  case SYS_getsid:
+  {
+    SYSCALL_GET_ARG(pid_t, pid);
+    ret = getsid(pid);
+    break;
+  }
+  case SYS_kill:
+  {
+    SYSCALL_GET_ARGS_2(pid_t, pid, int, sig);
+    ret = kill(pid, sig);
+    break;
+  }
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 9))
+  case SYS_waitid:
+  {
+    SYSCALL_GET_ARGS_4(int, idtype, id_t, id, siginfo_t *, infop, int, options);
+    ret = waitid((idtype_t)idtype, id, infop, options);
+    break;
+  }
+#endif
+  case SYS_wait4:
+  {
+    SYSCALL_GET_ARGS_4(pid_t, pid, __WAIT_STATUS, status, int, options,
+                       struct rusage *, rusage);
+    ret = wait4(pid, status, options, rusage);
+    break;
+  }
+#ifdef __i386__
+  case SYS_waitpid:
+  {
+    SYSCALL_GET_ARGS_3(pid_t, pid, int *, status, int, options);
+    ret = waitpid(pid, status, options);
+    break;
+  }
+#endif
+  case SYS_setgid:
+  {
+    SYSCALL_GET_ARG(gid_t, gid);
+    ret = setgid(gid);
+    break;
+  }
+  case SYS_setuid:
+  {
+    SYSCALL_GET_ARG(uid_t, uid);
+    ret = setuid(uid);
     break;
   }
 
@@ -684,6 +732,31 @@ syscall(long sys_num, ...)
   }
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27) && __GLIBC_PREREQ(2,
        // 9)
+
+#ifdef HAS_CMA
+  case SYS_process_vm_readv:
+  {
+    SYSCALL_GET_ARGS_6(pid_t, pid,
+                       const struct iovec *, local_iov,
+                       unsigned long, liovcnt,
+                       const struct iovec *, remote_iov,
+                       unsigned long, riovcnt,
+                       unsigned long, flags);
+    ret = process_vm_readv(pid, local_iov, liovcnt, remote_iov, riovcnt, flags);
+    break;
+  }
+  case SYS_process_vm_writev:
+  {
+    SYSCALL_GET_ARGS_6(pid_t, pid,
+                       const struct iovec *, local_iov,
+                       unsigned long, liovcnt,
+                       const struct iovec *, remote_iov,
+                       unsigned long, riovcnt,
+                       unsigned long, flags);
+    ret = process_vm_writev(pid, local_iov, liovcnt, remote_iov, riovcnt, flags);
+    break;
+  }
+#endif
 
   default:
   {

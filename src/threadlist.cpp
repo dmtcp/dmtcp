@@ -15,11 +15,13 @@
 #include "ckptserializer.h"
 #include "constants.h"
 #include "coordinatorapi.h"
+#include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "dmtcpworker.h"
 #include "jalloc.h"
 #include "jassert.h"
 #include "mtcp/mtcp_header.h"
+#include "plugin/pid/pidhelpers.h"
 #include "pluginmanager.h"
 #include "shareddata.h"
 #include "siginfo.h"
@@ -95,6 +97,19 @@ static void
 unlk_threads(void)
 {
   JASSERT(DmtcpMutexUnlock(&threadlistLock) == 0) (JASSERT_ERRNO);
+}
+
+static pid_t
+getRealThreadTid(Thread *thread)
+{
+  return dmtcp_virtual_to_real_pid != NULL ?
+         dmtcp_virtual_to_real_pid(thread->tid) : thread->tid;
+}
+
+static int
+signalThread(Thread *thread, int sig)
+{
+  return _real_syscall(SYS_tgkill, motherpid, getRealThreadTid(thread), sig);
 }
 
 bool dmtcp_is_ckpt_thread()
@@ -196,8 +211,12 @@ ThreadList::init()
    * descriptor.
    */
 
-  /* libc/getpid can lie if we had used kernel fork() instead of libc fork(). */
-  motherpid = getpid();
+  /* libc/getpid can lie if we had used kernel fork() instead of libc fork().
+   * Also, after the PID plugin is folded into libdmtcp.so, getpid() may return
+   * the virtual PID.  The thread code uses motherpid with raw tgkill syscalls,
+   * so it must always be the real kernel PID.
+   */
+  motherpid = (pid_t)_real_syscall(SYS_getpid);
 
 }
 
@@ -281,7 +300,7 @@ ThreadList::initThread(Thread *th)
   if (curThread == NULL) {
     curThread = th;
   }
-  th->tid = _real_syscall(SYS_gettid);
+  th->tid = dmtcp_pid_gettid();
 
   th->flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
               | CLONE_SIGHAND | CLONE_THREAD
@@ -476,8 +495,7 @@ ThreadList::suspendThreads()
          * We will need to rescan (hopefully it will be suspended by then)
          */
         if (Thread_UpdateState(thread, ST_SIGNALED, ST_RUNNING)) {
-          if (THREAD_TGKILL(motherpid, thread->tid,
-                            SigInfo::ckptSignal()) < 0) {
+          if (signalThread(thread, SigInfo::ckptSignal()) < 0) {
             JASSERT(errno == ESRCH) (JASSERT_ERRNO) (thread->tid)
             .Text("error signalling thread");
             ThreadList::threadIsDead(thread);
@@ -488,7 +506,7 @@ ThreadList::suspendThreads()
         break;
 
       case ST_SIGNALED:
-        if (THREAD_TGKILL(motherpid, thread->tid, 0) == -1 && errno == ESRCH) {
+        if (signalThread(thread, 0) == -1 && errno == ESRCH) {
           ThreadList::threadIsDead(thread);
         } else {
           needrescan = 1;
@@ -534,7 +552,7 @@ void ThreadList::waitForExitingThreads()
     for (Thread *thread = activeThreads; thread != NULL; thread = next) {
       next = thread->next;
       if (thread->exiting) {
-        if (THREAD_TGKILL(motherpid, thread->tid, 0) == -1 && errno == ESRCH) {
+        if (signalThread(thread, 0) == -1 && errno == ESRCH) {
           // Thread exited. Let's remove it from the list.
           ThreadList::threadIsDead(thread);
         } else {
@@ -754,6 +772,10 @@ ThreadList::waitForAllRestored(Thread *thread)
 void
 ThreadList::postRestart(double readTime, int restartPause)
 {
+  // The checkpoint image contains the pre-restart kernel PID.  Refresh it
+  // before any future checkpoint attempts use raw tgkill with motherpid.
+  motherpid = (pid_t)_real_syscall(SYS_getpid);
+
   // This function and related ones are defined in src/mtcp/restore_libc.c
   TLSInfo_RestoreTLSState(motherofall);
   TLSInfo_RestoreTLSTidPid(motherofall);
@@ -777,7 +799,7 @@ ThreadList::postRestartWork(double readTime)
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
   }
 
-  dmtcp_update_virtual_to_real_tid(motherofall->tid);
+  motherofall->tid = dmtcp_update_virtual_to_real_tid(motherofall->tid);
 
   DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 3);
 
@@ -831,7 +853,7 @@ restarthread(void *threadv)
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
   }
 
-  dmtcp_update_virtual_to_real_tid(thread->tid);
+  thread->tid = dmtcp_update_virtual_to_real_tid(thread->tid);
 
   if (thread == motherofall) {  // if this is a user thread
     DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 4);
@@ -972,7 +994,7 @@ ThreadList::addToActiveList(Thread *th)
      */
     if (thread->exiting) {
       /* if no thread with this tid, then we can remove zombie descriptor */
-      if (-1 == THREAD_TGKILL(motherpid, thread->tid, 0)) {
+      if (-1 == signalThread(thread, 0)) {
         JTRACE("Killing zombie thread") (thread->tid);
         threadIsDead(thread);
       }

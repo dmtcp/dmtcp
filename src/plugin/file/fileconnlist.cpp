@@ -172,11 +172,16 @@ dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 DmtcpPluginDescriptor_t filePlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "file",
+  "FILE",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "File plugin",
-  dmtcp_FileConnList_EventHook
+  dmtcp_FileConnList_EventHook,
+  1,
+  INTERNAL_PLUGIN_FILE,
+  1,
+  1,
+  1
 };
 
 namespace dmtcp

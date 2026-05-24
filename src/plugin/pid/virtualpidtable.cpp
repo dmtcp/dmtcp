@@ -192,6 +192,13 @@ VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
 {
   if (virtualId > 0 && realId > 0) {
     _do_lock_tbl();
+    for (auto it = _idMapTable.begin(); it != _idMapTable.end();) {
+      if (it->first != virtualId && it->second == realId) {
+        it = _idMapTable.erase(it);
+      } else {
+        ++it;
+      }
+    }
     _idMapTable[virtualId] = realId;
     _do_unlock_tbl();
   }

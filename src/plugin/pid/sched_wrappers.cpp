@@ -394,84 +394,102 @@ pthread_getattr_np(pthread_t th, pthread_attr_t *attr)
 int
 sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_sched_setaffinity(pid, cpusetsize, mask);
+  }
+
+  WrapperLock wrapperLock;
   int result = -1;
   pid_t real_pid = 0;
   if (pid != 0) {
-    real_pid = VIRTUAL_TO_REAL_PID(pid);
+    real_pid = dmtcp_pid_virtual_to_real(pid);
   }
   result = _real_sched_setaffinity(real_pid, cpusetsize, mask);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
 
 int
 sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_sched_getaffinity(pid, cpusetsize, mask);
+  }
+
+  WrapperLock wrapperLock;
   int result = -1;
   pid_t real_pid = 0;
   if (pid != 0) {
-    real_pid = VIRTUAL_TO_REAL_PID(pid);
+    real_pid = dmtcp_pid_virtual_to_real(pid);
   }
   result = _real_sched_getaffinity(real_pid, cpusetsize, mask);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
 
 int
 sched_setscheduler(pid_t pid, int policy, const struct sched_param *param)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_sched_setscheduler(pid, policy, param);
+  }
+
+  WrapperLock wrapperLock;
   int result = -1;
   pid_t real_pid = 0;
   if (pid != 0) {
-    real_pid = VIRTUAL_TO_REAL_PID(pid);
+    real_pid = dmtcp_pid_virtual_to_real(pid);
   }
   result = _real_sched_setscheduler(real_pid, policy, param);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
 
 int
 sched_getscheduler(pid_t pid)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_sched_getscheduler(pid);
+  }
+
+  WrapperLock wrapperLock;
   int result = -1;
   pid_t real_pid = 0;
   if (pid != 0) {
-    real_pid = VIRTUAL_TO_REAL_PID(pid);
+    real_pid = dmtcp_pid_virtual_to_real(pid);
   }
   result = _real_sched_getscheduler(real_pid);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
 
 int
 sched_setparam(pid_t pid, const struct sched_param *param)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_sched_setparam(pid, param);
+  }
+
+  WrapperLock wrapperLock;
   int result = -1;
   pid_t real_pid = 0;
   if (pid != 0) {
-    real_pid = VIRTUAL_TO_REAL_PID(pid);
+    real_pid = dmtcp_pid_virtual_to_real(pid);
   }
   result = _real_sched_setparam(real_pid, param);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
 
 int
 sched_getparam(pid_t pid, struct sched_param *param)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_sched_getparam(pid, param);
+  }
+
+  WrapperLock wrapperLock;
   int result = -1;
   pid_t real_pid = 0;
   if (pid != 0) {
-    real_pid = VIRTUAL_TO_REAL_PID(pid);
+    real_pid = dmtcp_pid_virtual_to_real(pid);
   }
   result = _real_sched_getparam(real_pid, param);
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
 
@@ -507,4 +525,3 @@ sched_getattr(pid_t pid,
   return result;
 }
 #endif // if 0
-

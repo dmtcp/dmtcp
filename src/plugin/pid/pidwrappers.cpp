@@ -23,7 +23,9 @@
 #include <stdarg.h>
 #include <sys/ioctl.h>
 #include <sys/procfs.h>
+#include <sys/resource.h>
 #include <sys/syscall.h>
+#include <time.h>
 #include <list>
 #include <string>
 #include <vector>
@@ -43,21 +45,18 @@ using namespace dmtcp;
 extern "C" pid_t
 getpid()
 {
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_getpid();
+  }
   return VirtualPidTable::getpid();
 }
-
-// glibc-2.30 added support for gettid()
-#if __GLIBC_PREREQ(2, 30)
-pid_t
-gettid(void)
-{
-  return VirtualPidTable::gettid();
-}
-#endif // if !__GLIBC_PREREQ(2, 30)
 
 extern "C" pid_t
 getppid()
 {
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_getppid();
+  }
   return VirtualPidTable::getppid();
 }
 
@@ -136,8 +135,11 @@ pthread_cancel (pthread_t th)
 extern "C" pid_t
 tcsetpgrp(int fd, pid_t pgrp)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_tcsetpgrp(fd, pgrp);
+  }
 
+  WrapperLock wrapperLock;
   pid_t currPgrp = VIRTUAL_TO_REAL_PID(pgrp);
 
   // JTRACE("Inside tcsetpgrp wrapper") (fd) (pgrp) (currPgrp);
@@ -145,20 +147,20 @@ tcsetpgrp(int fd, pid_t pgrp)
   pid_t virtualPid = REAL_TO_VIRTUAL_PID(realPid);
 
   // JTRACE("tcsetpgrp return value") (fd) (pgrp) (currPgrp) (retval);
-  DMTCP_PLUGIN_ENABLE_CKPT();
-
   return virtualPid;
 }
 
 extern "C" pid_t
 tcgetpgrp(int fd)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_tcgetpgrp(fd);
+  }
 
+  WrapperLock wrapperLock;
   pid_t retval = REAL_TO_VIRTUAL_PID(_real_tcgetpgrp(fd));
 
   JTRACE("tcgetpgrp return value") (fd) (retval);
-  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retval;
 }
@@ -166,12 +168,14 @@ tcgetpgrp(int fd)
 extern "C" pid_t
 tcgetsid(int fd)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_tcgetsid(fd);
+  }
 
+  WrapperLock wrapperLock;
   pid_t retval = REAL_TO_VIRTUAL_PID(_real_tcgetsid(fd));
 
   JTRACE("tcgetsid return value") (fd) (retval);
-  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retval;
 }
@@ -179,12 +183,13 @@ tcgetsid(int fd)
 extern "C" pid_t
 getpgrp(void)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_getpgrp();
+  }
 
+  WrapperLock wrapperLock;
   pid_t pgrp = _real_getpgrp();
   pid_t origPgrp = REAL_TO_VIRTUAL_PID(pgrp);
-
-  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return origPgrp;
 }
@@ -192,12 +197,13 @@ getpgrp(void)
 extern "C" int
 setpgrp(void)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_setpgrp();
+  }
 
+  WrapperLock wrapperLock;
   pid_t realPid = _real_setpgrp();
   pid_t virtualPid = REAL_TO_VIRTUAL_PID(realPid);
-
-  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return virtualPid;
 }
@@ -205,13 +211,14 @@ setpgrp(void)
 extern "C" pid_t
 getpgid(pid_t pid)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_getpgid(pid);
+  }
 
+  WrapperLock wrapperLock;
   pid_t realPid = VIRTUAL_TO_REAL_PID(pid);
   pid_t res = _real_getpgid(realPid);
   pid_t origPgid = REAL_TO_VIRTUAL_PID(res);
-
-  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return origPgid;
 }
@@ -219,14 +226,15 @@ getpgid(pid_t pid)
 extern "C" int
 setpgid(pid_t pid, pid_t pgid)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_setpgid(pid, pgid);
+  }
 
+  WrapperLock wrapperLock;
   pid_t currPid = VIRTUAL_TO_REAL_PID(pid);
   pid_t currPgid = VIRTUAL_TO_REAL_PID(pgid);
 
   int retVal = _real_setpgid(currPid, currPgid);
-
-  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retVal;
 }
@@ -234,8 +242,11 @@ setpgid(pid_t pid, pid_t pgid)
 extern "C" pid_t
 getsid(pid_t pid)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_getsid(pid);
+  }
 
+  WrapperLock wrapperLock;
   pid_t currPid;
 
   // If !pid then we ask SID of this process
@@ -249,20 +260,19 @@ getsid(pid_t pid)
 
   pid_t origSid = REAL_TO_VIRTUAL_PID(res);
 
-  DMTCP_PLUGIN_ENABLE_CKPT();
-
   return origSid;
 }
 
 extern "C" pid_t
 setsid(void)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_setsid();
+  }
 
+  WrapperLock wrapperLock;
   pid_t pid = _real_setsid();
   pid_t origPid = REAL_TO_VIRTUAL_PID(pid);
-
-  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return origPid;
 }
@@ -270,35 +280,38 @@ setsid(void)
 extern "C" int
 kill(pid_t pid, int sig)
 {
-  /* FIXME: When bash receives a SIGINT signal, the signal handler is
+  /*
+   * Intentionally do not take WrapperLock in kill-family wrappers.
+   *
+   * When bash receives a SIGINT signal, the signal handler is
    * called to process the signal. Once the processing is done, bash
    * performs a longjmp to a much higher call frame. As a result, this
-   * call frame never gets a chance to return and hence we fail to
-   * perform DMTCP_PLUGIN_ENABLE_CKPT() WHICH RESULTS in the lock
-   * being held but never released. Thus later on, when the ckpt-thread
-   * tries to acquire this lock, it results in a deadlock.
+   * call frame never gets a chance to return and a held wrapper lock
+   * would never be released. Thus later on, when the ckpt-thread tries
+   * to acquire this lock, it results in a deadlock.
    *
-   *  To avoid the deadlock, FOR NOW, we shouldn't call WRAPPER_...()
-   *  calls in this function or any kill() family of wrappers.
+   * To avoid the deadlock, FOR NOW, we shouldn't take wrapper locks in
+   * this function or any kill() family of wrappers.
    *
    * Potential Solution: If the signal sending process is among the
    * potential signal receivers, it should MASK/BLOCK signal delivery
    * right before sending the signal (before calling _real_kill()). Once
-   * the system call returns, it should then call
-   * DMTCP_PLUGIN_ENABLE_CKPT() AND THEN RESTore the signal mask to
-   * as it was prior to calling this wrapper. So this function will as
-   * follows:
-   *     DMTCP_PLUGIN_DISABLE_CKPT();
-   *     // if this process is a potential receiver of this signal
-   *     if (pid == getpid() || pid == 0 || pid == -1 ||
-   *         getpgrp() == abs(pid)) {
-   *       <SAVE_SIGNAL_MASK>;
-   *       <BLOCK SIGNAL 'sig'>;
-   *       sigmaskAltered = true;
+   * the system call returns, it should then release the wrapper lock
+   * and restore the signal mask to as it was prior to calling this
+   * wrapper. So this function will look like:
+   *     int retVal;
+   *     {
+   *       WrapperLock wrapperLock;
+   *       // if this process is a potential receiver of this signal
+   *       if (pid == getpid() || pid == 0 || pid == -1 ||
+   *           getpgrp() == abs(pid)) {
+   *         <SAVE_SIGNAL_MASK>;
+   *         <BLOCK SIGNAL 'sig'>;
+   *         sigmaskAltered = true;
+   *       }
+   *       pid_t currPid = VIRTUAL_TO_REAL_PID(pid);
+   *       retVal = _real_kill(currPid, sig);
    *     }
-   *     pid_t currPid = VIRTUAL_TO_REAL_PID(pid);
-   *     int retVal = _real_kill(currPid, sig);
-   *     DMTCP_PLUGIN_ENABLE_CKPT();
    *     if (sigmaskAltered) {
    *       <RESTORE_SIGNAL_MASK>
    *     }
@@ -326,58 +339,65 @@ kill(pid_t pid, int sig)
    *
    */
 
-  // DMTCP_PLUGIN_DISABLE_CKPT();
-
-  pid_t currPid = VIRTUAL_TO_REAL_PID(pid);
+  pid_t currPid = dmtcp_pid_virtual_to_real(pid);
 
   int retVal = _real_kill(currPid, sig);
 
-  // DMTCP_PLUGIN_ENABLE_CKPT();
-
   return retVal;
 }
 
-LIB_PRIVATE
-int
-dmtcp_tkill(int tid, int sig)
+static pid_t
+virtualizeWait4Result(pid_t realPid, int *status)
 {
-  // FIXME: Check the comments in kill()
-  // DMTCP_PLUGIN_DISABLE_CKPT();
+  if (realPid <= 0) {
+    return realPid;
+  }
 
-  int realTid = VIRTUAL_TO_REAL_PID(tid);
-
-  int retVal = _real_tkill(realTid, sig);
-
-  // DMTCP_PLUGIN_ENABLE_CKPT();
-
-  return retVal;
+  pid_t virtualPid = dmtcp_pid_real_to_virtual(realPid);
+  if (status != NULL && (WIFEXITED(*status) || WIFSIGNALED(*status))) {
+    VirtualPidTable::instance().erase(virtualPid);
+  }
+  return virtualPid;
 }
 
-LIB_PRIVATE
-int
-dmtcp_tgkill(int tgid, int tid, int sig)
+static void
+virtualizeWaitidResult(siginfo_t *infop)
 {
-  // FIXME: Check the comments in kill()
-  // DMTCP_PLUGIN_DISABLE_CKPT();
+  if (infop == NULL || infop->si_pid <= 0) {
+    return;
+  }
 
-  int realTgid = VIRTUAL_TO_REAL_PID(tgid);
-  int realTid = VIRTUAL_TO_REAL_PID(tid);
-
-  int retVal = _real_tgkill(realTgid, realTid, sig);
-
-  // DMTCP_PLUGIN_ENABLE_CKPT();
-
-  return retVal;
+  pid_t virtualPid = dmtcp_pid_real_to_virtual(infop->si_pid);
+  infop->si_pid = virtualPid;
+  if (infop->si_code == CLD_EXITED ||
+      infop->si_code == CLD_KILLED ||
+      infop->si_code == CLD_DUMPED) {
+    VirtualPidTable::instance().erase(virtualPid);
+  }
 }
 
-// long sys_tgkill (int tgid, int pid, int sig)
+static id_t
+realWaitidId(idtype_t idtype, id_t id)
+{
+  switch (idtype) {
+  case P_PID:
+    return dmtcp_pid_virtual_to_real(id);
 
-/*
- * TODO: Add the wrapper protection for wait() family of system calls.
- *       It wouldn't be a straight forward process, we need to take care of the
- *         _BLOCKING_ property of these system calls.
- *                                                      --KAPIL
- */
+  case P_PGID:
+    return id == 0 ? id : dmtcp_pid_virtual_to_real(id);
+
+  case P_ALL:
+    return id;
+
+#ifdef P_PIDFD
+  case P_PIDFD:
+    return id;
+#endif
+
+  default:
+    return id;
+  }
+}
 
 extern "C" pid_t
 wait(__WAIT_STATUS stat_loc)
@@ -391,107 +411,17 @@ waitpid(pid_t pid, int *stat_loc, int options)
   return wait4(pid, stat_loc, options, NULL);
 }
 
-extern "C" int
-waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
-{
-  int retval = 0;
-  struct timespec ts = { 0, 1000 };
-  const struct timespec maxts = { 1, 0 };
-  siginfo_t siginfop;
-
-  memset(&siginfop, 0, sizeof(siginfop));
-
-  /* waitid returns 0 in case of success as well as when WNOHANG is specified
-   * and we need to distinguish those two cases.man page for waitid says:
-   *   If WNOHANG was specified in options and there were no children in a
-   *   waitable  state, then waitid() returns 0 immediately and the state of
-   *   the siginfo_t structure pointed to by infop is unspecified.  To
-   *   distinguish this case from that where a child was in a  waitable state,
-   *   zero out the si_pid field before the call and check for a nonzero value
-   *   in this field after the call returns.
-   *
-   * See comments above wait4()
-   */
-  while (retval == 0) {
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    pid_t currPid = VIRTUAL_TO_REAL_PID(id);
-    retval = _real_waitid(idtype, currPid, &siginfop, options | WNOHANG);
-
-    if (retval != -1) {
-      pid_t virtualPid = REAL_TO_VIRTUAL_PID(siginfop.si_pid);
-      siginfop.si_pid = virtualPid;
-
-      if (siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED) {
-        VirtualPidTable::instance().erase(virtualPid);
-      }
-    }
-    DMTCP_PLUGIN_ENABLE_CKPT();
-
-    if ((options & WNOHANG) ||
-        retval == -1 ||
-        siginfop.si_pid != 0) {
-      break;
-    } else {
-      nanosleep(&ts, NULL);
-      if (TIMESPEC_CMP(&ts, &maxts, <)) {
-        TIMESPEC_ADD(&ts, &ts, &ts);
-      }
-    }
-  }
-
-  if (retval == 0 && infop != NULL) {
-    *infop = siginfop;
-  }
-
-  return retval;
-}
-
 extern "C" pid_t
 wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
 {
   return wait4(-1, status, options, rusage);
 }
 
-/*
- * wait() family and checkpoint/restart.
- *
- * wait() returns the _real_ pid of the child process. The
- * pid-virtualization layer then converts it to virtualPid pid and return it to
- * the caller.
- *
- * To guarantee the correctness of the real to virtualPid conversion, we need
- * to make sure that there is no ckpt/restart in between (A) returning from
- * wait(), and (B) performing conversion. If a ckpt happens in between, then on
- * restart, the real pid won't be valid anymore and the conversion would be
- * a false one.
- *
- * One way to avoid ckpt/restart in between state A and B is to disable ckpt
- * before A and enable it only after performing B. The problem in doing this is
- * the fact that wait is a blocking system call, unless WNOHANG is specified.
- * Thus we force the WNOHANG flag even though the caller didn't want to.
- *
- * When WNOHANG is specified, a return value of '0' indicates that there is no
- * child process to be waited for, in which case we sleep for a small amount of
- * time and retry.
- *
- * The last bit of logic is the amount of time to sleep for. Too little, and we
- * end up wasting CPU time; too large, and some application (e.g., strace)
- * might not like. We try to avoid this problem by starting with a tiny sleep
- * interval and on every failed wait(), we double the interval until we reach a
- * max. Once it reaches a max time, we don't double it, we just use it as is.
- *
- * The initial sleep interval is set to 10 micro seconds and the max is set to
- * 1 second. We hope that it would cover all the cases.
- *
- */
-extern "C"
-pid_t
+extern "C" pid_t
 wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
 {
   int stat;
   int saved_errno = errno;
-  pid_t currPid;
-  pid_t virtualPid;
   pid_t retval = 0;
   struct timespec ts = { 0, 1000 };
   const struct timespec maxts = { 1, 0 };
@@ -500,64 +430,155 @@ wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
     status = (__WAIT_STATUS)&stat;
   }
 
-  while (retval == 0) {
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    currPid = VIRTUAL_TO_REAL_PID(pid);
-    retval = _real_wait4(currPid, status, options | WNOHANG, rusage);
-    saved_errno = errno;
-    virtualPid = REAL_TO_VIRTUAL_PID(retval);
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_wait4(pid, status, options, rusage);
+  }
 
-    if (retval > 0 &&
-        (WIFEXITED(*(int *)status) || WIFSIGNALED(*(int *)status))) {
-      VirtualPidTable::instance().erase(virtualPid);
+  while (retval == 0) {
+    {
+      WrapperLock wrapperLock;
+      pid_t realPid = dmtcp_pid_virtual_to_real(pid);
+      pid_t realResult =
+        _real_wait4(realPid, status, options | WNOHANG, rusage);
+      if (realResult == -1) {
+        saved_errno = errno;
+      }
+      retval = virtualizeWait4Result(realResult, (int *)status);
     }
-    DMTCP_PLUGIN_ENABLE_CKPT();
 
     if ((options & WNOHANG) || retval != 0) {
       break;
-    } else {
-      nanosleep(&ts, NULL);
-      if (TIMESPEC_CMP(&ts, &maxts, <)) {
-        TIMESPEC_ADD(&ts, &ts, &ts);
-      }
+    }
+
+    nanosleep(&ts, NULL);
+    if (TIMESPEC_CMP(&ts, &maxts, <)) {
+      TIMESPEC_ADD(&ts, &ts, &ts);
     }
   }
+
   errno = saved_errno;
-  return virtualPid;
+  return retval;
 }
 
 extern "C" int
-fcntl(int fd, int cmd, ...)
+waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 {
-  va_list ap;
-
-  // Handling the variable number of arguments
-  void *arg_in = NULL;
-  void *arg = NULL;
-
-  va_start(ap, cmd);
-  arg_in = va_arg(ap, void *);
-  va_end(ap);
-
-  arg = arg_in;
-
-  DMTCP_PLUGIN_DISABLE_CKPT();
-
-  if (cmd == F_SETOWN) {
-    pid_t realPid = VIRTUAL_TO_REAL_PID((pid_t)(unsigned long)arg_in);
-    arg = (void *)(unsigned long)realPid;
+  if (!dmtcp_pid_is_enabled()) {
+    siginfo_t siginfop;
+    memset(&siginfop, 0, sizeof(siginfop));
+    int retval = _real_waitid(idtype, id, &siginfop, options);
+    if (retval == 0 && infop != NULL) {
+      *infop = siginfop;
+    }
+    return retval;
   }
 
-  int result = _real_fcntl(fd, cmd, arg);
-  int retval = result;
+  int retval = 0;
+  int saved_errno = errno;
+  struct timespec ts = { 0, 1000 };
+  const struct timespec maxts = { 1, 0 };
+  siginfo_t siginfop;
+  memset(&siginfop, 0, sizeof(siginfop));
 
-  if (cmd == F_GETOWN) {
-    retval = REAL_TO_VIRTUAL_PID(result);
+  while (retval == 0) {
+    {
+      WrapperLock wrapperLock;
+      id_t realId = realWaitidId(idtype, id);
+      retval = _real_waitid(idtype, realId, &siginfop, options | WNOHANG);
+      if (retval == -1) {
+        saved_errno = errno;
+      } else {
+        virtualizeWaitidResult(&siginfop);
+      }
+    }
+
+    if ((options & WNOHANG) || retval == -1 || siginfop.si_pid != 0) {
+      break;
+    }
+
+    nanosleep(&ts, NULL);
+    if (TIMESPEC_CMP(&ts, &maxts, <)) {
+      TIMESPEC_ADD(&ts, &ts, &ts);
+    }
   }
 
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  if (retval == 0 && infop != NULL) {
+    *infop = siginfop;
+  }
+  errno = saved_errno;
   return retval;
 }
+
+#ifdef HAS_CMA
+EXTERNC
+ssize_t
+process_vm_readv(pid_t pid,
+                 const struct iovec *local_iov,
+                 unsigned long liovcnt,
+                 const struct iovec *remote_iov,
+                 unsigned long riovcnt,
+                 unsigned long flags)
+{
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_process_vm_readv(pid, local_iov, liovcnt,
+                                  remote_iov, riovcnt, flags);
+  }
+
+  WrapperLock wrapperLock;
+  pid_t realPid = dmtcp_pid_virtual_to_real(pid);
+  return _real_process_vm_readv(realPid, local_iov, liovcnt,
+                                remote_iov, riovcnt, flags);
+}
+
+EXTERNC
+ssize_t
+process_vm_writev(pid_t pid,
+                  const struct iovec *local_iov,
+                  unsigned long liovcnt,
+                  const struct iovec *remote_iov,
+                  unsigned long riovcnt,
+                  unsigned long flags)
+{
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_process_vm_writev(pid, local_iov, liovcnt,
+                                   remote_iov, riovcnt, flags);
+  }
+
+  WrapperLock wrapperLock;
+  pid_t realPid = dmtcp_pid_virtual_to_real(pid);
+  return _real_process_vm_writev(realPid, local_iov, liovcnt,
+                                 remote_iov, riovcnt, flags);
+}
+#endif // ifdef HAS_CMA
+
+LIB_PRIVATE
+int
+dmtcp_tkill(int tid, int sig)
+{
+  // Intentionally lock-free; see kill() for the self-signal longjmp hazard.
+
+  int realTid = dmtcp_pid_virtual_to_real(tid);
+
+  int retVal = _real_tkill(realTid, sig);
+
+  return retVal;
+}
+
+LIB_PRIVATE
+int
+dmtcp_tgkill(int tgid, int tid, int sig)
+{
+  // Intentionally lock-free; see kill() for the self-signal longjmp hazard.
+
+  int realTgid = dmtcp_pid_virtual_to_real(tgid);
+  int realTid = dmtcp_pid_virtual_to_real(tid);
+
+  int retVal = _real_tgkill(realTgid, realTid, sig);
+
+  return retVal;
+}
+
+// long sys_tgkill (int tgid, int pid, int sig)
 
 /*
 extern "C" int setgid(gid_t gid)

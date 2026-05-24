@@ -94,7 +94,7 @@ build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = $(d_bindir)/dmtcp_ssh$(EXEEXT) \
 	$(d_bindir)/dmtcp_sshd$(EXEEXT)
-libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_pid.so$(EXEEXT)
+libdmtcp_PROGRAMS =
 subdir = src/plugin
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_append_flag.m4 \
@@ -131,17 +131,6 @@ __d_bindir__dmtcp_ssh_DEPENDENCIES = libssh.a $(am__DEPENDENCIES_1)
 am___d_bindir__dmtcp_sshd_OBJECTS = ipc/ssh/i-dmtcp_sshd.$(OBJEXT)
 __d_bindir__dmtcp_sshd_OBJECTS = $(am___d_bindir__dmtcp_sshd_OBJECTS)
 __d_bindir__dmtcp_sshd_DEPENDENCIES = libssh.a $(am__DEPENDENCIES_1)
-am___d_libdir__libdmtcp_pid_so_OBJECTS = pid/glibc_pthread.$(OBJEXT) \
-	pid/pid.$(OBJEXT) pid/pid_filewrappers.$(OBJEXT) \
-	pid/pid_miscwrappers.$(OBJEXT) pid/pid_syscallsreal.$(OBJEXT) \
-	pid/pidwrappers.$(OBJEXT) pid/sched_wrappers.$(OBJEXT) \
-	pid/virtualpidtable.$(OBJEXT)
-__d_libdir__libdmtcp_pid_so_OBJECTS =  \
-	$(am___d_libdir__libdmtcp_pid_so_OBJECTS)
-__d_libdir__libdmtcp_pid_so_LDADD = $(LDADD)
-__d_libdir__libdmtcp_pid_so_DEPENDENCIES =
-__d_libdir__libdmtcp_pid_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
-	$(__d_libdir__libdmtcp_pid_so_LDFLAGS) $(LDFLAGS) -o $@
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -186,12 +175,7 @@ depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ipc/ssh/$(DEPDIR)/i-dmtcp_ssh.Po \
 	ipc/ssh/$(DEPDIR)/i-dmtcp_sshd.Po \
-	ipc/ssh/$(DEPDIR)/i-util_ssh.Po pid/$(DEPDIR)/glibc_pthread.Po \
-	pid/$(DEPDIR)/pid.Po pid/$(DEPDIR)/pid_filewrappers.Po \
-	pid/$(DEPDIR)/pid_miscwrappers.Po \
-	pid/$(DEPDIR)/pid_syscallsreal.Po pid/$(DEPDIR)/pidwrappers.Po \
-	pid/$(DEPDIR)/sched_wrappers.Po \
-	pid/$(DEPDIR)/virtualpidtable.Po
+	ipc/ssh/$(DEPDIR)/i-util_ssh.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -223,11 +207,9 @@ am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
 am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
 SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
-	$(__d_bindir__dmtcp_sshd_SOURCES) \
-	$(__d_libdir__libdmtcp_pid_so_SOURCES)
+	$(__d_bindir__dmtcp_sshd_SOURCES)
 DIST_SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
-	$(__d_bindir__dmtcp_sshd_SOURCES) \
-	$(__d_libdir__libdmtcp_pid_so_SOURCES)
+	$(__d_bindir__dmtcp_sshd_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -463,21 +445,6 @@ __d_bindir__dmtcp_sshd_SOURCES = \
 __d_bindir__dmtcp_sshd_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/ipc
 __d_bindir__dmtcp_sshd_LDADD = libssh.a $(LDADD)
 __d_bindir__dmtcp_sshd_SHORTNAME = i
-__d_libdir__libdmtcp_pid_so_SOURCES = \
-	pid/glibc_pthread.cpp                                          \
-	pid/glibc_pthread.h                                            \
-	pid/pid.cpp                                                    \
-	pid/pid_filewrappers.cpp                                       \
-	pid/pid.h                                                      \
-	pid/pid_miscwrappers.cpp                                       \
-	pid/pid_syscallsreal.c                                         \
-	pid/pidwrappers.cpp                                            \
-	pid/pidwrappers.h                                              \
-	pid/sched_wrappers.cpp                                         \
-	pid/virtualpidtable.cpp                                        \
-	pid/virtualpidtable.h
-
-__d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
 all: all-am
 
 .SUFFIXES:
@@ -629,31 +596,6 @@ $(d_bindir)/dmtcp_sshd$(EXEEXT): $(__d_bindir__dmtcp_sshd_OBJECTS) $(__d_bindir_
 $(d_libdir)/$(am__dirstamp):
 	@$(MKDIR_P) $(d_libdir)
 	@: >>$(d_libdir)/$(am__dirstamp)
-pid/$(am__dirstamp):
-	@$(MKDIR_P) pid
-	@: >>pid/$(am__dirstamp)
-pid/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) pid/$(DEPDIR)
-	@: >>pid/$(DEPDIR)/$(am__dirstamp)
-pid/glibc_pthread.$(OBJEXT): pid/$(am__dirstamp) \
-	pid/$(DEPDIR)/$(am__dirstamp)
-pid/pid.$(OBJEXT): pid/$(am__dirstamp) pid/$(DEPDIR)/$(am__dirstamp)
-pid/pid_filewrappers.$(OBJEXT): pid/$(am__dirstamp) \
-	pid/$(DEPDIR)/$(am__dirstamp)
-pid/pid_miscwrappers.$(OBJEXT): pid/$(am__dirstamp) \
-	pid/$(DEPDIR)/$(am__dirstamp)
-pid/pid_syscallsreal.$(OBJEXT): pid/$(am__dirstamp) \
-	pid/$(DEPDIR)/$(am__dirstamp)
-pid/pidwrappers.$(OBJEXT): pid/$(am__dirstamp) \
-	pid/$(DEPDIR)/$(am__dirstamp)
-pid/sched_wrappers.$(OBJEXT): pid/$(am__dirstamp) \
-	pid/$(DEPDIR)/$(am__dirstamp)
-pid/virtualpidtable.$(OBJEXT): pid/$(am__dirstamp) \
-	pid/$(DEPDIR)/$(am__dirstamp)
-
-$(d_libdir)/libdmtcp_pid.so$(EXEEXT): $(__d_libdir__libdmtcp_pid_so_OBJECTS) $(__d_libdir__libdmtcp_pid_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_pid_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
-	@rm -f $(d_libdir)/libdmtcp_pid.so$(EXEEXT)
-	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_pid_so_LINK) $(__d_libdir__libdmtcp_pid_so_OBJECTS) $(__d_libdir__libdmtcp_pid_so_LDADD) $(LIBS)
 install-binSCRIPTS: $(bin_SCRIPTS)
 	@$(NORMAL_INSTALL)
 	@list='$(bin_SCRIPTS)'; test -n "$(bindir)" || list=; \
@@ -728,7 +670,6 @@ uninstall-dist_binSCRIPTS:
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f ipc/ssh/*.$(OBJEXT)
-	-rm -f pid/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -736,14 +677,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@ipc/ssh/$(DEPDIR)/i-dmtcp_ssh.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ipc/ssh/$(DEPDIR)/i-dmtcp_sshd.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ipc/ssh/$(DEPDIR)/i-util_ssh.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@pid/$(DEPDIR)/glibc_pthread.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@pid/$(DEPDIR)/pid.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@pid/$(DEPDIR)/pid_filewrappers.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@pid/$(DEPDIR)/pid_miscwrappers.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@pid/$(DEPDIR)/pid_syscallsreal.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@pid/$(DEPDIR)/pidwrappers.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@pid/$(DEPDIR)/sched_wrappers.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@pid/$(DEPDIR)/virtualpidtable.Po@am__quote@ # am--include-marker
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
 	@: >>$@
@@ -948,8 +881,6 @@ distclean-generic:
 	-$(am__rm_f) ipc/$(am__dirstamp)
 	-$(am__rm_f) ipc/ssh/$(DEPDIR)/$(am__dirstamp)
 	-$(am__rm_f) ipc/ssh/$(am__dirstamp)
-	-$(am__rm_f) pid/$(DEPDIR)/$(am__dirstamp)
-	-$(am__rm_f) pid/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -963,14 +894,6 @@ distclean: distclean-am
 	-rm -f ipc/ssh/$(DEPDIR)/i-dmtcp_ssh.Po
 	-rm -f ipc/ssh/$(DEPDIR)/i-dmtcp_sshd.Po
 	-rm -f ipc/ssh/$(DEPDIR)/i-util_ssh.Po
-	-rm -f pid/$(DEPDIR)/glibc_pthread.Po
-	-rm -f pid/$(DEPDIR)/pid.Po
-	-rm -f pid/$(DEPDIR)/pid_filewrappers.Po
-	-rm -f pid/$(DEPDIR)/pid_miscwrappers.Po
-	-rm -f pid/$(DEPDIR)/pid_syscallsreal.Po
-	-rm -f pid/$(DEPDIR)/pidwrappers.Po
-	-rm -f pid/$(DEPDIR)/sched_wrappers.Po
-	-rm -f pid/$(DEPDIR)/virtualpidtable.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -1020,14 +943,6 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ipc/ssh/$(DEPDIR)/i-dmtcp_ssh.Po
 	-rm -f ipc/ssh/$(DEPDIR)/i-dmtcp_sshd.Po
 	-rm -f ipc/ssh/$(DEPDIR)/i-util_ssh.Po
-	-rm -f pid/$(DEPDIR)/glibc_pthread.Po
-	-rm -f pid/$(DEPDIR)/pid.Po
-	-rm -f pid/$(DEPDIR)/pid_filewrappers.Po
-	-rm -f pid/$(DEPDIR)/pid_miscwrappers.Po
-	-rm -f pid/$(DEPDIR)/pid_syscallsreal.Po
-	-rm -f pid/$(DEPDIR)/pidwrappers.Po
-	-rm -f pid/$(DEPDIR)/sched_wrappers.Po
-	-rm -f pid/$(DEPDIR)/virtualpidtable.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2022 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -19,27 +19,37 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
 #include <elf.h>
+#include <errno.h>
 #include <link.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
-#include "../jalib/jassert.h"
-#include "../jalib/jfilesystem.h"
+#include "config.h"
 #include "dmtcp.h"
-#include "wrapperlock.h"
-#include "tokenize.h"
+#include "jassert.h"
+#include "jfilesystem.h"
+#include "pluginmanager.h"
 #include "util.h"
+#include "wrapperlock.h"
 
 #define _real_dlopen  NEXT_FNC(dlopen)
 #define _real_dlclose NEXT_FNC(dlclose)
 
-extern "C" int dmtcp_libdlLockLock();
-extern "C" void dmtcp_libdlLockUnlock();
-
 using namespace dmtcp;
 
-void
+extern "C" int
+dmtcp_dl_enabled()
+{
+  return internalPluginEnabled(INTERNAL_PLUGIN_DL) ? 1 : 0;
+}
+
+static void
 getRpathRunPath(void *caller, char *rpathStr, char *runpathStr)
 {
   Dl_info info;
@@ -51,13 +61,12 @@ getRpathRunPath(void *caller, char *rpathStr, char *runpathStr)
   rpathStr[0] = '\0';
   runpathStr[0] = '\0';
 
-  // Retrieve the link_map for the library given by addr
   int ret = dladdr1(caller, &info, (void **)&map, RTLD_DL_LINKMAP);
   ASSERT_NE(0, ret);
 
   char dirname[4096];
   jalib::Filesystem::DirName(dirname, info.dli_fname);
-  
+
   const ElfW(Dyn) *dyn = map->l_ld;
   const ElfW(Dyn) *rpath = NULL;
   const ElfW(Dyn) *runpath = NULL;
@@ -86,7 +95,7 @@ getRpathRunPath(void *caller, char *rpathStr, char *runpathStr)
   }
 
   if (runpath != NULL) {
-    strcpy(rpathStr, strtab + runpath->d_un.d_val);
+    strcpy(runpathStr, strtab + runpath->d_un.d_val);
     Util::replace(runpathStr, "$ORIGIN", dirname);
     Util::replace(runpathStr, "${ORIGIN}", dirname);
 
@@ -98,14 +107,8 @@ getRpathRunPath(void *caller, char *rpathStr, char *runpathStr)
 }
 
 static void *
-dlopen_try_paths(const char *filename, int flag, const char *paths)
+dlopen_try_paths(const char *filename, int flags, const char *paths)
 {
-  // Iterate over each path in the colon separated list of paths.
-  // Try to dlopen the file using the path.
-  // If successful, return the handle.
-  // If unsuccessful, continue to the next path.
-  // If all paths fail, return NULL.
-
   char path[4096];
   strncpy(path, paths, sizeof(path));
   path[sizeof(path) - 1] = '\0';
@@ -115,7 +118,7 @@ dlopen_try_paths(const char *filename, int flag, const char *paths)
   while (pathToken != NULL) {
     char newFilename[4096];
     snprintf(newFilename, sizeof(newFilename), "%s/%s", pathToken, filename);
-    void *handle = _real_dlopen(newFilename, flag);
+    void *handle = _real_dlopen(newFilename, flags);
     if (handle != NULL) {
       return handle;
     }
@@ -125,95 +128,60 @@ dlopen_try_paths(const char *filename, int flag, const char *paths)
   return NULL;
 }
 
-/* Reason for using thread_performing_dlopen_dlsym:
- *
- * dlsym/dlopen/dlclose make a call to calloc() internally. We do not want to
- * checkpoint while we are in the midst of dlopen etc. as it can lead to
- * undesired behavior. To do so, we use WRAPPER_EXECUTION_DISABLE_CKPT() at the
- * beginning of the function. However, if a checkpoint request is received right
- * after WRAPPER_EXECUTION_DISABLE_CKPT(), the ckpt-thread is queued for wrlock
- * on the pthread-rwlock and any subsequent request for rdlock by other threads
- * will have to wait until the ckpt-thread releases the lock. However, in this
- * scenario, dlopen calls calloc, which then calls
- * WRAPPER_EXECUTION_DISABLE_CKPT() and hence resulting in a deadlock.
- *
- * We set this variable to true, once we are inside the dlopen/dlsym/dlerror
- * wrapper, so that the calling thread won't try to acquire the lock later on.
- *
- * EDIT: Instead of acquiring wrapperExecutionLock, we acquire libdlLock.
- * libdlLock is a higher priority lock than wrapperExectionLock i.e. during
- * checkpointing this lock is acquired before wrapperExecutionLock by the
- * ckpt-thread.
- * Rationale behind not using wrapperExecutionLock and creating an extra lock:
- *   When loading a shared library, dlopen will initialize the static objects
- *   in the shared library by calling their corresponding constructors.
- *   Further, the constructor might call fork/exec to create new
- *   process/program. Finally, fork/exec require the wrapperExecutionLock in
- *   exclusive mode (writer lock). However, if dlopen wrapper acquires the
- *   wrapperExecutionLock, the fork wrapper will deadlock when trying to get
- *   writer lock.
- *
- * EDIT: The dlopen() wrappers causes the problems with the semantics of RPATH
- * associated with the caller library. In future, we can work without this
- * plugin by detecting if we are in the middle of a dlopen by looking up the
- * stack frames.
- */
-
-extern "C"
-void *dlopen(const char *filename, int flag)
+static void *
+dmtcp_dlopen_with_search_policy(const char *filename, int flags, void *caller)
 {
-  LibDlWrapperLock wrapperLock;
+  if (filename == NULL || strlen(filename) == 0) {
+    return _real_dlopen(filename, flags);
+  }
 
-  // TODO(kapil): Replace with scoped lock once we have it.
   char rpath[4096];
   char runpath[4096];
   void *ret = NULL;
 
-  // If filename is null. The user just wants a handle to the main program.
-  if (filename == NULL || strlen(filename) == 0) {
-    return _real_dlopen(filename, flag);
-  }
+  getRpathRunPath(caller, rpath, runpath);
 
-  getRpathRunPath(__builtin_return_address(0), rpath, runpath);
-
-  // 1. We call libc dlopen:
-  //    * if RPATH exists. We let libc handle RPATH when locating the file.
   if (strlen(rpath) != 0) {
-    ret = _real_dlopen(filename, flag);
+    ret = _real_dlopen(filename, flags);
   }
 
-  // 2. Attempt dlopen using LD_LIBRARY_PATH.
-  // TODO(kapil): We should use a cached copy of LD_LIBRARY_PATH as it existed
-  // at the time of program start since the manpage explicitly states it:
-  //    If, at the time that the program was started, the environment variable
-  //    LD_LIBRARY_PATH was defined to contain a colon-separated list of
-  //    directories, then these are searched.
   const char *ldLibraryPath = getenv("LD_LIBRARY_PATH");
   if (ret == NULL && ldLibraryPath != NULL) {
-    ret = dlopen_try_paths(filename, flag, ldLibraryPath);
+    ret = dlopen_try_paths(filename, flags, ldLibraryPath);
   }
 
-  // 3. Attempt dlopen using RUNPATH.
   if (ret == NULL && strlen(runpath) != 0) {
-    ret = dlopen_try_paths(filename, flag, runpath);
-  }
-
-  // 4. Finally try dlopen using filename as is.
-  if (ret == NULL) {
-    ret = _real_dlopen(filename, flag);
+    ret = dlopen_try_paths(filename, flags, runpath);
   }
 
   if (ret == NULL) {
-    JTRACE("dlopen failed")(filename)(flag)(rpath)(ldLibraryPath)(runpath);
+    ret = _real_dlopen(filename, flags);
   }
 
   return ret;
 }
 
 extern "C"
+void *
+dlopen(const char *filename, int flags)
+{
+  if (!dmtcp_dl_enabled()) {
+    return _real_dlopen(filename, flags);
+  }
+
+  LibDlWrapperLock wrapperLock;
+  return dmtcp_dlopen_with_search_policy(filename, flags,
+                                         __builtin_return_address(0));
+}
+
+extern "C"
 int
 dlclose(void *handle)
 {
+  if (!dmtcp_dl_enabled()) {
+    return _real_dlclose(handle);
+  }
+
   LibDlWrapperLock wrapperLock;
   return _real_dlclose(handle);
 }

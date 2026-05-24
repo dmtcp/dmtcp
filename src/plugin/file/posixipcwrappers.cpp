@@ -22,13 +22,14 @@
 #include <stdarg.h>
 #include <time.h>
 #include <fcntl.h>
-#include "builtinplugins.h"
+#include "pluginmanager.h"
 #include "dmtcp.h"
 #include "util.h"
 
 #include "fileconnection.h"
 #include "fileconnlist.h"
 #include "filewrappers.h"
+#include "wrapperlock.h"
 
 using namespace dmtcp;
 
@@ -48,18 +49,17 @@ mq_open(const char *name, int oflag, ...)
     va_end(arg);
   }
 
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_FILE)) {
     return _real_mq_open(name, oflag, mode, attr);
   }
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  WrapperLock wrapperLock;
   int res = _real_mq_open(name, oflag, mode, attr);
   if (res != -1) {
     PosixMQConnection *pcon = new PosixMQConnection(name, oflag,
                                                     mode, attr);
     FileConnList::instance().add(res, pcon);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return res;
 }
 
@@ -67,18 +67,17 @@ extern "C"
 int
 mq_close(mqd_t mqdes)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_FILE)) {
     return _real_mq_close(mqdes);
   }
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  WrapperLock wrapperLock;
   int res = _real_mq_close(mqdes);
   if (res != -1) {
     PosixMQConnection *con = (PosixMQConnection *)
       FileConnList::instance().getConnection(mqdes);
     con->on_mq_close();
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return res;
 }
 
@@ -86,7 +85,7 @@ extern "C"
 int
 mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned msg_prio)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_FILE)) {
     return _real_mq_send(mqdes, msg_ptr, msg_len, msg_prio);
   }
 
@@ -105,7 +104,7 @@ extern "C"
 ssize_t
 mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned *msg_prio)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_FILE)) {
     return _real_mq_receive(mqdes, msg_ptr, msg_len, msg_prio);
   }
 
@@ -129,7 +128,7 @@ mq_timedsend(mqd_t mqdes,
              unsigned msg_prio,
              const struct timespec *abs_timeout)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_FILE)) {
     return _real_mq_timedsend(mqdes, msg_ptr, msg_len, msg_prio, abs_timeout);
   }
 
@@ -137,13 +136,14 @@ mq_timedsend(mqd_t mqdes,
   int ret = -1;
 
   do {
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
-    if (TIMESPEC_CMP(&ts, abs_timeout, <=)) {
-      TIMESPEC_ADD(&ts, &ts_100ms, &ts);
+    {
+      WrapperLock wrapperLock;
+      JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+      if (TIMESPEC_CMP(&ts, abs_timeout, <=)) {
+        TIMESPEC_ADD(&ts, &ts_100ms, &ts);
+      }
+      ret = _real_mq_timedsend(mqdes, msg_ptr, msg_len, msg_prio, &ts);
     }
-    ret = _real_mq_timedsend(mqdes, msg_ptr, msg_len, msg_prio, &ts);
-    DMTCP_PLUGIN_ENABLE_CKPT();
 
     if (ret != -1 || (ret == -1 && errno != ETIMEDOUT)) {
       return ret;
@@ -162,7 +162,7 @@ mq_timedreceive(mqd_t mqdes,
                 unsigned *msg_prio,
                 const struct timespec *abs_timeout)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_IPC)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_FILE)) {
     return _real_mq_timedreceive(mqdes, msg_ptr, msg_len, msg_prio,
                                  abs_timeout);
   }
@@ -171,13 +171,14 @@ mq_timedreceive(mqd_t mqdes,
   int ret = -1;
 
   do {
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
-    if (TIMESPEC_CMP(&ts, abs_timeout, <=)) {
-      TIMESPEC_ADD(&ts, &ts_100ms, &ts);
+    {
+      WrapperLock wrapperLock;
+      JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+      if (TIMESPEC_CMP(&ts, abs_timeout, <=)) {
+        TIMESPEC_ADD(&ts, &ts_100ms, &ts);
+      }
+      ret = _real_mq_timedreceive(mqdes, msg_ptr, msg_len, msg_prio, &ts);
     }
-    ret = _real_mq_timedreceive(mqdes, msg_ptr, msg_len, msg_prio, &ts);
-    DMTCP_PLUGIN_ENABLE_CKPT();
 
     if (ret != -1 || (ret == -1 && errno != ETIMEDOUT)) {
       return ret;

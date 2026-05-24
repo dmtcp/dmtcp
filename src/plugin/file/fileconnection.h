@@ -246,8 +246,8 @@ class PosixMQConnection : public Connection
 };
 }
 
-extern "C" void dmtcp_posix_mq_note_notify(mqd_t mqdes,
-                                            const struct sigevent *sevp);
-extern "C" void dmtcp_posix_mq_note_notify_thread_start(mqd_t mqdes);
+extern "C" void dmtcp_posix_on_mq_notify(mqd_t mqdes,
+                                          const struct sigevent *sevp);
+extern "C" void dmtcp_posix_on_mq_notify_thread_start(mqd_t mqdes);
 
 #endif // ifndef FILECONNECTION_H

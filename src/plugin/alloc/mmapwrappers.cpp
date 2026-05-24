@@ -23,8 +23,7 @@
 #include <errno.h>
 #include <sys/mman.h>
 #include "alloc.h"
-#include "builtinplugins.h"
-#include "wrapperevents.h"
+#include "pluginmanager.h"
 #include "wrapperlock.h"
 
 using namespace dmtcp;
@@ -34,67 +33,50 @@ using namespace dmtcp;
 extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
                       int fd, off_t offset)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_ALLOC)) {
+  if (!dmtcp_alloc_enabled()) {
     return _real_mmap(addr, length, prot, flags, fd, offset);
   }
 
-  ensureAllocWrapperHooksRegistered();
   WrapperLock wrapperLock;
-  MmapWrapperCtx ctx = { addr, length, prot, flags, fd, offset, NULL, errno };
-  dispatchWrapperPre(WRAPPER_EVENT_MMAP_PRE, &ctx);
-  errno = ctx.savedErrno;
-  ctx.result = _real_mmap(ctx.addr, ctx.length, ctx.prot, ctx.flags, ctx.fd,
-                          ctx.offset);
-  ctx.savedErrno = errno;
-  dispatchWrapperPost(WRAPPER_EVENT_MMAP_POST, &ctx);
-  errno = ctx.savedErrno;
-  return ctx.result;
+  void *result = _real_mmap(addr, length, prot, flags, fd, offset);
+  int savedErrno = errno;
+  errno = savedErrno;
+  return result;
 }
 
 extern "C" void *mmap64(void *addr, size_t length, int prot, int flags,
                         int fd, off64_t offset)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_ALLOC)) {
+  if (!dmtcp_alloc_enabled()) {
     return _real_mmap64(addr, length, prot, flags, fd, offset);
   }
 
-  ensureAllocWrapperHooksRegistered();
   WrapperLock wrapperLock;
-  Mmap64WrapperCtx ctx = { addr, length, prot, flags, fd, offset, NULL, errno };
-  dispatchWrapperPre(WRAPPER_EVENT_MMAP64_PRE, &ctx);
-  errno = ctx.savedErrno;
-  ctx.result = _real_mmap64(ctx.addr, ctx.length, ctx.prot, ctx.flags, ctx.fd,
-                            ctx.offset);
-  ctx.savedErrno = errno;
-  dispatchWrapperPost(WRAPPER_EVENT_MMAP64_POST, &ctx);
-  errno = ctx.savedErrno;
-  return ctx.result;
+  void *result = _real_mmap64(addr, length, prot, flags, fd, offset);
+  int savedErrno = errno;
+  errno = savedErrno;
+  return result;
 }
 
 extern "C" int
 munmap(void *addr, size_t length)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_ALLOC)) {
+  if (!dmtcp_alloc_enabled()) {
     return _real_munmap(addr, length);
   }
 
-  ensureAllocWrapperHooksRegistered();
   WrapperLock wrapperLock;
-  MunmapWrapperCtx ctx = { addr, length, -1, errno };
-  dispatchWrapperPre(WRAPPER_EVENT_MUNMAP_PRE, &ctx);
-  errno = ctx.savedErrno;
-  ctx.result = _real_munmap(ctx.addr, ctx.length);
-  ctx.savedErrno = errno;
-  dispatchWrapperPost(WRAPPER_EVENT_MUNMAP_POST, &ctx);
-  errno = ctx.savedErrno;
-  return ctx.result;
+  int result = _real_munmap(addr, length);
+  int savedErrno = errno;
+  errno = savedErrno;
+  return result;
 }
 
 # if __GLIBC_PREREQ(2, 4)
 extern "C" void *mremap(void *old_address, size_t old_size,
                         size_t new_size, int flags, ...)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_ALLOC)) {
+  if (!dmtcp_alloc_enabled()) {
     if (flags & MREMAP_FIXED) {
       va_list ap;
       va_start(ap, flags);
@@ -105,53 +87,37 @@ extern "C" void *mremap(void *old_address, size_t old_size,
     return _real_mremap(old_address, old_size, new_size, flags);
   }
 
-  ensureAllocWrapperHooksRegistered();
   WrapperLock wrapperLock;
-  MremapWrapperCtx ctx = {
-    old_address, old_size, new_size, flags, NULL, false, NULL, errno
-  };
   if (flags & MREMAP_FIXED) {
     va_list ap;
     va_start(ap, flags);
-    ctx.newAddress = va_arg(ap, void *);
-    ctx.hasNewAddress = true;
+    void *new_address = va_arg(ap, void *);
     va_end(ap);
+    void *result = _real_mremap(old_address, old_size, new_size, flags,
+                                new_address);
+    int savedErrno = errno;
+    errno = savedErrno;
+    return result;
   }
-  dispatchWrapperPre(WRAPPER_EVENT_MREMAP_PRE, &ctx);
-  errno = ctx.savedErrno;
-  if (ctx.hasNewAddress) {
-    ctx.result = _real_mremap(ctx.oldAddress, ctx.oldSize, ctx.newSize,
-                              ctx.flags, ctx.newAddress);
-  } else {
-    ctx.result = _real_mremap(ctx.oldAddress, ctx.oldSize, ctx.newSize,
-                              ctx.flags);
-  }
-  ctx.savedErrno = errno;
-  dispatchWrapperPost(WRAPPER_EVENT_MREMAP_POST, &ctx);
-  errno = ctx.savedErrno;
-  return ctx.result;
+
+  void *result = _real_mremap(old_address, old_size, new_size, flags);
+  int savedErrno = errno;
+  errno = savedErrno;
+  return result;
 }
 # else // if __GLIBC_PREREQ(2, 4)
 extern "C" void *mremap(void *old_address, size_t old_size,
                         size_t new_size, int flags)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_ALLOC)) {
+  if (!dmtcp_alloc_enabled()) {
     return _real_mremap(old_address, old_size, new_size, flags);
   }
 
-  ensureAllocWrapperHooksRegistered();
   WrapperLock wrapperLock;
-  MremapWrapperCtx ctx = {
-    old_address, old_size, new_size, flags, NULL, false, NULL, errno
-  };
-  dispatchWrapperPre(WRAPPER_EVENT_MREMAP_PRE, &ctx);
-  errno = ctx.savedErrno;
-  ctx.result = _real_mremap(ctx.oldAddress, ctx.oldSize, ctx.newSize,
-                            ctx.flags);
-  ctx.savedErrno = errno;
-  dispatchWrapperPost(WRAPPER_EVENT_MREMAP_POST, &ctx);
-  errno = ctx.savedErrno;
-  return ctx.result;
+  void *result = _real_mremap(old_address, old_size, new_size, flags);
+  int savedErrno = errno;
+  errno = savedErrno;
+  return result;
 }
 # endif // if __GLIBC_PREREQ(2, 4)
 #endif // ENABLE_MMAP_WRAPPERS

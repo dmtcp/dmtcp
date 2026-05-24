@@ -238,6 +238,11 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	plugin/timer/timer_create.$(OBJEXT) \
 	plugin/timer/timerlist.$(OBJEXT) \
 	plugin/timer/timerwrappers.$(OBJEXT) \
+	plugin/pid/glibc_pthread.$(OBJEXT) plugin/pid/pid.$(OBJEXT) \
+	plugin/pid/pid_filewrappers.$(OBJEXT) \
+	plugin/pid/pidwrappers.$(OBJEXT) \
+	plugin/pid/sched_wrappers.$(OBJEXT) \
+	plugin/pid/virtualpidtable.$(OBJEXT) \
 	plugin_pathtranslator.$(OBJEXT) plugininfo.$(OBJEXT) \
 	builtinplugins.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) tls.$(OBJEXT) \
 	posix_spawn.$(OBJEXT) rlimitfloatenv.$(OBJEXT) \
@@ -318,6 +323,12 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	plugin/timer/$(DEPDIR)/timer_create.Po \
 	plugin/timer/$(DEPDIR)/timerlist.Po \
 	plugin/timer/$(DEPDIR)/timerwrappers.Po \
+	plugin/pid/$(DEPDIR)/glibc_pthread.Po \
+	plugin/pid/$(DEPDIR)/pid.Po \
+	plugin/pid/$(DEPDIR)/pid_filewrappers.Po \
+	plugin/pid/$(DEPDIR)/pidwrappers.Po \
+	plugin/pid/$(DEPDIR)/sched_wrappers.Po \
+	plugin/pid/$(DEPDIR)/virtualpidtable.Po \
 	./$(DEPDIR)/plugin_pathtranslator.Po ./$(DEPDIR)/plugininfo.Po \
 	./$(DEPDIR)/pluginmanager.Po ./$(DEPDIR)/popen.Po \
 	./$(DEPDIR)/posix_spawn.Po ./$(DEPDIR)/processinfo.Po \
@@ -806,6 +817,17 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  plugin/timer/timerlist.h	\
 				  plugin/timer/timerwrappers.cpp \
 				  plugin/timer/timerwrappers.h \
+				  plugin/pid/glibc_pthread.cpp \
+				  plugin/pid/glibc_pthread.h \
+				  plugin/pid/pid.cpp \
+				  plugin/pid/pid_filewrappers.cpp \
+				  plugin/pid/pid.h \
+				  plugin/pid/pidhelpers.h \
+				  plugin/pid/pidwrappers.cpp \
+				  plugin/pid/pidwrappers.h \
+				  plugin/pid/sched_wrappers.cpp \
+				  plugin/pid/virtualpidtable.cpp \
+				  plugin/pid/virtualpidtable.h \
 				  plugin_pathtranslator.cpp     \
 				  plugininfo.cpp 		\
 				  builtinplugins.cpp		\
@@ -826,7 +848,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  wrappers.cpp 			\
 				  writeckpt.cpp
 
-__d_libdir__libdmtcp_so_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/plugin/ipc -I$(srcdir)/plugin/timer
+__d_libdir__libdmtcp_so_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/plugin/ipc -I$(srcdir)/plugin/timer -I$(srcdir)/plugin/pid
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
@@ -1120,6 +1142,12 @@ plugin/timer/$(am__dirstamp):
 plugin/timer/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) plugin/timer/$(DEPDIR)
 	@: >>plugin/timer/$(DEPDIR)/$(am__dirstamp)
+plugin/pid/$(am__dirstamp):
+	@$(MKDIR_P) plugin/pid
+	@: >>plugin/pid/$(am__dirstamp)
+plugin/pid/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) plugin/pid/$(DEPDIR)
+	@: >>plugin/pid/$(DEPDIR)/$(am__dirstamp)
 plugin/ipc/connection.$(OBJEXT) plugin/ipc/connectionidentifier.$(OBJEXT) \
 plugin/ipc/connectionlist.$(OBJEXT) plugin/ipc/ipc.$(OBJEXT): \
 	plugin/ipc/$(am__dirstamp) plugin/ipc/$(DEPDIR)/$(am__dirstamp)
@@ -1155,6 +1183,12 @@ plugin/svipc/sysvipc.$(OBJEXT) plugin/svipc/sysvipcwrappers.$(OBJEXT): \
 plugin/timer/timer_create.$(OBJEXT) plugin/timer/timerlist.$(OBJEXT) \
 plugin/timer/timerwrappers.$(OBJEXT): plugin/timer/$(am__dirstamp) \
 	plugin/timer/$(DEPDIR)/$(am__dirstamp)
+plugin/pid/glibc_pthread.$(OBJEXT) plugin/pid/pid.$(OBJEXT) \
+plugin/pid/pid_filewrappers.$(OBJEXT) \
+plugin/pid/pidwrappers.$(OBJEXT) \
+plugin/pid/sched_wrappers.$(OBJEXT) \
+plugin/pid/virtualpidtable.$(OBJEXT): plugin/pid/$(am__dirstamp) \
+	plugin/pid/$(DEPDIR)/$(am__dirstamp)
 
 $(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdir__libdmtcp_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp.so$(EXEEXT)
@@ -1171,6 +1205,7 @@ mostlyclean-compile:
 	-rm -f plugin/ipc/ssh/*.$(OBJEXT)
 	-rm -f plugin/svipc/*.$(OBJEXT)
 	-rm -f plugin/timer/*.$(OBJEXT)
+	-rm -f plugin/pid/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -1239,6 +1274,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timer_create.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timerlist.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timerwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/glibc_pthread.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/pid.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/pid_filewrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/pidwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/sched_wrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/virtualpidtable.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugin_pathtranslator.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugininfo.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pluginmanager.Po@am__quote@ # am--include-marker
@@ -1598,6 +1639,12 @@ distclean: distclean-recursive
 	-rm -f plugin/timer/$(DEPDIR)/timer_create.Po
 	-rm -f plugin/timer/$(DEPDIR)/timerlist.Po
 	-rm -f plugin/timer/$(DEPDIR)/timerwrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/glibc_pthread.Po
+	-rm -f plugin/pid/$(DEPDIR)/pid.Po
+	-rm -f plugin/pid/$(DEPDIR)/pid_filewrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/pidwrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/sched_wrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/virtualpidtable.Po
 	-rm -f ./$(DEPDIR)/plugin_pathtranslator.Po
 	-rm -f ./$(DEPDIR)/plugininfo.Po
 	-rm -f ./$(DEPDIR)/pluginmanager.Po
@@ -1645,6 +1692,8 @@ distclean: distclean-recursive
 	-rm -f plugin/svipc/$(am__dirstamp)
 	-rm -f plugin/timer/$(DEPDIR)/$(am__dirstamp)
 	-rm -f plugin/timer/$(am__dirstamp)
+	-rm -f plugin/pid/$(DEPDIR)/$(am__dirstamp)
+	-rm -f plugin/pid/$(am__dirstamp)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -1754,6 +1803,12 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f plugin/timer/$(DEPDIR)/timer_create.Po
 	-rm -f plugin/timer/$(DEPDIR)/timerlist.Po
 	-rm -f plugin/timer/$(DEPDIR)/timerwrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/glibc_pthread.Po
+	-rm -f plugin/pid/$(DEPDIR)/pid.Po
+	-rm -f plugin/pid/$(DEPDIR)/pid_filewrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/pidwrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/sched_wrappers.Po
+	-rm -f plugin/pid/$(DEPDIR)/virtualpidtable.Po
 	-rm -f ./$(DEPDIR)/plugin_pathtranslator.Po
 	-rm -f ./$(DEPDIR)/plugininfo.Po
 	-rm -f ./$(DEPDIR)/pluginmanager.Po

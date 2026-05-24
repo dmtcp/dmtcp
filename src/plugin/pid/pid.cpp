@@ -19,11 +19,22 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <signal.h>
+#include <fcntl.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
+#include <sys/sem.h>
+#include <sys/shm.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <time.h>
+#include <unistd.h>
+#include <errno.h>
 #include "jalloc.h"
 #include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
+#include "pluginmanager.h"
 #include "config.h"
 #include "dmtcp.h"
 #include "glibc_pthread.h"
@@ -48,23 +59,115 @@ static string pidMapFile;
 
 static vector<pid_t> *exitedChildTids = NULL;
 static DmtcpMutex exitedChildTidsLock = DMTCP_MUTEX_INITIALIZER_LLL;
+static pid_t childVirtualPid;
 
 #ifndef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
 #define dmtcp_pthread_set_tid(pth, tid) do {} while (0)
 #endif
 
 extern "C"
+int
+dmtcp_pid_is_enabled()
+{
+  return internalPluginEnabled(INTERNAL_PLUGIN_PID) ? 1 : 0;
+}
+
+extern "C"
+pid_t
+dmtcp_pid_virtual_to_real(pid_t virtualPid)
+{
+  return dmtcp_pid_is_enabled() ? VIRTUAL_TO_REAL_PID(virtualPid) : virtualPid;
+}
+
+extern "C"
+pid_t
+dmtcp_pid_real_to_virtual(pid_t realPid)
+{
+  return dmtcp_pid_is_enabled() ? REAL_TO_VIRTUAL_PID(realPid) : realPid;
+}
+
+extern "C"
+void
+dmtcp_pid_update_mapping(pid_t virtualPid, pid_t realPid)
+{
+  if (!dmtcp_pid_is_enabled()) {
+    return;
+  }
+
+  VirtualPidTable::instance().updateMapping(virtualPid, realPid);
+  SharedData::setPidMap(virtualPid, realPid);
+}
+
+extern "C"
+pid_t
+dmtcp_pid_gettid()
+{
+  return dmtcp_pid_is_enabled() ? VirtualPidTable::gettid() : _real_gettid();
+}
+
+extern "C"
+void
+dmtcp_pid_on_fork_prepare()
+{
+  if (!dmtcp_pid_is_enabled()) {
+    return;
+  }
+  Util::getVirtualPidFromEnvVar(&childVirtualPid, NULL, NULL, NULL);
+}
+
+extern "C"
+pid_t
+dmtcp_pid_on_fork_parent(pid_t realChildPid)
+{
+  if (!dmtcp_pid_is_enabled() || realChildPid <= 0) {
+    return realChildPid;
+  }
+
+  VirtualPidTable::instance().updateMapping(childVirtualPid, realChildPid);
+  SharedData::setPidMap(childVirtualPid, realChildPid);
+  return childVirtualPid;
+}
+
+extern "C"
+void
+dmtcp_pid_on_fork_child()
+{
+  if (!dmtcp_pid_is_enabled()) {
+    return;
+  }
+  VirtualPidTable::instance().resetOnFork();
+}
+
+LIB_PRIVATE void
+pidVirt_atfork_prepare()
+{
+  dmtcp_pid_on_fork_prepare();
+}
+
+LIB_PRIVATE void
+pidVirt_atfork_child()
+{
+  dmtcp_pid_on_fork_child();
+}
+
+LIB_PRIVATE void
+pidVirt_vfork_prepare()
+{
+  dmtcp_pid_on_fork_prepare();
+}
+
+extern "C"
 pid_t
 dmtcp_real_to_virtual_pid(pid_t realPid)
 {
-  return REAL_TO_VIRTUAL_PID(realPid);
+  return dmtcp_pid_real_to_virtual(realPid);
 }
 
 extern "C"
 pid_t
 dmtcp_virtual_to_real_pid(pid_t virtualPid)
 {
-  return VIRTUAL_TO_REAL_PID(virtualPid);
+  return dmtcp_pid_virtual_to_real(virtualPid);
 }
 
 // Also copied into src/threadlist.cpp, so that libdmtcp.sp
@@ -91,17 +194,27 @@ dmtcp_real_tgkill(pid_t tgid, pid_t tid, int sig)
 }
 
 extern "C"
-void
+pid_t
 dmtcp_update_virtual_to_real_tid(pid_t tid)
 {
+  if (!dmtcp_pid_is_enabled()) {
+    return tid;
+  }
+
+  pid_t virtualTid = REAL_TO_VIRTUAL_PID(tid);
+  if (virtualTid == tid && _real_gettid() == _real_getpid()) {
+    virtualTid = VirtualPidTable::getpid();
+  }
+
   if (!restartInProgress) {
     restartInProgress = true;
     VirtualPidTable::instance().postRestart();
   }
 
-  VirtualPidTable::instance().updateMapping(tid, _real_gettid());
+  VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
 
-  dmtcp_pthread_set_tid(pthread_self(), tid);
+  dmtcp_pthread_set_tid(pthread_self(), virtualTid);
+  return virtualTid;
 }
 
 static
@@ -282,7 +395,8 @@ pidVirt_PostRestart()
 
   // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapFile")(o.str());
-  int fd = openSharedFile(o.str(), O_RDWR);
+  pidMapFile = o.str();
+  int fd = openSharedFile(pidMapFile, O_RDWR);
   JASSERT(fd != -1);
 
   VirtualPidTable::instance().writeMapsToFile(fd);
@@ -305,6 +419,14 @@ pidVirt_ThreadExit(DmtcpEventData_t *data)
   DmtcpMutexLock(&exitedChildTidsLock);
   exitedChildTids->push_back(tid);
   DmtcpMutexUnlock(&exitedChildTidsLock);
+}
+
+static void
+pidVirt_ThreadResume()
+{
+  pid_t virtualTid = VirtualPidTable::gettid();
+  VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
+  dmtcp_pthread_set_tid(pthread_self(), virtualTid);
 }
 
 static void
@@ -361,6 +483,10 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_RESUME:
     break;
 
+  case DMTCP_EVENT_THREAD_RESUME:
+    pidVirt_ThreadResume();
+    break;
+
   case DMTCP_EVENT_RESTART:
     pidVirt_PostRestart();
     restartInProgress = false;
@@ -375,11 +501,23 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 DmtcpPluginDescriptor_t pidPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "pid",
+  "PID",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "PID virtualization plugin",
-  pid_event_hook
+  pid_event_hook,
+  1,
+  INTERNAL_PLUGIN_PID,
+  1,
+  1,
+  1
 };
 
-DMTCP_DECL_PLUGIN(pidPlugin);
+namespace dmtcp
+{
+DmtcpPluginDescriptor_t
+dmtcp_PidPlugin_PluginDescr()
+{
+  return pidPlugin;
+}
+}

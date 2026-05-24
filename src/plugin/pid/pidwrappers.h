@@ -82,6 +82,7 @@ struct user_desc {
 #include <unistd.h>
 
 #include "dmtcp.h"
+#include "pidhelpers.h"
 
 // Keep in sync with dmtcp/src/constants.h
 #define ENV_VAR_VIRTUAL_PID "DMTCP_VIRTUAL_PID"
@@ -109,8 +110,6 @@ LIB_PRIVATE void pidVirt_vfork_child();
 
 /* The following function are defined in pidwrappers.cpp */
 LIB_PRIVATE pid_t dmtcp_gettid();
-LIB_PRIVATE int dmtcp_tkill(int tid, int sig);
-LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
 
 #define FOREACH_PIDVIRT_WRAPPER(MACRO) \
   MACRO(fork)                          \
@@ -248,7 +247,7 @@ int _real_setuid(uid_t uid);
 
 int _real_pthread_cancel(pthread_t th);
 void _real_pthread_exit(void *retval);
-int _real_fcntl(int fd, int cmd, void *arg);
+int _real_fcntl(int fd, int cmd, ...);
 
 int _real_open(const char *pathname, int flags, ...);
 int _real_open64(const char *pathname, int flags, ...);

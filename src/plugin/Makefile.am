@@ -57,26 +57,6 @@ __d_bindir__dmtcp_sshd_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/ipc
 __d_bindir__dmtcp_sshd_LDADD = libssh.a $(LDADD)
 __d_bindir__dmtcp_sshd_SHORTNAME = i
 
-#
-# Pid plugin
-#
-libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_pid.so
-__d_libdir__libdmtcp_pid_so_SOURCES =                                  \
-	pid/glibc_pthread.cpp                                          \
-	pid/glibc_pthread.h                                            \
-	pid/pid.cpp                                                    \
-	pid/pid_filewrappers.cpp                                       \
-	pid/pid.h                                                      \
-	pid/pid_miscwrappers.cpp                                       \
-	pid/pid_syscallsreal.c                                         \
-	pid/pidwrappers.cpp                                            \
-	pid/pidwrappers.h                                              \
-	pid/sched_wrappers.cpp                                         \
-	pid/virtualpidtable.cpp                                        \
-	pid/virtualpidtable.h
-
-__d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
-
 install-libs: install-libdmtcpPROGRAMS
 
 uninstall-libs: uninstall-libdmtcpPROGRAMS

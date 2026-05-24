@@ -121,11 +121,16 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "coordinatorapi",
+  "COORDINATOR_API",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Coordinator API plugin",
-  eventHook
+  eventHook,
+  1,
+  INTERNAL_PLUGIN_COORDINATOR_API,
+  1,
+  0,
+  1
 };
 
 DmtcpPluginDescriptor_t

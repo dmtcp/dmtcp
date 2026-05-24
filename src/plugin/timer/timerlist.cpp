@@ -99,11 +99,16 @@ timer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 DmtcpPluginDescriptor_t timerPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "timer",
+  "TIMER",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Timer plugin",
-  timer_event_hook
+  timer_event_hook,
+  1,
+  INTERNAL_PLUGIN_TIMER,
+  1,
+  1,
+  1
 };
 
 namespace dmtcp

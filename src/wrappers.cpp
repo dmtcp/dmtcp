@@ -32,6 +32,7 @@
 #include "dmtcp.h"
 #include "jassert.h"
 #include "jfilesystem.h"
+#include "plugin/pid/pidhelpers.h"
 #include "pluginmanager.h"
 #include "threadsync.h"
 #include "util.h"
@@ -527,6 +528,98 @@ dup3(int oldfd, int newfd, int flags)
 # define F_DUPFD_CLOEXEC 0
 #endif
 
+static bool
+fcntlCmdHasNoArg(int cmd)
+{
+  switch (cmd) {
+  case F_GETFD:
+  case F_GETFL:
+  case F_GETOWN:
+#ifdef F_GETSIG
+  case F_GETSIG:
+#endif
+#ifdef F_GETLEASE
+  case F_GETLEASE:
+#endif
+#ifdef F_GETPIPE_SZ
+  case F_GETPIPE_SZ:
+#endif
+#ifdef F_GET_SEALS
+  case F_GET_SEALS:
+#endif
+    return true;
+  default:
+    return false;
+  }
+}
+
+static bool
+fcntlCmdUsesPointerArg(int cmd)
+{
+  switch (cmd) {
+  case F_GETLK:
+  case F_SETLK:
+  case F_SETLKW:
+#if defined(F_GETLK64) && F_GETLK64 != F_GETLK
+  case F_GETLK64:
+#endif
+#if defined(F_SETLK64) && F_SETLK64 != F_SETLK
+  case F_SETLK64:
+#endif
+#if defined(F_SETLKW64) && F_SETLKW64 != F_SETLKW
+  case F_SETLKW64:
+#endif
+#ifdef F_GETOWN_EX
+  case F_GETOWN_EX:
+#endif
+#ifdef F_SETOWN_EX
+  case F_SETOWN_EX:
+#endif
+#ifdef F_OFD_GETLK
+  case F_OFD_GETLK:
+#endif
+#ifdef F_OFD_SETLK
+  case F_OFD_SETLK:
+#endif
+#ifdef F_OFD_SETLKW
+  case F_OFD_SETLKW:
+#endif
+#ifdef F_GET_RW_HINT
+  case F_GET_RW_HINT:
+#endif
+#ifdef F_SET_RW_HINT
+  case F_SET_RW_HINT:
+#endif
+#ifdef F_GET_FILE_RW_HINT
+  case F_GET_FILE_RW_HINT:
+#endif
+#ifdef F_SET_FILE_RW_HINT
+  case F_SET_FILE_RW_HINT:
+#endif
+    return true;
+  default:
+    return false;
+  }
+}
+
+
+static int
+virtualToRealFcntlOwner(int owner)
+{
+  if (owner < -1) {
+    return -dmtcp_pid_virtual_to_real((pid_t)-owner);
+  }
+  return dmtcp_pid_virtual_to_real((pid_t)owner);
+}
+
+static int
+realToVirtualFcntlOwner(int owner)
+{
+  if (owner < -1) {
+    return -dmtcp_pid_real_to_virtual((pid_t)-owner);
+  }
+  return dmtcp_pid_real_to_virtual((pid_t)owner);
+}
 
 struct MqNotifyData {
   void (*start_routine) (union sigval);
@@ -545,7 +638,7 @@ mqNotifyThreadStart(union sigval sv)
 
   JALLOC_HELPER_FREE(data);
 
-  dmtcp_posix_mq_note_notify_thread_start(mqdes);
+  dmtcp_posix_on_mq_notify_thread_start(mqdes);
   start_routine(userSv);
 }
 
@@ -590,7 +683,7 @@ mq_notify(mqd_t mqdes, const struct sigevent *sevp)
   }
 
   if (ret != -1) {
-    dmtcp_posix_mq_note_notify(mqdes, sevp);
+    dmtcp_posix_on_mq_notify(mqdes, sevp);
   }
 
   return ret;
@@ -601,14 +694,33 @@ fcntl(int fd, int cmd, ...)
 {
   WrapperLock wrapperLock;
 
-  void *arg = NULL;
-  va_list ap;
-
-  va_start(ap, cmd);
-  arg = va_arg(ap, void *);
-  va_end(ap);
-
-  int res = _real_fcntl(fd, cmd, arg);
+  int res;
+  if (fcntlCmdHasNoArg(cmd)) {
+    res = _real_fcntl(fd, cmd);
+  } else if (fcntlCmdUsesPointerArg(cmd)) {
+    void *arg = NULL;
+    va_list ap;
+    va_start(ap, cmd);
+    arg = va_arg(ap, void *);
+    va_end(ap);
+    res = _real_fcntl(fd, cmd, arg);
+  } else {
+    int arg;
+    va_list ap;
+    va_start(ap, cmd);
+    arg = va_arg(ap, int);
+    va_end(ap);
+    // PID F_SETOWN/F_GETOWN handling is a PID-owned wrapper concern. If fcntl
+    // must remain core-owned for fd bookkeeping, this is a documented
+    // composition point.
+    if (cmd == F_SETOWN) {
+      arg = virtualToRealFcntlOwner(arg);
+    }
+    res = _real_fcntl(fd, cmd, arg);
+  }
+  if (res != -1 && cmd == F_GETOWN) {
+    res = realToVirtualFcntlOwner(res);
+  }
 
   if (res != -1 && (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC)) {
     processDupFd(fd, res);

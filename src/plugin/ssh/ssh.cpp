@@ -89,11 +89,16 @@ dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 DmtcpPluginDescriptor_t sshPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   DMTCP_PACKAGE_VERSION,
-  "ssh",
+  "SSH",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "SSH plugin",
-  dmtcp_SSH_EventHook
+  dmtcp_SSH_EventHook,
+  1,
+  INTERNAL_PLUGIN_SSH,
+  1,
+  1,
+  1
 };
 
 namespace dmtcp

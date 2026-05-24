@@ -88,11 +88,16 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 DmtcpPluginDescriptor_t socketPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "socket",
+  "SOCKET",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Socket plugin",
-  dmtcp_SocketConnList_EventHook
+  dmtcp_SocketConnList_EventHook,
+  1,
+  INTERNAL_PLUGIN_SOCKET,
+  1,
+  1,
+  1
 };
 
 namespace dmtcp

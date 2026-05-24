@@ -29,6 +29,7 @@
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "coordinatorapi.h"
+#include "plugin/pid/pidhelpers.h"
 #include "procselfmaps.h"
 #include "syscallwrappers.h"
 #include "uniquepid.h"
@@ -136,11 +137,16 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 static DmtcpPluginDescriptor_t processInfoPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "processInfo",
+  "PROCESS_INFO",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "processInfo plugin",
-  processInfo_EventHook
+  processInfo_EventHook,
+  1,
+  INTERNAL_PLUGIN_PROCESS_INFO,
+  1,
+  0,
+  1
 };
 
 
@@ -538,18 +544,37 @@ ProcessInfo::restart()
 void
 ProcessInfo::restoreProcessGroupInfo()
 {
+  if (!dmtcp_virtual_to_real_pid) {
+    JTRACE("SKIP Group information, GID unknown");
+    return;
+  }
+
+  pid_t realPid = _real_getpid();
+  if (dmtcp_pid_update_mapping) {
+    dmtcp_pid_update_mapping(pid, realPid);
+  }
+  pid_t realGid = (gid == pid) ? realPid : dmtcp_virtual_to_real_pid(gid);
+  pid_t realSid = _real_getsid(0);
+
+  if (sid == pid && realSid != realPid) {
+    JTRACE("Restore Session Leadership") (sid) (pid) (realSid) (realPid);
+    JWARNING(_real_setsid() != -1) (sid) (pid) (realSid) (realPid)
+      (JASSERT_ERRNO).Text("Cannot restore session leadership");
+  }
+
   // Restore group assignment
-  if (dmtcp_virtual_to_real_pid && dmtcp_virtual_to_real_pid(gid) != gid) {
-    pid_t cgid = getpgid(0);
+  if (realGid != gid) {
+    pid_t cgid = _real_getpgid(0);
 
     // Group ID is known inside checkpointed processes
-    if (gid != cgid) {
+    if (realGid != cgid) {
       JTRACE("Restore Group Assignment")
-        (gid) (fgid) (cgid) (pid) (ppid) (getppid());
-      JWARNING(setpgid(0, gid) == 0) (gid) (JASSERT_ERRNO)
+        (gid) (realGid) (fgid) (cgid) (pid) (ppid) (getppid());
+      JWARNING(_real_setpgid(0, realGid) == 0) (gid) (realGid)
+        (JASSERT_ERRNO)
       .Text("Cannot change group information");
     } else {
-      JTRACE("Group is already assigned") (gid) (cgid);
+      JTRACE("Group is already assigned") (gid) (realGid) (cgid);
     }
   } else {
     JTRACE("SKIP Group information, GID unknown");

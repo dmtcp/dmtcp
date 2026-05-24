@@ -24,6 +24,7 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jserialize.h"
 
+#include "plugin/pid/pidhelpers.h"
 #include "util.h"
 
 using namespace dmtcp;
@@ -117,19 +118,22 @@ Connection::restoreOptions()
 void
 Connection::doLocking()
 {
+  pid_t realPid = dmtcp_pid_virtual_to_real(getpid());
+
   errno = 0;
   _hasLock = false;
-  JASSERT(fcntl(_fds[0], F_SETOWN, getpid()) == 0)
-    (_fds[0]) (JASSERT_ERRNO);
+  JASSERT(_real_fcntl(_fds[0], F_SETOWN, realPid) == 0)
+    (_fds[0]) (realPid) (JASSERT_ERRNO);
 }
 
 void
 Connection::checkLocking()
 {
-  pid_t pid = fcntl(_fds[0], F_GETOWN);
+  pid_t pid = _real_fcntl(_fds[0], F_GETOWN);
+  pid_t realPid = dmtcp_pid_virtual_to_real(getpid());
 
   JASSERT(pid != -1);
-  _hasLock = pid == getpid();
+  _hasLock = pid == realPid;
 }
 
 void

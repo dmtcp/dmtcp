@@ -20,20 +20,39 @@
  ****************************************************************************/
 
 #include "timerwrappers.h"
-#include "builtinplugins.h"
+#include "pluginmanager.h"
+#include "plugin/pid/pidhelpers.h"
 #include "timerlist.h"
 #include "wrapperlock.h"
 
 using namespace dmtcp;
 
+static void
+translateSigevThreadIdToReal(struct sigevent *sev)
+{
+  if (sev != NULL && sev->sigev_notify == SIGEV_THREAD_ID) {
+    sev->_sigev_un._tid =
+      dmtcp_pid_virtual_to_real(sev->_sigev_un._tid);
+  }
+}
+
 extern "C" int
 timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
-    return _real_timer_create(clockid, sevp, timerid);
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_TIMER)) {
+    struct sigevent sevPid;
+    struct sigevent *sevIn = sevp;
+    if (sevp != NULL) {
+      sevPid = *sevp;
+      translateSigevThreadIdToReal(&sevPid);
+      sevIn = &sevPid;
+    }
+    return _real_timer_create(clockid, sevIn, timerid);
   }
 
+  struct sigevent sevPid;
   struct sigevent sevOut;
+  struct sigevent *sevIn = sevp;
   timer_t realId;
   timer_t virtId;
   int ret;
@@ -45,14 +64,20 @@ timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
   // return its argument if no virtual id is found.
   // See:  virtualidtable.h: dmtcp::VirtualIdTable::virtualToReal(...)
   clockid_t realClockId = VIRTUAL_TO_REAL_CLOCK_ID(clockid);
-  if (sevp != NULL && sevp->sigev_notify == SIGEV_THREAD) {
-    ret = timer_create_sigev_thread(realClockId, sevp, &realId, &sevOut);
-    sevp = &sevOut;
+  if (sevp != NULL) {
+    sevPid = *sevp;
+    translateSigevThreadIdToReal(&sevPid);
+    sevIn = &sevPid;
+  }
+
+  if (sevIn != NULL && sevIn->sigev_notify == SIGEV_THREAD) {
+    ret = timer_create_sigev_thread(realClockId, sevIn, &realId, &sevOut);
+    sevIn = &sevOut;
   } else {
-    ret = _real_timer_create(realClockId, sevp, &realId);
+    ret = _real_timer_create(realClockId, sevIn, &realId);
   }
   if (ret != -1 && timerid != NULL) {
-    virtId = TimerList::instance().on_timer_create(realId, clockid, sevp);
+    virtId = TimerList::instance().on_timer_create(realId, clockid, sevIn);
     JTRACE("Creating new timer") (clockid) (realClockId) (realId) (virtId);
     *timerid = virtId;
   }
@@ -62,7 +87,7 @@ timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
 extern "C" int
 timer_delete(timer_t timerid)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_TIMER)) {
     return _real_timer_delete(timerid);
   }
 
@@ -82,7 +107,7 @@ timer_settime(timer_t timerid,
               const struct itimerspec *new_value,
               struct itimerspec *old_value)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_TIMER)) {
     return _real_timer_settime(timerid, flags, new_value, old_value);
   }
 
@@ -98,7 +123,7 @@ timer_settime(timer_t timerid,
 extern "C" int
 timer_gettime(timer_t timerid, struct itimerspec *curr_value)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_TIMER)) {
     return _real_timer_gettime(timerid, curr_value);
   }
 
@@ -111,7 +136,7 @@ timer_gettime(timer_t timerid, struct itimerspec *curr_value)
 extern "C" int
 timer_getoverrun(timer_t timerid)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_TIMER)) {
     return _real_timer_getoverrun(timerid);
   }
 
@@ -127,14 +152,16 @@ timer_getoverrun(timer_t timerid)
 extern "C" int
 clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
-    return _real_clock_getcpuclockid(pid, clock_id);
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_TIMER)) {
+    return _real_clock_getcpuclockid(dmtcp_pid_virtual_to_real(pid),
+                                     clock_id);
   }
 
   clockid_t realId;
 
   WrapperLock wrapperLock;
-  int ret = _real_clock_getcpuclockid(pid, &realId);
+  pid_t realPid = dmtcp_pid_virtual_to_real(pid);
+  int ret = _real_clock_getcpuclockid(realPid, &realId);
   if (ret == 0) {
     *clock_id = REAL_TO_VIRTUAL_CLOCK_ID(pid, realId);
   }
@@ -144,7 +171,7 @@ clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
 extern "C" int
 pthread_getcpuclockid(pthread_t thread, clockid_t *clock_id)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_TIMER)) {
     return _real_pthread_getcpuclockid(thread, clock_id);
   }
 
@@ -162,7 +189,7 @@ pthread_getcpuclockid(pthread_t thread, clockid_t *clock_id)
 extern "C" int
 clock_getres(clockid_t clk_id, struct timespec *res)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_TIMER)) {
     return _real_clock_getres(clk_id, res);
   }
 
@@ -177,7 +204,7 @@ clock_getres(clockid_t clk_id, struct timespec *res)
 extern "C" int
 clock_gettime(clockid_t clk_id, struct timespec *tp)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_TIMER)) {
     return _real_clock_gettime(clk_id, tp);
   }
 
@@ -192,7 +219,7 @@ clock_gettime(clockid_t clk_id, struct timespec *tp)
 extern "C" int
 clock_settime(clockid_t clk_id, const struct timespec *tp)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_TIMER)) {
     return _real_clock_settime(clk_id, tp);
   }
 
@@ -214,7 +241,7 @@ clock_nanosleep(clockid_t clock_id,
                 const struct timespec *request,
                 struct timespec *remain)
 {
-  if (!builtinPluginEnabled(BUILTIN_PLUGIN_TIMER)) {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_TIMER)) {
     return _real_clock_nanosleep(clock_id, flags, request, remain);
   }
 

@@ -28,6 +28,7 @@
 #include "dmtcpworker.h"
 #include "pluginmanager.h"
 #include "processinfo.h"
+#include "plugin/pid/pidhelpers.h"
 #include "shareddata.h"
 #include "tokenize.h"
 #include "syscallwrappers.h"
@@ -216,6 +217,9 @@ fork()
       (UniquePid::ThisProcess()) (UniquePid::ParentProcess());
   } else if (childPid > 0) { /* Parent Process */
     JTRACE("fork()ed [PARENT] done") (childPid);
+    if (dmtcp_pid_is_enabled()) {
+      childPid = dmtcp_pid_on_fork_parent(childPid);
+    }
   }
 
   if (childPid != 0) {
@@ -259,13 +263,6 @@ vfork()
   // expected to return from the current call frame).
   // Failure to restore the current call frame in the parent might result in
   // lost $RBP data that include the return address.
-  //
-  // NOTE: The vfork wrapper in pid_miscwrappers.cpp performs similar
-  // save/restore of the current call frame. This duplication is required in
-  // case we decide to not use the PID plugin.
-  //
-  // TODO: Deduplicate stack save/restore with similar code in
-  // execwrappers.cpp's vfork wrapper.
   stackStart = &dummy;
   // Return address is stored at $rbp + sizeof($rbp) + sizeof(void*)
   stackSize =

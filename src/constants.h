@@ -103,10 +103,15 @@
 #define ENV_VAR_COMPRESSION         "DMTCP_GZIP"
 #define ENV_VAR_ALLOC_PLUGIN        "DMTCP_ALLOC_PLUGIN"
 #define ENV_VAR_DL_PLUGIN           "DMTCP_DL_PLUGIN"
-#define ENV_VAR_IPC_PLUGIN          "DMTCP_IPC_PLUGIN"
+#define ENV_VAR_SSH_PLUGIN          "DMTCP_SSH_PLUGIN"
+#define ENV_VAR_EVENT_PLUGIN        "DMTCP_EVENT_PLUGIN"
+#define ENV_VAR_FILE_PLUGIN         "DMTCP_FILE_PLUGIN"
+#define ENV_VAR_PTY_PLUGIN          "DMTCP_PTY_PLUGIN"
+#define ENV_VAR_SOCKET_PLUGIN       "DMTCP_SOCKET_PLUGIN"
 #define ENV_VAR_SVIPC_PLUGIN        "DMTCP_SVIPC_PLUGIN"
 #define ENV_VAR_TIMER_PLUGIN        "DMTCP_TIMER_PLUGIN"
 #define ENV_VAR_PID_PLUGIN          "DMTCP_PID_PLUGIN"
+#define ENV_VAR_UNIQUE_CKPT_PLUGIN  "DMTCP_UNIQUE_CKPT_PLUGIN"
 #define ENV_VAR_DISABLE_ALL_PLUGINS "DMTCP_DISABLE_ALL_PLUGINS"
 
 #define ENV_VAR_FORKED_CKPT             "DMTCP_FORKED_CHECKPOINT"
@@ -139,10 +144,15 @@
   ENV_VAR_COMPRESSION,                \
   ENV_VAR_ALLOC_PLUGIN,               \
   ENV_VAR_DL_PLUGIN,                  \
-  ENV_VAR_IPC_PLUGIN,                 \
+  ENV_VAR_SSH_PLUGIN,                 \
+  ENV_VAR_EVENT_PLUGIN,               \
+  ENV_VAR_FILE_PLUGIN,                \
+  ENV_VAR_PTY_PLUGIN,                 \
+  ENV_VAR_SOCKET_PLUGIN,              \
   ENV_VAR_SVIPC_PLUGIN,               \
   ENV_VAR_TIMER_PLUGIN,               \
   ENV_VAR_PID_PLUGIN,                 \
+  ENV_VAR_UNIQUE_CKPT_PLUGIN,         \
   ENV_VAR_DISABLE_ALL_PLUGINS,        \
   ENV_VAR_SIGCKPT,                    \
   ENV_VAR_SCREENDIR,                  \

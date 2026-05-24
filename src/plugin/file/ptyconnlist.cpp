@@ -98,11 +98,16 @@ dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 DmtcpPluginDescriptor_t ptyPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "pty",
+  "PTY",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "PTY plugin",
-  dmtcp_PtyConnList_EventHook
+  dmtcp_PtyConnList_EventHook,
+  1,
+  INTERNAL_PLUGIN_PTY,
+  1,
+  1,
+  1
 };
 
 namespace dmtcp
