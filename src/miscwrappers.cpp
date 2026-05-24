@@ -553,6 +553,8 @@ syscall(long sys_num, ...)
   case SYS_shmdt:
   {
     SYSCALL_GET_ARG(const void *, shmaddr);
+    // Exception to the syscall-to-libc-wrapper rule: external GOT interposition
+    // can route shmdt back through syscall while the SysV shmdt wrapper is active.
     if (dmtcp_svipc_inside_shmdt != NULL &&
         dmtcp_svipc_inside_shmdt()) {
       ret = _real_syscall(SYS_shmdt, shmaddr);
