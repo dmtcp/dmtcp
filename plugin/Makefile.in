@@ -102,8 +102,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS =
-libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT) \
-	$(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT)
+libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT)
 subdir = plugin
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_append_flag.m4 \
@@ -131,15 +130,6 @@ __d_libdir__libdmtcp_modify_env_so_DEPENDENCIES =  \
 	$(am__DEPENDENCIES_1)
 __d_libdir__libdmtcp_modify_env_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
 	$(CXXFLAGS) $(__d_libdir__libdmtcp_modify_env_so_LDFLAGS) \
-	$(LDFLAGS) -o $@
-am___d_libdir__libdmtcp_unique_ckpt_so_OBJECTS =  \
-	unique-ckpt/unique-ckpt.$(OBJEXT)
-__d_libdir__libdmtcp_unique_ckpt_so_OBJECTS =  \
-	$(am___d_libdir__libdmtcp_unique_ckpt_so_OBJECTS)
-__d_libdir__libdmtcp_unique_ckpt_so_DEPENDENCIES =  \
-	$(am__DEPENDENCIES_1)
-__d_libdir__libdmtcp_unique_ckpt_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
-	$(CXXFLAGS) $(__d_libdir__libdmtcp_unique_ckpt_so_LDFLAGS) \
 	$(LDFLAGS) -o $@
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
@@ -184,8 +174,7 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = modify-env/$(DEPDIR)/modify-env.Po \
-	modify-env/$(DEPDIR)/warning.Po \
-	unique-ckpt/$(DEPDIR)/unique-ckpt.Po
+	modify-env/$(DEPDIR)/warning.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -212,10 +201,8 @@ AM_V_CXXLD = $(am__v_CXXLD_@AM_V@)
 am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
 am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
-SOURCES = $(__d_libdir__libdmtcp_modify_env_so_SOURCES) \
-	$(__d_libdir__libdmtcp_unique_ckpt_so_SOURCES)
-DIST_SOURCES = $(__d_libdir__libdmtcp_modify_env_so_SOURCES) \
-	$(__d_libdir__libdmtcp_unique_ckpt_so_SOURCES)
+SOURCES = $(__d_libdir__libdmtcp_modify_env_so_SOURCES)
+DIST_SOURCES = $(__d_libdir__libdmtcp_modify_env_so_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -432,11 +419,6 @@ __d_libdir__libdmtcp_modify_env_so_SOURCES = \
 
 __d_libdir__libdmtcp_modify_env_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_modify_env_so_LDADD = $(LDADD)
-__d_libdir__libdmtcp_unique_ckpt_so_SOURCES = \
-	unique-ckpt/unique-ckpt.cpp
-
-__d_libdir__libdmtcp_unique_ckpt_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_unique_ckpt_so_LDADD = $(LDADD)
 all: all-am
 
 .SUFFIXES:
@@ -571,18 +553,6 @@ $(d_libdir)/$(am__dirstamp):
 $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT): $(__d_libdir__libdmtcp_modify_env_so_OBJECTS) $(__d_libdir__libdmtcp_modify_env_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_modify_env_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT)
 	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_modify_env_so_LINK) $(__d_libdir__libdmtcp_modify_env_so_OBJECTS) $(__d_libdir__libdmtcp_modify_env_so_LDADD) $(LIBS)
-unique-ckpt/$(am__dirstamp):
-	@$(MKDIR_P) unique-ckpt
-	@: >>unique-ckpt/$(am__dirstamp)
-unique-ckpt/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) unique-ckpt/$(DEPDIR)
-	@: >>unique-ckpt/$(DEPDIR)/$(am__dirstamp)
-unique-ckpt/unique-ckpt.$(OBJEXT): unique-ckpt/$(am__dirstamp) \
-	unique-ckpt/$(DEPDIR)/$(am__dirstamp)
-
-$(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT): $(__d_libdir__libdmtcp_unique_ckpt_so_OBJECTS) $(__d_libdir__libdmtcp_unique_ckpt_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_unique_ckpt_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
-	@rm -f $(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT)
-	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_unique_ckpt_so_LINK) $(__d_libdir__libdmtcp_unique_ckpt_so_OBJECTS) $(__d_libdir__libdmtcp_unique_ckpt_so_LDADD) $(LIBS)
 install-binSCRIPTS: $(bin_SCRIPTS)
 	@$(NORMAL_INSTALL)
 	@list='$(bin_SCRIPTS)'; test -n "$(bindir)" || list=; \
@@ -657,14 +627,12 @@ uninstall-dist_binSCRIPTS:
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f modify-env/*.$(OBJEXT)
-	-rm -f unique-ckpt/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@modify-env/$(DEPDIR)/modify-env.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@modify-env/$(DEPDIR)/warning.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@unique-ckpt/$(DEPDIR)/unique-ckpt.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -825,8 +793,6 @@ distclean-generic:
 	-$(am__rm_f) $(d_libdir)/$(am__dirstamp)
 	-$(am__rm_f) modify-env/$(DEPDIR)/$(am__dirstamp)
 	-$(am__rm_f) modify-env/$(am__dirstamp)
-	-$(am__rm_f) unique-ckpt/$(DEPDIR)/$(am__dirstamp)
-	-$(am__rm_f) unique-ckpt/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -839,7 +805,6 @@ clean-am: clean-binPROGRAMS clean-generic clean-libdmtcpPROGRAMS \
 distclean: distclean-am
 	-rm -f modify-env/$(DEPDIR)/modify-env.Po
 	-rm -f modify-env/$(DEPDIR)/warning.Po
-	-rm -f unique-ckpt/$(DEPDIR)/unique-ckpt.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -888,7 +853,6 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 	-rm -f modify-env/$(DEPDIR)/modify-env.Po
 	-rm -f modify-env/$(DEPDIR)/warning.Po
-	-rm -f unique-ckpt/$(DEPDIR)/unique-ckpt.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

@@ -265,6 +265,13 @@ am_libdmtcp_pid_internal_a_OBJECTS =  \
 	plugin/pid/sched_wrappers.$(OBJEXT) \
 	plugin/pid/virtualpidtable.$(OBJEXT)
 libdmtcp_pid_internal_a_OBJECTS = $(am_libdmtcp_pid_internal_a_OBJECTS)
+libdmtcp_unique_ckpt_internal_a_AR = $(AR) $(ARFLAGS)
+libdmtcp_unique_ckpt_internal_a_RANLIB = $(RANLIB)
+libdmtcp_unique_ckpt_internal_a_LIBADD =
+am_libdmtcp_unique_ckpt_internal_a_OBJECTS =  \
+	plugin/unique-ckpt/unique-ckpt.$(OBJEXT)
+libdmtcp_unique_ckpt_internal_a_OBJECTS =  \
+	$(am_libdmtcp_unique_ckpt_internal_a_OBJECTS)
 am___d_bindir__dmtcp_command_OBJECTS = dmtcp_command.$(OBJEXT)
 __d_bindir__dmtcp_command_OBJECTS =  \
 	$(am___d_bindir__dmtcp_command_OBJECTS)
@@ -438,7 +445,8 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	plugin/svipc/$(DEPDIR)/sysvipcwrappers.Po \
 	plugin/timer/$(DEPDIR)/timer_create.Po \
 	plugin/timer/$(DEPDIR)/timerlist.Po \
-	plugin/timer/$(DEPDIR)/timerwrappers.Po
+	plugin/timer/$(DEPDIR)/timerwrappers.Po \
+	plugin/unique-ckpt/$(DEPDIR)/unique-ckpt.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -482,6 +490,7 @@ SOURCES = $(libdmtcpinternal_a_SOURCES) $(libdmtcprestart_a_SOURCES) \
 	$(libdmtcp_svipc_internal_a_SOURCES) \
 	$(libdmtcp_timer_internal_a_SOURCES) \
 	$(libdmtcp_pid_internal_a_SOURCES) \
+	$(libdmtcp_unique_ckpt_internal_a_SOURCES) \
 	$(__d_bindir__dmtcp_command_SOURCES) \
 	$(__d_bindir__dmtcp_coordinator_SOURCES) \
 	$(__d_bindir__dmtcp_get_libc_offset_SOURCES) \
@@ -504,6 +513,7 @@ DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) \
 	$(libdmtcp_svipc_internal_a_SOURCES) \
 	$(libdmtcp_timer_internal_a_SOURCES) \
 	$(libdmtcp_pid_internal_a_SOURCES) \
+	$(libdmtcp_unique_ckpt_internal_a_SOURCES) \
 	$(__d_bindir__dmtcp_command_SOURCES) \
 	$(__d_bindir__dmtcp_coordinator_SOURCES) \
 	$(__d_bindir__dmtcp_get_libc_offset_SOURCES) \
@@ -801,7 +811,8 @@ stale_folded_plugin_dsos = \
 	$(d_libdir)/libdmtcp_ipc.so \
 	$(d_libdir)/libdmtcp_pid.so \
 	$(d_libdir)/libdmtcp_svipc.so \
-	$(d_libdir)/libdmtcp_timer.so
+	$(d_libdir)/libdmtcp_timer.so \
+	$(d_libdir)/libdmtcp_unique-ckpt.so
 
 CLEANFILES = $(stale_folded_plugin_dsos)
 
@@ -827,7 +838,8 @@ noinst_LIBRARIES = libdmtcpinternal.a 				\
 		   libdmtcp_ssh_internal.a			\
 		   libdmtcp_svipc_internal.a			\
 		   libdmtcp_timer_internal.a			\
-		   libdmtcp_pid_internal.a
+		   libdmtcp_pid_internal.a			\
+		   libdmtcp_unique_ckpt_internal.a
 
 include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
 		  $(srcdir)/../include/dmtcp/version.h
@@ -1012,6 +1024,12 @@ libdmtcp_pid_internal_a_SOURCES = \
 libdmtcp_pid_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_pid_internal_a_SHORTNAME = i
 
+libdmtcp_unique_ckpt_internal_a_SOURCES = \
+	plugin/unique-ckpt/unique-ckpt.cpp
+
+libdmtcp_unique_ckpt_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
+libdmtcp_unique_ckpt_internal_a_SHORTNAME = i
+
 __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  ckptserializer.cpp 		\
 				  dmtcpplugin.cpp 		\
@@ -1062,6 +1080,7 @@ __d_libdir__libdmtcp_so_LDADD = $(dmtcp_plugin_whole_archive) \
 	libdmtcp_svipc_internal.a \
 	libdmtcp_timer_internal.a \
 	libdmtcp_pid_internal.a \
+	libdmtcp_unique_ckpt_internal.a \
 	libdmtcp_alloc_internal.a libdmtcp_dl_internal.a \
 	$(dmtcp_plugin_no_whole_archive) libdmtcpinternal.a libjalib.a \
 	libsyscallsreal.a -ldl -lpthread -lrt $(am__append_2)
@@ -1073,6 +1092,7 @@ __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcp_ssh_internal.a \
 				 libdmtcp_svipc_internal.a		\
 				 libdmtcp_timer_internal.a		\
 				 libdmtcp_pid_internal.a		\
+				 libdmtcp_unique_ckpt_internal.a	\
 				 libdmtcp_alloc_internal.a		\
 				 libdmtcp_dl_internal.a			\
 				 libdmtcpinternal.a 		\
@@ -1351,6 +1371,11 @@ libdmtcp_pid_internal.a: $(libdmtcp_pid_internal_a_OBJECTS) $(libdmtcp_pid_inter
 	$(AM_V_AR)$(libdmtcp_pid_internal_a_AR) libdmtcp_pid_internal.a $(libdmtcp_pid_internal_a_OBJECTS) $(libdmtcp_pid_internal_a_LIBADD)
 	$(AM_V_at)$(libdmtcp_pid_internal_a_RANLIB) libdmtcp_pid_internal.a
 
+libdmtcp_unique_ckpt_internal.a: $(libdmtcp_unique_ckpt_internal_a_OBJECTS) $(libdmtcp_unique_ckpt_internal_a_DEPENDENCIES) $(EXTRA_libdmtcp_unique_ckpt_internal_a_DEPENDENCIES)
+	$(AM_V_at)-rm -f libdmtcp_unique_ckpt_internal.a
+	$(AM_V_AR)$(libdmtcp_unique_ckpt_internal_a_AR) libdmtcp_unique_ckpt_internal.a $(libdmtcp_unique_ckpt_internal_a_OBJECTS) $(libdmtcp_unique_ckpt_internal_a_LIBADD)
+	$(AM_V_at)$(libdmtcp_unique_ckpt_internal_a_RANLIB) libdmtcp_unique_ckpt_internal.a
+
 $(d_bindir)/$(am__dirstamp):
 	@$(MKDIR_P) $(d_bindir)
 	@: >>$(d_bindir)/$(am__dirstamp)
@@ -1503,6 +1528,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timer_create.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timerlist.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/timer/$(DEPDIR)/timerwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@plugin/unique-ckpt/$(DEPDIR)/unique-ckpt.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)

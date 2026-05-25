@@ -48,7 +48,8 @@ stale_folded_plugin_dsos = \
 	$(d_libdir)/libdmtcp_ipc.so \
 	$(d_libdir)/libdmtcp_pid.so \
 	$(d_libdir)/libdmtcp_svipc.so \
-	$(d_libdir)/libdmtcp_timer.so
+	$(d_libdir)/libdmtcp_timer.so \
+	$(d_libdir)/libdmtcp_unique-ckpt.so
 
 CLEANFILES = $(stale_folded_plugin_dsos)
 
@@ -78,7 +79,8 @@ noinst_LIBRARIES = libdmtcpinternal.a 				\
 		   libdmtcp_ssh_internal.a			\
 		   libdmtcp_svipc_internal.a			\
 		   libdmtcp_timer_internal.a			\
-		   libdmtcp_pid_internal.a
+		   libdmtcp_pid_internal.a			\
+		   libdmtcp_unique_ckpt_internal.a
 
 bin_PROGRAMS = $(d_bindir)/dmtcp_command 			\
 	       $(d_bindir)/dmtcp_coordinator 			\
@@ -301,6 +303,11 @@ libdmtcp_pid_internal_a_SOURCES =					\
 libdmtcp_pid_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_pid_internal_a_SHORTNAME = i
 
+libdmtcp_unique_ckpt_internal_a_SOURCES =				\
+	plugin/unique-ckpt/unique-ckpt.cpp
+libdmtcp_unique_ckpt_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
+libdmtcp_unique_ckpt_internal_a_SHORTNAME = i
+
 __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  ckptserializer.cpp 		\
 				  dmtcpplugin.cpp 		\
@@ -353,6 +360,7 @@ __d_libdir__libdmtcp_so_LDADD = $(dmtcp_plugin_whole_archive)	\
 				 libdmtcp_svipc_internal.a		\
 				 libdmtcp_timer_internal.a		\
 				 libdmtcp_pid_internal.a		\
+				 libdmtcp_unique_ckpt_internal.a	\
 				 libdmtcp_alloc_internal.a		\
 				 libdmtcp_dl_internal.a			\
 				 $(dmtcp_plugin_no_whole_archive)	\
@@ -369,6 +377,7 @@ __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcp_ssh_internal.a \
 				 libdmtcp_svipc_internal.a		\
 				 libdmtcp_timer_internal.a		\
 				 libdmtcp_pid_internal.a		\
+				 libdmtcp_unique_ckpt_internal.a	\
 				 libdmtcp_alloc_internal.a		\
 				 libdmtcp_dl_internal.a			\
 				 libdmtcpinternal.a 		\
