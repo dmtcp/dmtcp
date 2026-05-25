@@ -7807,7 +7807,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_config_headers="$ac_config_headers include/config.h"
 
-ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile plugin/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile include/dmtcp/version.h test/Makefile test/autotest_config.py test/plugin/Makefile"
+ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile plugin/Makefile src/Makefile src/mtcp/Makefile include/dmtcp/version.h test/Makefile test/autotest_config.py test/plugin/Makefile"
 
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
@@ -9395,7 +9395,6 @@ do
     "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "src/mtcp/Makefile") CONFIG_FILES="$CONFIG_FILES src/mtcp/Makefile" ;;
-    "src/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugin/Makefile" ;;
     "include/dmtcp/version.h") CONFIG_FILES="$CONFIG_FILES include/dmtcp/version.h" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "test/autotest_config.py") CONFIG_FILES="$CONFIG_FILES test/autotest_config.py" ;;
@@ -13298,7 +13297,6 @@ do
     "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "src/mtcp/Makefile") CONFIG_FILES="$CONFIG_FILES src/mtcp/Makefile" ;;
-    "src/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugin/Makefile" ;;
     "include/dmtcp/version.h") CONFIG_FILES="$CONFIG_FILES include/dmtcp/version.h" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "test/autotest_config.py") CONFIG_FILES="$CONFIG_FILES test/autotest_config.py" ;;
@@ -14031,5 +14029,4 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 printf "%s\n" "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
-
 

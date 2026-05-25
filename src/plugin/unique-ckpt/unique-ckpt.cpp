@@ -6,17 +6,24 @@
 #include "config.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
+#include "pluginmanager.h"
 
 using namespace dmtcp;
 #define GEN_WIDTH 5
 
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+# define UNIQUE_CKPT_DEFAULT_ENABLED 1
+#else
+# define UNIQUE_CKPT_DEFAULT_ENABLED 0
+#endif
+
 extern "C" int
 dmtcp_unique_ckpt_enabled(void)
 {
-  return true;
+  return internalPluginEnabled(INTERNAL_PLUGIN_UNIQUE_CKPT);
 }
 
-void
+static void
 updateCkptDir()
 {
   const char *ckptDir = dmtcp_get_ckpt_dir();
@@ -34,7 +41,7 @@ updateCkptDir()
 }
 
 static void
-uniqueckpt_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+uniqueCkpt_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
   case DMTCP_EVENT_PRECHECKPOINT:
@@ -46,14 +53,32 @@ uniqueckpt_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-DmtcpPluginDescriptor_t unique_ckpt_plugin = {
+/*
+ * The configure default remains authoritative, but this built-in stays
+ * environment-controlled so dmtcp_launch can opt it in or out at runtime.
+ * It is checkpoint naming policy, not core mechanics, so --disable-all
+ * intentionally disables it too.
+ */
+static DmtcpPluginDescriptor_t UniqueCkptPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "unique-ckpt",
+  "UNIQUE_CKPT",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Unique-ckpt filename plugin",
-  uniqueckpt_EventHook
+  uniqueCkpt_EventHook,
+  1,
+  INTERNAL_PLUGIN_UNIQUE_CKPT,
+  UNIQUE_CKPT_DEFAULT_ENABLED,
+  1,
+  1
 };
 
-DMTCP_DECL_PLUGIN(unique_ckpt_plugin);
+namespace dmtcp
+{
+DmtcpPluginDescriptor_t
+dmtcp_UniqueCkpt_PluginDescr()
+{
+  return UniqueCkptPlugin;
+}
+}
