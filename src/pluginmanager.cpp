@@ -33,6 +33,7 @@ DmtcpPluginDescriptor_t dmtcp_Alarm_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Terminal_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_ProcessInfo_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_PathTranslator_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_UniqueCkpt_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_SshPlugin_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_EventPlugin_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_FilePlugin_PluginDescr();
@@ -86,6 +87,10 @@ dmtcp_DlPlugin_PluginDescr()
 }
 
 static InternalPluginEntry internalPlugins[] = {
+  // Keep UNIQUE_CKPT first.  Its PRECHECKPOINT hook updates the checkpoint
+  // directory name, and later plugins should observe that final directory
+  // when they serialize or reopen plugin-owned state.
+  { INTERNAL_PLUGIN_UNIQUE_CKPT, "UNIQUE_CKPT", dmtcp_UniqueCkpt_PluginDescr },
   { INTERNAL_PLUGIN_PATHVIRT, "PATHVIRT", dmtcp_PathTranslator_PluginDescr },
   { INTERNAL_PLUGIN_SYSLOG, "SYSLOG", dmtcp_Syslog_PluginDescr },
   { INTERNAL_PLUGIN_RLIMIT_FLOAT, "RLIMIT_FLOAT",

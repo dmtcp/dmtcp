@@ -107,6 +107,11 @@ static const char *theUsage =
   "  --ckpt-signal signum\n"
   "              Signal number used internally by DMTCP for checkpointing\n"
   "              (default: SIGUSR2/12).\n"
+  "  --enable-unique-checkpoint-filenames\n"
+  "  --disable-unique-checkpoint-filenames\n"
+  "              Enable/disable unique checkpoint directory names\n"
+  "              (environment variable DMTCP_UNIQUE_CKPT_PLUGIN=[01]).\n"
+  "\n"
   "Enable/disable plugins:\n"
   "  --with-plugin (environment variable DMTCP_PLUGIN)\n"
   "              Colon-separated list of DMTCP plugins to be preloaded with\n"
@@ -213,7 +218,6 @@ struct PluginInfo {
 
 static struct PluginInfo pluginInfo[] = {               // Default value
   { &enableModifyEnvPlugin, "libdmtcp_modify-env.so" },  // Disabled
-  { &enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so" }, // Disabled
   { &enableLibDMTCP, "libdmtcp.so" },                   // Enabled
   { &enablePathVirtPlugin,  "libdmtcp_pathvirt.so"}     // Disabled
 };
@@ -307,6 +311,14 @@ processArgs(int *orig_argc, const char ***orig_argv)
       shift;
     } else if (s == "--allow-file-overwrite") {
       setenv(ENV_VAR_ALLOW_OVERWRITE_WITH_CKPTED_FILES, "1", 0);
+      shift;
+    } else if (s == "--enable-unique-checkpoint-filenames") {
+      enableUniqueCkptPlugin = true;
+      setenv(ENV_VAR_UNIQUE_CKPT_PLUGIN, "1", 1);
+      shift;
+    } else if (s == "--disable-unique-checkpoint-filenames") {
+      enableUniqueCkptPlugin = false;
+      setenv(ENV_VAR_UNIQUE_CKPT_PLUGIN, "0", 1);
       shift;
     } else if (s == "--modify-env") {
       enableModifyEnvPlugin = true;
@@ -849,6 +861,8 @@ setLDPreloadLibs(bool is32bitElf)
   syncPluginEnvWithLauncherState(ENV_VAR_SVIPC_PLUGIN, &enableSvipcPlugin);
   syncPluginEnvWithLauncherState(ENV_VAR_TIMER_PLUGIN, &enableTimerPlugin);
   syncPluginEnvWithLauncherState(ENV_VAR_PID_PLUGIN, &enablePIDPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_UNIQUE_CKPT_PLUGIN,
+                                 &enableUniqueCkptPlugin);
 
   if (disableAllPlugins) {
     preloadLibs = externalPreloadLibs + Util::getPath("libdmtcp.so");

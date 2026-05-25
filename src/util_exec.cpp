@@ -613,6 +613,7 @@ Util::getDmtcpArgs(void)
   const char *svipcPlugin = getenv(ENV_VAR_SVIPC_PLUGIN);
   const char *timerPlugin = getenv(ENV_VAR_TIMER_PLUGIN);
   const char *pidPlugin = getenv(ENV_VAR_PID_PLUGIN);
+  const char *uniqueCkptPlugin = getenv(ENV_VAR_UNIQUE_CKPT_PLUGIN);
   const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
 
   const char *ckptOpenFiles = getenv(ENV_VAR_CKPT_OPEN_FILES);
@@ -703,6 +704,14 @@ Util::getDmtcpArgs(void)
 
   if (pidPlugin != NULL && strcmp(pidPlugin, "0") == 0) {
     argVector.push_back("--disable-pid-plugin");
+  }
+
+  if (uniqueCkptPlugin != NULL) {
+    if (strcmp(uniqueCkptPlugin, "1") == 0) {
+      argVector.push_back("--enable-unique-checkpoint-filenames");
+    } else if (strcmp(uniqueCkptPlugin, "0") == 0) {
+      argVector.push_back("--disable-unique-checkpoint-filenames");
+    }
   }
 
   if (disableAllPlugins != NULL && strcmp(disableAllPlugins, "1") == 0) {
