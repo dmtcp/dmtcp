@@ -127,6 +127,7 @@ ThreadSync::libdlLockLock()
 
   // The process is still initializing. We don't need to acquire lock.
   if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    errno = saved_errno;
     return false;
   }
 
@@ -146,6 +147,7 @@ ThreadSync::libdlLockUnlock()
 
   // The process is still initializing. We don't need to acquire lock.
   if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    errno = saved_errno;
     return;
   }
 
@@ -163,6 +165,7 @@ ThreadSync::wrapperExecutionLockLock()
 
   // The process is still initializing. We don't need to acquire lock.
   if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    errno = saved_errno;
     return;
   }
 
@@ -253,6 +256,7 @@ ThreadSync::wrapperExecutionLockLockExcl()
 
   // The process is still initializing. We don't need to acquire lock.
   if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    errno = saved_errno;
     return;
   }
 
@@ -276,6 +280,7 @@ ThreadSync::wrapperExecutionLockUnlock()
 
   // The process is still initializing. We don't need to acquire lock.
   if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    errno = saved_errno;
     return;
   }
 
