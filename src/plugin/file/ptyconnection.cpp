@@ -21,6 +21,7 @@
 
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <poll.h>
 #include <sys/select.h>
 #include <termios.h>
 #include <unistd.h>

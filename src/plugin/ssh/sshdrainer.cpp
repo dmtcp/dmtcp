@@ -1,7 +1,6 @@
 #include "sshdrainer.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jbuffer.h"
-#include "ipc.h"
 #include "util.h"
 
 #define SOCKET_DRAIN_MAGIC_COOKIE_STR "[dmtcp{v0<DRAIN!"
@@ -74,9 +73,9 @@ SSHDrainer::onTimeoutInterval()
     _listenSockets.clear();
   } else {
     const static int WARN_INTERVAL_TICKS =
-      (int)(DRAINER_WARNING_FREQ / DRAINER_CHECK_FREQ + 0.5);
+      (int)(SSH_DRAINER_WARNING_FREQ / SSH_DRAINER_CHECK_FREQ + 0.5);
     const static float WARN_INTERVAL_SEC =
-      WARN_INTERVAL_TICKS * DRAINER_CHECK_FREQ;
+      WARN_INTERVAL_TICKS * SSH_DRAINER_CHECK_FREQ;
     if (_timeoutCount++ > WARN_INTERVAL_TICKS) {
       _timeoutCount = 0;
       for (size_t i = 0; i < _dataSockets.size(); ++i) {

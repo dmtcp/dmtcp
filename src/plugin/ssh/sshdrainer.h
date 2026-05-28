@@ -7,6 +7,9 @@
 
 namespace dmtcp
 {
+static const double SSH_DRAINER_CHECK_FREQ = 0.1;
+static const int SSH_DRAINER_WARNING_FREQ = 10;
+
 class SSHDrainer : public jalib::JMultiSocketProgram
 {
   public:

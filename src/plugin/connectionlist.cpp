@@ -42,6 +42,11 @@
 #include "connectionlist.h"
 #include "util_ipc.h"
 
+#define _real_socket NEXT_FNC(socket)
+#define _real_bind   NEXT_FNC(bind)
+#define _real_fcntl  NEXT_FNC(fcntl)
+#define _real_poll   NEXT_FNC(poll)
+
 // Each fd may be shared or private.  If a fd is shared, this situation
 // must be restored at restart time, and only one process should set
 // the properties of that shared fd.  The sequence of events follows.
