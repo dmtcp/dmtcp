@@ -28,7 +28,6 @@
 #include "jserialize.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
-#include "ipc.h"
 
 namespace dmtcp
 {

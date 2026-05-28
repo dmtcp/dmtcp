@@ -121,8 +121,7 @@ nobase_noinst_HEADERS =						\
 			threadsync.h				\
 			uniquepid.h				\
 			workerstate.h				\
-			plugin/alloc/alloc.h			\
-			plugin/ipc.h
+			plugin/alloc/alloc.h
 
 nobase_noinst_HEADERS += $(jalibdir)/jalib.h			\
 			 $(jalibdir)/jalloc.h			\

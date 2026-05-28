@@ -42,6 +42,7 @@
 # define _real_getpt        NEXT_FNC(getpt)
 # define _real_posix_openpt NEXT_FNC(posix_openpt)
 # define _real_access       NEXT_FNC(access)
+# define _real_poll         NEXT_FNC(poll)
 
 // NOTE:  realpath is a versioned symbol, and we should be using
 // NEXT_FNC.  But that interferes with libdl.so (e.g., dlopen).

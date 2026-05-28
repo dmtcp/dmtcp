@@ -70,6 +70,7 @@
 #include "jbuffer.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
+#include "constants.h"
 #include "fileconnection.h"
 #include "filewrappers.h"
 #include "procselfmaps.h"

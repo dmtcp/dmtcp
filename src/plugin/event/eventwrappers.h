@@ -36,6 +36,7 @@
 
 # define _real_poll           NEXT_FNC(poll)
 # define _real_poll_chk       NEXT_FNC(__poll_chk)
+# define _real_select         NEXT_FNC(select)
 # define _real_pselect        NEXT_FNC(pselect)
 
 # ifdef HAVE_SYS_EPOLL_H

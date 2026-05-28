@@ -25,6 +25,7 @@
 #include "../jalib/jserialize.h"
 
 #include "plugin/pid/pidhelpers.h"
+#include "syscallwrappers.h"
 #include "util.h"
 
 using namespace dmtcp;

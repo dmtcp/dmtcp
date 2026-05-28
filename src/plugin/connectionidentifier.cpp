@@ -25,6 +25,7 @@
 
 using namespace dmtcp;
 
+static const int CONNECTION_ID_START = 99000;
 static int _nextConId = CONNECTION_ID_START;
 static int
 _nextConnectionId()

@@ -56,12 +56,15 @@
 #define REAL_TO_VIRTUAL_MSQ_ID(id) SysVMsq::instance().realToVirtualId(id)
 #define VIRTUAL_TO_REAL_MSQ_ID(id) SysVMsq::instance().virtualToRealId(id)
 
+#ifndef DMTCP_UNION_SEMUN_DEFINED
+#define DMTCP_UNION_SEMUN_DEFINED
 union semun {
   int val;                 /* Value for SETVAL */
   struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
   unsigned short *array;   /* Array for GETALL, SETALL */
   struct seminfo *__buf;   /* Buffer for IPC_INFO (Linux-specific) */
 };
+#endif // ifndef DMTCP_UNION_SEMUN_DEFINED
 
 namespace dmtcp
 {

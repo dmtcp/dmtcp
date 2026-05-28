@@ -92,12 +92,15 @@ extern "C"
 {
 #endif // ifdef __cplusplus
 
+#ifndef DMTCP_UNION_SEMUN_DEFINED
+#define DMTCP_UNION_SEMUN_DEFINED
 union semun {
   int val;                   /* Value for SETVAL */
   struct semid_ds *buf;      /* Buffer for IPC_STAT, IPC_SET */
   unsigned short *array;     /* Array for GETALL, SETALL */
   struct seminfo *__buf;     /* Buffer for IPC_INFO (Linux-specific) */
 };
+#endif // ifndef DMTCP_UNION_SEMUN_DEFINED
 
 void dmtcpResetPidPpid();
 void dmtcpResetTid(pid_t tid);
