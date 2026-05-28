@@ -298,12 +298,15 @@ typedef enum {
   numLibcWrappers
 } LibcWrapperOffset;
 
+#ifndef DMTCP_UNION_SEMUN_DEFINED
+#define DMTCP_UNION_SEMUN_DEFINED
 union semun {
   int val;                   /* Value for SETVAL */
   struct semid_ds *buf;      /* Buffer for IPC_STAT, IPC_SET */
   unsigned short *array;     /* Array for GETALL, SETALL */
   struct seminfo *__buf;     /* Buffer for IPC_INFO (Linux-specific) */
 };
+#endif // ifndef DMTCP_UNION_SEMUN_DEFINED
 
 int _dmtcp_unsetenv(const char *name);
 void dmtcp_prepare_wrappers();

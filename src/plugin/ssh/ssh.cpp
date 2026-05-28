@@ -8,9 +8,9 @@
 #include "jassert.h"
 #include "jfilesystem.h"
 #include "dmtcp.h"
-#include "ipc.h"
 #include "shareddata.h"
 #include "sshdrainer.h"
+#include "syscallwrappers.h"
 #include "util.h"
 #include "util_ipc.h"
 
@@ -123,7 +123,7 @@ dmtcp_ssh_drain()
     theDrainer->beginDrainOf(sshStdout, STDOUT_FILENO);
     theDrainer->beginDrainOf(sshStderr, STDERR_FILENO);
   }
-  theDrainer->monitorSockets(DRAINER_CHECK_FREQ);
+  theDrainer->monitorSockets(SSH_DRAINER_CHECK_FREQ);
 }
 
 void

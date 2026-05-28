@@ -3,7 +3,7 @@
 #define SSH_H
 
 #include <sys/syscall.h>
-#include "ipc.h"
+#include "dmtcp.h"
 
 #define SSHD_BINARY     "dmtcp_sshd"
 #define RSH_BINARY "rsh"

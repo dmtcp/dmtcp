@@ -146,7 +146,8 @@ SocketConnList::drain()
   ConnectionList::drain();
 
   // this will block until draining is complete
-  KernelBufferDrainer::instance().monitorSockets(DRAINER_CHECK_FREQ);
+  KernelBufferDrainer::instance().monitorSockets(
+    KERNEL_BUFFER_DRAINER_CHECK_FREQ);
 
   // handle disconnected sockets
   const map<ConnectionIdentifier, vector<char> > &discn =

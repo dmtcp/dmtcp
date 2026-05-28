@@ -230,9 +230,10 @@ KernelBufferDrainer::onTimeoutInterval()
     _listenSockets.clear();
   } else {
     const static int WARN_INTERVAL_TICKS =
-      (int)(DRAINER_WARNING_FREQ / DRAINER_CHECK_FREQ + 0.5);
+      (int)(KERNEL_BUFFER_DRAINER_WARNING_FREQ /
+            KERNEL_BUFFER_DRAINER_CHECK_FREQ + 0.5);
     const static float WARN_INTERVAL_SEC =
-      WARN_INTERVAL_TICKS * DRAINER_CHECK_FREQ;
+      WARN_INTERVAL_TICKS * KERNEL_BUFFER_DRAINER_CHECK_FREQ;
     if (_timeoutCount++ > WARN_INTERVAL_TICKS) {
       _timeoutCount = 0;
       for (size_t i = 0; i < _dataSockets.size(); ++i) {

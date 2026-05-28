@@ -32,6 +32,9 @@
 
 namespace dmtcp
 {
+static const double KERNEL_BUFFER_DRAINER_CHECK_FREQ = 0.1;
+static const int KERNEL_BUFFER_DRAINER_WARNING_FREQ = 10;
+
 class KernelBufferDrainer : public jalib::JMultiSocketProgram
 {
   public:

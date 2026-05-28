@@ -342,9 +342,9 @@ extern "C" int
 getnameinfo(const struct sockaddr *sa,
             socklen_t salen,
             char *host,
-            size_t hostlen,
+            socklen_t hostlen,
             char *serv,
-            size_t servlen,
+            socklen_t servlen,
             int flags)
 {
   if (!internalPluginEnabled(INTERNAL_PLUGIN_SOCKET)) {
