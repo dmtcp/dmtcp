@@ -24,8 +24,11 @@ pty, socket, SysV IPC, timer, and PID.
 
 Plugin-specific wrapper policy stays in the owning plugin. Core DMTCP owns only
 shared mechanics that cannot belong to one plugin: the preload shape, real-call
-helpers, core lifecycle control flow, protected-fd policy, and rare wrapper
-composition points where more than one plugin must affect the same call.
+helpers for common wrappers, core lifecycle control flow, protected-fd policy,
+and rare wrapper composition points where more than one plugin must affect the
+same call. Real-call helpers for plugin-only wrappers stay in the owning plugin
+directory so core code cannot casually depend on plugin-private wrapper
+surfaces.
 
 Backward compatibility for separately preloaded built-in DSOs is not a goal.
 
@@ -49,6 +52,12 @@ Single-owner wrappers stay with their owning plugin.
 
 A wrapper moves to core only when it has real multi-plugin ownership or core
 mechanics that cannot be expressed through one plugin.
+
+Plugin-owned wrappers should keep their `_real_*` lookup declarations and
+initialization in plugin-owned files. Shared `syscallwrappers.h` /
+`syscallsreal.c` helpers are reserved for common wrappers and core composition
+points. This keeps the built-in plugin boundary visible even after the code is
+linked into one DSO.
 
 Simple PID translation should use two public internal helpers:
 

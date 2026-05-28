@@ -119,6 +119,161 @@ control flow is reserved for real multi-plugin collision points.
 - Keep `src/plugin` as the uniform location for folded internal plugin code.
 - Keep external plugins as separately loaded DSOs.
 
+### 7. Plugin-Owned Real-Wrapper Initialization
+
+Goal: keep plugin-only `_real_*` surfaces inside the owning plugin while
+retaining the explicit initialization shape of `syscallwrappers.h` /
+`syscallsreal.c` for wrappers that benefit from it.
+
+Recommended direction: add plugin-owned real-wrapper initialization callbacks
+for built-in/internal plugins, with a lazy plugin-local fallback for wrappers
+that can execute before PluginManager has fully initialized.
+
+Approach A, local `NEXT_FNC` macros in plugin wrapper headers:
+
+- Pros: simplest implementation, no new init ordering rules, no public or
+  internal descriptor changes, and each wrapper lazily resolves exactly the
+  libc symbol it needs.
+- Pros: robust for early wrappers because `NEXT_FNC` already handles the
+  "initialize DMTCP if needed" path at the call site.
+- Cons: repeated macro definitions spread across plugin headers, no single
+  per-plugin audit point for required real symbols, and no startup-time
+  validation that a required symbol can be resolved.
+- Cons: each call site owns its static cache independently, which keeps the
+  design simple but makes it harder to reason about symbol initialization as a
+  plugin-owned subsystem.
+
+Approach B, central `syscallwrappers.h` / `syscallsreal.c` for all folded
+wrappers:
+
+- Pros: one familiar initialization mechanism, one place to inspect real-call
+  definitions, and no plugin-local boilerplate.
+- Pros: easy for common wrappers and core-owned wrapper composition points.
+- Cons: weakens plugin boundaries by making plugin-private `_real_*` helpers
+  globally visible to core DMTCP.
+- Cons: encourages accidental core calls into plugin-owned wrapper surfaces and
+  grows the shared real-call table with single-owner plugin details.
+
+Approach C, plugin-owned callback plus plugin-local function pointer table:
+
+- Pros: keeps boundaries crisp: plugin-only real symbols live under
+  `src/plugin/<owner>/`, while common wrappers remain in
+  `syscallwrappers.h` / `syscallsreal.c`.
+- Pros: gives each plugin one explicit real-symbol inventory and one
+  initialization point, making future audits and generated checks easier.
+- Pros: lets PluginManager pre-initialize enabled built-ins while wrappers keep
+  a plugin-local lazy fallback for early calls.
+- Cons: adds modest boilerplate per plugin: a real-wrapper header, a source
+  file or private block that owns function pointers, and an init callback.
+- Cons: initialization order must be documented. Allocation and dynamic-loader
+  wrappers may need to keep direct lazy `NEXT_FNC` lookup until a callback path
+  can be proven free of allocation/dlsym recursion.
+- Cons: if the callback is added to public `DmtcpPluginDescriptor_t`, it
+  changes the external plugin ABI. Prefer an internal-only callback field on
+  `InternalPluginEntry` or a PluginManager-private table unless external
+  plugins need the feature.
+
+Implementation sketch for Approach C:
+
+1. Add an internal callback field to `InternalPluginEntry` in
+   `src/pluginmanager.cpp`:
+
+   ```c++
+   typedef void (*InternalPluginInitRealWrappersFn)();
+
+   struct InternalPluginEntry {
+     DmtcpInternalPluginId_t id;
+     const char *name;
+     BuiltinDescriptorFn descriptorFn;
+     InternalPluginInitRealWrappersFn initRealWrappers;
+     DmtcpPluginDescriptor_t descriptor;
+     bool enabled;
+   };
+   ```
+
+2. During internal plugin initialization, call `initRealWrappers` for each
+   built-in plugin that has one. Do this before descriptor registration so
+   plugin event hooks observe initialized real-wrapper tables. Keep this
+   internal-only; external plugin initialization remains chained through
+   `dmtcp_initialize_plugin()`.
+
+3. For each plugin, add a plugin-owned real wrapper unit. Example for the event
+   plugin:
+
+   ```c++
+   // src/plugin/event/eventrealwrappers.h
+   #pragma once
+   #include <poll.h>
+   #include <sys/select.h>
+
+   void dmtcp_event_init_real_wrappers();
+   int dmtcp_event_real_poll(struct pollfd *fds, nfds_t nfds, int timeout);
+   int dmtcp_event_real_select(int nfds,
+                               fd_set *readfds,
+                               fd_set *writefds,
+                               fd_set *exceptfds,
+                               struct timeval *timeout);
+   ```
+
+   ```c++
+   // src/plugin/event/eventrealwrappers.cpp
+   #include "dmtcp.h"
+   #include "eventrealwrappers.h"
+
+   static int (*real_poll_fn)(struct pollfd *, nfds_t, int);
+   static int (*real_select_fn)(int, fd_set *, fd_set *, fd_set *,
+                                struct timeval *);
+
+   void
+   dmtcp_event_init_real_wrappers()
+   {
+     if (real_poll_fn == NULL) {
+       real_poll_fn = NEXT_FNC(poll);
+     }
+     if (real_select_fn == NULL) {
+       real_select_fn = NEXT_FNC(select);
+     }
+   }
+
+   int
+   dmtcp_event_real_poll(struct pollfd *fds, nfds_t nfds, int timeout)
+   {
+     dmtcp_event_init_real_wrappers();
+     return real_poll_fn(fds, nfds, timeout);
+   }
+   ```
+
+4. Convert plugin wrappers one plugin at a time from `_real_*` macros to
+   plugin-local `dmtcp_<plugin>_real_<function>()` helpers. Keep each conversion
+   behavior-neutral and include one focused smoke test for that wrapper family.
+
+5. Leave these cases out of the first callback pass unless there is a specific
+   reason to include them:
+
+   - allocation wrappers, because allocator real lookup participates in
+     bootstrap and recursion-sensitive paths
+   - dynamic-loader wrappers, because `dlopen` / `dlclose` interact with
+     dlsym and `LibDlWrapperLock`
+   - common wrapper composition points such as `mq_notify`, which should stay
+     on the shared/core path by design
+
+6. Verification for each plugin conversion starts with a fresh build:
+
+   ```sh
+   make -j"$(nproc)"
+   ```
+
+   Then run the focused smoke command for the plugin being converted:
+
+   ```sh
+   ./test/autotest.py -v poll epoll1
+   ./test/autotest.py -v pty1 pty2
+   ./test/autotest.py -v client-server seqpacket
+   ./test/autotest.py -v file1 file2 shared-fd1 posix-mq1
+   ./test/autotest.py -v sysv-shm1 sysv-shm2 sysv-sem sysv-msg
+   ./test/autotest.py -v timer1 clock
+   ```
+
 ## Commit Boundaries
 
 Keep commits logical and bisectable:
