@@ -65,7 +65,7 @@ alarm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t alarmPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t alarmPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "ALARM",
@@ -74,11 +74,4 @@ static DmtcpPluginDescriptor_t alarmPlugin = {
   "Alarm plugin",
   alarm_EventHook
 };
-
-
-DmtcpPluginDescriptor_t
-dmtcp_Alarm_PluginDescr()
-{
-  return alarmPlugin;
-}
 }

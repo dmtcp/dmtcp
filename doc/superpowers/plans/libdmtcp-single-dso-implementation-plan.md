@@ -182,11 +182,8 @@ Implementation sketch for Approach C:
    typedef void (*InternalPluginInitRealWrappersFn)();
 
    struct InternalPluginEntry {
-     DmtcpInternalPluginId_t id;
-     const char *name;
-     BuiltinDescriptorFn descriptorFn;
+     DmtcpPluginDescriptor_t *descriptor;
      InternalPluginInitRealWrappersFn initRealWrappers;
-     DmtcpPluginDescriptor_t descriptor;
      bool enabled;
    };
    ```

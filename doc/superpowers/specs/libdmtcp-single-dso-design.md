@@ -119,26 +119,22 @@ The existing PluginManager harness is the single internal plugin harness.
 second plugin model and treat newly folded plugins differently from old in-core
 plugins. That split is architectural debt.
 
-Each internal plugin should have descriptor metadata that PluginManager can use:
+Each internal plugin should have a `DmtcpPluginDescriptor_t` that PluginManager
+can use directly:
 
-- descriptor function
-- stable plugin name
-- internal plugin id
-- default enabled state
-- whether the plugin's enable state is controlled by `DMTCP_<PLUGIN>_PLUGIN`
-- cached enabled state
+- stable all-caps plugin name
+- lifecycle event hook, if any
+- cached enabled state in PluginManager-private metadata
 
 Old in-core plugins and newly folded plugins use the same metadata path.
 Plugins without lifecycle behavior may still have descriptor metadata so
 enable/disable and ownership are uniform.
 
-The internal metadata is stored as trailing fields on
-`DmtcpPluginDescriptor_t`. External plugins can continue to use aggregate
-initializers that omit those trailing fields; zero-initialized metadata means
-"not an internal plugin." This branch intentionally allows the descriptor ABI
-to change because preserving separately preloaded built-in DSOs is not a goal.
-Internal enable environment variable names are derived from the all-caps plugin
-name in the descriptor, for example `PID` maps to `DMTCP_PID_PLUGIN`.
+The public plugin descriptor should stay focused on the external plugin
+contract. Internal-only enablement state belongs in PluginManager metadata, and
+the descriptor's all-caps `pluginName` is the internal plugin id. Internal
+enable environment variable names are derived from that all-caps plugin name:
+`DMTCP_<PLUGIN>_PLUGIN`, for example `PID` maps to `DMTCP_PID_PLUGIN`.
 
 PluginManager registers enabled internal descriptors in explicit order.
 External plugin registration remains chained through the public
@@ -189,18 +185,12 @@ The launcher still parses plugin enable/disable options and sets environment
 variables before loading the target. `libdmtcp.so` reads those variables through
 PluginManager metadata.
 
-`--disable-all-plugins` disables internal plugin policy. It must not disable
-core DMTCP mechanics required for interposition, initialization, checkpoint
-coordination, protected fds, or exec replay.
-
-The exemption is represented by descriptor metadata: plugins with
-`internalPluginEnvControlled == 0` remain enabled under
-`--disable-all-plugins`, while env-controlled policy plugins are disabled.
-The core exemption set is path translator, syslog, rlimit/float, alarm,
-terminal, coordinator API, process info, and unique-pid. Unique-ckpt is
-intentionally env-controlled because it is opt-in checkpoint naming policy
-derived from the configure default and runtime launcher flag, not a core
-mechanic.
+`--disable-all-plugins` disables internal plugin policy uniformly through
+PluginManager state. Core DMTCP mechanics required for interposition,
+initialization, checkpoint coordination, protected fds, or exec replay should
+not depend on plugin event registration being enabled. Unique-ckpt remains
+ordinary plugin policy: its configure default is translated into a runtime
+environment value by `dmtcp_launch`, and the runtime flag can override it.
 
 Single-owner wrappers should check their owning plugin state through a small
 PluginManager-facing helper, for example `PluginManager::pluginEnabled(name)`

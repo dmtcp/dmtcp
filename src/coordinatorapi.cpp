@@ -118,7 +118,7 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "COORDINATOR_API",
@@ -127,12 +127,6 @@ static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   "Coordinator API plugin",
   eventHook
 };
-
-DmtcpPluginDescriptor_t
-pluginDescr()
-{
-  return coordinatorAPIPlugin;
-}
 
 void
 restart()
