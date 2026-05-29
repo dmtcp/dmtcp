@@ -255,7 +255,9 @@ SocketConnList::scanForPreExisting()
   // pre-existing or not. This can be done by adding an extra round
   // of leader election.
 
-  if (getenv("SLURM_JOBID") || (getenv("SLURM_JOB_ID"))) {
+  if ((getenv("SLURM_JOBID")) ||
+      (getenv("SLURM_JOB_ID")) ||
+      (getenv("HYDI_CONTROL_FD"))) {
     return;
   }
 
