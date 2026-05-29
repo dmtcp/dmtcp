@@ -28,8 +28,33 @@
 
 namespace dmtcp
 {
-bool internalPluginEnabled(DmtcpInternalPluginId_t id);
-bool internalPluginEnabledByName(const char *name);
+/*
+ * Built-in plugins use DmtcpPluginDescriptor_t::pluginName as their internal
+ * PluginManager id.  Keep these names identical to the owning descriptor's
+ * all-caps pluginName; enablement variables are derived as
+ * DMTCP_<PLUGIN>_PLUGIN.
+ */
+static const char INTERNAL_PLUGIN_PATHVIRT[] = "PATHVIRT";
+static const char INTERNAL_PLUGIN_SYSLOG[] = "SYSLOG";
+static const char INTERNAL_PLUGIN_RLIMIT_FLOAT[] = "RLIMIT_FLOAT";
+static const char INTERNAL_PLUGIN_ALARM[] = "ALARM";
+static const char INTERNAL_PLUGIN_TERMINAL[] = "TERMINAL";
+static const char INTERNAL_PLUGIN_COORDINATOR_API[] = "COORDINATOR_API";
+static const char INTERNAL_PLUGIN_PROCESS_INFO[] = "PROCESS_INFO";
+static const char INTERNAL_PLUGIN_UNIQUE_PID[] = "UNIQUE_PID";
+static const char INTERNAL_PLUGIN_UNIQUE_CKPT[] = "UNIQUE_CKPT";
+static const char INTERNAL_PLUGIN_SSH[] = "SSH";
+static const char INTERNAL_PLUGIN_EVENT[] = "EVENT";
+static const char INTERNAL_PLUGIN_FILE[] = "FILE";
+static const char INTERNAL_PLUGIN_PTY[] = "PTY";
+static const char INTERNAL_PLUGIN_SOCKET[] = "SOCKET";
+static const char INTERNAL_PLUGIN_SVIPC[] = "SVIPC";
+static const char INTERNAL_PLUGIN_TIMER[] = "TIMER";
+static const char INTERNAL_PLUGIN_PID[] = "PID";
+static const char INTERNAL_PLUGIN_ALLOC[] = "ALLOC";
+static const char INTERNAL_PLUGIN_DL[] = "DL";
+
+bool internalPluginEnabled(const char *pluginName);
 
 class PluginManager
 {

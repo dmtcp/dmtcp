@@ -170,7 +170,7 @@ dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 
-DmtcpPluginDescriptor_t filePlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t filePlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "FILE",
@@ -179,15 +179,6 @@ DmtcpPluginDescriptor_t filePlugin = {
   "File plugin",
   dmtcp_FileConnList_EventHook
 };
-
-namespace dmtcp
-{
-DmtcpPluginDescriptor_t
-dmtcp_FilePlugin_PluginDescr()
-{
-  return filePlugin;
-}
-}
 
 static vector<ProcMapsArea>shmAreas;
 static vector<ProcMapsArea>unlinkedShmAreas;

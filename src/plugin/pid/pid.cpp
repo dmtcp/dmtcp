@@ -428,7 +428,7 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 
-DmtcpPluginDescriptor_t pidPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t pidPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "PID",
@@ -437,12 +437,3 @@ DmtcpPluginDescriptor_t pidPlugin = {
   "PID virtualization plugin",
   pid_event_hook
 };
-
-namespace dmtcp
-{
-DmtcpPluginDescriptor_t
-dmtcp_PidPlugin_PluginDescr()
-{
-  return pidPlugin;
-}
-}

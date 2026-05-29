@@ -95,7 +95,7 @@ dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 
-DmtcpPluginDescriptor_t ptyPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t ptyPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "PTY",
@@ -104,15 +104,6 @@ DmtcpPluginDescriptor_t ptyPlugin = {
   "PTY plugin",
   dmtcp_PtyConnList_EventHook
 };
-
-namespace dmtcp
-{
-DmtcpPluginDescriptor_t
-dmtcp_PtyPlugin_PluginDescr()
-{
-  return ptyPlugin;
-}
-}
 
 void
 pty_virtual_to_real_filepath(DmtcpEventData_t *data)

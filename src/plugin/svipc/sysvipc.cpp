@@ -225,7 +225,7 @@ sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-DmtcpPluginDescriptor_t sysvipcPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t sysvipcPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "SVIPC",
@@ -234,16 +234,6 @@ DmtcpPluginDescriptor_t sysvipcPlugin = {
   "Sys V IPC virtualization plugin",
   sysvipc_event_hook
 };
-
-namespace dmtcp
-{
-DmtcpPluginDescriptor_t
-dmtcp_SysVIPC_PluginDescr()
-{
-  return sysvipcPlugin;
-}
-}
-
 
 static void
 _do_lock_tbl()

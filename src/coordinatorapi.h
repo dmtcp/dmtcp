@@ -43,7 +43,6 @@ namespace CoordinatorAPI
 {
 
 void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-DmtcpPluginDescriptor_t pluginDescr();
 
 void atForkPrepare();
 void atForkParent();

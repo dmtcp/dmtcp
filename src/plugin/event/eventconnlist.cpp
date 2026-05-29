@@ -59,7 +59,7 @@ dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 
-DmtcpPluginDescriptor_t eventPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t eventPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "EVENT",
@@ -68,15 +68,6 @@ DmtcpPluginDescriptor_t eventPlugin = {
   "Event plugin",
   dmtcp_EventConnList_EventHook
 };
-
-namespace dmtcp
-{
-DmtcpPluginDescriptor_t
-dmtcp_EventPlugin_PluginDescr()
-{
-  return eventPlugin;
-}
-}
 
 EventConnList&
 EventConnList::instance()
