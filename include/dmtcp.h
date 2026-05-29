@@ -44,8 +44,8 @@
 # define EXTERNC
 #endif // ifdef __cplusplus
 
-/* Define to the version of this package. */
-#define DMTCP_PLUGIN_API_VERSION "3"
+/* Bump when DmtcpPluginDescriptor_t changes ABI. */
+#define DMTCP_PLUGIN_API_VERSION "4"
 
 #ifdef __cplusplus
 namespace dmtcp {
@@ -493,8 +493,8 @@ int dmtcp_protected_environ_fd(void);
  *  discovers a pid without going through a system call (e.g., through
  *  the proc filesystem), use this to virtualize the pid.
  */
-pid_t dmtcp_real_to_virtual_pid(pid_t realPid) __attribute((weak));
-pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid) __attribute((weak));
+pid_t dmtcp_pid_real_to_virtual(pid_t realPid) __attribute((weak));
+pid_t dmtcp_pid_virtual_to_real(pid_t virtualPid) __attribute((weak));
 
 // bq_file -> "batch queue file"; used only by batch-queue plugin
 int dmtcp_is_bq_file(const char *path) __attribute((weak));
@@ -505,7 +505,7 @@ int dmtcp_bq_restore_file(const char *path,
                           int type) __attribute((weak));
 
 /*  These next two functions are defined in contrib/ckptfile/ckptfile.cpp
- *  But they are currently used only in src/plugin/ipc/file/fileconnection.cpp
+ *  But they are currently used only in src/plugin/file/fileconnection.cpp
  *    and in a trivial fashion.  These are intended for future extensions.
  */
 int dmtcp_must_ckpt_file(const char *path) __attribute((weak));

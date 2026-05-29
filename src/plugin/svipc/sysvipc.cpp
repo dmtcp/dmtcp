@@ -36,6 +36,7 @@
 #include "dmtcp.h"
 #include "shareddata.h"
 #include "util.h"
+#include "wrapperlock.h"
 
 #include "sysvipc.h"
 #include "sysvipcwrappers.h"
@@ -224,18 +225,15 @@ sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-DmtcpPluginDescriptor_t sysvipcPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t sysvipcPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "sysvipc",
+  "SVIPC",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Sys V IPC virtualization plugin",
   sysvipc_event_hook
 };
-
-DMTCP_DECL_PLUGIN(sysvipcPlugin);
-
 
 static void
 _do_lock_tbl()
@@ -560,8 +558,8 @@ SysVShm::on_shmdt(const void *shmaddr)
 int
 SysVShm::shmaddrToShmid(const void *shmaddr)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
   int shmid = -1;
+  WrapperLock wrapperLock;
   _do_lock_tbl();
   for (Iterator i = _map.begin(); i != _map.end(); ++i) {
     ShmSegment *shmObj = (ShmSegment *)i->second;
@@ -571,7 +569,6 @@ SysVShm::shmaddrToShmid(const void *shmaddr)
     }
   }
   _do_unlock_tbl();
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return shmid;
 }
 
@@ -800,7 +797,7 @@ ShmSegment::preCkptDrain()
   _dmtcpMappedAddr = false;
   _isCkptLeader = false;
 
-  if (info.shm_lpid == getpid()) {
+  if (info.shm_lpid == dmtcp_pid_virtual_to_real(getpid())) {
     _isCkptLeader = true;
     if (_shmaddrToFlag.size() == 0) {
       void *addr = _real_shmat(_realId, NULL, 0);
@@ -851,7 +848,7 @@ ShmSegment::postRestart()
   }
 
   int tmpShmFlags = (_flags & IPC_CREAT) ? _flags : (_flags | IPC_CREAT);
-  key_t realKey = dmtcp_virtual_to_real_pid(getpid());
+  key_t realKey = dmtcp_pid_virtual_to_real(getpid());
   _realId = _real_shmget(realKey, _size, tmpShmFlags);
   JASSERT(_realId != -1);
   SysVShm::instance().updateMapping(_id, _realId);
@@ -955,7 +952,8 @@ Semaphore::on_semop(struct sembuf *sops, unsigned nsops)
 bool
 Semaphore::isStale()
 {
-  int ret = _real_semctl(_realId, 0, GETPID);
+  union semun arg = { 0 };
+  int ret = _real_semctl(_realId, 0, GETPID, arg);
 
   if (ret == -1) {
     JASSERT(errno == EIDRM || errno == EINVAL);
@@ -999,7 +997,9 @@ void
 Semaphore::preCkptDrain()
 {
   _isCkptLeader = false;
-  if (getpid() == _real_semctl(_realId, 0, GETPID)) {
+  union semun arg = { 0 };
+  if (dmtcp_pid_virtual_to_real(getpid()) ==
+      _real_semctl(_realId, 0, GETPID, arg)) {
     union semun info;
     info.array = &_semval[0];
     JASSERT(_real_semctl(_realId, 0, GETALL, info) != -1);
@@ -1124,7 +1124,7 @@ MsgQueue::preCheckpoint()
   memset(&buf, 0, sizeof buf);
   JASSERT(_real_msgctl(_realId, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
 
-  if (buf.msg_lspid == getpid()) {
+  if (buf.msg_lspid == dmtcp_pid_virtual_to_real(getpid())) {
     size_t size = buf.__msg_cbytes;
     size_t msgBufSize = sizeof(struct msgbuf) + size;
     struct msgbuf *msgBuf = (struct msgbuf*) JALLOC_MALLOC(msgBufSize);

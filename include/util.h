@@ -113,6 +113,7 @@ int changeFd(int oldfd, int newfd);
 
 bool strStartsWith(const char *str, const char *pattern);
 bool strEndsWith(const char *str, const char *pattern);
+bool readBooleanEnv(const char *envName, bool defaultValue);
 
 bool isNscdArea(const ProcMapsArea &area);
 bool isSysVShmArea(const ProcMapsArea &area);
@@ -163,8 +164,6 @@ char readHex(int fd, VA *value);
 char readChar(int fd);
 int readProcMapsLine(int mapsfd, ProcMapsArea *area);
 int memProtToOpenFlags(int prot);
-pid_t getTracerPid(pid_t tid = -1);
-bool isPtraced();
 bool isValidFd(int fd);
 bool isPseudoTty(const char *path);
 size_t pageSize();

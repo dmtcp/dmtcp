@@ -41,7 +41,6 @@ AC_CONFIG_FILES([Makefile \
                  plugin/Makefile \
                  src/Makefile \
                  src/mtcp/Makefile \
-                 src/plugin/Makefile \
                  include/dmtcp/version.h \
                  test/Makefile \
                  test/autotest_config.py \
@@ -349,6 +348,12 @@ if test "$use_m32" = "yes" -o "$use_multilib" = "yes"; then
     LDFLAGS="$LDFLAGS_64"
   fi
 fi
+
+AC_CHECK_DECLS([SYS_mq_open],
+               [has_sys_mq_open=yes],
+               [has_sys_mq_open=no],
+               [[#include <sys/syscall.h>]])
+AC_SUBST([HAS_SYS_MQ_OPEN], [$has_sys_mq_open])
 
 AC_ARG_ENABLE([static_libstdcxx],
             [AS_HELP_STRING([--enable-static-libstdcxx],

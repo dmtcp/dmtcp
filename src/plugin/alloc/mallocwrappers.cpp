@@ -22,64 +22,88 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "alloc.h"
-#include "dmtcp.h"
+#include "pluginmanager.h"
+#include "wrapperlock.h"
+
+using namespace dmtcp;
 
 EXTERNC int
-dmtcp_alloc_enabled() { return 1; }
+dmtcp_alloc_enabled()
+{
+  static const int enabled =
+    internalPluginEnabled(INTERNAL_PLUGIN_ALLOC) ? 1 : 0;
+  return enabled;
+}
 
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  void *retval = _real_calloc(nmemb, size);
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
+  if (!dmtcp_alloc_enabled()) {
+    return _real_calloc(nmemb, size);
+  }
+
+  WrapperLock wrapperLock;
+  return _real_calloc(nmemb, size);
 }
 
 extern "C" void *malloc(size_t size)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  void *retval = _real_malloc(size);
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
+  if (!dmtcp_alloc_enabled()) {
+    return _real_malloc(size);
+  }
+
+  WrapperLock wrapperLock;
+  return _real_malloc(size);
 }
 
 extern "C" void *memalign(size_t boundary, size_t size)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  void *retval = _real_memalign(boundary, size);
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
+  if (!dmtcp_alloc_enabled()) {
+    return _real_memalign(boundary, size);
+  }
+
+  WrapperLock wrapperLock;
+  return _real_memalign(boundary, size);
 }
 
 extern "C" int
 posix_memalign(void **memptr, size_t alignment, size_t size)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int retval = _real_posix_memalign(memptr, alignment, size);
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
+  if (!dmtcp_alloc_enabled()) {
+    return _real_posix_memalign(memptr, alignment, size);
+  }
+
+  WrapperLock wrapperLock;
+  return _real_posix_memalign(memptr, alignment, size);
 }
 
 extern "C" void *valloc(size_t size)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  void *retval = _real_valloc(size);
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
+  if (!dmtcp_alloc_enabled()) {
+    return _real_valloc(size);
+  }
+
+  WrapperLock wrapperLock;
+  return _real_valloc(size);
 }
 
 extern "C" void
 free(void *ptr)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!dmtcp_alloc_enabled()) {
+    _real_free(ptr);
+    return;
+  }
+
+  WrapperLock wrapperLock;
   _real_free(ptr);
-  DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
 extern "C" void *realloc(void *ptr, size_t size)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  void *retval = _real_realloc(ptr, size);
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
+  if (!dmtcp_alloc_enabled()) {
+    return _real_realloc(ptr, size);
+  }
+
+  WrapperLock wrapperLock;
+  return _real_realloc(ptr, size);
 }

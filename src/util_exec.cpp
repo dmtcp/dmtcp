@@ -605,6 +605,16 @@ Util::getDmtcpArgs(void)
   const char *compression = getenv(ENV_VAR_COMPRESSION);
   const char *allocPlugin = getenv(ENV_VAR_ALLOC_PLUGIN);
   const char *dlPlugin = getenv(ENV_VAR_DL_PLUGIN);
+  const char *sshPlugin = getenv(ENV_VAR_SSH_PLUGIN);
+  const char *eventPlugin = getenv(ENV_VAR_EVENT_PLUGIN);
+  const char *filePlugin = getenv(ENV_VAR_FILE_PLUGIN);
+  const char *ptyPlugin = getenv(ENV_VAR_PTY_PLUGIN);
+  const char *socketPlugin = getenv(ENV_VAR_SOCKET_PLUGIN);
+  const char *svipcPlugin = getenv(ENV_VAR_SVIPC_PLUGIN);
+  const char *timerPlugin = getenv(ENV_VAR_TIMER_PLUGIN);
+  const char *pidPlugin = getenv(ENV_VAR_PID_PLUGIN);
+  const char *uniqueCkptPlugin = getenv(ENV_VAR_UNIQUE_CKPT_PLUGIN);
+  const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
 
   const char *ckptOpenFiles = getenv(ENV_VAR_CKPT_OPEN_FILES);
   const char *ckptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
@@ -662,6 +672,50 @@ Util::getDmtcpArgs(void)
 
   if (dlPlugin != NULL && strcmp(dlPlugin, "0") == 0) {
     argVector.push_back("--disable-dl-plugin");
+  }
+
+  if (sshPlugin != NULL && strcmp(sshPlugin, "0") == 0) {
+    argVector.push_back("--disable-ssh-plugin");
+  }
+
+  if (eventPlugin != NULL && strcmp(eventPlugin, "0") == 0) {
+    argVector.push_back("--disable-event-plugin");
+  }
+
+  if (filePlugin != NULL && strcmp(filePlugin, "0") == 0) {
+    argVector.push_back("--disable-file-plugin");
+  }
+
+  if (ptyPlugin != NULL && strcmp(ptyPlugin, "0") == 0) {
+    argVector.push_back("--disable-pty-plugin");
+  }
+
+  if (socketPlugin != NULL && strcmp(socketPlugin, "0") == 0) {
+    argVector.push_back("--disable-socket-plugin");
+  }
+
+  if (svipcPlugin != NULL && strcmp(svipcPlugin, "0") == 0) {
+    argVector.push_back("--disable-svipc-plugin");
+  }
+
+  if (timerPlugin != NULL && strcmp(timerPlugin, "0") == 0) {
+    argVector.push_back("--disable-timer-plugin");
+  }
+
+  if (pidPlugin != NULL && strcmp(pidPlugin, "0") == 0) {
+    argVector.push_back("--disable-pid-plugin");
+  }
+
+  if (uniqueCkptPlugin != NULL) {
+    if (strcmp(uniqueCkptPlugin, "1") == 0) {
+      argVector.push_back("--enable-unique-checkpoint-filenames");
+    } else if (strcmp(uniqueCkptPlugin, "0") == 0) {
+      argVector.push_back("--disable-unique-checkpoint-filenames");
+    }
+  }
+
+  if (disableAllPlugins != NULL && strcmp(disableAllPlugins, "1") == 0) {
+    argVector.push_back("--disable-all-plugins");
   }
 
   if (dmtcp_modify_env_enabled != NULL && dmtcp_modify_env_enabled()) {

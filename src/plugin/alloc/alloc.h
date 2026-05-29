@@ -25,7 +25,12 @@
 #include "dmtcp.h"
 
 extern "C" void *__libc_memalign(size_t boundary, size_t size);
+extern "C" int dmtcp_alloc_enabled(void);
 
+/* Keep allocator real-function lookup local: these wrappers participate in
+ * bootstrap paths where the shared real-function table can recurse through
+ * allocation-sensitive libc/dlsym machinery.
+ */
 #define _real_malloc         NEXT_FNC(malloc)
 #define _real_calloc         NEXT_FNC(calloc)
 #define _real_valloc         NEXT_FNC(valloc)
@@ -39,4 +44,5 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size);
 #define _real_mmap64         NEXT_FNC(mmap64)
 #define _real_munmap         NEXT_FNC(munmap)
 #define _real_mremap         NEXT_FNC(mremap)
+
 #endif // ALLOC_H

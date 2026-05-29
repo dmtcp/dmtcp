@@ -274,19 +274,12 @@ UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t UniquePidPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t UniquePidPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "UniquePid",
+  "UNIQUE_PID",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "processInfo plugin",
   UniquePid_EventHook
 };
-
-
-DmtcpPluginDescriptor_t
-UniquePid::pluginDescr()
-{
-  return UniquePidPlugin;
-}

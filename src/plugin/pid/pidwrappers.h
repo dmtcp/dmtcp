@@ -82,6 +82,7 @@ struct user_desc {
 #include <unistd.h>
 
 #include "dmtcp.h"
+#include "pidhelpers.h"
 
 // Keep in sync with dmtcp/src/constants.h
 #define ENV_VAR_VIRTUAL_PID "DMTCP_VIRTUAL_PID"
@@ -101,16 +102,8 @@ union semun {
 void dmtcpResetPidPpid();
 void dmtcpResetTid(pid_t tid);
 
-LIB_PRIVATE void pidVirt_atfork_prepare();
-LIB_PRIVATE void pidVirt_atfork_child();
-
-LIB_PRIVATE void pidVirt_vfork_prepare();
-LIB_PRIVATE void pidVirt_vfork_child();
-
 /* The following function are defined in pidwrappers.cpp */
 LIB_PRIVATE pid_t dmtcp_gettid();
-LIB_PRIVATE int dmtcp_tkill(int tid, int sig);
-LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
 
 #define FOREACH_PIDVIRT_WRAPPER(MACRO) \
   MACRO(fork)                          \
@@ -198,7 +191,14 @@ pid_t _real_gettid(void);
 int _real_tkill(int tid, int sig);
 int _real_tgkill(int tgid, int tid, int sig);
 
-long int _real_syscall(long int sys_num, ...);
+long int _real_syscall(long int sys_num,
+                       long int arg1,
+                       long int arg2,
+                       long int arg3,
+                       long int arg4,
+                       long int arg5,
+                       long int arg6,
+                       long int arg7);
 
 /* System V shared memory */
 int _real_shmget(key_t key, size_t size, int shmflg);
@@ -221,7 +221,7 @@ pid_t _real_tcgetpgrp(int fd);
 int _real_tcsetpgrp(int fd, pid_t pgrp);
 
 pid_t _real_getpgrp(void);
-pid_t _real_setpgrp(void);
+int _real_setpgrp(void);
 
 pid_t _real_getpgid(pid_t pid);
 int _real_setpgid(pid_t pid, pid_t pgid);
@@ -248,7 +248,7 @@ int _real_setuid(uid_t uid);
 
 int _real_pthread_cancel(pthread_t th);
 void _real_pthread_exit(void *retval);
-int _real_fcntl(int fd, int cmd, void *arg);
+int _real_fcntl(int fd, int cmd, ...);
 
 int _real_open(const char *pathname, int flags, ...);
 int _real_open64(const char *pathname, int flags, ...);

@@ -27,17 +27,18 @@
 
 #if defined(__aarch64__) || defined(__riscv)
 /* On aarch64 and riscv, fork() is not implemented, in favor of clone().
- *   A true fork call would include CLONE_CHILD_SETTID and set the thread id
- * in the thread area of the child (using set_thread_area).  We don't do that.
+ * Use SIGCHLD only, matching fork-like semantics without requiring child-tid
+ * storage for CLONE_CHILD_SETTID/CLONE_CHILD_CLEARTID.
  */
 # define _real_sys_fork()                                            \
   _real_syscall(SYS_clone,                                           \
-                CLONE_CHILD_CLEARTID | CLONE_CHILD_SETTID | SIGCHLD, \
-                NULL,                                                \
-                NULL,                                                \
-                NULL)
+                SIGCHLD,                                             \
+                (long)NULL,                                          \
+                (long)NULL,                                          \
+                (long)NULL,                                          \
+                0, 0, 0)
 #else  // ifdef __aarch64__
-# define _real_sys_fork() _real_syscall(SYS_fork)
+# define _real_sys_fork() _real_syscall(SYS_fork, 0, 0, 0, 0, 0, 0, 0)
 #endif  // ifdef __aarch64__
 #include <fcntl.h>
 #include <signal.h>
@@ -51,11 +52,14 @@
 
 // aarch64 and riscv don't define SYS_pipe kernel call by default.
 #if defined(__aarch64__) || defined(__riscv)
-# define _real_pipe(a)         _real_syscall(SYS_pipe2, a, 0)
+# define _real_pipe(a) \
+  _real_syscall(SYS_pipe2, (long)(a), 0, 0, 0, 0, 0, 0)
 #else  // if defined(__aarch64__)
-# define _real_pipe(a)         _real_syscall(SYS_pipe, a)
+# define _real_pipe(a) \
+  _real_syscall(SYS_pipe, (long)(a), 0, 0, 0, 0, 0, 0)
 #endif  // if defined(__aarch64__)
-#define _real_waitpid(a, b, c) _real_syscall(SYS_wait4, a, b, c, NULL)
+#define _real_waitpid(a, b, c) \
+  _real_syscall(SYS_wait4, (a), (long)(b), (c), (long)NULL, 0, 0, 0)
 
 using namespace dmtcp;
 

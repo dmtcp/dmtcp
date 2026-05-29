@@ -126,20 +126,13 @@ terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t terminalPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t terminalPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "terminal",
+  "TERMINAL",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Terminal plugin",
   terminal_EventHook
 };
-
-
-DmtcpPluginDescriptor_t
-dmtcp_Terminal_PluginDescr()
-{
-  return terminalPlugin;
-}
 }

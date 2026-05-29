@@ -39,9 +39,6 @@
 #include "shareddata.h"
 #include "util.h"
 
-#define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
-#define DEV_NULL_DELETED_STR "/dev/null (deleted)"
-
 /* Shared memory regions for Direct Rendering Infrastructure */
 #define DEV_DRI_SHMEM        "/dev/dri/card"
 

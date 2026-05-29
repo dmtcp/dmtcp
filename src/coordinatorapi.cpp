@@ -118,21 +118,15 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "coordinatorapi",
+  "COORDINATOR_API",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Coordinator API plugin",
   eventHook
 };
-
-DmtcpPluginDescriptor_t
-pluginDescr()
-{
-  return coordinatorAPIPlugin;
-}
 
 void
 restart()
@@ -248,8 +242,8 @@ void resetCoordinatorSocket(int sock)
   JTRACE("Informing coordinator of new process") (UniquePid::ThisProcess());
 
   DmtcpMessage msg(DMT_UPDATE_PROCESS_INFO_AFTER_FORK);
-  if (dmtcp_virtual_to_real_pid) {
-    msg.realPid = dmtcp_virtual_to_real_pid(getpid());
+  if (dmtcp_pid_virtual_to_real) {
+    msg.realPid = dmtcp_pid_virtual_to_real(getpid());
   } else {
     msg.realPid = getpid();
   }
@@ -580,8 +574,8 @@ sendRecvHandshake(int fd,
                   string progname,
                   UniquePid *compId)
 {
-  if (dmtcp_virtual_to_real_pid) {
-    msg.realPid = dmtcp_virtual_to_real_pid(getpid());
+  if (dmtcp_pid_virtual_to_real) {
+    msg.realPid = dmtcp_pid_virtual_to_real(getpid());
   } else {
     msg.realPid = getpid();
   }
@@ -676,10 +670,10 @@ createNewConnectionBeforeFork(string& progname)
   DmtcpMessage hello_remote = sendRecvHandshake(sock, hello_local, progname);
   JASSERT(hello_remote.virtualPid != -1);
 
-  if (dmtcp_virtual_to_real_pid) {
+  if (dmtcp_pid_virtual_to_real) {
     JTRACE("Got virtual pid from coordinator") (hello_remote.virtualPid);
     pid_t pid = getpid();
-    pid_t realPid = dmtcp_virtual_to_real_pid(pid);
+    pid_t realPid = dmtcp_pid_virtual_to_real(pid);
     Util::setVirtualPidEnvVar(hello_remote.virtualPid, 0, pid, realPid);
   }
   return sock;

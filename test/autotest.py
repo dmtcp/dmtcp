@@ -953,6 +953,7 @@ runTest("procfd1",       2, ["./test/procfd1"])
 runTest("popen1",          [1,2], ["./test/popen1"])
 
 runTest("poll",          1, ["./test/poll"])
+runTest("poll-disable-event-plugin", 1, ["--disable-event-plugin ./test/poll"])
 
 runTest("epoll1",        2, ["./test/epoll1"])
 
@@ -1021,6 +1022,7 @@ if not USE_M32:  # ssh (a 64-bit child process) is forked
 if not USE_M32:  # waitpid forks a 64-bit child process, /bin/sleep
   S=2*DEFAULT_S
   runTest("waitpid",      2, ["./test/waitpid"])
+  runTest("waitid-syscall", 1, ["./test/waitid-syscall"])
   S=DEFAULT_S
 
 runTest("client-server", 2, ["./test/client-server"])
@@ -1058,6 +1060,11 @@ if uname_p[0:3] == 'arm':
   print("Skipping posix-mq1/mq2 tests; ARM/glibc/Linux does not support mq_send")
 elif TEST_POSIX_MQ == "yes":
   runTest("posix-mq1",     2, ["./test/posix-mq1"])
+  if HAS_SYS_MQ_OPEN == "yes":
+    runTest("posix-mq-close-untracked", 1,
+            ["./test/posix-mq-close-untracked"])
+  else:
+    print("Skipping posix-mq-close-untracked; SYS_mq_open is unavailable")
   # mq-notify seems to be broken at the moment.
   #runTest("posix-mq2",     2, ["./test/posix-mq2"])
 

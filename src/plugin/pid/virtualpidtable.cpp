@@ -100,7 +100,7 @@ VirtualPidTable::getppid()
   if (_dmtcp_ppid == -1) {
     resetPidPpid();
   }
-  if (_real_getppid() != VIRTUAL_TO_REAL_PID(_dmtcp_ppid)) {
+  if (_real_getppid() != instance().virtualToReal(_dmtcp_ppid)) {
     // The original parent died; reset our ppid.
     //
     // On older systems, a process is inherited by init (pid = 1) after its
@@ -191,9 +191,7 @@ void
 VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
 {
   if (virtualId > 0 && realId > 0) {
-    _do_lock_tbl();
-    _idMapTable[virtualId] = realId;
-    _do_unlock_tbl();
+    VirtualIdTable<pid_t>::updateMapping(virtualId, realId);
   }
 }
 
