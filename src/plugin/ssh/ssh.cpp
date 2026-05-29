@@ -86,7 +86,7 @@ dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 
-DmtcpPluginDescriptor_t sshPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t sshPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   DMTCP_PACKAGE_VERSION,
   "SSH",
@@ -95,15 +95,6 @@ DmtcpPluginDescriptor_t sshPlugin = {
   "SSH plugin",
   dmtcp_SSH_EventHook
 };
-
-namespace dmtcp
-{
-DmtcpPluginDescriptor_t
-dmtcp_SshPlugin_PluginDescr()
-{
-  return sshPlugin;
-}
-}
 
 void
 dmtcp_ssh_drain()

@@ -17,6 +17,17 @@
 static dmtcp::PluginManager *pluginManager = NULL;
 JTIMER_NOPRINT(ckptWriteTime);
 
+extern LIB_PRIVATE DmtcpPluginDescriptor_t UniqueCkptPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t sshPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t eventPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t filePlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t ptyPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t socketPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t sysvipcPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t timerPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t pidPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t UniquePidPlugin;
+
 extern "C" void
 dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)
 {
@@ -27,33 +38,27 @@ dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)
 
 namespace dmtcp
 {
-DmtcpPluginDescriptor_t dmtcp_Syslog_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_Rlimit_Float_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_Alarm_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_Terminal_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_ProcessInfo_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_PathTranslator_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_UniqueCkpt_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_SshPlugin_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_EventPlugin_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_FilePlugin_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_PtyPlugin_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_SocketPlugin_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_SysVIPC_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_Timer_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_PidPlugin_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_AllocPlugin_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_DlPlugin_PluginDescr();
+extern LIB_PRIVATE DmtcpPluginDescriptor_t syslogPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t rlimitFloatPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t alarmPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t terminalPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t processInfoPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t pathTranslator_plugin;
 
-typedef DmtcpPluginDescriptor_t (*BuiltinDescriptorFn)();
+namespace CoordinatorAPI
+{
+extern LIB_PRIVATE DmtcpPluginDescriptor_t coordinatorAPIPlugin;
+}
+
 struct InternalPluginEntry {
-  DmtcpInternalPluginId_t id;
-  const char *name;
-  BuiltinDescriptorFn descriptorFn;
-  DmtcpPluginDescriptor_t descriptor;
+  DmtcpPluginDescriptor_t *descriptor;
   bool enabled;
 };
 
+/*
+ * Plugin descriptors stay in their owning modules.  PluginManager keeps only
+ * registration order and cached enablement state for built-in plugins.
+ */
 static DmtcpPluginDescriptor_t allocPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
@@ -63,12 +68,6 @@ static DmtcpPluginDescriptor_t allocPlugin = {
   "Allocation wrappers",
   NULL
 };
-
-DmtcpPluginDescriptor_t
-dmtcp_AllocPlugin_PluginDescr()
-{
-  return allocPlugin;
-}
 
 static DmtcpPluginDescriptor_t dlPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -80,41 +79,30 @@ static DmtcpPluginDescriptor_t dlPlugin = {
   NULL
 };
 
-DmtcpPluginDescriptor_t
-dmtcp_DlPlugin_PluginDescr()
-{
-  return dlPlugin;
-}
-
 static InternalPluginEntry internalPlugins[] = {
   // Keep UNIQUE_CKPT first.  Its PRECHECKPOINT hook updates the checkpoint
   // directory name, and later plugins should observe that final directory
   // when they serialize or reopen plugin-owned state.
-  { INTERNAL_PLUGIN_UNIQUE_CKPT, "UNIQUE_CKPT", dmtcp_UniqueCkpt_PluginDescr },
-  { INTERNAL_PLUGIN_PATHVIRT, "PATHVIRT", dmtcp_PathTranslator_PluginDescr },
-  { INTERNAL_PLUGIN_SYSLOG, "SYSLOG", dmtcp_Syslog_PluginDescr },
-  { INTERNAL_PLUGIN_RLIMIT_FLOAT, "RLIMIT_FLOAT",
-    dmtcp_Rlimit_Float_PluginDescr },
-  { INTERNAL_PLUGIN_ALARM, "ALARM", dmtcp_Alarm_PluginDescr },
-  { INTERNAL_PLUGIN_TERMINAL, "TERMINAL", dmtcp_Terminal_PluginDescr },
-  { INTERNAL_PLUGIN_COORDINATOR_API, "COORDINATOR_API",
-    CoordinatorAPI::pluginDescr },
-  { INTERNAL_PLUGIN_PROCESS_INFO, "PROCESS_INFO",
-    dmtcp_ProcessInfo_PluginDescr },
-  { INTERNAL_PLUGIN_UNIQUE_PID, "UNIQUE_PID", UniquePid::pluginDescr },
-  { INTERNAL_PLUGIN_SSH, "SSH", dmtcp_SshPlugin_PluginDescr },
-  { INTERNAL_PLUGIN_EVENT, "EVENT", dmtcp_EventPlugin_PluginDescr },
-  { INTERNAL_PLUGIN_FILE, "FILE", dmtcp_FilePlugin_PluginDescr },
-  { INTERNAL_PLUGIN_PTY, "PTY", dmtcp_PtyPlugin_PluginDescr },
-  { INTERNAL_PLUGIN_SOCKET, "SOCKET", dmtcp_SocketPlugin_PluginDescr },
-  { INTERNAL_PLUGIN_SVIPC, "SVIPC", dmtcp_SysVIPC_PluginDescr },
-  { INTERNAL_PLUGIN_TIMER, "TIMER", dmtcp_Timer_PluginDescr },
-  { INTERNAL_PLUGIN_PID, "PID", dmtcp_PidPlugin_PluginDescr },
-  { INTERNAL_PLUGIN_ALLOC, "ALLOC", dmtcp_AllocPlugin_PluginDescr },
-  { INTERNAL_PLUGIN_DL, "DL", dmtcp_DlPlugin_PluginDescr }
+  { &::UniqueCkptPlugin, false },
+  { &pathTranslator_plugin, false },
+  { &syslogPlugin, false },
+  { &rlimitFloatPlugin, false },
+  { &alarmPlugin, false },
+  { &terminalPlugin, false },
+  { &CoordinatorAPI::coordinatorAPIPlugin, false },
+  { &processInfoPlugin, false },
+  { &::UniquePidPlugin, false },
+  { &::sshPlugin, false },
+  { &::eventPlugin, false },
+  { &::filePlugin, false },
+  { &::ptyPlugin, false },
+  { &::socketPlugin, false },
+  { &::sysvipcPlugin, false },
+  { &::timerPlugin, false },
+  { &::pidPlugin, false },
+  { &allocPlugin, false },
+  { &dlPlugin, false }
 };
-
-static InternalPluginEntry *internalPluginById[INTERNAL_PLUGIN_COUNT];
 
 static pthread_once_t internalPluginInitOnce = PTHREAD_ONCE_INIT;
 static bool disableAllInternalPlugins = false;
@@ -139,29 +127,27 @@ internalPluginEnvName(const char *pluginName,
 static void
 initializeInternalPluginStateOnce()
 {
-  JASSERT(numInternalPlugins() == INTERNAL_PLUGIN_COUNT)
-  .Text("Internal plugin metadata table is out of sync.");
-
   disableAllInternalPlugins =
     Util::readBooleanEnv(ENV_VAR_DISABLE_ALL_PLUGINS, false);
 
   for (size_t i = 0; i < numInternalPlugins(); i++) {
     InternalPluginEntry *entry = &internalPlugins[i];
-    JASSERT(entry->id >= 0 && entry->id < INTERNAL_PLUGIN_COUNT)
-      (entry->name) (entry->id)
-    .Text("Internal plugin table has an invalid id.");
-    JASSERT(internalPluginById[entry->id] == NULL) (entry->name) (entry->id)
-    .Text("Duplicate internal plugin id.");
+    JASSERT(entry->descriptor != NULL);
+    JASSERT(entry->descriptor->pluginName != NULL)
+      (i)
+    .Text("Internal plugin descriptor is missing a plugin name.");
+    for (size_t j = 0; j < i; j++) {
+      JASSERT(strcmp(internalPlugins[j].descriptor->pluginName,
+                     entry->descriptor->pluginName) != 0)
+        (entry->descriptor->pluginName)
+      .Text("Duplicate internal plugin name.");
+    }
 
-    entry->descriptor = entry->descriptorFn();
-    JASSERT(strcmp(entry->descriptor.pluginName, entry->name) == 0)
-      (entry->descriptor.pluginName) (entry->name)
-    .Text("Internal plugin descriptor name does not match its plugin id.");
     char envName[64];
     entry->enabled =
-      Util::readBooleanEnv(internalPluginEnvName(entry->name, envName,
-                                                 sizeof(envName)), true);
-    internalPluginById[entry->id] = entry;
+      Util::readBooleanEnv(internalPluginEnvName(entry->descriptor->pluginName,
+                                                 envName, sizeof(envName)),
+                           true);
   }
 }
 
@@ -175,38 +161,28 @@ initializeInternalPluginState()
 }
 
 static InternalPluginEntry *
-findInternalPluginEntry(DmtcpInternalPluginId_t id)
+findInternalPluginEntry(const char *pluginName)
 {
-  JASSERT(id >= 0 && id < INTERNAL_PLUGIN_COUNT) (id)
-  .Text("Invalid internal plugin id.");
-  InternalPluginEntry *entry = internalPluginById[id];
-  JASSERT(entry != NULL) (id).Text("Unknown internal plugin id.");
-  return entry;
-}
-
-bool
-internalPluginEnabled(DmtcpInternalPluginId_t id)
-{
-  initializeInternalPluginState();
-  InternalPluginEntry *entry = findInternalPluginEntry(id);
-
-  return !disableAllInternalPlugins && entry->enabled;
-}
-
-bool
-internalPluginEnabledByName(const char *name)
-{
-  JASSERT(name != NULL).Text("Invalid internal plugin name.");
-  initializeInternalPluginState();
-
+  JASSERT(pluginName != NULL).Text("Invalid internal plugin name.");
   for (size_t i = 0; i < numInternalPlugins(); i++) {
     InternalPluginEntry *entry = &internalPlugins[i];
-    if (strcmp(entry->name, name) == 0) {
-      return !disableAllInternalPlugins && entry->enabled;
+    if (entry->descriptor->pluginName == pluginName ||
+        strcmp(entry->descriptor->pluginName, pluginName) == 0) {
+      return entry;
     }
   }
 
-  return false;
+  JASSERT(false) (pluginName).Text("Unknown internal plugin name.");
+  return NULL;
+}
+
+bool
+internalPluginEnabled(const char *pluginName)
+{
+  initializeInternalPluginState();
+  InternalPluginEntry *entry = findInternalPluginEntry(pluginName);
+
+  return !disableAllInternalPlugins && entry->enabled;
 }
 
 void
@@ -244,9 +220,9 @@ dmtcp_initialize_plugin()
   initializeInternalPluginState();
   for (size_t i = 0; i < numInternalPlugins(); i++) {
     InternalPluginEntry *entry = &internalPlugins[i];
-    if (entry->descriptor.event_hook != NULL &&
-        internalPluginEnabled(entry->id)) {
-      dmtcp_register_plugin(entry->descriptor);
+    if (entry->descriptor->event_hook != NULL &&
+        internalPluginEnabled(entry->descriptor->pluginName)) {
+      dmtcp_register_plugin(*entry->descriptor);
     }
   }
 

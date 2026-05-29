@@ -55,7 +55,7 @@ uniqueCkpt_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
  * It is checkpoint naming policy, not core mechanics, so --disable-all
  * intentionally disables it too.
  */
-static DmtcpPluginDescriptor_t UniqueCkptPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t UniqueCkptPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "UNIQUE_CKPT",
@@ -64,12 +64,3 @@ static DmtcpPluginDescriptor_t UniqueCkptPlugin = {
   "Unique-ckpt filename plugin",
   uniqueCkpt_EventHook
 };
-
-namespace dmtcp
-{
-DmtcpPluginDescriptor_t
-dmtcp_UniqueCkpt_PluginDescr()
-{
-  return UniqueCkptPlugin;
-}
-}

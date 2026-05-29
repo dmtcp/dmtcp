@@ -85,7 +85,7 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-DmtcpPluginDescriptor_t socketPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t socketPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "SOCKET",
@@ -94,15 +94,6 @@ DmtcpPluginDescriptor_t socketPlugin = {
   "Socket plugin",
   dmtcp_SocketConnList_EventHook
 };
-
-namespace dmtcp
-{
-DmtcpPluginDescriptor_t
-dmtcp_SocketPlugin_PluginDescr()
-{
-  return socketPlugin;
-}
-}
 
 SocketConnList&
 SocketConnList::instance()

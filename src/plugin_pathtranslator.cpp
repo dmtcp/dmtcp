@@ -182,7 +182,7 @@ pathTranslator_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-DmtcpPluginDescriptor_t pathTranslator_plugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t pathTranslator_plugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "PATHVIRT",
@@ -191,11 +191,5 @@ DmtcpPluginDescriptor_t pathTranslator_plugin = {
   "PathTranslator plugin",
   pathTranslator_EventHook
 };
-
-DmtcpPluginDescriptor_t
-dmtcp_PathTranslator_PluginDescr()
-{
-  return pathTranslator_plugin;
-}
 
 };

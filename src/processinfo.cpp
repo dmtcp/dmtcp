@@ -134,7 +134,7 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t processInfoPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t processInfoPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "PROCESS_INFO",
@@ -143,13 +143,6 @@ static DmtcpPluginDescriptor_t processInfoPlugin = {
   "processInfo plugin",
   processInfo_EventHook
 };
-
-
-DmtcpPluginDescriptor_t
-dmtcp_ProcessInfo_PluginDescr()
-{
-  return processInfoPlugin;
-}
 
 ProcessInfo::ProcessInfo()
 {

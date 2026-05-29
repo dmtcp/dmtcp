@@ -89,8 +89,6 @@ struct UniquePid : public DmtcpUniqueProcessId {
     string toString() const;
 
     bool isNull() const;
-
-    static DmtcpPluginDescriptor_t pluginDescr();
 };
 
 ostream&operator<<(ostream &o, const UniquePid &id);

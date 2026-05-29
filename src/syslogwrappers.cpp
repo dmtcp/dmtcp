@@ -65,7 +65,7 @@ syslog_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t syslogPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t syslogPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "SYSLOG",
@@ -74,13 +74,6 @@ static DmtcpPluginDescriptor_t syslogPlugin = {
   "Syslog plugin",
   syslog_event_hook
 };
-
-
-DmtcpPluginDescriptor_t
-dmtcp_Syslog_PluginDescr()
-{
-  return syslogPlugin;
-}
 
 static string&
 _ident()
