@@ -54,7 +54,7 @@ static void
 processChildThread(Thread *thread)
 {
   dmtcp_init_virtual_tid();
-  JASSERT(thread->wrapperLockCount != 0);
+  JASSERT(thread->core.wrapperLockCount != 0);
 
   ThreadList::initThread(thread);
   // Unblock ckpt signal (unblocking a non-blocked signal has no effect).
@@ -107,7 +107,7 @@ pthread_create(pthread_t *pth,
 
   Thread *newThread = ThreadList::getNewThread(start_routine, arg);
   ThreadSync::wrapperExecutionLockLockForNewThread(newThread);
-  JASSERT(newThread->wrapperLockCount != 0);
+  JASSERT(newThread->core.wrapperLockCount != 0);
 
   JASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING));
 

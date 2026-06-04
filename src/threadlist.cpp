@@ -278,7 +278,7 @@ ThreadList::prepareThread(Thread *th, void *(*fn)(void *), void *arg)
   th->next = NULL;
   th->state = ST_RUNNING;
   th->exiting = 0;
-  th->wrapperLockCount = 0;
+  th->core.wrapperLockCount = 0;
   th->procname[0] = '\0';
 }
 

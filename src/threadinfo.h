@@ -59,6 +59,7 @@ typedef enum ThreadState {
 typedef struct Thread Thread;
 
 typedef struct ThreadCoreInfo {
+  uint32_t wrapperLockCount;
   char assertBuffer[DMTCP_ASSERT_BUFFER_SIZE];
 } ThreadCoreInfo;
 
@@ -96,8 +97,6 @@ struct Thread {
    * image. This is only used when configured with --enable-timing.
    */
   double ckptReadTime;
-
-  uint32_t wrapperLockCount;
 
   ThreadCoreInfo core;
 
