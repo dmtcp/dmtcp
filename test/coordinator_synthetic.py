@@ -523,11 +523,17 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
     def test_two_synthetic_workers_release_same_barrier(self):
         with CoordinatorFixture() as coordinator:
             barrier = "synthetic-barrier"
-            workers = [WorkerProcess(coordinator.port, barrier=barrier)
+            workers = [WorkerProcess(coordinator.port, barrier=barrier,
+                                     barrier_after_stdin=True)
                        for _ in range(2)]
             try:
                 for worker in workers:
                     worker.wait_until_accepted()
+                self.wait_until_num_peers(coordinator.port, 2)
+                for worker in workers:
+                    worker.send_barrier_from_stdin()
+                for worker in workers:
+                    worker.wait_until_barrier_sent(barrier)
                 for worker in workers:
                     worker.wait_until_barrier_released(barrier)
                 status = self.coordinator_status(coordinator.port)
@@ -684,13 +690,16 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
         with CoordinatorFixture() as coordinator:
             barrier = "duplicate-barrier"
             repeated = WorkerProcess(coordinator.port, barrier=barrier,
+                                     barrier_after_stdin=True,
                                      barrier_twice_before_wait=True)
             peer = WorkerProcess(coordinator.port, barrier=barrier,
                                  barrier_after_stdin=True)
             try:
                 repeated.wait_until_accepted()
                 peer.wait_until_accepted()
+                self.wait_until_num_peers(coordinator.port, 2)
 
+                repeated.send_barrier_from_stdin()
                 repeated.wait_until_barrier_sent(barrier)
                 repeated.wait_until_barrier_sent(barrier)
                 self.assert_no_worker_output(repeated)
