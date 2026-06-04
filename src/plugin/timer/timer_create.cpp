@@ -29,7 +29,7 @@
 #include "timerwrappers.h"
 
 #include "jalloc.h"
-#include "jassert.h"
+#include "util_assert.h"
 
 // As defined in libc.
 #define SIGCANCEL SIGRTMIN
@@ -87,7 +87,8 @@ timer_create_sigev_thread(clockid_t clock_id,
 {
   /* If the user wants notification via a thread we need to handle
      this special.  */
-  JASSERT(evp == NULL || evp->sigev_notify == SIGEV_THREAD);
+  ASSERT(evp == NULL || evp->sigev_notify == SIGEV_THREAD,
+         "timer_create_sigev_thread requires SIGEV_THREAD notification");
 
   /* Create the helper thread.  */
   pthread_once(&helper_once, start_helper_thread);
@@ -264,7 +265,7 @@ start_helper_thread(void)
   /* Create the helper thread for this timer.  */
   pthread_t th;
   int res = pthread_create(&th, &attr, timer_helper_thread, NULL);
-  JASSERT(res == 0);
+  ASSERT(res == 0, "pthread_create for timer helper failed: rc={}", res);
   if (res != 0) {
     sem_post(&helper_notification);
   }

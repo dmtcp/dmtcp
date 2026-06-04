@@ -180,8 +180,9 @@ TimerList::preCheckpoint()
     timer_t virtId = _iter->first;
     timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(virtId);
     TimerInfo &tinfo = _iter->second;
-    JASSERT(_real_timer_gettime(realId, &tinfo.curr_timerspec) == 0)
-      (virtId) (realId) (JASSERT_ERRNO);
+    ASSERT_ERRNO(_real_timer_gettime(realId, &tinfo.curr_timerspec) == 0,
+                 "timer_gettime failed: virt_id={} real_id={}", virtId,
+                 realId);
     tinfo.overrun = _real_timer_getoverrun(realId);
   }
 }
@@ -195,7 +196,8 @@ TimerList::postRestart()
     pid_t pid = dmtcp_pid_virtual_to_real(it1->second);
     clockid_t virtId = it1->first;
     clockid_t realId;
-    JASSERT(_real_clock_getcpuclockid(pid, &realId) == 0) (pid) (JASSERT_ERRNO);
+    ASSERT_ERRNO(_real_clock_getcpuclockid(pid, &realId) == 0,
+                 "clock_getcpuclockid failed: pid={}", pid);
     _clockVirtIdTable.updateMapping(virtId, realId);
   }
 
@@ -204,8 +206,8 @@ TimerList::postRestart()
     pthread_t pth = it2->second;
     clockid_t virtId = it2->first;
     clockid_t realId;
-    JASSERT(_real_pthread_getcpuclockid(pth, &realId) == 0) (pth)
-      (JASSERT_ERRNO);
+    ASSERT_ERRNO(_real_pthread_getcpuclockid(pth, &realId) == 0,
+                 "pthread_getcpuclockid failed: pthread={}", pth);
     _clockVirtIdTable.updateMapping(virtId, realId);
   }
 
@@ -219,8 +221,9 @@ TimerList::postRestart()
     if (!tinfo.sevp_null) {
       sevp = &tinfo.sevp;
     }
-    JASSERT(_real_timer_create(clockid, sevp, &realId) == 0)
-      (virtId) (JASSERT_ERRNO);
+    ASSERT_ERRNO(_real_timer_create(clockid, sevp, &realId) == 0,
+                 "timer_create failed: virt_id={} clock_id={}", virtId,
+                 clockid);
     _timerVirtIdTable.updateMapping(virtId, realId);
     if (tinfo.curr_timerspec.it_value.tv_sec != 0 ||
         tinfo.curr_timerspec.it_value.tv_nsec != 0) {
@@ -236,8 +239,10 @@ TimerList::postRestart()
       } else {
         tspec = tinfo.curr_timerspec;
       }
-      JASSERT(_real_timer_settime(realId, tinfo.flags, &tspec, NULL) == 0)
-        (virtId) (JASSERT_ERRNO);
+      ASSERT_ERRNO(_real_timer_settime(realId, tinfo.flags, &tspec,
+                                       NULL) == 0,
+                   "timer_settime failed: virt_id={} real_id={} flags={}",
+                   virtId, realId, tinfo.flags);
       JTRACE("Restoring timer") (realId) (virtId);
     }
   }
@@ -247,7 +252,8 @@ int
 TimerList::getoverrun(timer_t id)
 {
   _do_lock_tbl();
-  JASSERT(_timerInfo.find(id) != _timerInfo.end());
+  ASSERT(_timerInfo.find(id) != _timerInfo.end(),
+         "timer info missing for getoverrun: timer_id={}", id);
   int ret = _timerInfo[id].overrun;
   _timerInfo[id].overrun = 0;
   _do_unlock_tbl();
@@ -263,9 +269,11 @@ TimerList::on_timer_create(timer_t realId,
   timer_t virtId;
 
   _do_lock_tbl();
-  JASSERT(!_timerVirtIdTable.realIdExists(realId)) (realId);
+  ASSERT(!_timerVirtIdTable.realIdExists(realId),
+         "timer real id already exists: real_id={}", realId);
 
-  JASSERT(_timerVirtIdTable.getNewVirtualId(&virtId));
+  ASSERT(_timerVirtIdTable.getNewVirtualId(&virtId),
+         "failed to allocate timer virtual id: real_id={}", realId);
   _timerVirtIdTable.updateMapping(virtId, realId);
 
   memset(&tinfo, 0, sizeof(tinfo));
@@ -287,7 +295,8 @@ TimerList::on_timer_delete(timer_t timerid)
 {
   _do_lock_tbl();
   _timerVirtIdTable.erase(timerid);
-  JASSERT(_timerInfo.find(timerid) != _timerInfo.end());
+  ASSERT(_timerInfo.find(timerid) != _timerInfo.end(),
+         "timer info missing during delete: timer_id={}", timerid);
   _timerInfo.erase(timerid);
   _do_unlock_tbl();
 }
@@ -298,7 +307,8 @@ TimerList::on_timer_settime(timer_t timerid,
                             const struct itimerspec *new_value)
 {
   _do_lock_tbl();
-  JASSERT(_timerInfo.find(timerid) != _timerInfo.end());
+  ASSERT(_timerInfo.find(timerid) != _timerInfo.end(),
+         "timer info missing during settime: timer_id={}", timerid);
   _timerInfo[timerid].flags = flags;
   _timerInfo[timerid].initial_timerspec = *new_value;
   _do_unlock_tbl();
@@ -312,7 +322,9 @@ TimerList::on_clock_getcpuclockid(pid_t pid, clockid_t realId)
     removeStaleClockIds();
   }
   clockid_t virtId;
-  JASSERT(_clockVirtIdTable.getNewVirtualId(&virtId));
+  ASSERT(_clockVirtIdTable.getNewVirtualId(&virtId),
+         "failed to allocate process CPU clock virtual id: pid={} real_id={}",
+         pid, realId);
   _clockPidList[virtId] = pid;
   _clockVirtIdTable.updateMapping(virtId, realId);
   _do_unlock_tbl();
@@ -328,7 +340,10 @@ TimerList::on_pthread_getcpuclockid(pthread_t thread, clockid_t realId)
     removeStaleClockIds();
   }
   clockid_t virtId = -1;
-  JASSERT(_clockVirtIdTable.getNewVirtualId(&virtId));
+  ASSERT(_clockVirtIdTable.getNewVirtualId(&virtId),
+         "failed to allocate pthread CPU clock virtual id: pthread={} "
+         "real_id={}",
+         thread, realId);
   _clockVirtIdTable.updateMapping(virtId, realId);
   _do_unlock_tbl();
   return virtId;
