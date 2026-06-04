@@ -20,6 +20,26 @@ DMTCP_CKPT_HEADER_SIZE = 4096
 DMTCP_CKPT_SIGNATURE = b"DMTCP_CHECKPOINT_IMAGE_v5.0\n\0"
 DMTCP_CKPT_HEADER_FORMAT_VERSION = 1
 DMTCP_CKPT_ENDIAN_MARKER = 0x01020304
+DMTCP_COMMAND_JSON_SCHEMA_VERSION = 1
+
+
+def validate_dmtcp_command_json_payload(payload: object):
+    if not isinstance(payload, dict):
+        raise ValueError("dmtcp_command JSON payload must be an object")
+    version = payload.get("schema_version")
+    if version != DMTCP_COMMAND_JSON_SCHEMA_VERSION:
+        raise ValueError(
+            f"unsupported dmtcp_command JSON schema: {version!r}"
+        )
+
+
+def parse_dmtcp_command_json(raw_output: str) -> Dict[str, object]:
+    try:
+        payload = json.loads(raw_output)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"invalid JSON output: {error}") from error
+    validate_dmtcp_command_json_payload(payload)
+    return payload
 
 
 class HarnessFailure(Exception):
@@ -37,8 +57,7 @@ class DmtcpStatus:
 
     @staticmethod
     def from_json(payload: Dict[str, object]) -> "DmtcpStatus":
-        if payload.get("schema_version") != 1:
-            raise ValueError("unsupported dmtcp_command JSON schema")
+        validate_dmtcp_command_json_payload(payload)
         if payload.get("type") != "status" or not payload.get("ok"):
             raise ValueError("JSON payload is not a successful status result")
         return DmtcpStatus(
@@ -497,9 +516,9 @@ class TestContext:
                 out.write(result.stderr)
             out.write("\n")
         try:
-            payload = json.loads(result.stdout)
-        except json.JSONDecodeError as error:
-            raise HarnessFailure(phase, f"invalid JSON output: {error}")
+            payload = parse_dmtcp_command_json(result.stdout)
+        except ValueError as error:
+            raise HarnessFailure(phase, str(error))
         if result.returncode != 0 and not allow_error:
             message = payload.get("error_message", result.stderr)
             raise HarnessFailure(phase, str(message))

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-import json
 import os
 import pathlib
 import subprocess
 import tempfile
 import time
 import unittest
+
+from dmtcp_test_harness import parse_dmtcp_command_json
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -84,7 +85,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertEqual(result.stderr, "")
-        payload = json.loads(result.stdout)
+        payload = parse_dmtcp_command_json(result.stdout)
         self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["type"], "status")
         self.assertEqual(payload["phase"], "status")
@@ -101,7 +102,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertEqual(result.stderr, "")
-        payload = json.loads(result.stdout)
+        payload = parse_dmtcp_command_json(result.stdout)
         self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["type"], "status")
         self.assertEqual(payload["phase"], "status")
@@ -114,7 +115,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertEqual(result.stderr, "")
-        payload = json.loads(result.stdout)
+        payload = parse_dmtcp_command_json(result.stdout)
         self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["type"], "unknown")
         self.assertEqual(payload["phase"], "unknown")
@@ -126,7 +127,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertEqual(result.stderr, "")
-        payload = json.loads(result.stdout)
+        payload = parse_dmtcp_command_json(result.stdout)
         self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["type"], "unknown")
         self.assertEqual(payload["phase"], "unknown")
@@ -140,7 +141,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stderr, "")
-            payload = json.loads(result.stdout)
+            payload = parse_dmtcp_command_json(result.stdout)
             self.assertEqual(payload["schema_version"], 1)
             self.assertEqual(payload["type"], "status")
             self.assertEqual(payload["phase"], "status")
@@ -158,7 +159,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 2, result.stdout)
             self.assertEqual(result.stderr, "")
-            payload = json.loads(result.stdout)
+            payload = parse_dmtcp_command_json(result.stdout)
             self.assertEqual(payload["schema_version"], 1)
             self.assertEqual(payload["type"], "checkpoint")
             self.assertEqual(payload["phase"], "checkpoint")
@@ -172,7 +173,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stderr, "")
-            payload = json.loads(result.stdout)
+            payload = parse_dmtcp_command_json(result.stdout)
             self.assertEqual(payload["schema_version"], 1)
             self.assertEqual(payload["type"], "kill")
             self.assertEqual(payload["phase"], "kill")
@@ -185,7 +186,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stderr, "")
-            payload = json.loads(result.stdout)
+            payload = parse_dmtcp_command_json(result.stdout)
             self.assertEqual(payload["schema_version"], 1)
             self.assertEqual(payload["type"], "quit")
             self.assertEqual(payload["phase"], "quit")

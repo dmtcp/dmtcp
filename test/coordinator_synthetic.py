@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import json
 import os
 import pathlib
 import select
@@ -9,6 +8,8 @@ import subprocess
 import tempfile
 import time
 import unittest
+
+from dmtcp_test_harness import parse_dmtcp_command_json
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -405,7 +406,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
         result = self.run_command("--json", "--coord-port", str(port),
                                   "--status")
         self.assertEqual(result.returncode, 0, result.stderr)
-        return json.loads(result.stdout)
+        return parse_dmtcp_command_json(result.stdout)
 
     def wait_until_num_peers(self, port, expected, timeout=5):
         deadline = time.time() + timeout
@@ -727,7 +728,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                                           str(coordinator.port),
                                           "--checkpoint")
                 self.assertEqual(result.returncode, 0, result.stderr)
-                payload = json.loads(result.stdout)
+                payload = parse_dmtcp_command_json(result.stdout)
 
                 self.assertTrue(payload["ok"])
                 self.assertEqual(payload["type"], "checkpoint")
@@ -745,7 +746,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                                           str(coordinator.port),
                                           "--checkpoint")
                 self.assertEqual(result.returncode, 0, result.stderr)
-                payload = json.loads(result.stdout)
+                payload = parse_dmtcp_command_json(result.stdout)
 
                 self.assertTrue(payload["ok"])
                 worker.wait_until_checkpoint_requested()
@@ -754,7 +755,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                                           str(coordinator.port),
                                           "--checkpoint")
                 self.assertNotEqual(result.returncode, 0)
-                payload = json.loads(result.stdout)
+                payload = parse_dmtcp_command_json(result.stdout)
 
                 self.assertFalse(payload["ok"])
                 self.assertEqual(payload["type"], "checkpoint")
@@ -773,7 +774,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                                           str(coordinator.port),
                                           "--checkpoint")
                 self.assertEqual(result.returncode, 0, result.stderr)
-                payload = json.loads(result.stdout)
+                payload = parse_dmtcp_command_json(result.stdout)
 
                 self.assertTrue(payload["ok"])
                 worker.wait_until_checkpoint_requested()
@@ -800,7 +801,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                                           str(coordinator.port),
                                           "--checkpoint")
                 self.assertEqual(result.returncode, 0, result.stderr)
-                payload = json.loads(result.stdout)
+                payload = parse_dmtcp_command_json(result.stdout)
 
                 self.assertTrue(payload["ok"])
                 worker.wait_until_checkpoint_requested()
@@ -820,7 +821,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                                           str(coordinator.port),
                                           "--checkpoint")
                 self.assertEqual(result.returncode, 0, result.stderr)
-                payload = json.loads(result.stdout)
+                payload = parse_dmtcp_command_json(result.stdout)
 
                 self.assertTrue(payload["ok"])
                 first.wait_until_checkpoint_requested()
@@ -847,7 +848,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                                           str(coordinator.port),
                                           "--checkpoint")
                 self.assertEqual(result.returncode, 0, result.stderr)
-                payload = json.loads(result.stdout)
+                payload = parse_dmtcp_command_json(result.stdout)
 
                 self.assertTrue(payload["ok"])
                 worker.wait_until_checkpoint_requested()
@@ -874,7 +875,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                                           str(coordinator.port),
                                           "--checkpoint")
                 self.assertEqual(result.returncode, 0, result.stderr)
-                payload = json.loads(result.stdout)
+                payload = parse_dmtcp_command_json(result.stdout)
 
                 self.assertTrue(payload["ok"])
                 self.assertEqual(payload["type"], "checkpoint")
@@ -1013,7 +1014,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 result = self.run_command("--json", "--coord-port",
                                           str(coordinator.port), "--quit")
                 self.assertEqual(result.returncode, 0, result.stderr)
-                payload = json.loads(result.stdout)
+                payload = parse_dmtcp_command_json(result.stdout)
 
                 self.assertTrue(payload["ok"])
                 self.assertEqual(payload["type"], "quit")

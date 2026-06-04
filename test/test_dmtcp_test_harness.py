@@ -23,6 +23,7 @@ from dmtcp_test_harness import (
     TestResult,
     TestSpec,
     checkpoint_payload_succeeded,
+    parse_dmtcp_command_json,
     validate_checkpoint_bootstrap_headers,
 )
 
@@ -52,6 +53,21 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(status.num_peers, 2)
         self.assertTrue(status.running)
         self.assertEqual(status.checkpoint_interval, 0)
+
+    def test_parse_dmtcp_command_json_rejects_non_object(self):
+        with self.assertRaises(ValueError) as caught:
+            parse_dmtcp_command_json("[]")
+
+        self.assertIn("must be an object", str(caught.exception))
+
+    def test_parse_dmtcp_command_json_rejects_unsupported_schema(self):
+        with self.assertRaises(ValueError) as caught:
+            parse_dmtcp_command_json(
+                '{"schema_version": 2, "type": "status", "ok": true}'
+            )
+
+        self.assertIn("unsupported dmtcp_command JSON schema",
+                      str(caught.exception))
 
     def test_result_records_failure_phase(self):
         result = TestResult.fail("dmtcp1", "checkpoint", "no ckpt image")
@@ -110,6 +126,32 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertIn("timeout=0.01", transcript)
             self.assertIn("partial stdout", transcript)
             self.assertIn("partial stderr", transcript)
+
+    def test_json_command_schema_error_becomes_harness_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("schema", 1, ["./test/dmtcp1"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+            result = subprocess.CompletedProcess(
+                ["dmtcp_command"], 0,
+                stdout='{"schema_version": 2, "type": "status", "ok": true}',
+                stderr="",
+            )
+
+            with mock.patch.object(harness_module.subprocess, "run",
+                                   return_value=result):
+                with self.assertRaises(HarnessFailure) as caught:
+                    context._run_json_command("--status", "status",
+                                              allow_error=False)
+
+            self.assertEqual(caught.exception.phase, "status")
+            self.assertIn("unsupported dmtcp_command JSON schema",
+                          caught.exception.message)
 
     def test_start_coordinator_uses_process_group(self):
         with tempfile.TemporaryDirectory() as tmp:
