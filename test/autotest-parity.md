@@ -20,17 +20,20 @@ stay deferred until they are triaged separately.
   host support, or were already disabled/broken in the old runner. Deferred
   tests are not migration gates until separately triaged.
 
-## Current New-Harness Coverage
+## Authoritative Port-Now Set
 
-The new harness currently covers the direct checkpoint/restart tests listed by:
+These direct old-harness tests are ported to the new harness and are migration
+gates for `make check`. Keep this list in sync with `./test/autotest.py --list`
+when adding or removing new-harness coverage.
 
-```sh
-./test/autotest.py --list
-```
-
-That includes the main direct runtime, file, fd, process, pthread, mutex, timer,
-event, SysV IPC, POSIX MQ, plugin-init, shell, restart-directory, and selected
-language/runtime smoke tests.
+| Group | Ported tests |
+| --- | --- |
+| Core smoke and process state | `dmtcp1`, `dmtcp2`, `dmtcp3`, `dmtcp4`, `dmtcp5`, `alarm`, `sched_test`, `gettid`, `sigchild`, `rlimit-restore`, `rlimit-nofile`, `environ`, `realpath`, `forkexec`, `vfork1`, `vfork2`, `frisbee`, `checkpoint-header`, `cma`, `waitpid`, `waitid-syscall` |
+| File, fd, and path behavior | `file1`, `file2`, `file3`, `stat`, `mmap1`, `mremap`, `poll`, `shared-fd1`, `shared-fd2`, `stale-fd`, `procfd1`, `epoll1`, `epoll2`, `gzip` |
+| Threads and synchronization | `pthread1`, `pthread2`, `pthread3`, `pthread4`, `pthread5`, `pthread6`, `pthread_atfork1`, `pthread_atfork2`, `mutex1`, `mutex2`, `mutex3`, `mutex4`, `timer1`, `clock`, `gettimeofday` |
+| IPC, sockets, and PTY smoke | `client-server`, `seqpacket`, `shared-memory1`, `shared-memory2`, `sysv-shm1`, `sysv-shm2`, `sysv-sem`, `sysv-msg`, `posix-mq1`, `posix-mq-close-untracked`, `pty1`, `pty2` |
+| Plugins and events | `dlopen1`, `dlopen2`, `syscall-tester`, `presuspend`, `plugin-sleep2`, `plugin-init`, `poll-disable-event-plugin`, `popen1`, `restartdir`, `nocheckpoint` |
+| Shells and language/runtime smoke | `perl`, `python`, `bash`, `dash`, `zsh`, `openmp-1`, `openmp-2` |
 
 ## Ported With Explicit Limits
 

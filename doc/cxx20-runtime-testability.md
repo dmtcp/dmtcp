@@ -409,6 +409,9 @@ First milestone:
   `libdmtcp.so`. Prefer sharing the same core thread context type; if a smaller
   sibling type is required, keep the formatter interface explicit so the
   implementations do not drift.
+- Resolved design decision for the first implementation: restored TLS is not
+  treated as authoritative for `curThread` until restart code explicitly
+  re-establishes it.
 - Do not blindly trust restored TLS to provide the correct `curThread` during
   restart fixup. Restart should explicitly re-establish the current thread
   context before generic diagnostics depend on it. Until that ordering is
@@ -629,8 +632,9 @@ commit and autosquash before publishing the final series.
 
 - How much of the current old test suite is environment-sensitive and should be
   encoded as tags/requirements in the new harness?
-- Which coordinator state-machine tests require real workers rather than
-  synthetic protocol clients?
+- Which real-worker assertion covers each synthetic coordinator state-machine
+  transition, and are any remaining synthetic cases still exploratory rather
+  than authoritative?
 - Which current `DmtcpCkptHeader` fields are truly needed before memory restore,
   and which only remain because `ProcessInfo` inherits the header?
 - Should the bootstrap record remain exactly 4096 bytes, or merely fixed-size
