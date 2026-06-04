@@ -60,6 +60,7 @@
 #include <fcntl.h>
 #include <limits.h>  // for HOST_NAME_MAX
 #include <netdb.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string_view>
@@ -472,12 +473,13 @@ void
 DmtcpCoordinator::writeStatusToFile()
 {
   JASSERT(truncate(flags.theStatusFile.c_str(), offset_after_first_line) == 0)
-    (flags.theStatusFile) (JASSERT_ERRNO);
+    (flags.theStatusFile) (JASSERT_ERRNO)
+    .Text("failed to truncate coordinator status file");
   ofstream o;
   // Don't use std::ios::trunc.  A timestamp was previously written.
   o.open(flags.theStatusFile.c_str(), std::ios::app);
   JASSERT(!o.fail()) (flags.theStatusFile)
-    .Text("Failed to truncate and open status file");
+    .Text("failed to open coordinator status file");
 
   getStatusStr(&o);
 
@@ -671,7 +673,7 @@ DmtcpCoordinator::onData(CoordClient *client)
 {
   DmtcpMessage msg;
 
-  JASSERT(client != NULL);
+  ASSERT_NOT_NULL(client);
 
   if (client->sock().readAll((char*)&msg, sizeof(msg)) != sizeof(msg)) {
     JTRACE("Failed to read DmtcpMessage; probably dead connection.")
@@ -720,8 +722,19 @@ DmtcpCoordinator::onData(CoordClient *client)
     JTRACE("got DMT_BARRIER message")
       (msg.from) (prevClientState) (msg.state) (barrier);
 
-    // Warn if we have two consecutive barriers of the same name.
-    JWARNING(barrier != client->barrier()) (barrier) (client->barrier());
+    if (!currentBarrier.empty() && barrier != currentBarrier) {
+      JWARNING(false) (barrier) (currentBarrier)
+        .Text("worker reached a different active barrier; closing connection");
+      onDisconnect(client);
+      break;
+    }
+
+    if (barrier == client->barrier()) {
+      JWARNING(false) (barrier)
+        .Text("worker reached the same active barrier twice; ignoring");
+      break;
+    }
+
     client->setBarrier(barrier);
     processBarrier(barrier);
     break;
@@ -745,8 +758,8 @@ DmtcpCoordinator::onData(CoordClient *client)
   }
   case DMT_UPDATE_CKPT_DIR:
   {
-    JASSERT(extraData != 0)
-    .Text("extra data expected with DMT_UPDATE_CKPT_DIR message");
+    JASSERT(extraData != nullptr)
+      .Text("extra data expected with DMT_UPDATE_CKPT_DIR message");
     if (flags.ckptDir != extraData) {
       flags.ckptDir = extraData;
       JNOTE("Updated ckptDir") (flags.ckptDir);
@@ -805,8 +818,8 @@ DmtcpCoordinator::onData(CoordClient *client)
   }
 
   default:
-    JWARNING(false) (msg.type) (client->identity()) .Text(
-      "unexpected message from worker. Closing connection");
+    JWARNING(false) (static_cast<int>(msg.type))
+      .Text("unexpected message from worker; closing connection");
     onDisconnect(client);
     break;
   }
@@ -899,6 +912,20 @@ DmtcpCoordinator::initializeComputation()
   currentBarrier.clear();
 }
 
+static bool
+waitForInitialMessage(int fd)
+{
+  static const int HANDSHAKE_TIMEOUT_MS = 1000;
+  struct pollfd pfd = {fd, POLLIN, 0};
+  int ret;
+
+  do {
+    ret = poll(&pfd, 1, HANDSHAKE_TIMEOUT_MS);
+  } while (ret == -1 && errno == EINTR);
+
+  return ret > 0 && (pfd.revents & (POLLIN | POLLHUP | POLLERR));
+}
+
 void
 DmtcpCoordinator::onConnect()
 {
@@ -913,11 +940,25 @@ DmtcpCoordinator::onConnect()
     return;
   }
 
+  // The handshake read below is blocking.  Drop idle half-open connections so
+  // one peer cannot pin the coordinator event loop before sending a message.
+  if (!waitForInitialMessage(remote.sockfd())) {
+    JTRACE("incoming connection did not send handshake before timeout")
+      (remote.sockfd());
+    remote.close();
+    return;
+  }
+
   DmtcpMessage hello_remote;
   hello_remote.poison();
   JTRACE("Reading from incoming connection...");
   remote >> hello_remote;
   if (!remote.isValid()) {
+    remote.close();
+    return;
+  }
+
+  if (!hello_remote.isValid()) {
     remote.close();
     return;
   }
@@ -1085,6 +1126,14 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
           " since it is not from current computation.")
       (compId) (hello_remote.compGroup);
     hello_local.type = DMT_REJECT_WRONG_COMP;
+    remote << hello_local;
+    remote.close();
+    return false;
+  } else if (hello_remote.numPeers != static_cast<uint32_t>(numRestartPeers)) {
+    JNOTE("Reject incoming computation process requesting restart,"
+          " since it expects a different peer count.")
+      (numRestartPeers) (hello_remote.numPeers);
+    hello_local.type = DMT_REJECT_RESTART_PEER_MISMATCH;
     remote << hello_local;
     remote.close();
     return false;
@@ -1352,7 +1401,7 @@ signalHandler(int signum)
   if (signum == SIGINT) {
     theCoordinator.handleUserCommand("q");
   } else {
-    JWARNING(false)(signum).Text("Ignoring unexpected signal");
+    JWARNING(false) (signum).Text("ignoring unexpected signal");
   }
 }
 
@@ -1374,7 +1423,8 @@ calcLocalAddr()
 {
   char hostname[HOST_NAME_MAX];
 
-  JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO);
+  JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO)
+    .Text("gethostname failed");
 
   struct addrinfo *result = NULL;
   struct addrinfo *res;
@@ -1458,7 +1508,7 @@ calcLocalAddr()
     }
 
     JWARNING(success) (hostname)
-      .Text("Failed to find coordinator IP address.  DMTCP may fail.");
+      .Text("failed to find coordinator IP address; DMTCP may fail");
   } else {
     if (error == EAI_SYSTEM) {
       perror("getaddrinfo");
@@ -1498,12 +1548,13 @@ DmtcpCoordinator::eventLoop()
   struct epoll_event ev;
 
   epollFd = epoll_create(MAX_EVENTS);
-  JASSERT(epollFd != -1) (JASSERT_ERRNO);
+  JASSERT(epollFd != -1) (JASSERT_ERRNO).Text("epoll_create failed");
 
   ev.events = EPOLLIN;
   ev.data.ptr = listenSock;
   JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, listenSock->sockfd(), &ev) != -1)
-    (JASSERT_ERRNO);
+    (listenSock->sockfd()) (JASSERT_ERRNO)
+    .Text("epoll_ctl add listen socket failed");
 
   if (!flags.daemon &&
 
@@ -1518,7 +1569,8 @@ DmtcpCoordinator::eventLoop()
 #endif // ifdef EPOLLRDHUP
     ev.data.ptr = (void *)STDIN_FILENO;
     JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, STDIN_FILENO, &ev) != -1)
-      (JASSERT_ERRNO);
+      (JASSERT_ERRNO)
+      .Text("epoll_ctl add stdin failed");
   }
 
   while (true) {
@@ -1543,7 +1595,8 @@ DmtcpCoordinator::eventLoop()
 
     // alarm() is not always the only source of interrupts.
     // For example, any signal, including signal 0 or SIGWINCH can cause this.
-    JASSERT(nfds != -1 || errno == EINTR) (JASSERT_ERRNO);
+    JASSERT(nfds != -1 || errno == EINTR) (JASSERT_ERRNO)
+      .Text("epoll_wait failed");
 
     for (int n = 0; n < nfds; ++n) {
       void *ptr = events[n].data.ptr;
@@ -1566,7 +1619,8 @@ DmtcpCoordinator::eventLoop()
           if (std::cin.eof() == 1) {
             JASSERT_STDERR << "\n  Closing stdin...\n";
             JASSERT(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1)
-              (JASSERT_ERRNO);
+              (JASSERT_ERRNO)
+              .Text("epoll_ctl delete stdin after EOF failed");
             close(STDIN_FD);
           } else {
             std::transform(cmd.begin(), cmd.end(), cmd.begin(),
@@ -1587,10 +1641,11 @@ DmtcpCoordinator::eventLoop()
           (events[n].events & EPOLLRDHUP) ||
 #endif // ifdef EPOLLRDHUP
           (events[n].events & EPOLLERR)) {
-        JASSERT(ptr != listenSock);
+        JASSERT(ptr != listenSock).Text("listen socket reported hangup/error");
         if (ptr == (void *)STDIN_FILENO) {
           JASSERT(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1)
-            (JASSERT_ERRNO);
+            (JASSERT_ERRNO)
+            .Text("epoll_ctl delete stdin after hangup failed");
           close(STDIN_FD);
         } else {
           onDisconnect((CoordClient *)ptr);
@@ -1617,7 +1672,8 @@ DmtcpCoordinator::addDataSocket(CoordClient *client)
 #endif // ifdef EPOLLRDHUP
   ev.data.ptr = client;
   JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, client->sock().sockfd(), &ev) != -1)
-    (JASSERT_ERRNO);
+    (client->sock().sockfd()) (JASSERT_ERRNO)
+    .Text("epoll_ctl add client socket failed");
 }
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
@@ -1785,18 +1841,17 @@ main(int argc, char **argv)
   /*Test if the listener socket is already open*/
   if (fcntl(PROTECTED_COORD_FD, F_GETFD) != -1) {
     listenSock = new jalib::JServerSocket(PROTECTED_COORD_FD);
-    JASSERT(listenSock->port() != -1).Text("Invalid listener socket");
+    JASSERT(listenSock->port() != -1)
+      .Text("invalid inherited listener socket");
     JTRACE("Using already created listener socket") (listenSock->port());
   } else {
     errno = 0;
     listenSock = new jalib::JServerSocket(jalib::JSockAddr::ANY, flags.thePort, 128);
     JASSERT(listenSock->isValid()) (flags.thePort) (JASSERT_ERRNO)
-    .Text("Failed to create listen socket."
-          "\nIf msg is \"Address already in use\", "
-          "this may be an old coordinator."
-          "\nKill default coordinator and try again:  dmtcp_command -q"
-          "\nIf that fails, \"pkill -9 dmtcp_coord\","
-          " and try again in a minute or so.");
+      .Text("failed to create listen socket. "
+            "If msg is \"Address already in use\", this may be an old coordinator. "
+            "Kill default coordinator and try again: dmtcp_command -q. "
+            "If that fails, pkill -9 dmtcp_coord and try again in a minute.");
   }
 
   flags.thePort = listenSock->port();
@@ -1826,16 +1881,20 @@ main(int argc, char **argv)
     int fd = -1;
     if (!flags.useLogFile) {
       fd = open("/dev/null", O_RDWR);
-      JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
+      JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO) (JASSERT_ERRNO)
+        .Text("failed to redirect daemon stdin to /dev/null");
     } else {
       fd = open(flags.logFilename.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0644);
       JASSERT_SET_LOG(flags.logFilename);
       int nullFd = open("/dev/null", O_RDWR);
-      JASSERT(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO);
+      JASSERT(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO) (JASSERT_ERRNO)
+        .Text("failed to redirect daemon stdin to /dev/null");
       close(nullFd);
     }
-    JASSERT(dup2(fd, STDOUT_FILENO) == STDOUT_FILENO);
-    JASSERT(dup2(fd, STDERR_FILENO) == STDERR_FILENO);
+    JASSERT(dup2(fd, STDOUT_FILENO) == STDOUT_FILENO) (JASSERT_ERRNO)
+      .Text("failed to redirect daemon stdout");
+    JASSERT(dup2(fd, STDERR_FILENO) == STDERR_FILENO) (JASSERT_ERRNO)
+      .Text("failed to redirect daemon stderr");
     JASSERT_CLOSE_STDERR();
     if (fd > STDERR_FILENO) {
       close(fd);
