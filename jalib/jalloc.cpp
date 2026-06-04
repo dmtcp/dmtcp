@@ -274,7 +274,7 @@ class JFixedAllocStack
 
     int numExpands()
     {
-      return _numExpands;
+      return __atomic_load_n(&_numExpands, __ATOMIC_RELAXED);
     }
 
     void preExpand()
@@ -299,7 +299,7 @@ class JFixedAllocStack
     {
       StackHead origHead = {0};
       StackHead newHead = {0};
-      _numExpands++;
+      __atomic_add_fetch(&_numExpands, 1, __ATOMIC_RELAXED);
       FreeItem *bufs =
         static_cast<FreeItem *>(JAllocDispatcher::allocate(_blockSize));
       int count = _blockSize / sizeof(FreeItem);

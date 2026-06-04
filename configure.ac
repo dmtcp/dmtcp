@@ -22,7 +22,7 @@ AC_PROG_CC
 AC_PROG_CPP
 
 AC_CONFIG_MACRO_DIR([m4])
-AX_CXX_COMPILE_STDCXX([14], [noext], [mandatory])
+AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 
 AX_CHECK_COMPILE_FLAG([-std=gnu11],
   [AX_APPEND_FLAG([-std=gnu11])],
@@ -857,7 +857,7 @@ AC_MSG_CHECKING(for $CXX __sync_bool_compare_and_swap builtins)
 dnl Since we'll be using these atomic builtins in C++ files we should test
 dnl the C++ compiler.
 AC_LANG_PUSH([C++])
-dnl C++ standard set for C++14.  If standalone, use: -std=c++14 -march=native
+dnl C++ standard set for C++20.  If standalone, use: -std=c++20 -march=native
 dnl Apparently, x86_64 requires -march=native, but aarch64 assumes that
 dnl that all such architectures support __sync_bool_compare_and_swap().
 CXXFLAGS_orig="$CXXFLAGS"
@@ -950,12 +950,12 @@ AC_MSG_RESULT([$gccAtomicBuiltins])
 if test "$gccAtomicBuiltins" = "yes"; then
   AC_DEFINE([HAS_128_ATOMIC],[1],[Define to 1 if 'gcc test.c -latomic' works for __atomic_compare_exchange])
 fi
-dnl $CXX might be "clang++ -std=c++14".  Further, we need "-x c++"
+dnl $CXX might be "clang++ -std=c++20".  Further, we need "-x c++"
 dnl   or else clang++ defaults to assuming a C file.
 is_clang_cpp=no
 $CXX -x c++ -dM -E - < /dev/null | grep -q "__clang__" && is_clang_cpp=yes
 if test "$gccAtomicBuiltins" = "no" -a "$is_clang_cpp" = "yes"; then
-  AC_MSG_FAILURE([Using C++14 with clang++ to support atomic built-ins.
+  AC_MSG_FAILURE([Using C++20 with clang++ to support atomic built-ins.
                   Missing Linux packages.  If Ubuntu/Debian, consider:
                   sudo apt install clang libclang-rt-dev libc++abi-dev
                   libstdc++-14-dev (or later version of libstdc++-14-dev).
@@ -963,7 +963,7 @@ if test "$gccAtomicBuiltins" = "no" -a "$is_clang_cpp" = "yes"; then
                   sudo dnf install clang-devel libstdc++-devel libatomic])
 fi
 if test "$gccAtomicBuiltins" = "no"; then
-  AC_MSG_FAILURE([Using C++14, which should support both sync and atomic
+  AC_MSG_FAILURE([Using C++20, which should support both sync and atomic
                   built-ins.  Will default to using slower mutexes in jalloc.cpp])
 fi
 
