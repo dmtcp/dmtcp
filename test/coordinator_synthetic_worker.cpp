@@ -28,6 +28,7 @@ struct Options {
   bool expectKvdb = false;
   bool expectInvalidProtocolReject = false;
   bool expectInvalidMessageSizeReject = false;
+  bool expectOversizedExtraReject = false;
   bool sendPartialMessage = false;
   bool sendUnexpectedMessage = false;
   bool barrierAfterStdin = false;
@@ -255,6 +256,7 @@ parseOptions(int argc, char **argv)
       "[--expect-kvdb] "
       "[--expect-invalid-protocol-reject] "
       "[--expect-invalid-message-size-reject] "
+      "[--expect-oversized-extra-reject] "
       "[--send-partial-message] "
       "[--send-unexpected-message] "
       "[--barrier-after-stdin] "
@@ -294,6 +296,8 @@ parseOptions(int argc, char **argv)
       options.expectInvalidProtocolReject = true;
     } else if (strcmp(argv[i], "--expect-invalid-message-size-reject") == 0) {
       options.expectInvalidMessageSizeReject = true;
+    } else if (strcmp(argv[i], "--expect-oversized-extra-reject") == 0) {
+      options.expectOversizedExtraReject = true;
     } else if (strcmp(argv[i], "--send-partial-message") == 0) {
       options.sendPartialMessage = true;
     } else if (strcmp(argv[i], "--send-unexpected-message") == 0) {
@@ -357,6 +361,8 @@ main(int argc, char **argv)
       std::memset(hello._magicBits, 'X', sizeof(hello._magicBits));
     } else if (options.expectInvalidMessageSizeReject) {
       hello._msgSize = sizeof(hello) - 1;
+    } else if (options.expectOversizedExtraReject) {
+      hello.extraBytes = DMTCP_MAX_MESSAGE_EXTRA_BYTES + 1;
     } else {
       extraData = handshakeExtraData("coordinator_synthetic_worker");
       hello.extraBytes = extraData.size();
@@ -377,7 +383,8 @@ main(int argc, char **argv)
     }
 
     if (options.expectInvalidProtocolReject ||
-        options.expectInvalidMessageSizeReject) {
+        options.expectInvalidMessageSizeReject ||
+        options.expectOversizedExtraReject) {
       dmtcp::DmtcpMessage reply;
       if (readMessageOrEof(fd, &reply)) {
         close(fd);

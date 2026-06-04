@@ -163,6 +163,7 @@ struct DmtcpMessage {
   string toCoordinatorCmdJson(const char *coordHost,
                               int coordPort,
                               const char *extraData = NULL) const;
+  void assertValid() const;
   bool isValid() const;
   void poison();
 };

@@ -21,6 +21,7 @@
 
 #include "dmtcpmessagetypes.h"
 #include "json.h"
+#include "util_assert.h"
 #include "workerstate.h"
 
 #include <cstring>
@@ -37,6 +38,12 @@ messageMagicIsValid(const char (&magic)[16])
   static_assert(sizeof(DMTCP_MAGIC_STRING) <= sizeof(magic),
                 "DMTCP_MAGIC_STRING must not exceed magic buffer");
   return memcmp(magic, DMTCP_MAGIC_STRING, sizeof(DMTCP_MAGIC_STRING)) == 0;
+}
+
+bool
+messageExtraBytesIsValid(uint32_t extraBytes)
+{
+  return extraBytes <= DMTCP_MAX_MESSAGE_EXTRA_BYTES;
 }
 
 } // namespace
@@ -68,6 +75,20 @@ DmtcpMessage::DmtcpMessage(DmtcpMessageType t /*= DMT_NULL*/)
   strncpy(_magicBits, DMTCP_MAGIC_STRING, sizeof(_magicBits));
 }
 
+void
+DmtcpMessage::assertValid() const
+{
+  ASSERT(messageMagicIsValid(_magicBits),
+         "read invalid message, _magicBits mismatch. "
+         "Did DMTCP coordinator die uncleanly?");
+  ASSERT(_msgSize == sizeof(DmtcpMessage),
+         "read invalid message, size mismatch: got={} expected={}",
+         _msgSize, sizeof(DmtcpMessage));
+  ASSERT(messageExtraBytesIsValid(extraBytes),
+         "read invalid message, extraBytes too large: got={} max={}",
+         extraBytes, DMTCP_MAX_MESSAGE_EXTRA_BYTES);
+}
+
 bool
 DmtcpMessage::isValid() const
 {
@@ -79,6 +100,12 @@ DmtcpMessage::isValid() const
   if (_msgSize != sizeof(DmtcpMessage)) {
     JNOTE("read invalid message, size mismatch. Closing remote connection.")
       (_msgSize) (sizeof(DmtcpMessage));
+    return false;
+  }
+  if (!messageExtraBytesIsValid(extraBytes)) {
+    JNOTE("read invalid message, extraBytes too large."
+          " Closing remote connection.")
+      (extraBytes) (DMTCP_MAX_MESSAGE_EXTRA_BYTES);
     return false;
   }
   return true;
@@ -213,7 +240,8 @@ dmtcp::operator<<(dmtcp::ostream &o, const DmtcpMessageType &s)
     OSHIFTPRINTF(DMT_KVDB_RESPONSE)
 
   default:
-    JASSERT(false) (s).Text("Invalid Message Type");
+    ASSERT(false, "Invalid Message Type: {}",
+           static_cast<int>(s));
 
     // o << s;
   }
