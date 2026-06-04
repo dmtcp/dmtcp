@@ -28,9 +28,43 @@
 
 namespace dmtcp
 {
-class ProcessInfo : public DmtcpCkptHeader
+class ProcessInfo
 {
+  private:
+    DmtcpCkptHeader _ckptHeader;
+
   public:
+    DmtcpUniqueProcessId& upid;
+    DmtcpUniqueProcessId& uppid;
+    DmtcpUniqueProcessId& compGroup;
+
+    pid_t& pid;
+    pid_t& ppid;
+    pid_t& sid;
+    pid_t& gid;
+    pid_t& fgid;
+    uint32_t& isRootOfProcessTree;
+
+    uint32_t& numPeers;
+    uint32_t& elfType;
+
+    uint64_t& clock_gettime_offset;
+    uint64_t& getcpu_offset;
+    uint64_t& gettimeofday_offset;
+    uint64_t& time_offset;
+
+    MemRegion& restoreBuf;
+    MemRegion& vdso;
+    MemRegion& vvar;
+    MemRegion& vvarVClock;
+
+    uint64_t& savedBrk;
+    uint64_t& endOfStack;
+    uint64_t& postRestartAddr;
+
+    char (&procname)[1024];
+    char (&procSelfExe)[1024];
+
 #ifdef JALIB_ALLOCATOR
     static void *operator new(size_t nbytes, void *p) { return p; }
 

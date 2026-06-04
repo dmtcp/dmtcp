@@ -145,14 +145,39 @@ LIB_PRIVATE DmtcpPluginDescriptor_t processInfoPlugin = {
 };
 
 ProcessInfo::ProcessInfo()
+  : _ckptHeader(),
+    upid(_ckptHeader.upid),
+    uppid(_ckptHeader.uppid),
+    compGroup(_ckptHeader.compGroup),
+    pid(_ckptHeader.pid),
+    ppid(_ckptHeader.ppid),
+    sid(_ckptHeader.sid),
+    gid(_ckptHeader.gid),
+    fgid(_ckptHeader.fgid),
+    isRootOfProcessTree(_ckptHeader.isRootOfProcessTree),
+    numPeers(_ckptHeader.numPeers),
+    elfType(_ckptHeader.elfType),
+    clock_gettime_offset(_ckptHeader.clock_gettime_offset),
+    getcpu_offset(_ckptHeader.getcpu_offset),
+    gettimeofday_offset(_ckptHeader.gettimeofday_offset),
+    time_offset(_ckptHeader.time_offset),
+    restoreBuf(_ckptHeader.restoreBuf),
+    vdso(_ckptHeader.vdso),
+    vvar(_ckptHeader.vvar),
+    vvarVClock(_ckptHeader.vvarVClock),
+    savedBrk(_ckptHeader.savedBrk),
+    endOfStack(_ckptHeader.endOfStack),
+    postRestartAddr(_ckptHeader.postRestartAddr),
+    procname(_ckptHeader.procname),
+    procSelfExe(_ckptHeader.procSelfExe)
 {
   char buf[PATH_MAX];
 
   _do_lock_tbl();
 
-  strcpy(ckptSignature, DMTCP_CKPT_SIGNATURE);
-  dmtcp_init_ckpt_header_bootstrap(this);
-  memset(padding, 0, sizeof(padding));
+  strcpy(_ckptHeader.ckptSignature, DMTCP_CKPT_SIGNATURE);
+  dmtcp_init_ckpt_header_bootstrap(&_ckptHeader);
+  memset(_ckptHeader.padding, 0, sizeof(_ckptHeader.padding));
 
   upid = UniquePid::ThisProcess();
   uppid = UniquePid::ParentProcess();
@@ -169,7 +194,7 @@ ProcessInfo::ProcessInfo()
   numPeers = 1;
 
 #ifdef CONFIG_M32
-  _elfType = Elf_32;
+  elfType = Elf_32;
 #else // ifdef CONFIG_M32
   elfType = Elf_64;
 #endif // ifdef CONFIG_M32
@@ -317,7 +342,7 @@ ProcessInfo::init()
   }
 
 #ifdef CONFIG_M32
-  _elfType = Elf_32;
+  elfType = Elf_32;
 #else // ifdef CONFIG_M32
   elfType = Elf_64;
 #endif // ifdef CONFIG_M32
@@ -678,7 +703,7 @@ ProcessInfo::getState()
 DmtcpCkptHeader
 ProcessInfo::checkpointHeaderSnapshot() const
 {
-  return static_cast<const DmtcpCkptHeader&>(*this);
+  return _ckptHeader;
 }
 
 void

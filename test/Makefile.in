@@ -111,6 +111,7 @@ unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 		$(srcdir)/unit/threadinfo_tests.cpp \
 		$(srcdir)/unit/unit_test.h \
 		$(DMTCP_INCLUDE)/dmtcp.h \
+		$(top_srcdir)/src/processinfo.h \
 		$(top_srcdir)/src/util_assert.h
 	$(MKDIR_P) unit
 	$(CXX) $(CXXFLAGS) -I$(srcdir)/unit -I$(top_srcdir)/src -o $@ \

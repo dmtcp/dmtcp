@@ -1,6 +1,10 @@
-#include "unit_test.h"
+#include "processinfo.h"
 
-#include "dmtcp.h"
+#ifdef ASSERT_EQ
+# undef ASSERT_EQ
+#endif
+
+#include "unit_test.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -21,6 +25,11 @@ void ckptHeaderKeepsRestartFieldsPlain()
   ASSERT_TRUE(std::is_trivial_v<DmtcpCkptHeader>);
   ASSERT_TRUE(std::is_standard_layout_v<MemRegion>);
   ASSERT_TRUE(std::is_trivial_v<MemRegion>);
+}
+
+void processInfoDoesNotInheritBootstrapHeader()
+{
+  ASSERT_TRUE((!std::is_base_of_v<DmtcpCkptHeader, dmtcp::ProcessInfo>));
 }
 
 void ckptSignatureFitsHeaderField()
@@ -71,6 +80,8 @@ void pluginDescriptorKeepsPlainAbiShape()
 extern const dmtcp_test::TestCase dmtcpHeaderTests[] = {
   {"DmtcpCkptHeader remains fixed size", ckptHeaderIsFixedSize},
   {"DmtcpCkptHeader restart fields stay plain", ckptHeaderKeepsRestartFieldsPlain},
+  {"ProcessInfo does not inherit bootstrap header",
+   processInfoDoesNotInheritBootstrapHeader},
   {"checkpoint signature fits header field", ckptSignatureFitsHeaderField},
   {"checkpoint header is self describing", ckptHeaderIsSelfDescribing},
   {"checkpoint header validates bootstrap fields", ckptHeaderBootstrapValidation},
