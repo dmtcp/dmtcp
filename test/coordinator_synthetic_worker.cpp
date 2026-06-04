@@ -19,6 +19,7 @@ struct Options {
   int holdSeconds = 5;
   bool expectKill = false;
   bool expectCheckpoint = false;
+  bool invalidCompGroup = false;
   std::string barrier;
 };
 
@@ -155,7 +156,7 @@ parseOptions(int argc, char **argv)
     throw std::runtime_error(
       "usage: coordinator_synthetic_worker HOST PORT "
       "[--hold-seconds SECONDS] [--expect-kill] [--expect-checkpoint] "
-      "[--barrier NAME]");
+      "[--invalid-comp-group] [--barrier NAME]");
   }
 
   Options options;
@@ -172,6 +173,8 @@ parseOptions(int argc, char **argv)
       options.expectKill = true;
     } else if (strcmp(argv[i], "--expect-checkpoint") == 0) {
       options.expectCheckpoint = true;
+    } else if (strcmp(argv[i], "--invalid-comp-group") == 0) {
+      options.invalidCompGroup = true;
     } else if (strcmp(argv[i], "--barrier") == 0) {
       if (++i == argc) {
         throw std::runtime_error("--barrier requires a value");
@@ -197,6 +200,9 @@ main(int argc, char **argv)
     dmtcp::DmtcpMessage hello(dmtcp::DMT_NEW_WORKER);
     hello.virtualPid = -1;
     hello.realPid = getpid();
+    if (options.invalidCompGroup) {
+      hello.compGroup = dmtcp::UniquePid(1, 1, 1);
+    }
 
     std::string extraData = handshakeExtraData("coordinator_synthetic_worker");
     hello.extraBytes = extraData.size();
@@ -207,6 +213,17 @@ main(int argc, char **argv)
 
     dmtcp::DmtcpMessage reply;
     readAll(fd, &reply, sizeof(reply));
+    if (options.invalidCompGroup) {
+      if (!reply.isValid() || reply.type != dmtcp::DMT_REJECT_WRONG_COMP) {
+        close(fd);
+        throw std::runtime_error("expected DMT_REJECT_WRONG_COMP");
+      }
+      std::cout << "rejected DMT_REJECT_WRONG_COMP\n";
+      std::cout.flush();
+      close(fd);
+      return 0;
+    }
+
     if (!reply.isValid() || reply.type != dmtcp::DMT_ACCEPT ||
         reply.virtualPid == -1) {
       close(fd);

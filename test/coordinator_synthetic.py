@@ -68,7 +68,7 @@ class CoordinatorFixture:
 
 class WorkerProcess:
     def __init__(self, port, expect_kill=False, barrier=None,
-                 expect_checkpoint=False):
+                 expect_checkpoint=False, invalid_comp_group=False):
         args = [
             str(SYNTHETIC_WORKER),
             "127.0.0.1",
@@ -82,6 +82,8 @@ class WorkerProcess:
             args.extend(["--barrier", barrier])
         if expect_checkpoint:
             args.append("--expect-checkpoint")
+        if invalid_comp_group:
+            args.append("--invalid-comp-group")
         self.process = subprocess.Popen(
             args,
             cwd=str(ROOT),
@@ -147,6 +149,20 @@ class WorkerProcess:
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not receive barrier release")
 
+    def wait_until_rejected_wrong_computation(self):
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
+            if readable:
+                line = self.process.stdout.readline().strip()
+                if line == "rejected DMT_REJECT_WRONG_COMP":
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError("worker was not rejected for wrong computation")
+
     def stop(self):
         if self.process.poll() is None:
             self.process.terminate()
@@ -203,6 +219,19 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             finally:
                 for worker in workers:
                     worker.stop()
+
+    def test_new_worker_with_existing_computation_group_is_rejected(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(coordinator.port, invalid_comp_group=True)
+            try:
+                worker.wait_until_rejected_wrong_computation()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 0)
+                self.assertFalse(status["running"])
+            finally:
+                worker.stop()
 
     def test_two_synthetic_workers_release_same_barrier(self):
         with CoordinatorFixture() as coordinator:
