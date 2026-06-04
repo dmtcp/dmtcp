@@ -124,7 +124,15 @@ class DmtcpHarness:
             result = TestResult.fail(spec.name, "harness",
                                      str(failure), work.path)
         finally:
-            context.cleanup()
+            try:
+                context.cleanup()
+            except Exception as failure:
+                traceback_path = work.path / "cleanup-error.log"
+                traceback_path.write_text(traceback.format_exc(),
+                                          encoding="utf-8")
+                if result is None or result.passed:
+                    result = TestResult.fail(spec.name, "cleanup",
+                                             str(failure), work.path)
             if result is not None and result.passed and not self.retain_success_artifacts:
                 work.cleanup()
         return result

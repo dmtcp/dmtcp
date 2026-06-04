@@ -130,6 +130,54 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             if result.artifact_dir is not None:
                 shutil.rmtree(result.artifact_dir, ignore_errors=True)
 
+    def test_cleanup_exception_records_cleanup_failure_after_pass(self):
+        def cleanup_fails(self):
+            raise RuntimeError("cleanup failed")
+
+        with mock.patch.object(harness_module.TestContext, "run",
+                               lambda self: None), \
+             mock.patch.object(harness_module.TestContext, "cleanup",
+                               cleanup_fails):
+            result = DmtcpHarness(ROOT).run(
+                TestSpec("cleanup-pass", 1, ["./test/dmtcp1"]))
+
+        try:
+            self.assertFalse(result.passed)
+            self.assertEqual(result.phase, "cleanup")
+            self.assertIn("cleanup failed", result.message)
+            self.assertIsNotNone(result.artifact_dir)
+            log = (result.artifact_dir / "cleanup-error.log").read_text(
+                encoding="utf-8")
+            self.assertIn("RuntimeError: cleanup failed", log)
+        finally:
+            if result.artifact_dir is not None:
+                shutil.rmtree(result.artifact_dir, ignore_errors=True)
+
+    def test_cleanup_exception_keeps_original_failure_phase(self):
+        def run_fails(self):
+            raise HarnessFailure("checkpoint", "checkpoint failed")
+
+        def cleanup_fails(self):
+            raise RuntimeError("cleanup failed")
+
+        with mock.patch.object(harness_module.TestContext, "run", run_fails), \
+             mock.patch.object(harness_module.TestContext, "cleanup",
+                               cleanup_fails):
+            result = DmtcpHarness(ROOT).run(
+                TestSpec("cleanup-fail", 1, ["./test/dmtcp1"]))
+
+        try:
+            self.assertFalse(result.passed)
+            self.assertEqual(result.phase, "checkpoint")
+            self.assertEqual(result.message, "checkpoint failed")
+            self.assertIsNotNone(result.artifact_dir)
+            log = (result.artifact_dir / "cleanup-error.log").read_text(
+                encoding="utf-8")
+            self.assertIn("RuntimeError: cleanup failed", log)
+        finally:
+            if result.artifact_dir is not None:
+                shutil.rmtree(result.artifact_dir, ignore_errors=True)
+
     def test_spec_records_environment_and_launch_delay(self):
         spec = TestSpec("gzip", 1, ["./test/dmtcp1"],
                         env={"DMTCP_GZIP": "1"},
