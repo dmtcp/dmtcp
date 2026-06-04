@@ -196,6 +196,8 @@ printJsonCommandPrefix(const char *type, bool ok)
 {
   printf("{\"schema_version\":%d,\"type\":", JSON_SCHEMA_VERSION);
   printJsonString(type);
+  printf(",\"phase\":");
+  printJsonString(type);
   printf(",\"ok\":%s", ok ? "true" : "false");
 }
 

@@ -85,6 +85,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["type"], "status")
+        self.assertEqual(payload["phase"], "status")
         self.assertFalse(payload["ok"])
         self.assertEqual(payload["error_code"], "coordinator_not_found")
         self.assertEqual(payload["coordinator_host"], "localhost")
@@ -100,6 +101,8 @@ class DmtcpCommandJsonTest(unittest.TestCase):
         self.assertEqual(result.stderr, "")
         payload = json.loads(result.stdout)
         self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["type"], "status")
+        self.assertEqual(payload["phase"], "status")
         self.assertFalse(payload["ok"])
         self.assertEqual(payload["coordinator_host"], host)
         self.assertEqual(payload["coordinator_port"], 1)
@@ -114,6 +117,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload["schema_version"], 1)
             self.assertEqual(payload["type"], "status")
+            self.assertEqual(payload["phase"], "status")
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["coordinator_host"], "localhost")
             self.assertEqual(payload["coordinator_port"], coordinator.port)
@@ -131,6 +135,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload["schema_version"], 1)
             self.assertEqual(payload["type"], "checkpoint")
+            self.assertEqual(payload["phase"], "checkpoint")
             self.assertFalse(payload["ok"])
             self.assertEqual(payload["error_code"], "not_running")
 
@@ -144,6 +149,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload["schema_version"], 1)
             self.assertEqual(payload["type"], "kill")
+            self.assertEqual(payload["phase"], "kill")
             self.assertTrue(payload["ok"])
 
     def test_quit_json_reports_success_and_stops_coordinator(self):
@@ -156,6 +162,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload["schema_version"], 1)
             self.assertEqual(payload["type"], "quit")
+            self.assertEqual(payload["phase"], "quit")
             self.assertTrue(payload["ok"])
             coordinator.process.wait(timeout=5)
 
