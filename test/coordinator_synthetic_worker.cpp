@@ -29,6 +29,7 @@ struct Options {
   bool expectOversizedExtraReject = false;
   bool expectInvalidMessageSizeReject = false;
   bool sendPartialMessage = false;
+  bool sendUnexpectedMessage = false;
   bool barrierAfterStdin = false;
   bool sendBarrierTwiceBeforeWait = false;
   bool restartWorker = false;
@@ -249,6 +250,7 @@ parseOptions(int argc, char **argv)
       "[--expect-oversized-extra-reject] "
       "[--expect-invalid-message-size-reject] "
       "[--send-partial-message] "
+      "[--send-unexpected-message] "
       "[--barrier-after-stdin] "
       "[--send-barrier-twice-before-wait] "
       "[--restart-worker] [--num-peers PEERS] "
@@ -290,6 +292,8 @@ parseOptions(int argc, char **argv)
       options.expectInvalidMessageSizeReject = true;
     } else if (strcmp(argv[i], "--send-partial-message") == 0) {
       options.sendPartialMessage = true;
+    } else if (strcmp(argv[i], "--send-unexpected-message") == 0) {
+      options.sendUnexpectedMessage = true;
     } else if (strcmp(argv[i], "--barrier-after-stdin") == 0) {
       options.barrierAfterStdin = true;
     } else if (strcmp(argv[i], "--send-barrier-twice-before-wait") == 0) {
@@ -441,7 +445,17 @@ main(int argc, char **argv)
     std::cout << "accepted virtual_pid=" << reply.virtualPid << '\n';
     std::cout.flush();
 
-    if (options.expectKill) {
+    if (options.sendUnexpectedMessage) {
+      dmtcp::DmtcpMessage msg(dmtcp::DMT_ACCEPT);
+      writeAll(fd, &msg, sizeof(msg));
+      if (readMessageOrEof(fd, &msg)) {
+        close(fd);
+        throw std::runtime_error(
+          "coordinator kept worker after unexpected message");
+      }
+      std::cout << "sent unexpected protocol message\n";
+      std::cout.flush();
+    } else if (options.expectKill) {
       dmtcp::DmtcpMessage msg;
       readAll(fd, &msg, sizeof(msg));
       if (!msg.isValid() || msg.type != dmtcp::DMT_KILL_PEER) {

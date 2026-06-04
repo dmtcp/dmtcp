@@ -95,6 +95,7 @@ class WorkerProcess:
                  expect_oversized_extra_reject=False,
                  expect_invalid_message_size_reject=False,
                  send_partial_message=False,
+                 send_unexpected_message=False,
                  barrier_after_stdin=False,
                  barrier_twice_before_wait=False,
                  restart_worker=False,
@@ -138,6 +139,8 @@ class WorkerProcess:
             args.append("--expect-invalid-message-size-reject")
         if send_partial_message:
             args.append("--send-partial-message")
+        if send_unexpected_message:
+            args.append("--send-unexpected-message")
         if restart_worker:
             args.append("--restart-worker")
         if num_peers is not None:
@@ -358,6 +361,19 @@ class WorkerProcess:
                 stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not send partial protocol message")
+
+    def wait_until_unexpected_message_rejected(self):
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            if self._stdout_ready(0.1):
+                line = self._read_stdout_line()
+                if line == "sent unexpected protocol message":
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self._read_stderr()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError("worker did not send unexpected protocol message")
 
     def stop(self):
         if self.process.poll() is None:
@@ -949,6 +965,20 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
 
                 self.assertTrue(status["ok"])
                 self.assertEqual(status["num_peers"], 0)
+                self.assertFalse(status["running"])
+            finally:
+                worker.stop()
+
+    def test_unexpected_worker_message_disconnects_worker(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(coordinator.port,
+                                   send_unexpected_message=True)
+            try:
+                worker.wait_until_accepted()
+                worker.wait_until_unexpected_message_rejected()
+                status = self.wait_until_num_peers(coordinator.port, 0)
+
+                self.assertTrue(status["ok"])
                 self.assertFalse(status["running"])
             finally:
                 worker.stop()
