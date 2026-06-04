@@ -712,6 +712,25 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             finally:
                 worker.stop()
 
+    def test_timeout_exits_during_slow_checkpoint(self):
+        with CoordinatorFixture(extra_args=["--timeout", "1"]) as coordinator:
+            worker = WorkerProcess(coordinator.port, expect_checkpoint=True)
+            try:
+                worker.wait_until_accepted()
+                result = self.run_command("--json", "--coord-port",
+                                          str(coordinator.port),
+                                          "--checkpoint")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                payload = json.loads(result.stdout)
+
+                self.assertTrue(payload["ok"])
+                worker.wait_until_checkpoint_requested()
+
+                coordinator.process.wait(timeout=5)
+                self.assertNotEqual(coordinator.process.returncode, 0)
+            finally:
+                worker.stop()
+
     def test_new_worker_during_checkpoint_receives_checkpoint_request(self):
         with CoordinatorFixture() as coordinator:
             first = WorkerProcess(coordinator.port, expect_checkpoint=True)
