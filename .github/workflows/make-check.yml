@@ -24,4 +24,4 @@ jobs:
     - name: make tests
       run: make tests
     - name: make check
-      run: ./test/autotest.py --retry-once
+      run: make check AUTOTEST=--retry-once

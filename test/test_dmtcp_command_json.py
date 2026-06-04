@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-import json
 import os
 import pathlib
 import subprocess
 import tempfile
 import time
 import unittest
+
+from autotest import DmtcpCommandJson
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -84,7 +85,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertEqual(result.stderr, "")
-        payload = json.loads(result.stdout)
+        payload = DmtcpCommandJson.parse(result.stdout)
         self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["command"], "DMT_STATUS")
         self.assertNotIn("phase", payload)
@@ -102,7 +103,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertEqual(result.stderr, "")
-        payload = json.loads(result.stdout)
+        payload = DmtcpCommandJson.parse(result.stdout)
         self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["command"], "DMT_STATUS")
         self.assertNotIn("phase", payload)
@@ -117,7 +118,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertEqual(result.stderr, "")
-        payload = json.loads(result.stdout)
+        payload = DmtcpCommandJson.parse(result.stdout)
         self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["command"], "DMT_INVALID_COORDINATOR_COMMAND")
         self.assertNotIn("phase", payload)
@@ -148,7 +149,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertEqual(result.stderr, "")
-        payload = json.loads(result.stdout)
+        payload = DmtcpCommandJson.parse(result.stdout)
         self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["command"], "DMT_LIST")
         self.assertNotIn("phase", payload)
@@ -223,7 +224,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stderr, "")
-            payload = json.loads(result.stdout)
+            payload = DmtcpCommandJson.parse(result.stdout)
             self.assertEqual(payload["schema_version"], 1)
             self.assertEqual(payload["command"], "DMT_STATUS")
             self.assertNotIn("phase", payload)
@@ -243,7 +244,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 2, result.stdout)
             self.assertEqual(result.stderr, "")
-            payload = json.loads(result.stdout)
+            payload = DmtcpCommandJson.parse(result.stdout)
             self.assertEqual(payload["schema_version"], 1)
             self.assertEqual(payload["command"], "DMT_CHECKPOINT")
             self.assertNotIn("phase", payload)
@@ -284,7 +285,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stderr, "")
-            payload = json.loads(result.stdout)
+            payload = DmtcpCommandJson.parse(result.stdout)
             self.assertEqual(payload["schema_version"], 1)
             self.assertEqual(payload["command"], "DMT_KILL")
             self.assertNotIn("phase", payload)
@@ -299,7 +300,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stderr, "")
-            payload = json.loads(result.stdout)
+            payload = DmtcpCommandJson.parse(result.stdout)
             self.assertEqual(payload["schema_version"], 1)
             self.assertEqual(payload["command"], "DMT_QUIT")
             self.assertNotIn("phase", payload)
