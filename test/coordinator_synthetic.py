@@ -542,6 +542,30 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 if second is not None:
                     second.stop()
 
+    def test_restart_worker_with_wrong_computation_group_is_rejected(self):
+        with CoordinatorFixture() as coordinator:
+            first = WorkerProcess(coordinator.port, restart_worker=True,
+                                  num_peers=2)
+            second = None
+            try:
+                first.wait_until_accepted()
+
+                second = WorkerProcess(
+                    coordinator.port,
+                    restart_worker=True,
+                    invalid_comp_group=True,
+                    num_peers=2)
+                second.wait_until_rejected_wrong_computation()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 1)
+                self.assertFalse(status["running"])
+            finally:
+                first.stop()
+                if second is not None:
+                    second.stop()
+
     def test_new_worker_is_rejected_while_restart_is_active(self):
         with CoordinatorFixture() as coordinator:
             restarting = WorkerProcess(coordinator.port, restart_worker=True,
