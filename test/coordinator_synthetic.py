@@ -107,6 +107,16 @@ class WorkerProcess:
             stderr=subprocess.PIPE,
         )
 
+    def _read_stdout_line(self):
+        line = self.process.stdout.readline()
+        if line:
+            return line.strip()
+
+        stderr = ""
+        if self.process.poll() is not None:
+            stderr = self.process.stderr.read()
+        raise RuntimeError(f"worker stdout closed early: {stderr}")
+
     def wait_until_accepted(self):
         deadline = time.time() + 10
         while time.time() < deadline:
@@ -115,7 +125,7 @@ class WorkerProcess:
                 raise RuntimeError(f"worker exited early: {stderr}")
             readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
             if readable:
-                line = self.process.stdout.readline().strip()
+                line = self._read_stdout_line()
                 if line.startswith("accepted virtual_pid="):
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
@@ -126,7 +136,7 @@ class WorkerProcess:
         while time.time() < deadline:
             readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
             if readable:
-                line = self.process.stdout.readline().strip()
+                line = self._read_stdout_line()
                 if line == "received DMT_KILL_PEER":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
@@ -140,7 +150,7 @@ class WorkerProcess:
         while time.time() < deadline:
             readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
             if readable:
-                line = self.process.stdout.readline().strip()
+                line = self._read_stdout_line()
                 if line == "received DMT_DO_CHECKPOINT":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
@@ -154,7 +164,7 @@ class WorkerProcess:
         while time.time() < deadline:
             readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
             if readable:
-                line = self.process.stdout.readline().strip()
+                line = self._read_stdout_line()
                 if line == "received duplicate DMT_DO_CHECKPOINT":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
@@ -169,7 +179,7 @@ class WorkerProcess:
         while time.time() < deadline:
             readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
             if readable:
-                line = self.process.stdout.readline().strip()
+                line = self._read_stdout_line()
                 if line == expected:
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
@@ -183,7 +193,7 @@ class WorkerProcess:
         while time.time() < deadline:
             readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
             if readable:
-                line = self.process.stdout.readline().strip()
+                line = self._read_stdout_line()
                 if line == "rejected DMT_REJECT_WRONG_COMP":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
@@ -197,7 +207,7 @@ class WorkerProcess:
         while time.time() < deadline:
             readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
             if readable:
-                line = self.process.stdout.readline().strip()
+                line = self._read_stdout_line()
                 if line == "rejected DMT_REJECT_NOT_RESTARTING":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
@@ -212,7 +222,7 @@ class WorkerProcess:
         while time.time() < deadline:
             readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
             if readable:
-                line = self.process.stdout.readline().strip()
+                line = self._read_stdout_line()
                 if line == "kvdb old=0 value=synthetic-value":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
@@ -226,7 +236,7 @@ class WorkerProcess:
         while time.time() < deadline:
             readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
             if readable:
-                line = self.process.stdout.readline().strip()
+                line = self._read_stdout_line()
                 if line == "rejected invalid protocol":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
@@ -240,7 +250,7 @@ class WorkerProcess:
         while time.time() < deadline:
             readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
             if readable:
-                line = self.process.stdout.readline().strip()
+                line = self._read_stdout_line()
                 if line == "sent partial protocol message":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
