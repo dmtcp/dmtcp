@@ -343,6 +343,23 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             finally:
                 worker.stop()
 
+    def test_quit_command_kills_workers_and_stops_coordinator(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(coordinator.port, expect_kill=True)
+            try:
+                worker.wait_until_accepted()
+                result = self.run_command("--json", "--coord-port",
+                                          str(coordinator.port), "--quit")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                payload = json.loads(result.stdout)
+
+                self.assertTrue(payload["ok"])
+                self.assertEqual(payload["type"], "quit")
+                worker.wait_until_killed()
+                coordinator.process.wait(timeout=5)
+            finally:
+                worker.stop()
+
 
 if __name__ == "__main__":
     unittest.main()
