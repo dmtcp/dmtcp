@@ -30,6 +30,7 @@
 #include "syscallwrappers.h"
 #include "threadsync.h"
 #include "util.h"
+#include "util_assert.h"
 
 #undef dmtcp_is_enabled
 #undef dmtcp_checkpoint
@@ -310,7 +311,8 @@ dmtcp_protected_environ_fd(void)
 EXTERNC void
 dmtcp_close_protected_fd(int fd)
 {
-  JASSERT(DMTCP_IS_PROTECTED_FD(fd));
+  ASSERT(DMTCP_IS_PROTECTED_FD(fd),
+         "attempted to close non-protected fd through DMTCP API: fd={}", fd);
   _real_close(fd);
 }
 
@@ -336,7 +338,9 @@ dmtcp_get_restart_env(const char *name,   // IN
 {
   int env_fd = dup(dmtcp_protected_environ_fd());
 
-  JASSERT(env_fd != -1)(env_fd)(dmtcp_protected_environ_fd());
+  ASSERT_ERRNO(env_fd != -1,
+               "failed to dup protected restart environ fd: protected_fd={}",
+               dmtcp_protected_environ_fd());
   lseek(env_fd, 0, SEEK_SET);
 
   DmtcpGetRestartEnvErr_t rc = RESTART_ENV_NOTFOUND;
@@ -405,8 +409,8 @@ dmtcp_get_restart_env(const char *name,   // IN
     JALLOC_FREE(env_buf);
   } // Else env_buf was allocated on the stack as env_buf_small.
   close(env_fd);
-  JWARNING(rc != RESTART_ENV_DMTCP_BUF_TOO_SMALL)
-    (name) (sizeof(env_buf)).Text("Resize env_buf[]");
+  WARNING(rc != RESTART_ENV_DMTCP_BUF_TOO_SMALL,
+          "Resize env_buf[]: name={} size={}", name, size);
   return rc;
 }
 
@@ -428,7 +432,8 @@ dmtcp_block_ckpt_signal(void)
     initialized = true;
   }
 
-  JASSERT(_real_pthread_sigmask(SIG_BLOCK, &signals_set, NULL) == 0);
+  int ret = _real_pthread_sigmask(SIG_BLOCK, &signals_set, NULL);
+  ASSERT(ret == 0, "failed to block checkpoint signal: ret={}", ret);
 }
 
 EXTERNC void
@@ -443,7 +448,8 @@ dmtcp_unblock_ckpt_signal(void)
     initialized = true;
   }
 
-  JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &signals_set, NULL) == 0);
+  int ret = _real_pthread_sigmask(SIG_UNBLOCK, &signals_set, NULL);
+  ASSERT(ret == 0, "failed to unblock checkpoint signal: ret={}", ret);
 }
 
 EXTERNC void
@@ -458,7 +464,10 @@ dmtcp_global_barrier(const char *barrier)
   JTRACE("Waiting for global barrier") (barrier);
   if (!CoordinatorAPI::waitForBarrier(barrier)) {
     JTRACE("Failed to read message from coordinator; process exiting?");
-    JASSERT(DmtcpWorker::isExitInProgress());
+    ASSERT(DmtcpWorker::isExitInProgress(),
+           "global barrier failed while worker exit is not in progress: "
+           "barrier={}",
+           barrier);
     DmtcpWorker::ckptThreadPerformExit();
   }
   JTRACE("Barrier Released") (barrier);

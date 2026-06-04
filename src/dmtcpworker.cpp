@@ -37,6 +37,7 @@
 #include "threadlist.h"
 #include "threadsync.h"
 #include "util.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -98,8 +99,10 @@ restoreUserLDPRELOAD()
   char *preload = getenv("LD_PRELOAD");
   char *userPreload = getenv(ENV_VAR_ORIG_LD_PRELOAD);
 
-  JASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload))
-  (preload)(userPreload);
+  ASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload),
+         "user LD_PRELOAD does not fit in launcher LD_PRELOAD buffer: "
+         "preload={} user_preload={}",
+         preload, userPreload);
 
   // Destructively modify environment variable "LD_PRELOAD" in place:
   preload[0] = '\0';
@@ -182,7 +185,8 @@ installSegFaultHandler()
   memset(&act, 0, sizeof(act));
   act.sa_sigaction = segFaultHandler;
   act.sa_flags = SA_SIGINFO;
-  JASSERT(sigaction(SIGSEGV, &act, NULL) == 0) (JASSERT_ERRNO);
+  ASSERT_ERRNO(sigaction(SIGSEGV, &act, NULL) == 0,
+               "failed to install DMTCP SIGSEGV handler");
 }
 
 /* This function is called at the very beginning of the DmtcpWorker constructor
@@ -250,15 +254,16 @@ dmtcp_initialize_entry_point()
   // Also cache programName and arguments
   string programName = jalib::Filesystem::GetProgramName();
 
-  JASSERT(programName != "dmtcp_coordinator" &&
-          programName != "dmtcp_launch" &&
-          programName != "dmtcp_nocheckpoint" &&
-          programName != "dmtcp_comand" &&
-          programName != "dmtcp_restart" &&
-          programName != "mtcp_restart" &&
-          programName != "rsh" &&
-          programName != "ssh")
-    (programName).Text("This program should not be run under ckpt control");
+  ASSERT(programName != "dmtcp_coordinator" &&
+           programName != "dmtcp_launch" &&
+           programName != "dmtcp_nocheckpoint" &&
+           programName != "dmtcp_command" &&
+           programName != "dmtcp_restart" &&
+           programName != "mtcp_restart" &&
+           programName != "rsh" &&
+           programName != "ssh",
+         "This program should not be run under ckpt control: program={}",
+         programName);
 
   restoreUserLDPRELOAD();
 
@@ -360,13 +365,22 @@ DmtcpWorker::waitForPreSuspendMessage()
 
   JASSERT(msg.isValid());
 
-  JASSERT(msg.type == DMT_DO_CHECKPOINT) (msg.type);
+  ASSERT(msg.type == DMT_DO_CHECKPOINT,
+         "unexpected coordinator message while waiting for checkpoint: type={}",
+         msg.type);
 
   // Coordinator sends some computation information along with the SUSPEND
   // message. Extracting that.
   SharedData::updateGeneration(msg.compGroup.computationGeneration());
-  JASSERT(SharedData::getCompId() == msg.compGroup.upid())
-    (SharedData::getCompId()) (msg.compGroup);
+  DmtcpUniqueProcessId sharedCompId = SharedData::getCompId();
+  DmtcpUniqueProcessId msgCompId = msg.compGroup.upid();
+  ASSERT(sharedCompId == msgCompId,
+         "coordinator checkpoint message is for a different computation: "
+         "shared_host={} shared_pid={} shared_time={} shared_generation={} "
+         "msg_host={} msg_pid={} msg_time={} msg_generation={}",
+         sharedCompId._hostid, sharedCompId._pid, sharedCompId._time,
+         sharedCompId._computation_generation, msgCompId._hostid,
+         msgCompId._pid, msgCompId._time, msgCompId._computation_generation);
 
   ProcessInfo::instance().compGroup = SharedData::getCompId();
   exitAfterCkpt = msg.exitAfterCkpt;
@@ -402,7 +416,8 @@ DmtcpWorker::waitForCheckpointRequest()
 
   JTRACE("Waiting for DMT:SUSPEND barrier");
   if (!CoordinatorAPI::waitForBarrier("DMT:SUSPEND")) {
-    JASSERT(exitInProgress);
+    ASSERT(exitInProgress,
+           "DMT:SUSPEND barrier failed while exit is not in progress");
     ckptThreadPerformExit();
   }
 
@@ -496,8 +511,11 @@ DmtcpWorker::postCheckpoint()
      * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
      * So, gzip process can continue to write to file even after renaming.
      */
-    JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
-                   ProcessInfo::instance().getCkptFilename().c_str()) == 0);
+    ASSERT_ERRNO(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+                        ProcessInfo::instance().getCkptFilename().c_str()) == 0,
+                 "failed to rename checkpoint image: temp={} final={}",
+                 ProcessInfo::instance().getTempCkptFilename(),
+                 ProcessInfo::instance().getCkptFilename());
     CoordinatorAPI::sendCkptFilename();
   } else { // else FORKED CHECKPOINTING.  Write temp name; grandchild not done.
     string ckptFilename = ProcessInfo::instance().getCkptFilename();

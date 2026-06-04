@@ -8,6 +8,7 @@
 #include "../jalib/jassert.h"
 #include "config.h"
 #include "dmtcp.h"
+#include "util_assert.h"
 
 /*************************************************************************
  *
@@ -74,7 +75,7 @@ restore_term_settings()
     if (foreground) {
       if ((!isatty(STDIN_FILENO)
            || safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) == -1)) {
-        JWARNING(false).Text("failed to restore terminal");
+        WARNING(false, "failed to restore terminal");
       } else {
         struct winsize cur_win;
         JTRACE("restored terminal");
@@ -89,8 +90,7 @@ restore_term_settings()
         }
       }
     } else {
-      JWARNING(false)
-      .Text(":skip restore terminal step -- we are in BACKGROUND");
+      WARNING(false, "skip restore terminal step: process is in background");
     }
   }
 

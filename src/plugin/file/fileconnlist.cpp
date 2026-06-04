@@ -77,6 +77,7 @@
 #include "ptyconnlist.h"
 #include "shareddata.h"
 #include "util.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -315,8 +316,10 @@ FileConnList::preCkpt()
       if (fileCon->checkpointed() == true) {
         string buf = jalib::Filesystem::BaseName(fileCon->savedFilePath()) +
                      ":" + fileCon->filePath() + "\n";
-        JASSERT(Util::writeAll(tmpfd, buf.c_str(),
-                               buf.length()) == (ssize_t)buf.length());
+        ASSERT(Util::writeAll(tmpfd, buf.c_str(),
+                              buf.length()) == (ssize_t)buf.length(),
+               "failed to write fd info: fd={} bytes={}", tmpfd,
+               buf.length());
       }
     }
   }
@@ -331,9 +334,10 @@ FileConnList::postRestart()
   for (size_t i = 0; i < unlinkedShmAreas.size(); i++) {
     if (jalib::Filesystem::FileExists(unlinkedShmAreas[i].name)) {
       // TODO(kapil): Verify the file contents.
-      JWARNING(false) (unlinkedShmAreas[i].name)
-      .Text("File was unlinked at ckpt but is currently present on disk; "
-            "remove it and try again.");
+      WARNING(false,
+              "File was unlinked at ckpt but is currently present on disk; "
+              "remove it and try again: path={}",
+              unlinkedShmAreas[i].name);
       restoreShmArea(unlinkedShmAreas[i]);
     } else {
       missingUnlinkedShmFiles.push_back(unlinkedShmAreas[i]);
@@ -367,10 +371,11 @@ FileConnList::resume(bool isRestart)
   if (isRestart) {
     // Now unlink the files that we created as a side-effect of restoreShmArea.
     for (size_t i = 0; i < missingUnlinkedShmFiles.size(); i++) {
-      JWARNING(unlink(missingUnlinkedShmFiles[i].name) != -1)
-        (missingUnlinkedShmFiles[i].name) (JASSERT_ERRNO)
-      .Text("The file was unlinked at the time of checkpoint. "
-            "Unlinking it after restart failed");
+      WARNING_ERRNO(
+        unlink(missingUnlinkedShmFiles[i].name) != -1,
+        "The file was unlinked at checkpoint, but unlinking it after restart "
+        "failed: path={}",
+        missingUnlinkedShmFiles[i].name);
     }
   }
 }
@@ -410,15 +415,19 @@ FileConnList::prepareShmList()
        * writing them to ckpt file) will cause them to be reloaded from the
        * disk.
        */
-      JWARNING(msync(area.addr, area.size, MS_INVALIDATE) == 0)
-        (area.addr) (area.size) (area.name) (area.offset) (JASSERT_ERRNO);
+      WARNING_ERRNO(msync(area.addr, area.size, MS_INVALIDATE) == 0,
+                    "msync(MS_INVALIDATE) failed for shared memory area: "
+                    "addr={} size={} path={} offset={}",
+                    area.addr, area.size, area.name, area.offset);
 
       if (jalib::Filesystem::FileExists(area.name)) {
         if (_real_access(area.name, W_OK) == 0) {
           JTRACE("Will checkpoint shared memory area") (area.name);
           int flags = Util::memProtToOpenFlags(area.prot);
           int fd = _real_open(area.name, flags, 0);
-          JASSERT(fd != -1) (JASSERT_ERRNO) (area.name);
+          ASSERT_ERRNO(fd != -1,
+                       "failed to open shared memory backing file: path={}",
+                       area.name);
           FileConnection *fileConn =
             new FileConnection(area.name, flags, 0, FileConnection::FILE_SHM);
           add(fd, fileConn);
@@ -436,19 +445,25 @@ FileConnList::prepareShmList()
            * the second checkpoint cycle, the area was again unmapped and later
            * JALLOC tried to access it, causing a SIGSEGV.
            */
-          JASSERT(mmap(area.addr, area.size, PROT_NONE,
-                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
-                       -1, 0) != MAP_FAILED) (JASSERT_ERRNO);
+          ASSERT_ERRNO(mmap(area.addr, area.size, PROT_NONE,
+                            MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                            -1, 0) != MAP_FAILED,
+                       "failed to protect shared memory area: addr={} size={}",
+                       area.addr, area.size);
         } else {
           JTRACE("Will not checkpoint shared memory area") (area.name);
         }
       } else {
         // TODO: Shared memory areas with unlinked backing files.
-        JASSERT(Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) (area.name);
+        ASSERT(Util::strEndsWith(area.name, DELETED_FILE_SUFFIX),
+               "shared memory area missing deleted suffix: path={}",
+               area.name);
         if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
             Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
-          JWARNING(false) (area.name)
-          .Text("Ckpt/Restart of anonymous shared memory not supported.");
+          WARNING(false,
+                  "Ckpt/Restart of anonymous shared memory not supported: "
+                  "path={}",
+                  area.name);
         } else {
           JTRACE("Will recreate shm file on restart.") (area.name);
 
@@ -478,8 +493,8 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
   // Recreate file in dmtcp-tmpdir;
   string filename = removeSuffix(area.name, DELETED_FILE_SUFFIX);
 
-  JASSERT(createDirectoryTree(area.name)) (area.name)
-  .Text("Unable to create directory in File Path");
+  ASSERT(createDirectoryTree(area.name),
+         "Unable to create directory in file path: path={}", area.name);
 
   // Unlinking /libhugetlbfs.tmp is different from unlinking an ordinary file.
   // The file is a virtual file.  It is not really unlinked, and the memory
@@ -489,10 +504,13 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
       ((void *)area.addr);
 
     int fd = _real_openat(AT_FDCWD, area.name, O_RDWR|O_CREAT|O_EXCL, 0600);
-    JASSERT(fd != -1) (JASSERT_ERRNO) (area.name);
+    ASSERT_ERRNO(fd != -1,
+                 "failed to recreate hugepage shm file: path={}", area.name);
 
     // Set the correct offset
-    JASSERT(lseek(fd, area.offset, SEEK_SET) == area.offset) (JASSERT_ERRNO);
+    ASSERT_ERRNO(lseek(fd, area.offset, SEEK_SET) == area.offset,
+                 "failed to seek hugepage shm file: fd={} offset={}", fd,
+                 area.offset);
 
     // Unlink (the area was originally unlinked)
     unlink(area.name);
@@ -503,7 +521,9 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
     // temp buffer
     void *tempbuf = mmap(NULL, area.size, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    JASSERT(tempbuf != MAP_FAILED) (JASSERT_ERRNO) (area.size);
+    ASSERT_ERRNO(tempbuf != MAP_FAILED,
+                 "failed to allocate temporary shm restore buffer: size={}",
+                 area.size);
     memcpy(tempbuf, area.addr, area.size);
     restoreShmArea(area, fd);
     // Restore the content from temp buffer
@@ -520,19 +540,23 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
      */
     int fd = _real_open(area.name, O_CREAT | O_EXCL | O_RDWR,
                         S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-    JASSERT(fd != -1 || errno == EEXIST) (area.name);
+    ASSERT_ERRNO(fd != -1 || errno == EEXIST,
+                 "failed to recreate shm file: path={}", area.name);
 
     if (fd == -1) {
       fd = _real_open(area.name, O_RDWR);
-      JASSERT(fd != -1) (JASSERT_ERRNO);
+      ASSERT_ERRNO(fd != -1,
+                   "failed to open existing shm file: path={}", area.name);
     }
 
     // Get to the correct offset
-    JASSERT(lseek(fd, area.offset, SEEK_SET) == area.offset) (JASSERT_ERRNO);
+    ASSERT_ERRNO(lseek(fd, area.offset, SEEK_SET) == area.offset,
+                 "failed to seek shm file: fd={} offset={}", fd, area.offset);
 
     // Now populate file contents from memory.
-    JASSERT(Util::writeAll(fd, area.addr, area.size) == (ssize_t)area.size)
-      (JASSERT_ERRNO);
+    ASSERT_ERRNO(Util::writeAll(fd, area.addr, area.size) ==
+                 (ssize_t)area.size,
+                 "failed to populate shm file: fd={} size={}", fd, area.size);
     restoreShmArea(area, fd);
   }
 }
@@ -544,16 +568,21 @@ FileConnList::restoreShmArea(const ProcMapsArea &area, int fd)
     fd = _real_open(area.name, Util::memProtToOpenFlags(area.prot));
 
     // Set the correct offset
-    JASSERT(lseek(fd, area.offset, SEEK_SET) == area.offset) (JASSERT_ERRNO);
+    ASSERT_ERRNO(lseek(fd, area.offset, SEEK_SET) == area.offset,
+                 "failed to seek shm file before restore: fd={} offset={}", fd,
+                 area.offset);
   }
 
-  JASSERT(fd != -1) (area.name) (JASSERT_ERRNO);
+  ASSERT_ERRNO(fd != -1,
+               "failed to open shm file before restore: path={}", area.name);
 
   JTRACE("Restoring shared memory area") (area.name) ((void *)area.addr);
   void *addr = mmap(area.addr, area.size, area.prot,
                     MAP_FIXED | area.flags, fd, area.offset);
-  JASSERT(addr != MAP_FAILED) (area.flags) (area.prot) (JASSERT_ERRNO)
-  .Text("mmap failed");
+  ASSERT_ERRNO(addr != MAP_FAILED,
+               "mmap failed while restoring shared memory area: flags={} "
+               "prot={} path={}",
+               area.flags, area.prot, area.name);
   _real_close(fd);
 }
 
@@ -567,8 +596,10 @@ FileConnList::remapShmMaps()
     JTRACE("Restoring shared memory area") (area->name) ((void *)area->addr);
     void *addr = mmap(area->addr, area->size, area->prot,
                       MAP_FIXED | area->flags, fd, area->offset);
-    JASSERT(addr != MAP_FAILED) (area->flags) (area->prot) (JASSERT_ERRNO).Text(
-      "mmap failed");
+    ASSERT_ERRNO(addr != MAP_FAILED,
+                 "mmap failed while remapping shared memory area: flags={} "
+                 "prot={} path={}",
+                 area->flags, area->prot, area->name);
     _real_close(fd);
     processClose(fd);
   }
@@ -591,7 +622,8 @@ FileConnList::scanForPreExisting()
       continue;
     }
     struct stat statbuf;
-    JASSERT(fstat(fd, &statbuf) == 0);
+    ASSERT_ERRNO(fstat(fd, &statbuf) == 0,
+                 "fstat failed while scanning pre-existing fd: fd={}", fd);
     bool isRegularFile = (S_ISREG(statbuf.st_mode) || S_ISDIR(statbuf.st_mode));
 
     string device = jalib::Filesystem::GetDeviceName(fd);
@@ -697,7 +729,8 @@ FileConnList::processFileConnection(int fd,
   }
 
   struct stat statbuf;
-  JASSERT(fstat(fd, &statbuf) == 0);
+  ASSERT_ERRNO(fstat(fd, &statbuf) == 0,
+               "fstat failed while processing file connection: fd={}", fd);
 
   if (strstr(device.c_str(), "infiniband/uverbs") ||
       strstr(device.c_str(), "uverbs-event")) {
@@ -717,7 +750,7 @@ FileConnList::processFileConnection(int fd,
     // FIFO
     c = new FifoConnection(path, flags, mode);
   } else {
-    JASSERT(false) (path).Text("Unimplemented file type.");
+    ASSERT(false, "Unimplemented file type: path={}", path);
   }
 
   add(fd, c);

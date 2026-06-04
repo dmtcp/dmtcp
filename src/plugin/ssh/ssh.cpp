@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include <limits.h> // for HOST_NAME_MAX
 #include <netinet/in.h>
+#include <stddef.h>
 #include <string_view>
 #include <sys/socket.h>
 #include <sys/syscall.h>
@@ -13,6 +14,7 @@
 #include "sshdrainer.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "util_assert.h"
 #include "util_ipc.h"
 
 using namespace dmtcp;
@@ -104,7 +106,7 @@ dmtcp_ssh_drain()
     return;
   }
 
-  JASSERT(theDrainer == NULL);
+  ASSERT(theDrainer == NULL, "SSH drainer already exists");
   theDrainer = new SSHDrainer();
   if (isSshdProcess) { // dmtcp_ssh process
     theDrainer->beginDrainOf(STDIN_FILENO, sshStdin);
@@ -165,7 +167,8 @@ receiveFileDescr(int fd)
   if (fd == SSHD_PIPE_FD) {
     return;
   }
-  JASSERT(data == fd) (data) (fd);
+  ASSERT(data == fd, "received unexpected SSH fd: data={} expected={}", data,
+         fd);
   if (fd != ret) {
     _real_close(fd);
     _real_dup2(ret, fd);
@@ -182,23 +185,30 @@ sshdReceiveFds()
 
   memset(&fdReceiveAddr, 0, sizeof(fdReceiveAddr));
   jalib::JSocket sock(_real_socket(AF_UNIX, SOCK_DGRAM, 0));
-  JASSERT(sock.isValid());
+  ASSERT_ERRNO(sock.isValid(), "failed to create ssh receive socket");
   sock.changeFd(SSHD_RECEIVE_FD);
   fdReceiveAddr.sun_family = AF_UNIX;
-  JASSERT(_real_bind(SSHD_RECEIVE_FD,
-                     (struct sockaddr *)&fdReceiveAddr,
-                     sizeof(fdReceiveAddr.sun_family)) == 0) (JASSERT_ERRNO);
+  ASSERT_ERRNO(_real_bind(SSHD_RECEIVE_FD,
+                          (struct sockaddr *)&fdReceiveAddr,
+                          sizeof(fdReceiveAddr.sun_family)) == 0,
+               "failed to bind ssh receive socket: fd={}", SSHD_RECEIVE_FD);
 
   fdReceiveAddrLen = sizeof(fdReceiveAddr);
-  JASSERT(getsockname(SSHD_RECEIVE_FD,
-                      (struct sockaddr *)&fdReceiveAddr,
-                      &fdReceiveAddrLen) == 0);
+  ASSERT_ERRNO(getsockname(SSHD_RECEIVE_FD,
+                           (struct sockaddr *)&fdReceiveAddr,
+                           &fdReceiveAddrLen) == 0,
+               "getsockname failed for ssh receive socket: fd={}",
+               SSHD_RECEIVE_FD);
 
   // Send this information to dmtcp_ssh process
   ssize_t ret = write(sshSockFd, &fdReceiveAddrLen, sizeof(fdReceiveAddrLen));
-  JASSERT(ret == sizeof(fdReceiveAddrLen)) (sshSockFd) (ret) (JASSERT_ERRNO);
+  ASSERT_ERRNO(ret == sizeof(fdReceiveAddrLen),
+               "failed to send ssh receive address length: fd={} ret={}",
+               sshSockFd, ret);
   ret = write(sshSockFd, &fdReceiveAddr, fdReceiveAddrLen);
-  JASSERT(ret == (ssize_t)fdReceiveAddrLen);
+  ASSERT(ret == (ssize_t)fdReceiveAddrLen,
+         "failed to send ssh receive address: fd={} ret={} expected={}",
+         sshSockFd, ret, fdReceiveAddrLen);
 
   // Now receive fds
   receiveFileDescr(STDIN_FILENO);
@@ -218,18 +228,32 @@ createNewDmtcpSshdProcess()
 
   ssize_t ret = read(sshSockFd, &addrLen, sizeof(addrLen));
 
-  JASSERT(ret == sizeof(addrLen));
+  ASSERT(ret == sizeof(addrLen),
+         "failed to read ssh address length: fd={} ret={} expected={}",
+         sshSockFd, ret, sizeof(addrLen));
   memset(&addr, 0, sizeof(addr));
+  const socklen_t sunPathOffset = offsetof(struct sockaddr_un, sun_path);
+  ASSERT(addrLen > sunPathOffset && addrLen <= sizeof(addr),
+         "invalid ssh address length: len={} max={}",
+         static_cast<size_t>(addrLen), sizeof(addr));
   ret = read(sshSockFd, &addr, addrLen);
-  JASSERT(ret == (ssize_t)addrLen);
-  JASSERT(strlen(&addr.sun_path[1]) < sizeof(abstractSockName));
-  strcpy(abstractSockName, &addr.sun_path[1]);
+  ASSERT(ret == (ssize_t)addrLen,
+         "failed to read ssh address: fd={} ret={} expected={}", sshSockFd,
+         ret, addrLen);
+  const size_t abstractLen =
+    static_cast<size_t>(addrLen - sunPathOffset - 1);
+  ASSERT(abstractLen < sizeof(abstractSockName),
+         "ssh abstract socket name is too long: length={} max={}",
+         abstractLen, sizeof(abstractSockName) - 1);
+  memcpy(abstractSockName, &addr.sun_path[1], abstractLen);
+  abstractSockName[abstractLen] = '\0';
 
   struct sockaddr_in sshdSockAddr;
   socklen_t sshdSockAddrLen = sizeof(sshdSockAddr);
   char remoteHost[80];
-  JASSERT(getpeername(sshSockFd, (struct sockaddr *)&sshdSockAddr,
-                      &sshdSockAddrLen) == 0);
+  ASSERT_ERRNO(getpeername(sshSockFd, (struct sockaddr *)&sshdSockAddr,
+                           &sshdSockAddrLen) == 0,
+               "getpeername failed for ssh socket: fd={}", sshSockFd);
   char *ip = inet_ntoa(sshdSockAddr.sin_addr);
   strcpy(remoteHost, ip);
 
@@ -239,12 +263,12 @@ createNewDmtcpSshdProcess()
   }
 
 
-  JASSERT(pipe(in) == 0) (JASSERT_ERRNO);
-  JASSERT(pipe(out) == 0) (JASSERT_ERRNO);
-  JASSERT(pipe(err) == 0) (JASSERT_ERRNO);
+  ASSERT_ERRNO(pipe(in) == 0, "failed to create ssh stdin pipe");
+  ASSERT_ERRNO(pipe(out) == 0, "failed to create ssh stdout pipe");
+  ASSERT_ERRNO(pipe(err) == 0, "failed to create ssh stderr pipe");
 
   pid_t sshChildPid = fork();
-  JASSERT(sshChildPid != -1);
+  ASSERT_ERRNO(sshChildPid != -1, "failed to fork ssh child");
   if (sshChildPid == 0) {
     const int max_args = 16;
     char *argv[16];
@@ -271,7 +295,8 @@ createNewDmtcpSshdProcess()
     argv[idx++] = const_cast<char *>("--listenAddr");
     argv[idx++] = abstractSockName;
     argv[idx++] = NULL;
-    JASSERT(idx < max_args) (idx);
+    ASSERT(idx < max_args, "too many ssh child arguments: idx={} max={}", idx,
+           max_args);
 
     // TODO: Hack until we improve the plugin design to remove these calls.
     process_close_fd_event(in[1]);
@@ -284,7 +309,7 @@ createNewDmtcpSshdProcess()
     JTRACE("Launching ")
       (argv[0]) (argv[1]) (argv[2]) (argv[3]) (argv[4]) (argv[5]);
     execvp(argv[0], argv);
-    JASSERT(false);
+    ASSERT_ERRNO(false, "execvp failed for ssh child: path={}", argv[0]);
   }
 
   dup2(in[1], 500 + sshStdin);
@@ -408,9 +433,11 @@ prepareForExec(DmtcpEventData_t *data)
       break;
     }
   }
-  JASSERT(commandStart < nargs && argv[commandStart][0] != '-')
-    (commandStart) (nargs) (argv[commandStart])
-  .Text("failed to parse ssh command line");
+  if (commandStart + 1 >= nargs || argv[commandStart] == NULL ||
+      argv[commandStart][0] == '-') {
+    NOTE("ssh command line has no remote command payload; skipping rewrite");
+    return;
+  }
 
   char **dmtcp_args = Util::getDmtcpArgs();
 
@@ -477,7 +504,9 @@ prepareForExec(DmtcpEventData_t *data)
 
   // now repack args
   size_t numNewArgs = nargs + 11;
-  JASSERT(numNewArgs < maxArgs);
+  ASSERT(numNewArgs < maxArgs,
+         "not enough argv space for ssh rewrite: needed={} max={}", numNewArgs,
+         maxArgs);
 
   char **new_argv =
     (char **)JALLOC_HELPER_MALLOC(sizeof(char *) * (numNewArgs));
@@ -516,7 +545,8 @@ prepareForExec(DmtcpEventData_t *data)
     }
   }
 
-  JASSERT(idx < maxArgs);
+  ASSERT(idx < maxArgs, "ssh rewritten argv exceeds max: idx={} max={}", idx,
+         maxArgs);
 
   for (size_t i = 0; i <= idx; i++) {
     data->preExec.argv[i] = new_argv[i];
@@ -545,7 +575,8 @@ updateCoordHost()
   struct in_addr localhostIPAddr;
   char hostname[HOST_NAME_MAX + 1];
 
-  JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO);
+  ASSERT_ERRNO(gethostname(hostname, sizeof hostname) == 0,
+               "gethostname failed while updating coordinator host");
   hostname[sizeof hostname - 1] = '\0';
 
   struct addrinfo *result = NULL;
@@ -608,7 +639,9 @@ updateCoordHost()
         JTRACE("getnameinfo() failed.") (gai_strerror(error));
         continue;
       } else {
-        JASSERT(sizeof localhostIPAddr == sizeof s->sin_addr);
+        ASSERT(sizeof localhostIPAddr == sizeof s->sin_addr,
+               "unexpected localhost IP addr size: local={} sockaddr={}",
+               sizeof localhostIPAddr, sizeof s->sin_addr);
         if (std::string_view(name) == hostnameView) {
           success = true;
           memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
@@ -631,8 +664,9 @@ updateCoordHost()
       }
     }
 
-    JWARNING(success) (hostname)
-      .Text("Failed to find coordinator IP address.  DMTCP may fail.");
+    WARNING(success,
+            "Failed to find coordinator IP address. DMTCP may fail: host={}",
+            hostname);
   } else {
     if (error == EAI_SYSTEM) {
       perror("getaddrinfo");

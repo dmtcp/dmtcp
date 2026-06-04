@@ -11,6 +11,8 @@ extern const dmtcp_test::TestCase dmtcpMessageTests[];
 extern const size_t dmtcpMessageTestCount;
 extern const dmtcp_test::TestCase utilAssertTests[];
 extern const size_t utilAssertTestCount;
+extern const dmtcp_test::TestCase virtualIdTableTests[];
+extern const size_t virtualIdTableTestCount;
 
 int
 main()
@@ -22,6 +24,8 @@ main()
                dmtcpMessageTests + dmtcpMessageTestCount);
   tests.insert(tests.end(), utilAssertTests,
                utilAssertTests + utilAssertTestCount);
+  tests.insert(tests.end(), virtualIdTableTests,
+               virtualIdTableTests + virtualIdTableTestCount);
 
   return dmtcp_test::runTests(std::span<const dmtcp_test::TestCase>(tests));
 }

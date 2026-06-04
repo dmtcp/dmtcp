@@ -37,6 +37,7 @@
 #include "plugin/pid/pidhelpers.h"
 #include "sysvipc.h"
 #include "sysvipcwrappers.h"
+#include "util_assert.h"
 #include "wrapperlock.h"
 
 using namespace dmtcp;
@@ -266,7 +267,8 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
 
   WrapperLock wrapperLock;
   int realShmid = VIRTUAL_TO_REAL_SHM_ID(shmid);
-  JASSERT(realShmid != -1).Text("Not Implemented");
+  ASSERT(realShmid != -1, "shmat virtual id has no real mapping: shmid={}",
+         shmid);
   void *ret = _real_shmat(realShmid, shmaddr, shmflg);
 #ifdef __arm__
 
@@ -296,9 +298,10 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
         _real_shmdt(ret_addr[j]);
       }
     }
-    JASSERT((long)ret % 0x4000 == 0)
-      (shmaddr) (shmflg) (getpid())
-    .Text("Failed to get SHMLBA-aligned address after 20 tries");
+    ASSERT((long)ret % 0x4000 == 0,
+           "failed to get SHMLBA-aligned address after 20 tries: "
+           "shmaddr={} shmflg={} pid={}",
+           shmaddr, shmflg, getpid());
   }
 #endif // ifdef __arm__
 
@@ -386,7 +389,8 @@ shmctl(int shmid, int cmd, struct shmid_ds *buf)
   }
 
   int realShmid = VIRTUAL_TO_REAL_SHM_ID(shmid);
-  JASSERT(realShmid != -1);
+  ASSERT(realShmid != -1, "shmctl virtual id has no real mapping: shmid={}",
+         shmid);
   int ret = _real_shmctl(realShmid, cmd, buf);
   if (ret != -1 && buf != NULL && cmd == IPC_STAT) {
     buf->shm_cpid = dmtcp_pid_real_to_virtual(buf->shm_cpid);
@@ -460,7 +464,8 @@ semtimedop(int semid,
       (timeout != NULL && TIMESPEC_CMP(timeout, &ts_100ms, <))) {
     WrapperLock wrapperLock;
     realId = VIRTUAL_TO_REAL_SEM_ID(semid);
-    JASSERT(realId != -1);
+    ASSERT(realId != -1,
+           "semtimedop virtual id has no real mapping: semid={}", semid);
     ret = _real_semtimedop(realId, sops, nsops, timeout);
     if (ret == 0) {
       SysVSem::instance().on_semop(semid, sops, nsops);
@@ -477,7 +482,8 @@ semtimedop(int semid,
     {
       WrapperLock wrapperLock;
       realId = VIRTUAL_TO_REAL_SEM_ID(semid);
-      JASSERT(realId != -1);
+      ASSERT(realId != -1,
+             "semtimedop virtual id has no real mapping: semid={}", semid);
       ret = _real_semtimedop(realId, sops, nsops, &ts_100ms);
       if (ret == 0) {
         SysVSem::instance().on_semop(semid, sops, nsops);
@@ -530,7 +536,9 @@ semctl(int semid, int semnum, int cmd, ...)
   }
 
   int realId = VIRTUAL_TO_REAL_SEM_ID(semid);
-  JASSERT(realId != -1) (semid) (semnum) (cmd);
+  ASSERT(realId != -1,
+         "semctl virtual id has no real mapping: semid={} semnum={} cmd={}",
+         semid, semnum, cmd);
   ret = _real_semctl(realId, semnum, cmd, uarg);
   if (ret != -1) {
     SysVSem::instance().on_semctl(semid, semnum, cmd, uarg);
@@ -586,7 +594,8 @@ msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
     {
       WrapperLock wrapperLock;
       realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
-      JASSERT(realId != -1);
+      ASSERT(realId != -1,
+             "msgsnd virtual id has no real mapping: msqid={}", msqid);
       ret = _real_msgsnd(realId, msgp, msgsz, msgflg | IPC_NOWAIT);
       if (ret == 0) {
         SysVMsq::instance().on_msgsnd(msqid, msgp, msgsz, msgflg);
@@ -602,7 +611,7 @@ msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
 
     nanosleep(&ts_100ms, NULL);
   }
-  JASSERT(false).Text("Not Reached");
+  ASSERT(false, "Not Reached");
   return -1;
 }
 
@@ -626,7 +635,8 @@ msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
     {
       WrapperLock wrapperLock;
       realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
-      JASSERT(realId != -1);
+      ASSERT(realId != -1,
+             "msgrcv virtual id has no real mapping: msqid={}", msqid);
       ret = _real_msgrcv(realId, msgp, msgsz, msgtyp, msgflg | IPC_NOWAIT);
       if (ret >= 0) {
         SysVMsq::instance().on_msgrcv(msqid, msgp, msgsz, msgtyp, msgflg);
@@ -642,7 +652,7 @@ msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
 
     nanosleep(&ts_100ms, NULL);
   }
-  JASSERT(false).Text("Not Reached");
+  ASSERT(false, "Not Reached");
   return -1;
 }
 
@@ -667,7 +677,8 @@ msgctl(int msqid, int cmd, struct msqid_ds *buf)
   }
 
   int realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
-  JASSERT(realId != -1);
+  ASSERT(realId != -1, "msgctl virtual id has no real mapping: msqid={}",
+         msqid);
   int ret = _real_msgctl(realId, cmd, buf);
   if (ret != -1) {
     SysVMsq::instance().on_msgctl(msqid, cmd, buf);

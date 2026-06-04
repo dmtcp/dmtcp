@@ -28,6 +28,7 @@
 #include "syscallwrappers.h"
 #include "threadinfo.h"
 #include "threadsync.h"
+#include "util_assert.h"
 #include "workerstate.h"
 
 using namespace dmtcp;
@@ -85,7 +86,7 @@ ThreadSync::acquireLocks()
    */
 
   JTRACE("Waiting for libdlLock");
-  JASSERT(DmtcpMutexLock(&libdlLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&libdlLock));
 
   JTRACE("Waiting for other threads to exit DMTCP-Wrappers");
   ThreadSync::wrapperExecutionLockLockExcl();
@@ -96,11 +97,13 @@ ThreadSync::acquireLocks()
 void
 ThreadSync::releaseLocks()
 {
-  JASSERT(WorkerState::currentState() == WorkerState::SUSPENDED);
+  ASSERT(WorkerState::currentState() == WorkerState::SUSPENDED,
+         "releaseLocks expected SUSPENDED worker state: state={}",
+         WorkerState::currentState());
 
   JTRACE("Releasing ThreadSync locks");
   ThreadSync::wrapperExecutionLockUnlock();
-  JASSERT(DmtcpMutexUnlock(&libdlLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&libdlLock));
 }
 
 void
@@ -132,7 +135,7 @@ ThreadSync::libdlLockLock()
   }
 
   if (libdlLockOwner != gettid()) {
-    JASSERT(DmtcpMutexLock(&libdlLock) == 0);
+    ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&libdlLock));
     libdlLockOwner = gettid();
     lockAcquired = true;
   }
@@ -151,10 +154,12 @@ ThreadSync::libdlLockUnlock()
     return;
   }
 
-  JASSERT(libdlLockOwner == 0 || libdlLockOwner == gettid())
-    (libdlLockOwner) (gettid());
+  pid_t currentTid = gettid();
+  ASSERT(libdlLockOwner == 0 || libdlLockOwner == currentTid,
+         "libdlLock owner mismatch: owner={} currentTid={}", libdlLockOwner,
+         currentTid);
   libdlLockOwner = 0;
-  JASSERT(DmtcpMutexUnlock(&libdlLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&libdlLock));
   errno = saved_errno;
 }
 
@@ -308,12 +313,12 @@ void
 ThreadSync::presuspendEventHookLockLock()
 {
   JTRACE("Acquiring event-hook lock");
-  JASSERT(DmtcpMutexLock(&presuspendEventHookLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&presuspendEventHookLock));
 }
 
 void
 ThreadSync::presuspendEventHookLockUnlock()
 {
   JTRACE("Releasing event-hook lock");
-  JASSERT(DmtcpMutexUnlock(&presuspendEventHookLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&presuspendEventHookLock));
 }

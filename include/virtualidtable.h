@@ -34,6 +34,7 @@
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "util.h"
+#include "util_assert.h"
 
 #define MAX_VIRTUAL_ID 999
 
@@ -45,12 +46,12 @@ class VirtualIdTable
   protected:
     void _do_lock_tbl()
     {
-      JASSERT(DmtcpMutexLock(&tblLock) == 0) (JASSERT_ERRNO);
+      ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&tblLock));
     }
 
     void _do_unlock_tbl()
     {
-      JASSERT(DmtcpMutexUnlock(&tblLock) == 0) (JASSERT_ERRNO);
+      ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&tblLock));
     }
 
   public:
@@ -224,9 +225,9 @@ class VirtualIdTable
     {
       bool retVal = false;
 
-      /* This code is called from MTCP while the checkpoint thread is holding
-         the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
-         this function. */
+      /* This code is called from MTCP while the checkpoint thread may already
+         be inside diagnostic logging. Therefore, don't call normal
+         diagnostics in this function. */
       _do_lock_tbl();
       id_iterator i = _idMapTable.find(virtualId);
       if (i != _idMapTable.end()) {
@@ -241,9 +242,9 @@ class VirtualIdTable
     {
       IdType retVal = 0;
 
-      /* This code is called from MTCP while the checkpoint thread is holding
-         the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
-         this function. */
+      /* This code is called from MTCP while the checkpoint thread may already
+         be inside diagnostic logging. Therefore, don't call normal
+         diagnostics in this function. */
       _do_lock_tbl();
       id_iterator i = _idMapTable.find(virtualId);
       if (i == _idMapTable.end()) {
@@ -257,9 +258,9 @@ class VirtualIdTable
 
     virtual IdType realToVirtual(IdType realId)
     {
-      /* This code is called from MTCP while the checkpoint thread is holding
-         the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
-         this function. */
+      /* This code is called from MTCP while the checkpoint thread may already
+         be inside diagnostic logging. Therefore, don't call normal
+         diagnostics in this function. */
       _do_lock_tbl();
       for (id_iterator i = _idMapTable.begin(); i != _idMapTable.end(); ++i) {
         if (realId == i->second) {
@@ -285,13 +286,17 @@ class VirtualIdTable
       string file = "/proc/self/fd/" + jalib::XToString(fd);
       string mapFile = jalib::Filesystem::ResolveSymlink(file);
 
-      JASSERT(mapFile.length() > 0) (mapFile);
+      ASSERT(mapFile.length() > 0,
+             "failed to resolve virtual-id map fd path: fd={} path={}", fd,
+             file);
       JTRACE("Write Maps to file") (mapFile);
 
       // Lock fileset before any operations
       Util::lockFile(fd);
       _do_lock_tbl();
-      JASSERT(lseek(fd, 0, SEEK_END) != -1);
+      ASSERT_ERRNO(lseek(fd, 0, SEEK_END) != -1,
+                   "failed to seek virtual-id map file: fd={} path={}", fd,
+                   mapFile);
 
       jalib::JBinarySerializeWriterRaw mapwr(mapFile, fd);
       mapwr & _idMapTable;
@@ -305,7 +310,9 @@ class VirtualIdTable
       string file = "/proc/self/fd/" + jalib::XToString(fd);
       string mapFile = jalib::Filesystem::ResolveSymlink(file);
 
-      JASSERT(mapFile.length() > 0) (mapFile);
+      ASSERT(mapFile.length() > 0,
+             "failed to resolve virtual-id map fd path: fd={} path={}", fd,
+             file);
       JTRACE("Read Maps from file") (mapFile);
 
       // No need to lock the file as we are the only process using this fd.
