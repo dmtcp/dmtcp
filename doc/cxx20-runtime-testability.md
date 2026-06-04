@@ -51,6 +51,26 @@ cleanup lands.
   and synthetic coordinator clients are necessary but not sufficient for
   restart, TLS, signal, fork/exec, and wrapper-reentry behavior.
 
+## Fragile-Context Matrix
+
+The matrix below should be updated when a phase discovers a more precise rule.
+It is intentionally conservative: a context marked "no" may still be able to
+use a specific primitive after a local audit, but the burden is on that change
+to explain why it is safe.
+
+| Context | Allocation | Wrapped libc calls | Locks | Plugin events | Normal logging | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| Early constructors and preload init | Avoid | Avoid | Avoid | Avoid | Avoid | Runtime state, TLS, and wrapper targets may not be initialized yet. |
+| Preload wrappers | Avoid | Avoid reentry | Scoped only | Existing hooks only | Bounded only | Prefer `_real_*` calls and `WrapperLock`; avoid calling back into wrapped APIs unless intentional. |
+| Signal handlers | No | No | No | No | Bounded only | Async-signal-safety dominates; diagnostics must not allocate or take ordinary locks. |
+| Checkpoint suspend / presuspend | Avoid | Avoid | Scoped only | Yes | Bounded only | Threads may be stopped or converging on barriers; preserve event ordering. |
+| Checkpoint serialization | Avoid | Avoid | Scoped only | Existing hooks only | Bounded only | Serializer paths should not depend on wrapper behavior or heap growth. |
+| Restart before memory restore | No | No | No | No | Bounded only | Only fixed bootstrap data and raw restart primitives are trustworthy. |
+| TLS restore | No | Avoid | No | No | Bounded only | Thread descriptors and per-thread state are being rebuilt. |
+| Coordinator I/O | Yes | Yes | Yes | No | Yes | Coordinator is not preloaded runtime code, but protocol parsing must remain bounded and testable. |
+| Fatal diagnostics | No | Avoid | No | No | Fixed buffer | ASSERT/WARNING output must work after allocator or runtime corruption. |
+| Test harness helpers | Yes | Yes | Yes | N/A | Yes | Harness code should optimize for clarity, diagnostics, and cleanup reliability. |
+
 ## Approach
 
 Use a test-foundation-first sequence:
