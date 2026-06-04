@@ -36,6 +36,7 @@
 #include <iostream>
 #include "../jalib/jalloc.h"
 #include "../jalib/jassert.h"
+#include "util_assert.h"
 #include "util_descriptor.h"
 
 using namespace dmtcp;
@@ -115,7 +116,7 @@ Util::Descriptor::~Descriptor()
 void
 Util::Descriptor::add_descriptor(descriptor_types_u *descriptor)
 {
-  JASSERT(descriptor != NULL);
+  ASSERT_NOT_NULL(descriptor);
   if (descriptor_counter < MAX_DESCRIPTORS) {
     JTRACE("Adding new descriptor")
       (descriptor_counter) (descrip_types_p[descriptor_counter]);
@@ -142,7 +143,7 @@ Util::Descriptor::remove_descriptor(descriptor_type_e type, void *descriptor)
 {
   int ret_val = FAILURE;
 
-  JASSERT(descriptor != NULL).Text("descriptor is NULL");
+  ASSERT_NOT_NULL(descriptor);
 
   // determine which descriptor needs to be removed
   switch (type) {
@@ -193,7 +194,7 @@ Util::Descriptor::get_descriptor(unsigned int index,
 {
   bool ret_val = false;
 
-  JASSERT(descriptor != NULL).Text("descriptor is NULL");
+  ASSERT_NOT_NULL(descriptor);
   JTRACE("get descriptor") (index) (type);
   if ((descrip_types_p[index])->add_watch.type == type) {
     memcpy(descriptor, descrip_types_p[index], sizeof(descriptor_types_u));

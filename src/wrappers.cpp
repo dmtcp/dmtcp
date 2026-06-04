@@ -37,6 +37,7 @@
 #include "pluginmanager.h"
 #include "threadsync.h"
 #include "util.h"
+#include "util_assert.h"
 #include "syscallwrappers.h"
 #include "plugin/file/fileconnection.h"
 
@@ -489,13 +490,14 @@ dup2(int oldfd, int newfd)
 
   // FIXME:  The meaning of PROTECTED_FD_START/PROTECTED_FD_END
   //         can change if we adopt a dynamic protected fd base.
-  JASSERT( !DMTCP_IS_PROTECTED_FD(newfd) )
-         ("\n*** Blocked attempt to dup2 into a protected fd;\n"
-          "    If you must use larger fd's in range of protected fd's, then\n"
-          "    please let the developers know that you need the option:\n"
-          "      'dmtcp_launch --protected-fd <NEW_PROT_FD_START>'")
-         (PROTECTED_FD_START)(PROTECTED_FD_END)
-         (oldfd)(newfd);
+  ASSERT(!DMTCP_IS_PROTECTED_FD(newfd),
+         "blocked attempt to dup2 into a protected fd; protected range "
+         "[{}, {}], oldfd={} newfd={}; if you must use larger fd's in range "
+         "of protected fd's, please let the developers know that you need "
+         "the option: 'dmtcp_launch --protected-fd <NEW_PROT_FD_START>'",
+         static_cast<int>(PROTECTED_FD_START),
+         static_cast<int>(PROTECTED_FD_END),
+         oldfd, newfd);
   int ret = _real_dup2(oldfd, newfd);
   if (ret != -1) {
     processDupFd(oldfd, ret);
@@ -511,13 +513,14 @@ dup3(int oldfd, int newfd, int flags)
 
   // FIXME:  The meaning of PROTECTED_FD_START/PROTECTED_FD_END
   //         can change if we adopt a dynamic protected fd base.
-  JASSERT( !DMTCP_IS_PROTECTED_FD(newfd) )
-         ("\n*** Blocked attempt to dup3 into a protected fd;\n"
-          "    If you must use larger fd's in range of protected fd's, then\n"
-          "    please let the developers know that you need the option:\n"
-          "      'dmtcp_launch --protected-fd <NEW_PROT_FD_START>'")
-         (PROTECTED_FD_START)(PROTECTED_FD_END)
-         (oldfd)(newfd);
+  ASSERT(!DMTCP_IS_PROTECTED_FD(newfd),
+         "blocked attempt to dup3 into a protected fd; protected range "
+         "[{}, {}], oldfd={} newfd={}; if you must use larger fd's in range "
+         "of protected fd's, please let the developers know that you need "
+         "the option: 'dmtcp_launch --protected-fd <NEW_PROT_FD_START>'",
+         static_cast<int>(PROTECTED_FD_START),
+         static_cast<int>(PROTECTED_FD_END),
+         oldfd, newfd);
   int ret = _real_dup3(oldfd, newfd, flags);
   if (ret != -1) {
     processDupFd(oldfd, ret);
@@ -1045,7 +1048,9 @@ extern "C" char *ptsname(int fd)
 extern "C" int
 __ptsname_r_chk(int fd, char *buf, size_t buflen, size_t nreal)
 {
-  JASSERT(buflen <= nreal) (buflen) (nreal).Text("Buffer Overflow detected!");
+  ASSERT(buflen <= nreal,
+         "buffer overflow detected: buflen={} nreal={}",
+         buflen, nreal);
 
   return ptsname_r_work(fd, buf, buflen);
 }

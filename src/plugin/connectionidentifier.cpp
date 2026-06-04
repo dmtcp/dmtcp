@@ -20,8 +20,8 @@
  ****************************************************************************/
 
 #include "connectionidentifier.h"
-#include "../jalib/jassert.h"
 #include "dmtcp.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -45,7 +45,9 @@ ConnectionIdentifier::serialize(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("ConnectionIdentifier:");
   o &_nextConId;
-  JASSERT(_nextConId >= CONNECTION_ID_START);
+  ASSERT(_nextConId >= CONNECTION_ID_START,
+         "invalid next connection id: next_id={} minimum={}",
+         _nextConId, CONNECTION_ID_START);
 }
 
 ConnectionIdentifier
