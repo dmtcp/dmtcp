@@ -628,7 +628,7 @@ DmtcpCoordinator::onData(CoordClient *client)
 {
   DmtcpMessage msg;
 
-  JASSERT(client != NULL);
+  ASSERT_NOT_NULL(client);
 
   if (client->sock().readAll((char*)&msg, sizeof(msg)) != sizeof(msg)) {
     JTRACE("Failed to read DmtcpMessage; probably dead connection.")
@@ -719,8 +719,8 @@ DmtcpCoordinator::onData(CoordClient *client)
   }
   case DMT_UPDATE_CKPT_DIR:
   {
-    JASSERT(extraData != 0)
-    .Text("extra data expected with DMT_UPDATE_CKPT_DIR message");
+    ASSERT(extraData != nullptr,
+           "extra data expected with DMT_UPDATE_CKPT_DIR message");
     if (strcmp(flags.ckptDir.c_str(), extraData) != 0) {
       flags.ckptDir = extraData;
       JNOTE("Updated ckptDir") (flags.ckptDir);
@@ -779,8 +779,9 @@ DmtcpCoordinator::onData(CoordClient *client)
   }
 
   default:
-    JWARNING(false) (msg.type) (client->identity()) .Text(
-      "unexpected message from worker. Closing connection");
+    WARNING(false,
+            "unexpected message from worker; closing connection: type={}",
+            static_cast<int>(msg.type));
     onDisconnect(client);
     break;
   }
