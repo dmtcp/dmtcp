@@ -4,6 +4,7 @@ import os
 import pathlib
 import platform
 import shutil
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -21,6 +22,7 @@ from dmtcp_test_harness import (
     TestResult,
     TestSpec,
     checkpoint_payload_succeeded,
+    validate_checkpoint_bootstrap_headers,
 )
 
 
@@ -198,6 +200,40 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         self.assertTrue(spec.restart_uses_directory)
 
+    def test_spec_records_checkpoint_header_validation(self):
+        spec = TestSpec("checkpoint-header", 1, ["./test/dmtcp1"],
+                        validate_checkpoint_headers=True)
+
+        self.assertTrue(spec.validate_checkpoint_headers)
+
+    def test_validate_checkpoint_bootstrap_headers_accepts_matching_records(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = pathlib.Path(tmp) / "ckpt.dmtcp"
+            header = bytearray(4096)
+            signature = b"DMTCP_CHECKPOINT_IMAGE_v5.0\n\0"
+            header[:len(signature)] = signature
+            struct.pack_into("=IIII", header, 32, 4096, 1, 8, 0x01020304)
+            image.write_bytes(bytes(header) + bytes(header) + b"payload")
+
+            validate_checkpoint_bootstrap_headers(image)
+
+    def test_validate_checkpoint_bootstrap_headers_rejects_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = pathlib.Path(tmp) / "ckpt.dmtcp"
+            header = bytearray(4096)
+            signature = b"DMTCP_CHECKPOINT_IMAGE_v5.0\n\0"
+            header[:len(signature)] = signature
+            struct.pack_into("=IIII", header, 32, 4096, 1, 8, 0x01020304)
+            second = bytearray(header)
+            second[128] = 1
+            image.write_bytes(bytes(header) + bytes(second) + b"payload")
+
+            with self.assertRaises(HarnessFailure) as caught:
+                validate_checkpoint_bootstrap_headers(image)
+
+            self.assertEqual(caught.exception.phase, "checkpoint-header")
+            self.assertIn("bootstrap records differ", caught.exception.message)
+
     def test_kcheckpoint_accepts_not_running_after_kill(self):
         spec = TestSpec("syscall-tester", 1, ["./test/syscall-tester"],
                         checkpoint_command="--kcheckpoint")
@@ -232,7 +268,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "syscall-tester", "file2", "presuspend", "plugin-sleep2",
             "plugin-init", "popen1", "poll-disable-event-plugin", "pthread3",
             "restartdir", "pty1", "pty2", "vfork1", "vfork2", "frisbee",
-            "nocheckpoint",
+            "nocheckpoint", "checkpoint-header",
         ]:
             self.assertIn(name, names)
 
@@ -247,6 +283,9 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(frisbee.env["DMTCP_GZIP"], "1")
         nocheckpoint = get_test("nocheckpoint")
         self.assertEqual(nocheckpoint.cycles, 1)
+        checkpoint_header = get_test("checkpoint-header")
+        self.assertTrue(checkpoint_header.validate_checkpoint_headers)
+        self.assertEqual(checkpoint_header.env["DMTCP_GZIP"], "0")
 
     def test_registry_contains_configured_optional_tests(self):
         names = [test.name for test in iter_tests()]

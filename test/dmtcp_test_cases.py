@@ -113,6 +113,9 @@ TESTS = [
     TestSpec("frisbee", 3, _frisbee_commands(),
              env={"DMTCP_GZIP": "1"}, post_launch_delay=2.0),
     TestSpec("nocheckpoint", [1, 2], ["./test/nocheckpoint"], cycles=1),
+    TestSpec("checkpoint-header", 1, ["./test/dmtcp1"], cycles=1,
+             env={"DMTCP_GZIP": "0"},
+             validate_checkpoint_headers=True),
 ]
 
 if _config_yes("HAS_EPOLL_CREATE1"):

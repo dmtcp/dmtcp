@@ -5,6 +5,7 @@ import os
 import pathlib
 import shlex
 import shutil
+import struct
 import subprocess
 import tempfile
 import time
@@ -14,6 +15,10 @@ from typing import Callable, Dict, List, Optional, Union
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+DMTCP_CKPT_HEADER_SIZE = 4096
+DMTCP_CKPT_SIGNATURE = b"DMTCP_CHECKPOINT_IMAGE_v5.0\n\0"
+DMTCP_CKPT_HEADER_FORMAT_VERSION = 1
+DMTCP_CKPT_ENDIAN_MARKER = 0x01020304
 
 
 class HarnessFailure(Exception):
@@ -74,6 +79,7 @@ class TestSpec:
     env: Dict[str, Optional[str]] = field(default_factory=dict)
     library_paths: List[str] = field(default_factory=list)
     restart_uses_directory: bool = False
+    validate_checkpoint_headers: bool = False
 
     def peer_counts(self) -> List[int]:
         if isinstance(self.peers, int):
@@ -92,6 +98,52 @@ def checkpoint_payload_succeeded(spec: TestSpec,
         spec.checkpoint_kills_workers() and
         payload.get("error_code") == "not_running"
     )
+
+
+def validate_checkpoint_bootstrap_headers(path: pathlib.Path):
+    data = path.read_bytes()
+    required_size = 2 * DMTCP_CKPT_HEADER_SIZE
+    if len(data) < required_size:
+        raise HarnessFailure(
+            "checkpoint-header",
+            f"{path} is too small for two bootstrap records",
+        )
+
+    first = data[:DMTCP_CKPT_HEADER_SIZE]
+    second = data[DMTCP_CKPT_HEADER_SIZE:required_size]
+    if first != second:
+        raise HarnessFailure(
+            "checkpoint-header",
+            f"{path} bootstrap records differ",
+        )
+    if not first.startswith(DMTCP_CKPT_SIGNATURE):
+        raise HarnessFailure(
+            "checkpoint-header",
+            f"{path} has invalid checkpoint signature",
+        )
+
+    header_size, version, word_size, endian_marker = struct.unpack_from(
+        "=IIII", first, 32)
+    if header_size != DMTCP_CKPT_HEADER_SIZE:
+        raise HarnessFailure(
+            "checkpoint-header",
+            f"{path} header_size={header_size}",
+        )
+    if version != DMTCP_CKPT_HEADER_FORMAT_VERSION:
+        raise HarnessFailure(
+            "checkpoint-header",
+            f"{path} header_version={version}",
+        )
+    if word_size not in (4, 8):
+        raise HarnessFailure(
+            "checkpoint-header",
+            f"{path} word_size={word_size}",
+        )
+    if endian_marker != DMTCP_CKPT_ENDIAN_MARKER:
+        raise HarnessFailure(
+            "checkpoint-header",
+            f"{path} endian_marker=0x{endian_marker:x}",
+        )
 
 
 class DmtcpHarness:
@@ -301,6 +353,9 @@ class TestContext:
             raise HarnessFailure("checkpoint", str(payload.get("error_message")))
         self._wait_for(lambda: bool(self._checkpoint_images()),
                        "checkpoint", "checkpoint image was not created")
+        if self.spec.validate_checkpoint_headers:
+            for image in self._checkpoint_images():
+                validate_checkpoint_bootstrap_headers(image)
         if self.spec.checkpoint_kills_workers():
             self._wait_for_status(0, False, "checkpoint")
         else:
