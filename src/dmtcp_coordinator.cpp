@@ -424,13 +424,15 @@ void DmtcpCoordinator::getStatusStr(ostream *o)
 void
 DmtcpCoordinator::writeStatusToFile()
 {
-  JASSERT(truncate(flags.theStatusFile.c_str(), offset_after_first_line) == 0)
-    (flags.theStatusFile) (JASSERT_ERRNO);
+  ASSERT_ERRNO(
+    truncate(flags.theStatusFile.c_str(), offset_after_first_line) == 0,
+    "failed to truncate coordinator status file: path={}",
+    flags.theStatusFile.c_str());
   ofstream o;
   // Don't use std::ios::trunc.  A timestamp was previously written.
   o.open(flags.theStatusFile.c_str(), std::ios::app);
-  JASSERT(!o.fail()) (flags.theStatusFile)
-    .Text("Failed to truncate and open status file");
+  ASSERT(!o.fail(), "failed to open coordinator status file: path={}",
+         flags.theStatusFile.c_str());
 
   getStatusStr(&o);
 
