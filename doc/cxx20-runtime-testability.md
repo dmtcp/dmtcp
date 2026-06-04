@@ -628,6 +628,42 @@ work from a later phase just because the phase-level narrative mentions it.
 If a later bug is found, fix it with a `fixup!` commit against the introducing
 commit and autosquash before publishing the final series.
 
+## Review-Driven Implementation Guardrails
+
+Use these guardrails as implementation gates for the review risks that are easy
+to miss when work moves from roadmap to code:
+
+- Before switching `make check` to the new harness, keep
+  `test/autotest-parity.md` authoritative. Every old-suite class should be
+  classified as port-now, shim, or deferred, and shim support is the planned
+  path for PTY/editor, MPI, and external-runtime classes.
+- Route all harness use of `dmtcp_command --json` through one parser that
+  rejects unknown `schema_version` values. Schema churn should be a one-file
+  harness change plus focused JSON tests.
+- Treat synthetic coordinator tests as model coverage, not sufficient end-to-
+  end coverage. Every coordinator transition that becomes authoritative needs
+  at least one real-worker assertion through `dmtcp_launch` and
+  `dmtcp_command --json`.
+- During the first `DmtcpCkptHeader` split, freeze vDSO/VVAR semantics. Any
+  semantic change to those fields belongs in a separate commit with targeted
+  restart tests.
+- Do not trust restored TLS to provide `curThread` until restart code
+  explicitly re-establishes the current thread context. ASSERT/WARNING must
+  retain a fixed fallback buffer until that ordering is proven across restart
+  paths and utility binaries.
+- Prefer one shared thread diagnostic-buffer interface for `libdmtcp.so` and
+  utilities. If a smaller utility context becomes necessary, keep the formatter
+  entry point explicit so buffer semantics do not drift.
+- Track `JASSERT`/`JWARNING`/`JTRACE` migration by subsystem and fragile-context
+  risk. Do not migrate signal-handler, suspend, serialization, or TLS-restore
+  call sites until the replacement path is audited for that context.
+- Before migrating a subsystem, scan its existing diagnostics for floating-
+  point arguments. Either defer those call sites or add separately tested
+  formatter support before the migration commit.
+- Keep Autotools source and generated-file changes together. If the local
+  generator versions differ from the checked-in files, call that out in the
+  commit notes and keep generated diffs mechanical.
+
 ## Open Validation Questions
 
 - How much of the current old test suite is environment-sensitive and should be
@@ -635,10 +671,9 @@ commit and autosquash before publishing the final series.
 - Which real-worker assertion covers each synthetic coordinator state-machine
   transition, and are any remaining synthetic cases still exploratory rather
   than authoritative?
-- Which current `DmtcpCkptHeader` fields are truly needed before memory restore,
-  and which only remain because `ProcessInfo` inherits the header?
-- Should the bootstrap record remain exactly 4096 bytes, or merely fixed-size
-  and self-describing with an explicit cap?
+- After the first `DmtcpCkptHeader` field-matrix audit, which initially kept
+  fields can move out of the bootstrap record without changing restart
+  orchestration?
 - Should MANA be updated in the same branch as a bootstrap layout change, or is
   a loud format/signature failure enough for the first DMTCP-side series?
 - Which ThreadInfo fields can be moved without changing restart ordering?
