@@ -31,7 +31,36 @@ namespace dmtcp
 class ProcessInfo
 {
   private:
-    DmtcpCkptHeader _ckptHeader;
+    DmtcpUniqueProcessId _upid;
+    DmtcpUniqueProcessId _uppid;
+    DmtcpUniqueProcessId _compGroup;
+
+    pid_t _pid;
+    pid_t _ppid;
+    pid_t _sid;
+    pid_t _gid;
+    pid_t _fgid;
+    uint32_t _isRootOfProcessTree;
+
+    uint32_t _numPeers;
+    uint32_t _elfType;
+
+    uint64_t _clock_gettime_offset;
+    uint64_t _getcpu_offset;
+    uint64_t _gettimeofday_offset;
+    uint64_t _time_offset;
+
+    MemRegion _restoreBuf;
+    MemRegion _vdso;
+    MemRegion _vvar;
+    MemRegion _vvarVClock;
+
+    uint64_t _savedBrkForCkpt;
+    uint64_t _endOfStack;
+    uint64_t _postRestartAddr;
+
+    char _procname[1024];
+    char _procSelfExe[1024];
 
   public:
     DmtcpUniqueProcessId& upid;

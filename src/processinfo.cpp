@@ -145,39 +145,58 @@ LIB_PRIVATE DmtcpPluginDescriptor_t processInfoPlugin = {
 };
 
 ProcessInfo::ProcessInfo()
-  : _ckptHeader(),
-    upid(_ckptHeader.upid),
-    uppid(_ckptHeader.uppid),
-    compGroup(_ckptHeader.compGroup),
-    pid(_ckptHeader.pid),
-    ppid(_ckptHeader.ppid),
-    sid(_ckptHeader.sid),
-    gid(_ckptHeader.gid),
-    fgid(_ckptHeader.fgid),
-    isRootOfProcessTree(_ckptHeader.isRootOfProcessTree),
-    numPeers(_ckptHeader.numPeers),
-    elfType(_ckptHeader.elfType),
-    clock_gettime_offset(_ckptHeader.clock_gettime_offset),
-    getcpu_offset(_ckptHeader.getcpu_offset),
-    gettimeofday_offset(_ckptHeader.gettimeofday_offset),
-    time_offset(_ckptHeader.time_offset),
-    restoreBuf(_ckptHeader.restoreBuf),
-    vdso(_ckptHeader.vdso),
-    vvar(_ckptHeader.vvar),
-    vvarVClock(_ckptHeader.vvarVClock),
-    savedBrk(_ckptHeader.savedBrk),
-    endOfStack(_ckptHeader.endOfStack),
-    postRestartAddr(_ckptHeader.postRestartAddr),
-    procname(_ckptHeader.procname),
-    procSelfExe(_ckptHeader.procSelfExe)
+  : _upid(),
+    _uppid(),
+    _compGroup(),
+    _pid(-1),
+    _ppid(-1),
+    _sid(-1),
+    _gid(-1),
+    _fgid(-1),
+    _isRootOfProcessTree(false),
+    _numPeers(1),
+    _elfType(0),
+    _clock_gettime_offset(0),
+    _getcpu_offset(0),
+    _gettimeofday_offset(0),
+    _time_offset(0),
+    _restoreBuf{0, 0},
+    _vdso{0, 0},
+    _vvar{0, 0},
+    _vvarVClock{0, 0},
+    _savedBrkForCkpt(0),
+    _endOfStack(0),
+    _postRestartAddr(0),
+    _procname(),
+    _procSelfExe(),
+    upid(_upid),
+    uppid(_uppid),
+    compGroup(_compGroup),
+    pid(_pid),
+    ppid(_ppid),
+    sid(_sid),
+    gid(_gid),
+    fgid(_fgid),
+    isRootOfProcessTree(_isRootOfProcessTree),
+    numPeers(_numPeers),
+    elfType(_elfType),
+    clock_gettime_offset(_clock_gettime_offset),
+    getcpu_offset(_getcpu_offset),
+    gettimeofday_offset(_gettimeofday_offset),
+    time_offset(_time_offset),
+    restoreBuf(_restoreBuf),
+    vdso(_vdso),
+    vvar(_vvar),
+    vvarVClock(_vvarVClock),
+    savedBrk(_savedBrkForCkpt),
+    endOfStack(_endOfStack),
+    postRestartAddr(_postRestartAddr),
+    procname(_procname),
+    procSelfExe(_procSelfExe)
 {
   char buf[PATH_MAX];
 
   _do_lock_tbl();
-
-  strcpy(_ckptHeader.ckptSignature, DMTCP_CKPT_SIGNATURE);
-  dmtcp_init_ckpt_header_bootstrap(&_ckptHeader);
-  memset(_ckptHeader.padding, 0, sizeof(_ckptHeader.padding));
 
   upid = UniquePid::ThisProcess();
   uppid = UniquePid::ParentProcess();
@@ -697,13 +716,45 @@ ProcessInfo::getState()
   JTRACE("CHECK GROUP PID")(gid)(fgid)(ppid)(pid);
 }
 
-// TODO: Split DmtcpCkptHeader out of ProcessInfo.  This snapshot helper is the
-// boundary used by checkpoint serialization while ProcessInfo still inherits
-// the bootstrap header.
 DmtcpCkptHeader
 ProcessInfo::checkpointHeaderSnapshot() const
 {
-  return _ckptHeader;
+  DmtcpCkptHeader header = {};
+  strcpy(header.ckptSignature, DMTCP_CKPT_SIGNATURE);
+  dmtcp_init_ckpt_header_bootstrap(&header);
+
+  header.upid = upid;
+  header.uppid = uppid;
+  header.compGroup = compGroup;
+
+  header.pid = pid;
+  header.ppid = ppid;
+  header.sid = sid;
+  header.gid = gid;
+  header.fgid = fgid;
+  header.isRootOfProcessTree = isRootOfProcessTree;
+
+  header.numPeers = numPeers;
+  header.elfType = elfType;
+
+  header.clock_gettime_offset = clock_gettime_offset;
+  header.getcpu_offset = getcpu_offset;
+  header.gettimeofday_offset = gettimeofday_offset;
+  header.time_offset = time_offset;
+
+  header.restoreBuf = restoreBuf;
+  header.vdso = vdso;
+  header.vvar = vvar;
+  header.vvarVClock = vvarVClock;
+
+  header.savedBrk = savedBrk;
+  header.endOfStack = endOfStack;
+  header.postRestartAddr = postRestartAddr;
+
+  memcpy(header.procname, procname, sizeof(header.procname));
+  memcpy(header.procSelfExe, procSelfExe, sizeof(header.procSelfExe));
+
+  return header;
 }
 
 void
