@@ -294,7 +294,7 @@ main(int argc, char **argv)
 
     std::string extraData;
     if (options.expectInvalidProtocolReject) {
-      hello.poison();
+      std::memset(hello._magicBits, 'X', sizeof(hello._magicBits));
     } else {
       extraData = handshakeExtraData("coordinator_synthetic_worker");
       hello.extraBytes = extraData.size();

@@ -24,6 +24,16 @@
 
 using namespace dmtcp;
 
+namespace {
+
+bool
+messageMagicIsValid(const char magic[16])
+{
+  return memcmp(magic, DMTCP_MAGIC_STRING, sizeof(DMTCP_MAGIC_STRING)) == 0;
+}
+
+} // namespace
+
 DmtcpMessage::DmtcpMessage(DmtcpMessageType t /*= DMT_NULL*/)
   : _msgSize(sizeof(DmtcpMessage))
   , extraBytes(0)
@@ -54,7 +64,7 @@ DmtcpMessage::DmtcpMessage(DmtcpMessageType t /*= DMT_NULL*/)
 void
 DmtcpMessage::assertValid() const
 {
-  JASSERT(strcmp(DMTCP_MAGIC_STRING, _magicBits) == 0)(_magicBits)
+  JASSERT(messageMagicIsValid(_magicBits))
   .Text("read invalid message, _magicBits mismatch."
         "  Did DMTCP coordinator die uncleanly?");
   JASSERT(_msgSize == sizeof(DmtcpMessage)) (_msgSize) (sizeof(DmtcpMessage))
@@ -64,9 +74,9 @@ DmtcpMessage::assertValid() const
 bool
 DmtcpMessage::isValid() const
 {
-  if (strcmp(DMTCP_MAGIC_STRING, _magicBits) != 0) {
+  if (!messageMagicIsValid(_magicBits)) {
     JNOTE("read invalid message, _magicBits mismatch."
-          " Closing remote connection.") (_magicBits);
+          " Closing remote connection.");
     return false;
   }
   if (_msgSize != sizeof(DmtcpMessage)) {
