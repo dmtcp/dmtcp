@@ -232,6 +232,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "syscall-tester", "file2", "presuspend", "plugin-sleep2",
             "plugin-init", "popen1", "poll-disable-event-plugin", "pthread3",
             "restartdir", "pty1", "pty2", "vfork1", "vfork2", "frisbee",
+            "nocheckpoint",
         ]:
             self.assertIn(name, names)
 
@@ -244,6 +245,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         frisbee = get_test("frisbee")
         self.assertEqual(len(frisbee.commands), 3)
         self.assertEqual(frisbee.env["DMTCP_GZIP"], "1")
+        nocheckpoint = get_test("nocheckpoint")
+        self.assertEqual(nocheckpoint.cycles, 1)
 
     def test_registry_contains_configured_optional_tests(self):
         names = [test.name for test in iter_tests()]
@@ -278,6 +281,15 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                 self.assertIn("zsh", names)
             gzip = get_test("gzip")
             self.assertEqual(gzip.env["DMTCP_GZIP"], "1")
+        if autotest_config.HAS_JAVA == "yes" and autotest_config.HAS_JAVAC == "yes":
+            self.assertIn("java1", names)
+            java1 = get_test("java1")
+            self.assertEqual(java1.env["CLASSPATH"], "./test")
+        if autotest_config.HAS_OPENMP == "yes":
+            self.assertIn("openmp-1", names)
+            self.assertIn("openmp-2", names)
+            self.assertEqual(get_test("openmp-1").cycles, 1)
+            self.assertEqual(get_test("openmp-2").cycles, 1)
 
 
 if __name__ == "__main__":

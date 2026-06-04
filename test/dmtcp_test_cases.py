@@ -112,6 +112,7 @@ TESTS = [
              ["./test/vfork1 'while true; do date; sleep 1; done'"]),
     TestSpec("frisbee", 3, _frisbee_commands(),
              env={"DMTCP_GZIP": "1"}, post_launch_delay=2.0),
+    TestSpec("nocheckpoint", [1, 2], ["./test/nocheckpoint"], cycles=1),
 ]
 
 if _config_yes("HAS_EPOLL_CREATE1"):
@@ -170,6 +171,14 @@ if not _use_m32():
                               env={"DMTCP_GZIP": "0"},
                               post_launch_delay=2.0,
                               pre_checkpoint_delay=3.6))
+
+if _config_yes("HAS_JAVA") and _config_yes("HAS_JAVAC"):
+    TESTS.append(TestSpec("java1", 1, ["java -Xmx5M java1"],
+                          env={"CLASSPATH": "./test"}))
+
+if _config_yes("HAS_OPENMP"):
+    TESTS.append(TestSpec("openmp-1", 1, ["./test/openmp-1"], cycles=1))
+    TESTS.append(TestSpec("openmp-2", 1, ["./test/openmp-2"], cycles=1))
 
 
 def iter_tests(names: List[str] = None) -> Iterable[TestSpec]:
