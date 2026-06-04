@@ -42,6 +42,23 @@ void ckptHeaderIsSelfDescribing()
   ASSERT_EQ(header.endianMarker, DMTCP_CKPT_ENDIAN_MARKER);
 }
 
+void ckptHeaderBootstrapValidation()
+{
+  DmtcpCkptHeader header = {};
+  std::strcpy(header.ckptSignature, DMTCP_CKPT_SIGNATURE);
+  dmtcp_init_ckpt_header_bootstrap(&header);
+
+  ASSERT_TRUE(dmtcp_ckpt_header_has_valid_bootstrap(&header) != 0);
+  ASSERT_TRUE(dmtcp_ckpt_header_has_valid_bootstrap(nullptr) == 0);
+
+  header.ckptSignature[0] = 'X';
+  ASSERT_TRUE(dmtcp_ckpt_header_has_valid_bootstrap(&header) == 0);
+
+  std::strcpy(header.ckptSignature, DMTCP_CKPT_SIGNATURE);
+  header.headerVersion += 1;
+  ASSERT_TRUE(dmtcp_ckpt_header_has_valid_bootstrap(&header) == 0);
+}
+
 void pluginDescriptorKeepsPlainAbiShape()
 {
   ASSERT_TRUE(std::is_standard_layout_v<DmtcpPluginDescriptor_t>);
@@ -56,6 +73,7 @@ extern const dmtcp_test::TestCase dmtcpHeaderTests[] = {
   {"DmtcpCkptHeader restart fields stay plain", ckptHeaderKeepsRestartFieldsPlain},
   {"checkpoint signature fits header field", ckptSignatureFitsHeaderField},
   {"checkpoint header is self describing", ckptHeaderIsSelfDescribing},
+  {"checkpoint header validates bootstrap fields", ckptHeaderBootstrapValidation},
   {"plugin descriptor keeps plain ABI shape", pluginDescriptorKeepsPlainAbiShape},
 };
 

@@ -134,15 +134,7 @@ mtcp_simulateread(RestoreInfo *rinfo)
   // Read the second copy of the header (typically read by mtcp_restart).
   MTCP_ASSERT(mtcp_readfile(rinfo->fd, &hdr, sizeof hdr) == sizeof hdr);
 
-  if (mtcp_strcmp(hdr.ckptSignature, DMTCP_CKPT_SIGNATURE) != 0) {
-    MTCP_PRINTF("***ERROR: ckpt image doesn't match DMTCP_CKPT_SIGNATURE\n");
-    mtcp_sys_close(rinfo->fd);
-    mtcp_sys_exit(-1);  /* exit with error code 1 */
-  }
-  if (hdr.headerSize != sizeof(DmtcpCkptHeader) ||
-      hdr.headerVersion != DMTCP_CKPT_HEADER_FORMAT_VERSION ||
-      hdr.wordSize != sizeof(void *) ||
-      hdr.endianMarker != DMTCP_CKPT_ENDIAN_MARKER) {
+  if (!dmtcp_ckpt_header_has_valid_bootstrap(&hdr)) {
     MTCP_PRINTF("***ERROR: ckpt image header is not compatible with this "
                 "restart binary\n");
     mtcp_sys_close(rinfo->fd);

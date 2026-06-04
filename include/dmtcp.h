@@ -327,6 +327,29 @@ dmtcp_init_ckpt_header_bootstrap(DmtcpCkptHeader *header)
   header->endianMarker = DMTCP_CKPT_ENDIAN_MARKER;
 }
 
+static inline int
+dmtcp_ckpt_header_has_valid_bootstrap(const DmtcpCkptHeader *header)
+{
+  const char expected[] = DMTCP_CKPT_SIGNATURE;
+  size_t i;
+
+  if (header == NULL ||
+      sizeof(expected) > sizeof(header->ckptSignature)) {
+    return 0;
+  }
+
+  for (i = 0; i < sizeof(expected); ++i) {
+    if (header->ckptSignature[i] != expected[i]) {
+      return 0;
+    }
+  }
+
+  return header->headerSize == sizeof(DmtcpCkptHeader) &&
+         header->headerVersion == DMTCP_CKPT_HEADER_FORMAT_VERSION &&
+         header->wordSize == sizeof(void *) &&
+         header->endianMarker == DMTCP_CKPT_ENDIAN_MARKER;
+}
+
 // FIXME:
 // If a plugin is not compiled with defined(__PIC__) and we can verify
 // that we're using DMTCP (environment variables), and dmtcp_is_enabled

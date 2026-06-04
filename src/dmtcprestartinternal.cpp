@@ -149,12 +149,8 @@ static int openCkptFileToRead(const string &path);
 static void
 validateCkptHeader(const DmtcpCkptHeader *ckptHdr)
 {
-  ASSERT_EQ(DMTCP_CKPT_SIGNATURE, string(ckptHdr->ckptSignature));
-  ASSERT_EQ((uint32_t)sizeof(*ckptHdr), ckptHdr->headerSize);
-  ASSERT_EQ((uint32_t)DMTCP_CKPT_HEADER_FORMAT_VERSION,
-            ckptHdr->headerVersion);
-  ASSERT_EQ((uint32_t)sizeof(void *), ckptHdr->wordSize);
-  ASSERT_EQ((uint32_t)DMTCP_CKPT_ENDIAN_MARKER, ckptHdr->endianMarker);
+  JASSERT(dmtcp_ckpt_header_has_valid_bootstrap(ckptHdr))
+    .Text("checkpoint header is not compatible with this restart binary");
 }
 
 static void
