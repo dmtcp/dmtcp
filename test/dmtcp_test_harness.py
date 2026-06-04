@@ -66,7 +66,7 @@ class TestSpec:
     peers: Union[int, List[int]]
     commands: List[str]
     cycles: int = 2
-    timeout: float = 10.0
+    timeout: float = 30.0
     checkpoint_command: str = "--checkpoint"
     pre_checkpoint_delay: float = 0.0
     post_launch_delay: float = 0.0

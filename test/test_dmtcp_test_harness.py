@@ -60,6 +60,11 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         self.assertEqual(spec.pre_checkpoint_delay, 3.0)
 
+    def test_spec_default_timeout_allows_slow_checkpoint_completion(self):
+        spec = TestSpec("dmtcp1", 1, ["./test/dmtcp1"])
+
+        self.assertEqual(spec.timeout, 30.0)
+
     def test_spec_records_environment_and_launch_delay(self):
         spec = TestSpec("gzip", 1, ["./test/dmtcp1"],
                         env={"DMTCP_GZIP": "1"},
