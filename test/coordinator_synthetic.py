@@ -67,7 +67,8 @@ class CoordinatorFixture:
 
 
 class WorkerProcess:
-    def __init__(self, port, expect_kill=False, barrier=None):
+    def __init__(self, port, expect_kill=False, barrier=None,
+                 expect_checkpoint=False):
         args = [
             str(SYNTHETIC_WORKER),
             "127.0.0.1",
@@ -79,6 +80,8 @@ class WorkerProcess:
             args.append("--expect-kill")
         if barrier:
             args.extend(["--barrier", barrier])
+        if expect_checkpoint:
+            args.append("--expect-checkpoint")
         self.process = subprocess.Popen(
             args,
             cwd=str(ROOT),
@@ -114,6 +117,20 @@ class WorkerProcess:
                 stderr = self.process.stderr.read()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not receive kill message")
+
+    def wait_until_checkpoint_requested(self):
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
+            if readable:
+                line = self.process.stdout.readline().strip()
+                if line == "received DMT_DO_CHECKPOINT":
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError("worker did not receive checkpoint request")
 
     def wait_until_barrier_released(self, barrier):
         deadline = time.time() + 10
@@ -205,6 +222,24 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             finally:
                 for worker in workers:
                     worker.stop()
+
+    def test_checkpoint_command_reaches_synthetic_worker(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(coordinator.port, expect_checkpoint=True)
+            try:
+                worker.wait_until_accepted()
+                result = self.run_command("--json", "--coord-port",
+                                          str(coordinator.port),
+                                          "--checkpoint")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                payload = json.loads(result.stdout)
+
+                self.assertTrue(payload["ok"])
+                self.assertEqual(payload["type"], "checkpoint")
+                self.assertEqual(payload["num_peers"], 1)
+                worker.wait_until_checkpoint_requested()
+            finally:
+                worker.stop()
 
     def test_kill_command_reaches_synthetic_worker(self):
         with CoordinatorFixture() as coordinator:

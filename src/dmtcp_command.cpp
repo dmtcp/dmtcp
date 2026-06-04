@@ -359,7 +359,8 @@ main(int argc, char **argv)
     CoordinatorAPI::connectAndSendUserCommand(cmdChar, &coordCmdStatus);
 
     // actual command: The request variable must have been "bc" or "Kc".
-    CoordinatorAPI::connectAndSendUserCommand('c', &coordCmdStatus);
+    CoordinatorAPI::connectAndSendUserCommand('c', &coordCmdStatus,
+                                              &numPeers);
     break;
   case 's':
     CoordinatorAPI::connectAndSendUserCommand(cmdChar,
@@ -373,6 +374,10 @@ main(int argc, char **argv)
       CoordinatorAPI::connectAndSendUserCommand(cmdChar, &coordCmdStatus);
     break;
   case 'c':
+    workerList =
+      CoordinatorAPI::connectAndSendUserCommand(cmdChar, &coordCmdStatus,
+                                                &numPeers);
+    break;
   case 'k':
   case 'q':
     workerList =

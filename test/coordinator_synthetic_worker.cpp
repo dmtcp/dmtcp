@@ -18,6 +18,7 @@ struct Options {
   int port = -1;
   int holdSeconds = 5;
   bool expectKill = false;
+  bool expectCheckpoint = false;
   std::string barrier;
 };
 
@@ -153,7 +154,8 @@ parseOptions(int argc, char **argv)
   if (argc < 3) {
     throw std::runtime_error(
       "usage: coordinator_synthetic_worker HOST PORT "
-      "[--hold-seconds SECONDS] [--expect-kill] [--barrier NAME]");
+      "[--hold-seconds SECONDS] [--expect-kill] [--expect-checkpoint] "
+      "[--barrier NAME]");
   }
 
   Options options;
@@ -168,6 +170,8 @@ parseOptions(int argc, char **argv)
       options.holdSeconds = parsePositiveInt(argv[i]);
     } else if (strcmp(argv[i], "--expect-kill") == 0) {
       options.expectKill = true;
+    } else if (strcmp(argv[i], "--expect-checkpoint") == 0) {
+      options.expectCheckpoint = true;
     } else if (strcmp(argv[i], "--barrier") == 0) {
       if (++i == argc) {
         throw std::runtime_error("--barrier requires a value");
@@ -221,6 +225,16 @@ main(int argc, char **argv)
       }
       std::cout << "received DMT_KILL_PEER\n";
       std::cout.flush();
+    } else if (options.expectCheckpoint) {
+      dmtcp::DmtcpMessage msg;
+      readAll(fd, &msg, sizeof(msg));
+      if (!msg.isValid() || msg.type != dmtcp::DMT_DO_CHECKPOINT) {
+        close(fd);
+        throw std::runtime_error("expected DMT_DO_CHECKPOINT");
+      }
+      std::cout << "received DMT_DO_CHECKPOINT\n";
+      std::cout.flush();
+      std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
     } else if (!options.barrier.empty()) {
       sendBarrier(fd, options.barrier);
       std::string released = waitForBarrierRelease(fd);
