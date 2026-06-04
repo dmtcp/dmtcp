@@ -26,6 +26,7 @@ struct Options {
   bool expectOversizedExtraReject = false;
   bool expectInvalidMessageSizeReject = false;
   bool sendPartialMessage = false;
+  bool barrierAfterStdin = false;
   bool restartWorker = false;
   int numPeers = 0;
   bool invalidCompGroup = false;
@@ -241,6 +242,7 @@ parseOptions(int argc, char **argv)
       "[--expect-oversized-extra-reject] "
       "[--expect-invalid-message-size-reject] "
       "[--send-partial-message] "
+      "[--barrier-after-stdin] "
       "[--restart-worker] [--num-peers PEERS] "
       "[--invalid-comp-group] [--barrier NAME]");
   }
@@ -274,6 +276,8 @@ parseOptions(int argc, char **argv)
       options.expectInvalidMessageSizeReject = true;
     } else if (strcmp(argv[i], "--send-partial-message") == 0) {
       options.sendPartialMessage = true;
+    } else if (strcmp(argv[i], "--barrier-after-stdin") == 0) {
+      options.barrierAfterStdin = true;
     } else if (strcmp(argv[i], "--restart-worker") == 0) {
       options.restartWorker = true;
     } else if (strcmp(argv[i], "--num-peers") == 0) {
@@ -448,7 +452,15 @@ main(int argc, char **argv)
       std::cout.flush();
       std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
     } else if (!options.barrier.empty()) {
+      if (options.barrierAfterStdin) {
+        std::string ignored;
+        std::getline(std::cin, ignored);
+      }
       sendBarrier(fd, options.barrier);
+      if (options.barrierAfterStdin) {
+        std::cout << "sent barrier=" << options.barrier << '\n';
+        std::cout.flush();
+      }
       std::string released = waitForBarrierRelease(fd);
       if (released != options.barrier) {
         close(fd);

@@ -81,6 +81,7 @@ class WorkerProcess:
                  expect_oversized_extra_reject=False,
                  expect_invalid_message_size_reject=False,
                  send_partial_message=False,
+                 barrier_after_stdin=False,
                  restart_worker=False,
                  num_peers=None):
         args = [
@@ -94,6 +95,8 @@ class WorkerProcess:
             args.append("--expect-kill")
         if barrier:
             args.extend(["--barrier", barrier])
+        if barrier_after_stdin:
+            args.append("--barrier-after-stdin")
         if expect_checkpoint:
             args.append("--expect-checkpoint")
         if invalid_comp_group:
@@ -120,6 +123,7 @@ class WorkerProcess:
             args,
             cwd=str(ROOT),
             text=True,
+            stdin=subprocess.PIPE if barrier_after_stdin else None,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -205,6 +209,25 @@ class WorkerProcess:
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not receive barrier release")
 
+    def send_barrier_from_stdin(self):
+        self.process.stdin.write("\n")
+        self.process.stdin.flush()
+
+    def wait_until_barrier_sent(self, barrier):
+        deadline = time.time() + 10
+        expected = f"sent barrier={barrier}"
+        while time.time() < deadline:
+            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
+            if readable:
+                line = self._read_stdout_line()
+                if line == expected:
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError("worker did not send barrier")
+
     def wait_until_rejected_wrong_computation(self):
         deadline = time.time() + 10
         while time.time() < deadline:
@@ -287,6 +310,8 @@ class WorkerProcess:
             except subprocess.TimeoutExpired:
                 self.process.kill()
                 self.process.wait(timeout=5)
+        if self.process.stdin is not None:
+            self.process.stdin.close()
         self.process.stdout.close()
         self.process.stderr.close()
 
@@ -434,6 +459,37 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             finally:
                 waiter.stop()
                 peer.stop()
+
+    def test_mismatched_barrier_disconnects_offending_worker(self):
+        with CoordinatorFixture() as coordinator:
+            waiter = WorkerProcess(coordinator.port, barrier="barrier-a",
+                                   barrier_after_stdin=True)
+            offender = None
+            try:
+                waiter.wait_until_accepted()
+                offender = WorkerProcess(coordinator.port, barrier="barrier-b",
+                                         barrier_after_stdin=True)
+                offender.wait_until_accepted()
+
+                waiter.send_barrier_from_stdin()
+                waiter.wait_until_barrier_sent("barrier-a")
+                self.assert_no_worker_output(waiter)
+
+                offender.send_barrier_from_stdin()
+                offender.wait_until_barrier_sent("barrier-b")
+                offender.process.wait(timeout=5)
+                self.assertNotEqual(offender.process.returncode, 0)
+
+                waiter.wait_until_barrier_released("barrier-a")
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 1)
+                self.assertTrue(status["running"])
+            finally:
+                waiter.stop()
+                if offender is not None:
+                    offender.stop()
 
     def test_checkpoint_command_reaches_synthetic_worker(self):
         with CoordinatorFixture() as coordinator:

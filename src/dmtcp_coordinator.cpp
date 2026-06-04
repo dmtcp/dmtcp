@@ -672,6 +672,13 @@ DmtcpCoordinator::onData(CoordClient *client)
     JTRACE("got DMT_BARRIER message")
       (msg.from) (prevClientState) (msg.state) (barrier);
 
+    if (!currentBarrier.empty() && barrier != currentBarrier) {
+      JWARNING(false) (barrier) (currentBarrier)
+        .Text("worker reached a different active barrier; closing connection");
+      onDisconnect(client);
+      break;
+    }
+
     // Warn if we have two consecutive barriers of the same name.
     JWARNING(barrier != client->barrier()) (barrier) (client->barrier());
     client->setBarrier(barrier);
