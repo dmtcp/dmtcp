@@ -19,12 +19,15 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <map>
+
 #include "dmtcp.h"
-#include "../jalib/jassert.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
+using std::map;
 
 static map<FILE *, pid_t>_dmtcpPopenPidMap;
 typedef map<FILE *, pid_t>::iterator _dmtcpPopenPidMapIterator;
@@ -34,13 +37,15 @@ static DmtcpMutex popen_map_lock = DMTCP_MUTEX_INITIALIZER;
 static void
 _lock_popen_map()
 {
-  JASSERT(DmtcpMutexLock(&popen_map_lock) == 0) (JASSERT_ERRNO);
+  int rc = DmtcpMutexLock(&popen_map_lock);
+  ASSERT(rc == 0, "DmtcpMutexLock(popen_map_lock) failed: rc={}", rc);
 }
 
 static void
 _unlock_popen_map()
 {
-  JASSERT(DmtcpMutexUnlock(&popen_map_lock) == 0) (JASSERT_ERRNO);
+  int rc = DmtcpMutexUnlock(&popen_map_lock);
+  ASSERT(rc == 0, "DmtcpMutexUnlock(popen_map_lock) failed: rc={}", rc);
 }
 
 extern "C"

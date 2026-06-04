@@ -19,8 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "../jalib/jassert.h"
 #include "uniquepid.h"
+#include "util_assert.h"
 
 #undef dmtcp_is_enabled
 #undef dmtcp_checkpoint
@@ -51,14 +51,14 @@ _dmtcp_setup_trampolines() {}
 int
 dmtcp_get_ckpt_signal()
 {
-  JASSERT(false).Text("NOT REACHED");
+  ASSERT(false, "NOT REACHED");
   return -1;
 }
 
 const char *
 dmtcp_get_tmpdir()
 {
-  JASSERT(false).Text("NOT REACHED");
+  ASSERT(false, "NOT REACHED");
   return NULL;
 }
 
@@ -88,13 +88,13 @@ dmtcp_get_computation_id()
 int
 dmtcp_is_running_state()
 {
-  JASSERT(false);
+  ASSERT(false, "NOT REACHED");
   return 0;
 }
 
 int
 dmtcp_is_protected_fd(int fd)
 {
-  JASSERT(false);
+  ASSERT(false, "NOT REACHED");
   return 0;
 }

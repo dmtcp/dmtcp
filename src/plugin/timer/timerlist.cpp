@@ -25,6 +25,7 @@
 #include "dmtcp.h"
 #include "plugin/pid/pidhelpers.h"
 #include "timerwrappers.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -35,13 +36,15 @@ static DmtcpMutex timerLock = DMTCP_MUTEX_INITIALIZER;
 static void
 _do_lock_tbl()
 {
-  JASSERT(DmtcpMutexLock(&timerLock) == 0) (JASSERT_ERRNO);
+  int rc = DmtcpMutexLock(&timerLock);
+  ASSERT(rc == 0, "DmtcpMutexLock(timerLock) failed: rc={}", rc);
 }
 
 static void
 _do_unlock_tbl()
 {
-  JASSERT(DmtcpMutexUnlock(&timerLock) == 0) (JASSERT_ERRNO);
+  int rc = DmtcpMutexUnlock(&timerLock);
+  ASSERT(rc == 0, "DmtcpMutexUnlock(timerLock) failed: rc={}", rc);
 }
 
 static void
