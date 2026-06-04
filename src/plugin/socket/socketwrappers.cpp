@@ -39,6 +39,7 @@
 #include "socketconnection.h"
 #include "socketconnlist.h"
 #include "socketwrappers.h"
+#include "util_assert.h"
 #include "wrapperlock.h"
 
 using namespace dmtcp;
@@ -65,8 +66,9 @@ socket(int domain, int type, int protocol)
     Connection *con;
     JTRACE("socket created") (ret) (domain) (type) (protocol);
     if ((type & 0xff) == SOCK_RAW) {
-      JASSERT(domain == AF_NETLINK) (domain) (type)
-      .Text("Only Netlink Raw sockets supported");
+      ASSERT(domain == AF_NETLINK,
+             "only Netlink raw sockets supported: domain={} type={}",
+             domain, type);
       con = new RawSocketConnection(domain, type, protocol);
     } else {
       con = new TcpConnection(domain, type, protocol);
@@ -152,7 +154,7 @@ listen(int sockfd, int backlog)
 static void
 process_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
-  JASSERT(ret != -1);
+  ASSERT_NE(-1, ret);
   Connection *parent = SocketConnList::instance().getConnection(sockfd);
   if (parent == NULL) {
     JTRACE("unable to get the connection.");
@@ -297,7 +299,7 @@ socketpair(int d, int type, int protocol, int sv[2])
 
   WrapperLock wrapperLock;
 
-  JASSERT(sv != NULL);
+  ASSERT_NOT_NULL(sv);
   int rv = _real_socketpair(d, type, protocol, sv);
   if (rv != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     JTRACE("socketpair()") (sv[0]) (sv[1]);

@@ -34,6 +34,7 @@
 #include "eventconnection.h"
 #include "eventconnlist.h"
 #include "eventwrappers.h"
+#include "util_assert.h"
 #include "wrapperlock.h"
 
 using namespace dmtcp;
@@ -97,8 +98,9 @@ poll(struct pollfd *fds, nfds_t nfds, int timeout)
 extern "C" int
 __poll_chk(struct pollfd *fds, nfds_t nfds, int timeout, size_t fdslen)
 {
-  JASSERT((fdslen / sizeof(*fds)) >= nfds) (nfds) (fdslen)
-  .Text("Buffer Overflow detected!");
+  ASSERT((fdslen / sizeof(*fds)) >= nfds,
+         "buffer overflow detected: nfds={} fdslen={}",
+         nfds, fdslen);
 
   int rc;
   while (1) {

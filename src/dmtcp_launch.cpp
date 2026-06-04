@@ -38,6 +38,7 @@
 #include "shareddata.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "util_assert.h"
 
 #define BINARY_NAME "dmtcp_launch"
 
@@ -794,7 +795,7 @@ testFsGsBase()
 {
 #ifdef __x86_64__
   pid_t childPid = fork();
-  JASSERT(childPid != -1);
+  ASSERT_ERRNO(childPid != -1, "failed to fork FSGSBASE probe");
 
   if (childPid == 0) {
     unsigned long fsbase = -1;
@@ -811,7 +812,8 @@ testFsGsBase()
   }
 
   int status = 0;
-  JASSERT(waitpid(childPid, &status, 0) == childPid);
+  ASSERT_ERRNO(waitpid(childPid, &status, 0) == childPid,
+               "failed to wait for FSGSBASE probe: child_pid={}", childPid);
 
   if (status == 0) {
     setenv(ENV_VAR_FSGSBASE_ENABLED, "1", 1);
@@ -906,13 +908,14 @@ setLDPreloadLibs(bool is32bitElf)
 #if defined(__x86_64__) || defined(__aarch64__)
   if (is32bitElf) {
     string libdmtcp = Util::getPath("libdmtcp.so", true);
-    JWARNING(libdmtcp != "libdmtcp.so") (libdmtcp)
-    .Text("You appear to be checkpointing a 32-bit target under 64-bit Linux.\n"
-          "DMTCP was unable to find the 32-bit installation.\n"
-          "See DMTCP FAQ or try:\n"
-          "  ./configure --enable-m32 && make clean && make -j && "
-          "make install\n"
-          "  ./configure && make clean && make -j && make install\n");
+    WARNING(libdmtcp != "libdmtcp.so",
+            "unable to find 32-bit DMTCP installation: libdmtcp={}. "
+            "You appear to be checkpointing a 32-bit target under 64-bit "
+            "Linux. See DMTCP FAQ or try: "
+            "./configure --enable-m32 && make clean && make -j && "
+            "make install; "
+            "./configure && make clean && make -j && make install",
+            libdmtcp);
     if (enableKernelLoader) {
       setenv("UH_PRELOAD", preloadLibs32.c_str(), 1);
     } else {

@@ -32,6 +32,7 @@
 #include "pidwrappers.h"
 #include "shareddata.h"
 #include "util.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -122,7 +123,10 @@ VirtualPidTable::gettid()
     _dmtcp_thread_tid = getpid();
 
     // Make sure this is the motherofall thread.
-    JASSERT(_real_gettid() == _real_getpid()) (_real_gettid()) (_real_getpid());
+    ASSERT(_real_gettid() == _real_getpid(),
+           "initial thread real tid/pid mismatch: tid={} pid={}",
+           _real_gettid(),
+           _real_getpid());
   }
   return _dmtcp_thread_tid;
 }
@@ -147,7 +151,7 @@ VirtualPidTable::refresh()
   id_iterator next;
   pid_t _real_pid = _real_getpid();
 
-  JASSERT(getpid() != -1);
+  ASSERT(getpid() != -1, "virtual pid is not initialized");
 
   _do_lock_tbl();
   for (i = _idMapTable.begin(), next = i; i != _idMapTable.end(); i = next) {
@@ -169,8 +173,9 @@ VirtualPidTable::getNewVirtualTid()
     refresh();
   }
 
-  JASSERT(VirtualIdTable<pid_t>::getNewVirtualId(&tid))
-    (_idMapTable.size()).Text("Exceeded maximum number of threads allowed");
+  ASSERT(VirtualIdTable<pid_t>::getNewVirtualId(&tid),
+         "exceeded maximum number of threads allowed: map_size={}",
+         _idMapTable.size());
 
   return tid;
 }

@@ -12,6 +12,7 @@
 #include "dmtcpalloc.h"
 #include "plugininfo.h"
 #include "util.h"
+#include "util_assert.h"
 
 static dmtcp::PluginManager *pluginManager = NULL;
 
@@ -29,7 +30,7 @@ extern LIB_PRIVATE DmtcpPluginDescriptor_t UniquePidPlugin;
 extern "C" void
 dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)
 {
-  JASSERT(pluginManager != NULL);
+  ASSERT_NOT_NULL(pluginManager);
 
   pluginManager->registerPlugin(descr);
 }
@@ -117,8 +118,10 @@ internalPluginEnvName(const char *pluginName,
                       size_t size)
 {
   int len = snprintf(envName, size, "DMTCP_%s_PLUGIN", pluginName);
-  JASSERT(len > 0 && (size_t)len < size) (pluginName) (size)
-  .Text("Internal plugin environment variable name is too long.");
+  ASSERT(len > 0 && (size_t)len < size,
+         "internal plugin environment variable name is too long: "
+         "plugin={} size={} required={}",
+         pluginName, size, len);
   return envName;
 }
 
@@ -130,15 +133,14 @@ initializeInternalPluginStateOnce()
 
   for (size_t i = 0; i < numInternalPlugins(); i++) {
     InternalPluginEntry *entry = &internalPlugins[i];
-    JASSERT(entry->descriptor != NULL);
-    JASSERT(entry->descriptor->pluginName != NULL)
-      (i)
-    .Text("Internal plugin descriptor is missing a plugin name.");
+    ASSERT_NOT_NULL(entry->descriptor);
+    ASSERT(entry->descriptor->pluginName != nullptr,
+           "internal plugin descriptor is missing a plugin name: index={}", i);
     for (size_t j = 0; j < i; j++) {
-      JASSERT(!Util::strEquals(internalPlugins[j].descriptor->pluginName,
-                               entry->descriptor->pluginName))
-        (entry->descriptor->pluginName)
-      .Text("Duplicate internal plugin name.");
+      ASSERT(strcmp(internalPlugins[j].descriptor->pluginName,
+                    entry->descriptor->pluginName) != 0,
+             "duplicate internal plugin name: {}",
+             entry->descriptor->pluginName);
     }
 
     char envName[64];
@@ -154,14 +156,13 @@ initializeInternalPluginState()
 {
   int rc = pthread_once(&internalPluginInitOnce,
                         initializeInternalPluginStateOnce);
-  JASSERT(rc == 0) (rc)
-  .Text("Failed to initialize internal plugin state.");
+  ASSERT(rc == 0, "failed to initialize internal plugin state: rc={}", rc);
 }
 
 static InternalPluginEntry *
 findInternalPluginEntry(const char *pluginName)
 {
-  JASSERT(pluginName != NULL).Text("Invalid internal plugin name.");
+  ASSERT(pluginName != nullptr, "invalid internal plugin name");
   for (size_t i = 0; i < numInternalPlugins(); i++) {
     InternalPluginEntry *entry = &internalPlugins[i];
     if (entry->descriptor->pluginName == pluginName ||
@@ -170,7 +171,7 @@ findInternalPluginEntry(const char *pluginName)
     }
   }
 
-  JASSERT(false) (pluginName).Text("Unknown internal plugin name.");
+  ASSERT(false, "unknown internal plugin name: {}", pluginName);
   return NULL;
 }
 
@@ -203,10 +204,10 @@ PluginManager::PluginManager()
 void
 PluginManager::registerPlugin(DmtcpPluginDescriptor_t descr)
 {
-  JASSERT(descr.pluginApiVersion != NULL &&
-          Util::strEquals(descr.pluginApiVersion, DMTCP_PLUGIN_API_VERSION))
-    (descr.pluginApiVersion) (DMTCP_PLUGIN_API_VERSION)
-    .Text("Incompatible DMTCP plugin API version");
+  ASSERT(descr.pluginApiVersion != nullptr &&
+         strcmp(descr.pluginApiVersion, DMTCP_PLUGIN_API_VERSION) == 0,
+         "incompatible DMTCP plugin API version: plugin_api={} expected={}",
+         descr.pluginApiVersion, DMTCP_PLUGIN_API_VERSION);
   PluginInfo *info = new PluginInfo(descr);
 
   pluginInfos.push_back(info);
@@ -301,7 +302,7 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
   default:
-    JASSERT(false) (event).Text("Not Reachable");
+    ASSERT(false, "unhandled plugin event: {}", static_cast<int>(event));
   }
 }
 } // namespace dmtcp {

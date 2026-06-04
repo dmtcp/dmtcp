@@ -36,6 +36,7 @@
 
 #include "jassert.h"
 #include "jfilesystem.h"
+#include "util_assert.h"
 
 namespace dmtcp
 {
@@ -393,8 +394,9 @@ writeScript(const string &ckptDir,
   JTRACE("writing restart script") (uniqueFilename);
 
   FILE *fp = fopen(uniqueFilename.c_str(), "w");
-  JASSERT(fp != 0)(JASSERT_ERRNO)(uniqueFilename)
-  .Text("failed to open file");
+  ASSERT_ERRNO(fp != 0,
+               "failed to open restart script: path={}",
+               uniqueFilename);
 
   fprintf(fp, "%s", header);
   fprintf(fp, "%s", checkLocal);
@@ -593,12 +595,18 @@ writeScript(const string &ckptDir,
     string filename = RESTART_SCRIPT_BASENAME "." RESTART_SCRIPT_EXT;
     string dirname = jalib::Filesystem::DirName(uniqueFilename);
     int dirfd = open(dirname.c_str(), O_DIRECTORY | O_RDONLY);
-    JASSERT(dirfd != -1) (dirname) (JASSERT_ERRNO);
+    ASSERT_ERRNO(dirfd != -1,
+                 "failed to open restart script directory: path={}",
+                 dirname);
 
     /* Set execute permission for user. */
     struct stat buf;
-    JASSERT(::stat(uniqueFilename.c_str(), &buf) == 0);
-    JASSERT(chmod(uniqueFilename.c_str(), buf.st_mode | S_IXUSR) == 0);
+    ASSERT_ERRNO(::stat(uniqueFilename.c_str(), &buf) == 0,
+                 "failed to stat restart script: path={}",
+                 uniqueFilename);
+    ASSERT_ERRNO(chmod(uniqueFilename.c_str(), buf.st_mode | S_IXUSR) == 0,
+                 "failed to set restart script executable: path={}",
+                 uniqueFilename);
 
     // Create a symlink from
     // dmtcp_restart_script.sh -> dmtcp_restart_script_<curCompId>.sh
@@ -612,10 +620,19 @@ writeScript(const string &ckptDir,
           (filename) (dirname) (uniqueFilename);
     char uniq_fname_str[PATH_MAX];
     strncpy(uniq_fname_str, uniqueFilename.c_str(), PATH_MAX);
-    JASSERT(uniq_fname_str[PATH_MAX-1] == '\0'); // orig str less than PATH_MAX     // FIXME:  Handle error case of symlink()
-    JWARNING(symlinkat(basename(uniq_fname_str), dirfd, filename.c_str()) == 0)
-            (JASSERT_ERRNO);
-    JASSERT(close(dirfd) == 0);
+    // orig str less than PATH_MAX     // FIXME:  Handle error case of symlink()
+    ASSERT(uniq_fname_str[PATH_MAX-1] == '\0',
+           "restart script path too long: path={}",
+           uniqueFilename);
+    WARNING_ERRNO(symlinkat(basename(uniq_fname_str),
+                            dirfd,
+                            filename.c_str()) == 0,
+                  "failed to link restart script: link={} target_dir={}",
+                  filename,
+                  dirname);
+    ASSERT_ERRNO(close(dirfd) == 0,
+                 "failed to close restart script directory: path={}",
+                 dirname);
   }
   return uniqueFilename;
 }
