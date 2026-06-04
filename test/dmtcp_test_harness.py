@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import traceback
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Union
 
@@ -116,6 +117,12 @@ class DmtcpHarness:
         except HarnessFailure as failure:
             result = TestResult.fail(spec.name, failure.phase, failure.message,
                                      work.path)
+        except Exception as failure:
+            traceback_path = work.path / "harness-error.log"
+            traceback_path.write_text(traceback.format_exc(),
+                                      encoding="utf-8")
+            result = TestResult.fail(spec.name, "harness",
+                                     str(failure), work.path)
         finally:
             context.cleanup()
             if result is not None and result.passed and not self.retain_success_artifacts:

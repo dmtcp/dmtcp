@@ -3,6 +3,7 @@
 import os
 import pathlib
 import platform
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -106,6 +107,28 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertIn("timeout=0.01", transcript)
             self.assertIn("partial stdout", transcript)
             self.assertIn("partial stderr", transcript)
+
+    def test_unexpected_harness_exception_records_failure(self):
+        def fail_run(self):
+            raise ValueError("unexpected failure")
+
+        with mock.patch.object(harness_module.TestContext, "run", fail_run), \
+             mock.patch.object(harness_module.TestContext, "cleanup",
+                               lambda self: None):
+            result = DmtcpHarness(ROOT).run(
+                TestSpec("unexpected", 1, ["./test/dmtcp1"]))
+
+        try:
+            self.assertFalse(result.passed)
+            self.assertEqual(result.phase, "harness")
+            self.assertIn("unexpected failure", result.message)
+            self.assertIsNotNone(result.artifact_dir)
+            log = (result.artifact_dir / "harness-error.log").read_text(
+                encoding="utf-8")
+            self.assertIn("ValueError: unexpected failure", log)
+        finally:
+            if result.artifact_dir is not None:
+                shutil.rmtree(result.artifact_dir, ignore_errors=True)
 
     def test_spec_records_environment_and_launch_delay(self):
         spec = TestSpec("gzip", 1, ["./test/dmtcp1"],
