@@ -73,6 +73,9 @@
 // this next string can be at most 16 chars long
 #define DMTCP_MAGIC_STRING          "DMTCP_CKPT_V0\n"
 
+// Bound protocol side-band payloads before allocating buffers from peer input.
+#define DMTCP_MAX_MESSAGE_EXTRA_BYTES (1024U * 1024U)
+
 // it should be safe to change any of these names
 #define ENV_VAR_NAME_HOST           "DMTCP_COORD_HOST"
 #define ENV_VAR_NAME_PORT           "DMTCP_COORD_PORT"

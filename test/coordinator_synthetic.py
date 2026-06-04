@@ -93,6 +93,7 @@ class WorkerProcess:
                  expect_restart_peer_mismatch=False,
                  expect_kvdb=False,
                  expect_invalid_protocol_reject=False,
+                 expect_oversized_extra_reject=False,
                  expect_invalid_message_size_reject=False,
                  send_partial_message=False,
                  send_unexpected_message=False,
@@ -133,6 +134,8 @@ class WorkerProcess:
             args.append("--expect-kvdb")
         if expect_invalid_protocol_reject:
             args.append("--expect-invalid-protocol-reject")
+        if expect_oversized_extra_reject:
+            args.append("--expect-oversized-extra-reject")
         if expect_invalid_message_size_reject:
             args.append("--expect-invalid-message-size-reject")
         if send_partial_message:
@@ -344,6 +347,9 @@ class WorkerProcess:
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker was not rejected for invalid protocol")
 
+    def wait_until_oversized_extra_rejected(self):
+        return self.wait_until_invalid_protocol_rejected()
+
     def wait_until_partial_message_sent(self):
         deadline = time.time() + 10
         while time.time() < deadline:
@@ -415,6 +421,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             stderr=subprocess.PIPE,
             timeout=COMMAND_TIMEOUT,
             check=False,
+            timeout=COMMAND_TIMEOUT,
         )
 
     def coordinator_status(self, port):
@@ -975,6 +982,21 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 coordinator.port, expect_invalid_message_size_reject=True)
             try:
                 worker.wait_until_invalid_protocol_rejected()
+
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 0)
+                self.assertFalse(status["running"])
+            finally:
+                worker.stop()
+
+    def test_oversized_extra_bytes_worker_is_rejected(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(
+                coordinator.port, expect_oversized_extra_reject=True)
+            try:
+                worker.wait_until_oversized_extra_rejected()
                 status = self.coordinator_status(coordinator.port)
 
                 self.assertCommandSuccess(status)

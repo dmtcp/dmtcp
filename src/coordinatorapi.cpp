@@ -441,6 +441,10 @@ recvMsgFromCoordinatorRaw(int fd, DmtcpMessage *msg, void **extraData)
     return;
   }
 
+  if (!tmpMsg.isValid()) {
+    return;
+  }
+
   if (tmpMsg.extraBytes > 0) {
     JASSERT(extraData != NULL);
 

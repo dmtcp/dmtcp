@@ -1,7 +1,7 @@
 #include "workerstate.h"
 #include "dmtcpalloc.h"
 
-#include "jassert.h"
+#include "util_assert.h"
 
 namespace dmtcp
 {
@@ -34,7 +34,7 @@ operator<<(ostream &o, const eWorkerState &s)
   case WorkerState::CHECKPOINTED:  o << "CHECKPOINTED"; break;
   case WorkerState::RESTARTING:    o << "RESTARTING"; break;
   default:
-    JASSERT(false) (workerState).Text("Invalid WorkerState");
+    ASSERT(false, "Invalid WorkerState: {}", static_cast<int>(s));
     break;
   }
   return o;
