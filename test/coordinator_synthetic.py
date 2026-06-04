@@ -67,7 +67,7 @@ class CoordinatorFixture:
 
 
 class WorkerProcess:
-    def __init__(self, port, expect_kill=False):
+    def __init__(self, port, expect_kill=False, barrier=None):
         args = [
             str(SYNTHETIC_WORKER),
             "127.0.0.1",
@@ -77,6 +77,8 @@ class WorkerProcess:
         ]
         if expect_kill:
             args.append("--expect-kill")
+        if barrier:
+            args.extend(["--barrier", barrier])
         self.process = subprocess.Popen(
             args,
             cwd=str(ROOT),
@@ -112,6 +114,21 @@ class WorkerProcess:
                 stderr = self.process.stderr.read()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not receive kill message")
+
+    def wait_until_barrier_released(self, barrier):
+        deadline = time.time() + 10
+        expected = f"released barrier={barrier}"
+        while time.time() < deadline:
+            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
+            if readable:
+                line = self.process.stdout.readline().strip()
+                if line == expected:
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError("worker did not receive barrier release")
 
     def stop(self):
         if self.process.poll() is None:
@@ -161,6 +178,25 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             try:
                 for worker in workers:
                     worker.wait_until_accepted()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 2)
+                self.assertTrue(status["running"])
+            finally:
+                for worker in workers:
+                    worker.stop()
+
+    def test_two_synthetic_workers_release_same_barrier(self):
+        with CoordinatorFixture() as coordinator:
+            barrier = "synthetic-barrier"
+            workers = [WorkerProcess(coordinator.port, barrier=barrier)
+                       for _ in range(2)]
+            try:
+                for worker in workers:
+                    worker.wait_until_accepted()
+                for worker in workers:
+                    worker.wait_until_barrier_released(barrier)
                 status = self.coordinator_status(coordinator.port)
 
                 self.assertTrue(status["ok"])

@@ -18,6 +18,7 @@ struct Options {
   int port = -1;
   int holdSeconds = 5;
   bool expectKill = false;
+  std::string barrier;
 };
 
 void
@@ -111,13 +112,48 @@ parsePositiveInt(const char *text)
   return parsePort(text);
 }
 
+void
+sendBarrier(int fd, const std::string& barrier)
+{
+  dmtcp::DmtcpMessage msg(dmtcp::DMT_BARRIER);
+  if (barrier.size() >= sizeof(msg.barrier)) {
+    throw std::runtime_error("barrier name is too long");
+  }
+  std::strncpy(msg.barrier, barrier.c_str(), sizeof(msg.barrier) - 1);
+  writeAll(fd, &msg, sizeof(msg));
+}
+
+std::string
+readExtraString(int fd, uint32_t bytes)
+{
+  std::string extra(bytes, '\0');
+  if (bytes != 0) {
+    readAll(fd, extra.data(), bytes);
+    if (!extra.empty() && extra.back() == '\0') {
+      extra.pop_back();
+    }
+  }
+  return extra;
+}
+
+std::string
+waitForBarrierRelease(int fd)
+{
+  dmtcp::DmtcpMessage msg;
+  readAll(fd, &msg, sizeof(msg));
+  if (!msg.isValid() || msg.type != dmtcp::DMT_BARRIER_RELEASED) {
+    throw std::runtime_error("expected DMT_BARRIER_RELEASED");
+  }
+  return readExtraString(fd, msg.extraBytes);
+}
+
 Options
 parseOptions(int argc, char **argv)
 {
   if (argc < 3) {
     throw std::runtime_error(
       "usage: coordinator_synthetic_worker HOST PORT "
-      "[--hold-seconds SECONDS] [--expect-kill]");
+      "[--hold-seconds SECONDS] [--expect-kill] [--barrier NAME]");
   }
 
   Options options;
@@ -132,6 +168,11 @@ parseOptions(int argc, char **argv)
       options.holdSeconds = parsePositiveInt(argv[i]);
     } else if (strcmp(argv[i], "--expect-kill") == 0) {
       options.expectKill = true;
+    } else if (strcmp(argv[i], "--barrier") == 0) {
+      if (++i == argc) {
+        throw std::runtime_error("--barrier requires a value");
+      }
+      options.barrier = argv[i];
     } else {
       throw std::runtime_error("unknown argument");
     }
@@ -180,6 +221,16 @@ main(int argc, char **argv)
       }
       std::cout << "received DMT_KILL_PEER\n";
       std::cout.flush();
+    } else if (!options.barrier.empty()) {
+      sendBarrier(fd, options.barrier);
+      std::string released = waitForBarrierRelease(fd);
+      if (released != options.barrier) {
+        close(fd);
+        throw std::runtime_error("barrier release name mismatch");
+      }
+      std::cout << "released barrier=" << released << '\n';
+      std::cout.flush();
+      std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
     } else {
       std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
     }
