@@ -134,6 +134,8 @@ Rules:
 - Preserve a parity checklist while porting: test name, tags, required
   commands/libraries, environment probes, multilib expectations, stack or ulimit
   requirements, plugin requirements, and known host-sensitive skips.
+- Keep `test/autotest-parity.md` updated as that checklist so unsupported or
+  known-main-failing old tests are visible without becoming migration gates.
 - Start sequential by default. Only add parallel execution after port allocation,
   process-group cleanup, coordinator teardown, and artifact retention are
   reliable enough to avoid CI flakes.
