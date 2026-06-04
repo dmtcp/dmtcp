@@ -232,6 +232,11 @@ dmtcp_initialize_entry_point()
 
   WorkerState::setCurrentState(WorkerState::RUNNING);
 
+  // Establish current-thread state before plugin initialization or early
+  // diagnostics can emit through the fixed per-thread assert buffer.
+  ThreadSync::initMotherOfAll();
+  ThreadList::init();
+
   PluginManager::initialize();
 
   prepareLogAndProcessdDataFromSerialFile();
@@ -262,10 +267,6 @@ dmtcp_initialize_entry_point()
     (programName).Text("This program should not be run under ckpt control");
 
   restoreUserLDPRELOAD();
-
-  // Initialize data-structures related to motherofall thread.
-  ThreadSync::initMotherOfAll();
-  ThreadList::init();
 
   // In libdmtcp.so, notify this event for each plugin.
   PluginManager::eventHook(DMTCP_EVENT_INIT, NULL);
