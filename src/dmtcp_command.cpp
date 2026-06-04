@@ -249,6 +249,18 @@ printJsonError(const char *type, int status)
   printf("}\n");
 }
 
+static int
+printUsageOrJsonError(bool jsonOutput)
+{
+  if (jsonOutput) {
+    printJsonError("unknown", CoordCmdStatus::ERROR_INVALID_COMMAND);
+    return 2;
+  }
+
+  fprintf(stderr, theUsage, "");
+  return 1;
+}
+
 // shift args
 #define shift argc--, argv++
 
@@ -270,9 +282,15 @@ main(int argc, char **argv)
   while (argc > 0) {
     string s = argv[0];
     if ((s == "--help" || s == "-h") && argc == 1) {
+      if (jsonOutput) {
+        return printUsageOrJsonError(jsonOutput);
+      }
       printf("%s", theUsage);
       return 1;
     } else if ((s == "--version") && argc == 1) {
+      if (jsonOutput) {
+        return printUsageOrJsonError(jsonOutput);
+      }
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return 1;
     } else if (s == "--json") {
@@ -307,8 +325,7 @@ main(int argc, char **argv)
 
       if ((*cmd == 'b' || *cmd == 'K') && *(cmd + 1) != 'c') {
         // If blocking ckpt, next letter must be 'c'; else print the usage
-        fprintf(stderr, theUsage, "");
-        return 1;
+        return printUsageOrJsonError(jsonOutput);
       } else if (*cmd == 's' || *cmd == 'i' || *cmd == 'c' || *cmd == 'b' ||
                  *cmd == 'K' || *cmd == 'k' ||
                  *cmd == 'q' || *cmd == 'l') {
@@ -318,8 +335,7 @@ main(int argc, char **argv)
             interval = cmd + 1;
           } else { // else -i 5
             if (argc == 1) {
-              fprintf(stderr, theUsage, "");
-              return 1;
+              return printUsageOrJsonError(jsonOutput);
             }
             interval = argv[1];
             shift;
@@ -327,8 +343,7 @@ main(int argc, char **argv)
         }
         shift;
       } else {
-        fprintf(stderr, theUsage, "");
-        return 1;
+        return printUsageOrJsonError(jsonOutput);
       }
     }
   }
@@ -346,8 +361,7 @@ main(int argc, char **argv)
   }
   switch (cmdChar) {
   case 'h':
-    fprintf(stderr, theUsage, "");
-    return 1;
+    return printUsageOrJsonError(jsonOutput);
 
   case 'i':
     setenv(ENV_VAR_CKPT_INTR, interval.c_str(), 1);

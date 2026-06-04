@@ -109,6 +109,30 @@ class DmtcpCommandJsonTest(unittest.TestCase):
         self.assertEqual(payload["coordinator_host"], host)
         self.assertEqual(payload["coordinator_port"], 1)
 
+    def test_invalid_command_json_does_not_print_usage(self):
+        result = self.run_command("--json", "--not-a-command")
+
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stderr, "")
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["type"], "unknown")
+        self.assertEqual(payload["phase"], "unknown")
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["error_code"], "invalid_command")
+
+    def test_help_command_json_reports_invalid_command(self):
+        result = self.run_command("--json", "--help")
+
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stderr, "")
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["type"], "unknown")
+        self.assertEqual(payload["phase"], "unknown")
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["error_code"], "invalid_command")
+
     def test_status_json_reports_reachable_coordinator_status(self):
         with CoordinatorFixture() as coordinator:
             result = self.run_command("--json", "--coord-port",
