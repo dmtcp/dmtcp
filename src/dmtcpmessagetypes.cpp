@@ -20,9 +20,26 @@
  ****************************************************************************/
 
 #include "dmtcpmessagetypes.h"
+#include "json.h"
 #include "workerstate.h"
 
+#include <cstring>
+
 using namespace dmtcp;
+
+namespace {
+
+const int JSON_SCHEMA_VERSION = 1;
+
+bool
+messageMagicIsValid(const char (&magic)[16])
+{
+  static_assert(sizeof(DMTCP_MAGIC_STRING) <= sizeof(magic),
+                "DMTCP_MAGIC_STRING must not exceed magic buffer");
+  return memcmp(magic, DMTCP_MAGIC_STRING, sizeof(DMTCP_MAGIC_STRING)) == 0;
+}
+
+} // namespace
 
 DmtcpMessage::DmtcpMessage(DmtcpMessageType t /*= DMT_NULL*/)
   : _msgSize(sizeof(DmtcpMessage))
@@ -36,8 +53,8 @@ DmtcpMessage::DmtcpMessage(DmtcpMessageType t /*= DMT_NULL*/)
   , valLen(0)
   , numPeers(0)
   , isRunning(0)
-  , coordCmd('\0')
-  , coordCmdStatus(CoordCmdStatus::NOERROR)
+  , coordCmd(DMT_INVALID_COORDINATOR_COMMAND)
+  , coordCmdStatus(DMT_COORD_SUCCESS)
   , coordTimeStamp(0)
   , theCheckpointInterval(DMTCPMESSAGE_SAME_CKPT_INTERVAL)
   , exitAfterCkpt(0)
@@ -54,7 +71,7 @@ DmtcpMessage::DmtcpMessage(DmtcpMessageType t /*= DMT_NULL*/)
 void
 DmtcpMessage::assertValid() const
 {
-  JASSERT(strcmp(DMTCP_MAGIC_STRING, _magicBits) == 0)(_magicBits)
+  JASSERT(messageMagicIsValid(_magicBits))
   .Text("read invalid message, _magicBits mismatch."
         "  Did DMTCP coordinator die uncleanly?");
   JASSERT(_msgSize == sizeof(DmtcpMessage)) (_msgSize) (sizeof(DmtcpMessage))
@@ -64,9 +81,9 @@ DmtcpMessage::assertValid() const
 bool
 DmtcpMessage::isValid() const
 {
-  if (strcmp(DMTCP_MAGIC_STRING, _magicBits) != 0) {
+  if (!messageMagicIsValid(_magicBits)) {
     JNOTE("read invalid message, _magicBits mismatch."
-          " Closing remote connection.") (_magicBits);
+          " Closing remote connection.");
     return false;
   }
   if (_msgSize != sizeof(DmtcpMessage)) {
@@ -80,6 +97,86 @@ DmtcpMessage::isValid() const
 void
 DmtcpMessage::poison() { memset(_magicBits, 0, sizeof(_magicBits)); }
 
+string
+DmtcpMessage::toCoordinatorCmdJson(const char *coordHost,
+                                   int coordPort,
+                                   const char *extraData) const
+{
+  Json json;
+
+  json.appendField("schema_version", JSON_SCHEMA_VERSION);
+  json.appendField("command", coordinatorCmdName(coordCmd));
+  json.appendField("command_status",
+                   coordinatorCmdStatusName(coordCmdStatus));
+  json.appendField("coordinator_host", coordHost);
+  json.appendField("coordinator_port", coordPort);
+
+  if (coordCmdStatus != DMT_COORD_SUCCESS) {
+    return json.str();
+  }
+
+  if (coordCmd == DMT_STATUS) {
+    json.appendField("num_peers", numPeers);
+    json.appendField("running", isRunning != 0);
+    json.appendField("checkpoint_interval", theCheckpointInterval);
+  } else if (coordCmd == DMT_LIST) {
+    json.appendField("workers", extraData != NULL ? extraData : "");
+  } else if (coordCmd == DMT_CHECKPOINT ||
+             coordCmd == DMT_BLOCKING_CKPT ||
+             coordCmd == DMT_KILL_AFTER_CKPT) {
+    json.appendField("num_peers", numPeers);
+  } else if (coordCmd == DMT_UPDATE_CKPT_INTERVAL) {
+    json.appendField("checkpoint_interval", theCheckpointInterval);
+  }
+
+  return json.str();
+}
+
+const char *
+dmtcp::coordinatorCmdName(CoordinatorCmd command)
+{
+  switch (command) {
+  case DMT_INVALID_COORDINATOR_COMMAND:
+    return "DMT_INVALID_COORDINATOR_COMMAND";
+  case DMT_STATUS:
+    return "DMT_STATUS";
+  case DMT_LIST:
+    return "DMT_LIST";
+  case DMT_CHECKPOINT:
+    return "DMT_CHECKPOINT";
+  case DMT_BLOCKING_CKPT:
+    return "DMT_BLOCKING_CKPT";
+  case DMT_KILL_AFTER_CKPT:
+    return "DMT_KILL_AFTER_CKPT";
+  case DMT_UPDATE_CKPT_INTERVAL:
+    return "DMT_UPDATE_CKPT_INTERVAL";
+  case DMT_KILL:
+    return "DMT_KILL";
+  case DMT_QUIT:
+    return "DMT_QUIT";
+  case DMT_HELP:
+    return "DMT_HELP";
+  default:
+    return "DMT_INVALID_COORDINATOR_COMMAND";
+  }
+}
+
+const char *
+dmtcp::coordinatorCmdStatusName(CoordinatorCmdStatus response)
+{
+  switch (response) {
+  case DMT_COORD_SUCCESS:
+    return "DMT_COORD_SUCCESS";
+  case DMT_COORD_INVALID_COMMAND:
+    return "DMT_COORD_INVALID_COMMAND";
+  case DMT_COORD_NOT_RUNNING:
+    return "DMT_COORD_NOT_RUNNING";
+  case DMT_COORD_NOT_FOUND:
+    return "DMT_COORD_NOT_FOUND";
+  default:
+    return "DMT_COORD_INVALID_COMMAND";
+  }
+}
 
 ostream&
 dmtcp::operator<<(dmtcp::ostream &o, const DmtcpMessageType &s)
@@ -97,6 +194,7 @@ dmtcp::operator<<(dmtcp::ostream &o, const DmtcpMessageType &s)
     OSHIFTPRINTF(DMT_REJECT_NOT_RESTARTING)
     OSHIFTPRINTF(DMT_REJECT_WRONG_COMP)
     OSHIFTPRINTF(DMT_REJECT_NOT_RUNNING)
+    OSHIFTPRINTF(DMT_REJECT_RESTART_PEER_MISMATCH)
 
     OSHIFTPRINTF(DMT_UPDATE_PROCESS_INFO_AFTER_FORK)
     OSHIFTPRINTF(DMT_UPDATE_PROCESS_INFO_AFTER_INIT_OR_EXEC)

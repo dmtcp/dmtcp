@@ -25,16 +25,15 @@
  * eventLoop calls:  onConnect, onData, onDisconnect, startCheckpoint       *
  *   when client or dmtcp_command talks to coordinator.                     *
  * onConnect called on msg at listener port.  It passes control to:         *
- *   handleUserCommand, which takes single char arg ('s', 'c', 'k', 'q', ...)*
+ *   handleUserCommand, which takes a CoordinatorCmd.                       *
  * handleUserCommand calls broadcastMessage to send data back               *
  * any message sent by broadcastMessage takes effect only on returning      *
  *   back up to top level monitorSockets                                    *
  * Hence, even for checkpoint, handleUserCommand just changes state,        *
  *   broadcasts an initial checkpoint command, and then returns to top      *
  *   level.  Replies from clients then drive further state changes.         *
- * The prefix command 'b' (blocking) from dmtcp_command modifies behavior   *
- *   of 'c' so that the reply to dmtcp_command happens only when clients    *
- *   are back in RUNNING state.                                             *
+ * DMT_BLOCKING_CKPT keeps the dmtcp_command socket open until clients are  *
+ *   back in RUNNING state and the checkpoint is complete.                  *
  * onData called when a message arrives at a client's port.  It either      *
  *   processes a per-client special request, or continues the protocol      *
  *   for a checkpoint or restart sequence (see below).                      *
@@ -72,12 +71,14 @@
 #include <time.h>
 #include <unistd.h>
 #include <algorithm>
+#include <cstring>
 #include <iomanip>
 #include "dmtcp_coordinator.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "constants.h"
+#include "coordinatorapi.h"
 #include "dmtcpmessagetypes.h"
 #include "lookup_service.h"
 #include "protectedfds.h"
@@ -316,41 +317,125 @@ DmtcpCoordinator::getNewVirtualPid()
 static string replyData = "";
 
 void
-DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
+DmtcpCoordinator::handleUserCommand(CoordinatorCmd command,
+                                    DmtcpMessage *reply /*= NULL*/)
 {
   if (reply != NULL) {
-    reply->coordCmdStatus = CoordCmdStatus::NOERROR;
+    reply->coordCmd = command;
+    reply->coordCmdStatus = DMT_COORD_SUCCESS;
   }
 
-  if (cmd == "bc" || cmd == "kc" || cmd == "ck" || cmd == "K" || cmd == "c") {
-    if (cmd == "bc") {
-      blockUntilDone = true;
-      JTRACE("blocking checkpoint beginning...");
-    } else if (cmd == "kc" || cmd == "ck" || cmd == "K") {
-      // dmtcp_command encodes this as 'cmd == "K"; '-kc' is the user flag.
-      JTRACE("Will kill peers after creating the checkpoint...");
-      killAfterCkptOnce = true;
+  switch (command) {
+  case DMT_BLOCKING_CKPT:
+    blockUntilDone = true;
+    JTRACE("blocking checkpoint beginning...");
+    if (startCheckpoint()) {
+      if (reply != NULL) {
+        reply->numPeers = getStatus().numPeers;
+      }
     } else {
-      JTRACE("checkpointing...");
+      blockUntilDone = false;
+      if (reply != NULL) {
+        reply->coordCmdStatus = DMT_COORD_NOT_RUNNING;
+      }
     }
+    break;
 
+  case DMT_KILL_AFTER_CKPT:
+    JTRACE("Will kill peers after creating the checkpoint...");
+    killAfterCkptOnce = true;
     if (startCheckpoint()) {
       if (reply != NULL) {
         reply->numPeers = getStatus().numPeers;
       }
     } else {
       if (reply != NULL) {
-        reply->coordCmdStatus = CoordCmdStatus::ERROR_NOT_RUNNING_STATE;
+        reply->coordCmdStatus = DMT_COORD_NOT_RUNNING;
       }
     }
-  } else if (cmd == "l" || cmd == "t") {
+    break;
+
+  case DMT_CHECKPOINT:
+    JTRACE("checkpointing...");
+    if (startCheckpoint()) {
+      if (reply != NULL) {
+        reply->numPeers = getStatus().numPeers;
+      }
+    } else {
+      if (reply != NULL) {
+        reply->coordCmdStatus = DMT_COORD_NOT_RUNNING;
+      }
+    }
+    break;
+
+  case DMT_LIST:
     if (reply != NULL) {
       replyData = printList();
       reply->extraBytes = replyData.length();
     } else {
       JASSERT_STDERR << printList();
     }
-  } else if (cmd == "u") {
+    break;
+
+  case DMT_QUIT:
+    JNOTE("killing all connected peers and quitting ...");
+    broadcastMessage(DMT_KILL_PEER);
+    JASSERT_STDERR << "DMTCP coordinator exiting... (per request)\n";
+    for (size_t i = 0; i < clients.size(); i++) {
+      clients[i]->sock().close();
+    }
+    listenSock->close();
+    preExitCleanup();
+    JTRACE("Exiting ...");
+    recordEvent("Exiting");
+    serializeKVDB();
+    exit(0);
+    break;
+
+  case DMT_UPDATE_CKPT_INTERVAL:
+    // Already handled by CkptIntervalManager
+    if (reply != NULL) {
+      reply->theCheckpointInterval =
+        CoordPluginMgr::ckptIntervalManager->theCheckpointInterval;
+    }
+    break;
+
+  case DMT_KILL:
+    JNOTE("Killing all connected peers...");
+    broadcastMessage(DMT_KILL_PEER);
+    break;
+
+  case DMT_HELP:
+    JASSERT_STDERR << theHelpMessage;
+    break;
+
+  case DMT_STATUS: {
+    ComputationStatus s = getStatus();
+    bool running = (s.minimumStateUnanimous &&
+                    s.minimumState == WorkerState::RUNNING);
+    if (reply != NULL) {
+      reply->numPeers = s.numPeers;
+      reply->isRunning = running;
+      reply->theCheckpointInterval = CoordPluginMgr::ckptIntervalManager->theCheckpointInterval;
+    } else {
+      printStatus(s.numPeers, running);
+    }
+    break;
+  }
+
+  default:
+    JNOTE("unhandled user command")(coordinatorCmdName(command));
+    if (reply != NULL) {
+      reply->coordCmdStatus = DMT_COORD_INVALID_COMMAND;
+    }
+    break;
+  }
+}
+
+void
+DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
+{
+  if (cmd == "u") {
     JASSERT_STDERR << "Host List:\n";
     JASSERT_STDERR << "HOST => # connected clients \n";
     dmtcp::map<string, int>clientHosts;
@@ -366,43 +451,10 @@ DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
          ++it) {
       JASSERT_STDERR << it->first << " => " << it->second << '\n';
     }
-  } else if (cmd == "q") {
-    JNOTE("killing all connected peers and quitting ...");
-    broadcastMessage(DMT_KILL_PEER);
-    JASSERT_STDERR << "DMTCP coordinator exiting... (per request)\n";
-    for (size_t i = 0; i < clients.size(); i++) {
-      clients[i]->sock().close();
-    }
-    listenSock->close();
-    preExitCleanup();
-    JTRACE("Exiting ...");
-    recordEvent("Exiting");
-    serializeKVDB();
-    exit(0);
-  } else if (cmd == "i") {
-    // Already handled by CkptIntervalManager
-  } else if (cmd == "k") {
-    JNOTE("Killing all connected peers...");
-    broadcastMessage(DMT_KILL_PEER);
-  } else if (cmd == "h" || cmd == "?") {
-    JASSERT_STDERR << theHelpMessage;
-  } else if (cmd == "s") {
-    ComputationStatus s = getStatus();
-    bool running = (s.minimumStateUnanimous &&
-                    s.minimumState == WorkerState::RUNNING);
-    if (reply != NULL) {
-      reply->numPeers = s.numPeers;
-      reply->isRunning = running;
-      reply->theCheckpointInterval = CoordPluginMgr::ckptIntervalManager->theCheckpointInterval;
-    } else {
-      printStatus(s.numPeers, running);
-    }
-  } else {
-    JNOTE("unhandled user command")(cmd);
-    if (reply != NULL) {
-      reply->coordCmdStatus = CoordCmdStatus::ERROR_INVALID_COMMAND;
-    }
+    return;
   }
+
+  handleUserCommand(CoordinatorAPI::parseCoordinatorCmd(cmd.c_str()), reply);
 }
 
 void DmtcpCoordinator::getStatusStr(ostream *o)
@@ -593,6 +645,8 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 
     if (blockUntilDone) {
       DmtcpMessage blockUntilDoneReply(DMT_USER_CMD_RESULT);
+      blockUntilDoneReply.coordCmd = DMT_BLOCKING_CKPT;
+      blockUntilDoneReply.numPeers = getStatus().numPeers;
       JNOTE("replying to dmtcp_command:  we're done");
 
       // These were set in DmtcpCoordinator::onConnect in this file
@@ -944,24 +998,28 @@ DmtcpCoordinator::processDmtUserCmd(DmtcpMessage &hello_remote,
                                     jalib::JSocket &remote)
 {
   // dmtcp_command doesn't handshake (it is antisocial)
-  JTRACE("got user command from dmtcp_command")((char)hello_remote.coordCmd);
+  JTRACE("got user command from dmtcp_command")
+    (coordinatorCmdName(hello_remote.coordCmd));
   DmtcpMessage reply;
   reply.type = DMT_USER_CMD_RESULT;
+  reply.coordCmd = hello_remote.coordCmd;
 
-  string cmd(1, hello_remote.coordCmd);
-
-  // if previous 'b' blocking prefix command had set blockUntilDone
-  if (blockUntilDone && blockUntilDoneRemote == -1 &&
-      hello_remote.coordCmd == 'c') {
-    // Reply will be done in DmtcpCoordinator::onData in this file.
+  if (hello_remote.coordCmd == DMT_BLOCKING_CKPT) {
     blockUntilDoneRemote = remote.sockfd();
-    handleUserCommand(cmd, &reply);
-  } else if (hello_remote.coordCmd == 'i') {
-    handleUserCommand(cmd, &reply);
+    handleUserCommand(hello_remote.coordCmd, &reply);
+    if (reply.coordCmdStatus != DMT_COORD_SUCCESS) {
+      remote << reply;
+      remote.close();
+      blockUntilDoneRemote = -1;
+    }
+  } else if (hello_remote.coordCmd == DMT_UPDATE_CKPT_INTERVAL) {
+    CoordPluginMgr::ckptIntervalManager->userCmd(hello_remote, getStatus(),
+                                                 &reply);
+    handleUserCommand(hello_remote.coordCmd, &reply);
     remote << reply;
     remote.close();
   } else {
-    handleUserCommand(cmd, &reply);
+    handleUserCommand(hello_remote.coordCmd, &reply);
     remote << reply;
     if (reply.extraBytes > 0) {
       remote.writeAll(replyData.c_str(), reply.extraBytes);
@@ -1770,7 +1828,7 @@ main(int argc, char **argv)
       fd = open("/dev/null", O_RDWR);
       JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
     } else {
-      fd = open(flags.logFilename.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0666);
+      fd = open(flags.logFilename.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0644);
       JASSERT_SET_LOG(flags.logFilename);
       int nullFd = open("/dev/null", O_RDWR);
       JASSERT(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO);
