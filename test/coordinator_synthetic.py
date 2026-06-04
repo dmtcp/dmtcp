@@ -413,6 +413,32 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             finally:
                 worker.stop()
 
+    def test_checkpoint_command_rejects_second_request_while_active(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(coordinator.port, expect_checkpoint=True)
+            try:
+                worker.wait_until_accepted()
+                result = self.run_command("--json", "--coord-port",
+                                          str(coordinator.port),
+                                          "--checkpoint")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                payload = json.loads(result.stdout)
+
+                self.assertTrue(payload["ok"])
+                worker.wait_until_checkpoint_requested()
+
+                result = self.run_command("--json", "--coord-port",
+                                          str(coordinator.port),
+                                          "--checkpoint")
+                self.assertNotEqual(result.returncode, 0)
+                payload = json.loads(result.stdout)
+
+                self.assertFalse(payload["ok"])
+                self.assertEqual(payload["type"], "checkpoint")
+                self.assertEqual(payload["error_code"], "not_running")
+            finally:
+                worker.stop()
+
     def test_worker_update_during_checkpoint_gets_duplicate_request(self):
         with CoordinatorFixture() as coordinator:
             worker = WorkerProcess(coordinator.port,
