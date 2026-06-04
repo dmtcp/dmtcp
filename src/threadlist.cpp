@@ -613,7 +613,7 @@ stopthisthread(int signum)
 
   // Case 5 above.
   if (curThread == ckptThread || curThread->state == ST_RUNNING) {
-    CoordinatorAPI::connectAndSendUserCommand('c');
+    CoordinatorAPI::connectAndSendUserCommand(DMT_CHECKPOINT);
     return;
   }
 

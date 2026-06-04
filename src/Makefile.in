@@ -142,10 +142,11 @@ libdmtcpinternal_a_RANLIB = $(RANLIB)
 libdmtcpinternal_a_LIBADD =
 am_libdmtcpinternal_a_OBJECTS = coordinatorapi.$(OBJEXT) \
 	dmtcpmessagetypes.$(OBJEXT) dmtcp_dlsym.$(OBJEXT) \
-	jalibinterface.$(OBJEXT) mutex.$(OBJEXT) processinfo.$(OBJEXT) \
-	procselfmaps.$(OBJEXT) rwlock.$(OBJEXT) shareddata.$(OBJEXT) \
-	tokenize.$(OBJEXT) uniquepid.$(OBJEXT) util_exec.$(OBJEXT) \
-	util_init.$(OBJEXT) util_misc.$(OBJEXT) workerstate.$(OBJEXT)
+	json.$(OBJEXT) jalibinterface.$(OBJEXT) mutex.$(OBJEXT) \
+	processinfo.$(OBJEXT) procselfmaps.$(OBJEXT) rwlock.$(OBJEXT) \
+	shareddata.$(OBJEXT) tokenize.$(OBJEXT) uniquepid.$(OBJEXT) \
+	util_exec.$(OBJEXT) util_init.$(OBJEXT) util_misc.$(OBJEXT) \
+	workerstate.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libdmtcprestart_a_AR = $(AR) $(ARFLAGS)
 libdmtcprestart_a_RANLIB = $(RANLIB)
@@ -394,7 +395,8 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	./$(DEPDIR)/dmtcp_restart.Po ./$(DEPDIR)/dmtcpmessagetypes.Po \
 	./$(DEPDIR)/dmtcpnohijackstubs.Po \
 	./$(DEPDIR)/dmtcprestartinternal.Po \
-	./$(DEPDIR)/jalibinterface.Po ./$(DEPDIR)/lookup_service.Po \
+	./$(DEPDIR)/jalibinterface.Po ./$(DEPDIR)/json.Po \
+	./$(DEPDIR)/lookup_service.Po \
 	./$(DEPDIR)/mutex.Po ./$(DEPDIR)/nosyscallsreal.Po \
 	./$(DEPDIR)/processinfo.Po ./$(DEPDIR)/procselfmaps.Po \
 	./$(DEPDIR)/restartscript.Po ./$(DEPDIR)/rwlock.Po \
@@ -844,7 +846,7 @@ include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
 # headers:
 nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 	coordinatorplugin.h dmtcp_coordinator.h dmtcprestartinternal.h \
-	dmtcpmessagetypes.h dmtcpworker.h lookup_service.h ldt.h \
+	dmtcpmessagetypes.h dmtcpworker.h json.h lookup_service.h ldt.h \
 	plugininfo.h pluginmanager.h processinfo.h restartscript.h \
 	tls.h siginfo.h syscallwrappers.h threadinfo.h threadlist.h \
 	threadsync.h uniquepid.h workerstate.h plugin/alloc/alloc.h \
@@ -867,6 +869,7 @@ nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
 			     dmtcpmessagetypes.cpp		\
 			     dmtcp_dlsym.cpp 			\
+			     json.cpp				\
 			     jalibinterface.cpp			\
 			     mutex.cpp 				\
 			     processinfo.cpp 			\
@@ -1458,6 +1461,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpnohijackstubs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcprestartinternal.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jalibinterface.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/json.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lookup_service.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mutex.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nosyscallsreal.Po@am__quote@ # am--include-marker

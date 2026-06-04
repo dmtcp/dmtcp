@@ -128,6 +128,50 @@ LIB_PRIVATE DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   eventHook
 };
 
+CoordinatorCmd
+parseCoordinatorCmd(const char *command)
+{
+  if (command == NULL) {
+    return DMT_INVALID_COORDINATOR_COMMAND;
+  }
+  while (*command == '-') {
+    command++;
+  }
+
+  if (strcmp(command, "s") == 0 || strcmp(command, "status") == 0) {
+    return DMT_STATUS;
+  }
+  if (strcmp(command, "l") == 0 || strcmp(command, "t") == 0 ||
+      strcmp(command, "list") == 0) {
+    return DMT_LIST;
+  }
+  if (strcmp(command, "c") == 0 || strcmp(command, "checkpoint") == 0) {
+    return DMT_CHECKPOINT;
+  }
+  if (strcmp(command, "bc") == 0 || strcmp(command, "bcheckpoint") == 0) {
+    return DMT_BLOCKING_CKPT;
+  }
+  if (strcmp(command, "kc") == 0 || strcmp(command, "ck") == 0 ||
+      strcmp(command, "K") == 0 || strcmp(command, "Kc") == 0 ||
+      strcmp(command, "kcheckpoint") == 0) {
+    return DMT_KILL_AFTER_CKPT;
+  }
+  if (strcmp(command, "i") == 0 || strcmp(command, "interval") == 0) {
+    return DMT_UPDATE_CKPT_INTERVAL;
+  }
+  if (strcmp(command, "k") == 0 || strcmp(command, "kill") == 0) {
+    return DMT_KILL;
+  }
+  if (strcmp(command, "q") == 0 || strcmp(command, "quit") == 0) {
+    return DMT_QUIT;
+  }
+  if (strcmp(command, "h") == 0 || strcmp(command, "help") == 0 ||
+      strcmp(command, "?") == 0) {
+    return DMT_HELP;
+  }
+  return DMT_INVALID_COORDINATOR_COMMAND;
+}
+
 void
 restart()
 {
@@ -284,24 +328,35 @@ closeConnection()
 }
 
 char*
-connectAndSendUserCommand(char c,
-                          int *coordCmdStatus,
+connectAndSendUserCommand(CoordinatorCmd command,
+                          CoordinatorCmdStatus *coordCmdStatus,
                           int *numPeers,
                           int *isRunning,
-                          int *ckptInterval)
+                          int *ckptInterval,
+                          DmtcpMessage *response)
 {
   char *replyData = NULL;
+  if (response != NULL) {
+    *response = DmtcpMessage(DMT_USER_CMD_RESULT);
+    response->coordCmd = command;
+  }
+
   int coordFd = createNewSocketToCoordinator(COORD_ANY);
   if (coordFd == -1) {
-    *coordCmdStatus = CoordCmdStatus::ERROR_COORDINATOR_NOT_FOUND;
+    if (coordCmdStatus != NULL) {
+      *coordCmdStatus = DMT_COORD_NOT_FOUND;
+    }
+    if (response != NULL) {
+      response->coordCmdStatus = DMT_COORD_NOT_FOUND;
+    }
     return replyData;
   }
 
   // Tell the coordinator to run given user command
   DmtcpMessage msg(DMT_USER_CMD);
-  msg.coordCmd = c;
+  msg.coordCmd = command;
 
-  if (c == 'i') {
+  if (command == DMT_UPDATE_CKPT_INTERVAL) {
     const char *interval = getenv(ENV_VAR_CKPT_INTR);
     if (interval != NULL) {
       msg.theCheckpointInterval = jalib::StringToInt(interval);
@@ -310,8 +365,13 @@ connectAndSendUserCommand(char c,
   JASSERT(Util::writeAll(coordFd, &msg, sizeof(msg)) == sizeof(msg));
 
   // The coordinator will violently close our socket...
-  if (c == 'q' || c == 'Q') {
-    *coordCmdStatus = CoordCmdStatus::NOERROR;
+  if (command == DMT_QUIT) {
+    if (coordCmdStatus != NULL) {
+      *coordCmdStatus = DMT_COORD_SUCCESS;
+    }
+    if (response != NULL) {
+      response->coordCmdStatus = DMT_COORD_SUCCESS;
+    }
     return replyData;
   }
 
@@ -321,6 +381,11 @@ connectAndSendUserCommand(char c,
   recvMsgFromCoordinatorRaw(coordFd, &reply, (void**)&replyData);
   reply.assertValid();
   JASSERT(reply.type == DMT_USER_CMD_RESULT);
+  reply.coordCmd = command;
+
+  if (response != NULL) {
+    *response = reply;
+  }
 
   if (coordCmdStatus != NULL) {
     *coordCmdStatus = reply.coordCmdStatus;

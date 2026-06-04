@@ -87,17 +87,29 @@ enum DmtcpMessageType {
   DMT_KVDB_RESPONSE
 };
 
-namespace CoordCmdStatus
-{
-enum  ErrorCodes {
-  NOERROR                 =  0,
-  ERROR_INVALID_COMMAND   = -1,
-  ERROR_NOT_RUNNING_STATE = -2,
-  ERROR_COORDINATOR_NOT_FOUND = -3
+enum CoordinatorCmd : uint32_t {
+  DMT_INVALID_COORDINATOR_COMMAND = 0,
+  DMT_STATUS,
+  DMT_LIST,
+  DMT_CHECKPOINT,
+  DMT_BLOCKING_CKPT,
+  DMT_KILL_AFTER_CKPT,
+  DMT_UPDATE_CKPT_INTERVAL,
+  DMT_KILL,
+  DMT_QUIT,
+  DMT_HELP
 };
-}
+
+enum CoordinatorCmdStatus : int32_t {
+  DMT_COORD_SUCCESS = 0,
+  DMT_COORD_INVALID_COMMAND = -1,
+  DMT_COORD_NOT_RUNNING = -2,
+  DMT_COORD_NOT_FOUND = -3
+};
 
 ostream&operator<<(ostream &o, const DmtcpMessageType &s);
+const char *coordinatorCmdName(CoordinatorCmd command);
+const char *coordinatorCmdStatusName(CoordinatorCmdStatus response);
 
 #define DMTCPMESSAGE_NUM_PARAMS         2
 #define DMTCPMESSAGE_SAME_CKPT_INTERVAL (~0u) /* default value */
@@ -135,8 +147,8 @@ struct DmtcpMessage {
 
   uint32_t numPeers;
   uint32_t isRunning;
-  uint32_t coordCmd;
-  int32_t coordCmdStatus;
+  CoordinatorCmd coordCmd;
+  CoordinatorCmdStatus coordCmdStatus;
 
   uint64_t coordTimeStamp;
 
@@ -147,6 +159,9 @@ struct DmtcpMessage {
   uint32_t exitAfterCkpt;
 
   DmtcpMessage(DmtcpMessageType t = DMT_NULL);
+  string toCoordinatorCmdJson(const char *coordHost,
+                              int coordPort,
+                              const char *extraData = NULL) const;
   void assertValid() const;
   bool isValid() const;
   void poison();

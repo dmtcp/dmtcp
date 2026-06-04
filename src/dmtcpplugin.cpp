@@ -76,10 +76,10 @@ dmtcp_checkpoint()
     {
       WrapperLockExcl wrapperLockExcl;
 
-      int status;
-      CoordinatorAPI::connectAndSendUserCommand('c', &status);
+      CoordinatorCmdStatus status;
+      CoordinatorAPI::connectAndSendUserCommand(DMT_CHECKPOINT, &status);
 
-      if (status != CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
+      if (status != DMT_COORD_NOT_RUNNING) {
         oldNumRestarts = ProcessInfo::instance().numRestarts();
         oldNumCheckpoints = ProcessInfo::instance().numCheckpoints();
         break;
@@ -108,8 +108,9 @@ dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
 {
   WrapperLockExcl wrapperLockExcl;
 
-  int status;
-  CoordinatorAPI::connectAndSendUserCommand('s', &status, numPeers, isRunning);
+  CoordinatorCmdStatus status;
+  CoordinatorAPI::connectAndSendUserCommand(DMT_STATUS, &status, numPeers,
+                                            isRunning);
 
   return DMTCP_IS_PRESENT;
 }

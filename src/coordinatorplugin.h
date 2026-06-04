@@ -121,7 +121,7 @@ class CkptIntervalManager : public CoordinatorPlugin
 
     virtual void userCmd(DmtcpMessage const& msg, ComputationStatus status, DmtcpMessage *reply) override
     {
-      if (msg.coordCmd != 'i') {
+      if (msg.coordCmd != DMT_UPDATE_CKPT_INTERVAL) {
         return;
       }
 

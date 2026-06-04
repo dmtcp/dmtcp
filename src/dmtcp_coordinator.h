@@ -180,6 +180,8 @@ class DmtcpCoordinator
     bool startCheckpoint();
     void recordCkptFilename(CoordClient *client, const char *barrierList);
 
+    void handleUserCommand(CoordinatorCmd command,
+                           DmtcpMessage *reply = NULL);
     void handleUserCommand(dmtcp::string cmd, DmtcpMessage *reply = NULL);
     void getStatusStr(ostream *o);
     void writeStatusToFile();

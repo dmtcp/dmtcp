@@ -70,11 +70,13 @@ void sendMsgToCoordinator(DmtcpMessage msg,
 void sendMsgToCoordinator(const DmtcpMessage &msg, const string &data);
 void recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData = NULL);
 bool waitForBarrier(const string& barrier, uint32_t *numPeers = NULL);
-char *connectAndSendUserCommand(char c,
-                                int *coordCmdStatus = NULL,
+char *connectAndSendUserCommand(CoordinatorCmd command,
+                                CoordinatorCmdStatus *coordCmdStatus = NULL,
                                 int *numPeers = NULL,
                                 int *isRunning = NULL,
-                                int *ckptInterval = NULL);
+                                int *ckptInterval = NULL,
+                                DmtcpMessage *response = NULL);
+CoordinatorCmd parseCoordinatorCmd(const char *command);
 
 void sendCkptFilename();
 

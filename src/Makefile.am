@@ -107,6 +107,7 @@ nobase_noinst_HEADERS =						\
 			dmtcprestartinternal.h			\
 			dmtcpmessagetypes.h			\
 			dmtcpworker.h				\
+			json.h					\
 			lookup_service.h			\
 			ldt.h					\
 			plugininfo.h				\
@@ -151,6 +152,7 @@ nobase_noinst_HEADERS += $(dmtcpincludedir)/dmtcp.h		\
 libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
 			     dmtcpmessagetypes.cpp		\
 			     dmtcp_dlsym.cpp 			\
+			     json.cpp				\
 			     jalibinterface.cpp			\
 			     mutex.cpp 				\
 			     processinfo.cpp 			\
