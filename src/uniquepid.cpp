@@ -29,6 +29,7 @@
 #include "protectedfds.h"
 #include "shareddata.h"
 #include "syscallwrappers.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -45,7 +46,8 @@ theUniqueHostId()
   // gethostid() calls socket() on some systems, which we don't want
   char buf[512];
 
-  JASSERT(::gethostname(buf, sizeof(buf)) == 0)(JASSERT_ERRNO);
+  ASSERT_ERRNO(::gethostname(buf, sizeof(buf)) == 0,
+               "gethostname failed");
 
   // so return a bad hash of our hostname
   long h = 0;
@@ -62,7 +64,8 @@ inline static long
 getTimeNs()
 {
   struct timespec value;
-  JASSERT(clock_gettime(CLOCK_MONOTONIC, &value) == 0);
+  ASSERT_ERRNO(clock_gettime(CLOCK_MONOTONIC, &value) == 0,
+               "clock_gettime(CLOCK_MONOTONIC) failed");
   long nsecs = value.tv_sec * 1000000000L + value.tv_nsec;
   return nsecs;
 }

@@ -29,6 +29,7 @@
 #include "fileconnection.h"
 #include "fileconnlist.h"
 #include "filewrappers.h"
+#include "util_assert.h"
 #include "wrapperlock.h"
 
 using namespace dmtcp;
@@ -95,7 +96,8 @@ mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned msg_prio)
   struct timespec ts;
 
   do {
-    JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+    ASSERT_ERRNO(clock_gettime(CLOCK_REALTIME, &ts) != -1,
+                 "clock_gettime(CLOCK_REALTIME) failed before mq_timedsend");
     ts.tv_sec += 1000;
     res = mq_timedsend(mqdes, msg_ptr, msg_len, msg_prio, &ts);
   } while (res == -1 && errno == ETIMEDOUT);
@@ -114,7 +116,8 @@ mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned *msg_prio)
   struct timespec ts;
 
   do {
-    JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+    ASSERT_ERRNO(clock_gettime(CLOCK_REALTIME, &ts) != -1,
+                 "clock_gettime(CLOCK_REALTIME) failed before mq_timedreceive");
     ts.tv_sec += 1000;
     res = mq_timedreceive(mqdes, msg_ptr, msg_len, msg_prio, &ts);
   } while (res == -1 && errno == ETIMEDOUT);
@@ -154,7 +157,8 @@ mq_timedsend(mqd_t mqdes,
   do {
     {
       WrapperLock wrapperLock;
-      JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+      ASSERT_ERRNO(clock_gettime(CLOCK_REALTIME, &ts) != -1,
+                   "clock_gettime(CLOCK_REALTIME) failed in mq_timedsend");
       if (TIMESPEC_CMP(&ts, abs_timeout, <=)) {
         advanceTimeoutUpToDeadline(&ts, abs_timeout);
       }
@@ -189,7 +193,8 @@ mq_timedreceive(mqd_t mqdes,
   do {
     {
       WrapperLock wrapperLock;
-      JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+      ASSERT_ERRNO(clock_gettime(CLOCK_REALTIME, &ts) != -1,
+                   "clock_gettime(CLOCK_REALTIME) failed in mq_timedreceive");
       if (TIMESPEC_CMP(&ts, abs_timeout, <=)) {
         advanceTimeoutUpToDeadline(&ts, abs_timeout);
       }
