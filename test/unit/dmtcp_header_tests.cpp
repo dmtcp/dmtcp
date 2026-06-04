@@ -32,6 +32,15 @@ void processInfoDoesNotInheritBootstrapHeader()
   ASSERT_TRUE((!std::is_base_of_v<DmtcpCkptHeader, dmtcp::ProcessInfo>));
 }
 
+void processInfoFillsCallerOwnedBootstrapHeader()
+{
+  using FillFn = void (dmtcp::ProcessInfo::*)(DmtcpCkptHeader *) const;
+
+  ASSERT_TRUE((std::is_same_v<
+               decltype(&dmtcp::ProcessInfo::fillCheckpointHeader),
+               FillFn>));
+}
+
 void ckptSignatureFitsHeaderField()
 {
   ASSERT_TRUE(sizeof(DMTCP_CKPT_SIGNATURE) <=
@@ -93,6 +102,8 @@ extern const dmtcp_test::TestCase dmtcpHeaderTests[] = {
   {"DmtcpCkptHeader restart fields stay plain", ckptHeaderKeepsRestartFieldsPlain},
   {"ProcessInfo does not inherit bootstrap header",
    processInfoDoesNotInheritBootstrapHeader},
+  {"ProcessInfo fills caller-owned bootstrap header",
+   processInfoFillsCallerOwnedBootstrapHeader},
   {"checkpoint signature fits header field", ckptSignatureFitsHeaderField},
   {"checkpoint header is self describing", ckptHeaderIsSelfDescribing},
   {"checkpoint header validates bootstrap fields", ckptHeaderBootstrapValidation},

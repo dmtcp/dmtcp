@@ -716,45 +716,43 @@ ProcessInfo::getState()
   JTRACE("CHECK GROUP PID")(gid)(fgid)(ppid)(pid);
 }
 
-DmtcpCkptHeader
-ProcessInfo::checkpointHeaderSnapshot() const
+void
+ProcessInfo::fillCheckpointHeader(DmtcpCkptHeader *header) const
 {
-  DmtcpCkptHeader header = {};
-  strcpy(header.ckptSignature, DMTCP_CKPT_SIGNATURE);
-  dmtcp_init_ckpt_header_bootstrap(&header);
+  memset(header, 0, sizeof(*header));
+  strcpy(header->ckptSignature, DMTCP_CKPT_SIGNATURE);
+  dmtcp_init_ckpt_header_bootstrap(header);
 
-  header.upid = upid;
-  header.uppid = uppid;
-  header.compGroup = compGroup;
+  header->upid = upid;
+  header->uppid = uppid;
+  header->compGroup = compGroup;
 
-  header.pid = pid;
-  header.ppid = ppid;
-  header.sid = sid;
-  header.gid = gid;
-  header.fgid = fgid;
-  header.isRootOfProcessTree = isRootOfProcessTree;
+  header->pid = pid;
+  header->ppid = ppid;
+  header->sid = sid;
+  header->gid = gid;
+  header->fgid = fgid;
+  header->isRootOfProcessTree = isRootOfProcessTree;
 
-  header.numPeers = numPeers;
-  header.elfType = elfType;
+  header->numPeers = numPeers;
+  header->elfType = elfType;
 
-  header.clock_gettime_offset = clock_gettime_offset;
-  header.getcpu_offset = getcpu_offset;
-  header.gettimeofday_offset = gettimeofday_offset;
-  header.time_offset = time_offset;
+  header->clock_gettime_offset = clock_gettime_offset;
+  header->getcpu_offset = getcpu_offset;
+  header->gettimeofday_offset = gettimeofday_offset;
+  header->time_offset = time_offset;
 
-  header.restoreBuf = restoreBuf;
-  header.vdso = vdso;
-  header.vvar = vvar;
-  header.vvarVClock = vvarVClock;
+  header->restoreBuf = restoreBuf;
+  header->vdso = vdso;
+  header->vvar = vvar;
+  header->vvarVClock = vvarVClock;
 
-  header.savedBrk = savedBrk;
-  header.endOfStack = endOfStack;
-  header.postRestartAddr = postRestartAddr;
+  header->savedBrk = savedBrk;
+  header->endOfStack = endOfStack;
+  header->postRestartAddr = postRestartAddr;
 
-  memcpy(header.procname, procname, sizeof(header.procname));
-  memcpy(header.procSelfExe, procSelfExe, sizeof(header.procSelfExe));
-
-  return header;
+  memcpy(header->procname, procname, sizeof(header->procname));
+  memcpy(header->procSelfExe, procSelfExe, sizeof(header->procSelfExe));
 }
 
 void

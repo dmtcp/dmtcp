@@ -331,7 +331,8 @@ ThreadList::writeCkpt()
 
   string ckptFilename = ProcessInfo::instance().getTempCkptFilename();
 
-  DmtcpCkptHeader header = ProcessInfo::instance().checkpointHeaderSnapshot();
+  DmtcpCkptHeader header;
+  ProcessInfo::instance().fillCheckpointHeader(&header);
   header.savedBrk = (uint64_t) sbrk(0);
   header.postRestartAddr = (uint64_t) &ThreadList::postRestart;
 
