@@ -68,6 +68,41 @@ static const char *theUsage =
 static const int JSON_SCHEMA_VERSION = 1;
 
 static const char *
+jsonCommandType(char cmdChar)
+{
+  switch (cmdChar) {
+  case 's':
+    return "status";
+  case 'c':
+  case 'b':
+  case 'K':
+    return "checkpoint";
+  case 'k':
+    return "kill";
+  case 'q':
+    return "quit";
+  default:
+    return "unknown";
+  }
+}
+
+static bool
+jsonCommandSupported(char cmdChar)
+{
+  switch (cmdChar) {
+  case 's':
+  case 'c':
+  case 'b':
+  case 'K':
+  case 'k':
+  case 'q':
+    return true;
+  default:
+    return false;
+  }
+}
+
+static const char *
 getCoordinatorHost()
 {
   const char *host = getenv(ENV_VAR_NAME_HOST);
@@ -184,6 +219,23 @@ printJsonStatusSuccess(int numPeers, int isRunning, int ckptInterval)
 }
 
 static void
+printJsonCommandSuccess(const char *type)
+{
+  printJsonCommandPrefix(type, true);
+  printJsonCoordinator();
+  printf("}\n");
+}
+
+static void
+printJsonCheckpointSuccess(int numPeers)
+{
+  printJsonCommandPrefix("checkpoint", true);
+  printJsonCoordinator();
+  printf(",\"num_peers\":%d", numPeers);
+  printf("}\n");
+}
+
+static void
 printJsonError(const char *type, int status)
 {
   printJsonCommandPrefix(type, false);
@@ -286,7 +338,7 @@ main(int argc, char **argv)
   char *workerList = NULL;
   // After this, the first char of the request is unique.  We only need that.
   char cmdChar = *(char *)request.c_str();
-  if (jsonOutput && cmdChar != 's') {
+  if (jsonOutput && !jsonCommandSupported(cmdChar)) {
     printJsonError("unknown", CoordCmdStatus::ERROR_INVALID_COMMAND);
     return 2;
   }
@@ -334,7 +386,7 @@ main(int argc, char **argv)
   // check for error
   if (coordCmdStatus != CoordCmdStatus::NOERROR) {
     if (jsonOutput) {
-      printJsonError(cmdChar == 's' ? "status" : "unknown", coordCmdStatus);
+      printJsonError(jsonCommandType(cmdChar), coordCmdStatus);
       return 2;
     }
     switch (coordCmdStatus) {
@@ -368,8 +420,14 @@ main(int argc, char **argv)
     return 2;
   }
 
-  if (cmdChar == 's' && jsonOutput) {
-    printJsonStatusSuccess(numPeers, isRunning, ckptInterval);
+  if (jsonOutput) {
+    if (cmdChar == 's') {
+      printJsonStatusSuccess(numPeers, isRunning, ckptInterval);
+    } else if (cmdChar == 'c' || cmdChar == 'b' || cmdChar == 'K') {
+      printJsonCheckpointSuccess(numPeers);
+    } else {
+      printJsonCommandSuccess(jsonCommandType(cmdChar));
+    }
   } else if(cmdChar == 's' || cmdChar == 'l'){
     printf("Coordinator:\n");
     const char *host = getCoordinatorHost();
