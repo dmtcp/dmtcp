@@ -90,6 +90,20 @@ class DmtcpCommandJsonTest(unittest.TestCase):
         self.assertEqual(payload["coordinator_host"], "localhost")
         self.assertEqual(payload["coordinator_port"], 1)
 
+    def test_json_escapes_coordinator_host(self):
+        host = 'bad"host\nname'
+
+        result = self.run_command("--json", "--coord-host", host,
+                                  "--coord-port", "1", "--status")
+
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stderr, "")
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["coordinator_host"], host)
+        self.assertEqual(payload["coordinator_port"], 1)
+
     def test_status_json_reports_reachable_coordinator_status(self):
         with CoordinatorFixture() as coordinator:
             result = self.run_command("--json", "--coord-port",
