@@ -133,9 +133,9 @@ dmtcp_get_thread_assert_buffer(size_t *size)
   }
 
   if (size != NULL) {
-    *size = sizeof(thread->assertBuffer);
+    *size = sizeof(thread->core.assertBuffer);
   }
-  return thread->assertBuffer;
+  return thread->core.assertBuffer;
 }
 
 /*****************************************************************************

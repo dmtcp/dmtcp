@@ -11,7 +11,7 @@ void threadInfoOwnsAssertBuffer()
 {
   Thread thread = {};
 
-  ASSERT_EQ(sizeof(thread.assertBuffer), dmtcp::kAssertBufferSize);
+  ASSERT_EQ(sizeof(thread.core.assertBuffer), dmtcp::kAssertBufferSize);
 }
 
 } // namespace

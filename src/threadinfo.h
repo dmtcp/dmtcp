@@ -58,6 +58,10 @@ typedef enum ThreadState {
 
 typedef struct Thread Thread;
 
+typedef struct ThreadCoreInfo {
+  char assertBuffer[DMTCP_ASSERT_BUFFER_SIZE];
+} ThreadCoreInfo;
+
 struct Thread {
   pid_t tid;
   int state;
@@ -95,7 +99,7 @@ struct Thread {
 
   uint32_t wrapperLockCount;
 
-  char assertBuffer[DMTCP_ASSERT_BUFFER_SIZE];
+  ThreadCoreInfo core;
 
   Thread *next;
   Thread *prev;
