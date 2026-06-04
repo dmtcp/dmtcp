@@ -715,6 +715,33 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 if second is not None:
                     second.stop()
 
+    def test_restart_worker_is_rejected_while_checkpoint_is_active(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(coordinator.port, expect_checkpoint=True)
+            restart_worker = None
+            try:
+                worker.wait_until_accepted()
+                result = self.run_command("--json", "--coord-port",
+                                          str(coordinator.port),
+                                          "--checkpoint")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                payload = json.loads(result.stdout)
+
+                self.assertTrue(payload["ok"])
+                worker.wait_until_checkpoint_requested()
+
+                restart_worker = WorkerProcess(
+                    coordinator.port, expect_reject_not_restarting=True)
+                restart_worker.wait_until_rejected_not_restarting()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 1)
+            finally:
+                worker.stop()
+                if restart_worker is not None:
+                    restart_worker.stop()
+
     def test_worker_update_during_checkpoint_gets_duplicate_request(self):
         with CoordinatorFixture() as coordinator:
             worker = WorkerProcess(coordinator.port,
