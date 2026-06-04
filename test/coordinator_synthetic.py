@@ -29,6 +29,17 @@ def read_port_file(path):
     raise RuntimeError("coordinator did not write its port file")
 
 
+def read_nonempty_file(path):
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        if path.exists():
+            data = path.read_text(encoding="utf-8")
+            if data:
+                return data
+        time.sleep(0.05)
+    raise RuntimeError(f"file stayed empty: {path}")
+
+
 class CoordinatorFixture:
     def __init__(self, extra_args=None):
         self.tmp = tempfile.TemporaryDirectory(prefix="dmtcp-coord-synth-")
@@ -407,6 +418,17 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertTrue(status["running"])
             finally:
                 worker.stop()
+
+    def test_status_file_is_written_at_startup(self):
+        with tempfile.TemporaryDirectory(prefix="dmtcp-status-file-") as tmp:
+            status_file = pathlib.Path(tmp) / "coordinator.status"
+            with CoordinatorFixture(
+                    extra_args=["--status-file", str(status_file)]):
+                contents = read_nonempty_file(status_file)
+
+                self.assertIn("Coordinator started:", contents)
+                self.assertIn("Status...", contents)
+                self.assertIn("Checkpoint Interval:", contents)
 
     def test_two_synthetic_workers_join_same_computation(self):
         with CoordinatorFixture() as coordinator:
