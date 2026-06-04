@@ -878,6 +878,11 @@ DmtcpCoordinator::onConnect()
     return;
   }
 
+  if (!hello_remote.isValid()) {
+    remote.close();
+    return;
+  }
+
   if (hello_remote.type == DMT_NAME_SERVICE_WORKER) {
     CoordClient *client = new CoordClient(remote, &remoteAddr, remoteLen,
                                           hello_remote);

@@ -22,6 +22,7 @@ struct Options {
   bool expectDuplicateCheckpoint = false;
   bool expectRejectNotRestarting = false;
   bool expectKvdb = false;
+  bool expectInvalidProtocolReject = false;
   bool invalidCompGroup = false;
   std::string barrier;
 };
@@ -58,6 +59,30 @@ readAll(int fd, void *buffer, size_t bytes)
     cursor += received;
     bytes -= received;
   }
+}
+
+bool
+readMessageOrEof(int fd, dmtcp::DmtcpMessage *msg)
+{
+  char *cursor = reinterpret_cast<char *>(msg);
+  size_t bytes = sizeof(*msg);
+  bool sawBytes = false;
+  while (bytes > 0) {
+    ssize_t received = read(fd, cursor, bytes);
+    if (received == -1 && errno == EINTR) {
+      continue;
+    }
+    if (received == 0 && !sawBytes) {
+      return false;
+    }
+    if (received <= 0) {
+      throw std::runtime_error("partial message read failed");
+    }
+    sawBytes = true;
+    cursor += received;
+    bytes -= received;
+  }
+  return true;
 }
 
 int
@@ -201,6 +226,7 @@ parseOptions(int argc, char **argv)
       "[--expect-duplicate-checkpoint-after-update] "
       "[--expect-reject-not-restarting] "
       "[--expect-kvdb] "
+      "[--expect-invalid-protocol-reject] "
       "[--invalid-comp-group] [--barrier NAME]");
   }
 
@@ -225,6 +251,8 @@ parseOptions(int argc, char **argv)
       options.expectRejectNotRestarting = true;
     } else if (strcmp(argv[i], "--expect-kvdb") == 0) {
       options.expectKvdb = true;
+    } else if (strcmp(argv[i], "--expect-invalid-protocol-reject") == 0) {
+      options.expectInvalidProtocolReject = true;
     } else if (strcmp(argv[i], "--invalid-comp-group") == 0) {
       options.invalidCompGroup = true;
     } else if (strcmp(argv[i], "--barrier") == 0) {
@@ -260,12 +288,31 @@ main(int argc, char **argv)
       hello.compGroup = dmtcp::UniquePid(1, 1, 1);
     }
 
-    std::string extraData = handshakeExtraData("coordinator_synthetic_worker");
-    hello.extraBytes = extraData.size();
+    std::string extraData;
+    if (options.expectInvalidProtocolReject) {
+      hello.poison();
+    } else {
+      extraData = handshakeExtraData("coordinator_synthetic_worker");
+      hello.extraBytes = extraData.size();
+    }
 
     int fd = connectToCoordinator(options.host, options.port);
     writeAll(fd, &hello, sizeof(hello));
-    writeAll(fd, extraData.data(), extraData.size());
+    if (!extraData.empty()) {
+      writeAll(fd, extraData.data(), extraData.size());
+    }
+
+    if (options.expectInvalidProtocolReject) {
+      dmtcp::DmtcpMessage reply;
+      if (readMessageOrEof(fd, &reply)) {
+        close(fd);
+        throw std::runtime_error("coordinator accepted invalid protocol");
+      }
+      std::cout << "rejected invalid protocol\n";
+      std::cout.flush();
+      close(fd);
+      return 0;
+    }
 
     dmtcp::DmtcpMessage reply;
     readAll(fd, &reply, sizeof(reply));

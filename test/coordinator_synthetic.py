@@ -71,7 +71,8 @@ class WorkerProcess:
                  expect_checkpoint=False, invalid_comp_group=False,
                  expect_duplicate_checkpoint=False,
                  expect_reject_not_restarting=False,
-                 expect_kvdb=False):
+                 expect_kvdb=False,
+                 expect_invalid_protocol_reject=False):
         args = [
             str(SYNTHETIC_WORKER),
             "127.0.0.1",
@@ -93,6 +94,8 @@ class WorkerProcess:
             args.append("--expect-reject-not-restarting")
         if expect_kvdb:
             args.append("--expect-kvdb")
+        if expect_invalid_protocol_reject:
+            args.append("--expect-invalid-protocol-reject")
         self.process = subprocess.Popen(
             args,
             cwd=str(ROOT),
@@ -214,6 +217,20 @@ class WorkerProcess:
                 stderr = self.process.stderr.read()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not complete KVDB round trip")
+
+    def wait_until_invalid_protocol_rejected(self):
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
+            if readable:
+                line = self.process.stdout.readline().strip()
+                if line == "rejected invalid protocol":
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError("worker was not rejected for invalid protocol")
 
     def stop(self):
         if self.process.poll() is None:
@@ -406,6 +423,20 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertTrue(status["ok"])
                 self.assertEqual(status["num_peers"], 1)
                 self.assertTrue(status["running"])
+            finally:
+                worker.stop()
+
+    def test_invalid_magic_worker_is_rejected(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(
+                coordinator.port, expect_invalid_protocol_reject=True)
+            try:
+                worker.wait_until_invalid_protocol_rejected()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 0)
+                self.assertFalse(status["running"])
             finally:
                 worker.stop()
 
