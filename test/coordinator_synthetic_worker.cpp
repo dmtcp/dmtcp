@@ -30,6 +30,7 @@ struct Options {
   bool expectInvalidMessageSizeReject = false;
   bool sendPartialMessage = false;
   bool barrierAfterStdin = false;
+  bool sendBarrierTwiceBeforeWait = false;
   bool restartWorker = false;
   int numPeers = 0;
   bool invalidCompGroup = false;
@@ -249,6 +250,7 @@ parseOptions(int argc, char **argv)
       "[--expect-invalid-message-size-reject] "
       "[--send-partial-message] "
       "[--barrier-after-stdin] "
+      "[--send-barrier-twice-before-wait] "
       "[--restart-worker] [--num-peers PEERS] "
       "[--invalid-comp-group] [--barrier NAME]");
   }
@@ -290,6 +292,8 @@ parseOptions(int argc, char **argv)
       options.sendPartialMessage = true;
     } else if (strcmp(argv[i], "--barrier-after-stdin") == 0) {
       options.barrierAfterStdin = true;
+    } else if (strcmp(argv[i], "--send-barrier-twice-before-wait") == 0) {
+      options.sendBarrierTwiceBeforeWait = true;
     } else if (strcmp(argv[i], "--restart-worker") == 0) {
       options.restartWorker = true;
     } else if (strcmp(argv[i], "--num-peers") == 0) {
@@ -506,7 +510,12 @@ main(int argc, char **argv)
         std::getline(std::cin, ignored);
       }
       sendBarrier(fd, options.barrier);
-      if (options.barrierAfterStdin) {
+      if (options.barrierAfterStdin || options.sendBarrierTwiceBeforeWait) {
+        std::cout << "sent barrier=" << options.barrier << '\n';
+        std::cout.flush();
+      }
+      if (options.sendBarrierTwiceBeforeWait) {
+        sendBarrier(fd, options.barrier);
         std::cout << "sent barrier=" << options.barrier << '\n';
         std::cout.flush();
       }

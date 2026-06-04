@@ -679,8 +679,12 @@ DmtcpCoordinator::onData(CoordClient *client)
       break;
     }
 
-    // Warn if we have two consecutive barriers of the same name.
-    JWARNING(barrier != client->barrier()) (barrier) (client->barrier());
+    if (barrier == client->barrier()) {
+      JWARNING(false) (barrier)
+        .Text("worker reached the same active barrier twice; ignoring");
+      break;
+    }
+
     client->setBarrier(barrier);
     processBarrier(barrier);
     break;

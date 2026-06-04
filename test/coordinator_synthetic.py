@@ -85,6 +85,7 @@ class WorkerProcess:
                  expect_invalid_message_size_reject=False,
                  send_partial_message=False,
                  barrier_after_stdin=False,
+                 barrier_twice_before_wait=False,
                  restart_worker=False,
                  num_peers=None):
         args = [
@@ -100,6 +101,8 @@ class WorkerProcess:
             args.extend(["--barrier", barrier])
         if barrier_after_stdin:
             args.append("--barrier-after-stdin")
+        if barrier_twice_before_wait:
+            args.append("--send-barrier-twice-before-wait")
         if expect_checkpoint:
             args.append("--expect-checkpoint")
         if expect_kill_after_checkpoint:
@@ -638,6 +641,35 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 waiter.stop()
                 if offender is not None:
                     offender.stop()
+
+    def test_duplicate_barrier_from_same_worker_does_not_release(self):
+        with CoordinatorFixture() as coordinator:
+            barrier = "duplicate-barrier"
+            repeated = WorkerProcess(coordinator.port, barrier=barrier,
+                                     barrier_twice_before_wait=True)
+            peer = WorkerProcess(coordinator.port, barrier=barrier,
+                                 barrier_after_stdin=True)
+            try:
+                repeated.wait_until_accepted()
+                peer.wait_until_accepted()
+
+                repeated.wait_until_barrier_sent(barrier)
+                repeated.wait_until_barrier_sent(barrier)
+                self.assert_no_worker_output(repeated)
+
+                peer.send_barrier_from_stdin()
+                peer.wait_until_barrier_sent(barrier)
+
+                repeated.wait_until_barrier_released(barrier)
+                peer.wait_until_barrier_released(barrier)
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 2)
+                self.assertTrue(status["running"])
+            finally:
+                repeated.stop()
+                peer.stop()
 
     def test_checkpoint_command_reaches_synthetic_worker(self):
         with CoordinatorFixture() as coordinator:
