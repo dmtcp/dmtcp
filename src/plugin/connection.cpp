@@ -21,12 +21,12 @@
 
 #include "connection.h"
 #include <fcntl.h>
-#include "../jalib/jassert.h"
 #include "../jalib/jserialize.h"
 
 #include "plugin/pid/pidhelpers.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -48,9 +48,11 @@ Connection::addFd(int fd)
 void
 Connection::removeFd(int fd)
 {
-  JASSERT(_fds.size() > 0);
+  ASSERT(_fds.size() > 0, "connection has no fds during remove: fd={}", fd);
   if (_fds.size() == 1) {
-    JASSERT(_fds[0] == fd);
+    ASSERT(_fds[0] == fd,
+           "removing wrong sole connection fd: expected={} actual={}",
+           _fds[0], fd);
     _fds.clear();
   } else {
     for (size_t i = 0; i < _fds.size(); i++) {
@@ -67,7 +69,9 @@ Connection::restoreDupFds(int fd)
 {
   Util::changeFd(fd, _fds[0]);
   for (size_t i = 1; i < _fds.size(); i++) {
-    JASSERT(_real_dup2(_fds[0], _fds[i]) == _fds[i]);
+    ASSERT_ERRNO(_real_dup2(_fds[0], _fds[i]) == _fds[i],
+                 "dup2 failed while restoring shared fd: old_fd={} new_fd={}",
+                 _fds[0], _fds[i]);
   }
 }
 
@@ -76,44 +80,54 @@ Connection::saveOptions()
 {
   errno = 0;
   _fcntlFlags = fcntl(_fds[0], F_GETFL);
-  JASSERT(_fcntlFlags >= 0) (_fds[0]) (_fcntlFlags) (_type) (JASSERT_ERRNO);
+  ASSERT_ERRNO(_fcntlFlags >= 0,
+               "fcntl(F_GETFL) failed: fd={} flags={} type={}", _fds[0],
+               _fcntlFlags, _type);
   errno = 0;
   _fcntlOwner = fcntl(_fds[0], F_GETOWN);
-  JASSERT(_fcntlOwner != -1) (_fds[0]) (_fcntlFlags) (_type)
-    (_fcntlOwner) (JASSERT_ERRNO);
+  ASSERT_ERRNO(_fcntlOwner != -1,
+               "fcntl(F_GETOWN) failed: fd={} flags={} type={} owner={}",
+               _fds[0], _fcntlFlags, _type, _fcntlOwner);
   errno = 0;
   _fcntlSignal = fcntl(_fds[0], F_GETSIG);
-  JASSERT(_fcntlSignal >= 0) (_fcntlSignal) (JASSERT_ERRNO);
+  ASSERT_ERRNO(_fcntlSignal >= 0,
+               "fcntl(F_GETSIG) failed: fd={} signal={}", _fds[0],
+               _fcntlSignal);
 }
 
 void
 Connection::restoreOptions()
 {
   // restore F_GETFL flags
-  JASSERT(_fcntlFlags >= 0) (_fcntlFlags);
-  JASSERT(_fcntlOwner != -1) (_fcntlOwner);
-  JASSERT(_fcntlSignal >= 0) (_fcntlSignal);
+  ASSERT(_fcntlFlags >= 0, "invalid saved fcntl flags: flags={}",
+         _fcntlFlags);
+  ASSERT(_fcntlOwner != -1, "invalid saved fcntl owner: owner={}",
+         _fcntlOwner);
+  ASSERT(_fcntlSignal >= 0, "invalid saved fcntl signal: signal={}",
+         _fcntlSignal);
   errno = 0;
-  JASSERT(fcntl(_fds[0], F_SETFL, (int)_fcntlFlags) == 0)
-    (_fds[0]) (_fcntlFlags) (JASSERT_ERRNO);
+  ASSERT_ERRNO(fcntl(_fds[0], F_SETFL, (int)_fcntlFlags) == 0,
+               "fcntl(F_SETFL) failed: fd={} flags={}", _fds[0],
+               _fcntlFlags);
 
   errno = 0;
   // Check to see if the owner is alive; if so, try to restore fd ownership.
   if (kill(_fcntlOwner, 0) == 0) {
-    JASSERT(fcntl(_fds[0], F_SETOWN, (int)_fcntlOwner) == 0)
-      (_fds[0]) (_fcntlOwner) (JASSERT_ERRNO);
+    ASSERT_ERRNO(fcntl(_fds[0], F_SETOWN, (int)_fcntlOwner) == 0,
+                 "fcntl(F_SETOWN) failed: fd={} owner={}", _fds[0],
+                 _fcntlOwner);
   }
 
   // FIXME:  The comment below seems to be obsolete now.
-  // This JASSERT will almost always trigger until we fix the above mentioned
+  // This ASSERT would almost always trigger until we fix the above mentioned
   // bug.
-  // JASSERT(fcntl(_fds[0], F_GETOWN) == _fcntlOwner)
-  // (fcntl(_fds[0], F_GETOWN)) (_fcntlOwner)
-  // (dmtcp_pid_virtual_to_real(_fcntlOwner));
+  // ASSERT(fcntl(_fds[0], F_GETOWN) == _fcntlOwner,
+  //        "fd owner mismatch");
 
   errno = 0;
-  JASSERT(fcntl(_fds[0], F_SETSIG, (int)_fcntlSignal) == 0)
-    (_fds[0]) (_fcntlSignal) (JASSERT_ERRNO);
+  ASSERT_ERRNO(fcntl(_fds[0], F_SETSIG, (int)_fcntlSignal) == 0,
+               "fcntl(F_SETSIG) failed: fd={} signal={}", _fds[0],
+               _fcntlSignal);
 }
 
 void
@@ -123,8 +137,10 @@ Connection::doLocking()
 
   errno = 0;
   _hasLock = false;
-  JASSERT(_real_fcntl(_fds[0], F_SETOWN, realPid) == 0)
-    (_fds[0]) (realPid) (JASSERT_ERRNO);
+  ASSERT_ERRNO(_real_fcntl(_fds[0], F_SETOWN, realPid) == 0,
+               "fcntl(F_SETOWN) failed during leader election: fd={} "
+               "real_pid={}",
+               _fds[0], realPid);
 }
 
 void
@@ -133,7 +149,8 @@ Connection::checkLocking()
   pid_t pid = _real_fcntl(_fds[0], F_GETOWN);
   pid_t realPid = dmtcp_pid_virtual_to_real(getpid());
 
-  JASSERT(pid != -1);
+  ASSERT_ERRNO(pid != -1,
+               "fcntl(F_GETOWN) failed during leader check: fd={}", _fds[0]);
   _hasLock = pid == realPid;
 }
 

@@ -35,6 +35,7 @@
 #include "filewrappers.h"
 #include "ptyconnection.h"
 #include "ptywrappers.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -83,14 +84,17 @@ ptmxTestPacketMode(int masterFd)
     // Clean up someone else's command byte from packet mode.
     // FIXME:  We should restore this on resume/restart.
     rc = read(masterFd, tmp_buf, 100);
-    JASSERT(rc == 1) (rc) (masterFd);
+    ASSERT(rc == 1, "unexpected packet-mode cleanup read: rc={} fd={}", rc,
+           masterFd);
   }
 
   /* C. Now we're ready to do the real test.  If in packet mode, we should
      see command byte of TIOCPKT_DATA(0) with data. */
   tmp_buf[0] = 'x'; /* Don't set '\n'.  Could be converted to "\r\n". */
   /* Give the masterFd something to read. */
-  JWARNING((rc = write(slave_fd, tmp_buf, 1)) == 1) (rc).Text("write failed");
+  WARNING_ERRNO((rc = write(slave_fd, tmp_buf, 1)) == 1,
+                "write failed while testing PTY packet mode: fd={} rc={}",
+                slave_fd, rc);
 
   // tcdrain(slave_fd);
   _real_close(slave_fd);
@@ -148,7 +152,9 @@ ptmxReadAll(int fd, const void *origBuf, size_t maxCount)
   }
   *(hdr *)buf = 0; /* Header count of zero means we're done */
   buf += sizeof(hdr);
-  JASSERT(rc < 0 || buf - (char *)origBuf > 0) (rc) (origBuf) ((void *)buf);
+  ASSERT(rc < 0 || buf - (char *)origBuf > 0,
+         "PTY read buffer did not advance: rc={} orig_buf={} buf={}", rc,
+         origBuf, (void *)buf);
   return rc < 0 ? rc : buf - (char *)origBuf;
 }
 
@@ -162,7 +168,7 @@ writeOnePacket(int fd, const void *origBuf, bool isPacketMode)
   typedef int hdr;
   int count = *(hdr *)origBuf;
   int cum_count = 0;
-  int rc = 0; // Trigger JASSERT if not modified below.
+  int rc = 0; // Trigger assertion if not modified below.
   if (count == 0) {
     return sizeof(hdr);  // count of zero means we're done, hdr consumed
   }
@@ -182,8 +188,9 @@ writeOnePacket(int fd, const void *origBuf, bool isPacketMode)
       cum_count += rc;
     }
   }
-  JASSERT(rc != 0 && cum_count == count)
-    (JASSERT_ERRNO) (rc) (count) (cum_count);
+  ASSERT_ERRNO(rc != 0 && cum_count == count,
+               "failed to write PTY packet: rc={} count={} written={}", rc,
+               count, cum_count);
   return rc < 0 ? rc : cum_count + sizeof(hdr);
 }
 
@@ -197,7 +204,8 @@ ptmxWriteAll(int fd, const void *buf, bool isPacketMode)
          > (ssize_t)sizeof(hdr)) {
     cum_count += rc;
   }
-  JASSERT(rc < 0 || rc == sizeof(hdr)) (rc) (cum_count);
+  ASSERT(rc < 0 || rc == sizeof(hdr),
+         "unexpected PTY write terminator: rc={} written={}", rc, cum_count);
   cum_count += sizeof(hdr);  /* Account for last packet: 'done' hdr w/ 0 data */
   return rc <= 0 ? rc : cum_count;
 }
@@ -233,17 +241,21 @@ PtyConnection::PtyConnection(int fd,
 
   case PTY_MASTER:
     _masterName = path;
-    JASSERT(_real_ptsname_r(fd, buf, sizeof(buf)) == 0) (JASSERT_ERRNO);
+    {
+      int ret = _real_ptsname_r(fd, buf, sizeof(buf));
+      ASSERT(ret == 0, "ptsname_r failed for PTY master: fd={} ret={}", fd,
+             ret);
+    }
     _ptsName = buf;
 
     // glibc allows only 20 char long buf
     // Check if there is enough room to insert the string "dmtcp_" before the
     // terminal number, if not then we ASSERT here.
-    JASSERT((strlen(buf) + strlen("v")) <= 20)
-    .Text("string /dev/pts/<n> too long, can not be virtualized."
-          "Once possible workaround here is to replace the string"
-          "\"dmtcp_\" with something short like \"d_\" or even "
-          "\"d\" and recompile DMTCP");
+    ASSERT((strlen(buf) + strlen("v")) <= 20,
+           "string /dev/pts/<n> too long, can not be virtualized. "
+           "One possible workaround is to replace \"dmtcp_\" with a shorter "
+           "prefix and recompile DMTCP: path={}",
+           buf);
 
     // Generate new Unique buf
     SharedData::createVirtualPtyName(_ptsName.c_str(), buf, sizeof(buf));
@@ -255,7 +267,7 @@ PtyConnection::PtyConnection(int fd,
     _ptsName = path;
     SharedData::getVirtPtyName(path, buf, sizeof(buf));
     _virtPtsName = buf;
-    JASSERT(strlen(buf) != 0) (path);
+    ASSERT(strlen(buf) != 0, "missing virtual PTY name: path={}", path);
     JTRACE("creating pts connection") (_ptsName) (_virtPtsName);
     break;
 
@@ -289,7 +301,7 @@ PtyConnection::doLocking()
 void
 PtyConnection::drain()
 {
-  JASSERT(_type != PTY_EXTERNAL);
+  ASSERT(_type != PTY_EXTERNAL, "cannot drain external PTY connection");
   saveOptions();
   if (_type == PTY_MASTER && getpgrp() == tcgetpgrp(_fds[0])) {
     const int maxCount = 10000;
@@ -301,9 +313,12 @@ PtyConnection::drain()
     _ptmxIsPacketMode = ptmxTestPacketMode(_fds[0]);
     JTRACE("_fds[0] is master(/dev/ptmx)") (_fds[0]) (_ptmxIsPacketMode);
     numWritten = ptmxWriteAll(_fds[0], buf, _ptmxIsPacketMode);
-    JASSERT(numRead == numWritten) (numRead) (numWritten);
+    ASSERT(numRead == numWritten,
+           "PTY drain/read-back mismatch: read={} written={}", numRead,
+           numWritten);
   }
-  JASSERT((_type == PTY_CTTY || _type == PTY_PARENT_CTTY) || _fcntlFlags != -1);
+  ASSERT((_type == PTY_CTTY || _type == PTY_PARENT_CTTY) || _fcntlFlags != -1,
+         "PTY connection missing fcntl flags: type={}", _type);
   if (tcgetpgrp(_fds[0]) != -1) {
     _isControllingTTY = true;
   } else {
@@ -319,12 +334,13 @@ PtyConnection::refill(bool isRestart)
   }
 
   if (_type == PTY_SLAVE || _type == PTY_BSD_SLAVE) {
-    JASSERT(_ptsName.compare("?") != 0);
+    ASSERT(_ptsName.compare("?") != 0, "invalid PTY slave name");
     JTRACE("Restoring PTY slave") (_fds[0]) (_ptsName) (_virtPtsName);
     if (_type == PTY_SLAVE) {
       char buf[32];
       SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
-      JASSERT(strlen(buf) > 0) (_virtPtsName) (_ptsName);
+      ASSERT(strlen(buf) > 0,
+             "missing real PTY name: virt={} pts={}", _virtPtsName, _ptsName);
       _ptsName = buf;
     }
 
@@ -335,8 +351,8 @@ PtyConnection::refill(bool isRestart)
      */
     int extraFlags = 0; // _isControllingTTY ? 0 : O_NOCTTY;
     int tempfd = _real_open(_ptsName.c_str(), _fcntlFlags | extraFlags);
-    JASSERT(tempfd >= 0) (_virtPtsName) (_ptsName) (JASSERT_ERRNO)
-    .Text("Error Opening PTS");
+    ASSERT_ERRNO(tempfd >= 0, "Error Opening PTS: virt={} pts={}",
+                 _virtPtsName, _ptsName);
 
     JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
     restoreDupFds(tempfd);
@@ -349,8 +365,9 @@ PtyConnection::refill(bool isRestart)
      * into the refill mode, we should have all the pseudo-ttys present.
      */
     int tempfd = _real_open("/dev/tty", O_RDWR, 0);
-    JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
-    .Text("Error opening controlling terminal /dev/tty");
+    ASSERT_ERRNO(tempfd >= 0,
+                 "Error opening controlling terminal /dev/tty: fd={}",
+                 tempfd);
 
     JTRACE("Restoring /dev/tty for the process") (_fds[0]);
     _ptsName = _virtPtsName = "/dev/tty";
@@ -361,7 +378,7 @@ PtyConnection::refill(bool isRestart)
 void
 PtyConnection::postRestart()
 {
-  JASSERT(_fds.size() > 0);
+  ASSERT(_fds.size() > 0, "PTY connection has no fds during postRestart");
   if (_type == PTY_SLAVE || _type == PTY_BSD_SLAVE || _type == PTY_DEV_TTY) {
     return;
   }
@@ -401,9 +418,11 @@ PtyConnection::postRestart()
       if (controllingTty.length() > 0 &&
           _real_access(controllingTty.c_str(), R_OK | W_OK) == 0) {
         tempfd = _real_open(controllingTty.c_str(), _fcntlFlags);
-        JASSERT(tempfd >=
-                0) (tempfd) (_fcntlFlags) (controllingTty) (JASSERT_ERRNO)
-        .Text("Error Opening the terminal attached with the process");
+        ASSERT_ERRNO(
+          tempfd >= 0,
+          "Error Opening the terminal attached with the process: fd={} "
+          "flags={} tty={}",
+          tempfd, _fcntlFlags, controllingTty);
       } else {
         if (_type == PTY_CTTY) {
           JTRACE("Unable to restore controlling terminal attached with the "
@@ -411,21 +430,22 @@ PtyConnection::postRestart()
                  "Replacing it with current STDIN")
             (stdinDeviceName);
         } else {
-          JWARNING(false) (stdinDeviceName)
-          .Text("Unable to restore controlling terminal attached with the "
-                "parent process.\n"
-                "Replacing it with current STDIN");
+          WARNING(false,
+                  "Unable to restore controlling terminal attached with the "
+                  "parent process. Replacing it with current STDIN: stdin={}",
+                  stdinDeviceName);
         }
-        JWARNING(Util::strStartsWith(stdinDeviceName.c_str(), "/dev/pts/") ||
-                 stdinDeviceName == "/dev/tty") (stdinDeviceName)
-        .Text("Controlling terminal not bound to a terminal device.");
+        WARNING(Util::strStartsWith(stdinDeviceName.c_str(), "/dev/pts/") ||
+                stdinDeviceName == "/dev/tty",
+                "Controlling terminal not bound to a terminal device: stdin={}",
+                stdinDeviceName);
 
         if (Util::isValidFd(STDIN_FILENO)) {
           tempfd = _real_dup(STDIN_FILENO);
         } else if (Util::isValidFd(STDOUT_FILENO)) {
           tempfd = _real_dup(STDOUT_FILENO);
         } else {
-          JASSERT("Controlling terminal and STDIN/OUT not found.");
+          // Historical string-literal assert macro was a truthy no-op.
         }
       }
 
@@ -442,13 +462,15 @@ PtyConnection::postRestart()
       char pts_name[80];
 
       tempfd = _real_open("/dev/ptmx", _fcntlFlags | extraFlags);
-      JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
-      .Text("Error Opening /dev/ptmx");
+      ASSERT_ERRNO(tempfd >= 0, "Error Opening /dev/ptmx: fd={}", tempfd);
 
-      JASSERT(grantpt(tempfd) >= 0) (tempfd) (JASSERT_ERRNO);
-      JASSERT(unlockpt(tempfd) >= 0) (tempfd) (JASSERT_ERRNO);
-      JASSERT(_real_ptsname_r(tempfd, pts_name, 80) == 0)
-        (tempfd) (JASSERT_ERRNO);
+      ASSERT_ERRNO(grantpt(tempfd) >= 0, "grantpt failed: fd={}", tempfd);
+      ASSERT_ERRNO(unlockpt(tempfd) >= 0, "unlockpt failed: fd={}", tempfd);
+      {
+        int ret = _real_ptsname_r(tempfd, pts_name, 80);
+        ASSERT(ret == 0, "ptsname_r failed for restored PTY: fd={} ret={}",
+               tempfd, ret);
+      }
 
       _ptsName = pts_name;
       SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
@@ -478,14 +500,15 @@ PtyConnection::postRestart()
       // keep on trying all the possible BSD Master devices until one is
       // opened. It should then create a mapping between original Master/Slave
       // device name and current Master/Slave device name.
-      JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
-      .Text("Error Opening BSD Master Pty.(Already in use?)");
+      ASSERT_ERRNO(tempfd >= 0,
+                   "Error Opening BSD Master Pty.(Already in use?): fd={}",
+                   tempfd);
       break;
     }
     default:
     {
       // should never reach here
-      JASSERT(false).Text("Should never reach here.");
+      ASSERT(false, "unexpected PTY type during restart: type={}", _type);
     }
   }
 

@@ -28,6 +28,7 @@
 #include "connection.h"
 #include "dmtcpalloc.h"
 #include "protectedfds.h"
+#include "util_assert.h"
 
 namespace dmtcp
 {
@@ -106,12 +107,14 @@ class ConnectionList
     void processCloseWork(int fd);
     void _lock_tbl()
     {
-      JASSERT(DmtcpMutexLock(&_lock) == 0);
+      int rc = DmtcpMutexLock(&_lock);
+      ASSERT(rc == 0, "DmtcpMutexLock(connection list) failed: rc={}", rc);
     }
 
     void _unlock_tbl()
     {
-      JASSERT(DmtcpMutexUnlock(&_lock) == 0);
+      int rc = DmtcpMutexUnlock(&_lock);
+      ASSERT(rc == 0, "DmtcpMutexUnlock(connection list) failed: rc={}", rc);
     }
 
     DmtcpMutex _lock;

@@ -26,6 +26,7 @@
 #include "connectionmessage.h"
 #include "socketwrappers.h"
 #include "util.h"
+#include "util_assert.h"
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 
@@ -105,17 +106,20 @@ scaleSendBuffers(int fd, double factor)
   int size;
   unsigned len = sizeof(size);
 
-  JASSERT(getsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *)&size, &len) == 0);
+  ASSERT_ERRNO(getsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *)&size,
+                          &len) == 0,
+               "getsockopt(SO_SNDBUF) failed: fd={}", fd);
 
   // getsockopt returns doubled size. So, if we pass the same value to
   // setsockopt, it would double the buffer size.
   int newSize = static_cast<int>(size * factor / 2);
   len = sizeof(newSize);
-  JASSERT(_real_setsockopt(fd,
-                           SOL_SOCKET,
-                           SO_SNDBUF,
-                           (void *)&newSize,
-                           len) == 0);
+  ASSERT_ERRNO(_real_setsockopt(fd,
+                                SOL_SOCKET,
+                                SO_SNDBUF,
+                                (void *)&newSize,
+                                len) == 0,
+               "setsockopt(SO_SNDBUF) failed: fd={} size={}", fd, newSize);
 }
 
 static KernelBufferDrainer *theDrainer = NULL;
@@ -133,9 +137,10 @@ KernelBufferDrainer::onConnect(const jalib::JSocket &sock,
                                const struct sockaddr *remoteAddr,
                                socklen_t remoteLen)
 {
-  JWARNING(false) (sock.sockfd())
-  .Text("we don't yet support checkpointing non-accepted connections..."
-        " restore will likely fail.. closing connection");
+  WARNING(false,
+          "we don't yet support checkpointing non-accepted connections; "
+          "restore will likely fail; closing connection: fd={}",
+          sock.sockfd());
   jalib::JSocket(sock).close();
 }
 
@@ -144,7 +149,8 @@ KernelBufferDrainer::onData(jalib::JReaderInterface *sock)
 {
   int fd = sock->socket().sockfd();
   // Detect and cache socket type
-  JASSERT(_isSeqpacket.find(fd) != _isSeqpacket.end()) (fd);
+  ASSERT(_isSeqpacket.find(fd) != _isSeqpacket.end(),
+         "missing socket type while draining data: fd={}", fd);
 
   if (_isSeqpacket[fd]) {
     // Each onData corresponds to one full frame from JSeqpacketReader
@@ -175,7 +181,7 @@ KernelBufferDrainer::onDisconnect(jalib::JReaderInterface *sock)
     return;
   }
   JTRACE("found disconnected socket... marking it dead")
-    (fd) (_reverseLookup[fd]) (JASSERT_ERRNO);
+    (fd) (_reverseLookup[fd]) (errno);
   _disconnectedSockets[_reverseLookup[fd]] = _drainedData[fd];
 
   // _drainedData is used to refill socket buffers. Remove the disconnected
@@ -232,16 +238,18 @@ KernelBufferDrainer::onTimeoutInterval()
     const static int WARN_INTERVAL_TICKS =
       (int)(KERNEL_BUFFER_DRAINER_WARNING_FREQ /
             KERNEL_BUFFER_DRAINER_CHECK_FREQ + 0.5);
-    const static float WARN_INTERVAL_SEC =
-      WARN_INTERVAL_TICKS * KERNEL_BUFFER_DRAINER_CHECK_FREQ;
+    const static int WARN_INTERVAL_MS =
+      (int)(WARN_INTERVAL_TICKS * KERNEL_BUFFER_DRAINER_CHECK_FREQ * 1000 +
+            0.5);
     if (_timeoutCount++ > WARN_INTERVAL_TICKS) {
       _timeoutCount = 0;
       for (size_t i = 0; i < _dataSockets.size(); ++i) {
         vector<char> &buffer = _drainedData[_dataSockets[i]->socket().sockfd()];
-        JWARNING(false) (_dataSockets[i]->socket().sockfd())
-          (buffer.size()) (WARN_INTERVAL_SEC)
-        .Text("Still draining socket... "
-              "perhaps remote host is not running under DMTCP?");
+        WARNING(false,
+                "Still draining socket; perhaps remote host is not running "
+                "under DMTCP: fd={} bytes={} interval_ms={}",
+                _dataSockets[i]->socket().sockfd(), buffer.size(),
+                WARN_INTERVAL_MS);
 #ifdef CERN_CMS
         JNOTE("\n*** Closing this socket (to database?).  Please use dmtcp \n"
               "***  plugins to gracefully handle such sockets, and re-run.\n"
@@ -251,10 +259,11 @@ KernelBufferDrainer::onTimeoutInterval()
 
         // it does it by creating a socket pair and closing one side
         int sp[2] = { -1, -1 };
-        JASSERT(_real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp) == 0)
-          (JASSERT_ERRNO).Text("socketpair() failed");
-        JASSERT(sp[0] >= 0 && sp[1] >= 0) (sp[0]) (sp[1])
-        .Text("socketpair() failed");
+        ASSERT_ERRNO(_real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp) == 0,
+                     "socketpair() failed while creating dead socket");
+        ASSERT(sp[0] >= 0 && sp[1] >= 0,
+               "socketpair() returned invalid fds: fd0={} fd1={}", sp[0],
+               sp[1]);
         _real_close(sp[1]);
         JTRACE("created dead socket") (sp[0]);
         _real_dup2(sp[0], _dataSockets[i]->socket().sockfd());
@@ -299,7 +308,7 @@ KernelBufferDrainer::refillAllSockets()
       continue;
     }
     int size = i->second.size();
-    JWARNING(size >= 0) (size).Text("a failed drain is in our table???");
+    WARNING(size >= 0, "a failed drain is in our table: size={}", size);
     if (size < 0) {
       size = 0;
     }
@@ -406,6 +415,9 @@ KernelBufferDrainer::refillAllSockets()
 const vector<char>&
 KernelBufferDrainer::getDrainedData(ConnectionIdentifier id)
 {
-  JASSERT(_disconnectedSockets.find(id) != _disconnectedSockets.end()) (id);
+  ASSERT(_disconnectedSockets.find(id) != _disconnectedSockets.end(),
+         "missing drained data for disconnected socket: host_id={} pid={} "
+         "time={} con_id={}",
+         id.hostid(), id.pid(), id.time(), id.conId());
   return _disconnectedSockets[id];
 }

@@ -45,6 +45,7 @@
 #include "kernelbufferdrainer.h"
 #include "socketconnection.h"
 #include "socketwrappers.h"
+#include "util_assert.h"
 
 #ifdef REALLY_VERBOSE_CONNECTION_CPP
 static bool really_verbose = true;
@@ -63,12 +64,13 @@ _makeDeadSocket(const char *refillData = NULL, ssize_t len = -1)
   // it does it by creating a socket pair and closing one side
   int sp[2] = { -1, -1 };
 
-  JASSERT(_real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp) == 0) (JASSERT_ERRNO)
-  .Text("socketpair() failed");
-  JASSERT(sp[0] >= 0 && sp[1] >= 0) (sp[0]) (sp[1])
-  .Text("socketpair() failed");
+  ASSERT_ERRNO(_real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp) == 0,
+               "socketpair() failed");
+  ASSERT(sp[0] >= 0 && sp[1] >= 0,
+         "socketpair() returned invalid fds: fd0={} fd1={}", sp[0], sp[1]);
   if (refillData != NULL) {
-    JASSERT(Util::writeAll(sp[1], refillData, len) == len);
+    ASSERT(Util::writeAll(sp[1], refillData, len) == len,
+           "failed to seed dead socket: fd={} size={}", sp[1], len);
   }
   _real_close(sp[1]);
   if (really_verbose) {
@@ -103,13 +105,13 @@ SocketConnection::SocketConnection(int domain,
 void
 SocketConnection::onBind(const struct sockaddr *addr, socklen_t len)
 {
-  JASSERT(false).Text("Bind called on unknown socket type");
+  ASSERT(false, "Bind called on unknown socket type");
 }
 
 void
 SocketConnection::onListen(int backlog)
 {
-  JASSERT(false).Text("Listen called on unknown socket type");
+  ASSERT(false, "Listen called on unknown socket type: backlog={}", backlog);
 }
 
 void
@@ -117,7 +119,9 @@ SocketConnection::onConnect(const struct sockaddr *serv_addr,
                             socklen_t addrlen,
                             bool connectInProgress)
 {
-  JASSERT(false).Text("Connect called on unknown socket type");
+  ASSERT(false,
+         "Connect called on unknown socket type: addr={} len={} in_progress={}",
+         serv_addr, addrlen, connectInProgress);
 }
 
 void
@@ -144,9 +148,10 @@ SocketConnection::restoreSocketOptions(vector<int> &fds)
       int ret = _real_setsockopt(fds[0], lvl->first, opt->first,
                                  opt->second.buffer(),
                                  opt->second.size());
-      JWARNING(ret == 0) (JASSERT_ERRNO) (fds[0])
-        (lvl->first) (opt->first) (opt->second.size())
-      .Text("Restoring setsockopt failed.");
+      WARNING_ERRNO(ret == 0,
+                    "Restoring setsockopt failed: fd={} level={} option={} "
+                    "size={}",
+                    fds[0], lvl->first, opt->first, opt->second.size());
     }
   }
 }
@@ -232,18 +237,23 @@ TcpConnection::TcpConnection(int domain, int type, int protocol)
   if (domain != -1) {
     // Sometimes _sockType contains SOCK_CLOEXEC/SOCK_NONBLOCK flags.
     if ((type & 077) == SOCK_DGRAM) {
-      JWARNING(false) (type)
-      .Text("Datagram Sockets not supported. "
-            "Hopefully, this is a short lived connection!");
+      WARNING(false,
+              "Datagram sockets not supported; hopefully this is a short "
+              "lived connection: type={}",
+              type);
     } else {
 // In the domain/type check (around lines 239–247):
       int bt = baseType();
       if (domain == AF_UNIX) {
-        JWARNING(bt == SOCK_STREAM || bt == SOCK_SEQPACKET)
-        (domain) (type) (protocol);
+        WARNING(bt == SOCK_STREAM || bt == SOCK_SEQPACKET,
+                "unexpected UNIX socket type: domain={} type={} protocol={} "
+                "base_type={}",
+                domain, type, protocol, bt);
       } else if (domain == AF_INET || domain == AF_INET6) {
-        JWARNING(bt == SOCK_STREAM)
-        (domain) (type) (protocol);
+        WARNING(bt == SOCK_STREAM,
+                "unexpected TCP socket type: domain={} type={} protocol={} "
+                "base_type={}",
+                domain, type, protocol, bt);
       }
     }
     JTRACE("Creating TcpConnection.") (id()) (domain) (type) (protocol);
@@ -279,7 +289,7 @@ getMPISpawnPortNum(const char *envVar)
 bool
 TcpConnection::isBlacklistedTcp(const sockaddr *saddr, socklen_t len)
 {
-  JASSERT(saddr != NULL);
+  ASSERT(saddr != NULL, "null socket address");
   if (len <= sizeof(saddr->sa_family)) {
     return false;
   }
@@ -300,7 +310,7 @@ TcpConnection::isBlacklistedTcp(const sockaddr *saddr, socklen_t len)
 #ifdef STAMPEDE_MPISPAWN_FIX
     int mpispawnPort = getMPISpawnPortNum("PMI_PORT");
     JTRACE("PMI_PORT port") (mpispawnPort) (ntohs(addr->sin_port));
-    JASSERT(mpispawnPort != 0).Text("PMI_PORT not found");
+    ASSERT(mpispawnPort != 0, "PMI_PORT not found");
     if (ntohs(addr->sin_port) == mpispawnPort) {
       JTRACE("PMI_PORT port found") (mpispawnPort);
       return true;
@@ -342,8 +352,9 @@ TcpConnection::onBind(const struct sockaddr *addr, socklen_t len)
   // .Text("Binding a socket in use????");
 
   if (_sockDomain == AF_UNIX && addr != NULL) {
-    JASSERT(len <= sizeof _bindAddr) (len) (sizeof _bindAddr)
-    .Text("That is one huge sockaddr buddy.");
+    ASSERT(len <= sizeof _bindAddr,
+           "socket bind address is too large: len={} max={}", len,
+           sizeof _bindAddr);
     _bindAddrlen = len;
     memcpy(&_bindAddr, addr, len);
   } else {
@@ -352,10 +363,10 @@ TcpConnection::onBind(const struct sockaddr *addr, socklen_t len)
     // Do not rely on the address passed on to bind as it may contain port 0
     // which allows the OS to give any unused port. Thus we look ourselves up
     // using getsockname.
-    JASSERT(getsockname(_fds[0],
-                        (struct sockaddr *)&_bindAddr,
-                        &_bindAddrlen) == 0)
-      (JASSERT_ERRNO);
+    ASSERT_ERRNO(getsockname(_fds[0],
+                             (struct sockaddr *)&_bindAddr,
+                             &_bindAddrlen) == 0,
+                 "failed to query bound socket address: fd={}", _fds[0]);
   }
   _type = TCP_BIND;
 }
@@ -375,8 +386,9 @@ TcpConnection::onListen(int backlog)
   if (really_verbose) {
     JTRACE("Listening.") (id()) (backlog);
   }
-  JASSERT(_type == TCP_BIND) (_type) (id())
-  .Text("Listening on a non-bind()ed socket????");
+  ASSERT(_type == TCP_BIND,
+         "Listening on a non-bind()ed socket: type={} con_id={}", _type,
+         id().conId());
 
   // A -1 backlog is not an error.
   // JASSERT(backlog > 0) (backlog)
@@ -394,8 +406,9 @@ TcpConnection::onConnect(const struct sockaddr *addr,
   if (really_verbose) {
     JTRACE("Connecting.") (id());
   }
-  JWARNING(_type == TCP_CREATED || _type == TCP_BIND) (_type) (id())
-  .Text("Connecting with an in-use socket????");
+  WARNING(_type == TCP_CREATED || _type == TCP_BIND,
+          "Connecting with an in-use socket: type={} con_id={}", _type,
+          id().conId());
 
   if (addr != NULL && isBlacklistedTcp(addr, len)) {
     _type = TCP_EXTERNAL_CONNECT;
@@ -445,10 +458,12 @@ TcpConnection::sendPeerInformation()
   {
     // Local connect socket information
     keysz = sizeof(key);
-    JASSERT(getsockname(_fds[0], &key, &keysz) == 0);
+    ASSERT_ERRNO(getsockname(_fds[0], &key, &keysz) == 0,
+                 "failed to query local TCP socket: fd={}", _fds[0]);
     // Information about the accept socket on the server
     valuesz = sizeof(value);
-    JASSERT(getpeername(_fds[0], &value, &valuesz) == 0);
+    ASSERT_ERRNO(getpeername(_fds[0], &value, &valuesz) == 0,
+                 "failed to query peer TCP socket: fd={}", _fds[0]);
     sendPeerInfo = true;
     break;
   }
@@ -456,10 +471,12 @@ TcpConnection::sendPeerInformation()
   {
     // Local accept socket information
     keysz = sizeof(key);
-    JASSERT(getsockname(_fds[0], &key, &keysz) == 0);
+    ASSERT_ERRNO(getsockname(_fds[0], &key, &keysz) == 0,
+                 "failed to query accepted TCP socket: fd={}", _fds[0]);
     // Information about the client connect socket
     valuesz = sizeof(value);
-    JASSERT(getpeername(_fds[0], &value, &valuesz) == 0);
+    ASSERT_ERRNO(getpeername(_fds[0], &value, &valuesz) == 0,
+                 "failed to query accepted TCP peer: fd={}", _fds[0]);
     sendPeerInfo = true;
     break;
   }
@@ -470,8 +487,11 @@ TcpConnection::sendPeerInformation()
   if (sendPeerInfo) {
     string keyStr = base64::encode((const char*) &key, keysz);
     string valStr = base64::encode((const char*) &value, valuesz);
-    JASSERT(kvdb::set(PeerDiscoveryDbCkpt, keyStr, valStr) ==
-            kvdb::KVDBResponse::SUCCESS);
+    ASSERT(kvdb::set(PeerDiscoveryDbCkpt, keyStr, valStr) ==
+             kvdb::KVDBResponse::SUCCESS,
+           "failed to store TCP peer discovery data: fd={} key_size={} "
+           "value_size={}",
+           _fds[0], keysz, valuesz);
   }
 }
 
@@ -489,19 +509,25 @@ TcpConnection::recvPeerInformation()
   if (_type == TCP_CONNECT || _type == TCP_ACCEPT ||
       _type == TCP_CONNECT_IN_PROGRESS) {
     keylen = sizeof(key);
-    JASSERT(getpeername(_fds[0], &key, &keylen) == 0);
+    ASSERT_ERRNO(getpeername(_fds[0], &key, &keylen) == 0,
+                 "failed to query TCP peer for discovery lookup: fd={}",
+                 _fds[0]);
 
     string keyStr = base64::encode((const char*) &key, keylen);
     string valStr;
     if (kvdb::get(PeerDiscoveryDbCkpt, keyStr, &valStr) ==
         kvdb::KVDBResponse::SUCCESS) {
       string valBinary = dmtcp::base64::decode(valStr);
-      JASSERT(valBinary.size() == sizeof(value));
+      ASSERT(valBinary.size() == sizeof(value),
+             "unexpected TCP peer discovery payload size: fd={} size={} "
+             "expected={}",
+             _fds[0], valBinary.size(), sizeof(value));
       memcpy(&value, valBinary.data(), sizeof(value));
     } else {
-      JWARNING(false) (_fds[0])
-       .Text("DMTCP detected an \"external\" connect socket."
-             "The socket will be restored as a dead socket.");
+      WARNING(false,
+              "DMTCP detected an external connect socket; it will be "
+              "restored as a dead socket: fd={}",
+              _fds[0]);
       markExternalConnect();
     }
   }
@@ -521,15 +547,17 @@ TcpConnection::onError()
 void
 TcpConnection::drain()
 {
-  JASSERT(_fds.size() > 0) (id());
+  ASSERT(_fds.size() > 0, "TCP connection has no fds during drain: con_id={}",
+         id().conId());
 
   if ((_fcntlFlags & O_ASYNC) != 0) {
     if (really_verbose) {
       JTRACE("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
     }
     errno = 0;
-    JASSERT(fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC) == 0)
-      (JASSERT_ERRNO) (_fds[0]) (id());
+    ASSERT_ERRNO(fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC) == 0,
+                 "failed to remove O_ASYNC during TCP drain: fd={} con_id={}",
+                 _fds[0], id().conId());
   }
 
   // Non blocking connect; need to hang around until it is writable.
@@ -543,7 +571,7 @@ TcpConnection::drain()
     retval = _real_poll(&socketFd, 1, 60 * 1000);
 
     if (retval == -1) {
-      JTRACE("poll() failed") (JASSERT_ERRNO);
+      JTRACE("poll() failed") (strerror(errno));
     } else if (socketFd.revents & POLLOUT) {
       int val = -1;
       socklen_t sz = sizeof(val);
@@ -551,11 +579,11 @@ TcpConnection::drain()
       JTRACE("Connect-in-progress socket is now writable.") (_fds[0]);
       _type = TCP_CONNECT;
     } else {
-      JWARNING(false) (_fds[0])
-      .Text("connect() returned EINPROGRESS.  Socket still not writable\n"
-            "after 60 seconds.   The socket is probably connected to an\n"
-            "external process not under DMTCP control.\n"
-            "Marking this socket as external and continuing to checkpoint.");
+      WARNING(false,
+              "connect() returned EINPROGRESS and socket is still not "
+              "writable after 60 seconds; marking as external and "
+              "continuing checkpoint: fd={}",
+              _fds[0]);
       _type = TCP_EXTERNAL_CONNECT;
     }
   }
@@ -574,10 +602,10 @@ TcpConnection::drain()
     KernelBufferDrainer::instance().addListenSocket(_fds[0]);
     break;
   case TCP_BIND:
-    JWARNING(_type != TCP_BIND) (_fds[0])
-    .Text("If there are pending connections on this socket,\n"
-          " they won't be checkpointed because"
-          " it is not yet in a listen state.");
+    WARNING(_type != TCP_BIND,
+            "Pending connections on this socket will not be checkpointed "
+            "because it is not yet listening: fd={}",
+            _fds[0]);
     break;
   case TCP_EXTERNAL_CONNECT:
     JTRACE("Socket to External Process, won't be drained") (_fds[0]);
@@ -632,7 +660,7 @@ TcpConnection::postRestart()
 {
   int fd;
 
-  JASSERT(_fds.size() > 0);
+  ASSERT(_fds.size() > 0, "TCP connection has no fds during postRestart");
   switch (_type) {
   case TCP_PREEXISTING:
   case TCP_INVALID:
@@ -658,11 +686,17 @@ TcpConnection::postRestart()
     // Sometimes _sockType contains SOCK_CLOEXEC/SOCK_NONBLOCK flags.
     {
       if (_sockDomain == AF_UNIX) {
-        JWARNING(baseType() == SOCK_STREAM || baseType() == SOCK_SEQPACKET)
-        (id()) (_sockDomain) (_sockType) (_sockProtocol);
+        WARNING(baseType() == SOCK_STREAM || baseType() == SOCK_SEQPACKET,
+                "unexpected UNIX socket type while restoring: con_id={} "
+                "domain={} type={} protocol={} base_type={}",
+                id().conId(), _sockDomain, _sockType, _sockProtocol,
+                baseType());
       } else if (_sockDomain == AF_INET || _sockDomain == AF_INET6) {
-        JWARNING(baseType() == SOCK_STREAM)
-        (id()) (_sockDomain) (_sockType) (_sockProtocol);
+        WARNING(baseType() == SOCK_STREAM,
+                "unexpected TCP socket type while restoring: con_id={} "
+                "domain={} type={} protocol={} base_type={}",
+                id().conId(), _sockDomain, _sockType, _sockProtocol,
+                baseType());
       }
     }
 
@@ -671,7 +705,10 @@ TcpConnection::postRestart()
     }
 
     fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
-    JASSERT(fd != -1) (JASSERT_ERRNO);
+    ASSERT_ERRNO(fd != -1,
+                 "failed to recreate TCP socket: con_id={} domain={} type={} "
+                 "protocol={}",
+                 id().conId(), _sockDomain, _sockType, _sockProtocol);
     restoreDupFds(fd);
 
     if (_type == TCP_CREATED) {
@@ -683,7 +720,9 @@ TcpConnection::postRestart()
       struct sockaddr_un *uaddr = (sockaddr_un *)&_bindAddr;
       if (uaddr->sun_path[0] != '\0') {
         JTRACE("Unlinking stale unix domain socket.") (uaddr->sun_path);
-        JWARNING(unlink(uaddr->sun_path) == 0) (uaddr->sun_path);
+        WARNING_ERRNO(unlink(uaddr->sun_path) == 0,
+                      "failed to unlink stale UNIX socket: path={}",
+                      uaddr->sun_path);
       }
     }
 
@@ -719,9 +758,11 @@ TcpConnection::postRestart()
               int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
                                          opt->second.buffer(),
                                          opt->second.size());
-              JASSERT(ret == 0) (JASSERT_ERRNO) (_fds[0]) (lvl->first)
-                (opt->first) (opt->second.buffer()) (opt->second.size())
-              .Text("Restoring setsockopt failed.");
+              ASSERT_ERRNO(ret == 0,
+                           "Restoring IPV6_V6ONLY setsockopt failed: fd={} "
+                           "level={} option={} value={} size={}",
+                           _fds[0], lvl->first, opt->first,
+                           opt->second.buffer(), opt->second.size());
             }
           }
         }
@@ -732,8 +773,10 @@ TcpConnection::postRestart()
       JTRACE("Binding socket.") (id());
     }
     errno = 0;
-    JWARNING(_real_bind(_fds[0], (sockaddr *)&_bindAddr, _bindAddrlen) == 0)
-      (JASSERT_ERRNO) (id()).Text("Bind failed.");
+    WARNING_ERRNO(_real_bind(_fds[0], (sockaddr *)&_bindAddr,
+                             _bindAddrlen) == 0,
+                  "Bind failed: fd={} con_id={} addrlen={}", _fds[0],
+                  id().conId(), _bindAddrlen);
     if (_type == TCP_BIND) {
       break;
     }
@@ -742,8 +785,9 @@ TcpConnection::postRestart()
       JTRACE("Listening socket.") (id());
     }
     errno = 0;
-    JWARNING(_real_listen(_fds[0], _listenBacklog) == 0)
-      (JASSERT_ERRNO) (id()) (_listenBacklog).Text("listen failed.");
+    WARNING_ERRNO(_real_listen(_fds[0], _listenBacklog) == 0,
+                  "listen failed: fd={} con_id={} backlog={}", _fds[0],
+                  id().conId(), _listenBacklog);
     if (_type == TCP_LISTEN) {
       break;
     }
@@ -751,9 +795,10 @@ TcpConnection::postRestart()
     break;
 
   case TCP_ACCEPT:
-    JASSERT(!_remotePeerId.isNull()) (id()) (_remotePeerId) (_fds[0])
-    .Text("Can't restore a TCP_ACCEPT socket with null acceptRemoteId.\n"
-          "  Perhaps handshake went wrong?");
+    ASSERT(!_remotePeerId.isNull(),
+           "Can't restore a TCP_ACCEPT socket with null acceptRemoteId; "
+           "perhaps handshake went wrong: con_id={} fd={}",
+           id().conId(), _fds[0]);
 
     JTRACE("registerIncoming") (id()) (_remotePeerId) (_fds[0]);
     ConnectionRewirer::instance().registerIncoming(id(), this, _sockDomain);
@@ -766,11 +811,17 @@ TcpConnection::postRestart()
     fd = _real_socket(_sockDomain == AF_INET6 ? AF_INET : _sockDomain,
                       _sockType, _sockProtocol);
 #endif // ifdef ENABLE_IP6_SUPPORT
-    JASSERT(fd != -1) (JASSERT_ERRNO);
+    ASSERT_ERRNO(fd != -1,
+                 "failed to recreate connecting TCP socket: con_id={} "
+                 "domain={} type={} protocol={}",
+                 id().conId(), _sockDomain, _sockType, _sockProtocol);
     restoreDupFds(fd);
     if (_bindAddrlen != 0) {
-      JWARNING(_real_bind(_fds[0], (sockaddr *)&_bindAddr, _bindAddrlen) != -1)
-        (JASSERT_ERRNO);
+      WARNING_ERRNO(_real_bind(_fds[0], (sockaddr *)&_bindAddr,
+                               _bindAddrlen) != -1,
+                    "failed to bind recreated connecting TCP socket: fd={} "
+                    "con_id={} addrlen={}",
+                    _fds[0], id().conId(), _bindAddrlen);
     }
     JTRACE("registerOutgoing") (id()) (_remotePeerId) (_fds[0]);
     ConnectionRewirer::instance().registerOutgoing(_remotePeerId, this);
@@ -809,21 +860,22 @@ TcpConnection::recvHandshake(int remotefd, const ConnectionIdentifier &coordId)
   remote >> msg;
 
   msg.assertValid(ConnMsg::HANDSHAKE);
-  JASSERT(msg.coordId == coordId) (msg.coordId) (coordId)
-  .Text("Peer has a different dmtcp_coordinator than us!\n"
-        "  It must be the same.");
+  ASSERT(msg.coordId == coordId,
+         "Peer has a different dmtcp_coordinator than us: peer_coord={} "
+         "expected_coord={}",
+         msg.coordId.conId(), coordId.conId());
 
   if (_remotePeerId.isNull()) {
     // first time
     _remotePeerId = msg.from;
-    JASSERT(!_remotePeerId.isNull())
-    .Text("Read handshake with invalid 'from' field.");
+    ASSERT(!_remotePeerId.isNull(),
+           "Read handshake with invalid 'from' field");
   } else {
     // next time
-    JASSERT(_remotePeerId == msg.from)
-      (_remotePeerId) (msg.from)
-    .Text("Read handshake with a different 'from' field"
-          " than a previous handshake.");
+    ASSERT(_remotePeerId == msg.from,
+           "Read handshake with a different 'from' field than a previous "
+           "handshake: previous={} current={}",
+           _remotePeerId.conId(), msg.from.conId());
   }
 }
 
@@ -844,24 +896,29 @@ RawSocketConnection::RawSocketConnection(int domain, int type, int protocol)
   : Connection(RAW_CREATED)
   , SocketConnection(domain, type, protocol)
 {
-  JASSERT(type == -1 || (type & SOCK_RAW));
-  JASSERT(domain == -1 || domain == AF_NETLINK) (domain)
-  .Text("Only Netlink raw socket supported");
+  ASSERT(type == -1 || (type & SOCK_RAW),
+         "raw socket connection created with non-raw type: type={}", type);
+  ASSERT(domain == -1 || domain == AF_NETLINK,
+         "Only Netlink raw socket supported: domain={}", domain);
   JTRACE("Creating Raw socket.") (id()) (domain) (type) (protocol);
 }
 
 void
 RawSocketConnection::drain()
 {
-  JASSERT(_fds.size() > 0) (id());
+  ASSERT(_fds.size() > 0,
+         "raw socket connection has no fds during drain: con_id={}",
+         id().conId());
 
   if ((_fcntlFlags & O_ASYNC) != 0) {
     if (really_verbose) {
       JTRACE("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
     }
     errno = 0;
-    JASSERT(fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC) == 0)
-      (JASSERT_ERRNO) (_fds[0]) (id());
+    ASSERT_ERRNO(fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC) == 0,
+                 "failed to remove O_ASYNC during raw socket drain: fd={} "
+                 "con_id={}",
+                 _fds[0], id().conId());
   }
 }
 
@@ -879,7 +936,8 @@ RawSocketConnection::refill(bool isRestart)
 void
 RawSocketConnection::postRestart()
 {
-  JASSERT(_fds.size() > 0);
+  ASSERT(_fds.size() > 0,
+         "raw socket connection has no fds during postRestart");
 
   if (really_verbose) {
     JTRACE("Restoring socket.") (id()) (_fds[0]);
@@ -892,7 +950,10 @@ RawSocketConnection::postRestart()
   {
     errno = 0;
     int fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
-    JASSERT(fd != -1) (JASSERT_ERRNO);
+    ASSERT_ERRNO(fd != -1,
+                 "failed to recreate raw socket: con_id={} domain={} type={} "
+                 "protocol={}",
+                 id().conId(), _sockDomain, _sockType, _sockProtocol);
     restoreDupFds(fd);
     if (_type == RAW_CREATED) {
       break;
@@ -917,9 +978,11 @@ RawSocketConnection::postRestart()
               int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
                                          opt->second.buffer(),
                                          opt->second.size());
-              JASSERT(ret == 0) (JASSERT_ERRNO) (_fds[0]) (lvl->first)
-                (opt->first) (opt->second.buffer()) (opt->second.size())
-              .Text("Restoring setsockopt failed.");
+              ASSERT_ERRNO(ret == 0,
+                           "Restoring raw socket filter setsockopt failed: "
+                           "fd={} level={} option={} value={} size={}",
+                           _fds[0], lvl->first, opt->first,
+                           opt->second.buffer(), opt->second.size());
             }
           }
         }
@@ -927,15 +990,18 @@ RawSocketConnection::postRestart()
     }
 
     errno = 0;
-    JWARNING(_real_bind(_fds[0], (sockaddr *)&_bindAddr, _bindAddrlen) == 0)
-      (JASSERT_ERRNO) (id()).Text("Bind failed.");
+    WARNING_ERRNO(_real_bind(_fds[0], (sockaddr *)&_bindAddr,
+                             _bindAddrlen) == 0,
+                  "raw socket bind failed: fd={} con_id={} addrlen={}",
+                  _fds[0], id().conId(), _bindAddrlen);
     if (_type == RAW_BIND) {
       break;
     }
 
     errno = 0;
-    JWARNING(_real_listen(_fds[0], _listenBacklog) == 0)
-      (JASSERT_ERRNO) (id()) (_listenBacklog).Text("listen failed.");
+    WARNING_ERRNO(_real_listen(_fds[0], _listenBacklog) == 0,
+                  "raw socket listen failed: fd={} con_id={} backlog={}",
+                  _fds[0], id().conId(), _listenBacklog);
     if (_type == RAW_LISTEN) {
       break;
     }
@@ -957,8 +1023,9 @@ RawSocketConnection::onBind(const struct sockaddr *addr, socklen_t len)
 {
   JTRACE("bind on raw socket") (_fds[0]) (this->conType()) (this->id());
   if (addr != NULL) {
-    JASSERT(len <= sizeof _bindAddr) (len) (sizeof _bindAddr)
-    .Text("That is one huge sockaddr buddy.");
+    ASSERT(len <= sizeof _bindAddr,
+           "raw socket bind address is too large: len={} max={}", len,
+           sizeof _bindAddr);
     _bindAddrlen = len;
     memcpy(&_bindAddr, addr, len);
   }
@@ -988,8 +1055,10 @@ RawSocketConnection::RawSocketConnection(const RawSocketConnection &parent,
 
   // JASSERT(parent._type == RAW_LISTEN) (parent._type) (parent.id())
   // .Text("Accepting from a non listening socket????");
-  JWARNING(false).Text("Accept on raw socket type not supported...\n"
-                       "Socket won't be restored");
+  WARNING(false,
+          "Accept on raw socket type not supported; socket will not be "
+          "restored: parent_con_id={} remote_con_id={}",
+          parent.id().conId(), remote.conId());
   memset(&_bindAddr, 0, sizeof _bindAddr);
 }
 
@@ -998,6 +1067,8 @@ RawSocketConnection::onConnect(const struct sockaddr *serv_addr,
                                socklen_t addrlen,
                                bool connectInProgress)
 {
-  JWARNING(false).Text("Connect on raw socket type not supported...\n"
-                       "Socket won't be restored");
+  WARNING(false,
+          "Connect on raw socket type not supported; socket will not be "
+          "restored: addr={} len={} in_progress={}",
+          serv_addr, addrlen, connectInProgress);
 }
