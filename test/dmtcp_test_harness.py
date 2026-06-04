@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import gzip
 import json
 import os
 import pathlib
@@ -121,8 +122,13 @@ def checkpoint_payload_succeeded(spec: TestSpec,
 
 
 def validate_checkpoint_bootstrap_headers(path: pathlib.Path):
-    data = path.read_bytes()
     required_size = 2 * DMTCP_CKPT_HEADER_SIZE
+    raw = path.read_bytes()
+    if raw.startswith(b"\x1f\x8b"):
+        with gzip.open(path, "rb") as image:
+            data = image.read(required_size)
+    else:
+        data = raw[:required_size]
     if len(data) < required_size:
         raise HarnessFailure(
             "checkpoint-header",

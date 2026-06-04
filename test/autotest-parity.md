@@ -24,7 +24,8 @@ stay deferred until they are triaged separately.
 
 These direct old-harness tests are ported to the new harness and are migration
 gates for `make check`. Keep this list in sync with `./test/autotest.py --list`
-when adding or removing new-harness coverage.
+when adding or removing new-harness coverage. Configure-dependent tests in
+this table are authoritative when their corresponding probes enable them.
 
 | Group | Ported tests |
 | --- | --- |
@@ -33,7 +34,7 @@ when adding or removing new-harness coverage.
 | Threads and synchronization | `pthread1`, `pthread2`, `pthread3`, `pthread4`, `pthread5`, `pthread6`, `pthread_atfork1`, `pthread_atfork2`, `mutex1`, `mutex2`, `mutex3`, `mutex4`, `timer1`, `clock`, `gettimeofday` |
 | IPC, sockets, and PTY smoke | `client-server`, `seqpacket`, `shared-memory1`, `shared-memory2`, `sysv-shm1`, `sysv-shm2`, `sysv-sem`, `sysv-msg`, `posix-mq1`, `posix-mq-close-untracked`, `pty1`, `pty2` |
 | Plugins and events | `dlopen1`, `dlopen2`, `syscall-tester`, `presuspend`, `plugin-sleep2`, `plugin-init`, `poll-disable-event-plugin`, `popen1`, `restartdir`, `nocheckpoint` |
-| Shells and language/runtime smoke | `perl`, `python`, `bash`, `dash`, `zsh`, `openmp-1`, `openmp-2` |
+| Shells and language/runtime smoke | `perl`, `python`, `bash`, `dash`, `zsh`, `java1`, `openmp-1`, `openmp-2` |
 
 ## Ported With Explicit Limits
 

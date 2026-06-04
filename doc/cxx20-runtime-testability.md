@@ -265,6 +265,7 @@ cannot silently diverge from deployed behavior.
 No coordinator state transition should be covered only by synthetic clients:
 each modeled transition needs at least one real-worker assertion before it is
 treated as authoritative coverage.
+Track that mapping in `test/coordinator-realworker-coverage.md`.
 
 ## Phase 5: Process Metadata And Checkpoint Bootstrap
 
@@ -651,6 +652,10 @@ to miss when work moves from roadmap to code:
   explicitly re-establishes the current thread context. ASSERT/WARNING must
   retain a fixed fallback buffer until that ordering is proven across restart
   paths and utility binaries.
+- Treat that fallback buffer as diagnostic hardening only. The Phase 6
+  ThreadInfo cleanup still needs an explicit restart handoff audit showing
+  where `curThread` is re-established before non-diagnostic per-thread state is
+  used after TLS restore.
 - Prefer one shared thread diagnostic-buffer interface for `libdmtcp.so` and
   utilities. If a smaller utility context becomes necessary, keep the formatter
   entry point explicit so buffer semantics do not drift.

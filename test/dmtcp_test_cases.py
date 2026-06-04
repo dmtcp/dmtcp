@@ -150,7 +150,8 @@ if not _use_m32():
 
 if not _use_m32():
     TESTS.append(TestSpec("gzip", 1, ["./test/dmtcp1"],
-                          env={"DMTCP_GZIP": "1"}))
+                          env={"DMTCP_GZIP": "1"},
+                          validate_checkpoint_headers=True))
     TESTS.append(TestSpec("perl", 1, ["/usr/bin/perl"],
                           post_launch_delay=2.0))
     if _config_yes("HAS_PYTHON") or _config_yes("HAS_PYTHON3"):

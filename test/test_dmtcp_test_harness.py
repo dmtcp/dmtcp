@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import gzip
 import os
 import pathlib
 import platform
@@ -314,6 +315,18 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
             validate_checkpoint_bootstrap_headers(image)
 
+    def test_validate_checkpoint_bootstrap_headers_accepts_gzip_records(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = pathlib.Path(tmp) / "ckpt.dmtcp"
+            header = bytearray(4096)
+            signature = b"DMTCP_CHECKPOINT_IMAGE_v5.0\n\0"
+            header[:len(signature)] = signature
+            struct.pack_into("=IIII", header, 32, 4096, 1, 8, 0x01020304)
+            with gzip.open(image, "wb") as out:
+                out.write(bytes(header) + bytes(header) + b"payload")
+
+            validate_checkpoint_bootstrap_headers(image)
+
     def test_validate_checkpoint_bootstrap_headers_rejects_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = pathlib.Path(tmp) / "ckpt.dmtcp"
@@ -417,6 +430,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                 self.assertIn("zsh", names)
             gzip = get_test("gzip")
             self.assertEqual(gzip.env["DMTCP_GZIP"], "1")
+            self.assertTrue(gzip.validate_checkpoint_headers)
         if autotest_config.HAS_JAVA == "yes" and autotest_config.HAS_JAVAC == "yes":
             self.assertIn("java1", names)
             java1 = get_test("java1")
