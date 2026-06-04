@@ -344,10 +344,20 @@ dmtcp_ckpt_header_has_valid_bootstrap(const DmtcpCkptHeader *header)
     }
   }
 
-  return header->headerSize == sizeof(DmtcpCkptHeader) &&
-         header->headerVersion == DMTCP_CKPT_HEADER_FORMAT_VERSION &&
-         header->wordSize == sizeof(void *) &&
-         header->endianMarker == DMTCP_CKPT_ENDIAN_MARKER;
+  if (header->headerSize != sizeof(DmtcpCkptHeader) ||
+      header->headerVersion != DMTCP_CKPT_HEADER_FORMAT_VERSION ||
+      header->wordSize != sizeof(void *) ||
+      header->endianMarker != DMTCP_CKPT_ENDIAN_MARKER) {
+    return 0;
+  }
+
+  for (i = 0; i < sizeof(header->padding); ++i) {
+    if (header->padding[i] != 0) {
+      return 0;
+    }
+  }
+
+  return 1;
 }
 
 // FIXME:

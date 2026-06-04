@@ -77,6 +77,17 @@ void ckptHeaderBootstrapValidation()
   ASSERT_TRUE(dmtcp_ckpt_header_has_valid_bootstrap(&header) == 0);
 }
 
+void ckptHeaderRejectsNonZeroReservedPadding()
+{
+  DmtcpCkptHeader header = {};
+  std::strcpy(header.ckptSignature, DMTCP_CKPT_SIGNATURE);
+  dmtcp_init_ckpt_header_bootstrap(&header);
+
+  header.padding[0] = 1;
+
+  ASSERT_TRUE(dmtcp_ckpt_header_has_valid_bootstrap(&header) == 0);
+}
+
 void ckptSignatureRejectsOldLayout()
 {
   ASSERT_TRUE(std::strstr(DMTCP_CKPT_SIGNATURE, "v5.0") != nullptr);
@@ -107,6 +118,8 @@ extern const dmtcp_test::TestCase dmtcpHeaderTests[] = {
   {"checkpoint signature fits header field", ckptSignatureFitsHeaderField},
   {"checkpoint header is self describing", ckptHeaderIsSelfDescribing},
   {"checkpoint header validates bootstrap fields", ckptHeaderBootstrapValidation},
+  {"checkpoint header rejects non-zero reserved padding",
+   ckptHeaderRejectsNonZeroReservedPadding},
   {"checkpoint signature rejects old layout", ckptSignatureRejectsOldLayout},
   {"plugin descriptor keeps plain ABI shape", pluginDescriptorKeepsPlainAbiShape},
 };
