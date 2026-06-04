@@ -22,13 +22,13 @@
 #include <assert.h>
 
 #include "../jalib/jalib.h"
-#include "../jalib/jassert.h"
 #include "../jalib/jbuffer.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -70,5 +70,5 @@ initializeJalib()
 
   // To force linkage of jbuffer.cpp
   static jalib::JBuffer *buf = new jalib::JBuffer(0);
-  JASSERT(buf != nullptr);
+  ASSERT_NOT_NULL(buf);
 }

@@ -70,6 +70,7 @@
 #include "dmtcp.h"
 #include "jassert.h"
 #include "config.h"
+#include "util_assert.h"
 
 // ***** NOTE:  link.h invokes elf.h, which:
 // *****        expands ElfW(Word)  to  Elf64_Word; and then defines:
@@ -177,7 +178,7 @@ static Elf32_Word
 hash_next(Elf32_Word index, Elf32_Word *hash_table, int use_gnu_hash)
 {
   if (use_gnu_hash) {
-    JASSERT(index > STN_UNDEF);
+    ASSERT_GT(index, STN_UNDEF);
     uint32_t nbuckets = ((uint32_t *)hash_table)[0];
     uint32_t symndx = ((uint32_t *)hash_table)[1];
     uint32_t maskwords = ((uint32_t *)hash_table)[2];
@@ -221,7 +222,7 @@ version_name(ElfW(Word)version_ndx, dt_tag *tags)
        // Could alternatively use verdefnum (DT_VERDEFNUM) here.
        cur != prev;
        prev = cur, cur = (ElfW(Verdef) *)(((char *)cur) + cur->vd_next)) {
-    JASSERT(cur->vd_version == 1);
+    ASSERT_EQ(1, cur->vd_version);
     if (cur->vd_ndx == version_ndx) {
       ElfW(Verdaux) * first = (ElfW(Verdaux) *)(((char *)cur) + cur->vd_aux);
       return tags->strtab + first->vda_name;
@@ -351,7 +352,9 @@ dlsym_default_internal_library_handler(void *handle,
   uint32_t numNonHiddenSymbols = 0;
 
   get_dt_tags(handle, &tags);
-  JASSERT(tags.hash != NULL || tags.gnu_hash != NULL);
+  ASSERT(tags.hash != NULL || tags.gnu_hash != NULL,
+         "missing ELF hash table: symbol={}",
+         symbol);
   int use_gnu_hash = (tags.hash == NULL);
   Elf32_Word *hash = (use_gnu_hash ? tags.gnu_hash : tags.hash);
   for (i = hash_first(symbol, hash, use_gnu_hash); i != STN_UNDEF;
@@ -382,7 +385,9 @@ dlsym_default_internal_library_handler(void *handle,
       // Notice that default_symbol_index will be set first to the
       // base definition (1 for unversioned symbols; 2 for versioned symbols)
       if (default_symbol_index && numNonHiddenSymbols > 1) {
-        JWARNING(false)(symbol).Text("More than one default symbol version.");
+        WARNING(false,
+                "more than one default symbol version: symbol={}",
+                symbol);
       }
       char *defaultSymVersion = version_name(tags.versym[default_symbol_index],
                                              &tags);
@@ -442,8 +447,9 @@ dlsym_default_internal_flag_handler(void *handle,
   int ret = dladdr1(addr, &info, (void **)&map, RTLD_DL_LINKMAP);
 
   if (!ret) {
-    JWARNING(false)(symbol)
-            .Text("dladdr1 could not find shared object for address");
+    WARNING(false,
+            "dladdr1 could not find shared object for address: symbol={}",
+            symbol);
     return NULL;
   }
 

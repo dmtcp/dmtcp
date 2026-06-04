@@ -353,11 +353,11 @@ DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
       replyData = printList();
       reply->extraBytes = replyData.length();
     } else {
-      JASSERT_STDERR << printList();
+      fputs(printList().c_str(), stderr);
     }
   } else if (cmd == "u") {
-    JASSERT_STDERR << "Host List:\n";
-    JASSERT_STDERR << "HOST => # connected clients \n";
+    fputs("Host List:\n", stderr);
+    fputs("HOST => # connected clients \n", stderr);
     dmtcp::map<string, int>clientHosts;
     for (size_t i = 0; i < clients.size(); i++) {
       if (clientHosts.find(clients[i]->hostname()) == clientHosts.end()) {
@@ -369,12 +369,12 @@ DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
     for (dmtcp::map<string, int>::iterator it = clientHosts.begin();
          it != clientHosts.end();
          ++it) {
-      JASSERT_STDERR << it->first << " => " << it->second << '\n';
+      fprintf(stderr, "%s => %d\n", it->first.c_str(), it->second);
     }
   } else if (cmd == "q") {
     JNOTE("killing all connected peers and quitting ...");
     broadcastMessage(DMT_KILL_PEER);
-    JASSERT_STDERR << "DMTCP coordinator exiting... (per request)\n";
+    fputs("DMTCP coordinator exiting... (per request)\n", stderr);
     for (size_t i = 0; i < clients.size(); i++) {
       clients[i]->sock().close();
     }
@@ -390,7 +390,7 @@ DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
     JNOTE("Killing all connected peers...");
     broadcastMessage(DMT_KILL_PEER);
   } else if (cmd == "h" || cmd == "?") {
-    JASSERT_STDERR << theHelpMessage;
+    fputs(theHelpMessage, stderr);
   } else if (cmd == "s") {
     ComputationStatus s = getStatus();
     bool running = (s.minimumStateUnanimous &&
@@ -1598,7 +1598,7 @@ DmtcpCoordinator::eventLoop()
           string cmd;
           std::getline(std::cin, cmd);
           if (std::cin.eof() == 1) {
-            JASSERT_STDERR << "\n  Closing stdin...\n";
+            fputs("\n  Closing stdin...\n", stderr);
             ASSERT_ERRNO(
               epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1,
               "epoll_ctl delete stdin after EOF failed");
@@ -1859,7 +1859,7 @@ main(int argc, char **argv)
 
   if (flags.daemon) {
     if (!flags.quiet) {
-      JASSERT_STDERR << "Backgrounding...\n";
+      fputs("Backgrounding...\n", stderr);
     }
     int fd = -1;
     if (!flags.useLogFile) {
@@ -1891,9 +1891,7 @@ main(int argc, char **argv)
     // pid_t sid = setsid();
   } else {
     if (!flags.quiet) {
-      JASSERT_STDERR <<
-        "Type '?' for help." <<
-        "\n\n";
+      fputs("Type '?' for help.\n\n", stderr);
     }
   }
 

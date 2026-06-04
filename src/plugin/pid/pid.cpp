@@ -41,6 +41,7 @@
 #include "pidwrappers.h"
 #include "protectedfds.h"
 #include "shareddata.h"
+#include "util_assert.h"
 #include "virtualpidtable.h"
 
 static char PROC_PREFIX[] = "/proc/";
@@ -193,7 +194,7 @@ pidVirt_PrepareForExec(DmtcpEventData_t *data)
   pid_t realPpid = dmtcp_pid_virtual_to_real(virtPpid);
   Util::setVirtualPidEnvVar(virtPid, realPid, virtPpid, realPpid);
 
-  JASSERT(data != NULL);
+  ASSERT_NOT_NULL(data);
   jalib::JBinarySerializeWriterRaw wr("", data->preExec.serializationFd);
   VirtualPidTable::instance().serialize(wr);
 }
@@ -201,7 +202,7 @@ pidVirt_PrepareForExec(DmtcpEventData_t *data)
 static void
 pidVirt_PostExec(DmtcpEventData_t *data)
 {
-  JASSERT(data != NULL);
+  ASSERT_NOT_NULL(data);
   jalib::JBinarySerializeReaderRaw rd("", data->postExec.serializationFd);
   VirtualPidTable::instance().serialize(rd);
   VirtualPidTable::instance().refresh();
@@ -227,7 +228,10 @@ pidVirt_ProcessProcSelfTask(DmtcpEventData_t *data)
     char buf[PATH_MAX - 20];
     strncpy(buf, rest, PATH_MAX - 20);
     pid_t realTid = dmtcp_pid_virtual_to_real(virtualTid);
-    JASSERT(20+strlen(buf) < PATH_MAX); // Reserve char[20] for realTid, below.
+    // Reserve char[20] for realTid below.
+    ASSERT(20 + strlen(buf) < PATH_MAX,
+           "translated /proc task path is too long: rest_len={}",
+           strlen(buf));
     snprintf(tidStr, PATH_MAX, "%d%s", realTid, buf);
   }
 }
@@ -304,7 +308,7 @@ openSharedFile(string const& name, int flags)
   }
 
   // unable to create & open OR open
-  JASSERT(false)(name)(strerror(errno)).Text("Cannot open file");
+  ASSERT_ERRNO(false, "cannot open file: path={}", name);
   return -1;
 }
 
@@ -335,7 +339,7 @@ pidVirt_PostRestart()
   JTRACE("Open dmtcpPidMapFile")(o.str());
   pidMapFile = o.str();
   int fd = openSharedFile(pidMapFile, O_RDWR);
-  JASSERT(fd != -1);
+  ASSERT_ERRNO(fd != -1, "failed to open PID map file: path={}", pidMapFile);
 
   VirtualPidTable::instance().writeMapsToFile(fd);
   dmtcp_local_barrier("PID:RESTART");
