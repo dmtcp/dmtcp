@@ -75,6 +75,7 @@ class WorkerProcess:
                  expect_kvdb=False,
                  expect_invalid_protocol_reject=False,
                  expect_oversized_extra_reject=False,
+                 expect_invalid_message_size_reject=False,
                  send_partial_message=False,
                  restart_worker=False,
                  num_peers=None):
@@ -103,6 +104,8 @@ class WorkerProcess:
             args.append("--expect-invalid-protocol-reject")
         if expect_oversized_extra_reject:
             args.append("--expect-oversized-extra-reject")
+        if expect_invalid_message_size_reject:
+            args.append("--expect-invalid-message-size-reject")
         if send_partial_message:
             args.append("--send-partial-message")
         if restart_worker:
@@ -542,6 +545,20 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 coordinator.port, expect_oversized_extra_reject=True)
             try:
                 worker.wait_until_oversized_extra_rejected()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 0)
+                self.assertFalse(status["running"])
+            finally:
+                worker.stop()
+
+    def test_invalid_message_size_worker_is_rejected(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(
+                coordinator.port, expect_invalid_message_size_reject=True)
+            try:
+                worker.wait_until_invalid_protocol_rejected()
                 status = self.coordinator_status(coordinator.port)
 
                 self.assertTrue(status["ok"])
