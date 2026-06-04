@@ -12,6 +12,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DMTCP_COMMAND = ROOT / "bin" / "dmtcp_command"
 DMTCP_COORDINATOR = ROOT / "bin" / "dmtcp_coordinator"
+COMMAND_TIMEOUT = 10
 
 
 def read_port_file(path):
@@ -75,6 +76,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
+            timeout=COMMAND_TIMEOUT,
         )
 
     def test_status_json_reports_coordinator_not_found(self):

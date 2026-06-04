@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
 
 import os
+import pathlib
 import platform
+import subprocess
+import tempfile
 import unittest
+from unittest import mock
 
 import autotest_config
+import dmtcp_test_harness as harness_module
 from dmtcp_test_cases import get_test, iter_tests
 from dmtcp_test_harness import (
+    DmtcpHarness,
     DmtcpStatus,
+    HarnessFailure,
     ROOT,
+    TestContext,
     TestResult,
     TestSpec,
     checkpoint_payload_succeeded,
@@ -64,6 +72,40 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         spec = TestSpec("dmtcp1", 1, ["./test/dmtcp1"])
 
         self.assertEqual(spec.timeout, 30.0)
+
+    def test_json_command_timeout_becomes_harness_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("timeout", 1, ["./test/dmtcp1"], timeout=0.01)
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            def timeout_run(*args, **kwargs):
+                raise subprocess.TimeoutExpired(
+                    args[0],
+                    kwargs.get("timeout"),
+                    output="partial stdout",
+                    stderr="partial stderr",
+                )
+
+            with mock.patch.object(harness_module.subprocess, "run",
+                                   timeout_run):
+                with self.assertRaises(HarnessFailure) as caught:
+                    context._run_json_command("--status", "status",
+                                              allow_error=False)
+
+            self.assertEqual(caught.exception.phase, "status")
+            self.assertIn("timed out", caught.exception.message)
+            transcript = (tmp_path / "commands.log").read_text(
+                encoding="utf-8")
+            self.assertIn("$ dmtcp_command --json --status", transcript)
+            self.assertIn("timeout=0.01", transcript)
+            self.assertIn("partial stdout", transcript)
+            self.assertIn("partial stderr", transcript)
 
     def test_spec_records_environment_and_launch_delay(self):
         spec = TestSpec("gzip", 1, ["./test/dmtcp1"],

@@ -336,16 +336,33 @@ class TestContext:
 
     def _run_json_command(self, command: str, phase: str,
                           allow_error: bool) -> Dict[str, object]:
-        result = subprocess.run(
-            [str(self.harness.command), "--json", command],
-            cwd=str(self.harness.root),
-            env=self.env,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
         transcript = self.work.path / "commands.log"
+        try:
+            result = subprocess.run(
+                [str(self.harness.command), "--json", command],
+                cwd=str(self.harness.root),
+                env=self.env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=self.spec.timeout,
+            )
+        except subprocess.TimeoutExpired as error:
+            with transcript.open("a", encoding="utf-8") as out:
+                out.write(f"$ dmtcp_command --json {command}\n")
+                out.write(f"timeout={self.spec.timeout}\n")
+                if error.stdout:
+                    out.write(str(error.stdout))
+                if error.stderr:
+                    out.write("\n[stderr]\n")
+                    out.write(str(error.stderr))
+                out.write("\n")
+            raise HarnessFailure(
+                phase,
+                f"dmtcp_command --json {command} timed out after "
+                f"{self.spec.timeout} seconds",
+            )
         with transcript.open("a", encoding="utf-8") as out:
             out.write(f"$ dmtcp_command --json {command}\n")
             out.write(f"exit={result.returncode}\n")
