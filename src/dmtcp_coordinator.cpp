@@ -422,7 +422,8 @@ void DmtcpCoordinator::getStatusStr(ostream *o)
 void
 DmtcpCoordinator::writeStatusToFile()
 {
-  truncate(flags.theStatusFile.c_str(), offset_after_first_line);
+  JASSERT(truncate(flags.theStatusFile.c_str(), offset_after_first_line) == 0)
+    (flags.theStatusFile) (JASSERT_ERRNO);
   ofstream o;
   // Don't use std::ios::trunc.  A timestamp was previously written.
   o.open(flags.theStatusFile.c_str(), std::ios::app);

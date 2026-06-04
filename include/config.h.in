@@ -48,8 +48,12 @@
 /* Allow 'gdb attach' when DMTCP_RESTART_PAUSE_WHILE is defined. */
 #undef HAS_PR_SET_PTRACER
 
-/* define if the compiler supports basic C++14 syntax */
-#undef HAVE_CXX14
+/* define if the compiler supports basic C++20 syntax */
+#undef HAVE_CXX20
+
+/* Define to 1 if you have the declaration of 'SYS_mq_open', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SYS_MQ_OPEN
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
