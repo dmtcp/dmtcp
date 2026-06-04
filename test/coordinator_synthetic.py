@@ -131,30 +131,46 @@ class WorkerProcess:
         self.process = subprocess.Popen(
             args,
             cwd=str(ROOT),
-            text=True,
             stdin=subprocess.PIPE if barrier_after_stdin else None,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
+        self._stdout_buffer = b""
+
+    def _read_stderr(self):
+        data = self.process.stderr.read()
+        if isinstance(data, bytes):
+            return data.decode("utf-8", errors="replace")
+        return data
+
+    def _stdout_ready(self, timeout):
+        if b"\n" in self._stdout_buffer:
+            return True
+        readable, _, _ = select.select([self.process.stdout], [], [], timeout)
+        return bool(readable)
 
     def _read_stdout_line(self):
-        line = self.process.stdout.readline()
-        if line:
-            return line.strip()
+        while b"\n" not in self._stdout_buffer:
+            chunk = os.read(self.process.stdout.fileno(), 4096)
+            if chunk:
+                self._stdout_buffer += chunk
+                continue
 
-        stderr = ""
-        if self.process.poll() is not None:
-            stderr = self.process.stderr.read()
-        raise RuntimeError(f"worker stdout closed early: {stderr}")
+            stderr = ""
+            if self.process.poll() is not None:
+                stderr = self._read_stderr()
+            raise RuntimeError(f"worker stdout closed early: {stderr}")
+
+        line, self._stdout_buffer = self._stdout_buffer.split(b"\n", 1)
+        return line.decode("utf-8", errors="replace").strip()
 
     def wait_until_accepted(self):
         deadline = time.time() + 10
         while time.time() < deadline:
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line.startswith("accepted virtual_pid="):
                     return line
@@ -164,42 +180,39 @@ class WorkerProcess:
     def wait_until_killed(self):
         deadline = time.time() + 10
         while time.time() < deadline:
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line == "received DMT_KILL_PEER":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not receive kill message")
 
     def wait_until_checkpoint_requested(self):
         deadline = time.time() + 10
         while time.time() < deadline:
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line == "received DMT_DO_CHECKPOINT":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not receive checkpoint request")
 
     def wait_until_duplicate_checkpoint_requested(self):
         deadline = time.time() + 10
         while time.time() < deadline:
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line == "received duplicate DMT_DO_CHECKPOINT":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not receive duplicate checkpoint")
 
@@ -207,61 +220,57 @@ class WorkerProcess:
         deadline = time.time() + 10
         expected = f"released barrier={barrier}"
         while time.time() < deadline:
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line == expected:
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not receive barrier release")
 
     def send_barrier_from_stdin(self):
-        self.process.stdin.write("\n")
+        self.process.stdin.write(b"\n")
         self.process.stdin.flush()
 
     def wait_until_barrier_sent(self, barrier):
         deadline = time.time() + 10
         expected = f"sent barrier={barrier}"
         while time.time() < deadline:
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line == expected:
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not send barrier")
 
     def wait_until_rejected_wrong_computation(self):
         deadline = time.time() + 10
         while time.time() < deadline:
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line == "rejected DMT_REJECT_WRONG_COMP":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker was not rejected for wrong computation")
 
     def wait_until_rejected_not_restarting(self):
         deadline = time.time() + 10
         while time.time() < deadline:
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line == "rejected DMT_REJECT_NOT_RESTARTING":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError(
             "worker was not rejected for non-restarting coordinator")
@@ -269,14 +278,13 @@ class WorkerProcess:
     def wait_until_rejected_not_running(self):
         deadline = time.time() + 10
         while time.time() < deadline:
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line == "rejected DMT_REJECT_NOT_RUNNING":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError(
             "worker was not rejected for non-running coordinator")
@@ -284,14 +292,13 @@ class WorkerProcess:
     def wait_until_rejected_restart_peer_mismatch(self):
         deadline = time.time() + 10
         while time.time() < deadline:
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line == "rejected DMT_REJECT_RESTART_PEER_MISMATCH":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError(
             "worker was not rejected for restart peer-count mismatch")
@@ -299,28 +306,26 @@ class WorkerProcess:
     def wait_until_kvdb_round_trip(self):
         deadline = time.time() + 10
         while time.time() < deadline:
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line == "kvdb old=0 value=synthetic-value":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not complete KVDB round trip")
 
     def wait_until_invalid_protocol_rejected(self):
         deadline = time.time() + 10
         while time.time() < deadline:
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line == "rejected invalid protocol":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker was not rejected for invalid protocol")
 
@@ -330,14 +335,13 @@ class WorkerProcess:
     def wait_until_partial_message_sent(self):
         deadline = time.time() + 10
         while time.time() < deadline:
-            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if readable:
+            if self._stdout_ready(0.1):
                 line = self._read_stdout_line()
                 if line == "sent partial protocol message":
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read()
+                stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not send partial protocol message")
 
@@ -384,8 +388,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
         self.fail(f"expected {expected} peers, last status: {last_status}")
 
     def assert_no_worker_output(self, worker, seconds=0.3):
-        readable, _, _ = select.select([worker.process.stdout], [], [], seconds)
-        if readable:
+        if worker._stdout_ready(seconds):
             self.fail(f"unexpected worker output: {worker._read_stdout_line()}")
         self.assertIsNone(worker.process.poll())
 
@@ -684,6 +687,33 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertFalse(status["running"])
             finally:
                 worker.stop()
+
+    def test_new_worker_during_checkpoint_receives_checkpoint_request(self):
+        with CoordinatorFixture() as coordinator:
+            first = WorkerProcess(coordinator.port, expect_checkpoint=True)
+            second = None
+            try:
+                first.wait_until_accepted()
+                result = self.run_command("--json", "--coord-port",
+                                          str(coordinator.port),
+                                          "--checkpoint")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                payload = json.loads(result.stdout)
+
+                self.assertTrue(payload["ok"])
+                first.wait_until_checkpoint_requested()
+
+                second = WorkerProcess(coordinator.port,
+                                       expect_checkpoint=True)
+                second.wait_until_accepted()
+                second.wait_until_checkpoint_requested()
+                status = self.wait_until_num_peers(coordinator.port, 2)
+
+                self.assertTrue(status["ok"])
+            finally:
+                first.stop()
+                if second is not None:
+                    second.stop()
 
     def test_worker_update_during_checkpoint_gets_duplicate_request(self):
         with CoordinatorFixture() as coordinator:
