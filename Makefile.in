@@ -206,8 +206,11 @@ tests-32: build
 #   now needs at least 32 MB  (June, 2013)
 LIMIT=ulimit -v 33554432
 
-check: tests check-unit check-harness-unit check-command-json \
-       check-coordinator-synthetic
+check: tests
+	cd test && $(MAKE) check-unit
+	cd test && $(MAKE) check-harness-unit
+	cd test && $(MAKE) check-command-json
+	cd test && $(MAKE) check-coordinator-synthetic
 	@ if test "@HAS_PYTHON3@" = yes; then \
 	 bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py ${AUTOTEST} $*";\
 	elif test "@HAS_PYTHON@" = yes; then \
