@@ -98,6 +98,9 @@ COORDINATOR_SYNTHETIC_LDADD = \
 check-unit: $(UNIT_TESTS)
 	./unit/dmtcp_unit_tests
 
+check-harness-unit:
+	python3 $(srcdir)/test_dmtcp_test_harness.py
+
 check-command-json:
 	python3 $(srcdir)/test_dmtcp_command_json.py
 
