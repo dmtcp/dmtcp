@@ -104,6 +104,22 @@ struct Thread {
   Thread *prev;
 };
 
+inline char *
+Thread_GetAssertBuffer(Thread *thread, size_t *size)
+{
+  if (thread == NULL) {
+    if (size != NULL) {
+      *size = 0;
+    }
+    return NULL;
+  }
+
+  if (size != NULL) {
+    *size = sizeof(thread->core.assertBuffer);
+  }
+  return thread->core.assertBuffer;
+}
+
 Thread *dmtcp_get_current_thread();
 EXTERNC char *dmtcp_get_thread_assert_buffer(size_t *size)
   __attribute__((weak));

@@ -127,15 +127,8 @@ dmtcp_get_current_thread()
 extern "C" char *
 dmtcp_get_thread_assert_buffer(size_t *size)
 {
-  Thread *thread = curThread;
-  if (thread == NULL) {
-    return NULL;
-  }
-
-  if (size != NULL) {
-    *size = sizeof(thread->core.assertBuffer);
-  }
-  return thread->core.assertBuffer;
+  Thread *thread = curThread != NULL ? curThread : &motherofallStorage;
+  return Thread_GetAssertBuffer(thread, size);
 }
 
 /*****************************************************************************
