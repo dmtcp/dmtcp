@@ -335,6 +335,7 @@ am___d_libdir__libdmtcp_so_OBJECTS =  \
 	__d_libdir__libdmtcp_so-threadlist.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-threadsync.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-threadwrappers.$(OBJEXT) \
+	__d_libdir__libdmtcp_so-util_assert.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-wrapperlock.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-wrappers.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-writeckpt.$(OBJEXT)
@@ -388,6 +389,7 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-tls.Po \
+	./$(DEPDIR)/__d_libdir__libdmtcp_so-util_assert.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-wrappers.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-writeckpt.Po \
@@ -851,7 +853,8 @@ nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 	dmtcpmessagetypes.h dmtcpworker.h lookup_service.h ldt.h \
 	plugininfo.h pluginmanager.h processinfo.h restartscript.h \
 	tls.h siginfo.h syscallwrappers.h threadinfo.h threadlist.h \
-	threadsync.h uniquepid.h workerstate.h plugin/alloc/alloc.h \
+	threadsync.h util_assert.h uniquepid.h workerstate.h \
+	plugin/alloc/alloc.h \
 	$(jalibdir)/jalib.h $(jalibdir)/jalloc.h $(jalibdir)/jassert.h \
 	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h \
 	$(jalibdir)/jfilesystem.h $(jalibdir)/jserialize.h \
@@ -1052,6 +1055,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  threadlist.cpp 		\
 				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\
+				  util_assert.cpp		\
 				  wrapperlock.cpp		\
 				  wrappers.cpp 			\
 				  writeckpt.cpp
@@ -1457,6 +1461,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-tls.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-util_assert.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-wrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-writeckpt.Po@am__quote@ # am--include-marker
@@ -1898,6 +1903,20 @@ __d_libdir__libdmtcp_so-threadwrappers.obj: threadwrappers.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-threadwrappers.obj `if test -f 'threadwrappers.cpp'; then $(CYGPATH_W) 'threadwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/threadwrappers.cpp'; fi`
 
+__d_libdir__libdmtcp_so-util_assert.o: util_assert.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-util_assert.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-util_assert.Tpo -c -o __d_libdir__libdmtcp_so-util_assert.o `test -f 'util_assert.cpp' || echo '$(srcdir)/'`util_assert.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-util_assert.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-util_assert.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='util_assert.cpp' object='__d_libdir__libdmtcp_so-util_assert.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-util_assert.o `test -f 'util_assert.cpp' || echo '$(srcdir)/'`util_assert.cpp
+
+__d_libdir__libdmtcp_so-util_assert.obj: util_assert.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-util_assert.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-util_assert.Tpo -c -o __d_libdir__libdmtcp_so-util_assert.obj `if test -f 'util_assert.cpp'; then $(CYGPATH_W) 'util_assert.cpp'; else $(CYGPATH_W) '$(srcdir)/util_assert.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-util_assert.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-util_assert.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='util_assert.cpp' object='__d_libdir__libdmtcp_so-util_assert.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-util_assert.obj `if test -f 'util_assert.cpp'; then $(CYGPATH_W) 'util_assert.cpp'; else $(CYGPATH_W) '$(srcdir)/util_assert.cpp'; fi`
+
 __d_libdir__libdmtcp_so-wrapperlock.o: wrapperlock.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-wrapperlock.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Tpo -c -o __d_libdir__libdmtcp_so-wrapperlock.o `test -f 'wrapperlock.cpp' || echo '$(srcdir)/'`wrapperlock.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Po
@@ -2197,6 +2216,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-tls.Po
+	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-util_assert.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-wrappers.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-writeckpt.Po
@@ -2304,6 +2324,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-tls.Po
+	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-util_assert.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-wrappers.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-writeckpt.Po

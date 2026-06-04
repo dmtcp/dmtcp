@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <ucontext.h>
 #include <unistd.h>
+#include "assert_buffer.h"
 #include "syscallwrappers.h" /* for _real_syscall */
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
@@ -94,11 +95,15 @@ struct Thread {
 
   uint32_t wrapperLockCount;
 
+  char assertBuffer[DMTCP_ASSERT_BUFFER_SIZE];
+
   Thread *next;
   Thread *prev;
 };
 
 Thread *dmtcp_get_current_thread();
+EXTERNC char *dmtcp_get_thread_assert_buffer(size_t *size)
+  __attribute__((weak));
 
 // This symbol is added as weak to allow linkage from dmtcp_launch, etc., via
 // CoordinatorAPI.

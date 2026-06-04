@@ -124,6 +124,20 @@ dmtcp_get_current_thread()
   return curThread;
 }
 
+extern "C" char *
+dmtcp_get_thread_assert_buffer(size_t *size)
+{
+  Thread *thread = curThread;
+  if (thread == NULL) {
+    return NULL;
+  }
+
+  if (size != NULL) {
+    *size = sizeof(thread->assertBuffer);
+  }
+  return thread->assertBuffer;
+}
+
 /*****************************************************************************
  *
  * We will use the region beyond the end of stack for our temporary stack.

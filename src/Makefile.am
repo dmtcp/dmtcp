@@ -119,6 +119,7 @@ nobase_noinst_HEADERS =						\
 			threadinfo.h				\
 			threadlist.h				\
 			threadsync.h				\
+			util_assert.h				\
 			uniquepid.h				\
 			workerstate.h				\
 			plugin/alloc/alloc.h
@@ -330,6 +331,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  threadlist.cpp 		\
 				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\
+				  util_assert.cpp		\
 				  wrapperlock.cpp		\
 				  wrappers.cpp 			\
 				  writeckpt.cpp

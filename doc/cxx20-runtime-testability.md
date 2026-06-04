@@ -445,6 +445,9 @@ Formatter requirements:
 - no dynamic allocation
 - no wrapped libc calls on the emit path; write through `_real_write` or an
   equivalent syscall-level helper
+- fatal ASSERT exit must not consult environment variables; use a fixed raw
+  exit code on this path and keep environment-controlled launcher/restart
+  failure policy outside the diagnostic formatter
 - `{}` default formatting
 - `{:x}` and `{:#x}` hex formatting
 - simple width forms such as `{:08x}` if straightforward

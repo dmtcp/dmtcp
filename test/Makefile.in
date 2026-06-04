@@ -107,12 +107,17 @@ coordinator_synthetic_worker: $(srcdir)/coordinator_synthetic_worker.cpp \
 
 unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 		$(srcdir)/unit/dmtcp_header_tests.cpp \
+		$(srcdir)/unit/util_assert_tests.cpp \
+		$(srcdir)/unit/threadinfo_tests.cpp \
 		$(srcdir)/unit/unit_test.h \
-		$(DMTCP_INCLUDE)/dmtcp.h
+		$(DMTCP_INCLUDE)/dmtcp.h \
+		$(top_srcdir)/src/util_assert.h
 	$(MKDIR_P) unit
-	$(CXX) $(CXXFLAGS) -I$(srcdir)/unit -o $@ \
+	$(CXX) $(CXXFLAGS) -I$(srcdir)/unit -I$(top_srcdir)/src -o $@ \
 	  $(srcdir)/unit/main.cpp \
-	  $(srcdir)/unit/dmtcp_header_tests.cpp
+	  $(srcdir)/unit/dmtcp_header_tests.cpp \
+	  $(srcdir)/unit/util_assert_tests.cpp \
+	  $(srcdir)/unit/threadinfo_tests.cpp
 
 unit/dmtcp_header_c_test.o: $(srcdir)/unit/dmtcp_header_c_test.c \
 		$(DMTCP_INCLUDE)/dmtcp.h
