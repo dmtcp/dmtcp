@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <csignal>
+#include <string>
 #include <sys/wait.h>
 #include <unistd.h>
 

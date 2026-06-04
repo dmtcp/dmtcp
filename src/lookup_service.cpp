@@ -29,6 +29,7 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jsocket.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -93,10 +94,11 @@ LookupService::processRequest(jalib::JSocket &remote,
                          const DmtcpMessage &msg,
                          const void *extraData)
 {
-  JASSERT(msg.keyLen > 0 &&
-          msg.valLen > 0 &&
-          (msg.keyLen + msg.valLen) == msg.extraBytes)
-  (msg.keyLen)(msg.valLen)(msg.extraBytes);
+  ASSERT(msg.keyLen > 0 &&
+         msg.valLen > 0 &&
+         (msg.keyLen + msg.valLen) == msg.extraBytes,
+         "invalid KVDB payload sizes: keyLen={} valLen={} extraBytes={}",
+         msg.keyLen, msg.valLen, msg.extraBytes);
 
   if (msg.kvdbRequest == KVDBRequest::GET) {
     processGet(remote, msg, extraData);
@@ -174,7 +176,8 @@ LookupService::processSet(jalib::JSocket &remote,
     break;
 
   default:
-    JASSERT(false).Text("Invalid operation");
+    ASSERT(false, "Invalid KVDB operation: {}",
+           static_cast<int>(msg.kvdbRequest));
   }
 
   sendResponse(remote, oldVal);
@@ -228,7 +231,7 @@ LookupService::serialize(string const& file)
   ofstream o;
   o.open (file.data());
 
-  JASSERT(o.is_open());
+  ASSERT(o.is_open(), "failed to open lookup service snapshot: {}", file);
 
   o << "{\n";
 
