@@ -25,6 +25,8 @@ struct Options {
   bool expectInvalidProtocolReject = false;
   bool expectOversizedExtraReject = false;
   bool sendPartialMessage = false;
+  bool restartWorker = false;
+  int numPeers = 0;
   bool invalidCompGroup = false;
   std::string barrier;
 };
@@ -144,6 +146,12 @@ parsePositiveInt(const char *text)
   return parsePort(text);
 }
 
+dmtcp::UniquePid
+syntheticRestartCompGroup()
+{
+  return dmtcp::UniquePid(0x64746d746370ULL, 1, 0x72657374617274ULL, 0);
+}
+
 void
 sendBarrier(int fd, const std::string& barrier)
 {
@@ -231,6 +239,7 @@ parseOptions(int argc, char **argv)
       "[--expect-invalid-protocol-reject] "
       "[--expect-oversized-extra-reject] "
       "[--send-partial-message] "
+      "[--restart-worker] [--num-peers PEERS] "
       "[--invalid-comp-group] [--barrier NAME]");
   }
 
@@ -261,6 +270,13 @@ parseOptions(int argc, char **argv)
       options.expectOversizedExtraReject = true;
     } else if (strcmp(argv[i], "--send-partial-message") == 0) {
       options.sendPartialMessage = true;
+    } else if (strcmp(argv[i], "--restart-worker") == 0) {
+      options.restartWorker = true;
+    } else if (strcmp(argv[i], "--num-peers") == 0) {
+      if (++i == argc) {
+        throw std::runtime_error("--num-peers requires a value");
+      }
+      options.numPeers = parsePositiveInt(argv[i]);
     } else if (strcmp(argv[i], "--invalid-comp-group") == 0) {
       options.invalidCompGroup = true;
     } else if (strcmp(argv[i], "--barrier") == 0) {
@@ -283,15 +299,21 @@ main(int argc, char **argv)
 {
   try {
     Options options = parseOptions(argc, argv);
+    const bool restartHandshake =
+      options.expectRejectNotRestarting || options.restartWorker;
 
     dmtcp::WorkerState::setCurrentState(
-      options.expectRejectNotRestarting ? dmtcp::WorkerState::RESTARTING
-                                        : dmtcp::WorkerState::RUNNING);
-    dmtcp::DmtcpMessage hello(options.expectRejectNotRestarting
+      restartHandshake ? dmtcp::WorkerState::RESTARTING
+                       : dmtcp::WorkerState::RUNNING);
+    dmtcp::DmtcpMessage hello(restartHandshake
                               ? dmtcp::DMT_RESTART_WORKER
                               : dmtcp::DMT_NEW_WORKER);
     hello.virtualPid = -1;
     hello.realPid = getpid();
+    if (options.restartWorker) {
+      hello.compGroup = syntheticRestartCompGroup();
+      hello.numPeers = options.numPeers;
+    }
     if (options.invalidCompGroup) {
       hello.compGroup = dmtcp::UniquePid(1, 1, 1);
     }
@@ -358,7 +380,7 @@ main(int argc, char **argv)
     }
 
     if (!reply.isValid() || reply.type != dmtcp::DMT_ACCEPT ||
-        reply.virtualPid == -1) {
+        (!options.restartWorker && reply.virtualPid == -1)) {
       close(fd);
       throw std::runtime_error("coordinator rejected synthetic worker");
     }

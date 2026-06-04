@@ -75,7 +75,9 @@ class WorkerProcess:
                  expect_kvdb=False,
                  expect_invalid_protocol_reject=False,
                  expect_oversized_extra_reject=False,
-                 send_partial_message=False):
+                 send_partial_message=False,
+                 restart_worker=False,
+                 num_peers=None):
         args = [
             str(SYNTHETIC_WORKER),
             "127.0.0.1",
@@ -103,6 +105,10 @@ class WorkerProcess:
             args.append("--expect-oversized-extra-reject")
         if send_partial_message:
             args.append("--send-partial-message")
+        if restart_worker:
+            args.append("--restart-worker")
+        if num_peers is not None:
+            args.extend(["--num-peers", str(num_peers)])
         self.process = subprocess.Popen(
             args,
             cwd=str(ROOT),
@@ -296,6 +302,12 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
+    def assert_no_worker_output(self, worker, seconds=0.3):
+        readable, _, _ = select.select([worker.process.stdout], [], [], seconds)
+        if readable:
+            self.fail(f"unexpected worker output: {worker._read_stdout_line()}")
+        self.assertIsNone(worker.process.poll())
+
     def test_single_synthetic_worker_join_updates_status(self):
         with CoordinatorFixture() as coordinator:
             worker = WorkerProcess(coordinator.port)
@@ -374,6 +386,27 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             finally:
                 for worker in workers:
                     worker.stop()
+
+    def test_restarting_workers_release_barrier_only_after_restart_quorum(self):
+        with CoordinatorFixture() as coordinator:
+            barrier = "restart-quorum"
+            first = WorkerProcess(coordinator.port, barrier=barrier,
+                                  restart_worker=True, num_peers=2)
+            second = None
+            try:
+                first.wait_until_accepted()
+                self.assert_no_worker_output(first)
+
+                second = WorkerProcess(coordinator.port, barrier=barrier,
+                                       restart_worker=True, num_peers=2)
+                second.wait_until_accepted()
+
+                first.wait_until_barrier_released(barrier)
+                second.wait_until_barrier_released(barrier)
+            finally:
+                first.stop()
+                if second is not None:
+                    second.stop()
 
     def test_barrier_waiter_releases_when_peer_disconnects(self):
         with CoordinatorFixture() as coordinator:
