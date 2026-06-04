@@ -127,8 +127,11 @@ coordinator_synthetic_worker: $(srcdir)/coordinator_synthetic_worker.cpp \
 unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 		$(srcdir)/unit/dmtcp_header_tests.cpp \
 		$(srcdir)/unit/dmtcp_message_tests.cpp \
+		$(srcdir)/unit/util_assert_tests.cpp \
 		$(srcdir)/unit/unit_test.h \
 		$(DMTCP_INCLUDE)/dmtcp.h \
+		$(top_srcdir)/src/assert_buffer.h \
+		$(top_srcdir)/src/util_assert.h \
 		$(top_builddir)/src/libdmtcpinternal.a \
 		$(top_builddir)/src/libjalib.a \
 		$(top_builddir)/src/libnohijack.a
@@ -137,6 +140,7 @@ unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 	  $(srcdir)/unit/main.cpp \
 	  $(srcdir)/unit/dmtcp_header_tests.cpp \
 	  $(srcdir)/unit/dmtcp_message_tests.cpp \
+	  $(srcdir)/unit/util_assert_tests.cpp \
 	  $(COORDINATOR_SYNTHETIC_LDADD)
 
 unit/dmtcp_header_c_test.o: $(srcdir)/unit/dmtcp_header_c_test.c \

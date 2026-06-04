@@ -120,6 +120,7 @@ nobase_noinst_HEADERS =						\
 			threadinfo.h				\
 			threadlist.h				\
 			threadsync.h				\
+			util_assert.h				\
 			uniquepid.h				\
 			workerstate.h				\
 			plugin/alloc/alloc.h
@@ -161,6 +162,7 @@ libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
 			     shareddata.cpp 			\
 			     tokenize.cpp			\
 			     uniquepid.cpp			\
+			     util_assert.cpp			\
 			     util_exec.cpp			\
 			     util_init.cpp 			\
 			     util_misc.cpp 			\
