@@ -4,6 +4,7 @@ import json
 import os
 import pathlib
 import select
+import socket
 import subprocess
 import tempfile
 import time
@@ -579,6 +580,19 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertFalse(status["running"])
             finally:
                 worker.stop()
+
+    def test_idle_half_open_connection_does_not_block_status(self):
+        with CoordinatorFixture() as coordinator:
+            sock = socket.create_connection(("127.0.0.1", coordinator.port),
+                                            timeout=1)
+            try:
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 0)
+                self.assertFalse(status["running"])
+            finally:
+                sock.close()
 
     def test_quit_command_kills_workers_and_stops_coordinator(self):
         with CoordinatorFixture() as coordinator:

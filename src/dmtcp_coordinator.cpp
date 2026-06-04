@@ -61,6 +61,7 @@
 #include <fcntl.h>
 #include <limits.h>  // for HOST_NAME_MAX
 #include <netdb.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -855,6 +856,20 @@ DmtcpCoordinator::initializeComputation()
   currentBarrier.clear();
 }
 
+static bool
+waitForInitialMessage(int fd)
+{
+  static const int HANDSHAKE_TIMEOUT_MS = 1000;
+  struct pollfd pfd = {fd, POLLIN, 0};
+  int ret;
+
+  do {
+    ret = poll(&pfd, 1, HANDSHAKE_TIMEOUT_MS);
+  } while (ret == -1 && errno == EINTR);
+
+  return ret > 0 && (pfd.revents & (POLLIN | POLLHUP | POLLERR));
+}
+
 void
 DmtcpCoordinator::onConnect()
 {
@@ -865,6 +880,15 @@ DmtcpCoordinator::onConnect()
   JTRACE("accepting new connection") (remote.sockfd());
 
   if (!remote.isValid()) {
+    remote.close();
+    return;
+  }
+
+  // The handshake read below is blocking.  Drop idle half-open connections so
+  // one peer cannot pin the coordinator event loop before sending a message.
+  if (!waitForInitialMessage(remote.sockfd())) {
+    JTRACE("incoming connection did not send handshake before timeout")
+      (remote.sockfd());
     remote.close();
     return;
   }
