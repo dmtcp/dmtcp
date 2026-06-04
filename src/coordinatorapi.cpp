@@ -668,6 +668,10 @@ sendRecvHandshake(int fd,
     JASSERT(false) (*compId)
     .Text("Connection rejected by the coordinator.\n"
           " Reason: This process has a different computation group.");
+  } else if (msg.type == DMT_REJECT_RESTART_PEER_MISMATCH) {
+    JASSERT(false)
+    .Text("Connection rejected by the coordinator.\n"
+          " Reason: Restart peer count does not match this computation.");
   }
   // Coordinator also prints this, but its stderr may go to /dev/null
   if (msg.type == DMT_REJECT_NOT_RESTARTING) {

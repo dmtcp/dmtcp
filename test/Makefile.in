@@ -25,6 +25,7 @@ HAS_JAVAC= @HAS_JAVAC@
 HAS_CMA= @HAS_CMA@
 HAS_SELINUX= @HAS_SELINUX@
 LDFLAGS = @LDFLAGS@
+LIBS = @LIBS@
 MKDIR_P = @MKDIR_P@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -100,7 +101,7 @@ COORDINATOR_SYNTHETIC_LDADD = \
 	$(top_builddir)/src/libjalib.a \
 	$(top_builddir)/src/libnohijack.a \
 	-Wl,--end-group \
-	-lpthread -lrt -ldl
+	-lpthread -lrt -ldl $(LIBS)
 
 check-prereqs: $(UNIT_TESTS) $(COORDINATOR_SYNTHETIC_WORKER)
 	@:
