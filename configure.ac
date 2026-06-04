@@ -658,29 +658,9 @@ AC_CHECK_PROG(HAS_PYTHON, [python], [yes], [no], [/usr/bin])
 #check for python3
 AC_CHECK_PROG(HAS_PYTHON3, [python3], [yes], [no], [/usr/bin])
 
-#check for dash
-AC_CHECK_PROG(HAS_DASH, [dash], [yes], [no], [/bin])
-
-#check for tcsh
-AC_CHECK_PROG(HAS_TCSH, [tcsh], [yes], [no], [/bin])
-
-#check for zsh
-AC_CHECK_PROG(HAS_ZSH, [zsh], [yes], [no], [/bin])
-
 #check for vim
 AC_CHECK_PROG(HAS_VIM, [vim], [yes], [no], [/usr/bin:/bin])
 AC_PATH_PROG([VIM],    [vim],        [no], [/usr/bin:/bin])
-
-#check for emacs
-AC_CHECK_PROG(HAS_EMACS, [emacs], [yes], [no], [/usr/bin])
-AC_CHECK_PROG(HAS_EMACS_NOX, [emacs-nox], [yes], [no], [/usr/bin])
-
-#check for script
-AC_CHECK_PROG(HAS_SCRIPT, [script], [yes], [no], [/usr/bin])
-
-#check for screen
-AC_CHECK_PROG(HAS_SCREEN, [screen], [yes], [no], [/usr/bin])
-AC_PATH_PROG([SCREEN],    [screen],        [no], [/usr/bin])
 
 #check for strace
 AC_CHECK_PROG(HAS_STRACE, [strace], [yes], [no], [/usr/bin])

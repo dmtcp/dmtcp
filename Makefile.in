@@ -207,10 +207,20 @@ tests-32: build
 LIMIT=ulimit -v 33554432
 
 check: tests
+	@cd test && $(MAKE) --no-print-directory check-prereqs
 	@ if test "@HAS_PYTHON3@" = yes; then \
-	 bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py ${AUTOTEST} $*";\
+	 bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py --suite all ${AUTOTEST} $*";\
 	elif test "@HAS_PYTHON@" = yes; then \
-	 bash -c "$(LIMIT) && python $(top_srcdir)/test/autotest.py ${AUTOTEST} $*";\
+	 bash -c "$(LIMIT) && python $(top_srcdir)/test/autotest.py --suite all ${AUTOTEST} $*";\
+	else echo '*** No python found in your path.'; \
+	 echo '*** Please add python to path'; \
+	fi
+
+check-autotest: tests
+	@ if test "@HAS_PYTHON3@" = yes; then \
+	 bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py --suite integration ${AUTOTEST} $*";\
+	elif test "@HAS_PYTHON@" = yes; then \
+	 bash -c "$(LIMIT) && python $(top_srcdir)/test/autotest.py --suite integration ${AUTOTEST} $*";\
 	else echo '*** No python found in your path.'; \
 	 echo '*** Please add python to path'; \
 	fi
@@ -221,6 +231,15 @@ check-32: tests-32
 	  else echo '*** No python found in your path.'; echo '*** Please add' \
 	   ' python to path or build Python 2 or use python3.'; \
 	  fi
+
+check-unit: build
+	cd test && $(MAKE) check-unit
+
+check-harness-unit:
+	cd test && $(MAKE) check-harness-unit
+
+check-coordinator-synthetic: build
+	cd test && $(MAKE) check-coordinator-synthetic
 
 check-%: tests
 	@ if test "@HAS_PYTHON3@" = yes; then \
@@ -407,4 +426,5 @@ am--refresh:
 	display-build-env display-release display-config build \
 	build-multilib build-multilib-m32 build-multilib-m64 \
 	mkdirs dmtcp plugin contrib clean distclean am--refresh \
-	tests tests-32
+	tests tests-32 check-unit check-harness-unit \
+	check-coordinator-synthetic check check-autotest

@@ -13,6 +13,13 @@ CFLAGS = @CFLAGS@ -UDEBUG
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@
+ifeq (@HAS_PYTHON3@,yes)
+  PYTHON = python3
+else ifeq (@HAS_PYTHON@,yes)
+  PYTHON = python
+else
+  PYTHON = false
+endif
 HAS_JAVA= @HAS_JAVA@
 HAS_JAVAC= @HAS_JAVAC@
 HAS_CMA= @HAS_CMA@
@@ -78,9 +85,60 @@ endif
 
 PWD=$(shell pwd)
 
+.DEFAULT_GOAL := tests
+
 TESTS=${notdir ${basename ${shell ls $(srcdir)/*.c $(srcdir)/*.cpp $(srcdir)/*.cilk | grep -v 'hellompi.c'}}} \
 	${addsuffix .class,${notdir ${basename ${shell ls $(srcdir)/java*.java}}}} \
 	hellompich openmpi
+
+UNIT_TESTS = unit/dmtcp_unit_tests unit/dmtcp_header_c_test.o
+
+COORDINATOR_SYNTHETIC_WORKER = coordinator_synthetic_worker
+COORDINATOR_SYNTHETIC_LDADD = \
+	-Wl,--start-group \
+	$(top_builddir)/src/libdmtcpinternal.a \
+	$(top_builddir)/src/libjalib.a \
+	$(top_builddir)/src/libnohijack.a \
+	-Wl,--end-group \
+	-lpthread -lrt -ldl
+
+check-prereqs: $(UNIT_TESTS) $(COORDINATOR_SYNTHETIC_WORKER)
+	@:
+
+check-unit: $(UNIT_TESTS)
+	$(PYTHON) $(srcdir)/autotest.py --suite unit
+
+check-harness-unit:
+	$(PYTHON) $(srcdir)/autotest.py --suite harness
+
+check-coordinator-synthetic: $(COORDINATOR_SYNTHETIC_WORKER)
+	$(PYTHON) $(srcdir)/autotest.py --suite coordinator
+
+coordinator_synthetic_worker: $(srcdir)/coordinator_synthetic_worker.cpp \
+		$(top_builddir)/src/libdmtcpinternal.a \
+		$(top_builddir)/src/libjalib.a \
+		$(top_builddir)/src/libnohijack.a
+	$(CXX) $(CXXFLAGS) -o $@ $< $(COORDINATOR_SYNTHETIC_LDADD)
+
+unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
+		$(srcdir)/unit/dmtcp_header_tests.cpp \
+		$(srcdir)/unit/dmtcp_message_tests.cpp \
+		$(srcdir)/unit/unit_test.h \
+		$(DMTCP_INCLUDE)/dmtcp.h \
+		$(top_builddir)/src/libdmtcpinternal.a \
+		$(top_builddir)/src/libjalib.a \
+		$(top_builddir)/src/libnohijack.a
+	$(MKDIR_P) unit
+	$(CXX) $(CXXFLAGS) -I$(srcdir)/unit -I$(top_srcdir)/src -o $@ \
+	  $(srcdir)/unit/main.cpp \
+	  $(srcdir)/unit/dmtcp_header_tests.cpp \
+	  $(srcdir)/unit/dmtcp_message_tests.cpp \
+	  $(COORDINATOR_SYNTHETIC_LDADD)
+
+unit/dmtcp_header_c_test.o: $(srcdir)/unit/dmtcp_header_c_test.c \
+		$(DMTCP_INCLUDE)/dmtcp.h
+	$(MKDIR_P) unit
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 # Compile plugins first; Otherwise, errors in standard tests scroll off screen.
 tests: plugins $(TESTS) $(TESTS_MULTILIB)
@@ -96,7 +154,8 @@ tidy:
 	cd plugin && $(MAKE) tidy > /dev/null
 
 clean: tidy
-	rm -f $(TESTS) $(TESTS_MULTILIB) *.pyc *.so
+	rm -f $(TESTS) $(TESTS_MULTILIB) $(UNIT_TESTS) \
+	  $(COORDINATOR_SYNTHETIC_WORKER) unit/*.o *.pyc *.so
 	#${MAKE} -C credentials clean
 	cd plugin && $(MAKE) clean
 
