@@ -41,6 +41,7 @@
 
 #include "eventconnection.h"
 #include "eventwrappers.h"
+#include "util_assert.h"
 #include "util_descriptor.h"
 using namespace dmtcp;
 
@@ -107,9 +108,10 @@ EpollConnection::asEpoll()
 void
 EpollConnection::onCTL(int op, int fd, struct epoll_event *event)
 {
-  JASSERT(((op == EPOLL_CTL_MOD || op == EPOLL_CTL_ADD) && event != NULL) ||
-          op == EPOLL_CTL_DEL)
-    (op) (id()) .Text("Passing a NULL event! HUH!");
+  ASSERT(((op == EPOLL_CTL_MOD || op == EPOLL_CTL_ADD) && event != NULL) ||
+         op == EPOLL_CTL_DEL,
+         "epoll_ctl requires non-null event for ADD/MOD: op={} fd={}",
+         op, fd);
 
   struct epoll_event myEvent;
   if (op == EPOLL_CTL_DEL) {
