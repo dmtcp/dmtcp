@@ -72,7 +72,8 @@ class WorkerProcess:
                  expect_duplicate_checkpoint=False,
                  expect_reject_not_restarting=False,
                  expect_kvdb=False,
-                 expect_invalid_protocol_reject=False):
+                 expect_invalid_protocol_reject=False,
+                 send_partial_message=False):
         args = [
             str(SYNTHETIC_WORKER),
             "127.0.0.1",
@@ -96,6 +97,8 @@ class WorkerProcess:
             args.append("--expect-kvdb")
         if expect_invalid_protocol_reject:
             args.append("--expect-invalid-protocol-reject")
+        if send_partial_message:
+            args.append("--send-partial-message")
         self.process = subprocess.Popen(
             args,
             cwd=str(ROOT),
@@ -231,6 +234,20 @@ class WorkerProcess:
                 stderr = self.process.stderr.read()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker was not rejected for invalid protocol")
+
+    def wait_until_partial_message_sent(self):
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
+            if readable:
+                line = self.process.stdout.readline().strip()
+                if line == "sent partial protocol message":
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError("worker did not send partial protocol message")
 
     def stop(self):
         if self.process.poll() is None:
@@ -432,6 +449,19 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 coordinator.port, expect_invalid_protocol_reject=True)
             try:
                 worker.wait_until_invalid_protocol_rejected()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 0)
+                self.assertFalse(status["running"])
+            finally:
+                worker.stop()
+
+    def test_partial_worker_message_does_not_start_computation(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(coordinator.port, send_partial_message=True)
+            try:
+                worker.wait_until_partial_message_sent()
                 status = self.coordinator_status(coordinator.port)
 
                 self.assertTrue(status["ok"])

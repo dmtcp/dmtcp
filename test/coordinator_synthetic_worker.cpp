@@ -23,6 +23,7 @@ struct Options {
   bool expectRejectNotRestarting = false;
   bool expectKvdb = false;
   bool expectInvalidProtocolReject = false;
+  bool sendPartialMessage = false;
   bool invalidCompGroup = false;
   std::string barrier;
 };
@@ -227,6 +228,7 @@ parseOptions(int argc, char **argv)
       "[--expect-reject-not-restarting] "
       "[--expect-kvdb] "
       "[--expect-invalid-protocol-reject] "
+      "[--send-partial-message] "
       "[--invalid-comp-group] [--barrier NAME]");
   }
 
@@ -253,6 +255,8 @@ parseOptions(int argc, char **argv)
       options.expectKvdb = true;
     } else if (strcmp(argv[i], "--expect-invalid-protocol-reject") == 0) {
       options.expectInvalidProtocolReject = true;
+    } else if (strcmp(argv[i], "--send-partial-message") == 0) {
+      options.sendPartialMessage = true;
     } else if (strcmp(argv[i], "--invalid-comp-group") == 0) {
       options.invalidCompGroup = true;
     } else if (strcmp(argv[i], "--barrier") == 0) {
@@ -297,6 +301,14 @@ main(int argc, char **argv)
     }
 
     int fd = connectToCoordinator(options.host, options.port);
+    if (options.sendPartialMessage) {
+      writeAll(fd, &hello, sizeof(hello) / 2);
+      close(fd);
+      std::cout << "sent partial protocol message\n";
+      std::cout.flush();
+      return 0;
+    }
+
     writeAll(fd, &hello, sizeof(hello));
     if (!extraData.empty()) {
       writeAll(fd, extraData.data(), extraData.size());
