@@ -30,21 +30,24 @@ def read_port_file(path):
 
 
 class CoordinatorFixture:
-    def __init__(self):
+    def __init__(self, extra_args=None):
         self.tmp = tempfile.TemporaryDirectory(prefix="dmtcp-coord-synth-")
         self.tmp_path = pathlib.Path(self.tmp.name)
         self.port_file = self.tmp_path / "port"
+        args = [
+            str(DMTCP_COORDINATOR),
+            "--quiet",
+            "--coord-port",
+            "0",
+            "--port-file",
+            str(self.port_file),
+            "--timeout",
+            "30",
+        ]
+        if extra_args:
+            args.extend(extra_args)
         self.process = subprocess.Popen(
-            [
-                str(DMTCP_COORDINATOR),
-                "--quiet",
-                "--coord-port",
-                "0",
-                "--port-file",
-                str(self.port_file),
-                "--timeout",
-                "30",
-            ],
+            args,
             cwd=str(ROOT),
             text=True,
             stdout=subprocess.PIPE,
@@ -511,6 +514,15 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertFalse(status["running"])
             finally:
                 worker.stop()
+
+    def test_exit_on_last_stops_coordinator_after_worker_disconnect(self):
+        with CoordinatorFixture(extra_args=["--exit-on-last"]) as coordinator:
+            worker = WorkerProcess(coordinator.port)
+            worker.wait_until_accepted()
+            worker.stop()
+
+            coordinator.process.wait(timeout=5)
+            self.assertEqual(coordinator.process.returncode, 0)
 
     def test_kvdb_request_round_trip(self):
         with CoordinatorFixture() as coordinator:
