@@ -373,6 +373,16 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
+    def wait_until_num_peers(self, port, expected, timeout=5):
+        deadline = time.time() + timeout
+        last_status = None
+        while time.time() < deadline:
+            last_status = self.coordinator_status(port)
+            if last_status["num_peers"] == expected:
+                return last_status
+            time.sleep(0.05)
+        self.fail(f"expected {expected} peers, last status: {last_status}")
+
     def assert_no_worker_output(self, worker, seconds=0.3):
         readable, _, _ = select.select([worker.process.stdout], [], [], seconds)
         if readable:
@@ -406,6 +416,33 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             finally:
                 for worker in workers:
                     worker.stop()
+
+    def test_replacement_worker_can_join_after_peer_disconnects(self):
+        with CoordinatorFixture() as coordinator:
+            remaining = WorkerProcess(coordinator.port)
+            departed = WorkerProcess(coordinator.port)
+            replacement = None
+            try:
+                remaining.wait_until_accepted()
+                departed.wait_until_accepted()
+                status = self.wait_until_num_peers(coordinator.port, 2)
+                self.assertTrue(status["running"])
+
+                departed.stop()
+                status = self.wait_until_num_peers(coordinator.port, 1)
+                self.assertTrue(status["running"])
+
+                replacement = WorkerProcess(coordinator.port)
+                replacement.wait_until_accepted()
+                status = self.wait_until_num_peers(coordinator.port, 2)
+
+                self.assertTrue(status["ok"])
+                self.assertTrue(status["running"])
+            finally:
+                remaining.stop()
+                departed.stop()
+                if replacement is not None:
+                    replacement.stop()
 
     def test_new_worker_with_existing_computation_group_is_rejected(self):
         with CoordinatorFixture() as coordinator:
