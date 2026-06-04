@@ -27,6 +27,7 @@
 #include "ptyconnection.h"
 #include "ptyconnlist.h"
 #include "ptywrappers.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -272,7 +273,7 @@ PtyConnList::processPtyConnection(int fd,
     // Controlling terminal
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_DEV_TTY);
   } else if (device == "/dev/pty") {
-    JASSERT(false).Text("Not Implemented");
+    ASSERT(false, "PTY path not implemented: path={}", path);
   } else if (Util::strStartsWith(path, "/dev/pty")) {
     // BSD Master
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_BSD_MASTER);
@@ -286,7 +287,9 @@ PtyConnList::processPtyConnection(int fd,
     // POSIX Slave PTY opened through the virtual path returned to the app.
     char realPath[PTS_PATH_MAX] = {0};
     SharedData::getRealPtyName(path, realPath, sizeof(realPath));
-    JASSERT(strlen(realPath) != 0) (path);
+    ASSERT(strlen(realPath) != 0,
+           "missing real PTY path for virtual path={}",
+           path);
     c = new PtyConnection(fd,
                           realPath,
                           flags,
@@ -296,7 +299,7 @@ PtyConnList::processPtyConnection(int fd,
     // POSIX Slave PTY
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_SLAVE);
   } else {
-    JASSERT(false) (path).Text("Unimplemented file type.");
+    ASSERT(false, "unimplemented PTY file type: path={}", path);
   }
 
   PtyConnList::instance().add(fd, c);

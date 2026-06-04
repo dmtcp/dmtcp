@@ -37,6 +37,7 @@
 #include "coordinatorapi.h"  // for COORD_JOIN, COORD_NEW, COORD_ANY
 #include "protectedfds.h"
 #include "uniquepid.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -45,8 +46,7 @@ Util::writeCoordPortToFile(int port, const char *portFile)
 {
   if (portFile != NULL && strlen(portFile) > 0) {
     int fd = open(portFile, O_CREAT | O_WRONLY | O_TRUNC, 0600);
-    JWARNING(fd != -1) (JASSERT_ERRNO) (portFile)
-    .Text("Failed to open port file.");
+    WARNING_ERRNO(fd != -1, "failed to open port file: path={}", portFile);
     char port_buf[30];
     memset(port_buf, '\0', sizeof(port_buf));
     sprintf(port_buf, "%d", port);
@@ -78,8 +78,11 @@ Util::calcTmpDir(const char *tmpdirenv)
 
   memset(hostname, 0, sizeof(hostname));
 
-  JASSERT(gethostname(hostname, sizeof(hostname)) == 0 ||
-          errno == ENAMETOOLONG).Text("gethostname() failed");
+  errno = 0;
+  ASSERT_ERRNO(gethostname(hostname, sizeof(hostname)) == 0 ||
+               errno == ENAMETOOLONG,
+               "gethostname failed");
+  hostname[sizeof(hostname) - 1] = '\0';
 
   char *userName = const_cast<char *>("");
   if (getpwuid(getuid()) != NULL) {
@@ -98,9 +101,10 @@ Util::calcTmpDir(const char *tmpdirenv)
     tmpdirenv = "/tmp";
   }
 
-  JASSERT(mkdir(tmpdirenv, S_IRWXU) == 0 || errno == EEXIST)
-    (JASSERT_ERRNO) (tmpdirenv)
-  .Text("Error creating base directory (--tmpdir/DMTCP_TMPDIR/TMPDIR)");
+  ASSERT_ERRNO(mkdir(tmpdirenv, S_IRWXU) == 0 || errno == EEXIST,
+               "error creating base directory "
+               "(--tmpdir/DMTCP_TMPDIR/TMPDIR): path={}",
+               tmpdirenv);
 
   ostringstream o;
   o << tmpdirenv << "/dmtcp-" << userName << "@" << hostname;
@@ -108,12 +112,13 @@ Util::calcTmpDir(const char *tmpdirenv)
   tmpDir = (char *) JALLOC_MALLOC(o.str().length() + 1);
   memcpy(tmpDir, o.str().c_str(), o.str().length() + 1);
 
-  JASSERT(mkdir(tmpDir, S_IRWXU) == 0 || errno == EEXIST)
-    (JASSERT_ERRNO) (tmpDir)
-  .Text("Error creating tmp directory");
+  ASSERT_ERRNO(mkdir(tmpDir, S_IRWXU) == 0 || errno == EEXIST,
+               "error creating tmp directory: path={}",
+               tmpDir);
 
-  JASSERT(0 == access(tmpDir, X_OK | W_OK)) (tmpDir)
-  .Text("ERROR: Missing execute- or write-access to tmp dir");
+  ASSERT_ERRNO(0 == access(tmpDir, X_OK | W_OK),
+               "missing execute- or write-access to tmp dir: path={}",
+               tmpDir);
 
   return tmpDir;
 }

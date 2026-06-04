@@ -33,6 +33,7 @@
 #include "shareddata.h"
 #include "syscallwrappers.h"
 #include "uniquepid.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -203,9 +204,14 @@ Util::expandPathname(const char *inpath, char *const outpath, size_t size)
         outpath[nextPtr - pathVar] = '\0';
       }
 
-      JASSERT(size > strlen(outpath) + strlen(inpath) + 1)
-        (size) (outpath) (strlen(outpath)) (inpath) (strlen(inpath))
-      .Text("Pathname too long; Use larger buffer.");
+      ASSERT(size > strlen(outpath) + strlen(inpath) + 1,
+             "pathname too long; use larger buffer: size={} prefix={} "
+             "prefix_len={} path={} path_len={}",
+             size,
+             outpath,
+             strlen(outpath),
+             inpath,
+             strlen(inpath));
 
       strcat(outpath, "/");
       strcat(outpath, inpath);
@@ -389,24 +395,26 @@ Util::setScreenDir()
 {
   if (getenv("SCREENDIR") == NULL) {
     // This will flash by, but the user will see it again on exiting screen.
-    JASSERT_STDERR <<
-      "*** WARNING: Environment variable SCREENDIR is not set!\n"
-                   << "***  Set this to a safe location, and if restarting on\n"
-                   << "***  a new host, copy your SCREENDIR directory there.\n"
-                   << "***  DMTCP will use"
-       " $DMTCP_TMPDIR/dmtcp-USER@HOST/uscreens for now,\n"
-                   << "***  but this directory may not survive a re-boot!\n"
-                   << "***      As of DMTCP-1.2.3, emacs23 not yet supported\n"
-                   << "***  inside screen.  Please use emacs22 for now.  This\n"
-                   << "***  will be fixed in a future version of DMTCP.\n\n";
+    fputs("*** WARNING: Environment variable SCREENDIR is not set!\n"
+          "***  Set this to a safe location, and if restarting on\n"
+          "***  a new host, copy your SCREENDIR directory there.\n"
+          "***  DMTCP will use"
+          " $DMTCP_TMPDIR/dmtcp-USER@HOST/uscreens for now,\n"
+          "***  but this directory may not survive a re-boot!\n"
+          "***      As of DMTCP-1.2.3, emacs23 not yet supported\n"
+          "***  inside screen.  Please use emacs22 for now.  This\n"
+          "***  will be fixed in a future version of DMTCP.\n\n",
+          stderr);
     setenv("SCREENDIR", getScreenDir().c_str(), 1);
   } else {
     if (access(getenv("SCREENDIR"), R_OK | W_OK | X_OK) != 0) {
-      JASSERT_STDERR << "*** WARNING: Environment variable SCREENDIR is set\n"
-                     << "***  to directory with improper permissions.\n"
-                     << "***  Please use a SCREENDIR with permission 700."
-                     << "  [ SCREENDIR = " << getenv("SCREENDIR") << " ]\n"
-                     << "***  Continuing anyway, and hoping for the best.\n";
+      fprintf(stderr,
+              "*** WARNING: Environment variable SCREENDIR is set\n"
+              "***  to directory with improper permissions.\n"
+              "***  Please use a SCREENDIR with permission 700."
+              "  [ SCREENDIR = %s ]\n"
+              "***  Continuing anyway, and hoping for the best.\n",
+              getenv("SCREENDIR"));
     }
   }
 }
@@ -473,12 +481,16 @@ Util::patchArgvIfSetuid(const char *filename,
            "/bin/cp %s %s", realFilename, newFilename);
 
   // Remove any stale copy, just in case it's not right.
-  JASSERT(unlink(newFilename) == 0 || errno == ENOENT) (newFilename);
+  ASSERT_ERRNO(unlink(newFilename) == 0 || errno == ENOENT,
+               "failed to remove stale setuid copy: path={}",
+               newFilename);
 
-  JASSERT(safeSystem(cpCmdBuf) == 0)(cpCmdBuf)
-  .Text("call to system(cpCmdBuf) failed");
+  int rc = safeSystem(cpCmdBuf);
+  ASSERT(rc == 0, "call to system failed: cmd={} rc={}", cpCmdBuf, rc);
 
-  JASSERT(access(newFilename, X_OK) == 0) (newFilename) (JASSERT_ERRNO);
+  ASSERT_ERRNO(access(newFilename, X_OK) == 0,
+               "setuid copy is not executable: path={}",
+               newFilename);
 
   (*newArgv)[0] = newFilename;
   int i;
@@ -514,8 +526,11 @@ Util::patchArgvIfSetuid(const char *filename,
 # endif // if (defined(__x86_64__) || defined(__aarch64__)) &&
         // !defined(CONFIG_M32)
 
-  JASSERT(newArgv0Len > strlen(origPath) + 1)
-    (newArgv0Len) (origPath) (strlen(origPath)).Text("Buffer not large enough");
+  ASSERT(newArgv0Len > strlen(origPath) + 1,
+         "buffer not large enough: size={} path={} path_len={}",
+         newArgv0Len,
+         origPath,
+         strlen(origPath));
 
   strncpy(newArgv0, origPath, newArgv0Len);
 
@@ -524,8 +539,11 @@ Util::patchArgvIfSetuid(const char *filename,
     origArgvLen++;
   }
 
-  JASSERT(newArgvLen >= origArgvLen + 1) (origArgvLen) (newArgvLen)
-  .Text("newArgv not large enough to hold the expanded argv");
+  ASSERT(newArgvLen >= origArgvLen + 1,
+         "newArgv not large enough to hold the expanded argv: "
+         "argc={} capacity={}",
+         origArgvLen,
+         newArgvLen);
 
   // ISN'T THIS A BUG?  newArgv WAS DECLARED 'char ***'.
   newArgv[0] = ldStrPtr;
@@ -758,10 +776,10 @@ Util::getDmtcpArgs(void)
   }
 
   char **args = (char**) JALLOC_MALLOC((num_args + 1) * sizeof(char*));
-  JASSERT(args != NULL);
+  ASSERT_NOT_NULL(args);
 
   char *buffer = (char*) JALLOC_MALLOC(totalBytes);
-  JASSERT(buffer != NULL);
+  ASSERT_NOT_NULL(buffer);
   memset(buffer, 0, totalBytes);
 
   char *ptr = buffer;

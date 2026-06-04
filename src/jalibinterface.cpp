@@ -27,6 +27,7 @@
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
