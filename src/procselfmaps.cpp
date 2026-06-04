@@ -24,6 +24,7 @@
 #include "jassert.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -55,7 +56,7 @@ ProcSelfMaps::ProcSelfMaps()
   // We should check for that.
 
   fd = _real_open("/proc/self/maps", O_RDONLY);
-  JASSERT(fd != -1) (JASSERT_ERRNO);
+  ASSERT_ERRNO(fd != -1, "failed to open /proc/self/maps");
   ssize_t numRead = 0;
 
   // Get an approximation of the required buffer size.
@@ -70,17 +71,22 @@ ProcSelfMaps::ProcSelfMaps()
   // of /proc/self/maps, so we need to recalculate numBytes.
   size_t size = numBytes + 4096; // Add a one page buffer.
   data = (char *)JALLOC_HELPER_MALLOC(size);
-  JASSERT(lseek(fd, 0, SEEK_SET) == 0);
+  ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) == 0,
+               "failed to rewind /proc/self/maps");
 
   numBytes = Util::readAll(fd, data, size);
-  JASSERT(numBytes > 0 && numBytes < size) (numBytes);
+  ASSERT(numBytes > 0 && numBytes < size,
+         "unexpected /proc/self/maps read size: bytes={} buffer_size={}",
+         numBytes, size);
 
   // TODO(kapil): Replace this assert with more robust code that would
   // reallocate the buffer with an extended size.
-  JASSERT(numBytes < size) (numBytes) (size);
+  ASSERT(numBytes < size,
+         "/proc/self/maps buffer is too small: bytes={} buffer_size={}",
+         numBytes, size);
 
   // TODO(kapil): Validate the read data.
-  JASSERT(isValidData());
+  ASSERT(isValidData(), "invalid /proc/self/maps data");
 
   _real_close(fd);
 
@@ -102,10 +108,11 @@ ProcSelfMaps::~ProcSelfMaps()
   // Verify that JAlloc doesn't expand memory (via mmap)
   // while reading /proc/self/maps.
   // FIXME:  Change from JWARNING to JASSERT when we have confidence in this.
-  JWARNING(numAllocExpands == jalib::JAllocDispatcher::numExpands())
-    (numAllocExpands)(jalib::JAllocDispatcher::numExpands())
-  .Text("JAlloc: memory expanded through call to mmap()."
-        "  Inconsistent JAlloc will be a problem on restart");
+  WARNING(numAllocExpands == jalib::JAllocDispatcher::numExpands(),
+          "JAlloc expanded through mmap while reading /proc/self/maps; "
+          "inconsistent JAlloc will be a problem on restart: before={} "
+          "after={}",
+          numAllocExpands, jalib::JAllocDispatcher::numExpands());
 }
 
 bool
@@ -165,40 +172,62 @@ ProcSelfMaps::getNextArea(ProcMapsArea *area)
   }
 
   area->addr = (VA)readHex();
-  JASSERT(area->addr != NULL);
+  ASSERT(area->addr != 0, "proc maps entry has a null start address");
 
-  JASSERT(data[dataIdx++] == '-');
+  char sep = data[dataIdx++];
+  ASSERT(sep == '-', "malformed proc maps entry: expected '-' at index={} "
+         "got={}", dataIdx - 1, sep);
 
   area->endAddr = (VA)readHex();
-  JASSERT(area->endAddr != NULL);
+  ASSERT(area->endAddr != 0, "proc maps entry has a null end address");
 
-  JASSERT(data[dataIdx++] == ' ');
+  sep = data[dataIdx++];
+  ASSERT(sep == ' ', "malformed proc maps entry: expected space after end "
+         "address at index={} got={}", dataIdx - 1, sep);
 
-  JASSERT(area->endAddr >= area->addr);
+  ASSERT(area->endAddr >= area->addr,
+         "proc maps entry has descending address range: start={} end={}",
+         area->addr, area->endAddr);
   area->size = area->endAddr - area->addr;
 
   rflag = data[dataIdx++];
-  JASSERT((rflag == 'r') || (rflag == '-'));
+  ASSERT((rflag == 'r') || (rflag == '-'),
+         "invalid read permission in proc maps entry: index={} value={}",
+         dataIdx - 1, rflag);
 
   wflag = data[dataIdx++];
-  JASSERT((wflag == 'w') || (wflag == '-'));
+  ASSERT((wflag == 'w') || (wflag == '-'),
+         "invalid write permission in proc maps entry: index={} value={}",
+         dataIdx - 1, wflag);
 
   xflag = data[dataIdx++];
-  JASSERT((xflag == 'x') || (xflag == '-'));
+  ASSERT((xflag == 'x') || (xflag == '-'),
+         "invalid execute permission in proc maps entry: index={} value={}",
+         dataIdx - 1, xflag);
 
   sflag = data[dataIdx++];
-  JASSERT((sflag == 's') || (sflag == 'p'));
+  ASSERT((sflag == 's') || (sflag == 'p'),
+         "invalid sharing flag in proc maps entry: index={} value={}",
+         dataIdx - 1, sflag);
 
-  JASSERT(data[dataIdx++] == ' ');
+  sep = data[dataIdx++];
+  ASSERT(sep == ' ', "malformed proc maps entry: expected space before "
+         "offset at index={} got={}", dataIdx - 1, sep);
 
   area->offset = readHex();
-  JASSERT(data[dataIdx++] == ' ');
+  sep = data[dataIdx++];
+  ASSERT(sep == ' ', "malformed proc maps entry: expected space after "
+         "offset at index={} got={}", dataIdx - 1, sep);
 
   area->devmajor = readHex();
-  JASSERT(data[dataIdx++] == ':');
+  sep = data[dataIdx++];
+  ASSERT(sep == ':', "malformed proc maps entry: expected ':' after device "
+         "major at index={} got={}", dataIdx - 1, sep);
 
   area->devminor = readHex();
-  JASSERT(data[dataIdx++] == ' ');
+  sep = data[dataIdx++];
+  ASSERT(sep == ' ', "malformed proc maps entry: expected space after device "
+         "minor at index={} got={}", dataIdx - 1, sep);
 
   area->inodenum = readDec();
 
@@ -214,12 +243,16 @@ ProcSelfMaps::getNextArea(ProcMapsArea *area)
     size_t i = 0;
     while (data[dataIdx] != '\n') {
       area->name[i++] = data[dataIdx++];
-      JASSERT(i < sizeof(area->name));
+      ASSERT(i < sizeof(area->name),
+             "proc maps entry name is too long: index={} max={}", i,
+             sizeof(area->name));
     }
     area->name[i] = '\0';
   }
 
-  JASSERT(data[dataIdx++] == '\n');
+  sep = data[dataIdx++];
+  ASSERT(sep == '\n', "malformed proc maps entry: expected newline at "
+         "index={} got={}", dataIdx - 1, sep);
 
   area->prot = 0;
   if (rflag == 'r') {
@@ -254,7 +287,9 @@ ProcSelfMaps::getNextArea(ProcMapsArea *area)
 void
 ProcSelfMaps::getStackInfo(ProcMapsArea *area)
 {
-  JASSERT(dataIdx == 0) (dataIdx);
+  ASSERT(dataIdx == 0,
+         "ProcSelfMaps::getStackInfo requires fresh iterator: dataIdx={}",
+         dataIdx);
 
   void *stackFrameAddr = __builtin_frame_address(0);
   while (getNextArea(area)) {
@@ -262,5 +297,6 @@ ProcSelfMaps::getStackInfo(ProcMapsArea *area)
       return;
     }
   }
-  JASSERT(false) .Text("NOT REACHABLE");
+  ASSERT(false, "stack mapping not found in /proc/self/maps: frame={}",
+         stackFrameAddr);
 }

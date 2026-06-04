@@ -34,6 +34,7 @@
 #include "syscallwrappers.h"
 #include "uniquepid.h"
 #include "util.h"
+#include "util_assert.h"
 
 namespace dmtcp
 {
@@ -46,13 +47,13 @@ static DmtcpMutex tblLock = DMTCP_MUTEX_INITIALIZER;
 static void
 _do_lock_tbl()
 {
-  JASSERT(DmtcpMutexLock(&tblLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&tblLock));
 }
 
 static void
 _do_unlock_tbl()
 {
-  JASSERT(DmtcpMutexUnlock(&tblLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&tblLock));
 }
 
 static void
@@ -199,7 +200,8 @@ ProcessInfo::ProcessInfo()
   // shared among all process on a node; used in variable sharedDataHeader.
   // _generation is updated when _this_ process begins its checkpoint.
   _pthreadJoinId.clear();
-  JASSERT(getcwd(buf, sizeof buf) != NULL);
+  ASSERT_ERRNO(getcwd(buf, sizeof buf) != NULL,
+               "failed to capture launch cwd");
   _launchCWD = buf;
   _do_unlock_tbl();
 }
@@ -221,7 +223,8 @@ ProcessInfo::growStack()
   size_t stackSize;
   const rlim_t eightMB = 8 * 1024 * 1024;
 
-  JASSERT(getrlimit(RLIMIT_STACK, &rlim) == 0) (JASSERT_ERRNO);
+  ASSERT_ERRNO(getrlimit(RLIMIT_STACK, &rlim) == 0,
+               "failed to read RLIMIT_STACK");
   if (rlim.rlim_cur == RLIM_INFINITY) {
     if (rlim.rlim_max == RLIM_INFINITY) {
       stackSize = 8 * 1024 * 1024;
@@ -278,13 +281,14 @@ ProcessInfo::growStack()
       }
     }
   }
-  JASSERT(stackArea.addr != NULL);
+  ASSERT(stackArea.addr != NULL,
+         "failed to find current stack mapping in /proc/self/maps");
 
   if (stackSize > stackArea.size + 4095) {
     // Grow the stack, if possible
     allocSize = stackSize - stackArea.size - 4095;
     tmpbuf = alloca(allocSize);
-    JASSERT(tmpbuf != NULL) (JASSERT_ERRNO);
+    ASSERT(tmpbuf != NULL, "failed to grow stack: allocSize={}", allocSize);
     memset(tmpbuf, 0, allocSize);
   }
 
@@ -355,8 +359,10 @@ ProcessInfo::updateRestoreBufAddr()
   //        to free the backing physical pages created by mtcp_restart.
 
   if (restoreBuf.startAddr != 0) {
-    JASSERT(munmap((void*) restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE) == 0)
-      (JASSERT_ERRNO);
+    ASSERT_ERRNO(munmap((void*) restoreBuf.startAddr,
+                        RESTORE_BUF_TOTAL_SIZE) == 0,
+                 "failed to unmap restore buffer: start={} size={}",
+                 restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE);
   }
 
   int flags = MAP_SHARED | MAP_ANONYMOUS;
@@ -369,10 +375,13 @@ ProcessInfo::updateRestoreBufAddr()
   //         then sets it to _restoreBufLen.  But ProcessInfo::init() had
   //         previously set _restoreBufLen to RESTORE_TOTAL_SIZE.  So, we
   //         have now made the round trip.  This is spaghetti code. :-(
-  restoreBuf.startAddr = (uint64_t) mmap((void*)restoreBuf.startAddr,
+  uint64_t requestedAddr = restoreBuf.startAddr;
+  restoreBuf.startAddr = (uint64_t) mmap((void*)requestedAddr,
                                          RESTORE_BUF_TOTAL_SIZE,
                                          PROT_NONE, flags, -1, 0);
-  JASSERT(restoreBuf.startAddr != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
+  ASSERT_ERRNO(restoreBuf.startAddr != (uint64_t) MAP_FAILED,
+               "failed to map restore buffer: requested={} size={} flags={}",
+               requestedAddr, RESTORE_BUF_TOTAL_SIZE, flags);
   restoreBuf.endAddr = restoreBuf.startAddr + RESTORE_BUF_TOTAL_SIZE;
 }
 
@@ -490,9 +499,12 @@ ProcessInfo::restoreHeap()
     size_t oldsize = savedBrk - _savedHeapStart;
     size_t newsize = curBrk - _savedHeapStart;
 
-    JASSERT(mremap((void *)_savedHeapStart, oldsize, newsize, 0) != NULL)
-      (savedBrk) (curBrk)
-    .Text("mremap failed to map area between saved break and current break");
+    void *remappedHeap = mremap((void *)_savedHeapStart, oldsize, newsize, 0);
+    ASSERT_ERRNO(remappedHeap != MAP_FAILED,
+                 "mremap failed to map area between saved break and current "
+                 "break: heapStart={} oldSize={} newSize={} savedBrk={} "
+                 "curBrk={}",
+                 _savedHeapStart, oldsize, newsize, savedBrk, curBrk);
   } else if (curBrk < savedBrk) {
     if (brk((void *)savedBrk) != 0) {
       JNOTE("Failed to restore area between saved_break and curr_break.")
@@ -510,7 +522,7 @@ ProcessInfo::restart()
 
   // Update the ckptDir
   string ckptDir = jalib::Filesystem::GetDeviceName(PROTECTED_CKPT_DIR_FD);
-  JASSERT(ckptDir.length() > 0);
+  ASSERT(ckptDir.length() > 0, "restart checkpoint directory is empty");
   _real_close(PROTECTED_CKPT_DIR_FD);
   updateCkptDirFileSubdir(ckptDir);
 
@@ -524,8 +536,10 @@ ProcessInfo::restart()
       if (chdir(rpath.c_str()) == 0) {
         JTRACE("Changed cwd") (_launchCWD) (_ckptCWD) (_launchCWD + rpath);
       } else {
-        JWARNING(chdir(_ckptCWD.c_str()) == 0) (_ckptCWD) (_launchCWD)
-          (JASSERT_ERRNO).Text("Failed to change directory to _ckptCWD");
+        WARNING_ERRNO(chdir(_ckptCWD.c_str()) == 0,
+                      "failed to change directory to checkpoint cwd: "
+                      "ckptCWD={} launchCWD={}",
+                      _ckptCWD, _launchCWD);
       }
     }
   }
@@ -543,8 +557,10 @@ ProcessInfo::restoreProcessGroupInfo()
 
   if (sid == pid && curSid != curPid) {
     JTRACE("Restore Session Leadership") (sid) (pid) (curSid) (curPid);
-    JWARNING(setsid() != -1) (sid) (pid) (curSid) (curPid)
-      (JASSERT_ERRNO).Text("Cannot restore session leadership");
+    WARNING_ERRNO(setsid() != -1,
+                  "cannot restore session leadership: savedSid={} "
+                  "savedPid={} currentSid={} currentPid={}",
+                  sid, pid, curSid, curPid);
   }
 
   // Restore group assignment
@@ -552,9 +568,10 @@ ProcessInfo::restoreProcessGroupInfo()
   if (gid != cgid) {
     JTRACE("Restore Group Assignment")
       (gid) (fgid) (cgid) (pid) (ppid) (getppid());
-    JWARNING(setpgid(0, gid) == 0) (gid)
-      (JASSERT_ERRNO)
-    .Text("Cannot change group information");
+    WARNING_ERRNO(setpgid(0, gid) == 0,
+                  "cannot change process group: savedGid={} currentGid={} "
+                  "savedPid={} savedPpid={}",
+                  gid, cgid, pid, ppid);
   } else {
     JTRACE("Group is already assigned") (gid) (cgid);
   }
@@ -598,7 +615,7 @@ ProcessInfo::endPthreadJoin(pthread_t thread)
 void
 ProcessInfo::setCkptFilename(const char *filename)
 {
-  JASSERT(filename != NULL);
+  ASSERT(filename != NULL, "checkpoint filename must not be null");
   if (filename[0] == '/') {
     _ckptDir = jalib::Filesystem::DirName(filename);
     _ckptFileName = filename;
@@ -618,7 +635,7 @@ ProcessInfo::setCkptFilename(const char *filename)
 void
 ProcessInfo::setCkptDir(const char *dir)
 {
-  JASSERT(dir != NULL);
+  ASSERT(dir != NULL, "checkpoint directory must not be null");
   _ckptDir = dir;
   _ckptFileName = _ckptDir + "/" + jalib::Filesystem::BaseName(_ckptFileName);
   _ckptFilesSubDir = _ckptDir + "/" + jalib::Filesystem::BaseName(
@@ -633,7 +650,10 @@ ProcessInfo::setCkptDir(const char *dir)
 void
 ProcessInfo::getState()
 {
-  JASSERT(pid == getpid()) (pid) (getpid());
+  pid_t currentPid = getpid();
+  ASSERT(pid == currentPid,
+         "ProcessInfo pid invariant failed: stored={} current={}", pid,
+         currentPid);
 
   gid = getpgid(0);
   sid = getsid(0);
@@ -668,7 +688,8 @@ ProcessInfo::getState()
   upid = UniquePid::ThisProcess();
 
   char buf[PATH_MAX];
-  JASSERT(getcwd(buf, sizeof buf) != NULL);
+  ASSERT_ERRNO(getcwd(buf, sizeof buf) != NULL,
+               "failed to capture checkpoint cwd");
   _ckptCWD = buf;
 
   savedBrk = (uint64_t) sbrk(0);

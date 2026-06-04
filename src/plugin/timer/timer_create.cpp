@@ -29,7 +29,7 @@
 #include "timerwrappers.h"
 
 #include "jalloc.h"
-#include "jassert.h"
+#include "util_assert.h"
 
 // As defined in libc.
 #define SIGCANCEL SIGRTMIN
@@ -87,7 +87,8 @@ timer_create_sigev_thread(clockid_t clock_id,
 {
   /* If the user wants notification via a thread we need to handle
      this special.  */
-  JASSERT(evp == NULL || evp->sigev_notify == SIGEV_THREAD);
+  ASSERT(evp == NULL || evp->sigev_notify == SIGEV_THREAD,
+         "timer_create_sigev_thread requires SIGEV_THREAD notification");
 
   /* Create the helper thread.  */
   pthread_once(&helper_once, start_helper_thread);
@@ -129,10 +130,10 @@ timer_create_sigev_thread(clockid_t clock_id,
   int res = _real_timer_create(clock_id, sevOut, timerid);
   if (res == 0) {
     /* Add to the queue of active timers with thread delivery.  */
-    DmtcpMutexLock(&active_timer_sigev_thread_lock);
+    ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&active_timer_sigev_thread_lock));
     newp->next = active_timer_sigev_thread;
     active_timer_sigev_thread = newp;
-    DmtcpMutexUnlock(&active_timer_sigev_thread_lock);
+    ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&active_timer_sigev_thread_lock));
     return 0;
   }
 
@@ -204,7 +205,7 @@ timer_helper_thread(void *arg)
 
         /* Check the timer is still used and will not go away
            while we are reading the values here.  */
-        DmtcpMutexLock(&active_timer_sigev_thread_lock);
+        ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&active_timer_sigev_thread_lock));
 
         struct timer *runp = active_timer_sigev_thread;
         while (runp != NULL) {
@@ -230,7 +231,7 @@ timer_helper_thread(void *arg)
           }
         }
 
-        DmtcpMutexUnlock(&active_timer_sigev_thread_lock);
+        ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&active_timer_sigev_thread_lock));
       } else if (si.si_code == SI_TKILL) {
         /* The thread is canceled.  */
         pthread_exit(NULL);
@@ -264,7 +265,7 @@ start_helper_thread(void)
   /* Create the helper thread for this timer.  */
   pthread_t th;
   int res = pthread_create(&th, &attr, timer_helper_thread, NULL);
-  JASSERT(res == 0);
+  ASSERT(res == 0, "pthread_create for timer helper failed: rc={}", res);
   if (res != 0) {
     sem_post(&helper_notification);
   }

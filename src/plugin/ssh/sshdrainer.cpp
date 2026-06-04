@@ -1,6 +1,7 @@
 #include "sshdrainer.h"
 #include "../jalib/jassert.h"
 #include "util.h"
+#include "util_assert.h"
 
 #define SOCKET_DRAIN_MAGIC_COOKIE_STR "[dmtcp{v0<DRAIN!"
 
@@ -12,7 +13,7 @@ void
 SSHDrainer::onConnect(const jalib::JSocket &sock, const struct sockaddr *
                       remoteAddr, socklen_t remoteLen)
 {
-  JASSERT(false).Text("Not Implemented!");
+  ASSERT(false, "SSHDrainer::onConnect is not implemented");
 }
 
 void
@@ -40,9 +41,9 @@ SSHDrainer::onDisconnect(jalib::JReaderInterface *sock)
     return;
   }
   JNOTE("found disconnected socket... marking it dead")
-    (fd) (JASSERT_ERRNO);
+    (fd) (strerror(errno));
   _drainedData.erase(fd);
-  JASSERT(false).Text("Not Implemented!");
+  ASSERT(false, "SSHDrainer::onDisconnect is not implemented");
 }
 
 void
@@ -73,16 +74,17 @@ SSHDrainer::onTimeoutInterval()
   } else {
     const static int WARN_INTERVAL_TICKS =
       (int)(SSH_DRAINER_WARNING_FREQ / SSH_DRAINER_CHECK_FREQ + 0.5);
-    const static float WARN_INTERVAL_SEC =
-      WARN_INTERVAL_TICKS * SSH_DRAINER_CHECK_FREQ;
+    const static int WARN_INTERVAL_MS =
+      (int)(WARN_INTERVAL_TICKS * SSH_DRAINER_CHECK_FREQ * 1000 + 0.5);
     if (_timeoutCount++ > WARN_INTERVAL_TICKS) {
       _timeoutCount = 0;
       for (size_t i = 0; i < _dataSockets.size(); ++i) {
         vector<char> &buffer = _drainedData[_dataSockets[i]->socket().sockfd()];
-        JWARNING(false) (_dataSockets[i]->socket().sockfd())
-          (buffer.size()) (WARN_INTERVAL_SEC)
-        .Text("Still draining socket... "
-              "perhaps remote host is not running under DMTCP?");
+        WARNING(false,
+                "Still draining socket; perhaps remote host is not running "
+                "under DMTCP: fd={} bytes={} interval_ms={}",
+                _dataSockets[i]->socket().sockfd(), buffer.size(),
+                WARN_INTERVAL_MS);
       }
     }
   }
@@ -114,13 +116,10 @@ SSHDrainer::refill()
     int fd = i->first;
     int refillFd = _refillFd[fd];
 
-    int size = i->second.size();
-    JWARNING(size >= 0) (size).Text("a failed drain is in our table???");
-    if (size < 0) {
-      size = 0;
+    size_t size = i->second.size();
+    if (size > 0) {
+      Util::writeAll(refillFd, i->second.data(), size);
     }
-
-    Util::writeAll(refillFd, &i->second[0], size);
     i->second.clear();
   }
 }

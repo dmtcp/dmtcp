@@ -27,7 +27,8 @@
 #include "jalloc.h"
 #include "connectionidentifier.h"
 #include "dmtcpalloc.h"
-#include "util.h"
+#include <string.h>
+#include "util_assert.h"
 
 # define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
 
@@ -67,11 +68,16 @@ class ConnMsg
 
     void assertValid(enum MsgType t)
     {
-      JASSERT(Util::strEquals(sign, HANDSHAKE_SIGNATURE_MSG)) (sign)
-      .Text("read invalid message, signature mismatch. (External socket?)");
-      JASSERT(size == sizeof(ConnMsg)) (size) (sizeof(ConnMsg))
-      .Text("read invalid message, size mismatch.");
-      JASSERT(type == t) ((int)t) ((int)type).Text("Wrong Msg Type.");
+      ASSERT(strcmp(sign, HANDSHAKE_SIGNATURE_MSG) == 0,
+             "read invalid message, signature mismatch. "
+             "(External socket?): sign={}",
+             static_cast<const char *>(sign));
+      ASSERT(size == sizeof(ConnMsg),
+             "read invalid message, size mismatch: size={} expected={}", size,
+             sizeof(ConnMsg));
+      ASSERT(type == t,
+             "wrong socket message type: expected={} actual={}",
+             static_cast<int>(t), static_cast<int>(type));
     }
 
     ConnectionIdentifier from;

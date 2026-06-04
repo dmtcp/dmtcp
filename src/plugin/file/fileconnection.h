@@ -38,6 +38,7 @@
 # include "jfilesystem.h"
 
 # include "connection.h"
+# include "util_assert.h"
 
 namespace dmtcp
 {
@@ -54,8 +55,8 @@ class StdioConnection : public Connection
     StdioConnection(int fd) : Connection(STDIO_IN + fd)
     {
       JTRACE("creating stdio connection") (fd) (id());
-      JASSERT(jalib::Between(0, fd, 2)) (fd)
-      .Text("invalid fd for StdioConnection");
+      ASSERT(jalib::Between(0, fd, 2),
+             "invalid fd for StdioConnection: fd={}", fd);
     }
 
     StdioConnection() {}

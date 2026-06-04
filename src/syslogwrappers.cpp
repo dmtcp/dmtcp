@@ -24,6 +24,7 @@
 #include "../jalib/jassert.h"
 #include "dmtcpalloc.h"
 #include "syscallwrappers.h"
+#include "util_assert.h"
 
 namespace dmtcp
 {
@@ -86,7 +87,7 @@ _ident()
 void
 SyslogCheckpointer_StopService()
 {
-  JASSERT(!_isSuspended);
+  ASSERT(!_isSuspended, "syslog stop requested while already suspended");
   if (_syslogEnabled) {
     closelog();
     _isSuspended = true;
@@ -98,7 +99,9 @@ SyslogCheckpointer_RestoreService()
 {
   if (_isSuspended) {
     _isSuspended = false;
-    JASSERT(_option >= 0 && _facility >= 0) (_option) (_facility);
+    ASSERT(_option >= 0 && _facility >= 0,
+           "invalid syslog restore state: option={} facility={}", _option,
+           _facility);
     openlog((_identIsNotNULL ? _ident().c_str() : NULL),
             _option, _facility);
   }
@@ -113,7 +116,7 @@ SyslogCheckpointer_ResetOnFork()
 extern "C" void
 openlog(const char *ident, int option, int facility)
 {
-  JASSERT(!_isSuspended);
+  ASSERT(!_isSuspended, "openlog called while syslog is suspended");
   JTRACE("openlog") (ident);
   _real_openlog(ident, option, facility);
   _syslogEnabled = true;
@@ -129,7 +132,7 @@ openlog(const char *ident, int option, int facility)
 extern "C" void
 closelog(void)
 {
-  JASSERT(!_isSuspended);
+  ASSERT(!_isSuspended, "closelog called while syslog is suspended");
   JTRACE("closelog");
   _real_closelog();
   _syslogEnabled = false;

@@ -5,6 +5,7 @@
 #include "futex.h"
 #include "jassert.h"
 #include "syscallwrappers.h"
+#include "util_assert.h"
 
 
 extern "C"
@@ -45,7 +46,8 @@ int DmtcpRWLockRdLock(DmtcpRWLock *rwlock)
       ret = futex_wait(&rwlock->readerFutex, waitVal);
     } while (ret != 0 && errno == EINTR);
     
-    JASSERT(ret == 0 || errno == EAGAIN);
+    ASSERT_ERRNO(ret == 0 || errno == EAGAIN,
+                 "unexpected reader futex_wait failure: ret={}", ret);
   }
 
   return 0;
@@ -67,7 +69,8 @@ int DmtcpRWLockRdUnlock(DmtcpRWLock *rwlock)
 
   if (newStatus.nReaders == 0 && newStatus.nWriters > 0) {
     rwlock->writerFutex++;
-    JASSERT(futex_wake(&rwlock->writerFutex, 1) != -1) (JASSERT_ERRNO);
+    ASSERT_ERRNO(futex_wake(&rwlock->writerFutex, 1) != -1,
+                 "writer futex_wake failed from reader unlock");
   }
 
   return 0;
@@ -100,7 +103,8 @@ int DmtcpRWLockWrLock(DmtcpRWLock *rwlock)
       ret = futex_wait(&rwlock->writerFutex, waitVal);
     } while (ret != 0 && errno == EINTR);
 
-    JASSERT(ret == 0 || errno == EAGAIN);
+    ASSERT_ERRNO(ret == 0 || errno == EAGAIN,
+                 "unexpected writer futex_wait failure: ret={}", ret);
   }
 
   rwlock->writerTid = gettid();
@@ -133,10 +137,13 @@ int DmtcpRWLockWrUnlock(DmtcpRWLock *rwlock)
 
   if (newStatus.nWriters > 0) {
     rwlock->writerFutex++;
-    JASSERT(futex_wake(&rwlock->writerFutex, 1) != -1) (JASSERT_ERRNO);
+    ASSERT_ERRNO(futex_wake(&rwlock->writerFutex, 1) != -1,
+                 "writer futex_wake failed from writer unlock");
   } else {
     rwlock->readerFutex++;
-    JASSERT(futex_wake(&rwlock->readerFutex, newStatus.nReaders) != -1) (JASSERT_ERRNO);
+    ASSERT_ERRNO(futex_wake(&rwlock->readerFutex, newStatus.nReaders) != -1,
+                 "reader futex_wake failed from writer unlock: readers={}",
+                 newStatus.nReaders);
   }
 
   return 0;

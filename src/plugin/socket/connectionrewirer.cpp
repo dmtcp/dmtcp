@@ -35,6 +35,7 @@
 #include "connectionrewirer.h"
 #include "socketconnection.h"
 #include "socketwrappers.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 constexpr char const *PeerDiscoveryDbRestart = "/plugin/socket/rst";
@@ -48,9 +49,11 @@ markSocketNonBlocking(int sockfd)
   // Remove O_NONBLOCK flag from listener socket
   int flags = _real_fcntl(sockfd, F_GETFL, NULL);
 
-  JASSERT(flags != -1);
-  JASSERT(_real_fcntl(sockfd, F_SETFL,
-                      (void *)(long)(flags | O_NONBLOCK)) != -1);
+  ASSERT_ERRNO(flags != -1, "fcntl(F_GETFL) failed: fd={}", sockfd);
+  ASSERT_ERRNO(_real_fcntl(sockfd, F_SETFL,
+                           (void *)(long)(flags | O_NONBLOCK)) != -1,
+               "fcntl(F_SETFL, O_NONBLOCK) failed: fd={} flags={}",
+               sockfd, flags | O_NONBLOCK);
 }
 
 static void
@@ -59,9 +62,11 @@ markSocketBlocking(int sockfd)
   // Remove O_NONBLOCK flag from listener socket
   int flags = _real_fcntl(sockfd, F_GETFL, NULL);
 
-  JASSERT(flags != -1);
-  JASSERT(_real_fcntl(sockfd, F_SETFL,
-                      (void *)(long)(flags & ~O_NONBLOCK)) != -1);
+  ASSERT_ERRNO(flags != -1, "fcntl(F_GETFL) failed: fd={}", sockfd);
+  ASSERT_ERRNO(_real_fcntl(sockfd, F_SETFL,
+                           (void *)(long)(flags & ~O_NONBLOCK)) != -1,
+               "fcntl(F_SETFL, blocking) failed: fd={} flags={}", sockfd,
+               flags & ~O_NONBLOCK);
 }
 
 static ConnectionRewirer *theRewirer = NULL;
@@ -96,13 +101,17 @@ ConnectionRewirer::checkForPendingIncoming(int restoreSockFd,
     if (fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
       return;
     }
-    JASSERT(fd != -1) (JASSERT_ERRNO).Text("Accept failed.");
+    ASSERT_ERRNO(fd != -1, "Accept failed: restore_fd={}", restoreSockFd);
     ConnectionIdentifier id;
-    JASSERT(Util::readAll(fd, &id, sizeof id) == sizeof id);
+    ASSERT(Util::readAll(fd, &id, sizeof id) == sizeof id,
+           "failed to read incoming restore identifier: fd={} expected={}", fd,
+           sizeof id);
 
     iterator i = conList->find(id);
-    JASSERT(i != conList->end()) (id)
-    .Text("got unexpected incoming restore request");
+    ASSERT(i != conList->end(),
+           "got unexpected incoming restore request: host={} pid={} "
+           "time={} con_id={}",
+           id.hostid(), id.pid(), id.time(), id.conId());
 
     (i->second)->restoreDupFds(fd);
 
@@ -122,9 +131,10 @@ ConnectionRewirer::doReconnect()
     struct RemoteAddr &remoteAddr = _remoteInfo[id];
     int fd = con->getFds()[0];
     errno = 0;
-    JASSERT(_real_connect(fd, (sockaddr *)&remoteAddr.addr, remoteAddr.len)
-            == 0)
-      (id) (JASSERT_ERRNO).Text("failed to restore connection");
+    ASSERT_ERRNO(
+      _real_connect(fd, (sockaddr *)&remoteAddr.addr, remoteAddr.len) == 0,
+      "failed to restore connection: fd={} host={} pid={} time={} con_id={}",
+      fd, id.hostid(), id.pid(), id.time(), id.conId());
 
     Util::writeAll(fd, &id, sizeof id);
 
@@ -191,7 +201,7 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     // _ip4RestoreAddr later.
     jalib::JSockAddr sockAddr(jalib::JSockAddr::ANY);
     jalib::JServerSocket restoreSocket(sockAddr, 0);
-    JASSERT(restoreSocket.isValid());
+    ASSERT(restoreSocket.isValid(), "invalid IPv4 restore socket");
     restoreSocket.changeFd(PROTECTED_RESTORE_IP4_SOCK_FD);
 
     // Setup restore socket for name service
@@ -210,19 +220,20 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
   // Open IP6 Restore Socket
   if (hasIPv6Sock) {
     int ip6fd = _real_socket(AF_INET6, SOCK_STREAM, 0);
-    JASSERT(ip6fd != -1) (JASSERT_ERRNO);
+    ASSERT_ERRNO(ip6fd != -1, "failed to create IPv6 restore socket");
 
     _ip6RestoreAddr.sin6_family = AF_INET6;
     _ip6RestoreAddr.sin6_port = 0;
     _ip6RestoreAddr.sin6_addr = in6addr_any;
     _ip6RestoreAddrlen = sizeof(_ip6RestoreAddr);
-    JASSERT(_real_bind(ip6fd, (struct sockaddr *)&_ip6RestoreAddr,
-                       _ip6RestoreAddrlen) == 0)
-      (JASSERT_ERRNO);
-    JASSERT(getsockname(ip6fd, (struct sockaddr *)&_ip6RestoreAddr,
-                        &_ip6RestoreAddrlen) == 0)
-      (JASSERT_ERRNO);
-    JASSERT(_real_listen(ip6fd, 32) == 0) (JASSERT_ERRNO);
+    ASSERT_ERRNO(_real_bind(ip6fd, (struct sockaddr *)&_ip6RestoreAddr,
+                            _ip6RestoreAddrlen) == 0,
+                 "failed to bind IPv6 restore socket: fd={}", ip6fd);
+    ASSERT_ERRNO(getsockname(ip6fd, (struct sockaddr *)&_ip6RestoreAddr,
+                             &_ip6RestoreAddrlen) == 0,
+                 "getsockname failed for IPv6 restore socket: fd={}", ip6fd);
+    ASSERT_ERRNO(_real_listen(ip6fd, 32) == 0,
+                 "listen failed for IPv6 restore socket: fd={}", ip6fd);
     Util::changeFd(ip6fd, PROTECTED_RESTORE_IP6_SOCK_FD);
 
     JTRACE("opened ip6 listen socket") (PROTECTED_RESTORE_IP6_SOCK_FD);
@@ -237,15 +248,16 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     o << dmtcp_get_uniquepid_str() << "_" << dmtcp_get_coordinator_timestamp() << "_" << _udsRestoreAddr.sun_path;
     string str = o.str();
     int udsfd = _real_socket(AF_UNIX, SOCK_STREAM, 0);
-    JASSERT(udsfd != -1);
+    ASSERT_ERRNO(udsfd != -1, "failed to create UDS restore socket");
     memset(&_udsRestoreAddr, 0, sizeof(struct sockaddr_un));
     _udsRestoreAddr.sun_family = AF_UNIX;
     strncpy(&_udsRestoreAddr.sun_path[1], str.c_str(), str.length());
     _udsRestoreAddrlen = sizeof(sa_family_t) + str.length() + 1;
-    JASSERT(_real_bind(udsfd, (struct sockaddr *)&_udsRestoreAddr,
-                       _udsRestoreAddrlen) == 0)
-      (JASSERT_ERRNO);
-    JASSERT(_real_listen(udsfd, 32) == 0) (JASSERT_ERRNO);
+    ASSERT_ERRNO(_real_bind(udsfd, (struct sockaddr *)&_udsRestoreAddr,
+                            _udsRestoreAddrlen) == 0,
+                 "failed to bind UDS restore socket: fd={}", udsfd);
+    ASSERT_ERRNO(_real_listen(udsfd, 32) == 0,
+                 "listen failed for UDS restore socket: fd={}", udsfd);
     Util::changeFd(udsfd, PROTECTED_RESTORE_UDS_SOCK_FD);
 
     JTRACE("opened UDS listen socket")
@@ -254,7 +266,8 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
 
     // Also open a seqpacket listener for AF_UNIX SOCK_SEQPACKET reconnections
     int udsseqfd = _real_socket(AF_UNIX, SOCK_SEQPACKET, 0);
-    JASSERT(udsseqfd != -1);
+    ASSERT_ERRNO(udsseqfd != -1,
+                 "failed to create UDS seqpacket restore socket");
     memset(&_udsSeqRestoreAddr, 0, sizeof(struct sockaddr_un));
     _udsSeqRestoreAddr.sun_family = AF_UNIX;
     // Use a different abstract path suffix to avoid collision
@@ -265,10 +278,13 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     string strSeq = o2.str();
     strncpy(&_udsSeqRestoreAddr.sun_path[1], strSeq.c_str(), strSeq.length());
     _udsSeqRestoreAddrlen = sizeof(sa_family_t) + strSeq.length() + 1;
-    JASSERT(_real_bind(udsseqfd, (struct sockaddr *)&_udsSeqRestoreAddr,
-                       _udsSeqRestoreAddrlen) == 0)
-      (JASSERT_ERRNO);
-    JASSERT(_real_listen(udsseqfd, 32) == 0) (JASSERT_ERRNO);
+    ASSERT_ERRNO(_real_bind(udsseqfd, (struct sockaddr *)&_udsSeqRestoreAddr,
+                            _udsSeqRestoreAddrlen) == 0,
+                 "failed to bind UDS seqpacket restore socket: fd={}",
+                 udsseqfd);
+    ASSERT_ERRNO(_real_listen(udsseqfd, 32) == 0,
+                 "listen failed for UDS seqpacket restore socket: fd={}",
+                 udsseqfd);
     Util::changeFd(udsseqfd, PROTECTED_RESTORE_UDS_SEQ_SOCK_FD);
 
     JTRACE("opened UDS SEQPACKET listen socket")
@@ -282,10 +298,10 @@ ConnectionRewirer::registerIncoming(const ConnectionIdentifier &local,
                                     Connection *con,
                                     int domain)
 {
-  JASSERT(domain == AF_INET || domain == AF_INET6 || domain == AF_UNIX)
-    (domain).Text("Unsupported domain.");
+  ASSERT(domain == AF_INET || domain == AF_INET6 || domain == AF_UNIX,
+         "Unsupported domain: domain={}", domain);
   SocketConnection *sc = dynamic_cast<SocketConnection *>(con);
-  JASSERT(sc != NULL);
+  ASSERT_NOT_NULL(sc);
 
   if (domain == AF_INET) {
     _pendingIP4Incoming[local] = con;
@@ -303,7 +319,7 @@ ConnectionRewirer::registerIncoming(const ConnectionIdentifier &local,
       _pendingUDSIncoming[local] = con;
     }
   } else {
-    JASSERT(false).Text("Not implemented");
+    ASSERT(false, "Unsupported incoming connection domain: domain={}", domain);
   }
 
   JTRACE("announcing pending incoming") (local);
@@ -337,7 +353,7 @@ ConnectionRewirer::registerNSData(void *addr,
 {
   iterator i;
 
-  JASSERT(theRewirer != NULL);
+  ASSERT_NOT_NULL(theRewirer);
   for (i = conList->begin(); i != conList->end(); ++i) {
     const ConnectionIdentifier &id = i->first;
     string addrStr = dmtcp::base64::encode((const char*) addr, addrLen);
@@ -361,13 +377,26 @@ ConnectionRewirer::sendQueries()
 
   for (i = _pendingOutgoing.begin(); i != _pendingOutgoing.end(); ++i) {
     const ConnectionIdentifier &id = i->first;
-    struct RemoteAddr remote;
+    struct RemoteAddr remote = {};
     string val;
-    JASSERT(kvdb::get(PeerDiscoveryDbRestart, id.toString(), &val) ==
-            kvdb::KVDBResponse::SUCCESS);
+    kvdb::KVDBResponse response =
+      kvdb::get(PeerDiscoveryDbRestart, id.toString(), &val);
+    ASSERT(response == kvdb::KVDBResponse::SUCCESS,
+           "failed to get peer discovery data: response={} host={} pid={} "
+           "time={} con_id={}",
+           static_cast<int>(response), id.hostid(), id.pid(), id.time(),
+           id.conId());
     string valBinary = dmtcp::base64::decode(val);
-    memcpy(&remote.addr, valBinary.data(), valBinary.size());
-    remote.len = valBinary.size();
+    ASSERT_GT(valBinary.size(), static_cast<size_t>(0),
+              "empty peer discovery address: host={} pid={} time={} con_id={}",
+              id.hostid(), id.pid(), id.time(), id.conId());
+    ASSERT_LE(valBinary.size(), sizeof(remote.addr),
+              "peer discovery address is too large: size={} max={} host={} "
+              "pid={} time={} con_id={}",
+              valBinary.size(), sizeof(remote.addr), id.hostid(), id.pid(),
+              id.time(), id.conId());
+    remote.len = static_cast<socklen_t>(valBinary.size());
+    memcpy(&remote.addr, valBinary.data(), remote.len);
 
     /*
     sockaddr_in *sn = (sockaddr_in*) &remote.addr;
