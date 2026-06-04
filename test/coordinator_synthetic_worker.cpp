@@ -19,6 +19,7 @@ struct Options {
   int holdSeconds = 5;
   bool expectKill = false;
   bool expectCheckpoint = false;
+  bool expectDuplicateCheckpoint = false;
   bool invalidCompGroup = false;
   std::string barrier;
 };
@@ -156,6 +157,7 @@ parseOptions(int argc, char **argv)
     throw std::runtime_error(
       "usage: coordinator_synthetic_worker HOST PORT "
       "[--hold-seconds SECONDS] [--expect-kill] [--expect-checkpoint] "
+      "[--expect-duplicate-checkpoint-after-update] "
       "[--invalid-comp-group] [--barrier NAME]");
   }
 
@@ -173,6 +175,9 @@ parseOptions(int argc, char **argv)
       options.expectKill = true;
     } else if (strcmp(argv[i], "--expect-checkpoint") == 0) {
       options.expectCheckpoint = true;
+    } else if (strcmp(argv[i],
+                      "--expect-duplicate-checkpoint-after-update") == 0) {
+      options.expectDuplicateCheckpoint = true;
     } else if (strcmp(argv[i], "--invalid-comp-group") == 0) {
       options.invalidCompGroup = true;
     } else if (strcmp(argv[i], "--barrier") == 0) {
@@ -250,6 +255,29 @@ main(int argc, char **argv)
         throw std::runtime_error("expected DMT_DO_CHECKPOINT");
       }
       std::cout << "received DMT_DO_CHECKPOINT\n";
+      std::cout.flush();
+      std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
+    } else if (options.expectDuplicateCheckpoint) {
+      dmtcp::DmtcpMessage msg;
+      readAll(fd, &msg, sizeof(msg));
+      if (!msg.isValid() || msg.type != dmtcp::DMT_DO_CHECKPOINT) {
+        close(fd);
+        throw std::runtime_error("expected first DMT_DO_CHECKPOINT");
+      }
+
+      dmtcp::DmtcpMessage update(
+        dmtcp::DMT_UPDATE_PROCESS_INFO_AFTER_INIT_OR_EXEC);
+      std::string progname = "coordinator_synthetic_worker_exec";
+      update.extraBytes = progname.size() + 1;
+      writeAll(fd, &update, sizeof(update));
+      writeAll(fd, progname.c_str(), update.extraBytes);
+
+      readAll(fd, &msg, sizeof(msg));
+      if (!msg.isValid() || msg.type != dmtcp::DMT_DO_CHECKPOINT) {
+        close(fd);
+        throw std::runtime_error("expected duplicate DMT_DO_CHECKPOINT");
+      }
+      std::cout << "received duplicate DMT_DO_CHECKPOINT\n";
       std::cout.flush();
       std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
     } else if (!options.barrier.empty()) {

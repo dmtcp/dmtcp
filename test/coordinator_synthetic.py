@@ -68,7 +68,8 @@ class CoordinatorFixture:
 
 class WorkerProcess:
     def __init__(self, port, expect_kill=False, barrier=None,
-                 expect_checkpoint=False, invalid_comp_group=False):
+                 expect_checkpoint=False, invalid_comp_group=False,
+                 expect_duplicate_checkpoint=False):
         args = [
             str(SYNTHETIC_WORKER),
             "127.0.0.1",
@@ -84,6 +85,8 @@ class WorkerProcess:
             args.append("--expect-checkpoint")
         if invalid_comp_group:
             args.append("--invalid-comp-group")
+        if expect_duplicate_checkpoint:
+            args.append("--expect-duplicate-checkpoint-after-update")
         self.process = subprocess.Popen(
             args,
             cwd=str(ROOT),
@@ -133,6 +136,20 @@ class WorkerProcess:
                 stderr = self.process.stderr.read()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not receive checkpoint request")
+
+    def wait_until_duplicate_checkpoint_requested(self):
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
+            if readable:
+                line = self.process.stdout.readline().strip()
+                if line == "received duplicate DMT_DO_CHECKPOINT":
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError("worker did not receive duplicate checkpoint")
 
     def wait_until_barrier_released(self, barrier):
         deadline = time.time() + 10
@@ -267,6 +284,24 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertEqual(payload["type"], "checkpoint")
                 self.assertEqual(payload["num_peers"], 1)
                 worker.wait_until_checkpoint_requested()
+            finally:
+                worker.stop()
+
+    def test_worker_update_during_checkpoint_gets_duplicate_request(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(coordinator.port,
+                                   expect_duplicate_checkpoint=True)
+            try:
+                worker.wait_until_accepted()
+                result = self.run_command("--json", "--coord-port",
+                                          str(coordinator.port),
+                                          "--checkpoint")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                payload = json.loads(result.stdout)
+
+                self.assertTrue(payload["ok"])
+                self.assertEqual(payload["type"], "checkpoint")
+                worker.wait_until_duplicate_checkpoint_requested()
             finally:
                 worker.stop()
 
