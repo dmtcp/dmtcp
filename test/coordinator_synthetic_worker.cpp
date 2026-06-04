@@ -21,6 +21,7 @@ struct Options {
   bool expectCheckpoint = false;
   bool expectDuplicateCheckpoint = false;
   bool expectRejectNotRestarting = false;
+  bool expectRejectNotRunning = false;
   bool expectRestartPeerMismatch = false;
   bool expectKvdb = false;
   bool expectInvalidProtocolReject = false;
@@ -238,6 +239,7 @@ parseOptions(int argc, char **argv)
       "[--hold-seconds SECONDS] [--expect-kill] [--expect-checkpoint] "
       "[--expect-duplicate-checkpoint-after-update] "
       "[--expect-reject-not-restarting] "
+      "[--expect-reject-not-running] "
       "[--expect-restart-peer-mismatch] "
       "[--expect-kvdb] "
       "[--expect-invalid-protocol-reject] "
@@ -268,6 +270,8 @@ parseOptions(int argc, char **argv)
       options.expectDuplicateCheckpoint = true;
     } else if (strcmp(argv[i], "--expect-reject-not-restarting") == 0) {
       options.expectRejectNotRestarting = true;
+    } else if (strcmp(argv[i], "--expect-reject-not-running") == 0) {
+      options.expectRejectNotRunning = true;
     } else if (strcmp(argv[i], "--expect-restart-peer-mismatch") == 0) {
       options.expectRestartPeerMismatch = true;
     } else if (strcmp(argv[i], "--expect-kvdb") == 0) {
@@ -380,6 +384,17 @@ main(int argc, char **argv)
         throw std::runtime_error("expected DMT_REJECT_NOT_RESTARTING");
       }
       std::cout << "rejected DMT_REJECT_NOT_RESTARTING\n";
+      std::cout.flush();
+      close(fd);
+      return 0;
+    }
+
+    if (options.expectRejectNotRunning) {
+      if (!reply.isValid() || reply.type != dmtcp::DMT_REJECT_NOT_RUNNING) {
+        close(fd);
+        throw std::runtime_error("expected DMT_REJECT_NOT_RUNNING");
+      }
+      std::cout << "rejected DMT_REJECT_NOT_RUNNING\n";
       std::cout.flush();
       close(fd);
       return 0;
