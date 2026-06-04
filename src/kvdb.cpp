@@ -3,6 +3,7 @@
 #include "dmtcpmessagetypes.h"
 #include "coordinatorapi.h"
 #include "util.h"
+#include "util_assert.h"
 #include "jconvert.h"
 #include "kvdb.h"
 #include "threadinfo.h"
@@ -30,7 +31,9 @@ KVDBResponse request(KVDBRequest request,
     return KVDBResponse::INVALID_REQUEST;
   }
 
-  JWARNING(id.length() < sizeof(msg.kvdbId));
+  WARNING(id.length() < sizeof(msg.kvdbId),
+          "KVDB id is too long and will be truncated: length={} limit={}",
+          id.length(), sizeof(msg.kvdbId) - 1);
   strncpy(msg.kvdbId, id.data(), sizeof msg.kvdbId);
   msg.keyLen = key.length() + 1;
   msg.valLen = val.length() + 1;
