@@ -82,6 +82,25 @@ TESTS=${notdir ${basename ${shell ls $(srcdir)/*.c $(srcdir)/*.cpp $(srcdir)/*.c
 	${addsuffix .class,${notdir ${basename ${shell ls $(srcdir)/java*.java}}}} \
 	hellompich openmpi
 
+UNIT_TESTS = unit/dmtcp_unit_tests unit/dmtcp_header_c_test.o
+
+check-unit: $(UNIT_TESTS)
+	./unit/dmtcp_unit_tests
+
+unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
+		$(srcdir)/unit/dmtcp_header_tests.cpp \
+		$(srcdir)/unit/unit_test.h \
+		$(DMTCP_INCLUDE)/dmtcp.h
+	$(MKDIR_P) unit
+	$(CXX) $(CXXFLAGS) -I$(srcdir)/unit -o $@ \
+	  $(srcdir)/unit/main.cpp \
+	  $(srcdir)/unit/dmtcp_header_tests.cpp
+
+unit/dmtcp_header_c_test.o: $(srcdir)/unit/dmtcp_header_c_test.c \
+		$(DMTCP_INCLUDE)/dmtcp.h
+	$(MKDIR_P) unit
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 # Compile plugins first; Otherwise, errors in standard tests scroll off screen.
 tests: plugins $(TESTS) $(TESTS_MULTILIB)
 	#${MAKE} -C credentials
@@ -96,7 +115,7 @@ tidy:
 	cd plugin && $(MAKE) tidy > /dev/null
 
 clean: tidy
-	rm -f $(TESTS) $(TESTS_MULTILIB) *.pyc *.so
+	rm -f $(TESTS) $(TESTS_MULTILIB) $(UNIT_TESTS) unit/*.o *.pyc *.so
 	#${MAKE} -C credentials clean
 	cd plugin && $(MAKE) clean
 

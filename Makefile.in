@@ -222,6 +222,9 @@ check-32: tests-32
 	   ' python to path or build Python 2 or use python3.'; \
 	  fi
 
+check-unit:
+	cd test && $(MAKE) check-unit
+
 check-%: tests
 	@ if test "@HAS_PYTHON3@" = yes; then \
 	bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'";\
@@ -407,4 +410,4 @@ am--refresh:
 	display-build-env display-release display-config build \
 	build-multilib build-multilib-m32 build-multilib-m64 \
 	mkdirs dmtcp plugin contrib clean distclean am--refresh \
-	tests tests-32
+	tests tests-32 check-unit
