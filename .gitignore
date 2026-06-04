@@ -54,6 +54,12 @@ test/*
 !test/*.java
 !test/*.py
 !test/*.in
+!test/unit/
+!test/unit/*.c
+!test/unit/*.cpp
+!test/unit/*.h
+test/unit/dmtcp_unit_tests
+test/unit/*.o
 test/testconfig.py
 test/autotest_config.py
 
