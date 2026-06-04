@@ -70,7 +70,8 @@ class WorkerProcess:
     def __init__(self, port, expect_kill=False, barrier=None,
                  expect_checkpoint=False, invalid_comp_group=False,
                  expect_duplicate_checkpoint=False,
-                 expect_reject_not_restarting=False):
+                 expect_reject_not_restarting=False,
+                 expect_kvdb=False):
         args = [
             str(SYNTHETIC_WORKER),
             "127.0.0.1",
@@ -90,6 +91,8 @@ class WorkerProcess:
             args.append("--expect-duplicate-checkpoint-after-update")
         if expect_reject_not_restarting:
             args.append("--expect-reject-not-restarting")
+        if expect_kvdb:
+            args.append("--expect-kvdb")
         self.process = subprocess.Popen(
             args,
             cwd=str(ROOT),
@@ -197,6 +200,20 @@ class WorkerProcess:
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError(
             "worker was not rejected for non-restarting coordinator")
+
+    def wait_until_kvdb_round_trip(self):
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
+            if readable:
+                line = self.process.stdout.readline().strip()
+                if line == "kvdb old=0 value=synthetic-value":
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError("worker did not complete KVDB round trip")
 
     def stop(self):
         if self.process.poll() is None:
@@ -375,6 +392,20 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertTrue(status["ok"])
                 self.assertEqual(status["num_peers"], 0)
                 self.assertFalse(status["running"])
+            finally:
+                worker.stop()
+
+    def test_kvdb_request_round_trip(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(coordinator.port, expect_kvdb=True)
+            try:
+                worker.wait_until_accepted()
+                worker.wait_until_kvdb_round_trip()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 1)
+                self.assertTrue(status["running"])
             finally:
                 worker.stop()
 

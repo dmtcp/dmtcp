@@ -21,6 +21,7 @@ struct Options {
   bool expectCheckpoint = false;
   bool expectDuplicateCheckpoint = false;
   bool expectRejectNotRestarting = false;
+  bool expectKvdb = false;
   bool invalidCompGroup = false;
   std::string barrier;
 };
@@ -140,6 +141,45 @@ readExtraString(int fd, uint32_t bytes)
   return extra;
 }
 
+void
+sendKvdbRequest(int fd,
+                dmtcp::kvdb::KVDBRequest request,
+                const char *id,
+                const char *key,
+                const char *val)
+{
+  dmtcp::DmtcpMessage msg(dmtcp::DMT_KVDB_REQUEST);
+  msg.kvdbRequest = request;
+  if (std::strlen(id) >= sizeof(msg.kvdbId)) {
+    throw std::runtime_error("KVDB id is too long");
+  }
+  std::strncpy(msg.kvdbId, id, sizeof(msg.kvdbId) - 1);
+
+  std::string payload(key);
+  payload.push_back('\0');
+  payload.append(val);
+  payload.push_back('\0');
+
+  msg.keyLen = std::strlen(key) + 1;
+  msg.valLen = std::strlen(val) + 1;
+  msg.extraBytes = payload.size();
+
+  writeAll(fd, &msg, sizeof(msg));
+  writeAll(fd, payload.data(), payload.size());
+}
+
+std::string
+readKvdbValue(int fd)
+{
+  dmtcp::DmtcpMessage msg;
+  readAll(fd, &msg, sizeof(msg));
+  if (!msg.isValid() || msg.type != dmtcp::DMT_KVDB_RESPONSE ||
+      msg.kvdbResponse != dmtcp::kvdb::KVDBResponse::SUCCESS) {
+    throw std::runtime_error("expected successful DMT_KVDB_RESPONSE");
+  }
+  return readExtraString(fd, msg.extraBytes);
+}
+
 std::string
 waitForBarrierRelease(int fd)
 {
@@ -160,6 +200,7 @@ parseOptions(int argc, char **argv)
       "[--hold-seconds SECONDS] [--expect-kill] [--expect-checkpoint] "
       "[--expect-duplicate-checkpoint-after-update] "
       "[--expect-reject-not-restarting] "
+      "[--expect-kvdb] "
       "[--invalid-comp-group] [--barrier NAME]");
   }
 
@@ -182,6 +223,8 @@ parseOptions(int argc, char **argv)
       options.expectDuplicateCheckpoint = true;
     } else if (strcmp(argv[i], "--expect-reject-not-restarting") == 0) {
       options.expectRejectNotRestarting = true;
+    } else if (strcmp(argv[i], "--expect-kvdb") == 0) {
+      options.expectKvdb = true;
     } else if (strcmp(argv[i], "--invalid-comp-group") == 0) {
       options.invalidCompGroup = true;
     } else if (strcmp(argv[i], "--barrier") == 0) {
@@ -297,6 +340,16 @@ main(int argc, char **argv)
         throw std::runtime_error("expected duplicate DMT_DO_CHECKPOINT");
       }
       std::cout << "received duplicate DMT_DO_CHECKPOINT\n";
+      std::cout.flush();
+      std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
+    } else if (options.expectKvdb) {
+      sendKvdbRequest(fd, dmtcp::kvdb::KVDBRequest::SET,
+                      "synthetic-db", "synthetic-key", "synthetic-value");
+      std::string oldVal = readKvdbValue(fd);
+      sendKvdbRequest(fd, dmtcp::kvdb::KVDBRequest::GET,
+                      "synthetic-db", "synthetic-key", "");
+      std::string val = readKvdbValue(fd);
+      std::cout << "kvdb old=" << oldVal << " value=" << val << '\n';
       std::cout.flush();
       std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
     } else if (!options.barrier.empty()) {
