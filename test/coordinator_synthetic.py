@@ -76,6 +76,7 @@ class WorkerProcess:
                  expect_checkpoint=False, invalid_comp_group=False,
                  expect_duplicate_checkpoint=False,
                  expect_reject_not_restarting=False,
+                 expect_restart_peer_mismatch=False,
                  expect_kvdb=False,
                  expect_invalid_protocol_reject=False,
                  expect_oversized_extra_reject=False,
@@ -105,6 +106,8 @@ class WorkerProcess:
             args.append("--expect-duplicate-checkpoint-after-update")
         if expect_reject_not_restarting:
             args.append("--expect-reject-not-restarting")
+        if expect_restart_peer_mismatch:
+            args.append("--expect-restart-peer-mismatch")
         if expect_kvdb:
             args.append("--expect-kvdb")
         if expect_invalid_protocol_reject:
@@ -256,6 +259,21 @@ class WorkerProcess:
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError(
             "worker was not rejected for non-restarting coordinator")
+
+    def wait_until_rejected_restart_peer_mismatch(self):
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
+            if readable:
+                line = self._read_stdout_line()
+                if line == "rejected DMT_REJECT_RESTART_PEER_MISMATCH":
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError(
+            "worker was not rejected for restart peer-count mismatch")
 
     def wait_until_kvdb_round_trip(self):
         deadline = time.time() + 10
@@ -435,6 +453,29 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
 
                 first.wait_until_barrier_released(barrier)
                 second.wait_until_barrier_released(barrier)
+            finally:
+                first.stop()
+                if second is not None:
+                    second.stop()
+
+    def test_restart_worker_with_peer_count_mismatch_is_rejected(self):
+        with CoordinatorFixture() as coordinator:
+            first = WorkerProcess(coordinator.port, restart_worker=True,
+                                  num_peers=2)
+            second = None
+            try:
+                first.wait_until_accepted()
+
+                second = WorkerProcess(
+                    coordinator.port,
+                    expect_restart_peer_mismatch=True,
+                    num_peers=3)
+                second.wait_until_rejected_restart_peer_mismatch()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 1)
+                self.assertFalse(status["running"])
             finally:
                 first.stop()
                 if second is not None:

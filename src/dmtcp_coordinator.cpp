@@ -1077,6 +1077,14 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
     remote << hello_local;
     remote.close();
     return false;
+  } else if (hello_remote.numPeers != static_cast<uint32_t>(numRestartPeers)) {
+    JNOTE("Reject incoming computation process requesting restart,"
+          " since it expects a different peer count.")
+      (numRestartPeers) (hello_remote.numPeers);
+    hello_local.type = DMT_REJECT_RESTART_PEER_MISMATCH;
+    remote << hello_local;
+    remote.close();
+    return false;
   }
 
   // dmtcp_restart already connected and compGroup created.

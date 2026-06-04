@@ -21,6 +21,7 @@ struct Options {
   bool expectCheckpoint = false;
   bool expectDuplicateCheckpoint = false;
   bool expectRejectNotRestarting = false;
+  bool expectRestartPeerMismatch = false;
   bool expectKvdb = false;
   bool expectInvalidProtocolReject = false;
   bool expectOversizedExtraReject = false;
@@ -237,6 +238,7 @@ parseOptions(int argc, char **argv)
       "[--hold-seconds SECONDS] [--expect-kill] [--expect-checkpoint] "
       "[--expect-duplicate-checkpoint-after-update] "
       "[--expect-reject-not-restarting] "
+      "[--expect-restart-peer-mismatch] "
       "[--expect-kvdb] "
       "[--expect-invalid-protocol-reject] "
       "[--expect-oversized-extra-reject] "
@@ -266,6 +268,8 @@ parseOptions(int argc, char **argv)
       options.expectDuplicateCheckpoint = true;
     } else if (strcmp(argv[i], "--expect-reject-not-restarting") == 0) {
       options.expectRejectNotRestarting = true;
+    } else if (strcmp(argv[i], "--expect-restart-peer-mismatch") == 0) {
+      options.expectRestartPeerMismatch = true;
     } else if (strcmp(argv[i], "--expect-kvdb") == 0) {
       options.expectKvdb = true;
     } else if (strcmp(argv[i], "--expect-invalid-protocol-reject") == 0) {
@@ -308,7 +312,9 @@ main(int argc, char **argv)
   try {
     Options options = parseOptions(argc, argv);
     const bool restartHandshake =
-      options.expectRejectNotRestarting || options.restartWorker;
+      options.expectRejectNotRestarting ||
+      options.expectRestartPeerMismatch ||
+      options.restartWorker;
 
     dmtcp::WorkerState::setCurrentState(
       restartHandshake ? dmtcp::WorkerState::RESTARTING
@@ -318,7 +324,7 @@ main(int argc, char **argv)
                               : dmtcp::DMT_NEW_WORKER);
     hello.virtualPid = -1;
     hello.realPid = getpid();
-    if (options.restartWorker) {
+    if (options.restartWorker || options.expectRestartPeerMismatch) {
       hello.compGroup = syntheticRestartCompGroup();
       hello.numPeers = options.numPeers;
     }
@@ -374,6 +380,19 @@ main(int argc, char **argv)
         throw std::runtime_error("expected DMT_REJECT_NOT_RESTARTING");
       }
       std::cout << "rejected DMT_REJECT_NOT_RESTARTING\n";
+      std::cout.flush();
+      close(fd);
+      return 0;
+    }
+
+    if (options.expectRestartPeerMismatch) {
+      if (!reply.isValid() ||
+          reply.type != dmtcp::DMT_REJECT_RESTART_PEER_MISMATCH) {
+        close(fd);
+        throw std::runtime_error(
+          "expected DMT_REJECT_RESTART_PEER_MISMATCH");
+      }
+      std::cout << "rejected DMT_REJECT_RESTART_PEER_MISMATCH\n";
       std::cout.flush();
       close(fd);
       return 0;
