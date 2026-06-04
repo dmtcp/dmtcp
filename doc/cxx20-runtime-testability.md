@@ -310,6 +310,27 @@ bootstrap field as:
 - obsolete or derivable
 - externally consumed by MANA or another known wrapper around restart
 
+Current `DmtcpCkptHeader` field matrix:
+
+| Field group | Current pre-restore consumer | Classification | Migration note |
+| --- | --- | --- | --- |
+| `ckptSignature`, `headerSize`, `headerVersion`, `wordSize`, `endianMarker` | `dmtcp_restart`, `mtcp_restart`, MANA lower-half-style restart wrappers | Required before memory restore | Keep in the public C-compatible bootstrap prefix. Validate before trusting any other field. |
+| `restoreBuf` | `dmtcp_restart` passes the region to `mtcp_restart`; `mtcp_restart` uses it to stage restore code | Required before memory restore | Keep in the bootstrap prefix until restore staging is redesigned. |
+| `savedBrk` | `mtcp_restart`/restore path | Required before memory restore | Keep in bootstrap; it is part of reconstructing the process address-space shape. |
+| `endOfStack` | `mtcp_restart` and MANA lower-half memory restore logic | Required before memory restore | Keep in bootstrap unless stack detection is replaced with per-area metadata. |
+| `postRestartAddr` | `mtcp_restart` and MANA lower-half call into DMTCP after memory restore | Required by restart handoff | Keep in bootstrap. It is consumed after memory is restored but before normal runtime control resumes. |
+| `elfType` | `dmtcp_restart` chooses compatible restart path | Required before memory restore | Keep in bootstrap or replace with an architecture field that covers the same decision. |
+| `vdso`, `vvar`, `vvarVClock`, `clock_gettime_offset`, `getcpu_offset`, `gettimeofday_offset`, `time_offset` | `dmtcp_restart` validates vDSO offset compatibility; `writeckpt` and `mtcp_restart` use vDSO/VVAR location semantics | Required before memory restore for current vDSO policy | Freeze current semantics during the first split. Any semantic change needs separate vDSO/VVAR restart tests. |
+| `upid`, `uppid`, `compGroup` | `dmtcp_restart` rebuilds process identity and reconnects to the coordinator | Required before memory restore | Keep in bootstrap while `dmtcp_restart` orchestrates process tree reconstruction. |
+| `pid`, `ppid`, `sid`, `gid`, `fgid`, `isRootOfProcessTree` | `dmtcp_restart` process-tree/session reconstruction; MANA lower-half session restore uses `pid`/`sid` | Required before memory restore | Keep initially. Later migration needs restart tests for dependent children, orphan roots, process groups, and session leaders. |
+| `numPeers` | `dmtcp_restart` restart orchestration and coordinator reconnect | Required before memory restore | Keep until restart quorum/orchestration metadata is separated from process runtime state. |
+| `procname`, `procSelfExe` | `dmtcp_restart` coordinator reconnect, process display, and restart target selection | Required before memory restore | Keep initially; if moved, provide an equally early fixed-size process identity block. |
+| `padding` | No intended reader | Reserved | Keep zeroed and validate if it is promoted to a formal reserved region. |
+
+Fields not listed above are runtime `ProcessInfo` members outside the public
+bootstrap struct today. They can move into restored runtime state independently
+as long as checkpoint serialization still writes a complete bootstrap snapshot.
+
 If vDSO/VVAR fields are not the focus of the first redesign, freeze their
 current semantics and only move them mechanically. If their semantics change,
 split that work into its own subsection and require restart tests that exercise
