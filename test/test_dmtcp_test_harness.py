@@ -3,6 +3,7 @@
 import os
 import pathlib
 import platform
+import signal
 import shutil
 import struct
 import subprocess
@@ -109,6 +110,60 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertIn("timeout=0.01", transcript)
             self.assertIn("partial stdout", transcript)
             self.assertIn("partial stderr", transcript)
+
+    def test_start_coordinator_uses_process_group(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("process-group", 1, ["./test/dmtcp1"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            with mock.patch.object(harness_module.subprocess, "Popen") as popen, \
+                 mock.patch.object(harness_module.TestContext,
+                                   "_read_port_file",
+                                   lambda self: 12345):
+                context._start_coordinator()
+
+            self.assertEqual(popen.call_args.kwargs["preexec_fn"], os.setpgrp)
+
+    def test_cleanup_signals_worker_process_group(self):
+        class FakeProcess:
+            pid = 4321
+
+            def __init__(self):
+                self.waited = False
+
+            def poll(self):
+                return None if not self.waited else 0
+
+            def wait(self, timeout):
+                self.waited = True
+                return 0
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("process-group", 1, ["./test/dmtcp1"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+            context.processes.append(FakeProcess())
+
+            with mock.patch.object(context, "_kill_workers",
+                                   lambda best_effort=False: None), \
+                 mock.patch.object(context, "_quit_coordinator",
+                                   lambda: None), \
+                 mock.patch.object(harness_module.os, "killpg") as killpg:
+                context.cleanup()
+
+            self.assertEqual(killpg.call_args.args,
+                             (4321, signal.SIGTERM))
 
     def test_unexpected_harness_exception_records_failure(self):
         def fail_run(self):

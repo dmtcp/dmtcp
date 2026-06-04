@@ -5,6 +5,7 @@ import os
 import pathlib
 import shlex
 import shutil
+import signal
 import struct
 import subprocess
 import tempfile
@@ -231,20 +232,10 @@ class TestContext:
         self._kill_workers(best_effort=True)
         self._quit_coordinator()
         for proc in self.processes:
-            if proc.poll() is None:
-                proc.terminate()
-                try:
-                    proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.wait(timeout=5)
+            self._terminate_process_group(proc, f"worker {proc.pid}")
         if self.coordinator_proc is not None and self.coordinator_proc.poll() is None:
-            self.coordinator_proc.terminate()
-            try:
-                self.coordinator_proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.coordinator_proc.kill()
-                self.coordinator_proc.wait(timeout=5)
+            self._terminate_process_group(self.coordinator_proc,
+                                          f"coordinator {self.coordinator_proc.pid}")
 
     def _make_env(self) -> Dict[str, str]:
         env = os.environ.copy()
@@ -297,6 +288,7 @@ class TestContext:
             text=True,
             stdout=stdout,
             stderr=stderr,
+            preexec_fn=os.setpgrp,
         )
         stdout.close()
         stderr.close()
@@ -333,6 +325,7 @@ class TestContext:
                 stdin=subprocess.PIPE,
                 stdout=stdout,
                 stderr=subprocess.STDOUT,
+                preexec_fn=os.setpgrp,
             )
             stdout.close()
             self.processes.append(proc)
@@ -389,6 +382,7 @@ class TestContext:
             stdin=subprocess.PIPE,
             stdout=stdout,
             stderr=subprocess.STDOUT,
+            preexec_fn=os.setpgrp,
         )
         stdout.close()
         self.processes.append(proc)
@@ -403,6 +397,67 @@ class TestContext:
             self.coordinator_proc.wait(timeout=5)
         except (HarnessFailure, subprocess.TimeoutExpired):
             pass
+
+    def _record_cleanup(self, message: str):
+        with (self.work.path / "cleanup.log").open("a", encoding="utf-8") as out:
+            out.write(message)
+            out.write("\n")
+
+    def _process_group_members(self, pgid: int) -> List[int]:
+        members = []
+        proc_root = pathlib.Path("/proc")
+        if not proc_root.exists():
+            return members
+        for entry in proc_root.iterdir():
+            if not entry.name.isdigit():
+                continue
+            try:
+                stat = (entry / "stat").read_text(encoding="utf-8")
+                close_paren = stat.rfind(")")
+                if close_paren == -1:
+                    continue
+                fields = stat[close_paren + 2:].split()
+                if len(fields) >= 3 and int(fields[2]) == pgid:
+                    members.append(int(entry.name))
+            except (OSError, ValueError):
+                continue
+        return members
+
+    def _terminate_process_group(self, proc: subprocess.Popen, label: str):
+        pgid = proc.pid
+        if proc.poll() is None:
+            self._record_cleanup(f"{label}: SIGTERM process group {pgid}")
+            try:
+                os.killpg(pgid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self._record_cleanup(f"{label}: SIGKILL process group {pgid}")
+                try:
+                    os.killpg(pgid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                proc.wait(timeout=5)
+
+        leftovers = self._process_group_members(pgid)
+        if leftovers:
+            self._record_cleanup(
+                f"{label}: leftover process group {pgid}: {leftovers}")
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            time.sleep(0.1)
+            leftovers = self._process_group_members(pgid)
+            if leftovers:
+                raise HarnessFailure(
+                    "cleanup",
+                    f"leftover processes in group {pgid}: {leftovers}",
+                )
+        else:
+            self._record_cleanup(f"{label}: process group {pgid} clean")
 
     def _run_json_command(self, command: str, phase: str,
                           allow_error: bool) -> Dict[str, object]:
