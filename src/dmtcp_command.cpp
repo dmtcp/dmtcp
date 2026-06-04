@@ -45,6 +45,8 @@ static const char *theUsage =
   "              Print this message and exit.\n"
   "  --version\n"
   "              Print version information and exit.\n"
+  "  --json\n"
+  "              Print machine-readable JSON output for supported commands.\n"
   "\n"
   "Commands for Coordinator:\n"
   "    -s, --status:          Print status message\n"
@@ -63,6 +65,135 @@ static const char *theUsage =
   HELP_AND_CONTACT_INFO
   "\n";
 
+static const int JSON_SCHEMA_VERSION = 1;
+
+static const char *
+getCoordinatorHost()
+{
+  const char *host = getenv(ENV_VAR_NAME_HOST);
+  if (host == NULL) {
+    host = getenv("DMTCP_HOST");                 // deprecated
+  }
+  return host != NULL ? host : "localhost";
+}
+
+static int
+getCoordinatorPort()
+{
+  const char *port = getenv(ENV_VAR_NAME_PORT);
+  if (port == NULL) {
+    port = getenv("DMTCP_PORT");                 // deprecated
+  }
+  return port != NULL ? atoi(port) : DEFAULT_PORT;
+}
+
+static const char *
+coordCmdStatusToJsonErrorCode(int status)
+{
+  switch (status) {
+  case CoordCmdStatus::ERROR_COORDINATOR_NOT_FOUND:
+    return "coordinator_not_found";
+  case CoordCmdStatus::ERROR_INVALID_COMMAND:
+    return "invalid_command";
+  case CoordCmdStatus::ERROR_NOT_RUNNING_STATE:
+    return "not_running";
+  default:
+    return "unknown_error";
+  }
+}
+
+static const char *
+coordCmdStatusToJsonMessage(int status)
+{
+  switch (status) {
+  case CoordCmdStatus::ERROR_COORDINATOR_NOT_FOUND:
+    return "Coordinator not found";
+  case CoordCmdStatus::ERROR_INVALID_COMMAND:
+    return "Unknown command";
+  case CoordCmdStatus::ERROR_NOT_RUNNING_STATE:
+    return "Computation not in running state";
+  default:
+    return "Unknown error";
+  }
+}
+
+static void
+printJsonString(const char *value)
+{
+  putchar('"');
+  for (const unsigned char *p = (const unsigned char *)value; *p != '\0'; p++) {
+    switch (*p) {
+    case '"':
+      printf("\\\"");
+      break;
+    case '\\':
+      printf("\\\\");
+      break;
+    case '\b':
+      printf("\\b");
+      break;
+    case '\f':
+      printf("\\f");
+      break;
+    case '\n':
+      printf("\\n");
+      break;
+    case '\r':
+      printf("\\r");
+      break;
+    case '\t':
+      printf("\\t");
+      break;
+    default:
+      if (*p < 0x20) {
+        printf("\\u%04x", *p);
+      } else {
+        putchar(*p);
+      }
+      break;
+    }
+  }
+  putchar('"');
+}
+
+static void
+printJsonCommandPrefix(const char *type, bool ok)
+{
+  printf("{\"schema_version\":%d,\"type\":", JSON_SCHEMA_VERSION);
+  printJsonString(type);
+  printf(",\"ok\":%s", ok ? "true" : "false");
+}
+
+static void
+printJsonCoordinator()
+{
+  printf(",\"coordinator_host\":");
+  printJsonString(getCoordinatorHost());
+  printf(",\"coordinator_port\":%d", getCoordinatorPort());
+}
+
+static void
+printJsonStatusSuccess(int numPeers, int isRunning, int ckptInterval)
+{
+  printJsonCommandPrefix("status", true);
+  printJsonCoordinator();
+  printf(",\"num_peers\":%d", numPeers);
+  printf(",\"running\":%s", isRunning ? "true" : "false");
+  printf(",\"checkpoint_interval\":%d", ckptInterval);
+  printf("}\n");
+}
+
+static void
+printJsonError(const char *type, int status)
+{
+  printJsonCommandPrefix(type, false);
+  printf(",\"error_code\":");
+  printJsonString(coordCmdStatusToJsonErrorCode(status));
+  printf(",\"error_message\":");
+  printJsonString(coordCmdStatusToJsonMessage(status));
+  printJsonCoordinator();
+  printf("}\n");
+}
 
 // shift args
 #define shift argc--, argv++
@@ -72,6 +203,7 @@ main(int argc, char **argv)
 {
   string interval = "";
   string request = "h";
+  bool jsonOutput = false;
 
   setenv("DMTCP_COMMAND", "1", 1); // for jalloc.cpp/sync_bool_compare_adn_swap
   initializeJalib();
@@ -89,6 +221,9 @@ main(int argc, char **argv)
     } else if ((s == "--version") && argc == 1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return 1;
+    } else if (s == "--json") {
+      jsonOutput = true;
+      shift;
     } else if (argc > 1 &&
                (s == "-h" || s == "--coord-host" || s == "--host")) {
       setenv(ENV_VAR_NAME_HOST, argv[1], 1);
@@ -151,6 +286,10 @@ main(int argc, char **argv)
   char *workerList = NULL;
   // After this, the first char of the request is unique.  We only need that.
   char cmdChar = *(char *)request.c_str();
+  if (jsonOutput && cmdChar != 's') {
+    printJsonError("unknown", CoordCmdStatus::ERROR_INVALID_COMMAND);
+    return 2;
+  }
   switch (cmdChar) {
   case 'h':
     fprintf(stderr, theUsage, "");
@@ -194,6 +333,10 @@ main(int argc, char **argv)
 
   // check for error
   if (coordCmdStatus != CoordCmdStatus::NOERROR) {
+    if (jsonOutput) {
+      printJsonError(cmdChar == 's' ? "status" : "unknown", coordCmdStatus);
+      return 2;
+    }
     switch (coordCmdStatus) {
     case CoordCmdStatus::ERROR_COORDINATOR_NOT_FOUND:
       if (getenv("DMTCP_COORD_PORT") || getenv("DMTCP_PORT")) {
@@ -225,14 +368,13 @@ main(int argc, char **argv)
     return 2;
   }
 
-  if(cmdChar == 's' || cmdChar == 'l'){
+  if (cmdChar == 's' && jsonOutput) {
+    printJsonStatusSuccess(numPeers, isRunning, ckptInterval);
+  } else if(cmdChar == 's' || cmdChar == 'l'){
     printf("Coordinator:\n");
-    char *host = getenv(ENV_VAR_NAME_HOST);
-    if (host == NULL) {
-      host = getenv("DMTCP_HOST");                 // deprecated
-    }
-    printf("  Host: %s\n", (host ? host : "localhost"));
-    char *port = getenv(ENV_VAR_NAME_PORT);
+    const char *host = getCoordinatorHost();
+    printf("  Host: %s\n", host);
+    const char *port = getenv(ENV_VAR_NAME_PORT);
     if (port == NULL) {
       port = getenv("DMTCP_PORT");                 // deprecated
     }
