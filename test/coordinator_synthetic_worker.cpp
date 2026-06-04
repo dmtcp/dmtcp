@@ -19,6 +19,7 @@ struct Options {
   int holdSeconds = 5;
   bool expectKill = false;
   bool expectCheckpoint = false;
+  bool expectKillAfterCheckpoint = false;
   bool expectDuplicateCheckpoint = false;
   bool expectRejectNotRestarting = false;
   bool expectRejectNotRunning = false;
@@ -237,6 +238,7 @@ parseOptions(int argc, char **argv)
     throw std::runtime_error(
       "usage: coordinator_synthetic_worker HOST PORT "
       "[--hold-seconds SECONDS] [--expect-kill] [--expect-checkpoint] "
+      "[--expect-kill-after-checkpoint] "
       "[--expect-duplicate-checkpoint-after-update] "
       "[--expect-reject-not-restarting] "
       "[--expect-reject-not-running] "
@@ -265,6 +267,8 @@ parseOptions(int argc, char **argv)
       options.expectKill = true;
     } else if (strcmp(argv[i], "--expect-checkpoint") == 0) {
       options.expectCheckpoint = true;
+    } else if (strcmp(argv[i], "--expect-kill-after-checkpoint") == 0) {
+      options.expectKillAfterCheckpoint = true;
     } else if (strcmp(argv[i],
                       "--expect-duplicate-checkpoint-after-update") == 0) {
       options.expectDuplicateCheckpoint = true;
@@ -451,6 +455,17 @@ main(int argc, char **argv)
       }
       std::cout << "received DMT_DO_CHECKPOINT\n";
       std::cout.flush();
+      if (options.expectKillAfterCheckpoint) {
+        readAll(fd, &msg, sizeof(msg));
+        if (!msg.isValid() || msg.type != dmtcp::DMT_KILL_PEER) {
+          close(fd);
+          throw std::runtime_error("expected DMT_KILL_PEER");
+        }
+        std::cout << "received DMT_KILL_PEER\n";
+        std::cout.flush();
+        close(fd);
+        return 0;
+      }
       std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
     } else if (options.expectDuplicateCheckpoint) {
       dmtcp::DmtcpMessage msg;

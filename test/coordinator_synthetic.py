@@ -74,6 +74,7 @@ class CoordinatorFixture:
 class WorkerProcess:
     def __init__(self, port, expect_kill=False, barrier=None,
                  expect_checkpoint=False, invalid_comp_group=False,
+                 expect_kill_after_checkpoint=False,
                  expect_duplicate_checkpoint=False,
                  expect_reject_not_restarting=False,
                  expect_reject_not_running=False,
@@ -101,6 +102,8 @@ class WorkerProcess:
             args.append("--barrier-after-stdin")
         if expect_checkpoint:
             args.append("--expect-checkpoint")
+        if expect_kill_after_checkpoint:
+            args.append("--expect-kill-after-checkpoint")
         if invalid_comp_group:
             args.append("--invalid-comp-group")
         if expect_duplicate_checkpoint:
@@ -613,6 +616,35 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertFalse(payload["ok"])
                 self.assertEqual(payload["type"], "checkpoint")
                 self.assertEqual(payload["error_code"], "not_running")
+            finally:
+                worker.stop()
+
+    def test_kill_command_during_checkpoint_reaches_worker(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(coordinator.port,
+                                   expect_checkpoint=True,
+                                   expect_kill_after_checkpoint=True)
+            try:
+                worker.wait_until_accepted()
+                result = self.run_command("--json", "--coord-port",
+                                          str(coordinator.port),
+                                          "--checkpoint")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                payload = json.loads(result.stdout)
+
+                self.assertTrue(payload["ok"])
+                worker.wait_until_checkpoint_requested()
+
+                result = self.run_command("--json", "--coord-port",
+                                          str(coordinator.port), "--kill")
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+                worker.wait_until_killed()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 0)
+                self.assertFalse(status["running"])
             finally:
                 worker.stop()
 
