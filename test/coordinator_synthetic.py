@@ -74,6 +74,7 @@ class WorkerProcess:
                  expect_reject_not_restarting=False,
                  expect_kvdb=False,
                  expect_invalid_protocol_reject=False,
+                 expect_oversized_extra_reject=False,
                  send_partial_message=False):
         args = [
             str(SYNTHETIC_WORKER),
@@ -98,6 +99,8 @@ class WorkerProcess:
             args.append("--expect-kvdb")
         if expect_invalid_protocol_reject:
             args.append("--expect-invalid-protocol-reject")
+        if expect_oversized_extra_reject:
+            args.append("--expect-oversized-extra-reject")
         if send_partial_message:
             args.append("--send-partial-message")
         self.process = subprocess.Popen(
@@ -245,6 +248,9 @@ class WorkerProcess:
                 stderr = self.process.stderr.read()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker was not rejected for invalid protocol")
+
+    def wait_until_oversized_extra_rejected(self):
+        return self.wait_until_invalid_protocol_rejected()
 
     def wait_until_partial_message_sent(self):
         deadline = time.time() + 10
@@ -463,6 +469,20 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 coordinator.port, expect_invalid_protocol_reject=True)
             try:
                 worker.wait_until_invalid_protocol_rejected()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 0)
+                self.assertFalse(status["running"])
+            finally:
+                worker.stop()
+
+    def test_oversized_extra_bytes_worker_is_rejected(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(
+                coordinator.port, expect_oversized_extra_reject=True)
+            try:
+                worker.wait_until_oversized_extra_rejected()
                 status = self.coordinator_status(coordinator.port)
 
                 self.assertTrue(status["ok"])

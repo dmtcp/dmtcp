@@ -33,6 +33,12 @@ messageMagicIsValid(const char magic[16])
   return memcmp(magic, DMTCP_MAGIC_STRING, sizeof(DMTCP_MAGIC_STRING)) == 0;
 }
 
+bool
+messageExtraBytesIsValid(uint32_t extraBytes)
+{
+  return extraBytes <= DMTCP_MAX_MESSAGE_EXTRA_BYTES;
+}
+
 } // namespace
 
 DmtcpMessage::DmtcpMessage(DmtcpMessageType t /*= DMT_NULL*/)
@@ -71,6 +77,9 @@ DmtcpMessage::assertValid() const
   ASSERT(_msgSize == sizeof(DmtcpMessage),
          "read invalid message, size mismatch: got={} expected={}",
          _msgSize, sizeof(DmtcpMessage));
+  ASSERT(messageExtraBytesIsValid(extraBytes),
+         "read invalid message, extraBytes too large: got={} max={}",
+         extraBytes, DMTCP_MAX_MESSAGE_EXTRA_BYTES);
 }
 
 bool
@@ -84,6 +93,12 @@ DmtcpMessage::isValid() const
   if (_msgSize != sizeof(DmtcpMessage)) {
     JNOTE("read invalid message, size mismatch. Closing remote connection.")
       (_msgSize) (sizeof(DmtcpMessage));
+    return false;
+  }
+  if (!messageExtraBytesIsValid(extraBytes)) {
+    JNOTE("read invalid message, extraBytes too large."
+          " Closing remote connection.")
+      (extraBytes) (DMTCP_MAX_MESSAGE_EXTRA_BYTES);
     return false;
   }
   return true;
