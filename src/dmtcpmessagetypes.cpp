@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include "dmtcpmessagetypes.h"
+#include "util_assert.h"
 #include "workerstate.h"
 
 using namespace dmtcp;
@@ -64,11 +65,12 @@ DmtcpMessage::DmtcpMessage(DmtcpMessageType t /*= DMT_NULL*/)
 void
 DmtcpMessage::assertValid() const
 {
-  JASSERT(messageMagicIsValid(_magicBits))
-  .Text("read invalid message, _magicBits mismatch."
-        "  Did DMTCP coordinator die uncleanly?");
-  JASSERT(_msgSize == sizeof(DmtcpMessage)) (_msgSize) (sizeof(DmtcpMessage))
-  .Text("read invalid message, size mismatch.");
+  ASSERT(messageMagicIsValid(_magicBits),
+         "read invalid message, _magicBits mismatch. "
+         "Did DMTCP coordinator die uncleanly?");
+  ASSERT(_msgSize == sizeof(DmtcpMessage),
+         "read invalid message, size mismatch: got={} expected={}",
+         _msgSize, sizeof(DmtcpMessage));
 }
 
 bool
@@ -135,7 +137,8 @@ dmtcp::operator<<(dmtcp::ostream &o, const DmtcpMessageType &s)
     OSHIFTPRINTF(DMT_KVDB_RESPONSE)
 
   default:
-    JASSERT(false) (s).Text("Invalid Message Type");
+    ASSERT(false, "Invalid Message Type: {}",
+           static_cast<int>(s));
 
     // o << s;
   }
