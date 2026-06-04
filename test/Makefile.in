@@ -84,8 +84,26 @@ TESTS=${notdir ${basename ${shell ls $(srcdir)/*.c $(srcdir)/*.cpp $(srcdir)/*.c
 
 UNIT_TESTS = unit/dmtcp_unit_tests unit/dmtcp_header_c_test.o
 
+COORDINATOR_SYNTHETIC_WORKER = coordinator_synthetic_worker
+COORDINATOR_SYNTHETIC_LDADD = \
+	-Wl,--start-group \
+	$(top_builddir)/src/libdmtcpinternal.a \
+	$(top_builddir)/src/libjalib.a \
+	$(top_builddir)/src/libnohijack.a \
+	-Wl,--end-group \
+	-lpthread -lrt -ldl
+
 check-unit: $(UNIT_TESTS)
 	./unit/dmtcp_unit_tests
+
+check-coordinator-synthetic: $(COORDINATOR_SYNTHETIC_WORKER)
+	python3 $(srcdir)/coordinator_synthetic.py
+
+coordinator_synthetic_worker: $(srcdir)/coordinator_synthetic_worker.cpp \
+		$(top_builddir)/src/libdmtcpinternal.a \
+		$(top_builddir)/src/libjalib.a \
+		$(top_builddir)/src/libnohijack.a
+	$(CXX) $(CXXFLAGS) -o $@ $< $(COORDINATOR_SYNTHETIC_LDADD)
 
 unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 		$(srcdir)/unit/dmtcp_header_tests.cpp \
@@ -115,7 +133,8 @@ tidy:
 	cd plugin && $(MAKE) tidy > /dev/null
 
 clean: tidy
-	rm -f $(TESTS) $(TESTS_MULTILIB) $(UNIT_TESTS) unit/*.o *.pyc *.so
+	rm -f $(TESTS) $(TESTS_MULTILIB) $(UNIT_TESTS) \
+	  $(COORDINATOR_SYNTHETIC_WORKER) unit/*.o *.pyc *.so
 	#${MAKE} -C credentials clean
 	cd plugin && $(MAKE) clean
 
