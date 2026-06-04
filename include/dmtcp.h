@@ -267,7 +267,7 @@ typedef struct {
 } MemRegion;
 
 typedef void (*PostRestartFnPtr_t)(double, int);
-#define DMTCP_CKPT_SIGNATURE "DMTCP_CHECKPOINT_IMAGE_v4.0\n"
+#define DMTCP_CKPT_SIGNATURE "DMTCP_CHECKPOINT_IMAGE_v5.0\n"
 #define DMTCP_CKPT_HEADER_FORMAT_VERSION 1u
 #define DMTCP_CKPT_ENDIAN_MARKER 0x01020304u
 typedef struct {

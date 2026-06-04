@@ -68,6 +68,17 @@ void ckptHeaderBootstrapValidation()
   ASSERT_TRUE(dmtcp_ckpt_header_has_valid_bootstrap(&header) == 0);
 }
 
+void ckptSignatureRejectsOldLayout()
+{
+  ASSERT_TRUE(std::strstr(DMTCP_CKPT_SIGNATURE, "v5.0") != nullptr);
+
+  DmtcpCkptHeader header = {};
+  std::strcpy(header.ckptSignature, "DMTCP_CHECKPOINT_IMAGE_v4.0\n");
+  dmtcp_init_ckpt_header_bootstrap(&header);
+
+  ASSERT_TRUE(dmtcp_ckpt_header_has_valid_bootstrap(&header) == 0);
+}
+
 void pluginDescriptorKeepsPlainAbiShape()
 {
   ASSERT_TRUE(std::is_standard_layout_v<DmtcpPluginDescriptor_t>);
@@ -85,6 +96,7 @@ extern const dmtcp_test::TestCase dmtcpHeaderTests[] = {
   {"checkpoint signature fits header field", ckptSignatureFitsHeaderField},
   {"checkpoint header is self describing", ckptHeaderIsSelfDescribing},
   {"checkpoint header validates bootstrap fields", ckptHeaderBootstrapValidation},
+  {"checkpoint signature rejects old layout", ckptSignatureRejectsOldLayout},
   {"plugin descriptor keeps plain ABI shape", pluginDescriptorKeepsPlainAbiShape},
 };
 

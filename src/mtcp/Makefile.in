@@ -80,7 +80,8 @@ ifeq ($(FAST_RST_VIA_MMAP),yes)
 endif
 
 HEADERS = mtcp_header.h mtcp_restart.h mtcp_sys.h mtcp_util.h \
-	  $(srcdir)/../membarrier.h $(DMTCP_INCLUDE_PATH)/procmapsarea.h
+	  $(srcdir)/../membarrier.h $(DMTCP_INCLUDE_PATH)/dmtcp.h \
+	  $(DMTCP_INCLUDE_PATH)/procmapsarea.h
 
 OBJS = mtcp_restart.o stdlibfnc.o mtcp_util.o mtcp_check_vdso.o ${ARM_BINARIES}
 
