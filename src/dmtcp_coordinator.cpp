@@ -1380,7 +1380,7 @@ signalHandler(int signum)
   if (signum == SIGINT) {
     theCoordinator.handleUserCommand("q");
   } else {
-    JWARNING(false)(signum).Text("Ignoring unexpected signal");
+    WARNING(false, "ignoring unexpected signal: signum={}", signum);
   }
 }
 
@@ -1402,7 +1402,8 @@ calcLocalAddr()
 {
   char hostname[HOST_NAME_MAX];
 
-  JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO);
+  ASSERT_ERRNO(gethostname(hostname, sizeof hostname) == 0,
+               "gethostname failed");
 
   struct addrinfo *result = NULL;
   struct addrinfo *res;
@@ -1462,7 +1463,7 @@ calcLocalAddr()
         JTRACE("getnameinfo() failed.") (gai_strerror(error));
         continue;
       } else {
-        JASSERT(sizeof localhostIPAddr == sizeof s->sin_addr);
+        ASSERT_EQ(sizeof localhostIPAddr, sizeof s->sin_addr);
         if ( strncmp( name, hostname, sizeof hostname ) == 0 ) {
           success = true;
           memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
@@ -1485,8 +1486,10 @@ calcLocalAddr()
       }
     }
 
-    JWARNING(success) (hostname)
-      .Text("Failed to find coordinator IP address.  DMTCP may fail.");
+    WARNING(success,
+            "failed to find coordinator IP address; DMTCP may fail: "
+            "hostname={}",
+            hostname);
   } else {
     if (error == EAI_SYSTEM) {
       perror("getaddrinfo");
@@ -1526,12 +1529,14 @@ DmtcpCoordinator::eventLoop()
   struct epoll_event ev;
 
   epollFd = epoll_create(MAX_EVENTS);
-  JASSERT(epollFd != -1) (JASSERT_ERRNO);
+  ASSERT_ERRNO(epollFd != -1, "epoll_create failed");
 
   ev.events = EPOLLIN;
   ev.data.ptr = listenSock;
-  JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, listenSock->sockfd(), &ev) != -1)
-    (JASSERT_ERRNO);
+  ASSERT_ERRNO(
+    epoll_ctl(epollFd, EPOLL_CTL_ADD, listenSock->sockfd(), &ev) != -1,
+    "epoll_ctl add listen socket failed: fd={}",
+    listenSock->sockfd());
 
   if (!flags.daemon &&
 
@@ -1545,8 +1550,9 @@ DmtcpCoordinator::eventLoop()
     ev.events |= EPOLLRDHUP;
 #endif // ifdef EPOLLRDHUP
     ev.data.ptr = (void *)STDIN_FILENO;
-    JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, STDIN_FILENO, &ev) != -1)
-      (JASSERT_ERRNO);
+    ASSERT_ERRNO(
+      epoll_ctl(epollFd, EPOLL_CTL_ADD, STDIN_FILENO, &ev) != -1,
+      "epoll_ctl add stdin failed");
   }
 
   while (true) {
@@ -1571,7 +1577,7 @@ DmtcpCoordinator::eventLoop()
 
     // alarm() is not always the only source of interrupts.
     // For example, any signal, including signal 0 or SIGWINCH can cause this.
-    JASSERT(nfds != -1 || errno == EINTR) (JASSERT_ERRNO);
+    ASSERT_ERRNO(nfds != -1 || errno == EINTR, "epoll_wait failed");
 
     for (int n = 0; n < nfds; ++n) {
       void *ptr = events[n].data.ptr;
@@ -1593,8 +1599,9 @@ DmtcpCoordinator::eventLoop()
           std::getline(std::cin, cmd);
           if (std::cin.eof() == 1) {
             JASSERT_STDERR << "\n  Closing stdin...\n";
-            JASSERT(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1)
-              (JASSERT_ERRNO);
+            ASSERT_ERRNO(
+              epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1,
+              "epoll_ctl delete stdin after EOF failed");
             close(STDIN_FD);
           } else {
             std::transform(cmd.begin(), cmd.end(), cmd.begin(),
@@ -1615,10 +1622,11 @@ DmtcpCoordinator::eventLoop()
           (events[n].events & EPOLLRDHUP) ||
 #endif // ifdef EPOLLRDHUP
           (events[n].events & EPOLLERR)) {
-        JASSERT(ptr != listenSock);
+        ASSERT(ptr != listenSock, "listen socket reported hangup/error");
         if (ptr == (void *)STDIN_FILENO) {
-          JASSERT(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1)
-            (JASSERT_ERRNO);
+          ASSERT_ERRNO(
+            epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1,
+            "epoll_ctl delete stdin after hangup failed");
           close(STDIN_FD);
         } else {
           onDisconnect((CoordClient *)ptr);
@@ -1644,8 +1652,10 @@ DmtcpCoordinator::addDataSocket(CoordClient *client)
   ev.events = EPOLLIN;
 #endif // ifdef EPOLLRDHUP
   ev.data.ptr = client;
-  JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, client->sock().sockfd(), &ev) != -1)
-    (JASSERT_ERRNO);
+  ASSERT_ERRNO(
+    epoll_ctl(epollFd, EPOLL_CTL_ADD, client->sock().sockfd(), &ev) != -1,
+    "epoll_ctl add client socket failed: fd={}",
+    client->sock().sockfd());
 }
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
@@ -1813,18 +1823,18 @@ main(int argc, char **argv)
   /*Test if the listener socket is already open*/
   if (fcntl(PROTECTED_COORD_FD, F_GETFD) != -1) {
     listenSock = new jalib::JServerSocket(PROTECTED_COORD_FD);
-    JASSERT(listenSock->port() != -1).Text("Invalid listener socket");
+    ASSERT(listenSock->port() != -1, "invalid inherited listener socket");
     JTRACE("Using already created listener socket") (listenSock->port());
   } else {
     errno = 0;
     listenSock = new jalib::JServerSocket(jalib::JSockAddr::ANY, flags.thePort, 128);
-    JASSERT(listenSock->isValid()) (flags.thePort) (JASSERT_ERRNO)
-    .Text("Failed to create listen socket."
-          "\nIf msg is \"Address already in use\", "
-          "this may be an old coordinator."
-          "\nKill default coordinator and try again:  dmtcp_command -q"
-          "\nIf that fails, \"pkill -9 dmtcp_coord\","
-          " and try again in a minute or so.");
+    ASSERT_ERRNO(
+      listenSock->isValid(),
+      "failed to create listen socket: port={}. "
+      "If msg is \"Address already in use\", this may be an old coordinator. "
+      "Kill default coordinator and try again: dmtcp_command -q. "
+      "If that fails, pkill -9 dmtcp_coord and try again in a minute.",
+      flags.thePort);
   }
 
   flags.thePort = listenSock->port();
@@ -1854,16 +1864,20 @@ main(int argc, char **argv)
     int fd = -1;
     if (!flags.useLogFile) {
       fd = open("/dev/null", O_RDWR);
-      JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
+      ASSERT_ERRNO(dup2(fd, STDIN_FILENO) == STDIN_FILENO,
+                   "failed to redirect daemon stdin to /dev/null");
     } else {
       fd = open(flags.logFilename.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0666);
       JASSERT_SET_LOG(flags.logFilename);
       int nullFd = open("/dev/null", O_RDWR);
-      JASSERT(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO);
+      ASSERT_ERRNO(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO,
+                   "failed to redirect daemon stdin to /dev/null");
       close(nullFd);
     }
-    JASSERT(dup2(fd, STDOUT_FILENO) == STDOUT_FILENO);
-    JASSERT(dup2(fd, STDERR_FILENO) == STDERR_FILENO);
+    ASSERT_ERRNO(dup2(fd, STDOUT_FILENO) == STDOUT_FILENO,
+                 "failed to redirect daemon stdout");
+    ASSERT_ERRNO(dup2(fd, STDERR_FILENO) == STDERR_FILENO,
+                 "failed to redirect daemon stderr");
     JASSERT_CLOSE_STDERR();
     if (fd > STDERR_FILENO) {
       close(fd);
