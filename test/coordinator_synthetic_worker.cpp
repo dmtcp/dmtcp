@@ -13,6 +13,13 @@
 
 namespace {
 
+struct Options {
+  const char *host = nullptr;
+  int port = -1;
+  int holdSeconds = 5;
+  bool expectKill = false;
+};
+
 void
 writeAll(int fd, const void *buffer, size_t bytes)
 {
@@ -99,16 +106,38 @@ parsePort(const char *text)
 }
 
 int
-parseHoldSeconds(int argc, char **argv)
+parsePositiveInt(const char *text)
 {
-  if (argc == 3) {
-    return 5;
+  return parsePort(text);
+}
+
+Options
+parseOptions(int argc, char **argv)
+{
+  if (argc < 3) {
+    throw std::runtime_error(
+      "usage: coordinator_synthetic_worker HOST PORT "
+      "[--hold-seconds SECONDS] [--expect-kill]");
   }
-  if (argc == 5 && strcmp(argv[3], "--hold-seconds") == 0) {
-    return parsePort(argv[4]);
+
+  Options options;
+  options.host = argv[1];
+  options.port = parsePort(argv[2]);
+
+  for (int i = 3; i < argc; ++i) {
+    if (strcmp(argv[i], "--hold-seconds") == 0) {
+      if (++i == argc) {
+        throw std::runtime_error("--hold-seconds requires a value");
+      }
+      options.holdSeconds = parsePositiveInt(argv[i]);
+    } else if (strcmp(argv[i], "--expect-kill") == 0) {
+      options.expectKill = true;
+    } else {
+      throw std::runtime_error("unknown argument");
+    }
   }
-  throw std::runtime_error(
-    "usage: coordinator_synthetic_worker HOST PORT [--hold-seconds SECONDS]");
+
+  return options;
 }
 
 } // namespace
@@ -117,14 +146,7 @@ int
 main(int argc, char **argv)
 {
   try {
-    if (argc != 3 && argc != 5) {
-      throw std::runtime_error(
-        "usage: coordinator_synthetic_worker HOST PORT [--hold-seconds SECONDS]");
-    }
-
-    const char *host = argv[1];
-    int port = parsePort(argv[2]);
-    int holdSeconds = parseHoldSeconds(argc, argv);
+    Options options = parseOptions(argc, argv);
 
     dmtcp::WorkerState::setCurrentState(dmtcp::WorkerState::RUNNING);
     dmtcp::DmtcpMessage hello(dmtcp::DMT_NEW_WORKER);
@@ -134,7 +156,7 @@ main(int argc, char **argv)
     std::string extraData = handshakeExtraData("coordinator_synthetic_worker");
     hello.extraBytes = extraData.size();
 
-    int fd = connectToCoordinator(host, port);
+    int fd = connectToCoordinator(options.host, options.port);
     writeAll(fd, &hello, sizeof(hello));
     writeAll(fd, extraData.data(), extraData.size());
 
@@ -148,7 +170,20 @@ main(int argc, char **argv)
 
     std::cout << "accepted virtual_pid=" << reply.virtualPid << '\n';
     std::cout.flush();
-    std::this_thread::sleep_for(std::chrono::seconds(holdSeconds));
+
+    if (options.expectKill) {
+      dmtcp::DmtcpMessage msg;
+      readAll(fd, &msg, sizeof(msg));
+      if (!msg.isValid() || msg.type != dmtcp::DMT_KILL_PEER) {
+        close(fd);
+        throw std::runtime_error("expected DMT_KILL_PEER");
+      }
+      std::cout << "received DMT_KILL_PEER\n";
+      std::cout.flush();
+    } else {
+      std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
+    }
+
     close(fd);
     return 0;
   } catch (const std::exception& ex) {

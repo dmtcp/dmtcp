@@ -67,15 +67,18 @@ class CoordinatorFixture:
 
 
 class WorkerProcess:
-    def __init__(self, port):
+    def __init__(self, port, expect_kill=False):
+        args = [
+            str(SYNTHETIC_WORKER),
+            "127.0.0.1",
+            str(port),
+            "--hold-seconds",
+            "20",
+        ]
+        if expect_kill:
+            args.append("--expect-kill")
         self.process = subprocess.Popen(
-            [
-                str(SYNTHETIC_WORKER),
-                "127.0.0.1",
-                str(port),
-                "--hold-seconds",
-                "20",
-            ],
+            args,
             cwd=str(ROOT),
             text=True,
             stdout=subprocess.PIPE,
@@ -95,6 +98,20 @@ class WorkerProcess:
                     return line
                 raise RuntimeError(f"unexpected worker output: {line}")
         raise RuntimeError("worker did not complete coordinator handshake")
+
+    def wait_until_killed(self):
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
+            if readable:
+                line = self.process.stdout.readline().strip()
+                if line == "received DMT_KILL_PEER":
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError("worker did not receive kill message")
 
     def stop(self):
         if self.process.poll() is None:
@@ -152,6 +169,24 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             finally:
                 for worker in workers:
                     worker.stop()
+
+    def test_kill_command_reaches_synthetic_worker(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(coordinator.port, expect_kill=True)
+            try:
+                worker.wait_until_accepted()
+                result = self.run_command("--json", "--coord-port",
+                                          str(coordinator.port), "--kill")
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+                worker.wait_until_killed()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 0)
+                self.assertFalse(status["running"])
+            finally:
+                worker.stop()
 
 
 if __name__ == "__main__":
