@@ -78,6 +78,8 @@ endif
 
 PWD=$(shell pwd)
 
+.DEFAULT_GOAL := tests
+
 TESTS=${notdir ${basename ${shell ls $(srcdir)/*.c $(srcdir)/*.cpp $(srcdir)/*.cilk | grep -v 'hellompi.c'}}} \
 	${addsuffix .class,${notdir ${basename ${shell ls $(srcdir)/java*.java}}}} \
 	hellompich openmpi
