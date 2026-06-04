@@ -672,7 +672,15 @@ ProcessInfo::getState()
   JTRACE("CHECK GROUP PID")(gid)(fgid)(ppid)(pid);
 }
 
-// NOTE: ProcessInfo object acts as the checkpoint header for DMTCP.
+// TODO: Split DmtcpCkptHeader out of ProcessInfo.  This snapshot helper is the
+// boundary used by checkpoint serialization while ProcessInfo still inherits
+// the bootstrap header.
+DmtcpCkptHeader
+ProcessInfo::checkpointHeaderSnapshot() const
+{
+  return static_cast<const DmtcpCkptHeader&>(*this);
+}
+
 void
 ProcessInfo::addKeyValuePairToCkptHeader(const string &key, const string &value)
 {

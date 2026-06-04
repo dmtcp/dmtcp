@@ -55,6 +55,7 @@ class ProcessInfo : public DmtcpCkptHeader
 
     void getState();
     void serialize(jalib::JBinarySerializer &o);
+    DmtcpCkptHeader checkpointHeaderSnapshot() const;
 
     uint32_t get_generation() { return _generation; }
 
