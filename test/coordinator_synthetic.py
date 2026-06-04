@@ -332,10 +332,11 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
     def test_restart_worker_is_rejected_while_computation_is_running(self):
         with CoordinatorFixture() as coordinator:
             running_worker = WorkerProcess(coordinator.port)
-            restart_worker = WorkerProcess(
-                coordinator.port, expect_reject_not_restarting=True)
+            restart_worker = None
             try:
                 running_worker.wait_until_accepted()
+                restart_worker = WorkerProcess(
+                    coordinator.port, expect_reject_not_restarting=True)
                 restart_worker.wait_until_rejected_not_restarting()
                 status = self.coordinator_status(coordinator.port)
 
@@ -343,7 +344,8 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertEqual(status["num_peers"], 1)
                 self.assertTrue(status["running"])
             finally:
-                restart_worker.stop()
+                if restart_worker is not None:
+                    restart_worker.stop()
                 running_worker.stop()
 
     def test_two_synthetic_workers_release_same_barrier(self):
