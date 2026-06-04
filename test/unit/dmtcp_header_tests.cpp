@@ -29,6 +29,19 @@ void ckptSignatureFitsHeaderField()
               sizeof(DmtcpCkptHeader{}.ckptSignature));
 }
 
+void ckptHeaderIsSelfDescribing()
+{
+  DmtcpCkptHeader header = {};
+  dmtcp_init_ckpt_header_bootstrap(&header);
+
+  ASSERT_EQ(DMTCP_CKPT_HEADER_FORMAT_VERSION, 1u);
+  ASSERT_EQ(header.headerSize,
+            static_cast<uint32_t>(sizeof(DmtcpCkptHeader)));
+  ASSERT_EQ(header.headerVersion, DMTCP_CKPT_HEADER_FORMAT_VERSION);
+  ASSERT_EQ(header.wordSize, static_cast<uint32_t>(sizeof(void *)));
+  ASSERT_EQ(header.endianMarker, DMTCP_CKPT_ENDIAN_MARKER);
+}
+
 void pluginDescriptorKeepsPlainAbiShape()
 {
   ASSERT_TRUE(std::is_standard_layout_v<DmtcpPluginDescriptor_t>);
@@ -42,6 +55,7 @@ extern const dmtcp_test::TestCase dmtcpHeaderTests[] = {
   {"DmtcpCkptHeader remains fixed size", ckptHeaderIsFixedSize},
   {"DmtcpCkptHeader restart fields stay plain", ckptHeaderKeepsRestartFieldsPlain},
   {"checkpoint signature fits header field", ckptSignatureFitsHeaderField},
+  {"checkpoint header is self describing", ckptHeaderIsSelfDescribing},
   {"plugin descriptor keeps plain ABI shape", pluginDescriptorKeepsPlainAbiShape},
 };
 

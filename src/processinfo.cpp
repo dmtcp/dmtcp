@@ -151,6 +151,7 @@ ProcessInfo::ProcessInfo()
   _do_lock_tbl();
 
   strcpy(ckptSignature, DMTCP_CKPT_SIGNATURE);
+  dmtcp_init_ckpt_header_bootstrap(this);
   memset(padding, 0, sizeof(padding));
 
   upid = UniquePid::ThisProcess();

@@ -139,6 +139,15 @@ mtcp_simulateread(RestoreInfo *rinfo)
     mtcp_sys_close(rinfo->fd);
     mtcp_sys_exit(-1);  /* exit with error code 1 */
   }
+  if (hdr.headerSize != sizeof(DmtcpCkptHeader) ||
+      hdr.headerVersion != DMTCP_CKPT_HEADER_FORMAT_VERSION ||
+      hdr.wordSize != sizeof(void *) ||
+      hdr.endianMarker != DMTCP_CKPT_ENDIAN_MARKER) {
+    MTCP_PRINTF("***ERROR: ckpt image header is not compatible with this "
+                "restart binary\n");
+    mtcp_sys_close(rinfo->fd);
+    mtcp_sys_exit(-1);
+  }
 
   mtcp_printf("\nDMTCP: %s", hdr.ckptSignature);
   mtcp_printf("**** mtcp_restart (will be copied here): %p..%p\n",

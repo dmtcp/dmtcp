@@ -18,6 +18,7 @@
 #include <netinet/ip.h>
 #include <assert.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -267,8 +268,14 @@ typedef struct {
 
 typedef void (*PostRestartFnPtr_t)(double, int);
 #define DMTCP_CKPT_SIGNATURE "DMTCP_CHECKPOINT_IMAGE_v4.0\n"
+#define DMTCP_CKPT_HEADER_FORMAT_VERSION 1u
+#define DMTCP_CKPT_ENDIAN_MARKER 0x01020304u
 typedef struct {
   char ckptSignature[32];
+  uint32_t headerSize;
+  uint32_t headerVersion;
+  uint32_t wordSize;
+  uint32_t endianMarker;
 
   DmtcpUniqueProcessId upid;
   DmtcpUniqueProcessId uppid;
@@ -306,10 +313,19 @@ typedef struct {
   char procname[1024];
   char procSelfExe[1024];
 
-  char padding[1792];
+  char padding[1776];
 } DmtcpCkptHeader;
 
 static_assert(sizeof(DmtcpCkptHeader) == 4096, "DmtcpCkptHeader must be 4096 bytes");
+
+static inline void
+dmtcp_init_ckpt_header_bootstrap(DmtcpCkptHeader *header)
+{
+  header->headerSize = sizeof(DmtcpCkptHeader);
+  header->headerVersion = DMTCP_CKPT_HEADER_FORMAT_VERSION;
+  header->wordSize = sizeof(void *);
+  header->endianMarker = DMTCP_CKPT_ENDIAN_MARKER;
+}
 
 // FIXME:
 // If a plugin is not compiled with defined(__PIC__) and we can verify

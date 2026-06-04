@@ -45,6 +45,10 @@ void main_new_stack(RestoreInfo *rinfo)
   int rc = mtcp_readfile(rinfo->fd, &rinfo->ckptHdr, sizeof (rinfo->ckptHdr));
   MTCP_ASSERT(rc == sizeof (rinfo->ckptHdr));
   MTCP_ASSERT(mtcp_strcmp(rinfo->ckptHdr.ckptSignature, DMTCP_CKPT_SIGNATURE) == 0);
+  MTCP_ASSERT(rinfo->ckptHdr.headerSize == sizeof(DmtcpCkptHeader));
+  MTCP_ASSERT(rinfo->ckptHdr.headerVersion == DMTCP_CKPT_HEADER_FORMAT_VERSION);
+  MTCP_ASSERT(rinfo->ckptHdr.wordSize == sizeof(void *));
+  MTCP_ASSERT(rinfo->ckptHdr.endianMarker == DMTCP_CKPT_ENDIAN_MARKER);
 
   mtcp_restart(rinfo);
 }

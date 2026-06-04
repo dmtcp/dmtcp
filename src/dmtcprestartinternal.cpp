@@ -142,8 +142,20 @@ static char *pause_param;
 
 static void setEnvironFd();
 static void runMtcpRestart(int fd, RestoreTarget *target);
+static void validateCkptHeader(const DmtcpCkptHeader *ckptHdr);
 static int readCkptHeader(const string &path, DmtcpCkptHeader *ckptHdr);
 static int openCkptFileToRead(const string &path);
+
+static void
+validateCkptHeader(const DmtcpCkptHeader *ckptHdr)
+{
+  ASSERT_EQ(DMTCP_CKPT_SIGNATURE, string(ckptHdr->ckptSignature));
+  ASSERT_EQ((uint32_t)sizeof(*ckptHdr), ckptHdr->headerSize);
+  ASSERT_EQ((uint32_t)DMTCP_CKPT_HEADER_FORMAT_VERSION,
+            ckptHdr->headerVersion);
+  ASSERT_EQ((uint32_t)sizeof(void *), ckptHdr->wordSize);
+  ASSERT_EQ((uint32_t)DMTCP_CKPT_ENDIAN_MARKER, ckptHdr->endianMarker);
+}
 
 static void
 checkVdsoOffsetMismatch(DmtcpCkptHeader *ckptHdr)
@@ -505,7 +517,7 @@ readCkptHeader(const string &path, DmtcpCkptHeader *ckptHdr)
   ASSERT_NE(-1, fd);
 
   ASSERT_EQ(sizeof(*ckptHdr), (size_t)Util::readAll(fd, ckptHdr, sizeof(*ckptHdr)));
-  ASSERT_EQ(DMTCP_CKPT_SIGNATURE, string(ckptHdr->ckptSignature));
+  validateCkptHeader(ckptHdr);
 
   return fd;
 }
