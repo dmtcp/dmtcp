@@ -69,7 +69,8 @@ class CoordinatorFixture:
 class WorkerProcess:
     def __init__(self, port, expect_kill=False, barrier=None,
                  expect_checkpoint=False, invalid_comp_group=False,
-                 expect_duplicate_checkpoint=False):
+                 expect_duplicate_checkpoint=False,
+                 expect_reject_not_restarting=False):
         args = [
             str(SYNTHETIC_WORKER),
             "127.0.0.1",
@@ -87,6 +88,8 @@ class WorkerProcess:
             args.append("--invalid-comp-group")
         if expect_duplicate_checkpoint:
             args.append("--expect-duplicate-checkpoint-after-update")
+        if expect_reject_not_restarting:
+            args.append("--expect-reject-not-restarting")
         self.process = subprocess.Popen(
             args,
             cwd=str(ROOT),
@@ -180,6 +183,21 @@ class WorkerProcess:
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker was not rejected for wrong computation")
 
+    def wait_until_rejected_not_restarting(self):
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            readable, _, _ = select.select([self.process.stdout], [], [], 0.1)
+            if readable:
+                line = self.process.stdout.readline().strip()
+                if line == "rejected DMT_REJECT_NOT_RESTARTING":
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError(
+            "worker was not rejected for non-restarting coordinator")
+
     def stop(self):
         if self.process.poll() is None:
             self.process.terminate()
@@ -249,6 +267,23 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertFalse(status["running"])
             finally:
                 worker.stop()
+
+    def test_restart_worker_is_rejected_while_computation_is_running(self):
+        with CoordinatorFixture() as coordinator:
+            running_worker = WorkerProcess(coordinator.port)
+            restart_worker = WorkerProcess(
+                coordinator.port, expect_reject_not_restarting=True)
+            try:
+                running_worker.wait_until_accepted()
+                restart_worker.wait_until_rejected_not_restarting()
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 1)
+                self.assertTrue(status["running"])
+            finally:
+                restart_worker.stop()
+                running_worker.stop()
 
     def test_two_synthetic_workers_release_same_barrier(self):
         with CoordinatorFixture() as coordinator:

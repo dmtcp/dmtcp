@@ -20,6 +20,7 @@ struct Options {
   bool expectKill = false;
   bool expectCheckpoint = false;
   bool expectDuplicateCheckpoint = false;
+  bool expectRejectNotRestarting = false;
   bool invalidCompGroup = false;
   std::string barrier;
 };
@@ -158,6 +159,7 @@ parseOptions(int argc, char **argv)
       "usage: coordinator_synthetic_worker HOST PORT "
       "[--hold-seconds SECONDS] [--expect-kill] [--expect-checkpoint] "
       "[--expect-duplicate-checkpoint-after-update] "
+      "[--expect-reject-not-restarting] "
       "[--invalid-comp-group] [--barrier NAME]");
   }
 
@@ -178,6 +180,8 @@ parseOptions(int argc, char **argv)
     } else if (strcmp(argv[i],
                       "--expect-duplicate-checkpoint-after-update") == 0) {
       options.expectDuplicateCheckpoint = true;
+    } else if (strcmp(argv[i], "--expect-reject-not-restarting") == 0) {
+      options.expectRejectNotRestarting = true;
     } else if (strcmp(argv[i], "--invalid-comp-group") == 0) {
       options.invalidCompGroup = true;
     } else if (strcmp(argv[i], "--barrier") == 0) {
@@ -201,8 +205,12 @@ main(int argc, char **argv)
   try {
     Options options = parseOptions(argc, argv);
 
-    dmtcp::WorkerState::setCurrentState(dmtcp::WorkerState::RUNNING);
-    dmtcp::DmtcpMessage hello(dmtcp::DMT_NEW_WORKER);
+    dmtcp::WorkerState::setCurrentState(
+      options.expectRejectNotRestarting ? dmtcp::WorkerState::RESTARTING
+                                        : dmtcp::WorkerState::RUNNING);
+    dmtcp::DmtcpMessage hello(options.expectRejectNotRestarting
+                              ? dmtcp::DMT_RESTART_WORKER
+                              : dmtcp::DMT_NEW_WORKER);
     hello.virtualPid = -1;
     hello.realPid = getpid();
     if (options.invalidCompGroup) {
@@ -218,6 +226,17 @@ main(int argc, char **argv)
 
     dmtcp::DmtcpMessage reply;
     readAll(fd, &reply, sizeof(reply));
+    if (options.expectRejectNotRestarting) {
+      if (!reply.isValid() || reply.type != dmtcp::DMT_REJECT_NOT_RESTARTING) {
+        close(fd);
+        throw std::runtime_error("expected DMT_REJECT_NOT_RESTARTING");
+      }
+      std::cout << "rejected DMT_REJECT_NOT_RESTARTING\n";
+      std::cout.flush();
+      close(fd);
+      return 0;
+    }
+
     if (options.invalidCompGroup) {
       if (!reply.isValid() || reply.type != dmtcp::DMT_REJECT_WRONG_COMP) {
         close(fd);
