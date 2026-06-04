@@ -269,6 +269,26 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 for worker in workers:
                     worker.stop()
 
+    def test_barrier_waiter_releases_when_peer_disconnects(self):
+        with CoordinatorFixture() as coordinator:
+            barrier = "disconnect-barrier"
+            waiter = WorkerProcess(coordinator.port, barrier=barrier)
+            peer = WorkerProcess(coordinator.port)
+            try:
+                waiter.wait_until_accepted()
+                peer.wait_until_accepted()
+
+                peer.stop()
+                waiter.wait_until_barrier_released(barrier)
+                status = self.coordinator_status(coordinator.port)
+
+                self.assertTrue(status["ok"])
+                self.assertEqual(status["num_peers"], 1)
+                self.assertTrue(status["running"])
+            finally:
+                waiter.stop()
+                peer.stop()
+
     def test_checkpoint_command_reaches_synthetic_worker(self):
         with CoordinatorFixture() as coordinator:
             worker = WorkerProcess(coordinator.port, expect_checkpoint=True)
