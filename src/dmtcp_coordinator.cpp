@@ -87,6 +87,7 @@
 #include "tokenize.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "util_assert.h"
 #include "coordinatorplugin.h"
 #undef min
 #undef max
@@ -311,7 +312,7 @@ DmtcpCoordinator::getNewVirtualPid()
       break;
     }
   }
-  JASSERT(pid != -1).Text("Not Reachable");
+  ASSERT(pid != -1, "virtual pid allocation did not select a pid");
   return pid;
 }
 
@@ -589,7 +590,9 @@ DmtcpCoordinator::processBarrier(const string &barrier)
   if (currentBarrier.empty()) {
     currentBarrier = barrier;
   } else {
-    JASSERT(barrier == currentBarrier) (barrier) (currentBarrier);
+    ASSERT(barrier == currentBarrier,
+           "barrier mismatch: barrier={} current={}", barrier,
+           currentBarrier);
   }
 
   ++workersAtCurrentBarrier;
@@ -601,8 +604,8 @@ void
 DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 {
   client->setState(WorkerState::CHECKPOINTED);
-  JASSERT(extraData != NULL)
-  .Text("extra data expected with DMT_CKPT_FILENAME message");
+  ASSERT(extraData != nullptr,
+         "extra data expected with DMT_CKPT_FILENAME message");
 
   string ckptFilename = extraData;
   string hostname = extraData + ckptFilename.length() + 1;
@@ -622,8 +625,9 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
   else if(shellType == "ssh")
     _sshCmdFileNames[hostname].push_back( ckptFilename );
   else {
-    JASSERT(0)(shellType)
-      .Text("Shell command not supported. Report this to DMTCP community.");
+    ASSERT(false,
+           "unsupported shell command type in checkpoint filename: {}",
+           shellType);
   }
   _numRestartFilenames++;
 
@@ -723,15 +727,20 @@ DmtcpCoordinator::onData(CoordClient *client)
       (msg.from) (prevClientState) (msg.state) (barrier);
 
     if (!currentBarrier.empty() && barrier != currentBarrier) {
-      JWARNING(false) (barrier) (currentBarrier)
-        .Text("worker reached a different active barrier; closing connection");
+      WARNING(false,
+              "worker reached a different active barrier; "
+              "closing connection: barrier={} current={}",
+              barrier,
+              currentBarrier);
       onDisconnect(client);
       break;
     }
 
     if (barrier == client->barrier()) {
-      JWARNING(false) (barrier)
-        .Text("worker reached the same active barrier twice; ignoring");
+      WARNING(false,
+              "worker reached the same active barrier twice; "
+              "ignoring: barrier={}",
+              barrier);
       break;
     }
 
@@ -1019,8 +1028,10 @@ DmtcpCoordinator::onConnect()
     }
     _virtualPidToClientMap[client->virtualPid()] = client;
   } else {
-    JWARNING(false) (hello_remote.type)
-    .Text("Rejecting connect request from unknown remote process type.");
+    WARNING(false,
+            "rejecting connect request from unknown remote process type: "
+            "type={}",
+            static_cast<int>(hello_remote.type));
     remote.close();
     return;
   }
@@ -1077,7 +1088,8 @@ getCurrTimestamp()
 {
   struct timespec value;
   uint64_t nsecs = 0;
-  JASSERT(clock_gettime(CLOCK_MONOTONIC, &value) == 0);
+  ASSERT_ERRNO(clock_gettime(CLOCK_MONOTONIC, &value) == 0,
+               "clock_gettime(CLOCK_MONOTONIC) failed");
   nsecs = value.tv_sec*1000000000L + value.tv_nsec;
   return nsecs;
 }
@@ -1090,8 +1102,10 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
   socklen_t remoteLen)
 {
   if (hello_remote.state != WorkerState::RESTARTING) {
-    JWARNING(false) (hello_remote.state)
-    .Text("Rejecting restarting worker process with non-RESTARTING state.");
+    WARNING(false,
+            "rejecting restarting worker process with non-RESTARTING state: "
+            "state={}",
+            static_cast<int>(hello_remote.state));
     remote.close();
     return false;
   }
@@ -1103,8 +1117,9 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
   if (compId == UniquePid(0, 0, 0)) {
     lookupService.reset();
     recordEvent("Restarting-Computation");
-    JASSERT(minimumState() == WorkerState::UNKNOWN) (minimumState())
-    .Text("Coordinator should be idle at this moment");
+    ASSERT(minimumState() == WorkerState::UNKNOWN,
+           "coordinator should be idle for first restart worker: state={}",
+           static_cast<int>(minimumState()));
 
     // Coordinator is free at this moment - set up all the things
     compId = hello_remote.compGroup;
@@ -1141,7 +1156,8 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
 
   // dmtcp_restart already connected and compGroup created.
   // Computation process connection
-  JASSERT(curTimeStamp != 0);
+  ASSERT(curTimeStamp != 0,
+         "restart worker accepted without a coordinator timestamp");
 
   JTRACE("Connection from (restarting) computation process")
     (compId) (hello_remote.compGroup) (minimumState());
@@ -1176,15 +1192,19 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
 void
 DmtcpCoordinator::ResendDoCheckpointMsgToWorker(CoordClient *client)
 {
-  JASSERT(workersRunningAndSuspendMsgSent);
+  ASSERT(workersRunningAndSuspendMsgSent,
+         "checkpoint resend requested before suspend message was sent");
   /* Worker trying to connect after SUSPEND message has been sent.
     * This happens if the worker process is executing a fork() or exec() system
     * call when the DMT_DO_SUSPEND is broadcast. We need to make sure that the
     * child process is allowed to participate in the current checkpoint.
     */
   ComputationStatus s = getStatus();
-  JASSERT(s.numPeers > 0) (s.numPeers);
-  JASSERT(s.minimumState != WorkerState::SUSPENDED) (s.minimumState);
+  ASSERT(s.numPeers > 0, "checkpoint resend has no peers: num_peers={}",
+         s.numPeers);
+  ASSERT(s.minimumState != WorkerState::SUSPENDED,
+         "checkpoint resend attempted after workers suspended: state={}",
+         static_cast<int>(s.minimumState));
 
   JNOTE("Sending DMT_DO_CHECKPOINT msg to worker") (client->identity());
 
@@ -1206,14 +1226,17 @@ DmtcpCoordinator::validateNewWorkerProcess(
   // Coming from dmtcp_launch or fork(), ssh(), etc.
   if (hello_remote.state != WorkerState::RUNNING &&
       hello_remote.state != WorkerState::UNKNOWN) {
-    JWARNING(false) (hello_remote.state)
-    .Text("state is not RUNNING or UNKNOWN; rejecting new connection");
+    WARNING(false,
+            "state is not RUNNING or UNKNOWN; rejecting new connection: "
+            "state={}",
+            static_cast<int>(hello_remote.state));
     return false;
   }
 
   if (hello_remote.virtualPid != -1) {
-    JWARNING(false) (hello_remote.virtualPid)
-    .Text("virtualPid is not -1; rejecting new connection");
+    WARNING(false,
+            "virtualPid is not -1; rejecting new connection: virtual_pid={}",
+            hello_remote.virtualPid);
     return false;
   }
 
