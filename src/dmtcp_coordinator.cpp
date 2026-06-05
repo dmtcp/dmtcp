@@ -1413,7 +1413,8 @@ DmtcpCoordinator::getStatus() const
                          : (WorkerState::eWorkerState)max);
   status.numPeers = count;
 
-  ASSERT_EQ(0, clock_gettime(CLOCK_MONOTONIC, &status.timestamp));
+  ASSERT_ERRNO(clock_gettime(CLOCK_MONOTONIC, &status.timestamp) == 0,
+               "clock_gettime(CLOCK_MONOTONIC) failed while building status");
   return status;
 }
 

@@ -265,10 +265,10 @@ start_helper_thread(void)
   /* Create the helper thread for this timer.  */
   pthread_t th;
   int res = pthread_create(&th, &attr, timer_helper_thread, NULL);
-  ASSERT(res == 0, "pthread_create for timer helper failed: rc={}", res);
   if (res != 0) {
     sem_post(&helper_notification);
   }
+  ASSERT_PTHREAD_SUCCESS(res);
 
   /* Restore the signal mask.  */
   sigprocmask(SIG_SETMASK, &oss, NULL);
