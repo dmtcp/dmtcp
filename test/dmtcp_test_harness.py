@@ -101,6 +101,7 @@ class TestSpec:
     library_paths: List[str] = field(default_factory=list)
     restart_uses_directory: bool = False
     validate_checkpoint_headers: bool = False
+    completion_command: str = "--kill"
 
     def peer_counts(self) -> List[int]:
         if isinstance(self.peers, int):
@@ -251,7 +252,7 @@ class TestContext:
             self._checkpoint()
             self._kill_workers()
             self._restart()
-        self._kill_workers()
+        self._complete_test()
 
     def cleanup(self):
         self._kill_workers(best_effort=True)
@@ -390,6 +391,31 @@ class TestContext:
         except HarnessFailure:
             if not best_effort:
                 raise
+
+    def _quit_workers_and_coordinator(self):
+        payload = self._run_json_command("--quit", "quit", allow_error=False)
+        if payload.get("type") != "quit" or not payload.get("ok"):
+            raise HarnessFailure("quit", "dmtcp_command --json --quit failed")
+        if self.coordinator_proc is not None:
+            try:
+                self.coordinator_proc.wait(timeout=self.spec.timeout)
+            except subprocess.TimeoutExpired as error:
+                raise HarnessFailure(
+                    "quit",
+                    "coordinator did not exit after dmtcp_command --quit",
+                ) from error
+        self._wait_for_worker_exit("quit")
+
+    def _complete_test(self):
+        if self.spec.completion_command == "--kill":
+            self._kill_workers()
+        elif self.spec.completion_command == "--quit":
+            self._quit_workers_and_coordinator()
+        else:
+            raise HarnessFailure(
+                "setup",
+                f"unknown completion command: {self.spec.completion_command}",
+            )
 
     def _restart(self):
         images = self._checkpoint_images()
@@ -555,6 +581,20 @@ class TestContext:
 
         self._wait_for(matches_status, phase,
                        f"timed out waiting for peers={peers} running={running}")
+
+    def _wait_for_worker_exit(self, phase: str):
+        def workers_stopped() -> bool:
+            return all(proc.poll() is not None for proc in self.processes)
+
+        self._wait_for(workers_stopped, phase,
+                       "timed out waiting for workers to exit")
+        for proc in self.processes:
+            leftovers = self._process_group_members(proc.pid)
+            if leftovers:
+                raise HarnessFailure(
+                    phase,
+                    f"leftover worker process group {proc.pid}: {leftovers}",
+                )
 
     def _wait_for(self, predicate: Callable[[], bool], phase: str,
                   message: str):

@@ -38,6 +38,8 @@ def _frisbee_commands() -> List[str]:
 TESTS = [
     TestSpec("dmtcp1", 1, ["./test/dmtcp1"]),
     TestSpec("command-json-kill", 1, ["./test/dmtcp1"], cycles=0),
+    TestSpec("command-json-quit", 1, ["./test/dmtcp1"], cycles=0,
+             completion_command="--quit"),
     TestSpec("dmtcp2", 1, ["./test/dmtcp2"]),
     TestSpec("dmtcp3", 1, ["./test/dmtcp3"]),
     TestSpec("dmtcp4", 1, ["./test/dmtcp4"]),
