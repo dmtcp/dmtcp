@@ -254,6 +254,31 @@ class SourceAuditTest(unittest.TestCase):
         self.assertRegex(body_without_comments,
                          r"ThreadList::createCkptThread\s*\(\s*\);\s*$")
 
+    def test_restart_reestablishes_curthread_after_tls_restore(self):
+        post_restart_body = self.extract_function_body("src/threadlist.cpp",
+                                                       "ThreadList::postRestart")
+        self.assert_patterns_in_order(
+            post_restart_body,
+            (
+                r"TLSInfo_RestoreTLSState\s*\(\s*motherofall\s*\);",
+                r"TLSInfo_RestoreTLSTidPid\s*\(\s*motherofall\s*\);",
+                r"curThread\s*=\s*motherofall\s*;",
+                r"motherpid\s*=\s*getpid\s*\(\s*\);",
+            ),
+        )
+
+        restart_thread_body = self.extract_function_body("src/threadlist.cpp",
+                                                         "restarthread")
+        self.assert_patterns_in_order(
+            restart_thread_body,
+            (
+                r"TLSInfo_RestoreTLSState\s*\(\s*thread\s*\);",
+                r"TLSInfo_RestoreTLSTidPid\s*\(\s*thread\s*\);",
+                r"curThread\s*=\s*thread\s*;",
+                r"TLSInfo_HaveThreadSysinfoOffset\s*\(\s*\)",
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

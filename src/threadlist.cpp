@@ -783,6 +783,10 @@ ThreadList::postRestart(double readTime, int restartPause)
   TLSInfo_RestoreTLSState(motherofall);
   TLSInfo_RestoreTLSTidPid(motherofall);
 
+  // curThread is stored in TLS; restore the TLS register first, then
+  // explicitly re-establish the DMTCP thread descriptor in the restored TLS.
+  curThread = motherofall;
+
   motherpid = getpid();
 
   restartPauseLevel = restartPause;
@@ -856,6 +860,7 @@ restarthread(void *threadv)
 
   TLSInfo_RestoreTLSState(thread);
   TLSInfo_RestoreTLSTidPid(thread);
+  curThread = thread;
 
   if (TLSInfo_HaveThreadSysinfoOffset()) {
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
