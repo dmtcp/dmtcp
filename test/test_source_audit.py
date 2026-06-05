@@ -322,6 +322,8 @@ class SourceAuditTest(unittest.TestCase):
     def test_core_success_asserts_use_comparison_helpers(self):
         self.assert_file_does_not_contain("src/util_exec.cpp",
                                           "ASSERT(rc == 0")
+        self.assert_file_does_not_contain("src/util_exec.cpp",
+                                          "ASSERT_EQ_MSG(0, safeSystem")
 
     def test_non_pthread_zero_return_checks_use_named_helpers(self):
         self.assert_file_does_not_contain("src/plugin/file/ptyconnection.cpp",

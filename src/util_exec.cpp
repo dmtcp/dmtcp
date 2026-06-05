@@ -463,8 +463,9 @@ Util::patchArgvIfSetuid(const char *filename,
                "failed to remove stale setuid copy: path={}",
                newFilename);
 
-  ASSERT_EQ_MSG(0, safeSystem(cpCmdBuf), "call to system failed: cmd={}",
-                cpCmdBuf);
+  ASSERT_ZERO_RETURN_MSG(safeSystem(cpCmdBuf),
+                         "call to system failed: cmd={}",
+                         cpCmdBuf);
 
   ASSERT_ERRNO(access(newFilename, X_OK) == 0,
                "setuid copy is not executable: path={}",

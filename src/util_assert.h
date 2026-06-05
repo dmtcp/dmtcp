@@ -1092,7 +1092,7 @@ assertFailureErrno(const char *expr,
   do {                                                                   \
     const auto dmtcpAssertResult = (expression);                          \
     ASSERT(dmtcpAssertResult == 0,                                        \
-           "{} failed: expected 0, returned {} ({})",                     \
+           "{} failed: expected '0' but returned '{}' ({})",              \
            expressionText, dmtcpAssertResult,                             \
            ::dmtcp::errnoName(static_cast<int>(dmtcpAssertResult)));      \
   } while (0)
@@ -1101,7 +1101,7 @@ assertFailureErrno(const char *expr,
   do {                                                                   \
     const auto dmtcpAssertResult = (expression);                          \
     WARNING(dmtcpAssertResult == 0,                                      \
-            "{} failed: expected 0, returned {} ({})",                    \
+            "{} failed: expected '0' but returned '{}' ({})",             \
             expressionText, dmtcpAssertResult,                            \
             ::dmtcp::errnoName(static_cast<int>(dmtcpAssertResult)));     \
   } while (0)
@@ -1110,7 +1110,7 @@ assertFailureErrno(const char *expr,
   do {                                                                    \
     const auto dmtcpAssertResult = (expression);                           \
     ASSERT(dmtcpAssertResult == 0,                                         \
-           "{} failed: expected 0, returned {} ({}); " fmt,                \
+           "{} failed: expected '0' but returned '{}' ({}); " fmt,         \
            expressionText, dmtcpAssertResult,                              \
            ::dmtcp::errnoName(static_cast<int>(dmtcpAssertResult))         \
            __VA_OPT__(,) __VA_ARGS__);                                     \
@@ -1120,7 +1120,7 @@ assertFailureErrno(const char *expr,
   do {                                                                     \
     const auto dmtcpAssertResult = (expression);                            \
     WARNING(dmtcpAssertResult == 0,                                         \
-            "{} failed: expected 0, returned {} ({}); " fmt,                \
+            "{} failed: expected '0' but returned '{}' ({}); " fmt,         \
             expressionText, dmtcpAssertResult,                              \
             ::dmtcp::errnoName(static_cast<int>(dmtcpAssertResult))         \
             __VA_OPT__(,) __VA_ARGS__);                                     \

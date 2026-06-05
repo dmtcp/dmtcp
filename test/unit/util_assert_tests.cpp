@@ -521,7 +521,7 @@ void warningMutexSuccessReportsExpressionAndReturnValue()
                                "setErrnoAndReturn(EINVAL, EIO) failed") !=
                    nullptr);
   const std::string expected =
-    "expected 0, returned " + std::to_string(EINVAL) + " (EINVAL)";
+    "expected '0' but returned '" + std::to_string(EINVAL) + "' (EINVAL)";
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
                                expected.c_str()) !=
                    nullptr);
@@ -538,7 +538,7 @@ void warningPthreadSuccessReportsExpressionAndReturnValue()
                                "setErrnoAndReturn(EAGAIN, EIO) failed") !=
                    nullptr);
   const std::string expected =
-    "expected 0, returned " + std::to_string(EAGAIN) + " (EAGAIN)";
+    "expected '0' but returned '" + std::to_string(EAGAIN) + "' (EAGAIN)";
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
                                expected.c_str()) !=
                    nullptr);
@@ -555,7 +555,7 @@ void warningZeroReturnReportsExpressionAndReturnValue()
                                "setErrnoAndReturn(EINVAL, EIO) failed") !=
                    nullptr);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "expected 0, returned 22 (EINVAL)") !=
+                               "expected '0' but returned '22' (EINVAL)") !=
                    nullptr);
 }
 
@@ -573,7 +573,7 @@ void warningZeroReturnMessageReportsExtraContext()
                                "setErrnoAndReturn(EINVAL, EIO) failed") !=
                    nullptr);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "expected 0, returned 22 (EINVAL)") !=
+                               "expected '0' but returned '22' (EINVAL)") !=
                    nullptr);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
                                "fd=9 path=/dev/ptmx") !=
@@ -636,7 +636,7 @@ void warningPthreadSuccessMessageReportsExtraContext()
                                "setErrnoAndReturn(EINVAL, EIO) failed") !=
                    nullptr);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "expected 0, returned 22 (EINVAL)") !=
+                               "expected '0' but returned '22' (EINVAL)") !=
                    nullptr);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
                                "tid=123 signal=9") !=
