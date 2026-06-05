@@ -720,6 +720,27 @@ class SourceAuditTest(unittest.TestCase):
             f"coordinator-realworker-coverage.md: {missing}",
         )
 
+    def test_focused_check_targets_are_phony(self):
+        makefile = self.read_text("Makefile.in")
+        phony_section = re.search(r"^\.PHONY:.*?(?=\n\n|\Z)",
+                                  makefile,
+                                  re.MULTILINE | re.DOTALL)
+        self.assertIsNotNone(phony_section,
+                             "top-level Makefile.in is missing .PHONY")
+        for target in (
+            "check-unit",
+            "check-harness-unit",
+            "check-command-json",
+            "check-command-cli",
+            "check-launch-cli",
+            "check-restart-cli",
+            "check-sshd-cli",
+            "check-source-audit",
+            "check-coordinator-synthetic",
+        ):
+            with self.subTest(target=target):
+                self.assertIn(target, phony_section.group(0))
+
     def test_floating_point_diagnostic_detector_finds_fixture(self):
         text = """
         void demo(double readTime)

@@ -443,6 +443,6 @@ am--refresh:
 	display-build-env display-release display-config build \
 	build-multilib build-multilib-m32 build-multilib-m64 \
 	mkdirs dmtcp plugin contrib clean distclean am--refresh \
-	tests tests-32 check-unit check-command-cli check-launch-cli \
-	check-restart-cli check-sshd-cli check-source-audit \
-	check-coordinator-synthetic
+	tests tests-32 check-unit check-harness-unit check-command-json \
+	check-command-cli check-launch-cli check-restart-cli \
+	check-sshd-cli check-source-audit check-coordinator-synthetic
