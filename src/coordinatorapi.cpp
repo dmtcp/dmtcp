@@ -500,9 +500,7 @@ startNewCoordinator(CoordinatorMode mode)
   getCoordHostAndPort(mode, &host, &port);
 
   string currentHost = jalib::Filesystem::GetCurrentHostname();
-  ASSERT(strcmp(host.c_str(), "localhost") == 0 ||
-           strcmp(host.c_str(), "127.0.0.1") == 0 ||
-           currentHost == host.c_str(),
+  ASSERT(host == "localhost" || host == "127.0.0.1" || currentHost == host,
          "Won't automatically start coordinator because DMTCP_HOST is set "
          "to a remote host: host={} current_host={}",
          host, currentHost);

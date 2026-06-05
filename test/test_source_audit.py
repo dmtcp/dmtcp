@@ -249,6 +249,10 @@ class SourceAuditTest(unittest.TestCase):
             with self.subTest(path=relative_path):
                 self.assert_file_does_not_contain(relative_path, "strncmp(")
 
+    def test_coordinator_host_assert_uses_string_comparison(self):
+        self.assert_file_does_not_contain("src/coordinatorapi.cpp",
+                                          "strcmp(host.c_str()")
+
     def test_coordinator_clock_gettime_uses_errno_diagnostics(self):
         self.assert_file_does_not_contain(
             "src/dmtcp_coordinator.cpp", "ASSERT_EQ(0, clock_gettime")
