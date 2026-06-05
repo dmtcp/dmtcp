@@ -142,9 +142,9 @@ dmtcp_prepare_atfork(void)
    * the gcc compiler.
    */
 #if 0
-  JASSERT(__register_atfork(NULL, NULL,
-                            pidVirt_pthread_atfork_child,
-                            __dso_handle) == 0);
+  ASSERT_EQ(0, __register_atfork(NULL, NULL,
+                                 pidVirt_pthread_atfork_child,
+                                 __dso_handle));
 #endif
 
   if (!dmtcp_atfork_processed) {
@@ -248,7 +248,8 @@ vfork()
   static __typeof__(&vfork) vforkPtr =
     (__typeof__(&vfork)) dmtcp_dlsym(RTLD_NEXT, "vfork");
 
-  JASSERT (!isPerformingCkptRestart());
+  ASSERT(!isPerformingCkptRestart(),
+         "vfork called while checkpoint/restart is active");
 
   ThreadSync::presuspendEventHookLockLock();
 
@@ -272,7 +273,7 @@ vfork()
   stackSize =
     (char*) __builtin_frame_address(0) + (2 * sizeof(void*)) - stackStart;
   newStackAddr = JALLOC_MALLOC(stackSize);
-  JASSERT(newStackAddr);
+  ASSERT_NOT_NULL(newStackAddr);
   memcpy(newStackAddr, stackStart, stackSize);
 
   vforkPid = vforkPtr();
