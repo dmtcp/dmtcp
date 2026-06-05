@@ -324,6 +324,26 @@ class SourceAuditTest(unittest.TestCase):
             with self.subTest(path=relative_path, pattern=pattern):
                 self.assert_file_does_not_match(relative_path, pattern)
 
+    def test_string_helper_results_are_used_as_booleans(self):
+        pattern = re.compile(
+            r"\bUtil::str(?:StartsWith|EndsWith|Equals)\s*\([^;\n]*\)"
+            r"\s*(?:==|!=)\s*0\b"
+        )
+        matches = []
+        for path in self.source_file_paths():
+            relative_path = path.relative_to(ROOT).as_posix()
+            text = self.strip_comments(path.read_text(encoding="utf-8"))
+            for line_number, line in enumerate(text.splitlines(), start=1):
+                if pattern.search(line):
+                    matches.append(f"{relative_path}:{line_number}")
+
+        self.assertEqual(
+            matches,
+            [],
+            "use Util string helpers as booleans instead of comparing their "
+            f"result with 0: {matches}",
+        )
+
     def test_pty_path_equality_uses_cxx20_helpers(self):
         checks = (
             r"strcmp\(path, \"/dev/tty\"\) == 0",

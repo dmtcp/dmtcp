@@ -207,8 +207,8 @@ FileConnection::drain()
   } else if (_type == FILE_DELETED || _type == FILE_SHM) {
     _ckpted_file = true;
   } else if (_isVimApp() &&
-             (Util::strEndsWith(_path.c_str(), ".swp") == 0 ||
-              Util::strEndsWith(_path.c_str(), ".swo") == 0)) {
+             (!Util::strEndsWith(_path.c_str(), ".swp") ||
+              !Util::strEndsWith(_path.c_str(), ".swo"))) {
     _ckpted_file = true;
   } else if (Util::strStartsWith(jalib::Filesystem::GetProgramName().c_str(),
                                  "emacs")) {
