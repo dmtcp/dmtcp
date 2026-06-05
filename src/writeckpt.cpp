@@ -38,6 +38,7 @@
 #include "procselfmaps.h"
 #include "shareddata.h"
 #include "util.h"
+#include "util_assert.h"
 
 /* Shared memory regions for Direct Rendering Infrastructure */
 #define DEV_DRI_SHMEM        "/dev/dri/card"
@@ -73,11 +74,22 @@ static void mtcp_write_anonymous_pages(int fd, Area area);
 static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
 
 static void
+writeCkptAll(int fd, const void *buf, size_t count, const char *what)
+{
+  ssize_t written = Util::writeAll(fd, buf, count);
+  ASSERT_ERRNO(written == (ssize_t) count,
+               "failed to write checkpoint data: what={} fd={} expected={} "
+               "written={}",
+               what, fd, count, written);
+}
+
+static void
 writeAreaHeader(int fd, Area *area)
 {
-  JASSERT(area->addr + area->size == area->endAddr)
-    ((void*)area->addr)((int)area->size);
-  JASSERT(Util::writeAll(fd, area, sizeof(*area)) == (ssize_t) sizeof(*area));
+  ASSERT(area->addr + area->size == area->endAddr,
+         "invalid checkpoint area bounds: addr={} size={} end={}",
+         area->addr, area->size, area->endAddr);
+  writeCkptAll(fd, area, sizeof(*area), "area header");
 }
 
 /*****************************************************************************
@@ -203,21 +215,25 @@ mtcp_writememoryareas(int fd)
 
   area.addr = NULL; // End of data
   area.size = -1; // End of data
-  JASSERT(Util::writeAll(fd, &area, sizeof(area)) == sizeof(area));
+  writeCkptAll(fd, &area, sizeof(area), "end-of-areas marker");
 
   /* That's all folks */
-  JASSERT(_real_close(fd) == 0);
+  ASSERT_ERRNO(_real_close(fd) == 0,
+               "failed to close checkpoint memory-area fd: fd={}", fd);
 }
 
 static void
 remap_nscd_areas(const vector<ProcMapsArea> &areas)
 {
   for (size_t i = 0; i < areas.size(); i++) {
-    JASSERT(munmap(areas[i].addr, areas[i].size) == 0) (JASSERT_ERRNO)
-    .Text("error unmapping NSCD shared area");
-    JASSERT(mmap(areas[i].addr, areas[i].size, areas[i].prot,
-                 MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, 0, 0) != MAP_FAILED)
-      (JASSERT_ERRNO).Text("error remapping NSCD shared area.");
+    ASSERT_ERRNO(munmap(areas[i].addr, areas[i].size) == 0,
+                 "error unmapping NSCD shared area: addr={} size={}",
+                 areas[i].addr, areas[i].size);
+    ASSERT_ERRNO(mmap(areas[i].addr, areas[i].size, areas[i].prot,
+                      MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, 0, 0) !=
+                 MAP_FAILED,
+                 "error remapping NSCD shared area: addr={} size={} prot={}",
+                 areas[i].addr, areas[i].size, areas[i].prot);
   }
 }
 
@@ -280,8 +296,7 @@ mtcp_write_anonymous_pages(int fd, Area area)
     writeAreaHeader(fd, &a);
 
     if (!is_zero) {
-      JASSERT(Util::writeAll(fd, a.addr, a.size) == (ssize_t) a.size)
-        .Text("writeAll failed during ckpt");
+      writeCkptAll(fd, a.addr, a.size, "anonymous page data");
     } else {
       if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
         JTRACE("error doing madvise(..., MADV_DONTNEED)")
@@ -475,9 +490,10 @@ writememoryarea(int fd, Area area)
    * condition.
    */
   if ((area.prot & PROT_READ) == 0) {
-    JASSERT(mprotect(area.addr, area.size, area.prot | PROT_READ) == 0)
-      (JASSERT_ERRNO) (area.size) ((void*)area.addr)
-      .Text("error adding PROT_READ to mem region");
+    ASSERT_ERRNO(mprotect(area.addr, area.size, area.prot | PROT_READ) == 0,
+                 "error adding PROT_READ to memory region: addr={} size={} "
+                 "prot={}",
+                 area.addr, area.size, area.prot);
   }
 
   if ((area.flags & MAP_ANONYMOUS) != 0) {
@@ -487,7 +503,9 @@ writememoryarea(int fd, Area area)
     // Handle non-existing files
     mtcp_write_anonymous_pages(fd, area);
   } else {
-    JASSERT(strlen(area.name) > 0);
+    ASSERT(strlen(area.name) > 0,
+           "checkpoint file-backed area has an empty path: addr={} size={}",
+           area.addr, area.size);
 
     // FIXME: If the file was opened and deleted, we cannot handle that here.
     struct stat statbuf = {0};
@@ -505,18 +523,19 @@ writememoryarea(int fd, Area area)
     // NOTE: We cannot use lseek(SEEK_CUR) to detect how much data was
     // actually written here. This is because fd might be a pipe to gzip.
     if (area.mmapFileSize > 0) {
-      JASSERT(Util::writeAll(fd, area.addr, area.mmapFileSize) ==
-              (ssize_t)area.mmapFileSize);
+      writeCkptAll(fd, area.addr, area.mmapFileSize,
+                   "file-backed mapped data");
     } else {
-      JASSERT(Util::writeAll(fd, area.addr, area.size) == (ssize_t)area.size);
+      writeCkptAll(fd, area.addr, area.size, "mapped data");
     }
   }
 
   
   // Now remove PROT_READ from the area if it didn't have it originally
   if ((area.prot & PROT_READ) == 0) {
-    JASSERT(mprotect(area.addr, area.size, area.prot) == 0)
-      (JASSERT_ERRNO) ((void*)area.addr) (area.size)
-      .Text("error removing PROT_READ from mem region.");
+    ASSERT_ERRNO(mprotect(area.addr, area.size, area.prot) == 0,
+                 "error removing PROT_READ from memory region: addr={} "
+                 "size={} prot={}",
+                 area.addr, area.size, area.prot);
   }
 }

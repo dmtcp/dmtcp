@@ -37,6 +37,7 @@
 #include "mtcp/mtcp_sys.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "util_assert.h"
 
 #if defined(__x86_64__) || defined(__aarch64__)
 # define ELF_AUXV_T Elf64_auxv_t
@@ -140,8 +141,12 @@ TLSInfo_GetTidOffset(void)
   // tcbhead_t, etc., were introduced in glibc 2.4. We don't support earlier
   // versions.
   dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
-  JASSERT(glibc.major == 2) (glibc.major);
-  JASSERT(glibc.minor >= 4) (glibc.minor);
+  ASSERT(glibc.major == 2,
+         "unsupported glibc major version for TLS offsets: major={}",
+         glibc.major);
+  ASSERT(glibc.minor >= 4,
+         "unsupported glibc minor version for TLS offsets: minor={}",
+         glibc.minor);
 
 #ifdef __x86_64__
   if (glibc.minor >= 11) {
@@ -181,12 +186,12 @@ TLSInfo_GetPidOffset(void)
 static void
 tls_get_thread_area(Thread *thread)
 {
-  JASSERT(_real_syscall(SYS_arch_prctl, ARCH_GET_FS,
-                        (long)&thread->tlsInfo.fs, 0, 0, 0, 0, 0) == 0)
-    (JASSERT_ERRNO);
-  JASSERT(_real_syscall(SYS_arch_prctl, ARCH_GET_GS,
-                        (long)&thread->tlsInfo.gs, 0, 0, 0, 0, 0) == 0)
-    (JASSERT_ERRNO);
+  ASSERT_ERRNO(_real_syscall(SYS_arch_prctl, ARCH_GET_FS,
+                             (long)&thread->tlsInfo.fs, 0, 0, 0, 0, 0) == 0,
+               "failed to read FS TLS register: tid={}", thread->tid);
+  ASSERT_ERRNO(_real_syscall(SYS_arch_prctl, ARCH_GET_GS,
+                             (long)&thread->tlsInfo.gs, 0, 0, 0, 0, 0) == 0,
+               "failed to read GS TLS register: tid={}", thread->tid);
 }
 
 void
@@ -219,10 +224,11 @@ tls_get_thread_area(Thread *thread)
 
   thread->tlsInfo.gdtentrytls.entry_number = thread->tlsInfo.gs / 8;
 
-  JASSERT(_real_syscall(SYS_get_thread_area,
-                        (long)&thread->tlsInfo.gdtentrytls,
-                        0, 0, 0, 0, 0, 0) == 0)
-    (JASSERT_ERRNO);
+  ASSERT_ERRNO(_real_syscall(SYS_get_thread_area,
+                             (long)&thread->tlsInfo.gdtentrytls,
+                             0, 0, 0, 0, 0, 0) == 0,
+               "failed to read i386 TLS GDT entry: tid={} entry={}",
+               thread->tid, thread->tlsInfo.gdtentrytls.entry_number);
 }
 
 static void
@@ -375,16 +381,21 @@ get_at_sysinfo()
 
   stack = (void **)&my_environ[-1];
 
-  JASSERT (*stack == NULL) (*stack)
-    .Text("This should be argv[argc] == NULL and it's not. NO &argv[argc]");
+  ASSERT(*stack == NULL,
+         "expected argv[argc] to be null while scanning auxv: value={}",
+         *stack);
 
   // stack[-1] should be argv[argc-1]
-  JASSERT((void **)stack[-1] >= stack && (void **)stack[-1] >= stack + 100000)
-    .Text("Error: candidate argv[argc-1] failed consistency check");
+  ASSERT((void **)stack[-1] >= stack && (void **)stack[-1] >= stack + 100000,
+         "candidate argv[argc-1] failed consistency check: stack={} "
+         "candidate={}",
+         stack, stack[-1]);
 
   for (i = 1; stack[i] != NULL; i++) {
-    JASSERT ((void **)stack[i] >= stack && (void **)stack[i] <= stack + 10000)
-      .Text("Error: candidate argv[i] failed consistency check");
+    ASSERT((void **)stack[i] >= stack && (void **)stack[i] <= stack + 10000,
+           "candidate argv entry failed consistency check: index={} stack={} "
+           "candidate={}",
+           i, stack, stack[i]);
   }
   stack = &stack[i + 1];
 
@@ -492,14 +503,15 @@ TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
   tls_pid = *(pid_t *)(addr + TLSInfo_GetPidOffset());
   tls_tid = *(pid_t *)(addr + TLSInfo_GetTidOffset());
 
-  JASSERT (tls_tid == tid) (tls_tid) (tid)
-    .Text("tls tid doesn't match the thread tid");
+  ASSERT(tls_tid == tid,
+         "TLS tid does not match thread tid: tls_tid={} tid={}", tls_tid, tid);
 
   // For glibc > 2.24, pid field is unused. Here we do the <24 check to ensure
   // that distros with glibc 2.24-NNN are covered as well.
   dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
-  JASSERT((glibc.major == 2 && glibc.minor >= 24) || tls_pid == pid)
-    (tls_pid) (pid) .Text("tls pid doesn't match getpid");
+  ASSERT((glibc.major == 2 && glibc.minor >= 24) || tls_pid == pid,
+         "TLS pid does not match process pid: tls_pid={} pid={}", tls_pid,
+         pid);
 }
 
 /*****************************************************************************

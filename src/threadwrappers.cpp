@@ -34,6 +34,7 @@
 #include "threadsync.h"
 #include "uniquepid.h"
 #include "util.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -65,7 +66,11 @@ processChildThread(Thread *thread)
   // signals blocked.
   sigset_t set;
   sigaddset(&set, SigInfo::ckptSignal());
-  JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0) (JASSERT_ERRNO);
+  int rc = _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL);
+  ASSERT(rc == 0,
+         "failed to unblock checkpoint signal in child thread: signal={} "
+         "result={}",
+         SigInfo::ckptSignal(), rc);
 
   // Lock was acquired by the parent thread on our behalf.
   ThreadSync::wrapperExecutionLockUnlock();
@@ -109,11 +114,15 @@ pthread_create(pthread_t *pth,
   ThreadSync::wrapperExecutionLockLockForNewThread(newThread);
   JASSERT(newThread->wrapperLockCount != 0);
 
-  JASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING));
+  ASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING),
+         "failed to mark thread creation in progress: tid={} from={} to={}",
+         thread->tid, ST_RUNNING, ST_THREAD_CREATE);
 
   int retval = _real_pthread_create(pth, attr, thread_start, newThread);
 
-  JASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE));
+  ASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE),
+         "failed to mark thread creation complete: tid={} from={} to={}",
+         thread->tid, ST_THREAD_CREATE, ST_RUNNING);
 
   if (retval == 0) {
     ProcessInfo::instance().clearPthreadJoinState(*pth);
@@ -161,8 +170,9 @@ __clone(int (*fn)(void *arg),
       fn, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr);
   }
 
-  JASSERT(false)
-    .Text("Thread-creation with clone syscall isn't supported.");
+  ASSERT(false,
+         "thread creation with clone syscall is not supported: flags={}",
+         flags);
 
   return 0;
 }
@@ -175,8 +185,9 @@ clone3(struct clone_args *cl_args, size_t size)
     return NEXT_FNC(clone3)(cl_args, size);
   }
 
-  JASSERT(false)
-    .Text("Thread-creation with clone3 syscall isn't supported.");
+  ASSERT(false,
+         "thread creation with clone3 syscall is not supported: size={}",
+         size);
 
   return 0;
 }
@@ -230,7 +241,8 @@ pthread_join(pthread_t thread, void **retval)
 
   while (1) {
     WrapperLock wrapperLock;
-    JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+    ASSERT_ERRNO(clock_gettime(CLOCK_REALTIME, &ts) != -1,
+                 "failed to read CLOCK_REALTIME before pthread_join");
     TIMESPEC_ADD(&ts, &ts_100ms, &ts);
     ret = _real_pthread_timedjoin_np(thread, retval, &ts);
     if (ret != ETIMEDOUT) {
@@ -278,7 +290,8 @@ pthread_timedjoin_np(pthread_t thread,
    */
   while (1) {
     WrapperLock wrapperLock;
-    JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+    ASSERT_ERRNO(clock_gettime(CLOCK_REALTIME, &ts) != -1,
+                 "failed to read CLOCK_REALTIME before pthread_timedjoin_np");
     if (TIMESPEC_CMP(&ts, abstime, <)) {
       TIMESPEC_ADD(&ts, &ts_100ms, &ts);
       ret = _real_pthread_timedjoin_np(thread, retval, &ts);

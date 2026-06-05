@@ -49,6 +49,7 @@
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "util_assert.h"
 
 // aarch64 and riscv don't define SYS_pipe kernel call by default.
 #if defined(__aarch64__) || defined(__riscv)
@@ -74,9 +75,19 @@ static int open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args);
 void mtcp_writememoryareas(int fd) __attribute__((weak));
 
 static void
+writeCkptBytes(int fd, const void *buf, size_t count, const char *what)
+{
+  ssize_t written = Util::writeAll(fd, buf, count);
+  ASSERT_ERRNO(written == (ssize_t) count,
+               "failed to write checkpoint data: what={} fd={} expected={} "
+               "written={}",
+               what, fd, count, written);
+}
+
+static void
 trivial_sigchld_handler(int sig)
 {
-  JASSERT(sig == SIGCHLD);
+  ASSERT(sig == SIGCHLD, "unexpected signal delivered: signal={}", sig);
 }
 static void
 set_trivial_sigchld_action(struct sigaction *trivial_sigchld_action_ptr)
@@ -124,21 +135,25 @@ double_fork()
   set_trivial_sigchld_action(&trivial_sigchld_action);
   sigaction(SIGCHLD, &trivial_sigchld_action, &saved_sigchld_action);
   pid = _real_sys_fork();
-  JASSERT(pid >= 0)(pid); // Or could do:  return FORKED_CKPT_FAILED;
+  if (pid == -1) {
+    sigaction(SIGCHLD, &saved_sigchld_action, NULL);
+    return FORKED_CKPT_FAILED;
+  }
 
   if (pid > 0) {
     // 2. Allow delivery of just one SIGCHLD (due to the child that did _exit())
     allow_delivery_of_one_sigchld();
 
     // 3. Next, we reap that child process (which is now a zombie).
-    JWARNING(_real_waitpid(pid, NULL, 0) != -1) (pid) (JASSERT_ERRNO);
+    WARNING_ERRNO(_real_waitpid(pid, NULL, 0) != -1,
+                  "failed to wait for checkpoint child: pid={}", pid);
 
     // 4. ... and we then restore the original SIGCHLD handler
     sigaction(SIGCHLD, &saved_sigchld_action, NULL);
     return FORKED_CKPT_PARENT;
   } else {
     pid = _real_sys_fork();
-    JASSERT(pid >= 0)(pid);
+    ASSERT_ERRNO(pid >= 0, "failed second checkpoint fork: pid={}", pid);
     if (pid > 0) {
       _exit(EXIT_SUCCESS); // Child process exits, delivers SIGCHLD
     }
@@ -164,9 +179,10 @@ test_use_compression(char *compressor, char *command, char *path, int def)
     default_val = const_cast<char *>("0");
   }
 
-  JASSERT(strlen(strncat(evar, compressor, sizeof(evar) - strlen(evar) - 1))
-          < sizeof(evar) - 1)
-    (compressor).Text("compressor is too long.");
+  strncat(evar, compressor, sizeof(evar) - strlen(evar) - 1);
+  ASSERT(strlen(evar) < sizeof(evar) - 1,
+         "compressor environment variable name is too long: compressor={}",
+         compressor);
   do_we_compress = getenv(evar);
 
   // env var is unset, let's default to enabled
@@ -178,11 +194,14 @@ test_use_compression(char *compressor, char *command, char *path, int def)
   char *endptr;
   errno = 0;
   long int rc = strtol(do_we_compress, &endptr, 0);
-  JASSERT(rc != LONG_MIN && rc != LONG_MAX) (do_we_compress) (JASSERT_ERRNO);
+  ASSERT_ERRNO(rc != LONG_MIN && rc != LONG_MAX,
+               "compression environment value is out of range: {}={}", evar,
+               do_we_compress);
   if (*do_we_compress == '\0' || *endptr != '\0') {
-    JWARNING(false) (evar) (do_we_compress)
-    .Text("Compression env var not defined as a number."
-          "  Checkpoint image will not be compressed.");
+    WARNING(false,
+            "compression environment variable is not numeric; checkpoint "
+            "image will not be compressed: {}={}",
+            evar, do_we_compress);
     do_we_compress = const_cast<char *>("0");
   }
 
@@ -192,8 +211,10 @@ test_use_compression(char *compressor, char *command, char *path, int def)
 
   /* Check if the executable exists. */
   if (Util::findExecutable(command, getenv("PATH"), path) == NULL) {
-    JWARNING(false) (command)
-    .Text("Command cannot be executed. Compression will not be used.");
+    WARNING(false,
+            "compression command cannot be executed; compression will not be "
+            "used: command={}",
+            command);
     return 0;
   }
 
@@ -229,8 +250,8 @@ perform_open_ckpt_image_fd(const char *tempCkptFilename,
   int flags = O_CREAT | O_TRUNC | O_WRONLY;
   int fd = _real_open(tempCkptFilename, flags, 0600);
   *fdCkptFileOnDisk = fd; /* if use_compression, fd will be reset to pipe */
-  JASSERT(fd != -1) (tempCkptFilename) (JASSERT_ERRNO)
-  .Text("Error creating file.");
+  ASSERT_ERRNO(fd != -1, "error creating checkpoint file: path={}",
+               tempCkptFilename);
 
 #ifdef FAST_RST_VIA_MMAP
   return fd;
@@ -253,7 +274,9 @@ perform_open_ckpt_image_fd(const char *tempCkptFilename,
     /* 3a. Open pipe */
     int pipe_fds[2];
     if (_real_pipe(pipe_fds) == -1) {
-      JWARNING(false).Text("Error creating pipe. Compression won't be used.");
+      WARNING_ERRNO(false,
+                    "error creating compression pipe; compression will not be "
+                    "used");
       use_gzip_compression = use_deltacompression = 0;
     }
 
@@ -266,7 +289,7 @@ perform_open_ckpt_image_fd(const char *tempCkptFilename,
         *use_compression = false;
       }
     } else {
-      JASSERT(false).Text("Not Reached!\n");
+      ASSERT(false, "unreachable compression branch");
     }
   }
 
@@ -292,8 +315,10 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
 {
   forked_rc_t fork_rc = double_fork();
   if (fork_rc == FORKED_CKPT_FAILED) {
-    JWARNING(false) (extcomp_args[0]) (JASSERT_ERRNO)
-    .Text("WARNING: error forking child process. Compression won't be used");
+    WARNING_ERRNO(false,
+                  "error forking compression child; compression will not be "
+                  "used: command={}",
+                  extcomp_args[0]);
     _real_close(pipe_fds[0]);
     _real_close(pipe_fds[1]);
     pipe_fds[0] = pipe_fds[1] = -1;
@@ -302,11 +327,13 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
   } else if (fork_rc == FORKED_CKPT_PARENT) { /* parent process */
     // Before running gzip in child process, we must not use LD_PRELOAD.
     // See revision log 342 for details concerning bash.
-    JWARNING(_real_close(pipe_fds[0]) == 0) (JASSERT_ERRNO)
-    .Text("WARNING: close failed");
+    WARNING_ERRNO(_real_close(pipe_fds[0]) == 0,
+                  "failed to close compression read pipe: fd={}",
+                  pipe_fds[0]);
     fd = pipe_fds[1];  // change return value
   } else { /* child process */
-    JASSERT(fork_rc == FORKED_CKPT_GRANDCHILD)(fork_rc);
+    ASSERT(fork_rc == FORKED_CKPT_GRANDCHILD,
+           "unexpected forked checkpoint result: result={}", fork_rc);
     // static int (*libc_unsetenv) (const char *name);
     // static int (*libc_execvp) (const char *path, char *const argv[]);
 
@@ -340,9 +367,10 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
     _real_execvp(extcomp_args[0], extcomp_args);
 
     /* should not arrive here */
-    JASSERT(false)
-    .Text("Compression failed! No checkpointing will be performed!"
-          " Cancel now!");
+    ASSERT_ERRNO(false,
+                 "compression failed; no checkpointing will be performed: "
+                 "command={}",
+                 extcomp_args[0]);
   }
 
   return fd;
@@ -353,13 +381,14 @@ CkptSerializer::createCkptDir()
 {
   string ckptDir = ProcessInfo::instance().getCkptDir();
 
-  JASSERT(!ckptDir.empty());
-  JASSERT(mkdir(ckptDir.c_str(), S_IRWXU) == 0 || errno == EEXIST)
-    (JASSERT_ERRNO) (ckptDir)
-  .Text("Error creating checkpoint directory");
+  ASSERT(!ckptDir.empty(), "checkpoint directory is empty");
+  ASSERT_ERRNO(mkdir(ckptDir.c_str(), S_IRWXU) == 0 || errno == EEXIST,
+               "error creating checkpoint directory: path={}", ckptDir);
 
-  JASSERT(0 == access(ckptDir.c_str(), X_OK | W_OK)) (ckptDir)
-  .Text("ERROR: Missing execute- or write-access to checkpoint dir");
+  ASSERT_ERRNO(0 == access(ckptDir.c_str(), X_OK | W_OK),
+               "missing execute or write access to checkpoint directory: "
+               "path={}",
+               ckptDir);
 }
 
 // Ckpt file may be gzipped, and re read it from a pipe.  We can't lseek on a
@@ -388,23 +417,29 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
 
   fd = perform_open_ckpt_image_fd(ckptFilename.c_str(), &use_compression,
                                   &fdCkptFileOnDisk);
-  JASSERT(fdCkptFileOnDisk >= 0);
-  JASSERT(use_compression || fd == fdCkptFileOnDisk);
+  ASSERT(fdCkptFileOnDisk >= 0,
+         "checkpoint file fd on disk was not initialized: fd={}",
+         fdCkptFileOnDisk);
+  ASSERT(use_compression || fd == fdCkptFileOnDisk,
+         "checkpoint fd mismatch without compression: fd={} disk_fd={}", fd,
+         fdCkptFileOnDisk);
 
   // Write ckpt header twice. It's read once by dmtcp_restart and again by
   // mtcp_restart.
-  JASSERT(Util::writeAll(fd, &ckptHdr, sizeof(ckptHdr)) == sizeof(ckptHdr));
-  JASSERT(Util::writeAll(fd, &ckptHdr, sizeof(ckptHdr)) == sizeof(ckptHdr));
+  writeCkptBytes(fd, &ckptHdr, sizeof(ckptHdr), "restart checkpoint header");
+  writeCkptBytes(fd, &ckptHdr, sizeof(ckptHdr), "mtcp checkpoint header");
 
   JTRACE("MTCP is about to write checkpoint image.")(ckptFilename);
   mtcp_writememoryareas(fd);
 
   if (use_compression) {
     /* IF OUT OF DISK SPACE, REPORT IT HERE. */
-    JASSERT(fsync(fdCkptFileOnDisk) != -1) (JASSERT_ERRNO)
-    .Text("(compression): fsync error on checkpoint file");
-    JASSERT(_real_close(fdCkptFileOnDisk) == 0) (JASSERT_ERRNO)
-    .Text("(compression): error closing checkpoint file.");
+    ASSERT_ERRNO(fsync(fdCkptFileOnDisk) != -1,
+                 "compression fsync error on checkpoint file: fd={}",
+                 fdCkptFileOnDisk);
+    ASSERT_ERRNO(_real_close(fdCkptFileOnDisk) == 0,
+                 "compression error closing checkpoint file: fd={}",
+                 fdCkptFileOnDisk);
   }
 
   if (forked_ckpt_status == FORKED_CKPT_GRANDCHILD) {
@@ -412,8 +447,11 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
      * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
      * So, gzip process can continue to write to file even after renaming.
      */
-    JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
-                   ProcessInfo::instance().getCkptFilename().c_str()) == 0);
+    ASSERT_ERRNO(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+                        ProcessInfo::instance().getCkptFilename().c_str()) == 0,
+                 "failed to rename checkpoint image: from={} to={}",
+                 ProcessInfo::instance().getTempCkptFilename(),
+                 ProcessInfo::instance().getCkptFilename());
 
     // Use _exit() instead of exit() to avoid popping atexit() handlers
     // registered by the parent process.
