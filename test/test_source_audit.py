@@ -43,6 +43,10 @@ class SourceAuditTest(unittest.TestCase):
     def test_pid_path_translation_uses_shared_numeric_parsers(self):
         self.assert_file_does_not_contain("src/plugin/pid/pid.cpp", "strtol")
 
+    def test_sshd_cli_uses_shared_numeric_parsers(self):
+        self.assert_file_does_not_contain(
+            "src/plugin/ssh/dmtcp_sshd.cpp", "atoi")
+
 
 if __name__ == "__main__":
     unittest.main()

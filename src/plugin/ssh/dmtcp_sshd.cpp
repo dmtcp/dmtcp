@@ -15,6 +15,7 @@
 #include "constants.h" // Needed for ENV_VAR_REMOTE_SHELL_CMD
 #include "util_ipc.h"
 
+using dmtcp::Util::parsePortNumber;
 using dmtcp::Util::sendFd;
 
 static pid_t childPid = -1;
@@ -124,7 +125,13 @@ int main(int argc, char *argv[], char *envp[])
       host = argv[1];
       shift; shift;
     } else if (strcmp(argv[0], "--port") == 0) {
-      port = atoi(argv[1]);
+      if (argv[1] == NULL ||
+          !parsePortNumber(argv[1], &port) ||
+          port == 0) {
+        fprintf(stderr, "invalid --port value: %s\n",
+                argv[1] == NULL ? "" : argv[1]);
+        exit(DMTCP_FAIL_RC);
+      }
       shift; shift;
     } else if (strcmp(argv[0], "--ssh-slave") == 0) {
       isRshProcess = 0;

@@ -113,6 +113,9 @@ check-launch-cli:
 check-restart-cli:
 	python3 $(srcdir)/test_dmtcp_restart_cli.py
 
+check-sshd-cli:
+	python3 $(srcdir)/test_dmtcp_sshd_cli.py
+
 check-source-audit:
 	python3 $(srcdir)/test_source_audit.py
 
