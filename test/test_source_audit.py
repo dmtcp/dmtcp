@@ -97,6 +97,32 @@ class SourceAuditTest(unittest.TestCase):
                 self.assert_file_does_not_match("src/restartscript.cpp",
                                                 pattern)
 
+    def test_cli_option_parsing_uses_starts_with_for_prefix_checks(self):
+        for relative_path in (
+            "src/dmtcp_launch.cpp",
+            "src/dmtcprestartinternal.cpp",
+        ):
+            with self.subTest(path=relative_path):
+                self.assert_file_does_not_match(
+                    relative_path,
+                    r"s\.substr\(0, [12]\) == \"-",
+                )
+
+    def test_string_prefix_checks_use_cxx20_helpers(self):
+        checks = (
+            (
+                "src/dmtcp_launch.cpp",
+                r"strncmp\(\*argv, \"-Xmx\", sizeof\(\"-Xmx\"\) - 1\) == 0",
+            ),
+            (
+                "src/plugin/file/fileconnection.cpp",
+                r"_path\.compare\(0, cwd\.length\(\), cwd\) == 0",
+            ),
+        )
+        for relative_path, pattern in checks:
+            with self.subTest(path=relative_path):
+                self.assert_file_does_not_match(relative_path, pattern)
+
     def test_coordinator_clock_gettime_uses_errno_diagnostics(self):
         self.assert_file_does_not_contain(
             "src/dmtcp_coordinator.cpp", "ASSERT_EQ(0, clock_gettime")

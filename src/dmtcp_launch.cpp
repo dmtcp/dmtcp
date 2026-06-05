@@ -468,8 +468,7 @@ processArgs(int *orig_argc, const char ***orig_argv)
       personality(ADDR_NO_RANDOMIZE);
 #endif
       shift;
-    } else if ((s.length() > 2 && s.substr(0, 2) == "--") ||
-               (s.length() > 1 && s.substr(0, 1) == "-")) {
+    } else if (s.length() > 1 && s.starts_with("-")) {
       printf("Invalid Argument\n%s", theUsage);
       exit(DMTCP_FAIL_RC);
     } else if (argc > 1 && s == "--") {
@@ -788,7 +787,7 @@ testJava(const char **argv)
   }
   if (strcmp(argv[0], "java") == 0) {
     while (*(++argv) != NULL) {
-      if (strncmp(*argv, "-Xmx", sizeof("-Xmx") - 1) == 0) {
+      if (std::string_view(*argv).starts_with("-Xmx")) {
         return 0; // The user called java with -Xmx.  No need for warning.
       }
     }

@@ -130,7 +130,7 @@ FileConnection::calculateRelativePath()
 {
   string cwd = jalib::Filesystem::GetCWD();
 
-  if (_path.compare(0, cwd.length(), cwd) == 0 &&
+  if (_path.starts_with(cwd) &&
       _path.length() > cwd.length()) {
     /* CWD = "/A/B", FileName = "/A/B/C/D" ==> relPath = "C/D" */
     _rel_path = _path.substr(cwd.length() + 1);
