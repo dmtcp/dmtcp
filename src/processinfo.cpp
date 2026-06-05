@@ -444,11 +444,16 @@ ProcessInfo::processRlimit()
 # else // if 0
   { char *rlim_cur_char = getenv("DMTCP_RLIMIT_STACK");
     if (rlim_cur_char != NULL) {
-      struct rlimit rlim;
-      getrlimit(RLIMIT_STACK, &rlim);
-      rlim.rlim_cur = atol(rlim_cur_char);
-      JTRACE("rlim_cur for RLIMIT_STACK being restored.") (rlim.rlim_cur);
-      setrlimit(RLIMIT_STACK, &rlim);
+      rlim_t parsedLimit = 0;
+      if (Util::parseInteger(rlim_cur_char, &parsedLimit)) {
+        struct rlimit rlim;
+        getrlimit(RLIMIT_STACK, &rlim);
+        rlim.rlim_cur = parsedLimit;
+        JTRACE("rlim_cur for RLIMIT_STACK being restored.") (rlim.rlim_cur);
+        setrlimit(RLIMIT_STACK, &rlim);
+      } else {
+        WARNING(false, "invalid DMTCP_RLIMIT_STACK value: {}", rlim_cur_char);
+      }
       _dmtcp_unsetenv("DMTCP_RLIMIT_STACK");
     }
   }

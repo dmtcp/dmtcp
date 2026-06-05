@@ -60,6 +60,9 @@ class SourceAuditTest(unittest.TestCase):
     def test_dmtcp_launch_java_warning_uses_shared_numeric_parsers(self):
         self.assert_file_does_not_contain("src/dmtcp_launch.cpp", "atol")
 
+    def test_processinfo_rlimit_uses_shared_numeric_parser(self):
+        self.assert_file_does_not_contain("src/processinfo.cpp", "atol")
+
     def test_coordinator_clock_gettime_uses_errno_diagnostics(self):
         self.assert_file_does_not_contain(
             "src/dmtcp_coordinator.cpp", "ASSERT_EQ(0, clock_gettime")
