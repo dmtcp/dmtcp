@@ -55,6 +55,60 @@ static ATOMIC_SHARED_GLOBAL bool exitInProgress = false;
 static bool exitAfterCkpt = 0;
 static bool dmtcp_initialized = false;
 
+enum class WorkerInitPhase {
+  Uninitialized,
+  RuntimePrimitives,
+  BootstrapThreadState,
+  PluginManagerAndProcessState,
+  RuntimeOptions,
+  PluginsAndCheckpointThread,
+  Complete,
+};
+
+// Keep constructor ordering explicit. The earliest phase assertions can run
+// before ThreadList::init(); util_assert then uses its fixed fallback buffer.
+static WorkerInitPhase workerInitPhase = WorkerInitPhase::Uninitialized;
+
+static const char *
+workerInitPhaseName(WorkerInitPhase phase)
+{
+  switch (phase) {
+  case WorkerInitPhase::Uninitialized:
+    return "Uninitialized";
+  case WorkerInitPhase::RuntimePrimitives:
+    return "RuntimePrimitives";
+  case WorkerInitPhase::BootstrapThreadState:
+    return "BootstrapThreadState";
+  case WorkerInitPhase::PluginManagerAndProcessState:
+    return "PluginManagerAndProcessState";
+  case WorkerInitPhase::RuntimeOptions:
+    return "RuntimeOptions";
+  case WorkerInitPhase::PluginsAndCheckpointThread:
+    return "PluginsAndCheckpointThread";
+  case WorkerInitPhase::Complete:
+    return "Complete";
+  }
+  return "Unknown";
+}
+
+static void
+advanceWorkerInitPhase(WorkerInitPhase expected, WorkerInitPhase next)
+{
+  ASSERT_EQ_MSG(expected, workerInitPhase,
+                "unexpected worker initialization phase while entering {} "
+                "from {}",
+                workerInitPhaseName(next),
+                workerInitPhaseName(workerInitPhase));
+  workerInitPhase = next;
+}
+
+static void
+assertWorkerInitPhase(WorkerInitPhase expected, const char *context)
+{
+  ASSERT_EQ_MSG(expected, workerInitPhase,
+                "{} requires worker initialization phase {}",
+                context, workerInitPhaseName(expected));
+}
 
 /* NOTE:  Please keep this function in sync with its copy at:
  *   dmtcp_nocheckpoint.cpp:restoreUserLDPRELOAD()
@@ -274,6 +328,9 @@ initializeRuntimeOptions()
 static void
 initializePluginsAndCheckpointThread()
 {
+  assertWorkerInitPhase(WorkerInitPhase::PluginsAndCheckpointThread,
+                        "plugin initialization");
+
   // In libdmtcp.so, notify this event for each plugin.
   PluginManager::eventHook(DMTCP_EVENT_INIT, NULL);
 
@@ -296,11 +353,28 @@ dmtcp_initialize_entry_point()
 
   dmtcp_initialized = true;
 
+  advanceWorkerInitPhase(WorkerInitPhase::Uninitialized,
+                         WorkerInitPhase::RuntimePrimitives);
   initializeRuntimePrimitives();
+
+  advanceWorkerInitPhase(WorkerInitPhase::RuntimePrimitives,
+                         WorkerInitPhase::BootstrapThreadState);
   initializeBootstrapThreadState();
+
+  advanceWorkerInitPhase(WorkerInitPhase::BootstrapThreadState,
+                         WorkerInitPhase::PluginManagerAndProcessState);
   initializePluginManagerAndProcessState();
+
+  advanceWorkerInitPhase(WorkerInitPhase::PluginManagerAndProcessState,
+                         WorkerInitPhase::RuntimeOptions);
   initializeRuntimeOptions();
+
+  advanceWorkerInitPhase(WorkerInitPhase::RuntimeOptions,
+                         WorkerInitPhase::PluginsAndCheckpointThread);
   initializePluginsAndCheckpointThread();
+
+  advanceWorkerInitPhase(WorkerInitPhase::PluginsAndCheckpointThread,
+                         WorkerInitPhase::Complete);
 }
 
 void

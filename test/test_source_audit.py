@@ -60,6 +60,18 @@ class SourceAuditTest(unittest.TestCase):
             f"old source pattern {pattern!r} remains in {relative_path}",
         )
 
+    def assert_patterns_in_order(self, text, patterns):
+        position = 0
+        for pattern in patterns:
+            match = re.search(pattern, text[position:], re.MULTILINE)
+            self.assertIsNotNone(match,
+                                 f"pattern {pattern!r} not found in order")
+            position += match.end()
+
+    def strip_comments(self, text):
+        text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+        return re.sub(r"//.*?$", "", text, flags=re.MULTILINE)
+
     def test_selected_runtime_paths_use_new_errno_diagnostics(self):
         for relative_path in ("src/writeckpt.cpp", "src/processinfo.cpp"):
             with self.subTest(path=relative_path):
@@ -205,6 +217,42 @@ class SourceAuditTest(unittest.TestCase):
             re.search(r"\b(?:ASSERT|WARNING)(?:_[A-Z0-9]+)?\s*\(", body),
             "stopthisthread is a signal handler; use signal-safe diagnostics",
         )
+
+    def test_worker_initialization_advances_explicit_phases(self):
+        body = self.extract_function_body("src/dmtcpworker.cpp",
+                                          "dmtcp_initialize_entry_point")
+        self.assert_patterns_in_order(
+            body,
+            (
+                r"advanceWorkerInitPhase\s*\(\s*WorkerInitPhase::Uninitialized\s*,\s*WorkerInitPhase::RuntimePrimitives\s*\)",
+                r"initializeRuntimePrimitives\s*\(\s*\);",
+                r"advanceWorkerInitPhase\s*\(\s*WorkerInitPhase::RuntimePrimitives\s*,\s*WorkerInitPhase::BootstrapThreadState\s*\)",
+                r"initializeBootstrapThreadState\s*\(\s*\);",
+                r"advanceWorkerInitPhase\s*\(\s*WorkerInitPhase::BootstrapThreadState\s*,\s*WorkerInitPhase::PluginManagerAndProcessState\s*\)",
+                r"initializePluginManagerAndProcessState\s*\(\s*\);",
+                r"advanceWorkerInitPhase\s*\(\s*WorkerInitPhase::PluginManagerAndProcessState\s*,\s*WorkerInitPhase::RuntimeOptions\s*\)",
+                r"initializeRuntimeOptions\s*\(\s*\);",
+                r"advanceWorkerInitPhase\s*\(\s*WorkerInitPhase::RuntimeOptions\s*,\s*WorkerInitPhase::PluginsAndCheckpointThread\s*\)",
+                r"initializePluginsAndCheckpointThread\s*\(\s*\);",
+                r"advanceWorkerInitPhase\s*\(\s*WorkerInitPhase::PluginsAndCheckpointThread\s*,\s*WorkerInitPhase::Complete\s*\)",
+            ),
+        )
+
+    def test_worker_plugin_init_contract_is_checked(self):
+        body = self.extract_function_body("src/dmtcpworker.cpp",
+                                          "initializePluginsAndCheckpointThread")
+        self.assert_patterns_in_order(
+            body,
+            (
+                r"assertWorkerInitPhase\s*\(\s*WorkerInitPhase::PluginsAndCheckpointThread",
+                r"PluginManager::eventHook\s*\(\s*DMTCP_EVENT_INIT\s*,\s*NULL\s*\)",
+                r"tzset\s*\(\s*\);",
+                r"ThreadList::createCkptThread\s*\(\s*\);",
+            ),
+        )
+        body_without_comments = self.strip_comments(body).strip()
+        self.assertRegex(body_without_comments,
+                         r"ThreadList::createCkptThread\s*\(\s*\);\s*$")
 
 
 if __name__ == "__main__":
