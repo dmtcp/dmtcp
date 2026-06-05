@@ -177,6 +177,38 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
             self.assertEqual(popen.call_args.kwargs["preexec_fn"], os.setpgrp)
 
+    def test_start_coordinator_passes_extra_args(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("exit-on-last", 1, ["./test/dmtcp1"],
+                            coordinator_args=["--exit-on-last"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            with mock.patch.object(harness_module.subprocess, "Popen") as popen, \
+                 mock.patch.object(harness_module.TestContext,
+                                   "_read_port_file",
+                                   lambda self: 12345):
+                context._start_coordinator()
+
+            self.assertIn("--exit-on-last", popen.call_args.args[0])
+
+    def test_complete_supports_kill_exit_on_last(self):
+        spec = TestSpec("exit-on-last", 1, ["./test/dmtcp1"],
+                        completion_command="--kill-exit-on-last")
+        context = TestContext(DmtcpHarness(ROOT), spec, mock.Mock())
+
+        with mock.patch.object(context,
+                               "_kill_workers_and_wait_for_coordinator_exit") \
+             as complete:
+            context._complete_test()
+
+        complete.assert_called_once_with()
+
     def test_cleanup_signals_worker_process_group(self):
         class FakeProcess:
             pid = 4321
@@ -301,6 +333,12 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                         restart_uses_directory=True)
 
         self.assertTrue(spec.restart_uses_directory)
+
+    def test_spec_records_extra_coordinator_args(self):
+        spec = TestSpec("exit-on-last", 1, ["./test/dmtcp1"],
+                        coordinator_args=["--exit-on-last"])
+
+        self.assertEqual(spec.coordinator_args, ["--exit-on-last"])
 
     def test_spec_records_machine_readable_metadata(self):
         spec = TestSpec("checkpoint-header", 1, ["./test/dmtcp1"],
@@ -481,6 +519,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "plugin-init", "popen1", "poll-disable-event-plugin", "pthread3",
             "restartdir", "pty1", "pty2", "vfork1", "vfork2", "frisbee",
             "nocheckpoint", "checkpoint-header", "gzip-invalid-env",
+            "coordinator-exit-on-last",
         ]:
             self.assertIn(name, names)
 
@@ -513,6 +552,15 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(invalid_gzip.env["DMTCP_GZIP"], "12x")
         self.assertFalse(invalid_gzip.expect_checkpoint_gzip)
         self.assertIn("cycles=1", invalid_gzip.limits)
+        exit_on_last = get_test("coordinator-exit-on-last")
+        self.assertEqual(exit_on_last.cycles, 0)
+        self.assertEqual(exit_on_last.coordinator_args, ["--exit-on-last"])
+        self.assertEqual(exit_on_last.completion_command,
+                         "--kill-exit-on-last")
+        self.assertIn("coordinator", exit_on_last.tags)
+        self.assertIn("exit-on-last", exit_on_last.tags)
+        self.assertIn("real-worker", exit_on_last.requirements)
+        self.assertIn("cycles=0", exit_on_last.limits)
 
     def test_registry_contains_configured_optional_tests(self):
         names = [test.name for test in iter_tests()]

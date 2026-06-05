@@ -106,6 +106,7 @@ class TestSpec:
     validate_checkpoint_headers: bool = False
     expect_checkpoint_gzip: Optional[bool] = None
     completion_command: str = "--kill"
+    coordinator_args: List[str] = field(default_factory=list)
     tags: List[str] = field(default_factory=list)
     requirements: List[str] = field(default_factory=list)
     limits: List[str] = field(default_factory=list)
@@ -319,17 +320,19 @@ class TestContext:
     def _start_coordinator(self):
         stdout = open(self.work.path / "coordinator.out", "w", encoding="utf-8")
         stderr = open(self.work.path / "coordinator.err", "w", encoding="utf-8")
+        coordinator_args = [
+            str(self.harness.coordinator),
+            "--quiet",
+            "--coord-port",
+            "0",
+            "--port-file",
+            str(self.work.port_file),
+            "--timeout",
+            "10800",
+            *self.spec.coordinator_args,
+        ]
         self.coordinator_proc = subprocess.Popen(
-            [
-                str(self.harness.coordinator),
-                "--quiet",
-                "--coord-port",
-                "0",
-                "--port-file",
-                str(self.work.port_file),
-                "--timeout",
-                "10800",
-            ],
+            coordinator_args,
             cwd=str(self.harness.root),
             env=self.env,
             text=True,
@@ -437,11 +440,28 @@ class TestContext:
                 ) from error
         self._wait_for_worker_exit("quit")
 
+    def _kill_workers_and_wait_for_coordinator_exit(self):
+        payload = self._run_json_command("--kill", "kill", allow_error=False)
+        if payload.get("type") != "kill" or not payload.get("ok"):
+            raise HarnessFailure("kill",
+                                 "dmtcp_command --json --kill failed")
+        self._wait_for_worker_exit("kill")
+        if self.coordinator_proc is not None:
+            try:
+                self.coordinator_proc.wait(timeout=self.spec.timeout)
+            except subprocess.TimeoutExpired as error:
+                raise HarnessFailure(
+                    "kill",
+                    "coordinator did not exit after last worker disconnected",
+                ) from error
+
     def _complete_test(self):
         if self.spec.completion_command == "--kill":
             self._kill_workers()
         elif self.spec.completion_command == "--quit":
             self._quit_workers_and_coordinator()
+        elif self.spec.completion_command == "--kill-exit-on-last":
+            self._kill_workers_and_wait_for_coordinator_exit()
         else:
             raise HarnessFailure(
                 "setup",
