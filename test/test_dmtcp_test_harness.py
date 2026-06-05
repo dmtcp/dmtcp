@@ -905,6 +905,26 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("No tests selected", result.stderr)
 
+    def test_autotest_list_rejects_unknown_test(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "test" / "autotest.py"),
+                "--list",
+                "definitely-not-a-test",
+            ],
+            cwd=str(ROOT),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=10,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("Unknown test: definitely-not-a-test", result.stderr)
+
     def test_autotest_can_retain_success_artifacts(self):
         captured = {}
         output = []

@@ -89,16 +89,16 @@ def run_with_optional_retry(harness, spec, retry_once):
 
 def main():
     args = parse_args()
-    if args.list:
-        for test in select_tests(args.tests, args.tag, args.requires):
-            print(format_list_entry(test))
-        return 0
-
     try:
         selected = select_tests(args.tests, args.tag, args.requires)
     except KeyError as error:
         print(f"Unknown test: {error.args[0]}", file=sys.stderr)
         return 2
+
+    if args.list:
+        for test in selected:
+            print(format_list_entry(test))
+        return 0
 
     if not selected:
         print("No tests selected", file=sys.stderr)
