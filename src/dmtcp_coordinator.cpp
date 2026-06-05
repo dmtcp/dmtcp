@@ -176,7 +176,7 @@ parseCoordinatorInt(const char *text, int *value, int minValue, int maxValue)
 static bool
 parseCoordinatorPort(const char *text, int *port)
 {
-  return parseCoordinatorInt(text, port, 0, 65535);
+  return text != NULL && Util::parsePortNumber(text, port);
 }
 
 CoordFlags flags;

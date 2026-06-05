@@ -54,6 +54,33 @@ void parseIntegerRejectsPartialEmptyAndOverflowText()
   ASSERT_EQ(value, 77);
 }
 
+void parsePortNumberAcceptsValidPortRange()
+{
+  using namespace std::literals;
+
+  int port = -1;
+  ASSERT_TRUE(dmtcp::Util::parsePortNumber("0"sv, &port));
+  ASSERT_EQ(port, 0);
+
+  ASSERT_TRUE(dmtcp::Util::parsePortNumber("65535"sv, &port));
+  ASSERT_EQ(port, 65535);
+}
+
+void parsePortNumberRejectsInvalidPortText()
+{
+  using namespace std::literals;
+
+  int port = 1234;
+  ASSERT_TRUE(!dmtcp::Util::parsePortNumber("-1"sv, &port));
+  ASSERT_EQ(port, 1234);
+
+  ASSERT_TRUE(!dmtcp::Util::parsePortNumber("65536"sv, &port));
+  ASSERT_EQ(port, 1234);
+
+  ASSERT_TRUE(!dmtcp::Util::parsePortNumber("12x"sv, &port));
+  ASSERT_EQ(port, 1234);
+}
+
 } // namespace
 
 extern const dmtcp_test::TestCase utilTests[] = {
@@ -65,6 +92,10 @@ extern const dmtcp_test::TestCase utilTests[] = {
    parseIntegerParsesStrictDecimalText},
   {"parseInteger rejects partial empty and overflow text",
    parseIntegerRejectsPartialEmptyAndOverflowText},
+  {"parsePortNumber accepts valid port range",
+   parsePortNumberAcceptsValidPortRange},
+  {"parsePortNumber rejects invalid port text",
+   parsePortNumberRejectsInvalidPortText},
 };
 
 extern const size_t utilTestCount = sizeof(utilTests) / sizeof(utilTests[0]);

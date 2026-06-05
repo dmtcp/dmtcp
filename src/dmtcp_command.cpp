@@ -125,16 +125,7 @@ getCoordinatorPortText()
 static bool
 parseCoordinatorPort(const char *text, int *port)
 {
-  int parsedPort = 0;
-  if (text == NULL ||
-      !Util::parseInteger(text, &parsedPort) ||
-      parsedPort < 0 ||
-      parsedPort > 65535) {
-    return false;
-  }
-
-  *port = parsedPort;
-  return true;
+  return text != NULL && Util::parsePortNumber(text, port);
 }
 
 static bool

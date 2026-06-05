@@ -148,6 +148,19 @@ inline bool parseInteger(std::string_view text, Integer *value, int base = 10)
   return true;
 }
 
+inline bool parsePortNumber(std::string_view text, int *port)
+{
+  int parsedPort = 0;
+  if (!parseInteger(text, &parsedPort) ||
+      parsedPort < 0 ||
+      parsedPort > 65535) {
+    return false;
+  }
+
+  *port = parsedPort;
+  return true;
+}
+
 bool readBooleanEnv(const char *envName, bool defaultValue);
 
 bool isNscdArea(const ProcMapsArea &area);
