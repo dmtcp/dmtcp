@@ -394,8 +394,8 @@ prepareForExec(DmtcpEventData_t *data)
   size_t commandStart = 2;
   for (size_t i = 1; i < nargs; ++i) {
     string s = argv[i];
-    if (strcmp(argv[i], "-o") == 0) {
-      if (strcmp(argv[i + 1], "StrictHostKeyChecking=no") == 0) {
+    if (Util::strEquals(argv[i], "-o")) {
+      if (Util::strEquals(argv[i + 1], "StrictHostKeyChecking=no")) {
         noStrictChecking = true;
       }
       i++;

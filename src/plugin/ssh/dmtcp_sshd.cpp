@@ -17,6 +17,7 @@
 
 using dmtcp::Util::parsePortNumber;
 using dmtcp::Util::sendFd;
+using dmtcp::Util::strEquals;
 
 static pid_t childPid = -1;
 static int remotePeerSock = -1;
@@ -116,15 +117,15 @@ int main(int argc, char *argv[], char *envp[])
 
   shift;
   while (true) {
-    if (strcmp(argv[0], "--listenAddr") == 0) {
+    if (strEquals(argv[0], "--listenAddr")) {
       dummySshdProcess(argv[1]);
       printf("ERROR: Not Implemented\n");
       assert(0);
       shift; shift;
-    } else if (strcmp(argv[0], "--host") == 0) {
+    } else if (strEquals(argv[0], "--host")) {
       host = argv[1];
       shift; shift;
-    } else if (strcmp(argv[0], "--port") == 0) {
+    } else if (strEquals(argv[0], "--port")) {
       if (argv[1] == NULL ||
           !parsePortNumber(argv[1], &port) ||
           port == 0) {
@@ -133,10 +134,10 @@ int main(int argc, char *argv[], char *envp[])
         exit(DMTCP_FAIL_RC);
       }
       shift; shift;
-    } else if (strcmp(argv[0], "--ssh-slave") == 0) {
+    } else if (strEquals(argv[0], "--ssh-slave")) {
       isRshProcess = 0;
       shift;
-    } else if (strcmp(argv[0], "--rsh-slave") == 0) {
+    } else if (strEquals(argv[0], "--rsh-slave")) {
       isRshProcess = 1;
       shift;
     } else {

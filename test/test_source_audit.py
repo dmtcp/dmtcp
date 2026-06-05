@@ -293,6 +293,10 @@ class SourceAuditTest(unittest.TestCase):
             ("src/dmtcp_launch.cpp", r"strcmp\(filename, \"matlab\"\) == 0"),
             ("src/dmtcp_launch.cpp", r"strcmp\(argv\[0\], \"java\"\) == 0"),
             ("src/dmtcp_launch.cpp", r"strcmp\(filename, \"screen\"\) != 0"),
+            ("src/plugin/ssh/dmtcp_ssh.cpp", r"strcmp\(argv\[0\],"),
+            ("src/plugin/ssh/dmtcp_sshd.cpp", r"strcmp\(argv\[0\],"),
+            ("src/plugin/ssh/ssh.cpp", r"strcmp\(argv\[i\],"),
+            ("src/plugin/ssh/ssh.cpp", r"strcmp\(argv\[i \+ 1\],"),
         )
         for relative_path, pattern in checks:
             with self.subTest(path=relative_path, pattern=pattern):
