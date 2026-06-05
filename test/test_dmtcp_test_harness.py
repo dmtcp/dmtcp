@@ -16,6 +16,7 @@ import autotest_config
 import dmtcp_test_harness as harness_module
 from dmtcp_test_cases import get_test, iter_tests
 from dmtcp_test_harness import (
+    DMTCP_CKPT_HEADER_PADDING_OFFSET,
     DmtcpHarness,
     DmtcpStatus,
     HarnessFailure,
@@ -364,6 +365,22 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
             self.assertEqual(caught.exception.phase, "checkpoint-header")
             self.assertIn("bootstrap records differ", caught.exception.message)
+
+    def test_validate_checkpoint_bootstrap_headers_rejects_reserved_padding(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = pathlib.Path(tmp) / "ckpt.dmtcp"
+            header = bytearray(4096)
+            signature = b"DMTCP_CHECKPOINT_IMAGE_v5.0\n\0"
+            header[:len(signature)] = signature
+            struct.pack_into("=IIII", header, 32, 4096, 1, 8, 0x01020304)
+            header[DMTCP_CKPT_HEADER_PADDING_OFFSET] = 1
+            image.write_bytes(bytes(header) + bytes(header) + b"payload")
+
+            with self.assertRaises(HarnessFailure) as caught:
+                validate_checkpoint_bootstrap_headers(image)
+
+            self.assertEqual(caught.exception.phase, "checkpoint-header")
+            self.assertIn("reserved padding", caught.exception.message)
 
     def test_kcheckpoint_accepts_not_running_after_kill(self):
         spec = TestSpec("syscall-tester", 1, ["./test/syscall-tester"],

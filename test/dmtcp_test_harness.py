@@ -21,6 +21,9 @@ DMTCP_CKPT_HEADER_SIZE = 4096
 DMTCP_CKPT_SIGNATURE = b"DMTCP_CHECKPOINT_IMAGE_v5.0\n\0"
 DMTCP_CKPT_HEADER_FORMAT_VERSION = 1
 DMTCP_CKPT_ENDIAN_MARKER = 0x01020304
+# Must match DmtcpCkptHeader::padding in include/dmtcp.h.
+DMTCP_CKPT_HEADER_PADDING_OFFSET = 2320
+DMTCP_CKPT_HEADER_PADDING_SIZE = 1776
 DMTCP_COMMAND_JSON_SCHEMA_VERSION = 1
 
 
@@ -176,6 +179,15 @@ def validate_checkpoint_bootstrap_headers(path: pathlib.Path):
         raise HarnessFailure(
             "checkpoint-header",
             f"{path} endian_marker=0x{endian_marker:x}",
+        )
+    padding = first[
+        DMTCP_CKPT_HEADER_PADDING_OFFSET:
+        DMTCP_CKPT_HEADER_PADDING_OFFSET + DMTCP_CKPT_HEADER_PADDING_SIZE
+    ]
+    if any(padding):
+        raise HarnessFailure(
+            "checkpoint-header",
+            f"{path} has non-zero reserved padding",
         )
 
 
