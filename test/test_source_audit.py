@@ -88,6 +88,23 @@ class SourceAuditTest(unittest.TestCase):
     def test_virtual_pid_env_uses_shared_numeric_parser(self):
         self.assert_file_does_not_contain("src/util_exec.cpp", "sscanf")
 
+    def test_util_assert_avoids_allocation_heavy_formatting(self):
+        for relative_path in ("src/util_assert.h", "src/util_assert.cpp"):
+            for forbidden in (
+                "<format>",
+                "<iostream>",
+                "<sstream>",
+                "std::format",
+                "std::ostringstream",
+                "std::stringstream",
+                "new ",
+                "malloc(",
+                "free(",
+            ):
+                with self.subTest(path=relative_path, token=forbidden):
+                    self.assert_file_does_not_contain(relative_path,
+                                                      forbidden)
+
 
 if __name__ == "__main__":
     unittest.main()
