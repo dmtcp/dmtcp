@@ -122,15 +122,22 @@ TESTS = [
              ["./test/vfork1 'while true; do date; sleep 1; done'"]),
     TestSpec("frisbee", 3, _frisbee_commands(),
              env={"DMTCP_GZIP": "1"}, post_launch_delay=2.0),
-    TestSpec("nocheckpoint", [1, 2], ["./test/nocheckpoint"], cycles=1),
+    TestSpec("nocheckpoint", [1, 2], ["./test/nocheckpoint"], cycles=1,
+             limits=["cycles=1"]),
     TestSpec("checkpoint-header", 1, ["./test/dmtcp1"], cycles=1,
              env={"DMTCP_GZIP": "0"},
              validate_checkpoint_headers=True,
-             expect_checkpoint_gzip=False),
+             expect_checkpoint_gzip=False,
+             tags=["checkpoint-header"],
+             requirements=["plain-checkpoint-image"],
+             limits=["cycles=1"]),
     TestSpec("gzip-invalid-env", 1, ["./test/dmtcp1"], cycles=1,
              env={"DMTCP_GZIP": "12x"},
              validate_checkpoint_headers=True,
-             expect_checkpoint_gzip=False),
+             expect_checkpoint_gzip=False,
+             tags=["checkpoint-header", "gzip"],
+             requirements=["invalid-gzip-env"],
+             limits=["cycles=1"]),
 ]
 
 if _config_yes("HAS_EPOLL_CREATE1"):
@@ -167,7 +174,9 @@ if not _use_m32():
     TESTS.append(TestSpec("gzip", 1, ["./test/dmtcp1"],
                           env={"DMTCP_GZIP": "1"},
                           validate_checkpoint_headers=True,
-                          expect_checkpoint_gzip=_launcher_allows_gzip()))
+                          expect_checkpoint_gzip=_launcher_allows_gzip(),
+                          tags=["checkpoint-header", "gzip"],
+                          requirements=["gzip-launcher"]))
     TESTS.append(TestSpec("perl", 1, ["/usr/bin/perl"],
                           post_launch_delay=2.0))
     if _config_yes("HAS_PYTHON") or _config_yes("HAS_PYTHON3"):

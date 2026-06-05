@@ -24,6 +24,25 @@ def report(message):
     print(message, flush=True)
 
 
+def _format_csv(values):
+    return ",".join(str(value) for value in values)
+
+
+def format_list_entry(spec):
+    fields = [
+        spec.name,
+        f"peers={_format_csv(spec.peer_counts())}",
+        f"cycles={spec.cycles}",
+    ]
+    if spec.tags:
+        fields.append(f"tags={_format_csv(spec.tags)}")
+    if spec.requirements:
+        fields.append(f"requires={_format_csv(spec.requirements)}")
+    if spec.limits:
+        fields.append(f"limits={_format_csv(spec.limits)}")
+    return "\t".join(fields)
+
+
 def run_with_optional_retry(harness, spec, retry_once):
     result = harness.run(spec)
     if result.passed or not retry_once:
@@ -43,7 +62,7 @@ def main():
     args = parse_args()
     if args.list:
         for test in iter_tests():
-            print(test.name)
+            print(format_list_entry(test))
         return 0
 
     try:

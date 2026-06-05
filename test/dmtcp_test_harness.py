@@ -106,6 +106,9 @@ class TestSpec:
     validate_checkpoint_headers: bool = False
     expect_checkpoint_gzip: Optional[bool] = None
     completion_command: str = "--kill"
+    tags: List[str] = field(default_factory=list)
+    requirements: List[str] = field(default_factory=list)
+    limits: List[str] = field(default_factory=list)
 
     def peer_counts(self) -> List[int]:
         if isinstance(self.peers, int):
