@@ -14,7 +14,7 @@ from unittest import mock
 
 import autotest_config
 import dmtcp_test_harness as harness_module
-from autotest import format_list_entry
+from autotest import filter_tests_by_metadata, format_list_entry
 from dmtcp_test_cases import get_test, iter_tests
 from dmtcp_test_harness import (
     DMTCP_CKPT_HEADER_PADDING_OFFSET,
@@ -324,6 +324,25 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "tags=checkpoint-header\trequires=plain-checkpoint-image\t"
             "limits=cycles=1",
         )
+
+    def test_autotest_filters_tests_by_metadata(self):
+        tests = [
+            TestSpec("plain", 1, ["./test/dmtcp1"]),
+            TestSpec("header", 1, ["./test/dmtcp1"],
+                     tags=["checkpoint-header"],
+                     requirements=["plain-checkpoint-image"]),
+            TestSpec("gzip", 1, ["./test/dmtcp1"],
+                     tags=["checkpoint-header", "gzip"],
+                     requirements=["gzip-launcher"]),
+        ]
+
+        selected = filter_tests_by_metadata(
+            tests,
+            tags=["checkpoint-header"],
+            requirements=["gzip-launcher"],
+        )
+
+        self.assertEqual([spec.name for spec in selected], ["gzip"])
 
     def test_spec_records_checkpoint_header_validation(self):
         spec = TestSpec("checkpoint-header", 1, ["./test/dmtcp1"],

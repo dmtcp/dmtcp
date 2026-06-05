@@ -15,6 +15,10 @@ def parse_args():
                         help="list tests known to the new harness")
     parser.add_argument("--retry-once", action="store_true",
                         help="retry a failing test once before reporting it")
+    parser.add_argument("--tag", action="append", default=[],
+                        help="run or list tests with this metadata tag")
+    parser.add_argument("--requires", action="append", default=[],
+                        help="run or list tests with this requirement marker")
     parser.add_argument("tests", nargs="*", metavar="TESTNAME",
                         help="test names to run")
     return parser.parse_args()
@@ -43,6 +47,28 @@ def format_list_entry(spec):
     return "\t".join(fields)
 
 
+def _has_all(values, required):
+    return all(value in values for value in required)
+
+
+def filter_tests_by_metadata(tests, tags=None, requirements=None):
+    tags = tags or []
+    requirements = requirements or []
+    return [
+        test for test in tests
+        if _has_all(test.tags, tags) and
+           _has_all(test.requirements, requirements)
+    ]
+
+
+def select_tests(names=None, tags=None, requirements=None):
+    if names:
+        tests = [get_test(name) for name in names]
+    else:
+        tests = list(iter_tests())
+    return filter_tests_by_metadata(tests, tags, requirements)
+
+
 def run_with_optional_retry(harness, spec, retry_once):
     result = harness.run(spec)
     if result.passed or not retry_once:
@@ -61,15 +87,12 @@ def run_with_optional_retry(harness, spec, retry_once):
 def main():
     args = parse_args()
     if args.list:
-        for test in iter_tests():
+        for test in select_tests(args.tests, args.tag, args.requires):
             print(format_list_entry(test))
         return 0
 
     try:
-        if args.tests:
-            selected = [get_test(name) for name in args.tests]
-        else:
-            selected = list(iter_tests())
+        selected = select_tests(args.tests, args.tag, args.requires)
     except KeyError as error:
         print(f"Unknown test: {error.args[0]}", file=sys.stderr)
         return 2
