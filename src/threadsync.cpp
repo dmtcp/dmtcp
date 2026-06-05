@@ -111,7 +111,7 @@ ThreadSync::resetLocks(bool resetPresuspendEventHookLock)
 {
   DmtcpRWLockInit(&_wrapperExecutionLock);
   Thread *thread = dmtcp_get_current_thread();
-  thread->core.wrapperLockCount = 0;
+  ThreadCoreInfo_ResetWrapperLockCount(&thread->core);
 
   DmtcpMutexInit(&libdlLock, DMTCP_MUTEX_NORMAL);
 
@@ -176,7 +176,7 @@ ThreadSync::wrapperExecutionLockLock()
 
   Thread *thread = dmtcp_get_current_thread();
 
-  if (thread->core.wrapperLockCount == 0) {
+  if (ThreadCoreInfo_GetWrapperLockCount(&thread->core) == 0) {
     // If we don't have a lock, acquire it now.
     if (DmtcpRWLockRdLock(&_wrapperExecutionLock) != 0) {
       fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
@@ -184,7 +184,7 @@ ThreadSync::wrapperExecutionLockLock()
       _exit(DMTCP_FAIL_RC);
     }
   }
-  thread->core.wrapperLockCount++;
+  ThreadCoreInfo_IncrementWrapperLockCount(&thread->core);
 
   errno = saved_errno;
 }
@@ -194,9 +194,9 @@ ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
 {
   ASSERT(thread != nullptr,
          "wrapperExecutionLockLockForNewThread requires a thread");
-  ASSERT(thread->core.wrapperLockCount == 0,
+  ASSERT(ThreadCoreInfo_GetWrapperLockCount(&thread->core) == 0,
          "new thread wrapper lock count must start at zero: count={}",
-         thread->core.wrapperLockCount);
+         ThreadCoreInfo_GetWrapperLockCount(&thread->core));
 
   if (DmtcpRWLockRdLockIgnoreQueuedWriter(&_wrapperExecutionLock) != 0) {
     fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
@@ -204,7 +204,7 @@ ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
     _exit(DMTCP_FAIL_RC);
   }
 
-  thread->core.wrapperLockCount++;
+  ThreadCoreInfo_IncrementWrapperLockCount(&thread->core);
 }
 
 void
@@ -212,9 +212,9 @@ ThreadSync::wrapperExecutionLockUnlockForNewThread(Thread *thread)
 {
   ASSERT(thread != nullptr,
          "wrapperExecutionLockUnlockForNewThread requires a thread");
-  ASSERT(thread->core.wrapperLockCount == 1,
+  ASSERT(ThreadCoreInfo_GetWrapperLockCount(&thread->core) == 1,
          "new thread wrapper lock count must be one before unlock: count={}",
-         thread->core.wrapperLockCount);
+         ThreadCoreInfo_GetWrapperLockCount(&thread->core));
 
   if (DmtcpRWLockUnlock(&_wrapperExecutionLock) != 0) {
     fprintf(stderr, "ERROR %d at %s:%d %s: Failed to release lock\n",
@@ -222,7 +222,7 @@ ThreadSync::wrapperExecutionLockUnlockForNewThread(Thread *thread)
     _exit(DMTCP_FAIL_RC);
   }
 
-  thread->core.wrapperLockCount = 0;
+  ThreadCoreInfo_ResetWrapperLockCount(&thread->core);
 }
 
 /*
@@ -278,7 +278,7 @@ ThreadSync::wrapperExecutionLockLockExcl()
             __FILE__, __LINE__, __PRETTY_FUNCTION__);
     _exit(DMTCP_FAIL_RC);
   }
-  thread->core.wrapperLockCount++;
+  ThreadCoreInfo_IncrementWrapperLockCount(&thread->core);
   errno = saved_errno;
 }
 
@@ -297,12 +297,12 @@ ThreadSync::wrapperExecutionLockUnlock()
 
   Thread *thread = dmtcp_get_current_thread();
 
-  ASSERT(thread->core.wrapperLockCount != 0,
+  ASSERT(ThreadCoreInfo_GetWrapperLockCount(&thread->core) != 0,
          "wrapper execution lock count underflow: count={}",
-         thread->core.wrapperLockCount);
-  thread->core.wrapperLockCount -= 1;
+         ThreadCoreInfo_GetWrapperLockCount(&thread->core));
+  ThreadCoreInfo_DecrementWrapperLockCount(&thread->core);
 
-  if (thread->core.wrapperLockCount == 0 &&
+  if (ThreadCoreInfo_GetWrapperLockCount(&thread->core) == 0 &&
       DmtcpRWLockUnlock(&_wrapperExecutionLock) != 0) {
     fprintf(stderr, "ERROR %s:%d %s: Failed to release lock.\n",
             __FILE__, __LINE__, __PRETTY_FUNCTION__);

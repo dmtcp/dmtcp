@@ -55,9 +55,9 @@ static void
 processChildThread(Thread *thread)
 {
   dmtcp_init_virtual_tid();
-  ASSERT(thread->core.wrapperLockCount != 0,
+  ASSERT(ThreadCoreInfo_GetWrapperLockCount(&thread->core) != 0,
          "child thread wrapper lock must be held: tid={} count={}",
-         thread->tid, thread->core.wrapperLockCount);
+         thread->tid, ThreadCoreInfo_GetWrapperLockCount(&thread->core));
 
   ThreadList::initThread(thread);
   // Unblock ckpt signal (unblocking a non-blocked signal has no effect).
@@ -114,9 +114,10 @@ pthread_create(pthread_t *pth,
 
   Thread *newThread = ThreadList::getNewThread(start_routine, arg);
   ThreadSync::wrapperExecutionLockLockForNewThread(newThread);
-  ASSERT(newThread->core.wrapperLockCount != 0,
+  ASSERT(ThreadCoreInfo_GetWrapperLockCount(&newThread->core) != 0,
          "new thread wrapper lock must be held: tid={} count={}",
-         newThread->tid, newThread->core.wrapperLockCount);
+         newThread->tid,
+         ThreadCoreInfo_GetWrapperLockCount(&newThread->core));
 
   ASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING),
          "failed to mark thread creation in progress: tid={} from={} to={}",

@@ -90,6 +90,30 @@ ThreadCoreInfo_GetAssertBuffer(ThreadCoreInfo *core, size_t *size)
   return core->assertBuffer;
 }
 
+inline uint32_t
+ThreadCoreInfo_GetWrapperLockCount(const ThreadCoreInfo *core)
+{
+  return core->wrapperLockCount;
+}
+
+inline void
+ThreadCoreInfo_ResetWrapperLockCount(ThreadCoreInfo *core)
+{
+  core->wrapperLockCount = 0;
+}
+
+inline uint32_t
+ThreadCoreInfo_IncrementWrapperLockCount(ThreadCoreInfo *core)
+{
+  return ++core->wrapperLockCount;
+}
+
+inline uint32_t
+ThreadCoreInfo_DecrementWrapperLockCount(ThreadCoreInfo *core)
+{
+  return --core->wrapperLockCount;
+}
+
 struct Thread {
   pid_t tid;
   int state;

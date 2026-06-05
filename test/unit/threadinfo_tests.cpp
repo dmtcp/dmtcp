@@ -37,6 +37,18 @@ void threadCoreInfoBufferHelperReturnsCoreBuffer()
   ASSERT_EQ(size, dmtcp::kAssertBufferSize);
 }
 
+void threadCoreInfoTracksWrapperLockCount()
+{
+  ThreadCoreInfo core = {};
+  ThreadCoreInfo_Init(&core);
+
+  ASSERT_EQ(ThreadCoreInfo_GetWrapperLockCount(&core), 0u);
+  ASSERT_EQ(ThreadCoreInfo_IncrementWrapperLockCount(&core), 1u);
+  ASSERT_EQ(ThreadCoreInfo_IncrementWrapperLockCount(&core), 2u);
+  ASSERT_EQ(ThreadCoreInfo_DecrementWrapperLockCount(&core), 1u);
+  ASSERT_EQ(ThreadCoreInfo_DecrementWrapperLockCount(&core), 0u);
+}
+
 void threadAssertBufferHelperReturnsCoreBuffer()
 {
   Thread thread = {};
@@ -63,6 +75,8 @@ extern const dmtcp_test::TestCase threadInfoTests[] = {
    threadCoreInfoInitResetsDiagnosticState},
   {"ThreadCoreInfo buffer helper returns core buffer",
    threadCoreInfoBufferHelperReturnsCoreBuffer},
+  {"ThreadCoreInfo tracks wrapper lock count",
+   threadCoreInfoTracksWrapperLockCount},
   {"Thread assert buffer helper returns core buffer",
    threadAssertBufferHelperReturnsCoreBuffer},
   {"Thread assert buffer helper handles null thread",
