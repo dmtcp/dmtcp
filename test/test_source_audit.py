@@ -72,6 +72,57 @@ class SourceAuditTest(unittest.TestCase):
         text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
         return re.sub(r"//.*?$", "", text, flags=re.MULTILINE)
 
+    def old_jalib_diagnostic_files(self):
+        diagnostic_pattern = re.compile(
+            r"\bJ(?:ASSERT|WARNING|TRACE|NOTE)\b|"
+            r"\bJASSERT_(?:STDERR|SET_LOG|CLOSE_STDERR|ERRNO)\b"
+        )
+        source_suffixes = {".c", ".cc", ".cpp", ".h", ".hpp"}
+        files = []
+        for root_name in ("include", "src"):
+            for path in (ROOT / root_name).rglob("*"):
+                if path.suffix not in source_suffixes:
+                    continue
+                relative_path = path.relative_to(ROOT).as_posix()
+                text = path.read_text(encoding="utf-8")
+                if diagnostic_pattern.search(text):
+                    files.append(relative_path)
+        return sorted(files)
+
+    def read_diagnostic_migration_allowlist(self):
+        path = ROOT / "test" / "diagnostic_migration_allowlist.txt"
+        self.assertTrue(path.exists(),
+                        "diagnostic migration allowlist is missing")
+
+        allowed_categories = {
+            "coordinator",
+            "core-runtime",
+            "launcher",
+            "plugin",
+            "restart",
+            "utility",
+        }
+        allowed_files = set()
+        for line_number, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), start=1):
+            line = line.strip()
+            if line == "" or line.startswith("#"):
+                continue
+            fields = line.split("|", 2)
+            self.assertEqual(len(fields), 3,
+                             f"{path}:{line_number} must use "
+                             "category|path|note")
+            category, relative_path, note = (field.strip()
+                                             for field in fields)
+            self.assertIn(category, allowed_categories,
+                          f"{path}:{line_number} has unknown category")
+            self.assertTrue(relative_path.startswith(("include/", "src/")),
+                            f"{path}:{line_number} has non-source path")
+            self.assertNotEqual(note, "",
+                                f"{path}:{line_number} needs a note")
+            allowed_files.add(relative_path)
+        return sorted(allowed_files)
+
     def test_selected_runtime_paths_use_new_errno_diagnostics(self):
         for relative_path in ("src/writeckpt.cpp", "src/processinfo.cpp"):
             with self.subTest(path=relative_path):
@@ -217,6 +268,10 @@ class SourceAuditTest(unittest.TestCase):
             re.search(r"\b(?:ASSERT|WARNING)(?:_[A-Z0-9]+)?\s*\(", body),
             "stopthisthread is a signal handler; use signal-safe diagnostics",
         )
+
+    def test_old_jalib_diagnostic_usage_is_tracked(self):
+        self.assertEqual(self.old_jalib_diagnostic_files(),
+                         self.read_diagnostic_migration_allowlist())
 
     def test_worker_initialization_advances_explicit_phases(self):
         body = self.extract_function_body("src/dmtcpworker.cpp",

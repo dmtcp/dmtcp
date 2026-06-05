@@ -1,0 +1,64 @@
+# Files that still contain jalib JASSERT/JWARNING/JTRACE/JNOTE diagnostics.
+# Keep this file sorted by path. Adding a new old-style diagnostic in an
+# unlisted file should fail source-audit so the migration choice is deliberate.
+#
+# Format:
+# category|path|note
+utility|include/virtualidtable.h|virtual ID tracing still uses old stream-style diagnostics
+core-runtime|src/alarm.cpp|timer/alarm wrapper tracing pending subsystem migration
+core-runtime|src/ckptserializer.cpp|checkpoint serializer tracing pending fragile-context audit
+core-runtime|src/coordinatorapi.cpp|worker/coordinator protocol tracing pending subsystem migration
+coordinator|src/coordinatorplugin.h|coordinator timer plugin diagnostics pending coordinator migration
+coordinator|src/dmtcp_coordinator.cpp|coordinator diagnostics pending separate non-preload migration
+core-runtime|src/dmtcp_dlsym.cpp|dynamic linker diagnostics pending wrapper-reentry audit
+core-runtime|src/dmtcp_dlsym_wrappers.cpp|dynamic linker wrapper tracing pending wrapper-reentry audit
+launcher|src/dmtcp_launch.cpp|launcher user-facing stderr diagnostics pending launcher migration
+launcher|src/dmtcp_nocheckpoint.c|nocheckpoint C helper still uses old diagnostics
+utility|src/dmtcpmessagetypes.cpp|message validation diagnostics pending protocol migration
+core-runtime|src/dmtcpplugin.cpp|plugin event/barrier tracing pending plugin-manager migration
+restart|src/dmtcprestartinternal.cpp|restart orchestration diagnostics pending restart-path audit
+core-runtime|src/dmtcpworker.cpp|worker lifecycle tracing pending runtime migration
+core-runtime|src/execwrappers.cpp|exec/fork wrapper tracing pending wrapper migration
+utility|src/lookup_service.cpp|lookup service diagnostics pending coordinator utility migration
+core-runtime|src/miscwrappers.cpp|misc wrapper tracing pending wrapper migration
+plugin|src/plugin/connectionlist.cpp|connection-list tracing pending plugin migration
+plugin|src/plugin/event/eventconnection.cpp|event plugin tracing pending plugin migration
+plugin|src/plugin/event/eventconnection.h|event plugin inline diagnostics pending plugin migration
+plugin|src/plugin/event/eventwrappers.cpp|event wrapper tracing pending plugin migration
+plugin|src/plugin/event/util_descriptor.cpp|event descriptor diagnostics pending plugin migration
+plugin|src/plugin/file/fileconnection.cpp|file plugin tracing pending plugin migration
+plugin|src/plugin/file/fileconnection.h|file connection inline tracing pending plugin migration
+plugin|src/plugin/file/fileconnlist.cpp|file connection-list tracing pending plugin migration
+plugin|src/plugin/file/ptyconnection.cpp|pty connection tracing pending plugin migration
+plugin|src/plugin/file/ptyconnlist.cpp|pty connection-list tracing pending plugin migration
+plugin|src/plugin/pid/pid.cpp|pid plugin tracing pending plugin migration
+plugin|src/plugin/pid/pidwrappers.cpp|pid wrapper tracing pending plugin migration
+plugin|src/plugin/socket/connectionrewirer.cpp|socket rewire tracing pending plugin migration
+plugin|src/plugin/socket/kernelbufferdrainer.cpp|socket buffer diagnostics pending plugin migration
+plugin|src/plugin/socket/socketconnection.cpp|socket connection tracing pending plugin migration
+plugin|src/plugin/socket/socketconnlist.cpp|socket connection-list tracing pending plugin migration
+plugin|src/plugin/socket/socketwrappers.cpp|socket wrapper tracing pending plugin migration
+plugin|src/plugin/ssh/ssh.cpp|ssh plugin diagnostics pending plugin migration
+plugin|src/plugin/ssh/sshdrainer.cpp|ssh drainer diagnostics pending plugin migration
+plugin|src/plugin/svipc/sysvipc.cpp|sysvipc plugin tracing pending plugin migration
+plugin|src/plugin/svipc/sysvipcwrappers.cpp|sysvipc wrapper tracing pending plugin migration
+plugin|src/plugin/timer/timerlist.cpp|timer list diagnostics pending plugin migration
+plugin|src/plugin/timer/timerwrappers.cpp|timer wrapper tracing pending plugin migration
+core-runtime|src/posix_spawn.cpp|posix_spawn helper tracing pending wrapper migration
+core-runtime|src/processinfo.cpp|process metadata tracing pending runtime migration
+core-runtime|src/procselfmaps.cpp|proc maps tracing pending checkpoint-path migration
+restart|src/restartscript.cpp|restart script diagnostics pending restart utility migration
+core-runtime|src/rlimitfloatenv.cpp|rlimit helper tracing pending runtime migration
+core-runtime|src/shareddata.cpp|shared data tracing pending runtime migration
+core-runtime|src/siginfo.cpp|signal metadata tracing pending signal-path migration
+core-runtime|src/syslogwrappers.cpp|syslog wrapper tracing pending wrapper migration
+core-runtime|src/terminal.cpp|terminal runtime diagnostics pending runtime migration
+core-runtime|src/threadlist.cpp|thread lifecycle tracing pending restart/signal migration
+core-runtime|src/threadsync.cpp|thread synchronization tracing pending runtime migration
+core-runtime|src/threadwrappers.cpp|thread wrapper tracing pending wrapper migration
+core-runtime|src/tls.cpp|TLS diagnostics pending TLS/restart migration
+core-runtime|src/uniquepid.cpp|unique pid tracing pending runtime migration
+core-runtime|src/util_exec.cpp|exec utility tracing pending runtime migration
+utility|src/util_init.cpp|initialization helper diagnostics pending utility migration
+core-runtime|src/wrappers.cpp|core wrapper tracing pending wrapper migration
+core-runtime|src/writeckpt.cpp|checkpoint writer tracing pending fragile-context audit
