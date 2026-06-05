@@ -78,7 +78,7 @@ def run_with_optional_retry(harness, spec, retry_once):
         return result
 
     report(f"{spec.name}: retrying after phase={result.phase} "
-           f"msg={result.message}")
+           f"msg={result.message} artifacts={result.artifact_dir}")
     retry_result = harness.run(spec)
     if not retry_result.passed:
         return retry_result

@@ -961,6 +961,36 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertTrue(captured["retain_success_artifacts"])
         self.assertIn(f"{spec.name}: artifacts={artifact_dir}", output)
 
+    def test_retry_once_reports_failed_attempt_artifacts(self):
+        spec = TestSpec("retry-artifacts", 1, ["./test/dmtcp1"])
+        failure_dir = pathlib.Path("/tmp/dmtcp-retry-artifacts")
+
+        class FakeHarness:
+            def __init__(self):
+                self.calls = 0
+
+            def run(self, selected_spec):
+                self.calls += 1
+                if self.calls == 1:
+                    return TestResult.fail(selected_spec.name, "checkpoint",
+                                           "checkpoint failed", failure_dir)
+                return TestResult.pass_(selected_spec.name)
+
+        output = []
+        harness = FakeHarness()
+        with mock.patch.object(autotest_module, "report", output.append):
+            result = autotest_module.run_with_optional_retry(
+                harness, spec, retry_once=True)
+
+        self.assertTrue(result.passed)
+        self.assertEqual(harness.calls, 2)
+        self.assertIn(
+            f"{spec.name}: retrying after phase=checkpoint "
+            f"msg=checkpoint failed artifacts={failure_dir}",
+            output,
+        )
+        self.assertIn(f"{spec.name}: PASSED on retry", output)
+
     def test_spec_records_checkpoint_header_validation(self):
         spec = TestSpec("checkpoint-header", 1, ["./test/dmtcp1"],
                         validate_checkpoint_headers=True)
