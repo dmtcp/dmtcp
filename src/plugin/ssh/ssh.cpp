@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include <limits.h> // for HOST_NAME_MAX
 #include <netinet/in.h>
+#include <string_view>
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/un.h>
@@ -624,7 +625,7 @@ updateCoordHost()
         ASSERT(sizeof localhostIPAddr == sizeof s->sin_addr,
                "unexpected localhost IP addr size: local={} sockaddr={}",
                sizeof localhostIPAddr, sizeof s->sin_addr);
-        if ( strncmp( name, hostname, sizeof hostname ) == 0 ) {
+        if (std::string_view(name) == std::string_view(hostname)) {
           success = true;
           memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
           break; // Stop here.  We found a matching hostname.
@@ -640,7 +641,7 @@ updateCoordHost()
     }
     if (at_least_one_match) {
       success = true;  // Call it a success even if hostname != name
-      if ( strncmp( name, hostname, sizeof hostname ) != 0 ) {
+      if (std::string_view(name) != std::string_view(hostname)) {
         JTRACE("Canonical hostname different from original hostname")
               (name)(hostname);
       }

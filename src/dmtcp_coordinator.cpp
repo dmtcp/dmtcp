@@ -64,6 +64,7 @@
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string_view>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -1514,7 +1515,7 @@ calcLocalAddr()
         continue;
       } else {
         ASSERT_EQ(sizeof localhostIPAddr, sizeof s->sin_addr);
-        if ( strncmp( name, hostname, sizeof hostname ) == 0 ) {
+        if (std::string_view(name) == std::string_view(hostname)) {
           success = true;
           memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
           break; // Stop here.  We found a matching hostname.
@@ -1530,7 +1531,7 @@ calcLocalAddr()
     }
     if (at_least_one_match) {
       success = true;  // Call it a success even if hostname != name
-      if ( strncmp( name, hostname, sizeof hostname ) != 0 ) {
+      if (std::string_view(name) != std::string_view(hostname)) {
         JTRACE("Canonical hostname different from original hostname")
               (name)(hostname);
       }
