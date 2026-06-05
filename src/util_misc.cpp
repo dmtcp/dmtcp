@@ -91,12 +91,7 @@ Util::strStartsWith(const char *str, const char *pattern)
   if (str == NULL || pattern == NULL) {
     return false;
   }
-  int len1 = strlen(str);
-  int len2 = strlen(pattern);
-  if (len1 >= len2) {
-    return strncmp(str, pattern, len2) == 0;
-  }
-  return false;
+  return strStartsWith(std::string_view(str), std::string_view(pattern));
 }
 
 bool
@@ -105,13 +100,7 @@ Util::strEndsWith(const char *str, const char *pattern)
   if (str == NULL || pattern == NULL) {
     return false;
   }
-  int len1 = strlen(str);
-  int len2 = strlen(pattern);
-  if (len1 >= len2) {
-    size_t idx = len1 - len2;
-    return strncmp(str + idx, pattern, len2) == 0;
-  }
-  return false;
+  return strEndsWith(std::string_view(str), std::string_view(pattern));
 }
 
 bool

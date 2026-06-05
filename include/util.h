@@ -102,6 +102,7 @@ struct MtcpRestartThreadArg {
 };
 
 #ifdef __cplusplus
+# include <string_view>
 # include "dmtcpalloc.h"
 namespace dmtcp
 {
@@ -113,6 +114,16 @@ int changeFd(int oldfd, int newfd);
 
 bool strStartsWith(const char *str, const char *pattern);
 bool strEndsWith(const char *str, const char *pattern);
+inline bool strStartsWith(std::string_view str, std::string_view pattern)
+{
+  return str.starts_with(pattern);
+}
+
+inline bool strEndsWith(std::string_view str, std::string_view pattern)
+{
+  return str.ends_with(pattern);
+}
+
 bool readBooleanEnv(const char *envName, bool defaultValue);
 
 bool isNscdArea(const ProcMapsArea &area);
