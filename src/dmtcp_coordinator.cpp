@@ -866,12 +866,7 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
     delete client;
     return;
   }
-  for (size_t i = 0; i < clients.size(); i++) {
-    if (clients[i] == client) {
-      clients.erase(clients.begin() + i);
-      break;
-    }
-  }
+  std::erase(clients, client);
   client->sock().close();
   JNOTE("client disconnected") (client->identity()) (client->progname());
   _virtualPidToClientMap.erase(client->virtualPid());

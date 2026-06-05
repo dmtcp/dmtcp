@@ -253,6 +253,21 @@ class SourceAuditTest(unittest.TestCase):
         self.assert_file_does_not_contain("src/coordinatorapi.cpp",
                                           "strcmp(host.c_str()")
 
+    def test_vector_value_removal_uses_std_erase(self):
+        checks = (
+            (
+                "src/dmtcp_coordinator.cpp",
+                r"clients\.erase\(clients\.begin\(\) \+ i\)",
+            ),
+            (
+                "src/plugin/connection.cpp",
+                r"_fds\.erase\(_fds\.begin\(\) \+ i\)",
+            ),
+        )
+        for relative_path, pattern in checks:
+            with self.subTest(path=relative_path):
+                self.assert_file_does_not_match(relative_path, pattern)
+
     def test_coordinator_clock_gettime_uses_errno_diagnostics(self):
         self.assert_file_does_not_contain(
             "src/dmtcp_coordinator.cpp", "ASSERT_EQ(0, clock_gettime")

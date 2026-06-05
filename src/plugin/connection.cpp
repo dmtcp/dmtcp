@@ -21,6 +21,7 @@
 
 #include "connection.h"
 #include <fcntl.h>
+#include <vector>
 #include "../jalib/jserialize.h"
 
 #include "plugin/pid/pidhelpers.h"
@@ -55,12 +56,7 @@ Connection::removeFd(int fd)
            _fds[0], fd);
     _fds.clear();
   } else {
-    for (size_t i = 0; i < _fds.size(); i++) {
-      if (_fds[i] == fd) {
-        _fds.erase(_fds.begin() + i);
-        break;
-      }
-    }
+    std::erase(_fds, fd);
   }
 }
 
