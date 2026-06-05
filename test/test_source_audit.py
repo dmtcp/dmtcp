@@ -892,6 +892,14 @@ class SourceAuditTest(unittest.TestCase):
             ),
         )
 
+    def test_assert_buffer_provider_uses_tls_fallback_without_thread_init(self):
+        body = self.extract_function_body("src/threadlist.cpp",
+                                          "dmtcp_get_thread_assert_buffer")
+        self.assertIn("fallbackThreadCore", body)
+        self.assertIn("Thread_GetAssertBufferOrFallback", body)
+        self.assertNotIn("dmtcp_get_current_thread", body)
+        self.assertNotIn("ThreadList::init", body)
+
 
 if __name__ == "__main__":
     unittest.main()
