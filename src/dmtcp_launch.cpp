@@ -35,6 +35,7 @@
 #include "coordinatorapi.h"
 #include "dmtcpmessagetypes.h"
 #include "shareddata.h"
+#include "siginfo.h"
 #include "syscallwrappers.h"
 #include "util.h"
 #include "util_assert.h"
@@ -276,6 +277,28 @@ validateCheckpointIntervalEnv()
   }
 }
 
+static int
+parseCheckpointSignalOrExit(const char *signalText)
+{
+  int signal = 0;
+  if (signalText == NULL ||
+      !SigInfo::parseCkptSignalText(signalText, &signal)) {
+    fprintf(stderr, "invalid checkpoint signal: %s\n",
+            signalText == NULL ? "(null)" : signalText);
+    exit(DMTCP_FAIL_RC);
+  }
+  return signal;
+}
+
+static void
+validateCheckpointSignalEnv()
+{
+  const char *signalText = getenv(ENV_VAR_SIGCKPT);
+  if (signalText != NULL && signalText[0] != '\0') {
+    parseCheckpointSignalOrExit(signalText);
+  }
+}
+
 // shift args
 #define shift argc--, argv++
 static void
@@ -352,6 +375,7 @@ processArgs(int *orig_argc, const char ***orig_argv)
       tmpdir_arg = argv[1];
       shift; shift;
     } else if (argc > 1 && s == "--ckpt-signal") {
+      parseCheckpointSignalOrExit(argv[1]);
       setenv(ENV_VAR_SIGCKPT, argv[1], 1);
       shift; shift;
     } else if (s == "--checkpoint-open-files" || s == "--ckpt-open-files") {
@@ -493,6 +517,7 @@ processArgs(int *orig_argc, const char ***orig_argv)
   validateCoordinatorPortEnv(ENV_VAR_NAME_PORT);
   validateCoordinatorPortEnv("DMTCP_PORT");
   validateCheckpointIntervalEnv();
+  validateCheckpointSignalEnv();
   tmpDir = Util::calcTmpDir(tmpdir_arg);
   *orig_argc = argc;
   *orig_argv = argv;

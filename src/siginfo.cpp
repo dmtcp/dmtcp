@@ -40,7 +40,7 @@ SigInfo::setupCkptSigHandler(sighandler_t handler)
   static int init = 0;
 
   if (!init) {
-    char *tmp, *endp;
+    const char *tmp;
     init = 1;
 
     /* If the user has defined a signal, use that to suspend.  Otherwise, use
@@ -48,22 +48,12 @@ SigInfo::setupCkptSigHandler(sighandler_t handler)
     tmp = getenv("DMTCP_SIGCKPT");
     if (tmp == NULL) {
       STOPSIGNAL = CKPT_SIGNAL;
-    } else {
-      errno = 0;
-      STOPSIGNAL = strtol(tmp, &endp, 0);
-
-      if ((errno != 0) || (tmp == endp)) {
-        WARNING(false,
-                "DMTCP_SIGCKPT does not translate to a number; using default: "
-                "DMTCP_SIGCKPT={} default={}",
-                getenv("DMTCP_SIGCKPT"), CKPT_SIGNAL);
-        STOPSIGNAL = CKPT_SIGNAL;
-      } else if (STOPSIGNAL < 1 || STOPSIGNAL >= SIGRTMAX) {
-        JNOTE("Your chosen SIGCKPT is not a valid signal, and cannot be used."
-              " Default signal will be used instead.")
-          (STOPSIGNAL) (CKPT_SIGNAL);
-        STOPSIGNAL = CKPT_SIGNAL;
-      }
+    } else if (!parseCkptSignalText(tmp, &STOPSIGNAL)) {
+      WARNING(false,
+              "DMTCP_SIGCKPT is not a valid checkpoint signal; using "
+              "default: DMTCP_SIGCKPT={} default={}",
+              tmp, CKPT_SIGNAL);
+      STOPSIGNAL = CKPT_SIGNAL;
     }
   }
 

@@ -129,6 +129,7 @@ unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 		$(srcdir)/unit/dmtcp_header_tests.cpp \
 		$(srcdir)/unit/util_assert_tests.cpp \
 		$(srcdir)/unit/util_tests.cpp \
+		$(srcdir)/unit/siginfo_tests.cpp \
 		$(srcdir)/unit/threadinfo_tests.cpp \
 		$(srcdir)/unit/virtualidtable_tests.cpp \
 		$(srcdir)/unit/unit_test.h \
@@ -142,6 +143,7 @@ unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 	  $(srcdir)/unit/dmtcp_header_tests.cpp \
 	  $(srcdir)/unit/util_assert_tests.cpp \
 	  $(srcdir)/unit/util_tests.cpp \
+	  $(srcdir)/unit/siginfo_tests.cpp \
 	  $(srcdir)/unit/threadinfo_tests.cpp \
 	  $(srcdir)/unit/virtualidtable_tests.cpp
 

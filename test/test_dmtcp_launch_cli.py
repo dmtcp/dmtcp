@@ -65,6 +65,18 @@ class DmtcpLaunchCliTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid checkpoint interval", result.stderr)
 
+    def test_rejects_invalid_checkpoint_signal_option(self):
+        result = self.run_launch("--ckpt-signal", "12x", "/bin/true")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid checkpoint signal", result.stderr)
+
+    def test_rejects_invalid_checkpoint_signal_env(self):
+        result = self.run_launch("/bin/true", env={"DMTCP_SIGCKPT": "12x"})
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid checkpoint signal", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -33,6 +33,7 @@
 #include "processinfo.h"
 #include "procselfmaps.h"
 #include "shareddata.h"
+#include "siginfo.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
 #include "threadlist.h"
@@ -131,17 +132,10 @@ int
 DmtcpWorker::determineCkptSignal()
 {
   int sig = CKPT_SIGNAL;
-  char *endp = NULL;
   static const char *tmp = getenv(ENV_VAR_SIGCKPT);
 
-  if (tmp != NULL) {
-    sig = strtol(tmp, &endp, 0);
-    if ((errno != 0) || (tmp == endp)) {
-      sig = CKPT_SIGNAL;
-    }
-    if (sig < 1 || sig >= SIGRTMAX) {
-      sig = CKPT_SIGNAL;
-    }
+  if (tmp != NULL && !SigInfo::parseCkptSignalText(tmp, &sig)) {
+    sig = CKPT_SIGNAL;
   }
   return sig;
 }
