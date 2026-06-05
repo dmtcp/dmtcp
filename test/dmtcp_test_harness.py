@@ -65,7 +65,7 @@ def validate_dmtcp_command_result_payload(payload: Dict[str, object],
         raise ValueError("dmtcp_command JSON field ok must be a boolean")
     if not ok:
         error_code = payload.get("error_code")
-        if error_code is not None and type(error_code) is not str:
+        if type(error_code) is not str:
             raise ValueError(
                 "dmtcp_command JSON field error_code must be a string")
         error_message = payload.get("error_message")
