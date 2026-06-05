@@ -159,18 +159,24 @@ static const char *theUsage =
 
 
 static bool
-parseCoordinatorPort(const char *text, int *port)
+parseCoordinatorInt(const char *text, int *value, int minValue, int maxValue)
 {
-  int parsedPort = 0;
+  int parsedValue = 0;
   if (text == NULL ||
-      !Util::parseInteger(text, &parsedPort) ||
-      parsedPort < 0 ||
-      parsedPort > 65535) {
+      !Util::parseInteger(text, &parsedValue) ||
+      parsedValue < minValue ||
+      parsedValue > maxValue) {
     return false;
   }
 
-  *port = parsedPort;
+  *value = parsedValue;
   return true;
+}
+
+static bool
+parseCoordinatorPort(const char *text, int *port)
+{
+  return parseCoordinatorInt(text, port, 0, 65535);
 }
 
 CoordFlags flags;
@@ -1763,10 +1769,16 @@ main(int argc, char **argv)
       flags.killAfterCkpt = true;
       shift;
     } else if (argc > 1 && s == "--timeout") {
-      flags.timeout = atol(argv[1]);
+      if (!parseCoordinatorInt(argv[1], &flags.timeout, 0, INT_MAX)) {
+        fprintf(stderr, theUsage, DEFAULT_PORT);
+        return 1;
+      }
       shift; shift;
     } else if (argc > 1 && s == "--stale-timeout") {
-      flags.staleTimeout = atol(argv[1]);
+      if (!parseCoordinatorInt(argv[1], &flags.staleTimeout, -1, INT_MAX)) {
+        fprintf(stderr, theUsage, DEFAULT_PORT);
+        return 1;
+      }
       shift; shift;
     } else if (s == "--daemon") {
       flags.daemon = true;
@@ -1776,11 +1788,17 @@ main(int argc, char **argv)
       flags.logFilename = argv[1];
       shift; shift;
     } else if (s == "-i" || s == "--interval") {
-      flags.interval = atol(argv[1]);
+      if (!parseCoordinatorInt(argv[1], &flags.interval, 0, INT_MAX)) {
+        fprintf(stderr, theUsage, DEFAULT_PORT);
+        return 1;
+      }
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'i' &&
                isdigit(argv[0][2])) { // else if -i5, for example
-      flags.interval = atol(&argv[0][2]);
+      if (!parseCoordinatorInt(&argv[0][2], &flags.interval, 0, INT_MAX)) {
+        fprintf(stderr, theUsage, DEFAULT_PORT);
+        return 1;
+      }
       shift;
     } else if (argc > 1 &&
                (s == "-p" || s == "--port" || s == "--coord-port")) {

@@ -402,7 +402,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             timeout=COMMAND_TIMEOUT,
         )
 
-    def run_coordinator(self, *args):
+    def run_coordinator(self, *args, timeout=COMMAND_TIMEOUT):
         return subprocess.run(
             [str(DMTCP_COORDINATOR), *args],
             cwd=str(ROOT),
@@ -410,14 +410,29 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
-            timeout=COMMAND_TIMEOUT,
+            timeout=timeout,
         )
 
-    def test_invalid_coord_port_option_exits_with_usage(self):
-        result = self.run_coordinator("--coord-port", "12x")
+    def assert_coordinator_rejects_args(self, *args):
+        try:
+            result = self.run_coordinator(*args, timeout=1)
+        except subprocess.TimeoutExpired:
+            self.fail(f"coordinator did not reject invalid args: {args}")
 
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("Usage:", result.stderr)
+
+    def test_invalid_coord_port_option_exits_with_usage(self):
+        self.assert_coordinator_rejects_args("--coord-port", "12x")
+
+    def test_invalid_timeout_option_exits_with_usage(self):
+        self.assert_coordinator_rejects_args("--timeout", "12x")
+
+    def test_invalid_stale_timeout_option_exits_with_usage(self):
+        self.assert_coordinator_rejects_args("--stale-timeout", "12x")
+
+    def test_invalid_interval_option_exits_with_usage(self):
+        self.assert_coordinator_rejects_args("--interval", "12x")
 
     def coordinator_status(self, port):
         result = self.run_command("--json", "--coord-port", str(port),
