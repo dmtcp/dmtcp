@@ -67,10 +67,20 @@ class DmtcpStatus:
         for field_name in ("num_peers", "running", "checkpoint_interval"):
             if field_name not in payload:
                 raise ValueError(f"missing status JSON field: {field_name}")
+        num_peers = payload["num_peers"]
+        running = payload["running"]
+        checkpoint_interval = payload["checkpoint_interval"]
+        if type(num_peers) is not int:
+            raise ValueError("status JSON field num_peers must be an integer")
+        if type(running) is not bool:
+            raise ValueError("status JSON field running must be a boolean")
+        if type(checkpoint_interval) is not int:
+            raise ValueError(
+                "status JSON field checkpoint_interval must be an integer")
         return DmtcpStatus(
-            num_peers=int(payload["num_peers"]),
-            running=bool(payload["running"]),
-            checkpoint_interval=int(payload["checkpoint_interval"]),
+            num_peers=num_peers,
+            running=running,
+            checkpoint_interval=checkpoint_interval,
         )
 
 

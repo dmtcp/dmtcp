@@ -178,6 +178,55 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(caught.exception.phase, "status")
         self.assertIn("missing status JSON field", caught.exception.message)
 
+    def test_status_payload_rejects_non_boolean_running_field(self):
+        context = TestContext(
+            DmtcpHarness(ROOT),
+            TestSpec("status-payload", 1, ["./test/dmtcp1"]),
+            mock.Mock(),
+        )
+
+        with mock.patch.object(context, "_run_json_command",
+                               return_value={
+                                   "schema_version": 1,
+                                   "type": "status",
+                                   "ok": True,
+                                   "num_peers": 1,
+                                   "running": "false",
+                                   "checkpoint_interval": 0,
+                               }):
+            with self.assertRaises(HarnessFailure) as caught:
+                context._status()
+
+        self.assertEqual(caught.exception.phase, "status")
+        self.assertIn("running must be a boolean", caught.exception.message)
+
+    def test_status_payload_rejects_non_integer_count_fields(self):
+        for field_name in ("num_peers", "checkpoint_interval"):
+            with self.subTest(field=field_name):
+                payload = {
+                    "schema_version": 1,
+                    "type": "status",
+                    "ok": True,
+                    "num_peers": 1,
+                    "running": True,
+                    "checkpoint_interval": 0,
+                }
+                payload[field_name] = "1"
+                context = TestContext(
+                    DmtcpHarness(ROOT),
+                    TestSpec("status-payload", 1, ["./test/dmtcp1"]),
+                    mock.Mock(),
+                )
+
+                with mock.patch.object(context, "_run_json_command",
+                                       return_value=payload):
+                    with self.assertRaises(HarnessFailure) as caught:
+                        context._status()
+
+                self.assertEqual(caught.exception.phase, "status")
+                self.assertIn(f"{field_name} must be an integer",
+                              caught.exception.message)
+
     def test_start_coordinator_uses_process_group(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = pathlib.Path(tmp)
