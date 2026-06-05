@@ -197,6 +197,41 @@ inline bool parseIntegerPrefix(std::string_view text,
   return true;
 }
 
+inline bool parseVirtualPidEnv(std::string_view text,
+                               pid_t *virtPid,
+                               pid_t *realPid,
+                               pid_t *virtPpid,
+                               pid_t *realPpid)
+{
+  pid_t values[4] = {};
+  size_t offset = 0;
+
+  for (pid_t& value : values) {
+    size_t end = text.find(':', offset);
+    if (end == std::string_view::npos ||
+        !parseInteger(text.substr(offset, end - offset), &value)) {
+      return false;
+    }
+    offset = end + 1;
+  }
+  // DMTCP_VIRTUAL_PID is updated in place; bytes after the fourth colon can
+  // be stale data from an earlier value in the fixed-size environment buffer.
+
+  if (virtPid != nullptr) {
+    *virtPid = values[0];
+  }
+  if (realPid != nullptr) {
+    *realPid = values[1];
+  }
+  if (virtPpid != nullptr) {
+    *virtPpid = values[2];
+  }
+  if (realPpid != nullptr) {
+    *realPpid = values[3];
+  }
+  return true;
+}
+
 inline bool parsePortNumber(std::string_view text, int *port)
 {
   int parsedPort = 0;

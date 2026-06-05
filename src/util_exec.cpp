@@ -78,7 +78,10 @@ Util::getVirtualPidFromEnvVar(pid_t *virtPid,
     _exit(DMTCP_FAIL_RC);
   }
 
-  ASSERT_EQ(4, sscanf(str, "%d:%d:%d:%d:", &vPid, &rPid, &vPpid, &rPpid));
+  ASSERT(Util::parseVirtualPidEnv(str, &vPid, &rPid, &vPpid, &rPpid),
+         "invalid {} value: {}",
+         ENV_VAR_VIRTUAL_PID,
+         str);
 
   if (virtPid) {
     *virtPid = vPid;

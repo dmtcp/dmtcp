@@ -98,6 +98,77 @@ void parseIntegerPrefixRejectsMissingDigitsWithoutChangingOutput()
   ASSERT_EQ(parsedLength, static_cast<size_t>(88));
 }
 
+void parseVirtualPidEnvAcceptsPidTupleAndLegacyTail()
+{
+  using namespace std::literals;
+
+  pid_t virtPid = 0;
+  pid_t realPid = 0;
+  pid_t virtPpid = 0;
+  pid_t realPpid = 0;
+
+  ASSERT_TRUE(dmtcp::Util::parseVirtualPidEnv("40000:123:39000:1:"sv,
+                                              &virtPid,
+                                              &realPid,
+                                              &virtPpid,
+                                              &realPpid));
+  ASSERT_EQ(virtPid, static_cast<pid_t>(40000));
+  ASSERT_EQ(realPid, static_cast<pid_t>(123));
+  ASSERT_EQ(virtPpid, static_cast<pid_t>(39000));
+  ASSERT_EQ(realPpid, static_cast<pid_t>(1));
+
+  ASSERT_TRUE(dmtcp::Util::parseVirtualPidEnv(
+    "41000:0:40000:1835657:1835620:###"sv,
+    &virtPid,
+    &realPid,
+    &virtPpid,
+    &realPpid));
+  ASSERT_EQ(virtPid, static_cast<pid_t>(41000));
+  ASSERT_EQ(realPid, static_cast<pid_t>(0));
+  ASSERT_EQ(virtPpid, static_cast<pid_t>(40000));
+  ASSERT_EQ(realPpid, static_cast<pid_t>(1835657));
+}
+
+void parseVirtualPidEnvRejectsMalformedTextWithoutChangingOutput()
+{
+  using namespace std::literals;
+
+  pid_t virtPid = 10;
+  pid_t realPid = 20;
+  pid_t virtPpid = 30;
+  pid_t realPpid = 40;
+
+  ASSERT_TRUE(!dmtcp::Util::parseVirtualPidEnv("40000:123:39000:1"sv,
+                                               &virtPid,
+                                               &realPid,
+                                               &virtPpid,
+                                               &realPpid));
+  ASSERT_EQ(virtPid, static_cast<pid_t>(10));
+  ASSERT_EQ(realPid, static_cast<pid_t>(20));
+  ASSERT_EQ(virtPpid, static_cast<pid_t>(30));
+  ASSERT_EQ(realPpid, static_cast<pid_t>(40));
+
+  ASSERT_TRUE(!dmtcp::Util::parseVirtualPidEnv("40000::39000:1:"sv,
+                                               &virtPid,
+                                               &realPid,
+                                               &virtPpid,
+                                               &realPpid));
+  ASSERT_EQ(virtPid, static_cast<pid_t>(10));
+  ASSERT_EQ(realPid, static_cast<pid_t>(20));
+  ASSERT_EQ(virtPpid, static_cast<pid_t>(30));
+  ASSERT_EQ(realPpid, static_cast<pid_t>(40));
+
+  ASSERT_TRUE(!dmtcp::Util::parseVirtualPidEnv("40000:123:39000:x:"sv,
+                                               &virtPid,
+                                               &realPid,
+                                               &virtPpid,
+                                               &realPpid));
+  ASSERT_EQ(virtPid, static_cast<pid_t>(10));
+  ASSERT_EQ(realPid, static_cast<pid_t>(20));
+  ASSERT_EQ(virtPpid, static_cast<pid_t>(30));
+  ASSERT_EQ(realPpid, static_cast<pid_t>(40));
+}
+
 void parsePortNumberAcceptsValidPortRange()
 {
   using namespace std::literals;
@@ -268,6 +339,10 @@ extern const dmtcp_test::TestCase utilTests[] = {
    parseIntegerPrefixParsesLeadingDecimalText},
   {"parseIntegerPrefix rejects missing digits without changing output",
    parseIntegerPrefixRejectsMissingDigitsWithoutChangingOutput},
+  {"parseVirtualPidEnv accepts pid tuple and legacy tail",
+   parseVirtualPidEnvAcceptsPidTupleAndLegacyTail},
+  {"parseVirtualPidEnv rejects malformed text without changing output",
+   parseVirtualPidEnvRejectsMalformedTextWithoutChangingOutput},
   {"parsePortNumber accepts valid port range",
    parsePortNumberAcceptsValidPortRange},
   {"parsePortNumber rejects invalid port text",

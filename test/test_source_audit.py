@@ -85,6 +85,9 @@ class SourceAuditTest(unittest.TestCase):
             r"sigset_t set;\n\s*sigaddset\(&set, SigInfo::ckptSignal\(\)\);",
         )
 
+    def test_virtual_pid_env_uses_shared_numeric_parser(self):
+        self.assert_file_does_not_contain("src/util_exec.cpp", "sscanf")
+
 
 if __name__ == "__main__":
     unittest.main()
