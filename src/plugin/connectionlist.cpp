@@ -274,10 +274,11 @@ ConnectionList::serialize(jalib::JBinarySerializer &o)
       JSERIALIZE_ASSERT_POINT("[StartConnection]");
       o&key &type;
       con = createDummyConnection(type);
-      ASSERT(con != NULL,
-             "failed to create dummy connection: type={} host_id={} pid={} "
-             "time={} con_id={}",
-             type, key.hostid(), key.pid(), key.time(), key.conId());
+      ASSERT_NOT_NULL_MSG(con,
+                          "failed to create dummy connection: type={} "
+                          "host_id={} pid={} time={} con_id={}",
+                          type, key.hostid(), key.pid(), key.time(),
+                          key.conId());
       con->serialize(o);
       _connections[key] = con;
       const vector<int32_t> &fds = con->getFds();
@@ -579,18 +580,20 @@ ConnectionList::registerIncomingCons()
          protected_fd);
   sock.changeFd(protected_fd);
   fdReceiveAddr.sun_family = AF_UNIX;
-  ASSERT_ERRNO(_real_bind(protected_fd,
-                          (struct sockaddr *)&fdReceiveAddr,
-                          sizeof(fdReceiveAddr.sun_family)) == 0,
-               "bind failed for fd-receive socket: protected_fd={}",
-               protected_fd);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    _real_bind(protected_fd,
+               (struct sockaddr *)&fdReceiveAddr,
+               sizeof(fdReceiveAddr.sun_family)),
+    "bind failed for fd-receive socket: protected_fd={}",
+    protected_fd);
 
   fdReceiveAddrLen = sizeof(fdReceiveAddr);
-  ASSERT_ERRNO(getsockname(protected_fd,
-                           (struct sockaddr *)&fdReceiveAddr,
-                           &fdReceiveAddrLen) == 0,
-               "getsockname failed for fd-receive socket: protected_fd={}",
-               protected_fd);
+  ASSERT_SYSCALL_SUCCESS_MSG(getsockname(protected_fd,
+                                         (struct sockaddr *)&fdReceiveAddr,
+                                         &fdReceiveAddrLen),
+                             "getsockname failed for fd-receive socket: "
+                             "protected_fd={}",
+                             protected_fd);
 
 
   vector<const char *>incomingCons;
@@ -645,9 +648,9 @@ ConnectionList::sendReceiveMissingFds()
       socketFd.events |= POLLIN;
     }
 
-    int ret = _real_poll(&socketFd, 1, -1);
-    ASSERT_ERRNO(ret != -1, "poll failed for missing fd exchange: fd={}",
-                 restoreFd);
+    ASSERT_SYSCALL_SUCCESS_MSG(_real_poll(&socketFd, 1, -1),
+                               "poll failed for missing fd exchange: fd={}",
+                               restoreFd);
 
     if (numOutgoingCons > 0 && (socketFd.revents & POLLOUT)) {
       size_t idx = outgoingCons.back();
@@ -667,15 +670,16 @@ ConnectionList::sendReceiveMissingFds()
     if (numIncomingCons > 0 && (socketFd.revents & POLLIN)) {
       ConnectionIdentifier id;
       int fd = Util::receiveFd(restoreFd, &id, sizeof(id));
-      ASSERT_ERRNO(fd != -1,
-                   "receiveFd failed for missing connection: restore_fd={}",
-                   restoreFd);
+      ASSERT_VALID_FD_MSG(fd,
+                          "receiveFd failed for missing connection: "
+                          "restore_fd={}",
+                          restoreFd);
       Connection *con = getConnection(id);
       JTRACE("Received Missing Con") (id);
-      ASSERT(con != NULL,
-             "received unknown missing connection: host_id={} pid={} time={} "
-             "con_id={}",
-             id.hostid(), id.pid(), id.time(), id.conId());
+      ASSERT_NOT_NULL_MSG(con,
+                          "received unknown missing connection: host_id={} "
+                          "pid={} time={} con_id={}",
+                          id.hostid(), id.pid(), id.time(), id.conId());
       con->restoreDupFds(fd);
       numIncomingCons--;
     }

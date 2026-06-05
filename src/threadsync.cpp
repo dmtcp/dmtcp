@@ -187,8 +187,11 @@ ThreadSync::wrapperExecutionLockLock()
 void
 ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
 {
-  JASSERT(thread != nullptr);
-  JASSERT(thread->wrapperLockCount == 0);
+  ASSERT_NOT_NULL(thread,
+                  "wrapperExecutionLockLockForNewThread requires a thread");
+  ASSERT(thread->wrapperLockCount == 0,
+         "new thread wrapper lock count must start at zero: count={}",
+         thread->wrapperLockCount);
 
   ASSERT_LOCK_SUCCESS(
     DmtcpRWLockRdLockIgnoreQueuedWriter(&_wrapperExecutionLock));
@@ -199,8 +202,11 @@ ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
 void
 ThreadSync::wrapperExecutionLockUnlockForNewThread(Thread *thread)
 {
-  JASSERT(thread != nullptr);
-  JASSERT(thread->wrapperLockCount == 1);
+  ASSERT_NOT_NULL(thread,
+                  "wrapperExecutionLockUnlockForNewThread requires a thread");
+  ASSERT(thread->wrapperLockCount == 1,
+         "new thread wrapper lock count must be one before unlock: count={}",
+         thread->wrapperLockCount);
 
   ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&_wrapperExecutionLock));
 

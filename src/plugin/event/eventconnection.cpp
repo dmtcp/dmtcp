@@ -65,11 +65,10 @@ EpollConnection::refill(bool isRestart)
     fdEventIterator fevt = _fdToEvent.begin();
     for (; fevt != _fdToEvent.end(); fevt++) {
       JTRACE("restore sfd options") (fevt->first);
-      int ret = _real_epoll_ctl(_fds[0], EPOLL_CTL_ADD, fevt->first,
-                                &(fevt->second));
-      WARNING_ERRNO(ret == 0,
-                    "Error in restoring epoll options: epfd={} ret={}",
-                    _fds[0], ret);
+      WARNING_SYSCALL_SUCCESS_MSG(
+        _real_epoll_ctl(_fds[0], EPOLL_CTL_ADD, fevt->first,
+                        &(fevt->second)),
+        "Error in restoring epoll options: epfd={}", _fds[0]);
     }
   }
 }
@@ -89,9 +88,9 @@ EpollConnection::postRestart()
     tempfd = -1;
 #endif
   }
-  ASSERT_ERRNO(tempfd >= 0,
-               "failed to recreate epoll fd: size={} flags={}", _size,
-               _flags);
+  ASSERT_VALID_FD_MSG(tempfd,
+                      "failed to recreate epoll fd: size={} flags={}", _size,
+                      _flags);
   restoreDupFds(tempfd);
 }
 
@@ -138,10 +137,10 @@ EventFdConnection::drain()
 
   int new_flags = (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR |
     O_NONBLOCK;
-  ASSERT(_fds[0] >= 0, "invalid eventfd during drain: fd={}", _fds[0]);
+  ASSERT_VALID_FD_MSG(_fds[0], "invalid eventfd during drain");
 
   // set the new flags
-  ASSERT_ERRNO(fcntl(_fds[0], F_SETFL, new_flags) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(fcntl(_fds[0], F_SETFL, new_flags),
                "fcntl(F_SETFL) failed for eventfd drain: fd={} flags={}",
                _fds[0], new_flags);
   uint64_t u;
@@ -181,8 +180,10 @@ EventFdConnection::refill(bool isRestart)
   if (!isRestart) {
     uint64_t u = (unsigned long long)_initval;
     JTRACE("Writing") (u);
-    WARNING_ERRNO(write(_fds[0], &u, sizeof(uint64_t)) == sizeof(uint64_t),
-                  "Write to eventfd failed during refill: fd={}", _fds[0]);
+    WARNING_SYSCALL_EQ_MSG(static_cast<ssize_t>(sizeof(uint64_t)),
+                           write(_fds[0], &u, sizeof(uint64_t)),
+                           "Write to eventfd failed during refill: fd={}",
+                           _fds[0]);
   }
   JTRACE("End refill eventfd.") (_fds[0]);
 }
@@ -196,9 +197,9 @@ EventFdConnection::postRestart()
   JTRACE("Restoring EventFd Connection") (id());
   errno = 0;
   int tempfd = _real_eventfd(_initval, _flags);
-  ASSERT_ERRNO(tempfd > 0,
-               "failed to recreate eventfd: fd={} initval={} flags={}",
-               tempfd, _initval, _flags);
+  ASSERT_VALID_FD_MSG(tempfd,
+                      "failed to recreate eventfd: initval={} flags={}",
+                      _initval, _flags);
   restoreDupFds(tempfd);
 }
 
@@ -226,7 +227,7 @@ SignalFdConnection::drain()
     (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR | O_NONBLOCK;
 
   // set the new flags
-  ASSERT_ERRNO(fcntl(_fds[0], F_SETFL, new_flags) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(fcntl(_fds[0], F_SETFL, new_flags),
                "fcntl(F_SETFL) failed for signalfd drain: fd={} flags={}",
                _fds[0], new_flags);
 
@@ -259,9 +260,8 @@ SignalFdConnection::postRestart()
   JTRACE("Restoring SignalFd Connection") (id());
   errno = 0;
   int tempfd = _real_signalfd(-1, &_mask, _flags);
-  ASSERT_ERRNO(tempfd > 0,
-               "failed to recreate signalfd: fd={} flags={}", tempfd,
-               _flags);
+  ASSERT_VALID_FD_MSG(tempfd, "failed to recreate signalfd: flags={}",
+                      _flags);
   restoreDupFds(tempfd);
 }
 
@@ -309,10 +309,11 @@ InotifyConnection::refill(bool isRestart)
                                   watch_descriptor.add_watch.pathname,
                                   watch_descriptor.add_watch.mask);
 
-        WARNING_ERRNO(_real_dup2(new_wd, old_wd) == old_wd,
-                      "failed to restore inotify watch descriptor: "
-                      "new_wd={} old_wd={}",
-                      new_wd, old_wd);
+        WARNING_SYSCALL_EQ_MSG(old_wd,
+                               _real_dup2(new_wd, old_wd),
+                               "failed to restore inotify watch descriptor: "
+                               "new_wd={} old_wd={}",
+                               new_wd, old_wd);
         JTRACE("restore watch descriptors")
           (old_wd) (new_wd) (watch_descriptor.add_watch.file_descriptor)
           (watch_descriptor.add_watch.pathname)
@@ -328,8 +329,8 @@ InotifyConnection::postRestart()
   // create a new inotify instance and clone it as the old one
   int tempfd = _real_inotify_init1(_flags);
 
-  ASSERT_ERRNO(tempfd >= 0, "failed to recreate inotify fd: flags={}",
-               _flags);
+  ASSERT_VALID_FD_MSG(tempfd, "failed to recreate inotify fd: flags={}",
+                      _flags);
   restoreDupFds(tempfd);
 }
 

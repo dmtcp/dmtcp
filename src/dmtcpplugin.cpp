@@ -338,9 +338,10 @@ dmtcp_get_restart_env(const char *name,   // IN
 {
   int env_fd = dup(dmtcp_protected_environ_fd());
 
-  ASSERT_ERRNO(env_fd != -1,
-               "failed to dup protected restart environ fd: protected_fd={}",
-               dmtcp_protected_environ_fd());
+  ASSERT_VALID_FD_MSG(env_fd,
+                      "failed to dup protected restart environ fd: "
+                      "protected_fd={}",
+                      dmtcp_protected_environ_fd());
   lseek(env_fd, 0, SEEK_SET);
 
   DmtcpGetRestartEnvErr_t rc = RESTART_ENV_NOTFOUND;

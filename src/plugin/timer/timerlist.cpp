@@ -178,9 +178,10 @@ TimerList::preCheckpoint()
     timer_t virtId = _iter->first;
     timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(virtId);
     TimerInfo &tinfo = _iter->second;
-    ASSERT_ERRNO(_real_timer_gettime(realId, &tinfo.curr_timerspec) == 0,
-                 "timer_gettime failed: virt_id={} real_id={}", virtId,
-                 realId);
+    ASSERT_SYSCALL_SUCCESS_MSG(_real_timer_gettime(
+                                 realId, &tinfo.curr_timerspec),
+                               "reading timer state: virt_id={} real_id={}",
+                               virtId, realId);
     tinfo.overrun = _real_timer_getoverrun(realId);
   }
 }
@@ -194,8 +195,8 @@ TimerList::postRestart()
     pid_t pid = dmtcp_pid_virtual_to_real(it1->second);
     clockid_t virtId = it1->first;
     clockid_t realId;
-    ASSERT_ERRNO(_real_clock_getcpuclockid(pid, &realId) == 0,
-                 "clock_getcpuclockid failed: pid={}", pid);
+    ASSERT_ZERO_RETURN_MSG(_real_clock_getcpuclockid(pid, &realId),
+                           "reading CPU clock id: pid={}", pid);
     _clockVirtIdTable.updateMapping(virtId, realId);
   }
 
@@ -204,8 +205,9 @@ TimerList::postRestart()
     pthread_t pth = it2->second;
     clockid_t virtId = it2->first;
     clockid_t realId;
-    ASSERT_ERRNO(_real_pthread_getcpuclockid(pth, &realId) == 0,
-                 "pthread_getcpuclockid failed: pthread={}", pth);
+    ASSERT_PTHREAD_SUCCESS_MSG(_real_pthread_getcpuclockid(pth, &realId),
+                               "reading pthread CPU clock id: pthread={}",
+                               pth);
     _clockVirtIdTable.updateMapping(virtId, realId);
   }
 
@@ -219,9 +221,9 @@ TimerList::postRestart()
     if (!tinfo.sevp_null) {
       sevp = &tinfo.sevp;
     }
-    ASSERT_ERRNO(_real_timer_create(clockid, sevp, &realId) == 0,
-                 "timer_create failed: virt_id={} clock_id={}", virtId,
-                 clockid);
+    ASSERT_SYSCALL_SUCCESS_MSG(_real_timer_create(clockid, sevp, &realId),
+                               "creating timer: virt_id={} clock_id={}",
+                               virtId, clockid);
     _timerVirtIdTable.updateMapping(virtId, realId);
     if (tinfo.curr_timerspec.it_value.tv_sec != 0 ||
         tinfo.curr_timerspec.it_value.tv_nsec != 0) {
@@ -237,10 +239,13 @@ TimerList::postRestart()
       } else {
         tspec = tinfo.curr_timerspec;
       }
-      ASSERT_ERRNO(_real_timer_settime(realId, tinfo.flags, &tspec,
-                                       NULL) == 0,
-                   "timer_settime failed: virt_id={} real_id={} flags={}",
-                   virtId, realId, tinfo.flags);
+      ASSERT_SYSCALL_SUCCESS_MSG(_real_timer_settime(realId,
+                                                     tinfo.flags,
+                                                     &tspec,
+                                                     NULL),
+                                 "restoring timer: virt_id={} real_id={} "
+                                 "flags={}",
+                                 virtId, realId, tinfo.flags);
       JTRACE("Restoring timer") (realId) (virtId);
     }
   }

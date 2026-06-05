@@ -134,8 +134,9 @@ initializeInternalPluginStateOnce()
   for (size_t i = 0; i < numInternalPlugins(); i++) {
     InternalPluginEntry *entry = &internalPlugins[i];
     ASSERT_NOT_NULL(entry->descriptor);
-    ASSERT(entry->descriptor->pluginName != nullptr,
-           "internal plugin descriptor is missing a plugin name: index={}", i);
+    ASSERT_NOT_NULL_MSG(entry->descriptor->pluginName,
+                        "internal plugin descriptor is missing a plugin name: "
+                        "index={}", i);
     for (size_t j = 0; j < i; j++) {
       ASSERT(strcmp(internalPlugins[j].descriptor->pluginName,
                     entry->descriptor->pluginName) != 0,
@@ -161,7 +162,7 @@ initializeInternalPluginState()
 static InternalPluginEntry *
 findInternalPluginEntry(const char *pluginName)
 {
-  ASSERT(pluginName != nullptr, "invalid internal plugin name");
+  ASSERT_NOT_NULL_MSG(pluginName, "invalid internal plugin name");
   for (size_t i = 0; i < numInternalPlugins(); i++) {
     InternalPluginEntry *entry = &internalPlugins[i];
     if (entry->descriptor->pluginName == pluginName ||

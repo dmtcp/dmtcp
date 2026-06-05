@@ -185,7 +185,7 @@ installSegFaultHandler()
   memset(&act, 0, sizeof(act));
   act.sa_sigaction = segFaultHandler;
   act.sa_flags = SA_SIGINFO;
-  ASSERT_ERRNO(sigaction(SIGSEGV, &act, NULL) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(sigaction(SIGSEGV, &act, NULL),
                "failed to install DMTCP SIGSEGV handler");
 }
 
@@ -511,11 +511,12 @@ DmtcpWorker::postCheckpoint()
      * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
      * So, gzip process can continue to write to file even after renaming.
      */
-    ASSERT_ERRNO(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
-                        ProcessInfo::instance().getCkptFilename().c_str()) == 0,
-                 "failed to rename checkpoint image: temp={} final={}",
-                 ProcessInfo::instance().getTempCkptFilename(),
-                 ProcessInfo::instance().getCkptFilename());
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+             ProcessInfo::instance().getCkptFilename().c_str()),
+      "failed to rename checkpoint image: temp={} final={}",
+      ProcessInfo::instance().getTempCkptFilename(),
+      ProcessInfo::instance().getCkptFilename());
     CoordinatorAPI::sendCkptFilename();
   } else { // else FORKED CHECKPOINTING.  Write temp name; grandchild not done.
     string ckptFilename = ProcessInfo::instance().getCkptFilename();

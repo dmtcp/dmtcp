@@ -106,7 +106,7 @@ dmtcp_ssh_drain()
     return;
   }
 
-  ASSERT(theDrainer == NULL, "SSH drainer already exists");
+  ASSERT_NULL_MSG(theDrainer, "SSH drainer already exists");
   theDrainer = new SSHDrainer();
   if (isSshdProcess) { // dmtcp_ssh process
     theDrainer->beginDrainOf(STDIN_FILENO, sshStdin);
@@ -188,27 +188,31 @@ sshdReceiveFds()
   ASSERT_ERRNO(sock.isValid(), "failed to create ssh receive socket");
   sock.changeFd(SSHD_RECEIVE_FD);
   fdReceiveAddr.sun_family = AF_UNIX;
-  ASSERT_ERRNO(_real_bind(SSHD_RECEIVE_FD,
-                          (struct sockaddr *)&fdReceiveAddr,
-                          sizeof(fdReceiveAddr.sun_family)) == 0,
-               "failed to bind ssh receive socket: fd={}", SSHD_RECEIVE_FD);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    _real_bind(SSHD_RECEIVE_FD,
+               (struct sockaddr *)&fdReceiveAddr,
+               sizeof(fdReceiveAddr.sun_family)),
+    "failed to bind ssh receive socket: fd={}",
+    SSHD_RECEIVE_FD);
 
   fdReceiveAddrLen = sizeof(fdReceiveAddr);
-  ASSERT_ERRNO(getsockname(SSHD_RECEIVE_FD,
-                           (struct sockaddr *)&fdReceiveAddr,
-                           &fdReceiveAddrLen) == 0,
-               "getsockname failed for ssh receive socket: fd={}",
-               SSHD_RECEIVE_FD);
+  ASSERT_SYSCALL_SUCCESS_MSG(getsockname(SSHD_RECEIVE_FD,
+                                         (struct sockaddr *)&fdReceiveAddr,
+                                         &fdReceiveAddrLen),
+                             "getsockname failed for ssh receive socket: fd={}",
+                             SSHD_RECEIVE_FD);
 
   // Send this information to dmtcp_ssh process
-  ssize_t ret = write(sshSockFd, &fdReceiveAddrLen, sizeof(fdReceiveAddrLen));
-  ASSERT_ERRNO(ret == sizeof(fdReceiveAddrLen),
-               "failed to send ssh receive address length: fd={} ret={}",
-               sshSockFd, ret);
-  ret = write(sshSockFd, &fdReceiveAddr, fdReceiveAddrLen);
-  ASSERT(ret == (ssize_t)fdReceiveAddrLen,
-         "failed to send ssh receive address: fd={} ret={} expected={}",
-         sshSockFd, ret, fdReceiveAddrLen);
+  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(sizeof(fdReceiveAddrLen)),
+                        write(sshSockFd,
+                              &fdReceiveAddrLen,
+                              sizeof(fdReceiveAddrLen)),
+                        "failed to send ssh receive address length: fd={}",
+                        sshSockFd);
+  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(fdReceiveAddrLen),
+                        write(sshSockFd, &fdReceiveAddr, fdReceiveAddrLen),
+                        "failed to send ssh receive address: fd={}",
+                        sshSockFd);
 
   // Now receive fds
   receiveFileDescr(STDIN_FILENO);
@@ -226,20 +230,18 @@ createNewDmtcpSshdProcess()
   static char abstractSockName[20];
   int in[2], out[2], err[2];
 
-  ssize_t ret = read(sshSockFd, &addrLen, sizeof(addrLen));
-
-  ASSERT(ret == sizeof(addrLen),
-         "failed to read ssh address length: fd={} ret={} expected={}",
-         sshSockFd, ret, sizeof(addrLen));
+  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(sizeof(addrLen)),
+                        read(sshSockFd, &addrLen, sizeof(addrLen)),
+                        "failed to read ssh address length: fd={}",
+                        sshSockFd);
   memset(&addr, 0, sizeof(addr));
   const socklen_t sunPathOffset = offsetof(struct sockaddr_un, sun_path);
   ASSERT(addrLen > sunPathOffset && addrLen <= sizeof(addr),
          "invalid ssh address length: len={} max={}",
          static_cast<size_t>(addrLen), sizeof(addr));
-  ret = read(sshSockFd, &addr, addrLen);
-  ASSERT(ret == (ssize_t)addrLen,
-         "failed to read ssh address: fd={} ret={} expected={}", sshSockFd,
-         ret, addrLen);
+  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(addrLen),
+                        read(sshSockFd, &addr, addrLen),
+                        "failed to read ssh address: fd={}", sshSockFd);
   const size_t abstractLen =
     static_cast<size_t>(addrLen - sunPathOffset - 1);
   ASSERT(abstractLen < sizeof(abstractSockName),
@@ -251,9 +253,11 @@ createNewDmtcpSshdProcess()
   struct sockaddr_in sshdSockAddr;
   socklen_t sshdSockAddrLen = sizeof(sshdSockAddr);
   char remoteHost[80];
-  ASSERT_ERRNO(getpeername(sshSockFd, (struct sockaddr *)&sshdSockAddr,
-                           &sshdSockAddrLen) == 0,
-               "getpeername failed for ssh socket: fd={}", sshSockFd);
+  ASSERT_SYSCALL_SUCCESS_MSG(getpeername(sshSockFd,
+                                         (struct sockaddr *)&sshdSockAddr,
+                                         &sshdSockAddrLen),
+                             "getpeername failed for ssh socket: fd={}",
+                             sshSockFd);
   char *ip = inet_ntoa(sshdSockAddr.sin_addr);
   strcpy(remoteHost, ip);
 
@@ -263,12 +267,12 @@ createNewDmtcpSshdProcess()
   }
 
 
-  ASSERT_ERRNO(pipe(in) == 0, "failed to create ssh stdin pipe");
-  ASSERT_ERRNO(pipe(out) == 0, "failed to create ssh stdout pipe");
-  ASSERT_ERRNO(pipe(err) == 0, "failed to create ssh stderr pipe");
+  ASSERT_SYSCALL_SUCCESS_MSG(pipe(in), "creating ssh stdin pipe");
+  ASSERT_SYSCALL_SUCCESS_MSG(pipe(out), "creating ssh stdout pipe");
+  ASSERT_SYSCALL_SUCCESS_MSG(pipe(err), "creating ssh stderr pipe");
 
   pid_t sshChildPid = fork();
-  ASSERT_ERRNO(sshChildPid != -1, "failed to fork ssh child");
+  ASSERT_FORK_SUCCESS_MSG(sshChildPid, "failed to fork ssh child");
   if (sshChildPid == 0) {
     const int max_args = 16;
     char *argv[16];

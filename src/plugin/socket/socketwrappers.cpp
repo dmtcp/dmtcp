@@ -154,7 +154,10 @@ listen(int sockfd, int backlog)
 static void
 process_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
-  ASSERT_NE(-1, ret);
+  ASSERT_VALID_FD_MSG(ret,
+                      "accept result must be valid before socket state update: "
+                      "sockfd={}",
+                      sockfd);
   Connection *parent = SocketConnList::instance().getConnection(sockfd);
   if (parent == NULL) {
     JTRACE("unable to get the connection.");

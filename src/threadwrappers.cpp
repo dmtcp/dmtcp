@@ -240,8 +240,8 @@ pthread_join(pthread_t thread, void **retval)
 
   while (1) {
     WrapperLock wrapperLock;
-    ASSERT_ERRNO(clock_gettime(CLOCK_REALTIME, &ts) != -1,
-                 "failed to read CLOCK_REALTIME before pthread_join");
+    ASSERT_SYSCALL_SUCCESS_MSG(clock_gettime(CLOCK_REALTIME, &ts),
+                               "reading CLOCK_REALTIME before pthread_join");
     TIMESPEC_ADD(&ts, &ts_100ms, &ts);
     ret = _real_pthread_timedjoin_np(thread, retval, &ts);
     if (ret != ETIMEDOUT) {
@@ -289,8 +289,9 @@ pthread_timedjoin_np(pthread_t thread,
    */
   while (1) {
     WrapperLock wrapperLock;
-    ASSERT_ERRNO(clock_gettime(CLOCK_REALTIME, &ts) != -1,
-                 "failed to read CLOCK_REALTIME before pthread_timedjoin_np");
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      clock_gettime(CLOCK_REALTIME, &ts),
+      "reading CLOCK_REALTIME before pthread_timedjoin_np");
     if (TIMESPEC_CMP(&ts, abstime, <)) {
       TIMESPEC_ADD(&ts, &ts_100ms, &ts);
       ret = _real_pthread_timedjoin_np(thread, retval, &ts);
