@@ -4,6 +4,7 @@ import gzip
 import os
 import pathlib
 import platform
+import re
 import signal
 import shutil
 import struct
@@ -847,6 +848,26 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         missing = [
             test.name for test in iter_tests()
             if f"`{test.name}`" not in ledger
+        ]
+
+        self.assertEqual(missing, [])
+
+    def test_parity_ledger_classifies_old_harness_run_tests(self):
+        old_runner = (ROOT / "test" / "autotest_old.py").read_text(
+            encoding="utf-8")
+        ledger = (ROOT / "test" / "autotest-parity.md").read_text(
+            encoding="utf-8")
+        old_names = set()
+        for line in old_runner.splitlines():
+            if line.strip().startswith("#"):
+                continue
+            match = re.search(r'\brunTest\("([^"]+)"', line)
+            if match is not None:
+                old_names.add(match.group(1))
+
+        missing = [
+            name for name in sorted(old_names)
+            if f"`{name}`" not in ledger
         ]
 
         self.assertEqual(missing, [])
