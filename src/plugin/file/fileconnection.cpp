@@ -526,8 +526,8 @@ FileConnection::postRestart()
          _savedFilePath, _path);
 
   if (_type == FILE_BATCH_QUEUE) {
-    ASSERT(dmtcp_bq_restore_file != nullptr,
-           "batch-queue restore hook is missing");
+    ASSERT_NOT_NULL_MSG(dmtcp_bq_restore_file,
+                        "batch-queue restore hook is missing");
     tempfd = dmtcp_bq_restore_file(_path.c_str(), _savedFilePath.c_str(),
                                    _fcntlFlags, _rmtype);
     JTRACE("Restore Resource Manager File") (_path);

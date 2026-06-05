@@ -323,8 +323,9 @@ ProcessInfo::growStack()
       }
     }
   }
-  ASSERT(stackArea.addr != NULL,
-         "failed to find current stack mapping in /proc/self/maps");
+  ASSERT_NOT_NULL_MSG(stackArea.addr,
+                      "failed to find current stack mapping in "
+                      "/proc/self/maps");
 
   if (stackSize > stackArea.size + 4095) {
     // Grow the stack, if possible

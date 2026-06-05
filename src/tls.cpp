@@ -422,9 +422,8 @@ get_at_sysinfo()
 
   stack = (void **)&my_environ[-1];
 
-  ASSERT(*stack == NULL,
-         "expected argv[argc] to be null while scanning auxv: value={}",
-         *stack);
+  ASSERT_NULL_MSG(*stack,
+                  "expected argv[argc] to be null while scanning auxv");
 
   // stack[-1] should be argv[argc-1]
   ASSERT((void **)stack[-1] >= stack && (void **)stack[-1] >= stack + 100000,

@@ -618,6 +618,19 @@ class SourceAuditTest(unittest.TestCase):
             ("src/pluginmanager.cpp",
              r"ASSERT\s*\(\s*pluginName\s*!=\s*nullptr"),
             ("src/threadsync.cpp", r"ASSERT\s*\(\s*thread\s*!=\s*nullptr"),
+            ("src/processinfo.cpp",
+             r"ASSERT\s*\(\s*stackArea\.addr\s*!=\s*NULL"),
+            ("src/shareddata.cpp", r"ASSERT\s*\(\s*tmpDir\s*!=\s*NULL"),
+            ("src/dmtcp_coordinator.cpp",
+             r"ASSERT\s*\(\s*extraData\s*!=\s*nullptr"),
+            ("src/coordinatorapi.cpp",
+             r"ASSERT\s*\(\s*extraData\s*!=\s*NULL"),
+            ("src/coordinatorapi.cpp", r"ASSERT\s*\(\s*compId\s*!=\s*NULL"),
+            ("src/plugin/connectionlist.cpp",
+             r"ASSERT\s*\(\s*con\s*!=\s*NULL"),
+            ("src/plugin/file/fileconnection.cpp",
+             r"ASSERT\s*\(\s*dmtcp_bq_restore_file\s*!=\s*nullptr"),
+            ("src/tls.cpp", r"ASSERT\s*\(\s*\*stack\s*==\s*NULL"),
         )
         for relative_path, pattern in checks:
             with self.subTest(path=relative_path, pattern=pattern):

@@ -274,10 +274,11 @@ ConnectionList::serialize(jalib::JBinarySerializer &o)
       JSERIALIZE_ASSERT_POINT("[StartConnection]");
       o&key &type;
       con = createDummyConnection(type);
-      ASSERT(con != NULL,
-             "failed to create dummy connection: type={} host_id={} pid={} "
-             "time={} con_id={}",
-             type, key.hostid(), key.pid(), key.time(), key.conId());
+      ASSERT_NOT_NULL_MSG(con,
+                          "failed to create dummy connection: type={} "
+                          "host_id={} pid={} time={} con_id={}",
+                          type, key.hostid(), key.pid(), key.time(),
+                          key.conId());
       con->serialize(o);
       _connections[key] = con;
       const vector<int32_t> &fds = con->getFds();
@@ -675,10 +676,10 @@ ConnectionList::sendReceiveMissingFds()
                           restoreFd);
       Connection *con = getConnection(id);
       JTRACE("Received Missing Con") (id);
-      ASSERT(con != NULL,
-             "received unknown missing connection: host_id={} pid={} time={} "
-             "con_id={}",
-             id.hostid(), id.pid(), id.time(), id.conId());
+      ASSERT_NOT_NULL_MSG(con,
+                          "received unknown missing connection: host_id={} "
+                          "pid={} time={} con_id={}",
+                          id.hostid(), id.pid(), id.time(), id.conId());
       con->restoreDupFds(fd);
       numIncomingCons--;
     }

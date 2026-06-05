@@ -605,8 +605,8 @@ void
 DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 {
   client->setState(WorkerState::CHECKPOINTED);
-  ASSERT(extraData != nullptr,
-         "extra data expected with DMT_CKPT_FILENAME message");
+  ASSERT_NOT_NULL_MSG(extraData,
+                      "extra data expected with DMT_CKPT_FILENAME message");
 
   string ckptFilename = extraData;
   string hostname = extraData + ckptFilename.length() + 1;
@@ -768,8 +768,9 @@ DmtcpCoordinator::onData(CoordClient *client)
   }
   case DMT_UPDATE_CKPT_DIR:
   {
-    ASSERT(extraData != nullptr,
-           "extra data expected with DMT_UPDATE_CKPT_DIR message");
+    ASSERT_NOT_NULL_MSG(extraData,
+                        "extra data expected with DMT_UPDATE_CKPT_DIR "
+                        "message");
     if (!Util::strEquals(flags.ckptDir, extraData)) {
       flags.ckptDir = extraData;
       JNOTE("Updated ckptDir") (flags.ckptDir);

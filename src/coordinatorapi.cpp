@@ -400,10 +400,10 @@ recvMsgFromCoordinatorRaw(int fd, DmtcpMessage *msg, void **extraData)
   }
 
   if (tmpMsg.extraBytes > 0) {
-    ASSERT(extraData != NULL,
-           "coordinator message has payload but caller did not request it: "
-           "type={} bytes={}",
-           tmpMsg.type, tmpMsg.extraBytes);
+    ASSERT_NOT_NULL_MSG(extraData,
+                        "coordinator message has payload but caller did not "
+                        "request it: type={} bytes={}",
+                        tmpMsg.type, tmpMsg.extraBytes);
 
     // Caller must free this buffer
     void *buf = JALLOC_HELPER_MALLOC(tmpMsg.extraBytes);
@@ -482,8 +482,8 @@ bool waitForBarrier(const string& barrier,
 
   ASSERT(msg.type == DMT_BARRIER_RELEASED,
          "unexpected barrier reply type: type={}", msg.type);
-  ASSERT(extraData != NULL, "barrier reply missing payload: barrier={}",
-         barrier);
+  ASSERT_NOT_NULL_MSG(extraData, "barrier reply missing payload: barrier={}",
+                      barrier);
   ASSERT(barrier == extraData,
          "barrier reply payload mismatch: expected={} actual={}", barrier,
          static_cast<char *>(extraData));
@@ -624,8 +624,9 @@ sendRecvHandshake(int fd,
            "Connection rejected by the coordinator: current computation is "
            "not in RUNNING state; checkpoint/restart may be in progress");
   } else if (msg.type == DMT_REJECT_WRONG_COMP) {
-    ASSERT(compId != NULL,
-           "coordinator rejected wrong computation without expected compId");
+    ASSERT_NOT_NULL_MSG(compId,
+                        "coordinator rejected wrong computation without "
+                        "expected compId");
     ASSERT(false,
            "Connection rejected by the coordinator: different computation "
            "group: hostid={} pid={} generation={}",
@@ -658,10 +659,15 @@ connectToCoordOnStartup(CoordinatorMode mode,
                         CoordinatorInfo *coordInfo,
                         struct in_addr  *localIP)
 {
-  ASSERT(compId != NULL && localIP != NULL && coordInfo != NULL,
-         "connectToCoordOnStartup requires non-null output pointers: "
-         "compId={} localIP={} coordInfo={}",
-         compId, localIP, coordInfo);
+  ASSERT_NOT_NULL_MSG(compId,
+                      "connectToCoordOnStartup requires non-null compId "
+                      "output pointer");
+  ASSERT_NOT_NULL_MSG(localIP,
+                      "connectToCoordOnStartup requires non-null localIP "
+                      "output pointer");
+  ASSERT_NOT_NULL_MSG(coordInfo,
+                      "connectToCoordOnStartup requires non-null coordInfo "
+                      "output pointer");
 
   createNewConnToCoord(mode);
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
@@ -679,10 +685,15 @@ connectToCoordOnStartup(CoordinatorMode mode,
   pid_t ppid = getppid();
   Util::setVirtualPidEnvVar(hello_remote.virtualPid, getpid(), ppid, ppid);
 
-  ASSERT(compId != NULL && localIP != NULL && coordInfo != NULL,
-         "connectToCoordOnStartup output pointers became null: compId={} "
-         "localIP={} coordInfo={}",
-         compId, localIP, coordInfo);
+  ASSERT_NOT_NULL_MSG(compId,
+                      "connectToCoordOnStartup compId output pointer became "
+                      "null");
+  ASSERT_NOT_NULL_MSG(localIP,
+                      "connectToCoordOnStartup localIP output pointer became "
+                      "null");
+  ASSERT_NOT_NULL_MSG(coordInfo,
+                      "connectToCoordOnStartup coordInfo output pointer "
+                      "became null");
   *compId = hello_remote.compGroup.upid();
   coordInfo->id = hello_remote.from.upid();
   coordInfo->timeStamp = hello_remote.coordTimeStamp;

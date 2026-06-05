@@ -164,8 +164,9 @@ SharedData::initialize(const char *tmpDir,
          "memory fd: coordInfo={} localIPAddr={} fd={}",
          coordInfo, localIPAddr, PROTECTED_SHM_FD);
   if (!Util::isValidFd(PROTECTED_SHM_FD)) {
-    ASSERT(tmpDir != NULL,
-           "SharedData::initialize requires tmpDir when creating shared area");
+    ASSERT_NOT_NULL_MSG(tmpDir,
+                        "SharedData::initialize requires tmpDir when "
+                        "creating shared area");
     ostringstream o;
     o << tmpDir << "/dmtcpSharedArea."
       << *compId << "." << std::hex << coordInfo->timeStamp;
