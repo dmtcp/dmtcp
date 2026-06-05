@@ -342,6 +342,24 @@ class SourceAuditTest(unittest.TestCase):
         self.assert_file_does_not_contain(
             "src/dmtcp_coordinator.cpp", "ASSERT_EQ(0, clock_gettime")
 
+    def test_dmtcpalloc_uses_minimal_modern_allocator_surface(self):
+        for token in (
+            "using size_type =",
+            "using difference_type =",
+            "using pointer =",
+            "using const_pointer =",
+            "using reference =",
+            "using const_reference =",
+            "address(",
+            "max_size(",
+            "std::numeric_limits",
+            "struct rebind",
+            "throw()",
+        ):
+            with self.subTest(token=token):
+                self.assert_file_does_not_contain("include/dmtcpalloc.h",
+                                                  token)
+
     def test_threadsync_wrapper_locks_use_assert_diagnostics(self):
         for forbidden in ("fprintf(stderr", "_exit(DMTCP_FAIL_RC)"):
             with self.subTest(token=forbidden):

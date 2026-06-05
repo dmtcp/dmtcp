@@ -25,7 +25,6 @@
 #include <cstddef>
 #include <fstream>
 #include <iostream>
-#include <limits>
 #include <list>
 #include <map>
 #include <unordered_map>
@@ -45,12 +44,6 @@ template<typename T>
 class DmtcpAlloc
 {
   public:
-    using size_type = size_t;
-    using difference_type = ptrdiff_t;
-    using pointer = T *;
-    using const_pointer = const T *;
-    using reference = T&;
-    using const_reference = const T&;
     using value_type = T;
     using propagate_on_container_move_assignment = std::true_type;
 
@@ -63,78 +56,34 @@ class DmtcpAlloc
     template<typename U>
     DmtcpAlloc(const DmtcpAlloc<U>&) noexcept {}
 
-    DmtcpAlloc&operator=(const DmtcpAlloc&) noexcept = default;
+    DmtcpAlloc& operator=(const DmtcpAlloc&) noexcept = default;
 
-    // Destructor
     ~DmtcpAlloc() noexcept = default;
 
-    // Utility functions
-    pointer address(reference r) const
-    {
-      return &r;
-    }
-
-    const_pointer address(const_reference c) const
-    {
-      return &c;
-    }
-
-    size_type max_size() const
-    {
-      return std::numeric_limits<size_t>::max() / sizeof(T);
-    }
-
-    // Rebind to allocators of other types
-    template<typename U>
-    struct rebind {
-      using other = DmtcpAlloc<U>;
-    };
-
     // Allocate raw memory
-    pointer allocate(size_type n)
+    T *allocate(std::size_t n)
     {
-      // void* p = malloc( n * sizeof(T) );
-      // if( p == NULL )
-      // throw std::bad_alloc();
-      // return pointer(p);
-      return pointer(jalib::JAllocDispatcher::malloc(n * sizeof(T)));
+      return static_cast<T *>(jalib::JAllocDispatcher::malloc(n * sizeof(T)));
     }
 
     // Free raw memory.
-    void deallocate(pointer p, size_type n)
+    void deallocate(T *p, std::size_t)
     {
-      //// assert( p != NULL );
-      //// The standard states that p must not be NULL. However, some
-      //// STL implementations fail this requirement, so the check must
-      //// be made here.
-      // if( p == NULL )
-      // return;
-      // free( p );
-      jalib::JAllocDispatcher::free(p); //, n * sizeof(T));
+      jalib::JAllocDispatcher::free(p);
     }
-
-    //// Non-standard Dinkumware hack for Visual C++ 6.0 compiler.
-    //// VC 6 doesn't support template rebind.
-    // char* _Charalloc( size_type nBytes )
-    // {
-    // char* p = reinterpret_cast<char*>( malloc( nBytes ) );
-    // if( p == NULL )
-    // throw dmtcp::bad_alloc();
-    // return p;
-    // }
 }; // end of DmtcpAlloc
 
 // Comparison
 template<typename T1, typename T2>
 bool
-operator==(const DmtcpAlloc<T1>&, const DmtcpAlloc<T2>&) throw()
+operator==(const DmtcpAlloc<T1>&, const DmtcpAlloc<T2>&) noexcept
 {
   return true;
 }
 
 template<typename T1, typename T2>
 bool
-operator!=(const DmtcpAlloc<T1>&, const DmtcpAlloc<T2>&) throw()
+operator!=(const DmtcpAlloc<T1>&, const DmtcpAlloc<T2>&) noexcept
 {
   return false;
 }
