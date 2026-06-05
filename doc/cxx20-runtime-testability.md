@@ -455,9 +455,13 @@ Preferred API:
 
 ```c++
 ASSERT(fd >= 0, "open failed: path={} fd={}", path, fd);
-WARNING(ret == 0, "setsockopt failed: fd={} opt={}", fd, opt);
 ASSERT_ERRNO(fd >= 0, "open failed: path={}", path);
-WARNING_ERRNO(ret == 0, "retrying syscall: fd={}", fd);
+WARNING_ERRNO(ret == 0 || errno == EAGAIN, "retrying syscall: fd={}", fd);
+ASSERT_SYSCALL_SUCCESS(open(path, O_RDONLY));
+ASSERT_SYSCALL_EQ(STDIN_FILENO, dup2(fd, STDIN_FILENO));
+ASSERT_MUTEX_SUCCESS(DmtcpMutexLock(&lock));
+ASSERT_RWLOCK_SUCCESS(DmtcpRWLockWrLock(&lock));
+ASSERT_PTHREAD_SUCCESS(pthread_sigmask(SIG_BLOCK, &set, NULL));
 ASSERT_EQ(expected, actual);
 ASSERT_NULL(ptr);
 ASSERT_NOT_NULL(ptr);
@@ -477,6 +481,19 @@ Convenience macros should include the useful comparison/null forms:
 - `ASSERT_GE`
 - `ASSERT_NULL`
 - `ASSERT_NOT_NULL`
+- `ASSERT_SYSCALL_SUCCESS`
+- `ASSERT_SYSCALL_EQ`
+- `ASSERT_ZERO_RETURN`
+- `ASSERT_MUTEX_SUCCESS`
+- `ASSERT_RWLOCK_SUCCESS`
+- `ASSERT_PTHREAD_SUCCESS`
+
+Use the named success helpers for straightforward status checks instead of
+open-coded `ASSERT_ERRNO(call(...) == 0, ...)` or
+`ASSERT_ERRNO(call(...) != -1, ...)` forms. Keep `ASSERT_ERRNO` and
+`WARNING_ERRNO` for policy checks that include allowed errno values, compound
+conditions, or result-bearing control flow where the explicit condition is
+clearer than a helper.
 
 All macros should route through one formatter and emit path.
 

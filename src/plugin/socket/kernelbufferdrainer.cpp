@@ -106,20 +106,24 @@ scaleSendBuffers(int fd, double factor)
   int size;
   unsigned len = sizeof(size);
 
-  ASSERT_ERRNO(getsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *)&size,
-                          &len) == 0,
-               "getsockopt(SO_SNDBUF) failed: fd={}", fd);
+  ASSERT_SYSCALL_SUCCESS_MSG(getsockopt(fd,
+                                        SOL_SOCKET,
+                                        SO_SNDBUF,
+                                        (void *)&size,
+                                        &len),
+                             "getsockopt(SO_SNDBUF) failed: fd={}", fd);
 
   // getsockopt returns doubled size. So, if we pass the same value to
   // setsockopt, it would double the buffer size.
   int newSize = static_cast<int>(size * factor / 2);
   len = sizeof(newSize);
-  ASSERT_ERRNO(_real_setsockopt(fd,
-                                SOL_SOCKET,
-                                SO_SNDBUF,
-                                (void *)&newSize,
-                                len) == 0,
-               "setsockopt(SO_SNDBUF) failed: fd={} size={}", fd, newSize);
+  ASSERT_SYSCALL_SUCCESS_MSG(_real_setsockopt(fd,
+                                              SOL_SOCKET,
+                                              SO_SNDBUF,
+                                              (void *)&newSize,
+                                              len),
+                             "setsockopt(SO_SNDBUF) failed: fd={} size={}",
+                             fd, newSize);
 }
 
 static KernelBufferDrainer *theDrainer = NULL;

@@ -401,10 +401,10 @@ ProcessInfo::updateRestoreBufAddr()
   //        to free the backing physical pages created by mtcp_restart.
 
   if (restoreBuf.startAddr != 0) {
-    ASSERT_ERRNO(munmap((void*) restoreBuf.startAddr,
-                        RESTORE_BUF_TOTAL_SIZE) == 0,
-                 "failed to unmap restore buffer: start={} size={}",
-                 restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      munmap((void*) restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE),
+      "failed to unmap restore buffer: start={} size={}",
+      restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE);
   }
 
   int flags = MAP_SHARED | MAP_ANONYMOUS;
@@ -524,12 +524,11 @@ void
 ProcessInfo::restoreHeap()
 {
   // Release backing memory for EndOfBrkMap memory region.
-  ASSERT_ERRNO(madvise((void *)_initialSavedBrk,
-                       EndOfBrkMapSize,
-                       MADV_DONTNEED) == 0,
-               "failed to release saved brk mapping: addr={} size={}",
-               (void *)_initialSavedBrk,
-               EndOfBrkMapSize);
+      ASSERT_SYSCALL_SUCCESS_MSG(
+        madvise((void *)_initialSavedBrk, EndOfBrkMapSize, MADV_DONTNEED),
+        "failed to release saved brk mapping: addr={} size={}",
+        (void *)_initialSavedBrk,
+        EndOfBrkMapSize);
 
   /* If the original start of heap is lower than the current end of heap, we
    * want to mmap the area between _savedBrk and current break. This

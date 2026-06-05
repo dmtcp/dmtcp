@@ -225,12 +225,17 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     _ip6RestoreAddr.sin6_port = 0;
     _ip6RestoreAddr.sin6_addr = in6addr_any;
     _ip6RestoreAddrlen = sizeof(_ip6RestoreAddr);
-    ASSERT_ERRNO(_real_bind(ip6fd, (struct sockaddr *)&_ip6RestoreAddr,
-                            _ip6RestoreAddrlen) == 0,
-                 "failed to bind IPv6 restore socket: fd={}", ip6fd);
-    ASSERT_ERRNO(getsockname(ip6fd, (struct sockaddr *)&_ip6RestoreAddr,
-                             &_ip6RestoreAddrlen) == 0,
-                 "getsockname failed for IPv6 restore socket: fd={}", ip6fd);
+    ASSERT_SYSCALL_SUCCESS_MSG(_real_bind(ip6fd,
+                                          (struct sockaddr *)&_ip6RestoreAddr,
+                                          _ip6RestoreAddrlen),
+                               "failed to bind IPv6 restore socket: fd={}",
+                               ip6fd);
+    ASSERT_SYSCALL_SUCCESS_MSG(getsockname(ip6fd,
+                                           (struct sockaddr *)&_ip6RestoreAddr,
+                                           &_ip6RestoreAddrlen),
+                               "getsockname failed for IPv6 restore socket: "
+                               "fd={}",
+                               ip6fd);
     ASSERT_SYSCALL_SUCCESS_MSG(_real_listen(ip6fd, 32),
                  "listen failed for IPv6 restore socket: fd={}", ip6fd);
     Util::changeFd(ip6fd, PROTECTED_RESTORE_IP6_SOCK_FD);
@@ -252,9 +257,11 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     _udsRestoreAddr.sun_family = AF_UNIX;
     strncpy(&_udsRestoreAddr.sun_path[1], str.c_str(), str.length());
     _udsRestoreAddrlen = sizeof(sa_family_t) + str.length() + 1;
-    ASSERT_ERRNO(_real_bind(udsfd, (struct sockaddr *)&_udsRestoreAddr,
-                            _udsRestoreAddrlen) == 0,
-                 "failed to bind UDS restore socket: fd={}", udsfd);
+    ASSERT_SYSCALL_SUCCESS_MSG(_real_bind(udsfd,
+                                          (struct sockaddr *)&_udsRestoreAddr,
+                                          _udsRestoreAddrlen),
+                               "failed to bind UDS restore socket: fd={}",
+                               udsfd);
     ASSERT_SYSCALL_SUCCESS_MSG(_real_listen(udsfd, 32),
                  "listen failed for UDS restore socket: fd={}", udsfd);
     Util::changeFd(udsfd, PROTECTED_RESTORE_UDS_SOCK_FD);
@@ -277,10 +284,12 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     string strSeq = o2.str();
     strncpy(&_udsSeqRestoreAddr.sun_path[1], strSeq.c_str(), strSeq.length());
     _udsSeqRestoreAddrlen = sizeof(sa_family_t) + strSeq.length() + 1;
-    ASSERT_ERRNO(_real_bind(udsseqfd, (struct sockaddr *)&_udsSeqRestoreAddr,
-                            _udsSeqRestoreAddrlen) == 0,
-                 "failed to bind UDS seqpacket restore socket: fd={}",
-                 udsseqfd);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_bind(udsseqfd,
+                 (struct sockaddr *)&_udsSeqRestoreAddr,
+                 _udsSeqRestoreAddrlen),
+      "failed to bind UDS seqpacket restore socket: fd={}",
+      udsseqfd);
     ASSERT_SYSCALL_SUCCESS_MSG(_real_listen(udsseqfd, 32),
                  "listen failed for UDS seqpacket restore socket: fd={}",
                  udsseqfd);

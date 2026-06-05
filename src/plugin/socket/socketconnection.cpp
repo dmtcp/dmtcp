@@ -363,10 +363,11 @@ TcpConnection::onBind(const struct sockaddr *addr, socklen_t len)
     // Do not rely on the address passed on to bind as it may contain port 0
     // which allows the OS to give any unused port. Thus we look ourselves up
     // using getsockname.
-    ASSERT_ERRNO(getsockname(_fds[0],
-                             (struct sockaddr *)&_bindAddr,
-                             &_bindAddrlen) == 0,
-                 "failed to query bound socket address: fd={}", _fds[0]);
+    ASSERT_SYSCALL_SUCCESS_MSG(getsockname(_fds[0],
+                                           (struct sockaddr *)&_bindAddr,
+                                           &_bindAddrlen),
+                               "failed to query bound socket address: fd={}",
+                               _fds[0]);
   }
   _type = TCP_BIND;
 }
@@ -775,10 +776,11 @@ TcpConnection::postRestart()
       JTRACE("Binding socket.") (id());
     }
     errno = 0;
-    WARNING_ERRNO(_real_bind(_fds[0], (sockaddr *)&_bindAddr,
-                             _bindAddrlen) == 0,
-                  "Bind failed: fd={} con_id={} addrlen={}", _fds[0],
-                  id().conId(), _bindAddrlen);
+    WARNING_SYSCALL_SUCCESS_MSG(_real_bind(_fds[0],
+                                           (sockaddr *)&_bindAddr,
+                                           _bindAddrlen),
+                                "Bind failed: fd={} con_id={} addrlen={}",
+                                _fds[0], id().conId(), _bindAddrlen);
     if (_type == TCP_BIND) {
       break;
     }
@@ -991,10 +993,12 @@ RawSocketConnection::postRestart()
     }
 
     errno = 0;
-    WARNING_ERRNO(_real_bind(_fds[0], (sockaddr *)&_bindAddr,
-                             _bindAddrlen) == 0,
-                  "raw socket bind failed: fd={} con_id={} addrlen={}",
-                  _fds[0], id().conId(), _bindAddrlen);
+    WARNING_SYSCALL_SUCCESS_MSG(_real_bind(_fds[0],
+                                           (sockaddr *)&_bindAddr,
+                                           _bindAddrlen),
+                                "raw socket bind failed: fd={} con_id={} "
+                                "addrlen={}",
+                                _fds[0], id().conId(), _bindAddrlen);
     if (_type == RAW_BIND) {
       break;
     }

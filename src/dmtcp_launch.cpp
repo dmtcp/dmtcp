@@ -892,8 +892,10 @@ testFsGsBase()
   }
 
   int status = 0;
-  ASSERT_ERRNO(waitpid(childPid, &status, 0) == childPid,
-               "failed to wait for FSGSBASE probe: child_pid={}", childPid);
+  ASSERT_SYSCALL_EQ_MSG(childPid,
+                        waitpid(childPid, &status, 0),
+                        "failed to wait for FSGSBASE probe: child_pid={}",
+                        childPid);
 
   if (status == 0) {
     setenv(ENV_VAR_FSGSBASE_ENABLED, "1", 1);

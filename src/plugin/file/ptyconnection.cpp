@@ -92,9 +92,10 @@ ptmxTestPacketMode(int masterFd)
      see command byte of TIOCPKT_DATA(0) with data. */
   tmp_buf[0] = 'x'; /* Don't set '\n'.  Could be converted to "\r\n". */
   /* Give the masterFd something to read. */
-  WARNING_ERRNO((rc = write(slave_fd, tmp_buf, 1)) == 1,
-                "write failed while testing PTY packet mode: fd={} rc={}",
-                slave_fd, rc);
+  WARNING_SYSCALL_EQ_MSG(static_cast<ssize_t>(1),
+                         rc = write(slave_fd, tmp_buf, 1),
+                         "write failed while testing PTY packet mode: fd={}",
+                         slave_fd);
 
   // tcdrain(slave_fd);
   _real_close(slave_fd);

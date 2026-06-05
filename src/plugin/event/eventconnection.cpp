@@ -180,8 +180,10 @@ EventFdConnection::refill(bool isRestart)
   if (!isRestart) {
     uint64_t u = (unsigned long long)_initval;
     JTRACE("Writing") (u);
-    WARNING_ERRNO(write(_fds[0], &u, sizeof(uint64_t)) == sizeof(uint64_t),
-                  "Write to eventfd failed during refill: fd={}", _fds[0]);
+    WARNING_SYSCALL_EQ_MSG(static_cast<ssize_t>(sizeof(uint64_t)),
+                           write(_fds[0], &u, sizeof(uint64_t)),
+                           "Write to eventfd failed during refill: fd={}",
+                           _fds[0]);
   }
   JTRACE("End refill eventfd.") (_fds[0]);
 }
@@ -308,10 +310,11 @@ InotifyConnection::refill(bool isRestart)
                                   watch_descriptor.add_watch.pathname,
                                   watch_descriptor.add_watch.mask);
 
-        WARNING_ERRNO(_real_dup2(new_wd, old_wd) == old_wd,
-                      "failed to restore inotify watch descriptor: "
-                      "new_wd={} old_wd={}",
-                      new_wd, old_wd);
+        WARNING_SYSCALL_EQ_MSG(old_wd,
+                               _real_dup2(new_wd, old_wd),
+                               "failed to restore inotify watch descriptor: "
+                               "new_wd={} old_wd={}",
+                               new_wd, old_wd);
         JTRACE("restore watch descriptors")
           (old_wd) (new_wd) (watch_descriptor.add_watch.file_descriptor)
           (watch_descriptor.add_watch.pathname)

@@ -386,11 +386,13 @@ void convenienceAssertMacrosPassWithoutWriting()
   ASSERT_PTHREAD_SUCCESS(0);
   ASSERT_ZERO_RETURN(0);
   ASSERT_SYSCALL_SUCCESS(0);
+  ASSERT_SYSCALL_EQ(3, 3);
   WARNING_MUTEX_SUCCESS(0);
   WARNING_RWLOCK_SUCCESS(0);
   WARNING_PTHREAD_SUCCESS(0);
   WARNING_ZERO_RETURN(0);
   WARNING_SYSCALL_SUCCESS(0);
+  WARNING_SYSCALL_EQ(4, 4);
   ASSERT_NOT_NULL(ptr);
   ASSERT_NULL(nullPtr);
 
@@ -411,10 +413,11 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
   ASSERT_PTHREAD_SUCCESS(returnZeroAndCount(&successCalls));
   ASSERT_ZERO_RETURN(returnZeroAndCount(&successCalls));
   ASSERT_SYSCALL_SUCCESS(returnZeroAndCount(&successCalls));
+  ASSERT_SYSCALL_EQ(0, returnZeroAndCount(&successCalls));
 
   UNIT_ASSERT_EQ(lhs, 1);
   UNIT_ASSERT_EQ(nullCalls, 1);
-  UNIT_ASSERT_EQ(successCalls, 4);
+  UNIT_ASSERT_EQ(successCalls, 5);
   UNIT_ASSERT_EQ(hookCallCount, 0);
 }
 
@@ -649,6 +652,49 @@ void warningSyscallSuccessMessageReportsExtraContext()
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=13") != nullptr);
 }
 
+void warningSyscallEqReportsExpressionReturnValueAndErrno()
+{
+  resetHook();
+  errno = 0;
+
+  WARNING_SYSCALL_EQ(7, setErrnoAndReturn(-1, EACCES));
+
+  UNIT_ASSERT_EQ(errno, EACCES);
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "setErrnoAndReturn(-1, EACCES) failed") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "expected a return value of '7', "
+                               "returned '-1'") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=13") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "EACCES") != nullptr);
+}
+
+void warningSyscallEqMessageReportsExtraContext()
+{
+  resetHook();
+  errno = 0;
+
+  WARNING_SYSCALL_EQ_MSG(9,
+                         setErrnoAndReturn(4, EIO),
+                         "fd={} path={}",
+                         5,
+                         "/tmp/short");
+
+  UNIT_ASSERT_EQ(errno, EIO);
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "setErrnoAndReturn(4, EIO) failed") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "expected a return value of '9', "
+                               "returned '4'") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "fd=5 path=/tmp/short") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=5") != nullptr);
+}
+
 void warningPthreadSuccessMessageReportsExtraContext()
 {
   resetHook();
@@ -845,6 +891,10 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    warningSyscallSuccessReportsExpressionReturnValueAndErrno},
   {"warning syscall-success message reports extra context",
    warningSyscallSuccessMessageReportsExtraContext},
+  {"warning syscall-eq reports expression return value and errno",
+   warningSyscallEqReportsExpressionReturnValueAndErrno},
+  {"warning syscall-eq message reports extra context",
+   warningSyscallEqMessageReportsExtraContext},
   {"warning pthread success message reports extra context",
    warningPthreadSuccessMessageReportsExtraContext},
   {"signal warning uses raw diagnostic and preserves errno",

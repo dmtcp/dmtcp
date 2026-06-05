@@ -444,10 +444,15 @@ class SourceAuditTest(unittest.TestCase):
                 self.assert_file_does_not_match(relative_path, pattern)
 
     def test_simple_syscall_asserts_use_named_success_helpers(self):
-        pattern = re.compile(
+        single_line_pattern = re.compile(
             r"\b(?:ASSERT|WARNING)_ERRNO\s*\(\s*"
             r"(?:[A-Za-z_][A-Za-z0-9_:]*|::[A-Za-z_][A-Za-z0-9_:]*)"
             r"\s*\([^;\n]*\)\s*(?:==\s*0|!=\s*-1)\s*,",
+        )
+        multiline_zero_return_pattern = re.compile(
+            r"\b(?:ASSERT|WARNING)_ERRNO\s*\(\s*"
+            r"(?:_?[A-Za-z_][A-Za-z0-9_:]*|::[A-Za-z_][A-Za-z0-9_:]*)"
+            r"\s*\([^;]*?\)\s*==\s*0\s*,",
         )
         matches = []
         for path in self.source_file_paths():
@@ -455,13 +460,34 @@ class SourceAuditTest(unittest.TestCase):
             if relative_path == "src/util_assert.h":
                 continue
             text = self.strip_comments(path.read_text(encoding="utf-8"))
-            for line_number, line in enumerate(text.splitlines(), start=1):
-                if pattern.search(line):
+            lines = text.splitlines()
+            for line_number, line in enumerate(lines, start=1):
+                if single_line_pattern.search(line):
                     matches.append(f"{relative_path}:{line_number}")
+                if "ASSERT_ERRNO" in line or "WARNING_ERRNO" in line:
+                    window = " ".join(lines[line_number - 1:line_number + 8])
+                    if multiline_zero_return_pattern.search(window):
+                        matches.append(f"{relative_path}:{line_number}")
         self.assertEqual(matches, [],
                          "use ASSERT_SYSCALL_SUCCESS or "
                          "WARNING_SYSCALL_SUCCESS for direct errno-style "
                          f"success checks: {matches}")
+
+    def test_expected_syscall_return_checks_use_named_helpers(self):
+        checks = (
+            ("src/writeckpt.cpp", r"ASSERT_ERRNO\s*\(\s*written\s*=="),
+            ("src/ckptserializer.cpp", r"ASSERT_ERRNO\s*\(\s*written\s*=="),
+            ("src/dmtcp_coordinator.cpp", r"ASSERT_ERRNO\s*\(\s*dup2\s*\("),
+            ("src/dmtcprestartinternal.cpp",
+             r"ASSERT_EQ\s*\(\s*(?:pid|cpid)\s*,\s*waitpid\s*\("),
+            ("src/dmtcprestartinternal.cpp",
+             r"ASSERT_EQ\s*\([^,]+,\s*\(size_t\)\s*Util::readAll\s*\("),
+            ("src/coordinatorapi.cpp",
+             r"ASSERT_ERRNO\s*\(\s*Util::(?:writeAll|readAll)\s*\("),
+        )
+        for relative_path, pattern in checks:
+            with self.subTest(path=relative_path):
+                self.assert_file_does_not_match(relative_path, pattern)
 
     def test_signal_context_success_checks_use_named_helpers(self):
         for pattern in (

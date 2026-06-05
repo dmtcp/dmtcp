@@ -624,12 +624,11 @@ writeScript(const string &ckptDir,
     ASSERT(uniq_fname_str[PATH_MAX-1] == '\0',
            "restart script path too long: path={}",
            uniqueFilename);
-    WARNING_ERRNO(symlinkat(basename(uniq_fname_str),
-                            dirfd,
-                            filename.c_str()) == 0,
-                  "failed to link restart script: link={} target_dir={}",
-                  filename,
-                  dirname);
+    WARNING_SYSCALL_SUCCESS_MSG(
+      symlinkat(basename(uniq_fname_str), dirfd, filename.c_str()),
+      "failed to link restart script: link={} target_dir={}",
+      filename,
+      dirname);
     ASSERT_SYSCALL_SUCCESS_MSG(close(dirfd),
                  "failed to close restart script directory: path={}",
                  dirname);

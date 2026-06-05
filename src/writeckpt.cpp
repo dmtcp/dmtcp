@@ -76,11 +76,10 @@ static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
 static void
 writeCkptAll(int fd, const void *buf, size_t count, const char *what)
 {
-  ssize_t written = Util::writeAll(fd, buf, count);
-  ASSERT_ERRNO(written == (ssize_t) count,
-               "failed to write checkpoint data: what={} fd={} expected={} "
-               "written={}",
-               what, fd, count, written);
+  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(count),
+                        Util::writeAll(fd, buf, count),
+                        "failed to write checkpoint data: what={} fd={}",
+                        what, fd);
 }
 
 static void

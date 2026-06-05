@@ -508,9 +508,10 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
                  "failed to recreate hugepage shm file: path={}", area.name);
 
     // Set the correct offset
-    ASSERT_ERRNO(lseek(fd, area.offset, SEEK_SET) == area.offset,
-                 "failed to seek hugepage shm file: fd={} offset={}", fd,
-                 area.offset);
+    ASSERT_SYSCALL_EQ_MSG(static_cast<off_t>(area.offset),
+                          lseek(fd, area.offset, SEEK_SET),
+                          "failed to seek hugepage shm file: fd={} offset={}",
+                          fd, area.offset);
 
     // Unlink (the area was originally unlinked)
     unlink(area.name);
@@ -550,13 +551,16 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
     }
 
     // Get to the correct offset
-    ASSERT_ERRNO(lseek(fd, area.offset, SEEK_SET) == area.offset,
-                 "failed to seek shm file: fd={} offset={}", fd, area.offset);
+    ASSERT_SYSCALL_EQ_MSG(static_cast<off_t>(area.offset),
+                          lseek(fd, area.offset, SEEK_SET),
+                          "failed to seek shm file: fd={} offset={}", fd,
+                          area.offset);
 
     // Now populate file contents from memory.
-    ASSERT_ERRNO(Util::writeAll(fd, area.addr, area.size) ==
-                 (ssize_t)area.size,
-                 "failed to populate shm file: fd={} size={}", fd, area.size);
+    ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(area.size),
+                          Util::writeAll(fd, area.addr, area.size),
+                          "failed to populate shm file: fd={} size={}", fd,
+                          area.size);
     restoreShmArea(area, fd);
   }
 }
@@ -568,9 +572,11 @@ FileConnList::restoreShmArea(const ProcMapsArea &area, int fd)
     fd = _real_open(area.name, Util::memProtToOpenFlags(area.prot));
 
     // Set the correct offset
-    ASSERT_ERRNO(lseek(fd, area.offset, SEEK_SET) == area.offset,
-                 "failed to seek shm file before restore: fd={} offset={}", fd,
-                 area.offset);
+    ASSERT_SYSCALL_EQ_MSG(static_cast<off_t>(area.offset),
+                          lseek(fd, area.offset, SEEK_SET),
+                          "failed to seek shm file before restore: fd={} "
+                          "offset={}",
+                          fd, area.offset);
   }
 
   ASSERT_ERRNO(fd != -1,

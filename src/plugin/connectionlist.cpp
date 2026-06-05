@@ -579,18 +579,20 @@ ConnectionList::registerIncomingCons()
          protected_fd);
   sock.changeFd(protected_fd);
   fdReceiveAddr.sun_family = AF_UNIX;
-  ASSERT_ERRNO(_real_bind(protected_fd,
-                          (struct sockaddr *)&fdReceiveAddr,
-                          sizeof(fdReceiveAddr.sun_family)) == 0,
-               "bind failed for fd-receive socket: protected_fd={}",
-               protected_fd);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    _real_bind(protected_fd,
+               (struct sockaddr *)&fdReceiveAddr,
+               sizeof(fdReceiveAddr.sun_family)),
+    "bind failed for fd-receive socket: protected_fd={}",
+    protected_fd);
 
   fdReceiveAddrLen = sizeof(fdReceiveAddr);
-  ASSERT_ERRNO(getsockname(protected_fd,
-                           (struct sockaddr *)&fdReceiveAddr,
-                           &fdReceiveAddrLen) == 0,
-               "getsockname failed for fd-receive socket: protected_fd={}",
-               protected_fd);
+  ASSERT_SYSCALL_SUCCESS_MSG(getsockname(protected_fd,
+                                         (struct sockaddr *)&fdReceiveAddr,
+                                         &fdReceiveAddrLen),
+                             "getsockname failed for fd-receive socket: "
+                             "protected_fd={}",
+                             protected_fd);
 
 
   vector<const char *>incomingCons;

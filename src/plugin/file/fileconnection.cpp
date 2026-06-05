@@ -425,9 +425,10 @@ FileConnection::refill(bool isRestart)
   if (jalib::Filesystem::FileExists(_path) &&
       stat(_path.c_str(), &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
     if (_offset <= statbuf.st_size && _offset <= _st_size) {
-      ASSERT_ERRNO(lseek(_fds[0], _offset, SEEK_SET) == _offset,
-                   "failed to restore file offset: path={} offset={}", _path,
-                   _offset);
+      ASSERT_SYSCALL_EQ_MSG(static_cast<off_t>(_offset),
+                            lseek(_fds[0], _offset, SEEK_SET),
+                            "failed to restore file offset: path={} offset={}",
+                            _path, _offset);
 
       // JTRACE("lseek(_fds[0], _offset, SEEK_SET)") (_fds[0]) (_offset);
     } else if (_offset > statbuf.st_size || _offset > _st_size) {
@@ -577,15 +578,15 @@ FileConnection::checkDup(int fd, const char *npath)
   if (fullPath != fpath &&
        lseek(myfd, 0, SEEK_CUR) == lseek(fd, 0, SEEK_CUR)) {
     off_t newOffset = lseek(myfd, 1, SEEK_CUR);
-    ASSERT_ERRNO(newOffset != -1, "lseek failed: fd={}", myfd);
+    ASSERT_SYSCALL_SUCCESS_MSG(newOffset, "lseek failed: fd={}", myfd);
 
     if (newOffset == lseek(fd, 0, SEEK_CUR)) {
       retVal = true;
     }
 
     // Now restore the old offset
-    ASSERT_ERRNO(-1 != lseek(myfd, -1, SEEK_CUR), "lseek failed: fd={}",
-                 myfd);
+    ASSERT_SYSCALL_SUCCESS_MSG(lseek(myfd, -1, SEEK_CUR),
+                               "lseek failed: fd={}", myfd);
   }
   return retVal;
 }
@@ -753,16 +754,14 @@ FifoConnection::refill(bool isRestart)
   size_t bufsize = 256;
   char buf[bufsize];
   size_t j;
-  ssize_t ret;
   for (size_t i = 0; i < (_in_data.size() / bufsize); i++) { // refill fifo
     for (j = 0; j < bufsize; j++) {
       buf[j] = _in_data[j + i * bufsize];
     }
-    ret = Util::writeAll(ckptfd, buf, j);
-    ASSERT_ERRNO(ret == (ssize_t)j,
-                 "failed to refill FIFO chunk: fd={} ret={} expected={} "
-                 "chunk={}",
-                 _fds[0], ret, j, i);
+    ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(j),
+                          Util::writeAll(ckptfd, buf, j),
+                          "failed to refill FIFO chunk: fd={} chunk={}",
+                          _fds[0], i);
   }
   int start = (_in_data.size() / bufsize) * bufsize;
   for (j = 0; j < _in_data.size() % bufsize; j++) {
@@ -771,10 +770,9 @@ FifoConnection::refill(bool isRestart)
   errno = 0;
   buf[j] = '\0';
   JTRACE("Buf internals.") ((const char *)buf);
-  ret = Util::writeAll(ckptfd, buf, j);
-  ASSERT_ERRNO(ret == (ssize_t)j,
-               "failed to refill FIFO tail: fd={} ret={} expected={}",
-               _fds[0], ret, j);
+  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(j),
+                        Util::writeAll(ckptfd, buf, j),
+                        "failed to refill FIFO tail: fd={}", _fds[0]);
 
   close(ckptfd);
 
@@ -869,8 +867,10 @@ StdioConnection::postRestart()
       ASSERT(false, "invalid stdio connection type: type={}", _type);
     }
     errno = 0;
-    WARNING_ERRNO(_real_dup2(oldFd, fd) == fd,
-                  "failed to restore stdio fd: old_fd={} fd={}", oldFd, fd);
+    WARNING_SYSCALL_EQ_MSG(fd,
+                           _real_dup2(oldFd, fd),
+                           "failed to restore stdio fd: old_fd={} fd={}",
+                           oldFd, fd);
   }
 }
 

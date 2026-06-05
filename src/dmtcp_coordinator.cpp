@@ -1918,20 +1918,24 @@ main(int argc, char **argv)
     int fd = -1;
     if (!flags.useLogFile) {
       fd = open("/dev/null", O_RDWR);
-      ASSERT_ERRNO(dup2(fd, STDIN_FILENO) == STDIN_FILENO,
-                   "failed to redirect daemon stdin to /dev/null");
+      ASSERT_SYSCALL_EQ_MSG(STDIN_FILENO,
+                            dup2(fd, STDIN_FILENO),
+                            "failed to redirect daemon stdin to /dev/null");
     } else {
       fd = open(flags.logFilename.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0666);
       JASSERT_SET_LOG(flags.logFilename);
       int nullFd = open("/dev/null", O_RDWR);
-      ASSERT_ERRNO(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO,
-                   "failed to redirect daemon stdin to /dev/null");
+      ASSERT_SYSCALL_EQ_MSG(STDIN_FILENO,
+                            dup2(nullFd, STDIN_FILENO),
+                            "failed to redirect daemon stdin to /dev/null");
       close(nullFd);
     }
-    ASSERT_ERRNO(dup2(fd, STDOUT_FILENO) == STDOUT_FILENO,
-                 "failed to redirect daemon stdout");
-    ASSERT_ERRNO(dup2(fd, STDERR_FILENO) == STDERR_FILENO,
-                 "failed to redirect daemon stderr");
+    ASSERT_SYSCALL_EQ_MSG(STDOUT_FILENO,
+                          dup2(fd, STDOUT_FILENO),
+                          "failed to redirect daemon stdout");
+    ASSERT_SYSCALL_EQ_MSG(STDERR_FILENO,
+                          dup2(fd, STDERR_FILENO),
+                          "failed to redirect daemon stderr");
     JASSERT_CLOSE_STDERR();
     if (fd > STDERR_FILENO) {
       close(fd);

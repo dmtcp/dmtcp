@@ -65,9 +65,10 @@ SharedData::initializeHeader(const char *tmpDir,
          tmpDir, compId, coordInfo, localIPAddr);
 
   off_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
-  ASSERT_ERRNO(lseek(PROTECTED_SHM_FD, size, SEEK_SET) == size,
-               "failed to extend shared-data fd: fd={} size={}",
-               PROTECTED_SHM_FD, size);
+  ASSERT_SYSCALL_EQ_MSG(size,
+                        lseek(PROTECTED_SHM_FD, size, SEEK_SET),
+                        "failed to extend shared-data fd: fd={} size={}",
+                        PROTECTED_SHM_FD, size);
   Util::writeAll(PROTECTED_SHM_FD, "", 1);
   memset(sharedDataHeader, 0, size);
 
@@ -196,9 +197,10 @@ SharedData::initialize(const char *tmpDir,
                  size);
     ASSERT_ERRNO(fd != -1, "failed to open shared-data file: path={}",
                  o.str());
-    ASSERT_ERRNO(_real_dup2(fd, PROTECTED_SHM_FD) == PROTECTED_SHM_FD,
-                 "failed to move shared-data fd: fd={} protected_fd={}", fd,
-                 PROTECTED_SHM_FD);
+    ASSERT_SYSCALL_EQ_MSG(PROTECTED_SHM_FD,
+                          _real_dup2(fd, PROTECTED_SHM_FD),
+                          "failed to move shared-data fd: fd={} protected_fd={}",
+                          fd, PROTECTED_SHM_FD);
     if (fd != PROTECTED_SHM_FD) {
       _real_close(fd);
     }

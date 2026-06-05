@@ -260,9 +260,10 @@ int
 Util::changeFd(int oldfd, int newfd)
 {
   if (oldfd != newfd) {
-    ASSERT_ERRNO(_real_dup2(oldfd, newfd) == newfd,
-                 "dup2 failed in Util::changeFd: oldfd={} newfd={}", oldfd,
-                 newfd);
+    ASSERT_SYSCALL_EQ_MSG(newfd,
+                          _real_dup2(oldfd, newfd),
+                          "dup2 failed in Util::changeFd: oldfd={} newfd={}",
+                          oldfd, newfd);
     _real_close(oldfd);
   }
   return newfd;

@@ -65,9 +65,11 @@ Connection::restoreDupFds(int fd)
 {
   Util::changeFd(fd, _fds[0]);
   for (size_t i = 1; i < _fds.size(); i++) {
-    ASSERT_ERRNO(_real_dup2(_fds[0], _fds[i]) == _fds[i],
-                 "dup2 failed while restoring shared fd: old_fd={} new_fd={}",
-                 _fds[0], _fds[i]);
+    ASSERT_SYSCALL_EQ_MSG(_fds[i],
+                          _real_dup2(_fds[0], _fds[i]),
+                          "dup2 failed while restoring shared fd: old_fd={} "
+                          "new_fd={}",
+                          _fds[0], _fds[i]);
   }
 }
 
