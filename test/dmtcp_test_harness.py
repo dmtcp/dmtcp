@@ -234,9 +234,19 @@ class DmtcpHarness:
                 if result is None or result.passed:
                     result = TestResult.fail(spec.name, "cleanup",
                                              str(failure), work.path)
+            if result is not None and result.artifact_dir is not None:
+                self._record_result(result)
             if result is not None and result.passed and not self.retain_success_artifacts:
                 work.cleanup()
         return result
+
+    def _record_result(self, result: TestResult):
+        with (result.artifact_dir / "result.log").open(
+                "w", encoding="utf-8") as out:
+            out.write(f"name={result.name}\n")
+            out.write(f"passed={result.passed}\n")
+            out.write(f"phase={result.phase}\n")
+            out.write(f"message={result.message}\n")
 
 
 class TestWorkDir:

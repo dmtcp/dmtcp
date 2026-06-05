@@ -364,6 +364,27 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             if result.artifact_dir is not None:
                 shutil.rmtree(result.artifact_dir, ignore_errors=True)
 
+    def test_harness_failure_records_result_summary(self):
+        def fail_run(self):
+            raise HarnessFailure("checkpoint", "checkpoint image missing")
+
+        with mock.patch.object(harness_module.TestContext, "run", fail_run), \
+             mock.patch.object(harness_module.TestContext, "cleanup",
+                               lambda self: None):
+            result = DmtcpHarness(ROOT).run(
+                TestSpec("summary-failure", 1, ["./test/dmtcp1"]))
+
+        try:
+            summary = (result.artifact_dir / "result.log").read_text(
+                encoding="utf-8")
+            self.assertIn("name=summary-failure", summary)
+            self.assertIn("passed=False", summary)
+            self.assertIn("phase=checkpoint", summary)
+            self.assertIn("message=checkpoint image missing", summary)
+        finally:
+            if result.artifact_dir is not None:
+                shutil.rmtree(result.artifact_dir, ignore_errors=True)
+
     def test_cleanup_exception_records_cleanup_failure_after_pass(self):
         def cleanup_fails(self):
             raise RuntimeError("cleanup failed")
@@ -380,6 +401,10 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertEqual(result.phase, "cleanup")
             self.assertIn("cleanup failed", result.message)
             self.assertIsNotNone(result.artifact_dir)
+            summary = (result.artifact_dir / "result.log").read_text(
+                encoding="utf-8")
+            self.assertIn("phase=cleanup", summary)
+            self.assertIn("message=cleanup failed", summary)
             log = (result.artifact_dir / "cleanup-error.log").read_text(
                 encoding="utf-8")
             self.assertIn("RuntimeError: cleanup failed", log)
