@@ -39,6 +39,7 @@
 #include "syscallwrappers.h"
 #include "uniquepid.h"
 #include "util.h"
+#include "util_assert.h"
 
 #define SHM_MAX_SIZE (sizeof(SharedData::Header))
 
@@ -58,11 +59,15 @@ SharedData::initializeHeader(const char *tmpDir,
                              CoordinatorInfo *coordInfo,
                              struct in_addr *localIPAddr)
 {
-  JASSERT(tmpDir && compId && coordInfo && localIPAddr);
+  ASSERT(tmpDir && compId && coordInfo && localIPAddr,
+         "initializeHeader requires non-null inputs: tmpDir={} compId={} "
+         "coordInfo={} localIPAddr={}",
+         tmpDir, compId, coordInfo, localIPAddr);
 
   off_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
-  JASSERT(lseek(PROTECTED_SHM_FD, size, SEEK_SET) == size)
-    (JASSERT_ERRNO);
+  ASSERT_ERRNO(lseek(PROTECTED_SHM_FD, size, SEEK_SET) == size,
+               "failed to extend shared-data fd: fd={} size={}",
+               PROTECTED_SHM_FD, size);
   Util::writeAll(PROTECTED_SHM_FD, "", 1);
   memset(sharedDataHeader, 0, size);
 
@@ -101,7 +106,10 @@ SharedData::initializeHeader(const char *tmpDir,
   } else {
     sharedDataHeader->nextVirtualPtyId = 0;
   }
-  JASSERT(strlen(tmpDir) < sizeof(sharedDataHeader->tmpDir) - 1) (tmpDir);
+  ASSERT(strlen(tmpDir) < sizeof(sharedDataHeader->tmpDir) - 1,
+         "tmpdir path too long for shared data header: tmpDir={} len={} "
+         "max={}",
+         tmpDir, strlen(tmpDir), sizeof(sharedDataHeader->tmpDir) - 1);
   strcpy(sharedDataHeader->tmpDir, tmpDir);
 
   // We reach here via dmtcp_launch or dmtcp_restart.
@@ -120,8 +128,11 @@ SharedData::initializeHeader(const char *tmpDir,
   }
 #endif // if defined(__i386__) || defined(__arm__)
 
-  JASSERT(installDir.length() < sizeof(sharedDataHeader->installDir) - 1)
-    (installDir);
+  ASSERT(installDir.length() < sizeof(sharedDataHeader->installDir) - 1,
+         "install dir too long for shared data header: installDir={} len={} "
+         "max={}",
+         installDir, installDir.length(),
+         sizeof(sharedDataHeader->installDir) - 1);
 
   strcpy(sharedDataHeader->installDir, installDir.c_str());
 }
@@ -146,10 +157,14 @@ SharedData::initialize(const char *tmpDir,
    */
   bool needToInitialize = false;
 
-  JASSERT((coordInfo != NULL && localIPAddr != NULL) ||
-          Util::isValidFd(PROTECTED_SHM_FD));
+  ASSERT((coordInfo != NULL && localIPAddr != NULL) ||
+           Util::isValidFd(PROTECTED_SHM_FD),
+         "SharedData::initialize requires coordinator info or a valid shared "
+         "memory fd: coordInfo={} localIPAddr={} fd={}",
+         coordInfo, localIPAddr, PROTECTED_SHM_FD);
   if (!Util::isValidFd(PROTECTED_SHM_FD)) {
-    JASSERT(tmpDir != NULL);
+    ASSERT(tmpDir != NULL,
+           "SharedData::initialize requires tmpDir when creating shared area");
     ostringstream o;
     o << tmpDir << "/dmtcpSharedArea."
       << *compId << "." << std::hex << coordInfo->timeStamp;
@@ -176,10 +191,14 @@ SharedData::initialize(const char *tmpDir,
     // too small. This can cause a SIGBUS later when we try to read beyond
     // the end of the file. So we must truncate the file to the correct size
     // in both the if and else branch, above.
-    JASSERT(truncate(o.str().c_str(), size) == 0);
-    JASSERT(fd != -1) (JASSERT_ERRNO);
-    JASSERT(_real_dup2(fd, PROTECTED_SHM_FD) == PROTECTED_SHM_FD)
-      (JASSERT_ERRNO);
+    ASSERT_ERRNO(truncate(o.str().c_str(), size) == 0,
+                 "failed to size shared-data file: path={} size={}", o.str(),
+                 size);
+    ASSERT_ERRNO(fd != -1, "failed to open shared-data file: path={}",
+                 o.str());
+    ASSERT_ERRNO(_real_dup2(fd, PROTECTED_SHM_FD) == PROTECTED_SHM_FD,
+                 "failed to move shared-data fd: fd={} protected_fd={}", fd,
+                 PROTECTED_SHM_FD);
     if (fd != PROTECTED_SHM_FD) {
       _real_close(fd);
     }
@@ -205,8 +224,9 @@ SharedData::initialize(const char *tmpDir,
       errno = 0;
     }
   }
-  JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO)
-  .Text("Unable to find shared area.");
+  ASSERT_ERRNO(addr != MAP_FAILED,
+               "Unable to find shared area: fd={} size={}", PROTECTED_SHM_FD,
+               size);
 
   sharedDataHeader = (struct Header *)addr;
 
@@ -220,7 +240,8 @@ SharedData::initialize(const char *tmpDir,
     while (1) {
       bool initialized = false;
       Util::lockFile(PROTECTED_SHM_FD);
-      JASSERT(fstat(PROTECTED_SHM_FD, &statbuf) != -1) (JASSERT_ERRNO);
+      ASSERT_ERRNO(fstat(PROTECTED_SHM_FD, &statbuf) != -1,
+                   "failed to stat shared-data fd: fd={}", PROTECTED_SHM_FD);
       initialized = sharedDataHeader->initialized;
       Util::unlockFile(PROTECTED_SHM_FD);
       // If we got here, it implies that needtoinitialize was false, and
@@ -244,8 +265,9 @@ SharedData::initialize(const char *tmpDir,
     Util::lockFile(PROTECTED_SHM_FD);
     if (!Util::strStartsWith(sharedDataHeader->versionStr,
                              SHM_VERSION_STR)) {
-      JASSERT(false) (sharedDataHeader->versionStr) (SHM_VERSION_STR)
-      .Text("Wrong signature");
+      ASSERT(false,
+             "Wrong shared-data signature: actual={} expected={}",
+             sharedDataHeader->versionStr, SHM_VERSION_STR);
     }
 
     // Check if the computation is running in mixed mode.
@@ -333,7 +355,10 @@ SharedData::waitForBarrier(const string &barrierId)
                       FUTEX_WAIT,
                       curRound,
                       (long)NULL, (long)NULL, 0, 0) != 0) {
-      JASSERT(errno == EAGAIN);
+      ASSERT_ERRNO(errno == EAGAIN,
+                   "unexpected futex wait failure in shared-data barrier: "
+                   "barrierId={} curRound={}",
+                   barrierId, curRound);
       Util::lockFile(PROTECTED_SHM_FD);
       Util::unlockFile(PROTECTED_SHM_FD);
     }
@@ -380,7 +405,8 @@ SharedData::getTmpDir()
   if (sharedDataHeader == NULL) {
     initialize();
   }
-  JASSERT(sharedDataHeader->tmpDir[0] != '\0');
+  ASSERT(sharedDataHeader->tmpDir[0] != '\0',
+         "shared-data tmpDir has not been initialized");
   return sharedDataHeader->tmpDir;
 }
 
@@ -390,7 +416,8 @@ SharedData::getTmpDir(char *buf, uint32_t len)
   if (sharedDataHeader == NULL) {
     initialize();
   }
-  JASSERT(sharedDataHeader->tmpDir[0] != '\0');
+  ASSERT(sharedDataHeader->tmpDir[0] != '\0',
+         "shared-data tmpDir has not been initialized");
   if (len <= strlen(sharedDataHeader->tmpDir)) {
     return NULL;
   }
@@ -458,7 +485,7 @@ SharedData::getCoordAddr(struct sockaddr *addr, uint32_t *len)
   if (sharedDataHeader == NULL) {
     initialize();
   }
-  JASSERT(addr != NULL);
+  ASSERT_NOT_NULL(addr);
   *len = sharedDataHeader->coordInfo.addrLen;
   memcpy(addr, &sharedDataHeader->coordInfo.addr, *len);
 }
@@ -469,7 +496,7 @@ SharedData::setCoordHost(struct in_addr *in)
   if (sharedDataHeader == NULL) {
     initialize();
   }
-  JASSERT(in != NULL);
+  ASSERT_NOT_NULL(in);
   struct sockaddr_in *sin =
     (struct sockaddr_in *)&sharedDataHeader->coordInfo.addr;
   memcpy(&sin->sin_addr, in, sizeof sin->sin_addr);
@@ -481,7 +508,7 @@ SharedData::getLocalIPAddr(struct in_addr *in)
   if (sharedDataHeader == NULL) {
     initialize();
   }
-  JASSERT(in != NULL);
+  ASSERT_NOT_NULL(in);
   memcpy(in, &sharedDataHeader->localIPAddr, sizeof *in);
 }
 
@@ -491,13 +518,15 @@ SharedData::updateDlsymOffset(int32_t dlsymOffset, int32_t dlsymOffset_m32)
   if (sharedDataHeader == NULL) {
     initialize();
   }
-  JASSERT(sharedDataHeader->dlsymOffset == 0 ||
-          sharedDataHeader->dlsymOffset == dlsymOffset)
-    (dlsymOffset) (sharedDataHeader->dlsymOffset);
+  ASSERT(sharedDataHeader->dlsymOffset == 0 ||
+           sharedDataHeader->dlsymOffset == dlsymOffset,
+         "inconsistent dlsym offset: new={} existing={}",
+         dlsymOffset, sharedDataHeader->dlsymOffset);
 
-  JASSERT(sharedDataHeader->dlsymOffset_m32 == 0 ||
-          sharedDataHeader->dlsymOffset_m32 == dlsymOffset_m32)
-    (dlsymOffset_m32) (sharedDataHeader->dlsymOffset_m32);
+  ASSERT(sharedDataHeader->dlsymOffset_m32 == 0 ||
+           sharedDataHeader->dlsymOffset_m32 == dlsymOffset_m32,
+         "inconsistent 32-bit dlsym offset: new={} existing={}",
+         dlsymOffset_m32, sharedDataHeader->dlsymOffset_m32);
   sharedDataHeader->dlsymOffset = dlsymOffset;
   sharedDataHeader->dlsymOffset_m32 = dlsymOffset_m32;
 }
@@ -554,7 +583,9 @@ SharedData::setPidMap(pid_t virt, pid_t real)
     }
   }
   if (i == sharedDataHeader->numPidMaps) {
-    JASSERT(sharedDataHeader->numPidMaps < MAX_PID_MAPS);
+    ASSERT(sharedDataHeader->numPidMaps < MAX_PID_MAPS,
+           "shared-data PID map is full: count={} max={} virt={} real={}",
+           sharedDataHeader->numPidMaps, MAX_PID_MAPS, virt, real);
     sharedDataHeader->pidMap[i].virt = virt;
     sharedDataHeader->pidMap[i].real = real;
     sharedDataHeader->numPidMaps++;
@@ -595,7 +626,7 @@ SharedData::getRealIPCId(int type, int32_t virt, bool insertIfNotFound)
     break;
 
   default:
-    JASSERT(false) (type).Text("Unknown IPC-Id type.");
+    ASSERT(false, "Unknown IPC-Id type: type={}", type);
     break;
   }
 
@@ -608,7 +639,9 @@ SharedData::getRealIPCId(int type, int32_t virt, bool insertIfNotFound)
   }
 
   if (!found && insertIfNotFound) {
-    JASSERT(nmaps < MAX_IPC_ID_MAPS);
+    ASSERT(nmaps < MAX_IPC_ID_MAPS,
+           "shared-data IPC ID map is full: type={} count={} max={} virt={}",
+           type, nmaps, MAX_IPC_ID_MAPS, virt);
     map[nmaps].virt = virt;
     map[nmaps].real = virt;
     res = virt;
@@ -652,7 +685,7 @@ SharedData::setIPCIdMap(int type, int32_t virt, int32_t real)
     break;
 
   default:
-    JASSERT(false) (type).Text("Unknown IPC-Id type.");
+    ASSERT(false, "Unknown IPC-Id type: type={}", type);
     break;
   }
   for (i = 0; i < *nmaps; i++) {
@@ -662,7 +695,10 @@ SharedData::setIPCIdMap(int type, int32_t virt, int32_t real)
     }
   }
   if (i == *nmaps) {
-    JASSERT(*nmaps < MAX_IPC_ID_MAPS);
+    ASSERT(*nmaps < MAX_IPC_ID_MAPS,
+           "shared-data IPC ID map is full: type={} count={} max={} virt={} "
+           "real={}",
+           type, *nmaps, MAX_IPC_ID_MAPS, virt, real);
     map[i].virt = virt;
     map[i].real = real;
     *nmaps += 1;
@@ -676,20 +712,30 @@ SharedData::createVirtualPtyName(const char *real, char *out, uint32_t len)
   if (sharedDataHeader == NULL) {
     initialize();
   }
-  JASSERT(sharedDataHeader->nextVirtualPtyId != (unsigned)-1);
+  ASSERT(sharedDataHeader->nextVirtualPtyId != (unsigned)-1,
+         "shared-data virtual PTY id space is exhausted");
 
   Util::lockFile(PROTECTED_SHM_FD);
   string virt = VIRT_PTS_PREFIX_STR +
     jalib::XToString(sharedDataHeader->nextVirtualPtyId++);
 
   // FIXME: We should be removing ptys once they are gone.
-  JASSERT(sharedDataHeader->numPtyNameMaps < MAX_PTY_NAME_MAPS);
+  ASSERT(sharedDataHeader->numPtyNameMaps < MAX_PTY_NAME_MAPS,
+         "shared-data PTY name map is full: count={} max={} real={} virt={}",
+         sharedDataHeader->numPtyNameMaps, MAX_PTY_NAME_MAPS, real, virt);
   size_t n = sharedDataHeader->numPtyNameMaps++;
-  JASSERT(strlen(real) < PTS_PATH_MAX);
-  JASSERT(virt.length() < PTS_PATH_MAX);
+  ASSERT(strlen(real) < PTS_PATH_MAX,
+         "real PTY path too long for shared data: real={} len={} max={}",
+         real, strlen(real), PTS_PATH_MAX);
+  ASSERT(virt.length() < PTS_PATH_MAX,
+         "virtual PTY path too long for shared data: virt={} len={} max={}",
+         virt, virt.length(), PTS_PATH_MAX);
   strcpy(sharedDataHeader->ptyNameMap[n].real, real);
   strcpy(sharedDataHeader->ptyNameMap[n].virt, virt.c_str());
-  JASSERT(len > virt.length());
+  ASSERT(len > virt.length(),
+         "output buffer too small for virtual PTY name: len={} required={} "
+         "virt={}",
+         len, virt.length() + 1, virt);
   strcpy(out, virt.c_str());
   Util::unlockFile(PROTECTED_SHM_FD);
 }
@@ -720,7 +766,11 @@ SharedData::getRealPtyName(const char *virt, char *out, uint32_t len)
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < sharedDataHeader->numPtyNameMaps; i++) {
     if (strcmp(virt, sharedDataHeader->ptyNameMap[i].virt) == 0) {
-      JASSERT(strlen(sharedDataHeader->ptyNameMap[i].real) < len);
+      ASSERT(strlen(sharedDataHeader->ptyNameMap[i].real) < len,
+             "output buffer too small for real PTY name: len={} required={} "
+             "virt={} real={}",
+             len, strlen(sharedDataHeader->ptyNameMap[i].real) + 1, virt,
+             sharedDataHeader->ptyNameMap[i].real);
       strcpy(out, sharedDataHeader->ptyNameMap[i].real);
       break;
     }
@@ -738,7 +788,11 @@ SharedData::getVirtPtyName(const char *real, char *out, uint32_t len)
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < sharedDataHeader->numPtyNameMaps; i++) {
     if (strcmp(real, sharedDataHeader->ptyNameMap[i].real) == 0) {
-      JASSERT(strlen(sharedDataHeader->ptyNameMap[i].virt) < len);
+      ASSERT(strlen(sharedDataHeader->ptyNameMap[i].virt) < len,
+             "output buffer too small for virtual PTY name: len={} "
+             "required={} real={} virt={}",
+             len, strlen(sharedDataHeader->ptyNameMap[i].virt) + 1, real,
+             sharedDataHeader->ptyNameMap[i].virt);
       strcpy(out, sharedDataHeader->ptyNameMap[i].virt);
       break;
     }
@@ -754,8 +808,12 @@ SharedData::insertPtyNameMap(const char *virt, const char *real)
   }
   Util::lockFile(PROTECTED_SHM_FD);
   size_t n = sharedDataHeader->numPtyNameMaps++;
-  JASSERT(strlen(virt) < PTS_PATH_MAX);
-  JASSERT(strlen(real) < PTS_PATH_MAX);
+  ASSERT(strlen(virt) < PTS_PATH_MAX,
+         "virtual PTY path too long for shared data: virt={} len={} max={}",
+         virt, strlen(virt), PTS_PATH_MAX);
+  ASSERT(strlen(real) < PTS_PATH_MAX,
+         "real PTY path too long for shared data: real={} len={} max={}",
+         real, strlen(real), PTS_PATH_MAX);
   strcpy(sharedDataHeader->ptyNameMap[n].real, real);
   strcpy(sharedDataHeader->ptyNameMap[n].virt, virt);
   Util::unlockFile(PROTECTED_SHM_FD);
@@ -811,7 +869,7 @@ SharedData::getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id)
   if (sharedDataHeader == NULL) {
     initialize();
   }
-  JASSERT(id != NULL);
+  ASSERT_NOT_NULL(id);
   if (sharedDataHeader->numInodeConnIdMaps > 0) {
     for (int i = sharedDataHeader->numInodeConnIdMaps - 1; i >= 0; i--) {
       InodeConnIdMap &map = sharedDataHeader->inodeConnIdMap[i];
