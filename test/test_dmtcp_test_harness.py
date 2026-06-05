@@ -558,6 +558,17 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertEqual(get_test("openmp-1").cycles, 1)
             self.assertEqual(get_test("openmp-2").cycles, 1)
 
+    def test_parity_ledger_mentions_authoritative_registry_tests(self):
+        ledger = (ROOT / "test" / "autotest-parity.md").read_text(
+            encoding="utf-8")
+
+        missing = [
+            test.name for test in iter_tests()
+            if f"`{test.name}`" not in ledger
+        ]
+
+        self.assertEqual(missing, [])
+
 
 if __name__ == "__main__":
     unittest.main()
