@@ -130,6 +130,36 @@ class SourceAuditTest(unittest.TestCase):
             allowed_files.add(relative_path)
         return sorted(allowed_files)
 
+    def floating_point_symbols(self, text):
+        symbols = set()
+        type_pattern = r"(?:long\s+double|double|float)"
+        for match in re.finditer(
+                rf"\b{type_pattern}\s+(?:const\s+)?(?:[*&]\s*)?"
+                r"([A-Za-z_][A-Za-z0-9_]*)",
+                text):
+            symbols.add(match.group(1))
+        return sorted(symbols)
+
+    def floating_point_diagnostic_uses(self, relative_path, text):
+        symbols = self.floating_point_symbols(text)
+        if not symbols:
+            return []
+
+        diagnostic_start = re.compile(
+            r"\b(?:ASSERT|ASSERT_[A-Z0-9_]+|WARNING|WARNING_[A-Z0-9_]+|"
+            r"JASSERT|JWARNING)\s*(?:\(|\b)"
+        )
+        matches = []
+        lines = text.splitlines()
+        for line_number, line in enumerate(lines, start=1):
+            if not diagnostic_start.search(line):
+                continue
+            window = " ".join(lines[line_number - 1:line_number + 8])
+            for symbol in symbols:
+                if re.search(rf"\b{re.escape(symbol)}\b", window):
+                    matches.append(f"{relative_path}:{line_number}:{symbol}")
+        return matches
+
     def test_selected_runtime_paths_use_new_errno_diagnostics(self):
         for relative_path in ("src/writeckpt.cpp", "src/processinfo.cpp"):
             with self.subTest(path=relative_path):
@@ -587,6 +617,34 @@ class SourceAuditTest(unittest.TestCase):
     def test_old_jalib_diagnostic_usage_is_tracked(self):
         self.assertEqual(self.old_jalib_diagnostic_files(),
                          self.read_diagnostic_migration_allowlist())
+
+    def test_floating_point_diagnostic_detector_finds_fixture(self):
+        text = """
+        void demo(double readTime)
+        {
+          ASSERT(true, "restart read time: {}", readTime);
+        }
+        """
+        self.assertEqual(
+            self.floating_point_diagnostic_uses("fixture.cpp", text),
+            ["fixture.cpp:4:readTime"],
+        )
+
+    def test_assert_warning_migration_does_not_format_floating_point(self):
+        matches = []
+        for path in self.source_file_paths():
+            relative_path = path.relative_to(ROOT).as_posix()
+            if relative_path in ("src/util_assert.h", "src/util_assert.cpp"):
+                continue
+            text = self.strip_comments(path.read_text(encoding="utf-8"))
+            matches.extend(
+                self.floating_point_diagnostic_uses(relative_path, text))
+        self.assertEqual(
+            matches,
+            [],
+            "fixed-buffer ASSERT/WARNING diagnostics do not support floating "
+            f"point formatting yet: {matches}",
+        )
 
     def test_worker_initialization_advances_explicit_phases(self):
         body = self.extract_function_body("src/dmtcpworker.cpp",
