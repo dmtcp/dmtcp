@@ -10,6 +10,8 @@
 #include "unit_test.h"
 
 #include <cstdlib>
+#include <memory>
+#include <type_traits>
 
 namespace jalib {
 
@@ -54,6 +56,33 @@ DmtcpMutexUnlock(DmtcpMutex *mutex)
 
 namespace {
 
+void dmtcpAllocUsesModernAllocatorSignatures()
+{
+  using Alloc = dmtcp::DmtcpAlloc<int>;
+
+  static_assert(std::is_same_v<decltype(&Alloc::allocate),
+                               int *(Alloc::*)(std::size_t)>);
+  static_assert(std::is_same_v<decltype(&Alloc::deallocate),
+                               void (Alloc::*)(int *, std::size_t)>);
+}
+
+void dmtcpAllocWorksThroughAllocatorTraits()
+{
+  using Alloc = dmtcp::DmtcpAlloc<int>;
+
+  Alloc alloc;
+  int *storage = std::allocator_traits<Alloc>::allocate(alloc, 2);
+  std::allocator_traits<Alloc>::construct(alloc, storage, 7);
+  std::allocator_traits<Alloc>::construct(alloc, storage + 1, 9);
+
+  ASSERT_EQ(storage[0], 7);
+  ASSERT_EQ(storage[1], 9);
+
+  std::allocator_traits<Alloc>::destroy(alloc, storage + 1);
+  std::allocator_traits<Alloc>::destroy(alloc, storage);
+  std::allocator_traits<Alloc>::deallocate(alloc, storage, 2);
+}
+
 void virtualIdTableAllocatesAndResolvesIds()
 {
   dmtcp::VirtualIdTable<int> table("unit", 100, 3, 3);
@@ -93,6 +122,10 @@ void virtualIdTableReusesIdsAfterClear()
 } // namespace
 
 extern const dmtcp_test::TestCase virtualIdTableTests[] = {
+  {"DmtcpAlloc uses modern allocator signatures",
+   dmtcpAllocUsesModernAllocatorSignatures},
+  {"DmtcpAlloc works through allocator traits",
+   dmtcpAllocWorksThroughAllocatorTraits},
   {"VirtualIdTable allocates and resolves ids",
    virtualIdTableAllocatesAndResolvesIds},
   {"VirtualIdTable reuses ids after clear", virtualIdTableReusesIdsAfterClear},
