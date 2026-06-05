@@ -168,6 +168,10 @@ class SourceAuditTest(unittest.TestCase):
                 self.assert_file_does_not_contain(relative_path,
                                                   "ASSERT(rc == 0")
 
+    def test_core_success_asserts_use_comparison_helpers(self):
+        self.assert_file_does_not_contain("src/util_exec.cpp",
+                                          "ASSERT(rc == 0")
+
     def test_child_thread_signal_set_is_initialized_before_use(self):
         self.assert_file_does_not_match(
             "src/threadwrappers.cpp",

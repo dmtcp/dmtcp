@@ -412,6 +412,19 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
   UNIT_ASSERT_EQ(hookCallCount, 0);
 }
 
+void convenienceAssertMessageMacrosEvaluateOperandsOnce()
+{
+  resetHook();
+  int lhs = 0;
+  int rhs = 1;
+
+  ASSERT_EQ_MSG(++lhs, rhs, "lhs advanced");
+  ASSERT_GE_MSG(lhs, rhs, "lhs should catch rhs");
+
+  UNIT_ASSERT_EQ(lhs, 1);
+  UNIT_ASSERT_EQ(hookCallCount, 0);
+}
+
 void convenienceWarningMacrosPassWithoutWriting()
 {
   resetHook();
@@ -451,6 +464,27 @@ void convenienceWarningMacrosEvaluateOperandsOnce()
   UNIT_ASSERT_EQ(calls, 1);
   UNIT_ASSERT_EQ(nullCalls, 1);
   UNIT_ASSERT_EQ(hookCallCount, 0);
+}
+
+void convenienceWarningMessageMacrosReportFailuresAndContinue()
+{
+  resetHook();
+  int value = 3;
+
+  WARNING_EQ_MSG(2, value, "context={}", "warning-eq");
+  WARNING_GT_MSG(2, value, "context={}", "warning-gt");
+
+  UNIT_ASSERT_EQ(hookCallCount, 2);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "expected 2 == value, got 2 and 3") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "context=warning-eq") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1],
+                               "expected 2 > value, got 2 and 3") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1],
+                               "context=warning-gt") != nullptr);
 }
 
 void convenienceWarningMacrosReportFailuresAndContinue()
@@ -638,10 +672,14 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    convenienceAssertMacrosPassWithoutWriting},
   {"convenience assert macros evaluate operands once",
    convenienceAssertMacrosEvaluateOperandsOnce},
+  {"convenience assert message macros evaluate operands once",
+   convenienceAssertMessageMacrosEvaluateOperandsOnce},
   {"convenience warning macros pass without writing",
    convenienceWarningMacrosPassWithoutWriting},
   {"convenience warning macros evaluate operands once",
    convenienceWarningMacrosEvaluateOperandsOnce},
+  {"convenience warning message macros report failures and continue",
+   convenienceWarningMessageMacrosReportFailuresAndContinue},
   {"convenience warning macros report failures and continue",
    convenienceWarningMacrosReportFailuresAndContinue},
   {"warning mutex success reports expression and return value",

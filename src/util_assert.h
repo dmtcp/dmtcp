@@ -808,8 +808,14 @@ assertFailureErrno(const char *expr,
 #ifdef WARNING_EQ
 # undef WARNING_EQ
 #endif
+#ifdef WARNING_EQ_MSG
+# undef WARNING_EQ_MSG
+#endif
 #ifdef WARNING_NE
 # undef WARNING_NE
+#endif
+#ifdef WARNING_NE_MSG
+# undef WARNING_NE_MSG
 #endif
 #ifdef WARNING_NULL
 # undef WARNING_NULL
@@ -826,8 +832,14 @@ assertFailureErrno(const char *expr,
 #ifdef ASSERT_EQ
 # undef ASSERT_EQ
 #endif
+#ifdef ASSERT_EQ_MSG
+# undef ASSERT_EQ_MSG
+#endif
 #ifdef ASSERT_NE
 # undef ASSERT_NE
+#endif
+#ifdef ASSERT_NE_MSG
+# undef ASSERT_NE_MSG
 #endif
 #ifdef ASSERT_NULL
 # undef ASSERT_NULL
@@ -895,26 +907,50 @@ assertFailureErrno(const char *expr,
 #ifdef ASSERT_GT
 # undef ASSERT_GT
 #endif
+#ifdef ASSERT_GT_MSG
+# undef ASSERT_GT_MSG
+#endif
 #ifdef ASSERT_GE
 # undef ASSERT_GE
+#endif
+#ifdef ASSERT_GE_MSG
+# undef ASSERT_GE_MSG
 #endif
 #ifdef ASSERT_LT
 # undef ASSERT_LT
 #endif
+#ifdef ASSERT_LT_MSG
+# undef ASSERT_LT_MSG
+#endif
 #ifdef ASSERT_LE
 # undef ASSERT_LE
+#endif
+#ifdef ASSERT_LE_MSG
+# undef ASSERT_LE_MSG
 #endif
 #ifdef WARNING_GT
 # undef WARNING_GT
 #endif
+#ifdef WARNING_GT_MSG
+# undef WARNING_GT_MSG
+#endif
 #ifdef WARNING_GE
 # undef WARNING_GE
+#endif
+#ifdef WARNING_GE_MSG
+# undef WARNING_GE_MSG
 #endif
 #ifdef WARNING_LT
 # undef WARNING_LT
 #endif
+#ifdef WARNING_LT_MSG
+# undef WARNING_LT_MSG
+#endif
 #ifdef WARNING_LE
 # undef WARNING_LE
+#endif
+#ifdef WARNING_LE_MSG
+# undef WARNING_LE_MSG
 #endif
 
 #define WARNING(condition, fmt, ...)                                      \
@@ -1119,113 +1155,108 @@ assertFailureErrno(const char *expr,
 #define WARNING_NOT_NULL(value) \
   WARNING((value) != nullptr, "expected non-null: {}", #value)
 
-#define ASSERT_EQ(expected, actual)                                       \
-  do {                                                                   \
-    const auto& dmtcpAssertExpected = (expected);                         \
-    const auto& dmtcpAssertActual = (actual);                             \
-    ASSERT(dmtcpAssertExpected == dmtcpAssertActual,                      \
-           "expected {} == {}, got {} and {}",                            \
-           #expected, #actual, dmtcpAssertExpected, dmtcpAssertActual);   \
-  } while (0)
-
-#define WARNING_EQ(expected, actual)                                      \
-  do {                                                                   \
-    const auto& dmtcpAssertExpected = (expected);                         \
-    const auto& dmtcpAssertActual = (actual);                             \
-    WARNING(dmtcpAssertExpected == dmtcpAssertActual,                     \
-            "expected {} == {}, got {} and {}",                           \
-            #expected, #actual, dmtcpAssertExpected, dmtcpAssertActual);  \
-  } while (0)
-
-#define ASSERT_NE(expected, actual)                                       \
-  do {                                                                   \
-    const auto& dmtcpAssertExpected = (expected);                         \
-    const auto& dmtcpAssertActual = (actual);                             \
-    ASSERT(dmtcpAssertExpected != dmtcpAssertActual,                      \
-           "expected {} != {}, got {} and {}",                            \
-           #expected, #actual, dmtcpAssertExpected, dmtcpAssertActual);   \
-  } while (0)
-
-#define WARNING_NE(expected, actual)                                      \
-  do {                                                                   \
-    const auto& dmtcpAssertExpected = (expected);                         \
-    const auto& dmtcpAssertActual = (actual);                             \
-    WARNING(dmtcpAssertExpected != dmtcpAssertActual,                     \
-            "expected {} != {}, got {} and {}",                           \
-            #expected, #actual, dmtcpAssertExpected, dmtcpAssertActual);  \
-  } while (0)
-
-#define ASSERT_GT(lhs, rhs)                                               \
+#define DMTCP_ASSERT_COMPARE(assertion, lhs, rhs, op, opText)             \
   do {                                                                   \
     const auto& dmtcpAssertLhs = (lhs);                                   \
     const auto& dmtcpAssertRhs = (rhs);                                   \
-    ASSERT(dmtcpAssertLhs > dmtcpAssertRhs,                               \
-           "expected {} > {}, got {} and {}",                             \
-           #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                   \
+    assertion(dmtcpAssertLhs op dmtcpAssertRhs,                           \
+              "expected {} " opText " {}, got {} and {}",                \
+              #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                \
   } while (0)
 
-#define WARNING_GT(lhs, rhs)                                              \
+#define DMTCP_ASSERT_COMPARE_MSG(assertion, lhs, rhs, op, opText, fmt, ...) \
   do {                                                                   \
     const auto& dmtcpAssertLhs = (lhs);                                   \
     const auto& dmtcpAssertRhs = (rhs);                                   \
-    WARNING(dmtcpAssertLhs > dmtcpAssertRhs,                              \
-            "expected {} > {}, got {} and {}",                            \
-            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                  \
+    assertion(dmtcpAssertLhs op dmtcpAssertRhs,                           \
+              "expected {} " opText " {}, got {} and {}; " fmt,          \
+              #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs                  \
+              __VA_OPT__(,) __VA_ARGS__);                                 \
   } while (0)
 
-#define ASSERT_LT(lhs, rhs)                                               \
-  do {                                                                   \
-    const auto& dmtcpAssertLhs = (lhs);                                   \
-    const auto& dmtcpAssertRhs = (rhs);                                   \
-    ASSERT(dmtcpAssertLhs < dmtcpAssertRhs,                               \
-           "expected {} < {}, got {} and {}",                             \
-           #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                   \
-  } while (0)
+#define ASSERT_EQ(expected, actual) \
+  DMTCP_ASSERT_COMPARE(ASSERT, expected, actual, ==, "==")
 
-#define WARNING_LT(lhs, rhs)                                              \
-  do {                                                                   \
-    const auto& dmtcpAssertLhs = (lhs);                                   \
-    const auto& dmtcpAssertRhs = (rhs);                                   \
-    WARNING(dmtcpAssertLhs < dmtcpAssertRhs,                              \
-            "expected {} < {}, got {} and {}",                            \
-            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                  \
-  } while (0)
+#define ASSERT_EQ_MSG(expected, actual, fmt, ...) \
+  DMTCP_ASSERT_COMPARE_MSG(ASSERT, expected, actual, ==, "==", fmt \
+                           __VA_OPT__(,) __VA_ARGS__)
 
-#define ASSERT_GE(lhs, rhs)                                               \
-  do {                                                                   \
-    const auto& dmtcpAssertLhs = (lhs);                                   \
-    const auto& dmtcpAssertRhs = (rhs);                                   \
-    ASSERT(dmtcpAssertLhs >= dmtcpAssertRhs,                              \
-           "expected {} >= {}, got {} and {}",                            \
-           #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                   \
-  } while (0)
+#define WARNING_EQ(expected, actual) \
+  DMTCP_ASSERT_COMPARE(WARNING, expected, actual, ==, "==")
 
-#define WARNING_GE(lhs, rhs)                                              \
-  do {                                                                   \
-    const auto& dmtcpAssertLhs = (lhs);                                   \
-    const auto& dmtcpAssertRhs = (rhs);                                   \
-    WARNING(dmtcpAssertLhs >= dmtcpAssertRhs,                             \
-            "expected {} >= {}, got {} and {}",                           \
-            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                  \
-  } while (0)
+#define WARNING_EQ_MSG(expected, actual, fmt, ...) \
+  DMTCP_ASSERT_COMPARE_MSG(WARNING, expected, actual, ==, "==", fmt \
+                           __VA_OPT__(,) __VA_ARGS__)
 
-#define ASSERT_LE(lhs, rhs)                                               \
-  do {                                                                   \
-    const auto& dmtcpAssertLhs = (lhs);                                   \
-    const auto& dmtcpAssertRhs = (rhs);                                   \
-    ASSERT(dmtcpAssertLhs <= dmtcpAssertRhs,                              \
-           "expected {} <= {}, got {} and {}",                            \
-           #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                   \
-  } while (0)
+#define ASSERT_NE(expected, actual) \
+  DMTCP_ASSERT_COMPARE(ASSERT, expected, actual, !=, "!=")
 
-#define WARNING_LE(lhs, rhs)                                              \
-  do {                                                                   \
-    const auto& dmtcpAssertLhs = (lhs);                                   \
-    const auto& dmtcpAssertRhs = (rhs);                                   \
-    WARNING(dmtcpAssertLhs <= dmtcpAssertRhs,                             \
-            "expected {} <= {}, got {} and {}",                           \
-            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                  \
-  } while (0)
+#define ASSERT_NE_MSG(expected, actual, fmt, ...) \
+  DMTCP_ASSERT_COMPARE_MSG(ASSERT, expected, actual, !=, "!=", fmt \
+                           __VA_OPT__(,) __VA_ARGS__)
+
+#define WARNING_NE(expected, actual) \
+  DMTCP_ASSERT_COMPARE(WARNING, expected, actual, !=, "!=")
+
+#define WARNING_NE_MSG(expected, actual, fmt, ...) \
+  DMTCP_ASSERT_COMPARE_MSG(WARNING, expected, actual, !=, "!=", fmt \
+                           __VA_OPT__(,) __VA_ARGS__)
+
+#define ASSERT_GT(lhs, rhs) \
+  DMTCP_ASSERT_COMPARE(ASSERT, lhs, rhs, >, ">")
+
+#define ASSERT_GT_MSG(lhs, rhs, fmt, ...) \
+  DMTCP_ASSERT_COMPARE_MSG(ASSERT, lhs, rhs, >, ">", fmt \
+                           __VA_OPT__(,) __VA_ARGS__)
+
+#define WARNING_GT(lhs, rhs) \
+  DMTCP_ASSERT_COMPARE(WARNING, lhs, rhs, >, ">")
+
+#define WARNING_GT_MSG(lhs, rhs, fmt, ...) \
+  DMTCP_ASSERT_COMPARE_MSG(WARNING, lhs, rhs, >, ">", fmt \
+                           __VA_OPT__(,) __VA_ARGS__)
+
+#define ASSERT_LT(lhs, rhs) \
+  DMTCP_ASSERT_COMPARE(ASSERT, lhs, rhs, <, "<")
+
+#define ASSERT_LT_MSG(lhs, rhs, fmt, ...) \
+  DMTCP_ASSERT_COMPARE_MSG(ASSERT, lhs, rhs, <, "<", fmt \
+                           __VA_OPT__(,) __VA_ARGS__)
+
+#define WARNING_LT(lhs, rhs) \
+  DMTCP_ASSERT_COMPARE(WARNING, lhs, rhs, <, "<")
+
+#define WARNING_LT_MSG(lhs, rhs, fmt, ...) \
+  DMTCP_ASSERT_COMPARE_MSG(WARNING, lhs, rhs, <, "<", fmt \
+                           __VA_OPT__(,) __VA_ARGS__)
+
+#define ASSERT_GE(lhs, rhs) \
+  DMTCP_ASSERT_COMPARE(ASSERT, lhs, rhs, >=, ">=")
+
+#define ASSERT_GE_MSG(lhs, rhs, fmt, ...) \
+  DMTCP_ASSERT_COMPARE_MSG(ASSERT, lhs, rhs, >=, ">=", fmt \
+                           __VA_OPT__(,) __VA_ARGS__)
+
+#define WARNING_GE(lhs, rhs) \
+  DMTCP_ASSERT_COMPARE(WARNING, lhs, rhs, >=, ">=")
+
+#define WARNING_GE_MSG(lhs, rhs, fmt, ...) \
+  DMTCP_ASSERT_COMPARE_MSG(WARNING, lhs, rhs, >=, ">=", fmt \
+                           __VA_OPT__(,) __VA_ARGS__)
+
+#define ASSERT_LE(lhs, rhs) \
+  DMTCP_ASSERT_COMPARE(ASSERT, lhs, rhs, <=, "<=")
+
+#define ASSERT_LE_MSG(lhs, rhs, fmt, ...) \
+  DMTCP_ASSERT_COMPARE_MSG(ASSERT, lhs, rhs, <=, "<=", fmt \
+                           __VA_OPT__(,) __VA_ARGS__)
+
+#define WARNING_LE(lhs, rhs) \
+  DMTCP_ASSERT_COMPARE(WARNING, lhs, rhs, <=, "<=")
+
+#define WARNING_LE_MSG(lhs, rhs, fmt, ...) \
+  DMTCP_ASSERT_COMPARE_MSG(WARNING, lhs, rhs, <=, "<=", fmt \
+                           __VA_OPT__(,) __VA_ARGS__)
 
 #endif // DMTCP_UTIL_ASSERT_NO_MACROS
 
