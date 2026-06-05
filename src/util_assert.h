@@ -700,11 +700,17 @@ assertFailureErrno(const char *expr,
 #ifdef ASSERT_RWLOCK_SUCCESS
 # undef ASSERT_RWLOCK_SUCCESS
 #endif
+#ifdef ASSERT_PTHREAD_SUCCESS
+# undef ASSERT_PTHREAD_SUCCESS
+#endif
 #ifdef WARNING_MUTEX_SUCCESS
 # undef WARNING_MUTEX_SUCCESS
 #endif
 #ifdef WARNING_RWLOCK_SUCCESS
 # undef WARNING_RWLOCK_SUCCESS
+#endif
+#ifdef WARNING_PTHREAD_SUCCESS
+# undef WARNING_PTHREAD_SUCCESS
 #endif
 #ifdef ASSERT_GT
 # undef ASSERT_GT
@@ -792,10 +798,16 @@ assertFailureErrno(const char *expr,
 #define ASSERT_RWLOCK_SUCCESS(expression) \
   DMTCP_ASSERT_ZERO_RETURN(#expression, expression)
 
+#define ASSERT_PTHREAD_SUCCESS(expression) \
+  DMTCP_ASSERT_ZERO_RETURN(#expression, expression)
+
 #define WARNING_MUTEX_SUCCESS(expression) \
   DMTCP_WARNING_ZERO_RETURN(#expression, expression)
 
 #define WARNING_RWLOCK_SUCCESS(expression) \
+  DMTCP_WARNING_ZERO_RETURN(#expression, expression)
+
+#define WARNING_PTHREAD_SUCCESS(expression) \
   DMTCP_WARNING_ZERO_RETURN(#expression, expression)
 
 #define ASSERT_NULL(value) \

@@ -239,8 +239,10 @@ ThreadList::createCkptThread()
   pthread_t checkpointhreadid;
 
   /* Spawn off a thread that will perform the checkpoints from time to time */
-  int rc = pthread_create(&checkpointhreadid, NULL, checkpointhread, NULL);
-  ASSERT(rc == 0, "failed to create checkpoint thread: result={}", rc);
+  ASSERT_PTHREAD_SUCCESS(pthread_create(&checkpointhreadid,
+                                        NULL,
+                                        checkpointhread,
+                                        NULL));
 
   /* Stop until checkpoint thread has finished initializing.
    * Some programs (like gcl) implement their own glibc functions in

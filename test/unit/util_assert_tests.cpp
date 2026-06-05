@@ -376,8 +376,10 @@ void convenienceAssertMacrosPassWithoutWriting()
   ASSERT_LE(value, 2);
   ASSERT_MUTEX_SUCCESS(0);
   ASSERT_RWLOCK_SUCCESS(0);
+  ASSERT_PTHREAD_SUCCESS(0);
   WARNING_MUTEX_SUCCESS(0);
   WARNING_RWLOCK_SUCCESS(0);
+  WARNING_PTHREAD_SUCCESS(0);
   ASSERT_NOT_NULL(ptr);
   ASSERT_NULL(nullPtr);
 
@@ -395,10 +397,11 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
   ASSERT_EQ(++lhs, rhs);
   ASSERT_NULL(returnNullAndCount(&nullCalls));
   ASSERT_MUTEX_SUCCESS(returnZeroAndCount(&successCalls));
+  ASSERT_PTHREAD_SUCCESS(returnZeroAndCount(&successCalls));
 
   UNIT_ASSERT_EQ(lhs, 1);
   UNIT_ASSERT_EQ(nullCalls, 1);
-  UNIT_ASSERT_EQ(successCalls, 1);
+  UNIT_ASSERT_EQ(successCalls, 2);
   UNIT_ASSERT_EQ(hookCallCount, 0);
 }
 
@@ -414,6 +417,23 @@ void warningMutexSuccessReportsExpressionAndReturnValue()
                    nullptr);
   const std::string expected =
     "expected 0, returned " + std::to_string(EINVAL) + " (EINVAL)";
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               expected.c_str()) !=
+                   nullptr);
+}
+
+void warningPthreadSuccessReportsExpressionAndReturnValue()
+{
+  resetHook();
+
+  WARNING_PTHREAD_SUCCESS(setErrnoAndReturn(EAGAIN, EIO));
+
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "setErrnoAndReturn(EAGAIN, EIO) failed") !=
+                   nullptr);
+  const std::string expected =
+    "expected 0, returned " + std::to_string(EAGAIN) + " (EAGAIN)";
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
                                expected.c_str()) !=
                    nullptr);
@@ -493,6 +513,8 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    convenienceAssertMacrosEvaluateOperandsOnce},
   {"warning mutex success reports expression and return value",
    warningMutexSuccessReportsExpressionAndReturnValue},
+  {"warning pthread success reports expression and return value",
+   warningPthreadSuccessReportsExpressionAndReturnValue},
   {"assert failure exits with raw failure code",
    assertFailureExitsWithRawFailureCode},
   {"assert failure uses raw exit path", assertFailureUsesRawExitPath},

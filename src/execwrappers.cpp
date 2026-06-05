@@ -149,9 +149,9 @@ dmtcp_prepare_atfork(void)
 
   if (!dmtcp_atfork_processed) {
     dmtcp_atfork_processed = true;
-    ASSERT_EQ(0, pthread_atfork(dmtcp_atfork_prepare,
-                                dmtcp_atfork_parent,
-                                dmtcp_atfork_child));
+    ASSERT_PTHREAD_SUCCESS(pthread_atfork(dmtcp_atfork_prepare,
+                                          dmtcp_atfork_parent,
+                                          dmtcp_atfork_child));
   }
 }
 
