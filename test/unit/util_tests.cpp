@@ -161,6 +161,48 @@ void parseNumericFlagRejectsMalformedTextWithoutChangingOutput()
   ASSERT_TRUE(enabled);
 }
 
+void parseMeminfoKilobytesAcceptsFieldWithWhitespace()
+{
+  using namespace std::literals;
+
+  unsigned long kilobytes = 0;
+  ASSERT_TRUE(dmtcp::Util::parseMeminfoKilobytes(
+    "MemTotal:       17123456 kB\nMemFree: 1234 kB\n"sv,
+    "MemTotal"sv,
+    &kilobytes));
+  ASSERT_EQ(kilobytes, 17123456ul);
+
+  ASSERT_TRUE(dmtcp::Util::parseMeminfoKilobytes(
+    "MemTotal:\t42\n"sv,
+    "MemTotal"sv,
+    &kilobytes));
+  ASSERT_EQ(kilobytes, 42ul);
+}
+
+void parseMeminfoKilobytesRejectsMalformedField()
+{
+  using namespace std::literals;
+
+  unsigned long kilobytes = 99;
+  ASSERT_TRUE(!dmtcp::Util::parseMeminfoKilobytes(
+    "MemAvailable: 17123456 kB\n"sv,
+    "MemTotal"sv,
+    &kilobytes));
+  ASSERT_EQ(kilobytes, 99ul);
+
+  ASSERT_TRUE(!dmtcp::Util::parseMeminfoKilobytes(
+    "MemTotalExtra: 17123456 kB\n"sv,
+    "MemTotal"sv,
+    &kilobytes));
+  ASSERT_EQ(kilobytes, 99ul);
+
+  ASSERT_TRUE(!dmtcp::Util::parseMeminfoKilobytes(
+    "MemTotal: kB\n"sv,
+    "MemTotal"sv,
+    &kilobytes));
+  ASSERT_EQ(kilobytes, 99ul);
+}
+
 void parseDottedVersionPrefixAcceptsMajorMinorAndSuffix()
 {
   using namespace std::literals;
@@ -234,6 +276,10 @@ extern const dmtcp_test::TestCase utilTests[] = {
    parseNumericFlagAcceptsStrictDecimalZeroAndNonzero},
   {"parseNumericFlag rejects malformed text without changing output",
    parseNumericFlagRejectsMalformedTextWithoutChangingOutput},
+  {"parseMeminfoKilobytes accepts field with whitespace",
+   parseMeminfoKilobytesAcceptsFieldWithWhitespace},
+  {"parseMeminfoKilobytes rejects malformed field",
+   parseMeminfoKilobytesRejectsMalformedField},
   {"parseDottedVersionPrefix accepts major minor and suffix",
    parseDottedVersionPrefixAcceptsMajorMinorAndSuffix},
   {"parseDottedVersionPrefix rejects malformed prefixes",

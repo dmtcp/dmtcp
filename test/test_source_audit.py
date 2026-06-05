@@ -47,6 +47,9 @@ class SourceAuditTest(unittest.TestCase):
         self.assert_file_does_not_contain(
             "src/plugin/ssh/dmtcp_sshd.cpp", "atoi")
 
+    def test_dmtcp_launch_java_warning_uses_shared_numeric_parsers(self):
+        self.assert_file_does_not_contain("src/dmtcp_launch.cpp", "atol")
+
 
 if __name__ == "__main__":
     unittest.main()

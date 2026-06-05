@@ -153,6 +153,11 @@ inline bool isDecimalDigit(char ch)
   return ch >= '0' && ch <= '9';
 }
 
+inline bool isAsciiBlank(char ch)
+{
+  return ch == ' ' || ch == '\t';
+}
+
 template <typename Integer>
 inline bool parseIntegerPrefix(std::string_view text,
                                Integer *value,
@@ -213,6 +218,39 @@ inline bool parseNumericFlag(std::string_view text, bool *enabled)
   }
 
   *enabled = parsedValue != 0;
+  return true;
+}
+
+template <typename Integer>
+inline bool parseMeminfoKilobytes(std::string_view text,
+                                  std::string_view key,
+                                  Integer *kilobytes)
+{
+  static_assert(std::is_integral_v<Integer> &&
+                !std::is_same_v<Integer, bool>);
+  if (kilobytes == nullptr || key.empty() || !text.starts_with(key)) {
+    return false;
+  }
+
+  size_t valueStart = key.size();
+  if (valueStart >= text.size() || text[valueStart] != ':') {
+    return false;
+  }
+  ++valueStart;
+
+  while (valueStart < text.size() && isAsciiBlank(text[valueStart])) {
+    ++valueStart;
+  }
+
+  Integer parsedKilobytes = 0;
+  size_t parsedLength = 0;
+  if (!parseIntegerPrefix(text.substr(valueStart),
+                          &parsedKilobytes,
+                          &parsedLength)) {
+    return false;
+  }
+
+  *kilobytes = parsedKilobytes;
   return true;
 }
 
