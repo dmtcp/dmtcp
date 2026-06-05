@@ -54,6 +54,12 @@ class SourceAuditTest(unittest.TestCase):
         self.assert_file_does_not_contain(
             "src/dmtcp_coordinator.cpp", "ASSERT_EQ(0, clock_gettime")
 
+    def test_threadsync_wrapper_locks_use_assert_diagnostics(self):
+        for forbidden in ("fprintf(stderr", "_exit(DMTCP_FAIL_RC)"):
+            with self.subTest(token=forbidden):
+                self.assert_file_does_not_contain("src/threadsync.cpp",
+                                                  forbidden)
+
 
 if __name__ == "__main__":
     unittest.main()
