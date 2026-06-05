@@ -28,6 +28,7 @@
 #include "syscallwrappers.h"
 #include "threadinfo.h"
 #include "threadsync.h"
+#include "util_assert.h"
 #include "workerstate.h"
 
 using namespace dmtcp;
@@ -85,7 +86,8 @@ ThreadSync::acquireLocks()
    */
 
   JTRACE("Waiting for libdlLock");
-  JASSERT(DmtcpMutexLock(&libdlLock) == 0);
+  int rc = DmtcpMutexLock(&libdlLock);
+  ASSERT(rc == 0, "DmtcpMutexLock(libdlLock) failed: rc={}", rc);
 
   JTRACE("Waiting for other threads to exit DMTCP-Wrappers");
   ThreadSync::wrapperExecutionLockLockExcl();
@@ -96,11 +98,14 @@ ThreadSync::acquireLocks()
 void
 ThreadSync::releaseLocks()
 {
-  JASSERT(WorkerState::currentState() == WorkerState::SUSPENDED);
+  ASSERT(WorkerState::currentState() == WorkerState::SUSPENDED,
+         "releaseLocks expected SUSPENDED worker state: state={}",
+         WorkerState::currentState());
 
   JTRACE("Releasing ThreadSync locks");
   ThreadSync::wrapperExecutionLockUnlock();
-  JASSERT(DmtcpMutexUnlock(&libdlLock) == 0);
+  int rc = DmtcpMutexUnlock(&libdlLock);
+  ASSERT(rc == 0, "DmtcpMutexUnlock(libdlLock) failed: rc={}", rc);
 }
 
 void
@@ -132,7 +137,8 @@ ThreadSync::libdlLockLock()
   }
 
   if (libdlLockOwner != gettid()) {
-    JASSERT(DmtcpMutexLock(&libdlLock) == 0);
+    int rc = DmtcpMutexLock(&libdlLock);
+    ASSERT(rc == 0, "DmtcpMutexLock(libdlLock) failed: rc={}", rc);
     libdlLockOwner = gettid();
     lockAcquired = true;
   }
@@ -151,10 +157,13 @@ ThreadSync::libdlLockUnlock()
     return;
   }
 
-  JASSERT(libdlLockOwner == 0 || libdlLockOwner == gettid())
-    (libdlLockOwner) (gettid());
+  pid_t currentTid = gettid();
+  ASSERT(libdlLockOwner == 0 || libdlLockOwner == currentTid,
+         "libdlLock owner mismatch: owner={} currentTid={}", libdlLockOwner,
+         currentTid);
   libdlLockOwner = 0;
-  JASSERT(DmtcpMutexUnlock(&libdlLock) == 0);
+  int rc = DmtcpMutexUnlock(&libdlLock);
+  ASSERT(rc == 0, "DmtcpMutexUnlock(libdlLock) failed: rc={}", rc);
   errno = saved_errno;
 }
 
@@ -187,8 +196,11 @@ ThreadSync::wrapperExecutionLockLock()
 void
 ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
 {
-  JASSERT(thread != nullptr);
-  JASSERT(thread->core.wrapperLockCount == 0);
+  ASSERT(thread != nullptr,
+         "wrapperExecutionLockLockForNewThread requires a thread");
+  ASSERT(thread->core.wrapperLockCount == 0,
+         "new thread wrapper lock count must start at zero: count={}",
+         thread->core.wrapperLockCount);
 
   if (DmtcpRWLockRdLockIgnoreQueuedWriter(&_wrapperExecutionLock) != 0) {
     fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
@@ -202,8 +214,11 @@ ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
 void
 ThreadSync::wrapperExecutionLockUnlockForNewThread(Thread *thread)
 {
-  JASSERT(thread != nullptr);
-  JASSERT(thread->core.wrapperLockCount == 1);
+  ASSERT(thread != nullptr,
+         "wrapperExecutionLockUnlockForNewThread requires a thread");
+  ASSERT(thread->core.wrapperLockCount == 1,
+         "new thread wrapper lock count must be one before unlock: count={}",
+         thread->core.wrapperLockCount);
 
   if (DmtcpRWLockUnlock(&_wrapperExecutionLock) != 0) {
     fprintf(stderr, "ERROR %d at %s:%d %s: Failed to release lock\n",
@@ -286,7 +301,9 @@ ThreadSync::wrapperExecutionLockUnlock()
 
   Thread *thread = dmtcp_get_current_thread();
 
-  JASSERT(thread->core.wrapperLockCount != 0);
+  ASSERT(thread->core.wrapperLockCount != 0,
+         "wrapper execution lock count underflow: count={}",
+         thread->core.wrapperLockCount);
   thread->core.wrapperLockCount -= 1;
 
   if (thread->core.wrapperLockCount == 0 &&
@@ -308,12 +325,16 @@ void
 ThreadSync::presuspendEventHookLockLock()
 {
   JTRACE("Acquiring event-hook lock");
-  JASSERT(DmtcpMutexLock(&presuspendEventHookLock) == 0);
+  int rc = DmtcpMutexLock(&presuspendEventHookLock);
+  ASSERT(rc == 0, "DmtcpMutexLock(presuspendEventHookLock) failed: rc={}",
+         rc);
 }
 
 void
 ThreadSync::presuspendEventHookLockUnlock()
 {
   JTRACE("Releasing event-hook lock");
-  JASSERT(DmtcpMutexUnlock(&presuspendEventHookLock) == 0);
+  int rc = DmtcpMutexUnlock(&presuspendEventHookLock);
+  ASSERT(rc == 0, "DmtcpMutexUnlock(presuspendEventHookLock) failed: rc={}",
+         rc);
 }
