@@ -172,6 +172,45 @@ inline bool parseNumericFlag(std::string_view text, bool *enabled)
   return true;
 }
 
+inline bool isDecimalDigit(char ch)
+{
+  return ch >= '0' && ch <= '9';
+}
+
+inline bool parseDottedVersionPrefix(std::string_view text,
+                                     int *major,
+                                     int *minor)
+{
+  if (major == nullptr || minor == nullptr) {
+    return false;
+  }
+
+  size_t dot = text.find('.');
+  if (dot == std::string_view::npos || dot == 0 || dot + 1 >= text.size()) {
+    return false;
+  }
+
+  size_t minorEnd = dot + 1;
+  while (minorEnd < text.size() && isDecimalDigit(text[minorEnd])) {
+    ++minorEnd;
+  }
+  if (minorEnd == dot + 1) {
+    return false;
+  }
+
+  int parsedMajor = 0;
+  int parsedMinor = 0;
+  if (!parseInteger(text.substr(0, dot), &parsedMajor) ||
+      !parseInteger(text.substr(dot + 1, minorEnd - dot - 1),
+                    &parsedMinor)) {
+    return false;
+  }
+
+  *major = parsedMajor;
+  *minor = parsedMinor;
+  return true;
+}
+
 bool readBooleanEnv(const char *envName, bool defaultValue);
 
 bool isNscdArea(const ProcMapsArea &area);

@@ -117,6 +117,56 @@ void parseNumericFlagRejectsMalformedTextWithoutChangingOutput()
   ASSERT_TRUE(enabled);
 }
 
+void parseDottedVersionPrefixAcceptsMajorMinorAndSuffix()
+{
+  using namespace std::literals;
+
+  int major = -1;
+  int minor = -1;
+  ASSERT_TRUE(dmtcp::Util::parseDottedVersionPrefix("2.39"sv,
+                                                   &major,
+                                                   &minor));
+  ASSERT_EQ(major, 2);
+  ASSERT_EQ(minor, 39);
+
+  ASSERT_TRUE(dmtcp::Util::parseDottedVersionPrefix("2.39-ubuntu"sv,
+                                                   &major,
+                                                   &minor));
+  ASSERT_EQ(major, 2);
+  ASSERT_EQ(minor, 39);
+
+  ASSERT_TRUE(dmtcp::Util::parseDottedVersionPrefix("2.39.1"sv,
+                                                   &major,
+                                                   &minor));
+  ASSERT_EQ(major, 2);
+  ASSERT_EQ(minor, 39);
+}
+
+void parseDottedVersionPrefixRejectsMalformedPrefixes()
+{
+  using namespace std::literals;
+
+  int major = 7;
+  int minor = 8;
+  ASSERT_TRUE(!dmtcp::Util::parseDottedVersionPrefix("2"sv, &major, &minor));
+  ASSERT_EQ(major, 7);
+  ASSERT_EQ(minor, 8);
+
+  ASSERT_TRUE(!dmtcp::Util::parseDottedVersionPrefix("2."sv, &major, &minor));
+  ASSERT_EQ(major, 7);
+  ASSERT_EQ(minor, 8);
+
+  ASSERT_TRUE(!dmtcp::Util::parseDottedVersionPrefix(".39"sv, &major, &minor));
+  ASSERT_EQ(major, 7);
+  ASSERT_EQ(minor, 8);
+
+  ASSERT_TRUE(!dmtcp::Util::parseDottedVersionPrefix("x.39"sv,
+                                                    &major,
+                                                    &minor));
+  ASSERT_EQ(major, 7);
+  ASSERT_EQ(minor, 8);
+}
+
 } // namespace
 
 extern const dmtcp_test::TestCase utilTests[] = {
@@ -136,6 +186,10 @@ extern const dmtcp_test::TestCase utilTests[] = {
    parseNumericFlagAcceptsStrictDecimalZeroAndNonzero},
   {"parseNumericFlag rejects malformed text without changing output",
    parseNumericFlagRejectsMalformedTextWithoutChangingOutput},
+  {"parseDottedVersionPrefix accepts major minor and suffix",
+   parseDottedVersionPrefixAcceptsMajorMinorAndSuffix},
+  {"parseDottedVersionPrefix rejects malformed prefixes",
+   parseDottedVersionPrefixRejectsMalformedPrefixes},
 };
 
 extern const size_t utilTestCount = sizeof(utilTests) / sizeof(utilTests[0]);

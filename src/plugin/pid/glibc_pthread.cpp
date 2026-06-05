@@ -4,30 +4,45 @@
 #include <atomic>
 
 #include "futex.h"
+#include "util.h"
+#include "util_assert.h"
 
 #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
 
 #define LLL_PRIVATE 0
 
+static inline void
+glibcVersion(int *major, int *minor)
+{
+  static int cachedMajor = 0;
+  static int cachedMinor = 0;
+  if (cachedMajor == 0) {
+    const char *version = gnu_get_libc_version();
+    ASSERT(dmtcp::Util::parseDottedVersionPrefix(version,
+                                                 &cachedMajor,
+                                                 &cachedMinor),
+           "unsupported glibc version text: version={}", version);
+  }
+
+  *major = cachedMajor;
+  *minor = cachedMinor;
+}
+
 static inline int
 glibcMajorVersion()
 {
-  static int major = 0;
-  if (major == 0) {
-    major = (int)strtol(gnu_get_libc_version(), NULL, 10);
-  }
+  int major = 0;
+  int minor = 0;
+  glibcVersion(&major, &minor);
   return major;
 }
 
 static inline int
 glibcMinorVersion()
 {
-  static long minor = 0;
-  if (minor == 0) {
-    char *ptr;
-    strtol(gnu_get_libc_version(), &ptr, 10);
-    minor = (int)strtol(ptr + 1, NULL, 10);
-  }
+  int major = 0;
+  int minor = 0;
+  glibcVersion(&major, &minor);
   return minor;
 }
 

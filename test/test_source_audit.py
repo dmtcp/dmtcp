@@ -32,6 +32,14 @@ class SourceAuditTest(unittest.TestCase):
     def test_checkpoint_serializer_uses_shared_numeric_parsers(self):
         self.assert_file_does_not_contain("src/ckptserializer.cpp", "strtol")
 
+    def test_glibc_version_checks_use_shared_numeric_parsers(self):
+        for relative_path in (
+            "src/tls.cpp",
+            "src/plugin/pid/glibc_pthread.cpp",
+        ):
+            with self.subTest(path=relative_path):
+                self.assert_file_does_not_contain(relative_path, "strtol")
+
 
 if __name__ == "__main__":
     unittest.main()

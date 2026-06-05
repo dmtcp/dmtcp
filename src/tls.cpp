@@ -37,6 +37,7 @@
 #include "jassert.h"
 #include "mtcp/mtcp_sys.h"
 #include "syscallwrappers.h"
+#include "util.h"
 #include "util_assert.h"
 
 #if defined(__x86_64__) || defined(__aarch64__)
@@ -51,27 +52,41 @@
 
 const char *tlsErrorMsg = "*** DMTCP: Error restoring TLS information\n.";
 
-static int glibcMajorVersion()
+static void
+glibcVersion(int *major, int *minor)
 {
-  static int major = 0;
-  if (major == 0) {
-    major = (int) strtol(gnu_get_libc_version(), NULL, 10);
-    ASSERT(major == 2, "unsupported glibc major version: version={} major={}",
-           gnu_get_libc_version(), major);
+  static int cachedMajor = 0;
+  static int cachedMinor = 0;
+  if (cachedMajor == 0) {
+    const char *version = gnu_get_libc_version();
+    ASSERT(dmtcp::Util::parseDottedVersionPrefix(version,
+                                                 &cachedMajor,
+                                                 &cachedMinor),
+           "unsupported glibc version text: version={}", version);
+    ASSERT(cachedMajor == 2,
+           "unsupported glibc major version: version={} major={}", version,
+           cachedMajor);
   }
+
+  *major = cachedMajor;
+  *minor = cachedMinor;
+}
+
+static int
+glibcMajorVersion()
+{
+  int major = 0;
+  int minor = 0;
+  glibcVersion(&major, &minor);
   return major;
 }
 
-static int glibcMinorVersion()
+static int
+glibcMinorVersion()
 {
-  static long minor = 0;
-  if (minor == 0) {
-    char *ptr;
-    int major = (int) strtol(gnu_get_libc_version(), &ptr, 10);
-    ASSERT(major == 2, "unsupported glibc major version: version={} major={}",
-           gnu_get_libc_version(), major);
-    minor = (int) strtol(ptr+1, NULL, 10);
-  }
+  int major = 0;
+  int minor = 0;
+  glibcVersion(&major, &minor);
   return minor;
 }
 
