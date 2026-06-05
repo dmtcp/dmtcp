@@ -20,23 +20,22 @@ the same coordinator behavior through `dmtcp_launch` and `dmtcp_command --json`.
 | --- | --- | --- | --- |
 | First worker join updates status | `test_single_synthetic_worker_join_updates_status` | `dmtcp1`, `dmtcp_command --json --status` in the harness | Real-worker-backed |
 | Multiple workers join same computation | `test_two_synthetic_workers_join_same_computation` | multi-peer harness specs such as `dmtcp5`, `sched_test`, `shared-fd1` | Real-worker-backed |
-| Replacement worker after disconnect | `test_replacement_worker_can_join_after_peer_disconnects` | none yet | Model-only |
+| Replacement worker after disconnect | `test_replacement_worker_can_join_after_peer_disconnects` | `coordinator-replacement-worker` terminates one live `dmtcp_launch` worker, waits for the coordinator to report one remaining peer, then launches a replacement worker and checks the peer count returns to two | Real-worker-backed |
 | Reject wrong or stale computation group | `test_new_worker_with_existing_computation_group_is_rejected`, `test_restart_worker_with_wrong_computation_group_is_rejected` | none yet | Model-only |
-| Reject restart worker while running/checkpointing | `test_restart_worker_is_rejected_while_computation_is_running`, `test_restart_worker_is_rejected_while_checkpoint_is_active` | none yet | Model-only |
-| Barrier release and desynchronization | `test_two_synthetic_workers_release_same_barrier`, `test_barrier_waiter_releases_when_peer_disconnects`, `test_mismatched_barrier_disconnects_offending_worker`, `test_duplicate_barrier_from_same_worker_does_not_release` | no explicit real-worker barrier assertion yet | Model-only |
+| Reject restart worker while running/checkpointing | `test_restart_worker_is_rejected_while_computation_is_running`, `test_restart_worker_is_rejected_while_checkpoint_is_active` | `coordinator-reject-restart-while-running` checkpoints a live `dmtcp_launch` worker, attempts `dmtcp_restart` while the original worker remains attached, and verifies the coordinator still reports the original worker as running; checkpoint-active rejection is not covered | Partially real-worker-backed |
+| Normal two-worker barrier release | `test_two_synthetic_workers_release_same_barrier` | `coordinator-barrier` drives a two-peer real-worker checkpoint/restart cycle through `dmtcp_launch` and `dmtcp_command --json --checkpoint` | Real-worker-backed |
+| Barrier disconnect, desynchronization, and duplicate barrier requests | `test_barrier_waiter_releases_when_peer_disconnects`, `test_mismatched_barrier_disconnects_offending_worker`, `test_duplicate_barrier_from_same_worker_does_not_release` | no explicit real-worker assertion yet | Model-only |
 | Restart quorum and peer mismatch | `test_restarting_workers_release_barrier_only_after_restart_quorum`, `test_restart_worker_with_peer_count_mismatch_is_rejected` | multi-peer restart specs exercise quorum success; mismatch rejection is not covered | Partially real-worker-backed |
-| Checkpoint command reaches workers | `test_checkpoint_command_reaches_synthetic_worker` | default harness checkpoint cycle for every `TestSpec` | Real-worker-backed |
+| Checkpoint command reaches workers | `test_checkpoint_command_reaches_synthetic_worker` | default harness checkpoint cycle for every `TestSpec`; `command-json-bcheckpoint` covers the blocking JSON checkpoint path | Real-worker-backed |
 | Duplicate or concurrent checkpoint requests | `test_checkpoint_command_rejects_second_request_while_active`, `test_worker_update_during_checkpoint_gets_duplicate_request` | none yet | Model-only |
-| Kill and quit commands | `test_kill_command_reaches_synthetic_worker`, `test_quit_command_kills_workers_and_stops_coordinator` | JSON command unit tests cover command shape only; no real-worker integration assertion yet | Model-only |
+| Kill and quit commands | `test_kill_command_reaches_synthetic_worker`, `test_quit_command_kills_workers_and_stops_coordinator` | `command-json-kill` asserts `dmtcp_command --json --kill` against a live `dmtcp_launch` worker; `command-json-quit` asserts `dmtcp_command --json --quit` stops a live worker and coordinator | Real-worker-backed |
 | New worker during checkpoint/restart | `test_new_worker_during_checkpoint_receives_checkpoint_request`, `test_new_worker_is_rejected_while_restart_is_active` | fork/exec-style tests cover process arrival during normal execution, not these coordinator edge states | Model-only |
-| Exit-on-last | `test_exit_on_last_stops_coordinator_after_worker_disconnect` | none yet | Model-only |
+| Exit-on-last | `test_exit_on_last_stops_coordinator_after_worker_disconnect` | `coordinator-exit-on-last` runs a live `dmtcp_launch` worker under a coordinator started with `--exit-on-last`, then asserts that `dmtcp_command --json --kill` lets the worker and coordinator exit | Real-worker-backed |
 | KVDB request/response | `test_kvdb_request_round_trip` | plugin flows may use KVDB indirectly; no direct real-worker assertion yet | Model-only |
 | Invalid protocol, oversized extra bytes, partial messages, half-open sockets | protocol hardening tests in `coordinator_synthetic.py` | none expected from normal real workers | Synthetic-only protocol hardening |
 
 ## Next Real-Worker Additions
 
-- Add an integration test that issues `dmtcp_command --json --kill` against a
-  live `dmtcp_launch` worker and asserts the worker/coordinator state.
 - Add a small real-worker barrier plugin or harness hook before treating
   barrier generation tests as authoritative coordinator coverage.
 - Add a restart peer-mismatch integration test if coordinator restart rejection
