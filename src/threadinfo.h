@@ -200,6 +200,19 @@ Thread_InitPthreadState(Thread *thread,
   thread->ctid = thread->ptid;
 }
 
+inline int
+Thread_TryUpdateStateUnlocked(Thread *thread,
+                              ThreadState newval,
+                              ThreadState oldval)
+{
+  if (thread == NULL || thread->state != oldval) {
+    return 0;
+  }
+
+  thread->state = newval;
+  return 1;
+}
+
 inline char *
 Thread_GetAssertBuffer(Thread *thread, size_t *size)
 {

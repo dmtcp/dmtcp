@@ -886,13 +886,8 @@ restarthread(void *threadv)
 int
 Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval)
 {
-  int res = 0;
-
   ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadStateLock));
-  if (oldval == th->state) {
-    th->state = newval;
-    res = 1;
-  }
+  int res = Thread_TryUpdateStateUnlocked(th, newval, oldval);
   ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadStateLock));
   return res;
 }

@@ -104,6 +104,24 @@ void threadInitPthreadStateRecordsTidAndTlsTidPointer()
   ASSERT_EQ(thread.ctid, thread.ptid);
 }
 
+void threadTryUpdateStateUnlockedUpdatesOnlyExpectedState()
+{
+  Thread thread = {};
+  thread.state = ST_RUNNING;
+
+  ASSERT_EQ(Thread_TryUpdateStateUnlocked(&thread,
+                                          ST_SUSPENDED,
+                                          ST_SIGNALED),
+            0);
+  ASSERT_EQ(thread.state, ST_RUNNING);
+
+  ASSERT_EQ(Thread_TryUpdateStateUnlocked(&thread,
+                                          ST_SUSPENDED,
+                                          ST_RUNNING),
+            1);
+  ASSERT_EQ(thread.state, ST_SUSPENDED);
+}
+
 void threadAssertBufferHelperReturnsCoreBuffer()
 {
   Thread thread = {};
@@ -136,6 +154,8 @@ extern const dmtcp_test::TestCase threadInfoTests[] = {
    threadInitDescriptorResetsLifecycleState},
   {"Thread pthread-state helper records tid and TLS tid pointer",
    threadInitPthreadStateRecordsTidAndTlsTidPointer},
+  {"Thread unlocked state helper updates only expected state",
+   threadTryUpdateStateUnlockedUpdatesOnlyExpectedState},
   {"Thread assert buffer helper returns core buffer",
    threadAssertBufferHelperReturnsCoreBuffer},
   {"Thread assert buffer helper handles null thread",
