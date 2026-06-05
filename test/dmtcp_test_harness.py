@@ -381,7 +381,11 @@ class TestContext:
 
     def _kill_workers(self, best_effort: bool = False):
         try:
-            self._run_json_command("--kill", "kill", allow_error=False)
+            payload = self._run_json_command("--kill", "kill",
+                                             allow_error=False)
+            if payload.get("type") != "kill" or not payload.get("ok"):
+                raise HarnessFailure("kill",
+                                     "dmtcp_command --json --kill failed")
             self._wait_for_status(0, False, "kill")
         except HarnessFailure:
             if not best_effort:

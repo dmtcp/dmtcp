@@ -27,7 +27,7 @@ the same coordinator behavior through `dmtcp_launch` and `dmtcp_command --json`.
 | Restart quorum and peer mismatch | `test_restarting_workers_release_barrier_only_after_restart_quorum`, `test_restart_worker_with_peer_count_mismatch_is_rejected` | multi-peer restart specs exercise quorum success; mismatch rejection is not covered | Partially real-worker-backed |
 | Checkpoint command reaches workers | `test_checkpoint_command_reaches_synthetic_worker` | default harness checkpoint cycle for every `TestSpec` | Real-worker-backed |
 | Duplicate or concurrent checkpoint requests | `test_checkpoint_command_rejects_second_request_while_active`, `test_worker_update_during_checkpoint_gets_duplicate_request` | none yet | Model-only |
-| Kill and quit commands | `test_kill_command_reaches_synthetic_worker`, `test_quit_command_kills_workers_and_stops_coordinator` | JSON command unit tests cover command shape only; no real-worker integration assertion yet | Model-only |
+| Kill and quit commands | `test_kill_command_reaches_synthetic_worker`, `test_quit_command_kills_workers_and_stops_coordinator` | `command-json-kill` asserts `dmtcp_command --json --kill` against a live `dmtcp_launch` worker; quit still has JSON command unit coverage only | Partially real-worker-backed |
 | New worker during checkpoint/restart | `test_new_worker_during_checkpoint_receives_checkpoint_request`, `test_new_worker_is_rejected_while_restart_is_active` | fork/exec-style tests cover process arrival during normal execution, not these coordinator edge states | Model-only |
 | Exit-on-last | `test_exit_on_last_stops_coordinator_after_worker_disconnect` | none yet | Model-only |
 | KVDB request/response | `test_kvdb_request_round_trip` | plugin flows may use KVDB indirectly; no direct real-worker assertion yet | Model-only |
@@ -35,8 +35,8 @@ the same coordinator behavior through `dmtcp_launch` and `dmtcp_command --json`.
 
 ## Next Real-Worker Additions
 
-- Add an integration test that issues `dmtcp_command --json --kill` against a
-  live `dmtcp_launch` worker and asserts the worker/coordinator state.
+- Add an integration test that issues `dmtcp_command --json --quit` after a
+  live `dmtcp_launch` worker has joined and asserts worker/coordinator state.
 - Add a small real-worker barrier plugin or harness hook before treating
   barrier generation tests as authoritative coordinator coverage.
 - Add a restart peer-mismatch integration test if coordinator restart rejection
