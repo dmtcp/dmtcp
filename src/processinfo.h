@@ -57,7 +57,6 @@ class ProcessInfo
 
     uint64_t _savedBrkForCkpt;
     uint64_t _endOfStack;
-    uint64_t _postRestartAddr;
 
     char _procname[1024];
     char _procSelfExe[1024];
@@ -89,7 +88,6 @@ class ProcessInfo
 
     uint64_t& savedBrk;
     uint64_t& endOfStack;
-    uint64_t& postRestartAddr;
 
     char (&procname)[1024];
     char (&procSelfExe)[1024];
@@ -118,7 +116,9 @@ class ProcessInfo
 
     void getState();
     void serialize(jalib::JBinarySerializer &o);
-    void fillCheckpointHeader(DmtcpCkptHeader *header) const;
+    void fillCheckpointHeader(DmtcpCkptHeader *header,
+                              uint64_t checkpointSavedBrk,
+                              PostRestartFnPtr_t postRestart) const;
 
     uint32_t get_generation() { return _generation; }
 

@@ -167,7 +167,6 @@ ProcessInfo::ProcessInfo()
     _vvarVClock{0, 0},
     _savedBrkForCkpt(0),
     _endOfStack(0),
-    _postRestartAddr(0),
     _procname(),
     _procSelfExe(),
     upid(_upid),
@@ -191,7 +190,6 @@ ProcessInfo::ProcessInfo()
     vvarVClock(_vvarVClock),
     savedBrk(_savedBrkForCkpt),
     endOfStack(_endOfStack),
-    postRestartAddr(_postRestartAddr),
     procname(_procname),
     procSelfExe(_procSelfExe)
 {
@@ -233,7 +231,6 @@ ProcessInfo::ProcessInfo()
   endOfStack = 0;
   savedBrk = (uint64_t) sbrk(0);
   endOfStack = 0;
-  postRestartAddr = 0;
 
   string procSelfExeStr = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
   strncpy(procSelfExe, procSelfExeStr.c_str(), sizeof(procSelfExe) - 1);
@@ -738,7 +735,9 @@ ProcessInfo::getState()
 }
 
 void
-ProcessInfo::fillCheckpointHeader(DmtcpCkptHeader *header) const
+ProcessInfo::fillCheckpointHeader(DmtcpCkptHeader *header,
+                                  uint64_t checkpointSavedBrk,
+                                  PostRestartFnPtr_t postRestart) const
 {
   memset(header, 0, sizeof(*header));
   strcpy(header->ckptSignature, DMTCP_CKPT_SIGNATURE);
@@ -768,9 +767,9 @@ ProcessInfo::fillCheckpointHeader(DmtcpCkptHeader *header) const
   header->vvar = vvar;
   header->vvarVClock = vvarVClock;
 
-  header->savedBrk = savedBrk;
+  header->savedBrk = checkpointSavedBrk;
   header->endOfStack = endOfStack;
-  header->postRestartAddr = postRestartAddr;
+  header->postRestartAddr = reinterpret_cast<uintptr_t>(postRestart);
 
   memcpy(header->procname, procname, sizeof(header->procname));
   memcpy(header->procSelfExe, procSelfExe, sizeof(header->procSelfExe));

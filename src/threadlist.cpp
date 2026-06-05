@@ -318,9 +318,9 @@ ThreadList::writeCkpt()
   string ckptFilename = ProcessInfo::instance().getTempCkptFilename();
 
   DmtcpCkptHeader header;
-  ProcessInfo::instance().fillCheckpointHeader(&header);
-  header.savedBrk = (uint64_t) sbrk(0);
-  header.postRestartAddr = (uint64_t) &ThreadList::postRestart;
+  ProcessInfo::instance().fillCheckpointHeader(&header,
+                                               (uint64_t) sbrk(0),
+                                               &ThreadList::postRestart);
 
   // TODO(kapil): re-add this block after handling non-4096 sizes.
   // const ssize_t pagesize = Util::pageSize();

@@ -34,7 +34,9 @@ void processInfoDoesNotInheritBootstrapHeader()
 
 void processInfoFillsCallerOwnedBootstrapHeader()
 {
-  using FillFn = void (dmtcp::ProcessInfo::*)(DmtcpCkptHeader *) const;
+  using FillFn = void (dmtcp::ProcessInfo::*)(DmtcpCkptHeader *,
+                                              uint64_t,
+                                              PostRestartFnPtr_t) const;
 
   ASSERT_TRUE((std::is_same_v<
                decltype(&dmtcp::ProcessInfo::fillCheckpointHeader),
