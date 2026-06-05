@@ -67,6 +67,8 @@ processChildThread(Thread *thread)
   // the child threads inherit parent signal mask, the helper thread has all
   // signals blocked.
   sigset_t set;
+  ASSERT_ERRNO(sigemptyset(&set) == 0,
+               "failed to initialize child-thread signal set");
   sigaddset(&set, SigInfo::ckptSignal());
   ASSERT_PTHREAD_SUCCESS_MSG(
     _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),

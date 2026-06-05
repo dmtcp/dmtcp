@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import pathlib
+import re
 import unittest
 
 
@@ -22,6 +23,15 @@ class SourceAuditTest(unittest.TestCase):
             matches,
             [],
             f"old diagnostic token {forbidden!r} remains at {matches}",
+        )
+
+    def assert_file_does_not_match(self, relative_path, pattern):
+        path = ROOT / relative_path
+        text = path.read_text(encoding="utf-8")
+
+        self.assertIsNone(
+            re.search(pattern, text),
+            f"old source pattern {pattern!r} remains in {relative_path}",
         )
 
     def test_selected_runtime_paths_use_new_errno_diagnostics(self):
@@ -68,6 +78,12 @@ class SourceAuditTest(unittest.TestCase):
             with self.subTest(path=relative_path):
                 self.assert_file_does_not_contain(relative_path,
                                                   "ASSERT(rc == 0")
+
+    def test_child_thread_signal_set_is_initialized_before_use(self):
+        self.assert_file_does_not_match(
+            "src/threadwrappers.cpp",
+            r"sigset_t set;\n\s*sigaddset\(&set, SigInfo::ckptSignal\(\)\);",
+        )
 
 
 if __name__ == "__main__":
