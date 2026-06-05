@@ -287,16 +287,10 @@ ThreadList::initThread(Thread *th)
   if (curThread == NULL) {
     curThread = th;
   }
-  th->tid = dmtcp_pid_gettid();
-
-  th->flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
-              | CLONE_SIGHAND | CLONE_THREAD
-              | CLONE_SETTLS | CLONE_PARENT_SETTID
-              | CLONE_CHILD_CLEARTID
-              | 0);
-
-  th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
-  th->ctid = th->ptid;
+  Thread_InitPthreadState(th,
+                          dmtcp_pid_gettid(),
+                          (void*) pthread_self(),
+                          TLSInfo_GetTidOffset());
 
   JTRACE("starting thread") (th->tid);
 

@@ -91,6 +91,19 @@ void threadInitDescriptorResetsLifecycleState()
   ASSERT_EQ(thread.procname[0], '\0');
 }
 
+void threadInitPthreadStateRecordsTidAndTlsTidPointer()
+{
+  Thread thread = {};
+  char pthreadBlock[64] = {};
+
+  Thread_InitPthreadState(&thread, 42, pthreadBlock, 16);
+
+  ASSERT_EQ(thread.tid, 42);
+  ASSERT_EQ(thread.flags, Thread_DefaultCloneFlags());
+  ASSERT_EQ(thread.ptid, reinterpret_cast<pid_t *>(pthreadBlock + 16));
+  ASSERT_EQ(thread.ctid, thread.ptid);
+}
+
 void threadAssertBufferHelperReturnsCoreBuffer()
 {
   Thread thread = {};
@@ -121,6 +134,8 @@ extern const dmtcp_test::TestCase threadInfoTests[] = {
    threadCoreInfoTracksWrapperLockCount},
   {"Thread descriptor helper resets lifecycle state",
    threadInitDescriptorResetsLifecycleState},
+  {"Thread pthread-state helper records tid and TLS tid pointer",
+   threadInitPthreadStateRecordsTidAndTlsTidPointer},
   {"Thread assert buffer helper returns core buffer",
    threadAssertBufferHelperReturnsCoreBuffer},
   {"Thread assert buffer helper handles null thread",

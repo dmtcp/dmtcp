@@ -2,6 +2,7 @@
 #define THREADINFO_H
 
 #include <linux/version.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdio.h>
 #include <sys/syscall.h>
@@ -173,6 +174,30 @@ Thread_InitDescriptor(Thread *thread, void *(*fn)(void *), void *arg)
   thread->exiting = 0;
   ThreadCoreInfo_Init(&thread->core);
   thread->procname[0] = '\0';
+}
+
+inline int
+Thread_DefaultCloneFlags()
+{
+  return CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM |
+         CLONE_SIGHAND | CLONE_THREAD | CLONE_SETTLS |
+         CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID;
+}
+
+inline void
+Thread_InitPthreadState(Thread *thread,
+                        pid_t tid,
+                        void *pthreadSelf,
+                        size_t tidOffset)
+{
+  if (thread == NULL) {
+    return;
+  }
+
+  thread->tid = tid;
+  thread->flags = Thread_DefaultCloneFlags();
+  thread->ptid = (pid_t*)((char*) pthreadSelf + tidOffset);
+  thread->ctid = thread->ptid;
 }
 
 inline char *
