@@ -384,9 +384,11 @@ void convenienceAssertMacrosPassWithoutWriting()
   ASSERT_MUTEX_SUCCESS(0);
   ASSERT_RWLOCK_SUCCESS(0);
   ASSERT_PTHREAD_SUCCESS(0);
+  ASSERT_ZERO_RETURN(0);
   WARNING_MUTEX_SUCCESS(0);
   WARNING_RWLOCK_SUCCESS(0);
   WARNING_PTHREAD_SUCCESS(0);
+  WARNING_ZERO_RETURN(0);
   ASSERT_NOT_NULL(ptr);
   ASSERT_NULL(nullPtr);
 
@@ -405,10 +407,11 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
   ASSERT_NULL(returnNullAndCount(&nullCalls));
   ASSERT_MUTEX_SUCCESS(returnZeroAndCount(&successCalls));
   ASSERT_PTHREAD_SUCCESS(returnZeroAndCount(&successCalls));
+  ASSERT_ZERO_RETURN(returnZeroAndCount(&successCalls));
 
   UNIT_ASSERT_EQ(lhs, 1);
   UNIT_ASSERT_EQ(nullCalls, 1);
-  UNIT_ASSERT_EQ(successCalls, 2);
+  UNIT_ASSERT_EQ(successCalls, 3);
   UNIT_ASSERT_EQ(hookCallCount, 0);
 }
 
@@ -535,6 +538,42 @@ void warningPthreadSuccessReportsExpressionAndReturnValue()
     "expected 0, returned " + std::to_string(EAGAIN) + " (EAGAIN)";
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
                                expected.c_str()) !=
+                   nullptr);
+}
+
+void warningZeroReturnReportsExpressionAndReturnValue()
+{
+  resetHook();
+
+  WARNING_ZERO_RETURN(setErrnoAndReturn(EINVAL, EIO));
+
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "setErrnoAndReturn(EINVAL, EIO) failed") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "expected 0, returned 22 (EINVAL)") !=
+                   nullptr);
+}
+
+void warningZeroReturnMessageReportsExtraContext()
+{
+  resetHook();
+
+  WARNING_ZERO_RETURN_MSG(setErrnoAndReturn(EINVAL, EIO),
+                          "fd={} path={}",
+                          9,
+                          "/dev/ptmx");
+
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "setErrnoAndReturn(EINVAL, EIO) failed") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "expected 0, returned 22 (EINVAL)") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "fd=9 path=/dev/ptmx") !=
                    nullptr);
 }
 
@@ -686,6 +725,10 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    warningMutexSuccessReportsExpressionAndReturnValue},
   {"warning pthread success reports expression and return value",
    warningPthreadSuccessReportsExpressionAndReturnValue},
+  {"warning zero-return reports expression and return value",
+   warningZeroReturnReportsExpressionAndReturnValue},
+  {"warning zero-return message reports extra context",
+   warningZeroReturnMessageReportsExtraContext},
   {"warning pthread success message reports extra context",
    warningPthreadSuccessMessageReportsExtraContext},
   {"signal warning uses raw diagnostic and preserves errno",

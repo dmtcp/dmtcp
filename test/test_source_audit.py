@@ -272,6 +272,10 @@ class SourceAuditTest(unittest.TestCase):
         self.assert_file_does_not_contain("src/util_exec.cpp",
                                           "ASSERT(rc == 0")
 
+    def test_non_pthread_zero_return_checks_use_named_helpers(self):
+        self.assert_file_does_not_contain("src/plugin/file/ptyconnection.cpp",
+                                          "ASSERT(ret == 0")
+
     def test_child_thread_signal_set_is_initialized_before_use(self):
         self.assert_file_does_not_match(
             "src/threadwrappers.cpp",

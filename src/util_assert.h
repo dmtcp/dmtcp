@@ -871,6 +871,12 @@ assertFailureErrno(const char *expr,
 #ifdef ASSERT_PTHREAD_SUCCESS_MSG
 # undef ASSERT_PTHREAD_SUCCESS_MSG
 #endif
+#ifdef ASSERT_ZERO_RETURN
+# undef ASSERT_ZERO_RETURN
+#endif
+#ifdef ASSERT_ZERO_RETURN_MSG
+# undef ASSERT_ZERO_RETURN_MSG
+#endif
 #ifdef WARNING_MUTEX_SUCCESS
 # undef WARNING_MUTEX_SUCCESS
 #endif
@@ -888,6 +894,12 @@ assertFailureErrno(const char *expr,
 #endif
 #ifdef WARNING_PTHREAD_SUCCESS_MSG
 # undef WARNING_PTHREAD_SUCCESS_MSG
+#endif
+#ifdef WARNING_ZERO_RETURN
+# undef WARNING_ZERO_RETURN
+#endif
+#ifdef WARNING_ZERO_RETURN_MSG
+# undef WARNING_ZERO_RETURN_MSG
 #endif
 #ifdef SIGNAL_WARNING
 # undef SIGNAL_WARNING
@@ -1061,8 +1073,9 @@ assertFailureErrno(const char *expr,
     }                                                                    \
   } while (0)
 
-// For DMTCP/pthread-style lock APIs that return 0 on success and an error
-// number on failure. Do not use these for syscall-style or boolean success.
+// For C APIs that return 0 on success and a nonzero status code on failure.
+// Do not use these for syscall-style APIs that return -1 and set errno, or
+// for APIs where nonzero is a successful payload.
 #define DMTCP_ASSERT_ZERO_RETURN(expressionText, expression)              \
   do {                                                                   \
     const auto dmtcpAssertResult = (expression);                          \
@@ -1122,6 +1135,13 @@ assertFailureErrno(const char *expr,
   DMTCP_ASSERT_ZERO_RETURN_MSG(#expression, expression, fmt \
                                __VA_OPT__(,) __VA_ARGS__)
 
+#define ASSERT_ZERO_RETURN(expression) \
+  DMTCP_ASSERT_ZERO_RETURN(#expression, expression)
+
+#define ASSERT_ZERO_RETURN_MSG(expression, fmt, ...) \
+  DMTCP_ASSERT_ZERO_RETURN_MSG(#expression, expression, fmt \
+                               __VA_OPT__(,) __VA_ARGS__)
+
 #define WARNING_MUTEX_SUCCESS(expression) \
   DMTCP_WARNING_ZERO_RETURN(#expression, expression)
 
@@ -1140,6 +1160,13 @@ assertFailureErrno(const char *expr,
   DMTCP_WARNING_ZERO_RETURN(#expression, expression)
 
 #define WARNING_PTHREAD_SUCCESS_MSG(expression, fmt, ...) \
+  DMTCP_WARNING_ZERO_RETURN_MSG(#expression, expression, fmt \
+                                __VA_OPT__(,) __VA_ARGS__)
+
+#define WARNING_ZERO_RETURN(expression) \
+  DMTCP_WARNING_ZERO_RETURN(#expression, expression)
+
+#define WARNING_ZERO_RETURN_MSG(expression, fmt, ...) \
   DMTCP_WARNING_ZERO_RETURN_MSG(#expression, expression, fmt \
                                 __VA_OPT__(,) __VA_ARGS__)
 

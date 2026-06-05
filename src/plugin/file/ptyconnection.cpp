@@ -241,11 +241,9 @@ PtyConnection::PtyConnection(int fd,
 
   case PTY_MASTER:
     _masterName = path;
-    {
-      int ret = _real_ptsname_r(fd, buf, sizeof(buf));
-      ASSERT(ret == 0, "ptsname_r failed for PTY master: fd={} ret={}", fd,
-             ret);
-    }
+    ASSERT_ZERO_RETURN_MSG(_real_ptsname_r(fd, buf, sizeof(buf)),
+                           "PTY master fd={}",
+                           fd);
     _ptsName = buf;
 
     // glibc allows only 20 char long buf
@@ -466,11 +464,9 @@ PtyConnection::postRestart()
 
       ASSERT_ERRNO(grantpt(tempfd) >= 0, "grantpt failed: fd={}", tempfd);
       ASSERT_ERRNO(unlockpt(tempfd) >= 0, "unlockpt failed: fd={}", tempfd);
-      {
-        int ret = _real_ptsname_r(tempfd, pts_name, 80);
-        ASSERT(ret == 0, "ptsname_r failed for restored PTY: fd={} ret={}",
-               tempfd, ret);
-      }
+      ASSERT_ZERO_RETURN_MSG(_real_ptsname_r(tempfd, pts_name, 80),
+                             "restored PTY fd={}",
+                             tempfd);
 
       _ptsName = pts_name;
       SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
