@@ -2,7 +2,10 @@
 
 #include "unit_test.h"
 
+#include <span>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 
 namespace {
 
@@ -339,6 +342,28 @@ void parseDottedVersionPrefixRejectsMalformedPrefixes()
   ASSERT_EQ(minor, 8);
 }
 
+void readWriteAllExposeSpanOverloads()
+{
+  static_assert(std::is_same_v<
+                decltype(dmtcp::Util::writeAll(
+                  std::declval<int>(), std::declval<std::span<const char>>())),
+                ssize_t>);
+  static_assert(std::is_same_v<
+                decltype(dmtcp::Util::readAll(
+                  std::declval<int>(), std::declval<std::span<char>>())),
+                ssize_t>);
+  static_assert(std::is_same_v<
+                decltype(dmtcp::Util::writeAll(
+                  std::declval<int>(),
+                  std::declval<std::span<const std::byte>>())),
+                ssize_t>);
+  static_assert(std::is_same_v<
+                decltype(dmtcp::Util::readAll(
+                  std::declval<int>(), std::declval<std::span<std::byte>>())),
+                ssize_t>);
+  ASSERT_TRUE(true);
+}
+
 } // namespace
 
 extern const dmtcp_test::TestCase utilTests[] = {
@@ -376,6 +401,8 @@ extern const dmtcp_test::TestCase utilTests[] = {
    parseDottedVersionPrefixAcceptsMajorMinorAndSuffix},
   {"parseDottedVersionPrefix rejects malformed prefixes",
    parseDottedVersionPrefixRejectsMalformedPrefixes},
+  {"readAll and writeAll expose span overloads",
+   readWriteAllExposeSpanOverloads},
 };
 
 extern const size_t utilTestCount = sizeof(utilTests) / sizeof(utilTests[0]);

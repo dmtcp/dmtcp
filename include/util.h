@@ -103,6 +103,8 @@ struct MtcpRestartThreadArg {
 
 #ifdef __cplusplus
 # include <charconv>
+# include <cstddef>
+# include <span>
 # include <system_error>
 # include <string_view>
 # include <type_traits>
@@ -346,6 +348,26 @@ ssize_t writeAll(int fd, const void *buf, size_t count);
 ssize_t readAll(int fd, void *buf, size_t count);
 ssize_t skipBytes(int fd, size_t count);
 ssize_t readAll(const char *path, void *buf, size_t count);
+
+inline ssize_t writeAll(int fd, std::span<const char> buffer)
+{
+  return writeAll(fd, buffer.data(), buffer.size());
+}
+
+inline ssize_t writeAll(int fd, std::span<const std::byte> buffer)
+{
+  return writeAll(fd, buffer.data(), buffer.size());
+}
+
+inline ssize_t readAll(int fd, std::span<char> buffer)
+{
+  return readAll(fd, buffer.data(), buffer.size());
+}
+
+inline ssize_t readAll(int fd, std::span<std::byte> buffer)
+{
+  return readAll(fd, buffer.data(), buffer.size());
+}
 
 int safeMkdir(const char *pathname, mode_t mode);
 int safeSystem(const char *command);
