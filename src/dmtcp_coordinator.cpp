@@ -158,6 +158,21 @@ static const char *theUsage =
   "\n";
 
 
+static bool
+parseCoordinatorPort(const char *text, int *port)
+{
+  int parsedPort = 0;
+  if (text == NULL ||
+      !Util::parseInteger(text, &parsedPort) ||
+      parsedPort < 0 ||
+      parsedPort > 65535) {
+    return false;
+  }
+
+  *port = parsedPort;
+  return true;
+}
+
 CoordFlags flags;
 static int offset_after_first_line = 0;
 static bool blockUntilDone = false;
@@ -1769,11 +1784,17 @@ main(int argc, char **argv)
       shift;
     } else if (argc > 1 &&
                (s == "-p" || s == "--port" || s == "--coord-port")) {
-      flags.thePort = jalib::StringToInt(argv[1]);
+      if (!parseCoordinatorPort(argv[1], &flags.thePort)) {
+        fprintf(stderr, theUsage, DEFAULT_PORT);
+        return 1;
+      }
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'p' &&
                isdigit(argv[0][2])) { // else if -p0, for example
-      flags.thePort = jalib::StringToInt(argv[0] + 2);
+      if (!parseCoordinatorPort(argv[0] + 2, &flags.thePort)) {
+        fprintf(stderr, theUsage, DEFAULT_PORT);
+        return 1;
+      }
       shift;
     } else if (argc > 1 && s == "--port-file") {
       flags.thePortFile = argv[1];
@@ -1791,16 +1812,11 @@ main(int argc, char **argv)
       flags.writeKvData = true;
       shift;
     } else if (argc == 1) { // last arg can be port
-      char *endptr;
-      long x = strtol(argv[0], &endptr, 10);
-      if ((ssize_t)strlen(argv[0]) != endptr - argv[0]) {
+      if (!parseCoordinatorPort(argv[0], &flags.thePort)) {
         fprintf(stderr, theUsage, DEFAULT_PORT);
         return 1;
-      } else {
-        flags.thePort = jalib::StringToInt(argv[0]);
-        shift;
       }
-      x++, x--; // to suppress unused variable warning
+      shift;
     } else {
       fprintf(stderr, theUsage, DEFAULT_PORT);
       return 1;

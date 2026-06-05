@@ -402,6 +402,23 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             timeout=COMMAND_TIMEOUT,
         )
 
+    def run_coordinator(self, *args):
+        return subprocess.run(
+            [str(DMTCP_COORDINATOR), *args],
+            cwd=str(ROOT),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=COMMAND_TIMEOUT,
+        )
+
+    def test_invalid_coord_port_option_exits_with_usage(self):
+        result = self.run_coordinator("--coord-port", "12x")
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("Usage:", result.stderr)
+
     def coordinator_status(self, port):
         result = self.run_command("--json", "--coord-port", str(port),
                                   "--status")
