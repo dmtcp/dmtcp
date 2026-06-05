@@ -67,6 +67,36 @@ class SourceAuditTest(unittest.TestCase):
         self.assert_file_does_not_contain(
             "src/plugin/socket/socketconnection.cpp", "atoi")
 
+    def test_processinfo_uses_contains_for_membership_checks(self):
+        for pattern in (
+            r"_pthreadJoinId\.find\(thread\) != _pthreadJoinId\.end\(\)",
+            r"kvmap\.find\(key\) != kvmap\.end\(\)",
+        ):
+            with self.subTest(pattern=pattern):
+                self.assert_file_does_not_match("src/processinfo.cpp",
+                                                pattern)
+
+    def test_popen_uses_contains_for_membership_checks(self):
+        self.assert_file_does_not_match(
+            "src/popen.cpp",
+            r"_dmtcpPopenPidMap\.find\(fp\) != _dmtcpPopenPidMap\.end\(\)",
+        )
+
+    def test_timerlist_uses_contains_for_timer_info_checks(self):
+        self.assert_file_does_not_match(
+            "src/plugin/timer/timerlist.cpp",
+            r"_timerInfo\.find\([^)]+\) != _timerInfo\.end\(\)",
+        )
+
+    def test_restartscript_uses_contains_for_shell_command_checks(self):
+        for pattern in (
+            r"sshCmdFileNames\.find\(host->first\) != sshCmdFileNames\.end\(\)",
+            r"rshCmdFileNames\.find\(host->first\) != rshCmdFileNames\.end\(\)",
+        ):
+            with self.subTest(pattern=pattern):
+                self.assert_file_does_not_match("src/restartscript.cpp",
+                                                pattern)
+
     def test_coordinator_clock_gettime_uses_errno_diagnostics(self):
         self.assert_file_does_not_contain(
             "src/dmtcp_coordinator.cpp", "ASSERT_EQ(0, clock_gettime")

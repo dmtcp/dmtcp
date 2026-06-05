@@ -250,7 +250,7 @@ int
 TimerList::getoverrun(timer_t id)
 {
   _do_lock_tbl();
-  ASSERT(_timerInfo.find(id) != _timerInfo.end(),
+  ASSERT(_timerInfo.contains(id),
          "timer info missing for getoverrun: timer_id={}", id);
   int ret = _timerInfo[id].overrun;
   _timerInfo[id].overrun = 0;
@@ -293,7 +293,7 @@ TimerList::on_timer_delete(timer_t timerid)
 {
   _do_lock_tbl();
   _timerVirtIdTable.erase(timerid);
-  ASSERT(_timerInfo.find(timerid) != _timerInfo.end(),
+  ASSERT(_timerInfo.contains(timerid),
          "timer info missing during delete: timer_id={}", timerid);
   _timerInfo.erase(timerid);
   _do_unlock_tbl();
@@ -305,7 +305,7 @@ TimerList::on_timer_settime(timer_t timerid,
                             const struct itimerspec *new_value)
 {
   _do_lock_tbl();
-  ASSERT(_timerInfo.find(timerid) != _timerInfo.end(),
+  ASSERT(_timerInfo.contains(timerid),
          "timer info missing during settime: timer_id={}", timerid);
   _timerInfo[timerid].flags = flags;
   _timerInfo[timerid].initial_timerspec = *new_value;

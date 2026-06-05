@@ -190,7 +190,7 @@ dmtcp_is_popen_fp(FILE *fp)
   int popen_fp = 0;
 
   _lock_popen_map();
-  if (_dmtcpPopenPidMap.find(fp) != _dmtcpPopenPidMap.end()) {
+  if (_dmtcpPopenPidMap.contains(fp)) {
     popen_fp = 1;
   }
   _unlock_popen_map();
