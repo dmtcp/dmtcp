@@ -110,6 +110,32 @@ class DmtcpCommandJsonTest(unittest.TestCase):
         self.assertEqual(payload["coordinator_host"], host)
         self.assertEqual(payload["coordinator_port"], 1)
 
+    def test_json_rejects_invalid_coord_port_option(self):
+        result = self.run_command("--json", "--coord-port", "12x",
+                                  "--status")
+
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stderr, "")
+        payload = parse_dmtcp_command_json(result.stdout)
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["type"], "unknown")
+        self.assertEqual(payload["phase"], "unknown")
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["error_code"], "invalid_command")
+
+    def test_json_rejects_invalid_coord_port_env(self):
+        result = self.run_command("--json", "--status",
+                                  env={"DMTCP_COORD_PORT": "0x1"})
+
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stderr, "")
+        payload = parse_dmtcp_command_json(result.stdout)
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["type"], "unknown")
+        self.assertEqual(payload["phase"], "unknown")
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["error_code"], "invalid_command")
+
     def test_invalid_command_json_does_not_print_usage(self):
         result = self.run_command("--json", "--not-a-command")
 

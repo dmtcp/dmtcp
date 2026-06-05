@@ -112,14 +112,53 @@ getCoordinatorHost()
   return host != NULL ? host : "localhost";
 }
 
-static int
-getCoordinatorPort()
+static const char *
+getCoordinatorPortText()
 {
   const char *port = getenv(ENV_VAR_NAME_PORT);
   if (port == NULL) {
     port = getenv("DMTCP_PORT");                 // deprecated
   }
-  return port != NULL ? atoi(port) : DEFAULT_PORT;
+  return port;
+}
+
+static bool
+parseCoordinatorPort(const char *text, int *port)
+{
+  int parsedPort = 0;
+  if (text == NULL ||
+      !Util::parseInteger(text, &parsedPort) ||
+      parsedPort < 0 ||
+      parsedPort > 65535) {
+    return false;
+  }
+
+  *port = parsedPort;
+  return true;
+}
+
+static bool
+coordinatorPortEnvIsValid()
+{
+  const char *port = getCoordinatorPortText();
+  if (port == NULL) {
+    return true;
+  }
+
+  int parsedPort = 0;
+  return parseCoordinatorPort(port, &parsedPort);
+}
+
+static int
+getCoordinatorPort()
+{
+  const char *portText = getCoordinatorPortText();
+  if (portText == NULL) {
+    return DEFAULT_PORT;
+  }
+
+  int port = DEFAULT_PORT;
+  return parseCoordinatorPort(portText, &port) ? port : DEFAULT_PORT;
 }
 
 static const char *
@@ -302,10 +341,18 @@ main(int argc, char **argv)
       shift; shift;
     } else if (argc > 1 &&
                (s == "-p" || s == "--coord-port" || s == "--port")) {
+      int port = 0;
+      if (!parseCoordinatorPort(argv[1], &port)) {
+        return printUsageOrJsonError(jsonOutput);
+      }
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'p' &&
                isdigit(argv[0][2])) { // else if -p0, for example
+      int port = 0;
+      if (!parseCoordinatorPort(argv[0] + 2, &port)) {
+        return printUsageOrJsonError(jsonOutput);
+      }
       setenv(ENV_VAR_NAME_PORT, argv[0] + 2, 1);
       shift;
     } else if (s == "h" || s == "-h" || s == "--help" || s == "?") {
@@ -355,6 +402,9 @@ main(int argc, char **argv)
   char *workerList = NULL;
   // After this, the first char of the request is unique.  We only need that.
   char cmdChar = *(char *)request.c_str();
+  if (!coordinatorPortEnvIsValid()) {
+    return printUsageOrJsonError(jsonOutput);
+  }
   if (jsonOutput && !jsonCommandSupported(cmdChar)) {
     printJsonError("unknown", CoordCmdStatus::ERROR_INVALID_COMMAND);
     return 2;
