@@ -8,6 +8,7 @@ import signal
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -343,6 +344,25 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         )
 
         self.assertEqual([spec.name for spec in selected], ["gzip"])
+
+    def test_autotest_run_rejects_empty_selection(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "test" / "autotest.py"),
+                "--tag",
+                "missing-test-tag",
+            ],
+            cwd=str(ROOT),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=10,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("No tests selected", result.stderr)
 
     def test_spec_records_checkpoint_header_validation(self):
         spec = TestSpec("checkpoint-header", 1, ["./test/dmtcp1"],

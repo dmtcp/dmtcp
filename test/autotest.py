@@ -97,6 +97,10 @@ def main():
         print(f"Unknown test: {error.args[0]}", file=sys.stderr)
         return 2
 
+    if not selected:
+        print("No tests selected", file=sys.stderr)
+        return 2
+
     harness = DmtcpHarness(verbose=args.verbose)
     passed = 0
     report("== Tests ==")
