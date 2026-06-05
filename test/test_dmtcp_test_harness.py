@@ -448,11 +448,11 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         for name in [
             "dmtcp2", "dmtcp3", "dmtcp4", "alarm", "sched_test",
-            "gettid", "file1", "file3", "stat", "mmap1", "mremap",
-            "gettimeofday", "sigchild", "rlimit-restore", "poll", "environ",
-            "realpath", "pthread1", "pthread2", "pthread4", "pthread5",
-            "pthread6", "mutex1", "mutex2", "mutex3", "mutex4", "timer1",
-            "clock", "dlopen1",
+            "coordinator-barrier", "gettid", "file1", "file3", "stat",
+            "mmap1", "mremap", "gettimeofday", "sigchild",
+            "rlimit-restore", "poll", "environ", "realpath", "pthread1",
+            "pthread2", "pthread4", "pthread5", "pthread6", "mutex1",
+            "mutex2", "mutex3", "mutex4", "timer1", "clock", "dlopen1",
             "dmtcp5", "shared-fd1", "shared-fd2", "stale-fd",
             "rlimit-nofile", "procfd1", "epoll1", "forkexec",
             "client-server", "seqpacket", "shared-memory1", "shared-memory2",
@@ -468,6 +468,13 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(syscall_tester.checkpoint_command, "--kcheckpoint")
         self.assertEqual(syscall_tester.commands,
                          ["--checkpoint-open-files ./test/syscall-tester"])
+        coordinator_barrier = get_test("coordinator-barrier")
+        self.assertEqual(coordinator_barrier.peers, 2)
+        self.assertEqual(coordinator_barrier.cycles, 1)
+        self.assertIn("coordinator", coordinator_barrier.tags)
+        self.assertIn("barrier", coordinator_barrier.tags)
+        self.assertIn("real-worker", coordinator_barrier.requirements)
+        self.assertIn("cycles=1", coordinator_barrier.limits)
         restartdir = get_test("restartdir")
         self.assertTrue(restartdir.restart_uses_directory)
         frisbee = get_test("frisbee")
