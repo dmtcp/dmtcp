@@ -241,6 +241,26 @@ class SourceAuditTest(unittest.TestCase):
             with self.subTest(path=relative_path):
                 self.assert_file_does_not_match(relative_path, pattern)
 
+    def test_utility_string_equality_uses_cxx20_helpers(self):
+        checks = (
+            ("src/util_misc.cpp", r"strcmp\(value, \"1\"\) == 0"),
+            ("src/util_misc.cpp", r"strcmp\(value, \"0\"\) == 0"),
+            ("src/util_misc.cpp", r"strcmp\(path, \"/dev/ptmx\"\) == 0"),
+            ("src/util_misc.cpp", r"strcmp\(path_env, stdpath\) == 0"),
+            ("src/util_exec.cpp", r"strcmp\(cmd, \"mtcp_restart-32\"\) == 0"),
+            ("src/util_exec.cpp", r"strcmp\(compression, \"1\"\) == 0"),
+            ("src/util_exec.cpp", r"strcmp\(allocPlugin, \"0\"\) == 0"),
+            ("src/util_exec.cpp", r"strcmp\(disableAllPlugins, \"1\"\) == 0"),
+            ("src/dmtcp_launch.cpp",
+             r"strcmp\(getenv\(ENV_VAR_COMPRESSION\), \"1\"\) == 0"),
+            ("src/dmtcp_launch.cpp", r"strcmp\(filename, \"matlab\"\) == 0"),
+            ("src/dmtcp_launch.cpp", r"strcmp\(argv\[0\], \"java\"\) == 0"),
+            ("src/dmtcp_launch.cpp", r"strcmp\(filename, \"screen\"\) != 0"),
+        )
+        for relative_path, pattern in checks:
+            with self.subTest(path=relative_path, pattern=pattern):
+                self.assert_file_does_not_match(relative_path, pattern)
+
     def test_hostname_checks_use_string_view_comparison(self):
         for relative_path in (
             "src/dmtcp_coordinator.cpp",

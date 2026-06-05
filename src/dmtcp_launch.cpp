@@ -492,10 +492,10 @@ processArgs(int *orig_argc, const char ***orig_argv)
    * NOTE:  This occurs _only_ on second CKPT of 'make check' tests.
    */
   if (getenv(ENV_VAR_COMPRESSION) == NULL /* NULL default => --gzip */ ||
-      strcmp(getenv(ENV_VAR_COMPRESSION), "1") == 0) {
+      Util::strEquals(getenv(ENV_VAR_COMPRESSION), "1")) {
     setenv(ENV_VAR_COMPRESSION, "0", 1);
     if (getenv(ENV_VAR_QUIET) != NULL &&
-        strcmp(getenv(ENV_VAR_QUIET), "0") == 0) {
+        Util::strEquals(getenv(ENV_VAR_QUIET), "0")) {
       JASSERT_STDERR <<
         "\n*** Turning off gzip compression.  The armv8 CPU support is"
         " still in beta testing.\n*** Gzip not yet supported.\n\n";
@@ -758,8 +758,9 @@ testMatlab(const char *filename)
     " executing.)\n\n";
 
   // FIXME:  should expand filename and "matlab" before checking
-  if (strcmp(filename, "matlab") == 0 &&
-      (getenv(ENV_VAR_QUIET) == NULL || strcmp(getenv(ENV_VAR_QUIET), "0"))) {
+  if (Util::strEquals(filename, "matlab") &&
+      (getenv(ENV_VAR_QUIET) == NULL ||
+       !Util::strEquals(getenv(ENV_VAR_QUIET), "0"))) {
     JASSERT_STDERR << theMatlabWarning;
     return -1;
   }
@@ -781,11 +782,11 @@ testJava(const char **argv)
     "****  use the -Xmx flag for a smaller heap:  e.g.  java -Xmx64M javaApp\n"
     "****  (Invoke dmtcp_launch with --quiet to avoid this msg.)\n\n";
 
-  if (getenv(ENV_VAR_QUIET) != NULL
-      && strcmp(getenv(ENV_VAR_QUIET), "0") != 0) {
+  if (getenv(ENV_VAR_QUIET) != NULL &&
+      !Util::strEquals(getenv(ENV_VAR_QUIET), "0")) {
     return 0;
   }
-  if (strcmp(argv[0], "java") == 0) {
+  if (Util::strEquals(argv[0], "java")) {
     while (*(++argv) != NULL) {
       if (std::string_view(*argv).starts_with("-Xmx")) {
         return 0; // The user called java with -Xmx.  No need for warning.
@@ -817,7 +818,8 @@ static bool
 testSetuid(const char *filename)
 {
   if (Util::isSetuid(filename) &&
-      strcmp(filename, "screen") != 0 && strstr(filename, "/screen") == NULL) {
+      !Util::strEquals(filename, "screen") &&
+      strstr(filename, "/screen") == NULL) {
     static const char *theSetuidWarning =
       "\n"
       "**** WARNING:  This process has the setuid or setgid bit set.  This is\n"

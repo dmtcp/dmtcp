@@ -595,7 +595,7 @@ Util::getPath(const char *cmd, bool is32bit)
 #if defined(__x86_64__) || defined(__aarch64__) || defined(__riscv)
   if (is32bit) {  // if this is a multi-architecture build
     string basename = jalib::Filesystem::BaseName(cmd);
-    if (strcmp(cmd, "mtcp_restart-32") == 0) {
+    if (Util::strEquals(cmd, "mtcp_restart-32")) {
       suffixFor32Bits = "32/bin/";
     } else {
       suffixFor32Bits = "32/lib/dmtcp/";
@@ -680,62 +680,62 @@ Util::getDmtcpArgs(void)
   }
 
   if (compression != NULL) {
-    if (strcmp(compression, "1") == 0) {
+    if (Util::strEquals(compression, "1")) {
       argVector.push_back("--no-gzip");
     } else {
       argVector.push_back("--gzip");
     }
   }
 
-  if (allocPlugin != NULL && strcmp(allocPlugin, "0") == 0) {
+  if (Util::strEquals(allocPlugin, "0")) {
     argVector.push_back("--disable-alloc-plugin");
   }
 
-  if (dlPlugin != NULL && strcmp(dlPlugin, "0") == 0) {
+  if (Util::strEquals(dlPlugin, "0")) {
     argVector.push_back("--disable-dl-plugin");
   }
 
-  if (sshPlugin != NULL && strcmp(sshPlugin, "0") == 0) {
+  if (Util::strEquals(sshPlugin, "0")) {
     argVector.push_back("--disable-ssh-plugin");
   }
 
-  if (eventPlugin != NULL && strcmp(eventPlugin, "0") == 0) {
+  if (Util::strEquals(eventPlugin, "0")) {
     argVector.push_back("--disable-event-plugin");
   }
 
-  if (filePlugin != NULL && strcmp(filePlugin, "0") == 0) {
+  if (Util::strEquals(filePlugin, "0")) {
     argVector.push_back("--disable-file-plugin");
   }
 
-  if (ptyPlugin != NULL && strcmp(ptyPlugin, "0") == 0) {
+  if (Util::strEquals(ptyPlugin, "0")) {
     argVector.push_back("--disable-pty-plugin");
   }
 
-  if (socketPlugin != NULL && strcmp(socketPlugin, "0") == 0) {
+  if (Util::strEquals(socketPlugin, "0")) {
     argVector.push_back("--disable-socket-plugin");
   }
 
-  if (svipcPlugin != NULL && strcmp(svipcPlugin, "0") == 0) {
+  if (Util::strEquals(svipcPlugin, "0")) {
     argVector.push_back("--disable-svipc-plugin");
   }
 
-  if (timerPlugin != NULL && strcmp(timerPlugin, "0") == 0) {
+  if (Util::strEquals(timerPlugin, "0")) {
     argVector.push_back("--disable-timer-plugin");
   }
 
-  if (pidPlugin != NULL && strcmp(pidPlugin, "0") == 0) {
+  if (Util::strEquals(pidPlugin, "0")) {
     argVector.push_back("--disable-pid-plugin");
   }
 
   if (uniqueCkptPlugin != NULL) {
-    if (strcmp(uniqueCkptPlugin, "1") == 0) {
+    if (Util::strEquals(uniqueCkptPlugin, "1")) {
       argVector.push_back("--enable-unique-checkpoint-filenames");
-    } else if (strcmp(uniqueCkptPlugin, "0") == 0) {
+    } else if (Util::strEquals(uniqueCkptPlugin, "0")) {
       argVector.push_back("--disable-unique-checkpoint-filenames");
     }
   }
 
-  if (disableAllPlugins != NULL && strcmp(disableAllPlugins, "1") == 0) {
+  if (Util::strEquals(disableAllPlugins, "1")) {
     argVector.push_back("--disable-all-plugins");
   }
 

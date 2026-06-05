@@ -27,6 +27,21 @@ void stringViewEndsWithUsesExactSuffix()
   ASSERT_TRUE(!dmtcp::Util::strEndsWith("gz"sv, ".dmtcp"sv));
 }
 
+void stringEqualsUsesExactMatchAndRejectsNull()
+{
+  using namespace std::literals;
+
+  ASSERT_TRUE(dmtcp::Util::strEquals("checkpoint-image"sv,
+                                     "checkpoint-image"sv));
+  ASSERT_TRUE(!dmtcp::Util::strEquals("checkpoint-image"sv, "checkpoint"sv));
+  ASSERT_TRUE(dmtcp::Util::strEquals("checkpoint-image",
+                                     "checkpoint-image"));
+  ASSERT_TRUE(!dmtcp::Util::strEquals("checkpoint-image", "checkpoint"));
+  ASSERT_TRUE(!dmtcp::Util::strEquals(nullptr, "checkpoint"));
+  ASSERT_TRUE(!dmtcp::Util::strEquals("checkpoint", nullptr));
+  ASSERT_TRUE(!dmtcp::Util::strEquals(nullptr, nullptr));
+}
+
 void parseIntegerParsesStrictDecimalText()
 {
   using namespace std::literals;
@@ -331,6 +346,8 @@ extern const dmtcp_test::TestCase utilTests[] = {
    stringViewStartsWithUsesExactPrefix},
   {"string_view ends-with uses exact suffix",
    stringViewEndsWithUsesExactSuffix},
+  {"string equality uses exact match and rejects null",
+   stringEqualsUsesExactMatchAndRejectsNull},
   {"parseInteger parses strict decimal text",
    parseIntegerParsesStrictDecimalText},
   {"parseInteger rejects partial empty and overflow text",

@@ -127,6 +127,19 @@ inline bool strEndsWith(std::string_view str, std::string_view pattern)
   return str.ends_with(pattern);
 }
 
+inline bool strEquals(std::string_view str, std::string_view pattern)
+{
+  return str == pattern;
+}
+
+inline bool strEquals(const char *str, const char *pattern)
+{
+  if (str == nullptr || pattern == nullptr) {
+    return false;
+  }
+  return strEquals(std::string_view(str), std::string_view(pattern));
+}
+
 template <typename Integer>
 inline bool parseInteger(std::string_view text, Integer *value, int base = 10)
 {

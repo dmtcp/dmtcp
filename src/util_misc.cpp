@@ -115,11 +115,11 @@ Util::readBooleanEnv(const char *envName, bool defaultValue)
     return defaultValue;
   }
 
-  if (strcmp(value, "1") == 0) {
+  if (strEquals(value, "1")) {
     return true;
   }
 
-  if (strcmp(value, "0") == 0) {
+  if (strEquals(value, "0")) {
     return false;
   }
 
@@ -517,8 +517,8 @@ Util::isPseudoTty(const char *path)
   if (Util::strStartsWith(path, "/dev/tty") ||
       Util::strStartsWith(path, "/dev/pty") ||
       Util::strStartsWith(path, "/dev/pts/") ||
-      strcmp(path, "/dev/ptmx") == 0 ||
-      strcmp(path, "/dev/pts/ptmx") == 0) {
+      Util::strEquals(path, "/dev/ptmx") ||
+      Util::strEquals(path, "/dev/pts/ptmx")) {
     return true;
   }
   return false;
@@ -612,7 +612,7 @@ Util::findExecutable(char *executable, const char *path_env, char *exec_path)
 
   // In case we're running with PATH environment variable unset:
   const char *stdpath = "/usr/local/bin:/usr/bin:/bin";
-  if (strcmp(path_env, stdpath) == 0) {
+  if (Util::strEquals(path_env, stdpath)) {
     return NULL;  // Already tried stdpath
   } else {
     return findExecutable(executable, stdpath, exec_path);
