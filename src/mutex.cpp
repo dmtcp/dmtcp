@@ -2,6 +2,7 @@
 #include "futex.h"
 #include "jassert.h"
 #include "syscallwrappers.h"
+#include "util_assert.h"
 
 typedef uint32_t mutex_owner_t; // See 'include/dmtcp.h' for why 'uint32_t'
 
@@ -58,7 +59,8 @@ DmtcpMutexLock(DmtcpMutex *mutex)
       // futex_wait() returns immediately with EAGAIN if mutex->futex is not
       // LOCK_ACQUIRED_WAITERS_MAY_BE_QUEUED
       int s = futex_wait(&mutex->futex, LOCK_ACQUIRED_WAITERS_MAY_BE_QUEUED);
-      JASSERT(s != -1 || errno == EAGAIN || errno == EINTR)(JASSERT_ERRNO);
+      ASSERT_ERRNO(s != -1 || errno == EAGAIN || errno == EINTR,
+                   "unexpected mutex futex_wait failure: ret={}", s);
     }
   } while (__sync_val_compare_and_swap(&mutex->futex,
                                        LOCK_FREE,
@@ -83,7 +85,9 @@ DmtcpMutexTryLock(DmtcpMutex *mutex)
 
     if ((pid_t)(mutex->owner) == owner) {
       if (mutex->type == DMTCP_MUTEX_RECURSIVE) {
-        JASSERT(mutex->count + 1 != 0);
+        ASSERT(mutex->count + 1 != 0,
+               "recursive mutex count overflow: owner={} count={}", owner,
+               mutex->count);
         mutex->count++;
         return 0;
       }
@@ -118,7 +122,9 @@ DmtcpMutexUnlock(DmtcpMutex *mutex)
     owner = gettid();
   }
 
-  JASSERT((pid_t)(mutex->owner) == owner);
+  ASSERT((pid_t)(mutex->owner) == owner,
+         "mutex unlock by non-owner: owner={} current={}", mutex->owner,
+         owner);
 
   mutex->count--;
 
@@ -128,10 +134,13 @@ DmtcpMutexUnlock(DmtcpMutex *mutex)
     if (__sync_bool_compare_and_swap(&mutex->futex, LOCK_ACQUIRED, LOCK_FREE)) {
       // No need to call futex_wake as we don't have any waiters.
     } else {
-      JASSERT(__sync_bool_compare_and_swap(&mutex->futex,
-                                           LOCK_ACQUIRED_WAITERS_MAY_BE_QUEUED,
-                                           LOCK_FREE));
-      JASSERT(futex_wake(&mutex->futex, 1) != -1) (JASSERT_ERRNO);
+      ASSERT(__sync_bool_compare_and_swap(&mutex->futex,
+                                          LOCK_ACQUIRED_WAITERS_MAY_BE_QUEUED,
+                                          LOCK_FREE),
+             "mutex unlock saw unexpected futex state: futex={}",
+             mutex->futex);
+      ASSERT_ERRNO(futex_wake(&mutex->futex, 1) != -1,
+                   "mutex futex_wake failed");
     }
   }
 
