@@ -31,6 +31,7 @@
 #include "tls.h"
 #include "uniquepid.h"
 #include "util.h"
+#include "util_assert.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
@@ -90,13 +91,13 @@ static void Thread_RestoreSigState(Thread *th);
 static void
 lock_threads(void)
 {
-  JASSERT(DmtcpMutexLock(&threadlistLock) == 0) (JASSERT_ERRNO);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadlistLock));
 }
 
 static void
 unlk_threads(void)
 {
-  JASSERT(DmtcpMutexUnlock(&threadlistLock) == 0) (JASSERT_ERRNO);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadlistLock));
 }
 
 static int
@@ -231,7 +232,8 @@ ThreadList::createCkptThread()
   pthread_t checkpointhreadid;
 
   /* Spawn off a thread that will perform the checkpoints from time to time */
-  JASSERT(pthread_create(&checkpointhreadid, NULL, checkpointhread, NULL) == 0);
+  int rc = pthread_create(&checkpointhreadid, NULL, checkpointhread, NULL);
+  ASSERT(rc == 0, "failed to create checkpoint thread: result={}", rc);
 
   /* Stop until checkpoint thread has finished initializing.
    * Some programs (like gcl) implement their own glibc functions in
@@ -390,14 +392,20 @@ checkpointhread(void *dummy)
     sigdelset(&set, SIGSETXID);
     sigdelset(&set, SIGCANCEL);
 
-    JASSERT(pthread_sigmask(SIG_SETMASK, &set, NULL) == 0);
+    int rc = pthread_sigmask(SIG_SETMASK, &set, NULL);
+    ASSERT(rc == 0, "failed to set checkpoint-thread signal mask: result={}",
+           rc);
   }
 
   /* Set up our restart point.  I.e., we get jumped to here after a restore. */
 #ifdef SETJMP
-  JASSERT(sigsetjmp(ckptThread->jmpbuf, 1) >= 0) (JASSERT_ERRNO);
+  ASSERT(sigsetjmp(ckptThread->jmpbuf, 1) >= 0,
+         "failed to save checkpoint-thread jump context: tid={}",
+         ckptThread->tid);
 #else  // ifdef SETJMP
-  JASSERT(getcontext(&ckptThread->savctx) == 0) (JASSERT_ERRNO);
+  ASSERT_ERRNO(getcontext(&ckptThread->savctx) == 0,
+               "failed to save checkpoint-thread context: tid={}",
+               ckptThread->tid);
 #endif  // ifdef SETJMP
   save_sp(&ckptThread->saved_sp);
   JTRACE("after sigsetjmp/getcontext") (curThread->tid) (curThread->saved_sp);
@@ -462,7 +470,7 @@ ThreadList::suspendThreads()
   Thread *next;
 
   DmtcpRWLockInit(&threadResumeLock);
-  JASSERT(DmtcpRWLockWrLock(&threadResumeLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpRWLockWrLock(&threadResumeLock));
 
   /* Halt all other threads - force them to call stopthisthread
    * If any have blocked checkpointing, wait for them to unblock before
@@ -492,8 +500,10 @@ ThreadList::suspendThreads()
          */
         if (Thread_UpdateState(thread, ST_SIGNALED, ST_RUNNING)) {
           if (signalThread(thread, SigInfo::ckptSignal()) < 0) {
-            JASSERT(errno == ESRCH) (JASSERT_ERRNO) (thread->tid)
-            .Text("error signalling thread");
+            ASSERT_ERRNO(errno == ESRCH,
+                         "error signalling thread for checkpoint: tid={} "
+                         "signal={}",
+                         thread->tid, SigInfo::ckptSignal());
             ThreadList::threadIsDead(thread);
           } else {
             needrescan = 1;
@@ -521,7 +531,9 @@ ThreadList::suspendThreads()
         break;
 
       default:
-        JASSERT(false);
+        ASSERT(false, "unexpected thread state while suspending: tid={} "
+               "state={}",
+               thread->tid, thread->state);
       }
     }
     if (needrescan) {
@@ -534,7 +546,7 @@ ThreadList::suspendThreads()
     sem_wait(&semNotifyCkptThread);
   }
 
-  JASSERT(activeThreads != NULL);
+  ASSERT_NOT_NULL(activeThreads);
   JTRACE("everything suspended") (numUserThreads);
 }
 
@@ -578,7 +590,7 @@ void
 ThreadList::resumeThreads()
 {
   JTRACE("resuming user threads");
-  JASSERT(DmtcpRWLockUnlock(&threadResumeLock) == 0) (JASSERT_ERRNO);
+  ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
 }
 
 /*************************************************************************
@@ -628,8 +640,8 @@ stopthisthread(int signum)
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
-    JWARNING(prctl(PR_GET_NAME, curThread->procname) != -1) (JASSERT_ERRNO)
-    .Text("prctl(PR_GET_NAME, ...) failed");
+    WARNING_ERRNO(prctl(PR_GET_NAME, curThread->procname) != -1,
+                  "prctl(PR_GET_NAME) failed: tid={}", curThread->tid);
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
     Thread_SaveSigState(curThread);  // save sig state (and block sig delivery)
@@ -637,9 +649,13 @@ stopthisthread(int signum)
 
     /* Set up our restart point, ie, we get jumped to here after a restore */
 #ifdef SETJMP
-    JASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0);
+    ASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0,
+           "failed to save user-thread jump context: tid={}",
+           curThread->tid);
 #else  // ifdef SETJMP
-    JASSERT(getcontext(&curThread->savctx) == 0);
+    ASSERT_ERRNO(getcontext(&curThread->savctx) == 0,
+                 "failed to save user-thread context: tid={}",
+                 curThread->tid);
 #endif  // ifdef SETJMP
     save_sp(&curThread->saved_sp);
 
@@ -652,7 +668,9 @@ stopthisthread(int signum)
        */
 
       /* Tell the checkpoint thread that we're all saved away */
-      JASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG));
+      ASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG),
+             "failed to mark thread suspended: tid={} from={} to={}",
+             curThread->tid, ST_SUSPINPROG, ST_SUSPENDED);
       sem_post(&semNotifyCkptThread);
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
@@ -667,11 +685,14 @@ stopthisthread(int signum)
       // However, the sem_wait cleanup handler is now invalid and thus we get a
       // segfault.
       // The change in sem_wait behavior was first introduce in glibc 2.21.
-      JASSERT(DmtcpRWLockRdLock(&threadResumeLock) == 0);
+      ASSERT_LOCK_SUCCESS(DmtcpRWLockRdLock(&threadResumeLock));
 
-      JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
+      ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
+             "failed to mark thread running after checkpoint: tid={} "
+             "from={} to={}",
+             curThread->tid, ST_SUSPENDED, ST_RUNNING);
 
-      JASSERT(DmtcpRWLockUnlock(&threadResumeLock) == 0);
+      ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
     } else {
       // If the user defined DMTCP_DISABLE_PRGNAME_PREFIX, skip this prefix.
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
@@ -688,12 +709,15 @@ stopthisthread(int signum)
         curThread->procname[sizeof(curThread->procname) - 1] = '\0';
       }
 # endif
-      JASSERT(prctl(PR_SET_NAME, curThread->procname) != -1 || errno == EINVAL)
-        (curThread->procname) (JASSERT_ERRNO)
-      .Text("prctl(PR_SET_NAME, ...) failed");
+      ASSERT_ERRNO(prctl(PR_SET_NAME, curThread->procname) != -1 ||
+                   errno == EINVAL,
+                   "prctl(PR_SET_NAME) failed: tid={} name={}",
+                   curThread->tid, curThread->procname);
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
-      JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
+      ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
+             "failed to mark restored thread running: tid={} from={} to={}",
+             curThread->tid, ST_SUSPENDED, ST_RUNNING);
 
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
       ThreadList::waitForAllRestored(curThread);
@@ -827,7 +851,8 @@ ThreadList::postRestartWork(double readTime)
                             thread->flags & ~CLONE_SETTLS,
                             thread, thread->ptid, NULL, thread->ctid);
 
-    JASSERT(tid > 0);  // (JASSERT_ERRNO) .Text("Error recreating thread");
+    ASSERT_ERRNO(tid > 0, "error recreating thread: tid={} result={}",
+                 thread->tid, tid);
     JTRACE("Thread recreated") (thread->tid) (tid);
   }
 
@@ -866,7 +891,8 @@ restarthread(void *threadv)
 #else  // ifdef SETJMP
   setcontext(&thread->savctx); /* Shouldn't return */
 #endif  // ifdef SETJMP
-  JASSERT(false);
+  ASSERT(false, "restored thread context unexpectedly returned: tid={}",
+         thread->tid);
   return 0;   /* NOTREACHED : stop compiler warning */
 }
 
@@ -878,12 +904,12 @@ Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval)
 {
   int res = 0;
 
-  JASSERT(DmtcpMutexLock(&threadStateLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadStateLock));
   if (oldval == th->state) {
     th->state = newval;
     res = 1;
   }
-  JASSERT(DmtcpMutexUnlock(&threadStateLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadStateLock));
   return res;
 }
 
@@ -896,7 +922,9 @@ void
 Thread_SaveSigState(Thread *th)
 {
   // Save signal block mask
-  JASSERT(pthread_sigmask(SIG_SETMASK, NULL, &th->sigblockmask) == 0);
+  int rc = pthread_sigmask(SIG_SETMASK, NULL, &th->sigblockmask);
+  ASSERT(rc == 0, "failed to save thread signal mask: tid={} result={}",
+         th->tid, rc);
 
   // Save pending signals
   sigpending(&th->sigpending);
@@ -913,7 +941,9 @@ Thread_RestoreSigState(Thread *th)
   int i;
 
   JTRACE("restoring signal mask for thread") (th->tid);
-  JASSERT(pthread_sigmask(SIG_SETMASK, &th->sigblockmask, NULL) == 0);
+  int rc = pthread_sigmask(SIG_SETMASK, &th->sigblockmask, NULL);
+  ASSERT(rc == 0, "failed to restore thread signal mask: tid={} result={}",
+         th->tid, rc);
 
   // Raise the signals which were pending for only this thread at the time of
   // checkpoint.
@@ -967,7 +997,7 @@ ThreadList::addToActiveList(Thread *th)
   curThread = th;
 
   tid = curThread->tid;
-  JASSERT(tid != 0);
+  ASSERT(tid != 0, "cannot add thread with zero tid");
 
   // First remove duplicate descriptors.
   for (thread = activeThreads; thread != NULL; thread = next_thread) {
@@ -1016,7 +1046,7 @@ ThreadList::addToActiveList(Thread *th)
 void
 ThreadList::threadIsDead(Thread *thread)
 {
-  JASSERT(thread != NULL);
+  ASSERT_NOT_NULL(thread);
   JTRACE("Putting thread on freelist") (thread->tid);
 
   /* Remove thread block from 'threads' list */
