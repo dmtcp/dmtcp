@@ -79,6 +79,24 @@ void ckptHeaderBootstrapValidation()
   ASSERT_TRUE(dmtcp_ckpt_header_has_valid_bootstrap(&header) == 0);
 }
 
+void ckptHeaderRejectsMismatchedSanityFields()
+{
+  DmtcpCkptHeader header = {};
+  std::strcpy(header.ckptSignature, DMTCP_CKPT_SIGNATURE);
+  dmtcp_init_ckpt_header_bootstrap(&header);
+
+  header.headerSize += 1;
+  ASSERT_TRUE(dmtcp_ckpt_header_has_valid_bootstrap(&header) == 0);
+
+  dmtcp_init_ckpt_header_bootstrap(&header);
+  header.wordSize = 16;
+  ASSERT_TRUE(dmtcp_ckpt_header_has_valid_bootstrap(&header) == 0);
+
+  dmtcp_init_ckpt_header_bootstrap(&header);
+  header.endianMarker = 0;
+  ASSERT_TRUE(dmtcp_ckpt_header_has_valid_bootstrap(&header) == 0);
+}
+
 void ckptHeaderRejectsNonZeroReservedPadding()
 {
   DmtcpCkptHeader header = {};
@@ -120,6 +138,8 @@ extern const dmtcp_test::TestCase dmtcpHeaderTests[] = {
   {"checkpoint signature fits header field", ckptSignatureFitsHeaderField},
   {"checkpoint header is self describing", ckptHeaderIsSelfDescribing},
   {"checkpoint header validates bootstrap fields", ckptHeaderBootstrapValidation},
+  {"checkpoint header rejects mismatched sanity fields",
+   ckptHeaderRejectsMismatchedSanityFields},
   {"checkpoint header rejects non-zero reserved padding",
    ckptHeaderRejectsNonZeroReservedPadding},
   {"checkpoint signature rejects old layout", ckptSignatureRejectsOldLayout},
