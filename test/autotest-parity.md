@@ -45,6 +45,7 @@ this table are authoritative when their corresponding probes enable them.
 | `command-json-kill`, `command-json-quit` | Ported with `cycles=0` | These validate `dmtcp_command --json` completion behavior against live workers without running checkpoint/restart cycles. |
 | `coordinator-exit-on-last` | Ported with `cycles=0` | This validates `--exit-on-last` against a real worker without adding a checkpoint/restart cycle. |
 | `coordinator-barrier` | Ported with `cycles=1` | This is a focused real-worker cross-check for normal two-worker coordinator barrier release. |
+| `checkpoint-header` | Ported with `cycles=1` | This validates the fixed bootstrap records in an uncompressed checkpoint image without adding a second restart cycle. |
 | `gzip-invalid-env` | Ported with `cycles=1` | This verifies invalid `DMTCP_GZIP` handling and checkpoint-header validation without adding a second restart cycle. |
 | `nocheckpoint` | Ported with `cycles=1` | The second post-restart checkpoint needs separate debugging; keep the single-cycle behavior explicit. |
 | `openmp-1`, `openmp-2` | Ported with `cycles=1` | Same second-cycle limitation as `nocheckpoint`; do not hide it behind the default cycle count. |

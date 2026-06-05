@@ -783,6 +783,29 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         self.assertEqual(missing, [])
 
+    def test_registry_cycle_limits_are_explicit(self):
+        missing = [
+            test.name for test in iter_tests()
+            if test.cycles != 2 and f"cycles={test.cycles}" not in test.limits
+        ]
+
+        self.assertEqual(missing, [])
+
+    def test_parity_ledger_mentions_registry_limits(self):
+        ledger = (ROOT / "test" / "autotest-parity.md").read_text(
+            encoding="utf-8")
+
+        missing = []
+        for test in iter_tests():
+            for limit in test.limits:
+                if not any(
+                    f"`{test.name}`" in line and limit in line
+                    for line in ledger.splitlines()
+                ):
+                    missing.append(f"{test.name}:{limit}")
+
+        self.assertEqual(missing, [])
+
 
 if __name__ == "__main__":
     unittest.main()

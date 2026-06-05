@@ -44,9 +44,11 @@ def _frisbee_commands() -> List[str]:
 
 TESTS = [
     TestSpec("dmtcp1", 1, ["./test/dmtcp1"]),
-    TestSpec("command-json-kill", 1, ["./test/dmtcp1"], cycles=0),
+    TestSpec("command-json-kill", 1, ["./test/dmtcp1"], cycles=0,
+             limits=["cycles=0"]),
     TestSpec("command-json-quit", 1, ["./test/dmtcp1"], cycles=0,
-             completion_command="--quit"),
+             completion_command="--quit",
+             limits=["cycles=0"]),
     TestSpec("command-json-bcheckpoint", 1, ["./test/dmtcp1"], cycles=1,
              checkpoint_command="--bcheckpoint",
              tags=["command-json", "checkpoint"],
@@ -221,8 +223,10 @@ if _config_yes("HAS_JAVA") and _config_yes("HAS_JAVAC"):
                           env={"CLASSPATH": "./test"}))
 
 if _config_yes("HAS_OPENMP"):
-    TESTS.append(TestSpec("openmp-1", 1, ["./test/openmp-1"], cycles=1))
-    TESTS.append(TestSpec("openmp-2", 1, ["./test/openmp-2"], cycles=1))
+    TESTS.append(TestSpec("openmp-1", 1, ["./test/openmp-1"], cycles=1,
+                          limits=["cycles=1"]))
+    TESTS.append(TestSpec("openmp-2", 1, ["./test/openmp-2"], cycles=1,
+                          limits=["cycles=1"]))
 
 
 def iter_tests(names: List[str] = None) -> Iterable[TestSpec]:
