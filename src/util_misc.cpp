@@ -32,6 +32,7 @@
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -52,8 +53,7 @@ Util::lockFile(int fd)
     result = _real_fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
   } while (result == -1 && errno == EINTR);
 
-  JASSERT(result != -1) (JASSERT_ERRNO)
-  .Text("Unable to lock the PID MAP file");
+  ASSERT_ERRNO(result != -1, "Unable to lock file: fd={}", fd);
 #if (__arm__ || __aarch64__)
   WMB;  // DMB, ensure writes by others to memory have completed before we
         // we enter protected region.
@@ -81,8 +81,8 @@ Util::unlockFile(int fd)
 
   result = _real_fcntl(fd, F_SETLK, &fl); /* set the region to unlocked */
 
-  JASSERT(result != -1 || errno == ENOLCK) (JASSERT_ERRNO)
-  .Text("Unlock Failed");
+  ASSERT_ERRNO(result != -1 || errno == ENOLCK,
+               "Unable to unlock file: fd={}", fd);
 }
 
 bool
@@ -134,8 +134,9 @@ Util::readBooleanEnv(const char *envName, bool defaultValue)
     return false;
   }
 
-  JASSERT(false) (envName) (value)
-  .Text("Invalid value for the environment variable.");
+  ASSERT(false,
+         "Invalid value for boolean environment variable: name={} value={}",
+         envName, value);
   return defaultValue;
 }
 
@@ -197,7 +198,9 @@ Util::writeAll(int fd, const void *buf, size_t count)
       num_written += rc;
     }
   } while (num_written < count);
-  JASSERT(num_written == count) (num_written) (count);
+  ASSERT(num_written == count,
+         "short write in Util::writeAll: fd={} written={} expected={}", fd,
+         num_written, count);
   return num_written;
 }
 
@@ -251,7 +254,7 @@ Util::skipBytes(int fd, size_t count)
 ssize_t
 Util::readAll(const char *path, void *buf, size_t count)
 {
-  JASSERT(path != nullptr);
+  ASSERT_NOT_NULL(path);
 
   int fd = _real_open(path, O_RDONLY);
   if (fd == -1) {
@@ -268,7 +271,9 @@ int
 Util::changeFd(int oldfd, int newfd)
 {
   if (oldfd != newfd) {
-    JASSERT(_real_dup2(oldfd, newfd) == newfd);
+    ASSERT_ERRNO(_real_dup2(oldfd, newfd) == newfd,
+                 "dup2 failed in Util::changeFd: oldfd={} newfd={}", oldfd,
+                 newfd);
     _real_close(oldfd);
   }
   return newfd;
@@ -292,7 +297,8 @@ Util::readLine(int fd, char *buf, int count)
   int i = 0;
   char c;
 
-  JASSERT(fd >= 0 && buf != NULL) (fd) ((void *)buf);
+  ASSERT(fd >= 0 && buf != NULL,
+         "invalid Util::readLine arguments: fd={} buf={}", fd, buf);
 #define NEWLINE '\n' // Linux, OSX
   while (i < count) {
     ssize_t rc = read(fd, &c, 1);
@@ -491,7 +497,7 @@ Util::readProcMapsLine(int mapsfd, ProcMapsArea *area)
   return 1;
 
 skipeol:
-  JASSERT(false).Text("Not Reached");
+  ASSERT(false, "malformed /proc maps line");
   return 0;    /* NOTREACHED : stop compiler warning */
 }
 
@@ -579,7 +585,7 @@ Util::findExecutable(char *executable, const char *path_env, char *exec_path)
   const char *tmp_env;
   int len;
 
-  JASSERT(exec_path != NULL);
+  ASSERT_NOT_NULL(exec_path);
   if (path_env == NULL) {
     path_env = ""; // Will try stdpath later in this function
   }
@@ -658,15 +664,19 @@ Util::allowGdbDebug(int currentDebugLevel)
   if (Util::isValidFd(PROTECTED_DEBUG_SOCKET_FD)) {
     int requestedDebugLevel = 0;
     // Inform parent of current level
-    JASSERT(write(PROTECTED_DEBUG_SOCKET_FD,
-                  &currentDebugLevel,
-                  sizeof(currentDebugLevel))
-            == sizeof(currentDebugLevel));
+    ASSERT_ERRNO(write(PROTECTED_DEBUG_SOCKET_FD,
+                       &currentDebugLevel,
+                       sizeof(currentDebugLevel))
+                   == sizeof(currentDebugLevel),
+                 "failed to write current debug level: fd={} level={}",
+                 PROTECTED_DEBUG_SOCKET_FD, currentDebugLevel);
     // Read the requested level from the parent
-    JASSERT(read(PROTECTED_DEBUG_SOCKET_FD,
-                 &requestedDebugLevel,
-                 sizeof(requestedDebugLevel))
-            == sizeof(requestedDebugLevel));
+    ASSERT_ERRNO(read(PROTECTED_DEBUG_SOCKET_FD,
+                      &requestedDebugLevel,
+                      sizeof(requestedDebugLevel))
+                   == sizeof(requestedDebugLevel),
+                 "failed to read requested debug level: fd={}",
+                 PROTECTED_DEBUG_SOCKET_FD);
     if (currentDebugLevel == requestedDebugLevel) {
       // Wait for GDB to connect if the requested level
       // matches the current level
