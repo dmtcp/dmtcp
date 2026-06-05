@@ -760,6 +760,8 @@ assertFailureErrno(const char *expr,
 #define ASSERT_TRUE(condition) \
   ASSERT((condition), "expected true: {}", #condition)
 
+// For DMTCP/pthread-style lock APIs that return 0 on success and an error
+// number on failure. Do not use this for syscall-style or boolean success.
 #define ASSERT_LOCK_SUCCESS(expression)                                   \
   do {                                                                   \
     const auto dmtcpAssertResult = (expression);                          \
