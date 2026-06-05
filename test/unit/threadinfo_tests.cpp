@@ -7,6 +7,12 @@
 
 namespace {
 
+void *
+sampleThreadStart(void *arg)
+{
+  return arg;
+}
+
 void threadInfoOwnsAssertBuffer()
 {
   Thread thread = {};
@@ -49,6 +55,42 @@ void threadCoreInfoTracksWrapperLockCount()
   ASSERT_EQ(ThreadCoreInfo_DecrementWrapperLockCount(&core), 0u);
 }
 
+void threadInitDescriptorResetsLifecycleState()
+{
+  Thread thread = {};
+  pid_t ptid = 1;
+  pid_t ctid = 2;
+  int arg = 3;
+
+  thread.fn = sampleThreadStart;
+  thread.arg = &thread;
+  thread.flags = 99;
+  thread.ptid = &ptid;
+  thread.ctid = &ctid;
+  thread.next = &thread;
+  thread.prev = &thread;
+  thread.state = ST_SUSPENDED;
+  thread.exiting = 1;
+  thread.core.wrapperLockCount = 7;
+  thread.core.assertBuffer[0] = 'x';
+  thread.procname[0] = 'y';
+
+  Thread_InitDescriptor(&thread, sampleThreadStart, &arg);
+
+  ASSERT_TRUE(thread.fn == sampleThreadStart);
+  ASSERT_EQ(thread.arg, &arg);
+  ASSERT_EQ(thread.flags, 0);
+  ASSERT_EQ(thread.ptid, nullptr);
+  ASSERT_EQ(thread.ctid, nullptr);
+  ASSERT_EQ(thread.next, nullptr);
+  ASSERT_EQ(thread.prev, nullptr);
+  ASSERT_EQ(thread.state, ST_RUNNING);
+  ASSERT_EQ(thread.exiting, 0);
+  ASSERT_EQ(ThreadCoreInfo_GetWrapperLockCount(&thread.core), 0u);
+  ASSERT_EQ(thread.core.assertBuffer[0], '\0');
+  ASSERT_EQ(thread.procname[0], '\0');
+}
+
 void threadAssertBufferHelperReturnsCoreBuffer()
 {
   Thread thread = {};
@@ -77,6 +119,8 @@ extern const dmtcp_test::TestCase threadInfoTests[] = {
    threadCoreInfoBufferHelperReturnsCoreBuffer},
   {"ThreadCoreInfo tracks wrapper lock count",
    threadCoreInfoTracksWrapperLockCount},
+  {"Thread descriptor helper resets lifecycle state",
+   threadInitDescriptorResetsLifecycleState},
   {"Thread assert buffer helper returns core buffer",
    threadAssertBufferHelperReturnsCoreBuffer},
   {"Thread assert buffer helper handles null thread",

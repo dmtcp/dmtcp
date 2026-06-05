@@ -264,17 +264,7 @@ ThreadList::getNewThread(void *(*fn)(void *), void *arg)
 void
 ThreadList::prepareThread(Thread *th, void *(*fn)(void *), void *arg)
 {
-  /* Save exactly what the caller is supplying */
-  th->fn = fn;
-  th->arg = arg;
-  th->flags = 0;
-  th->ptid = NULL;
-  th->ctid = NULL;
-  th->next = NULL;
-  th->state = ST_RUNNING;
-  th->exiting = 0;
-  ThreadCoreInfo_Init(&th->core);
-  th->procname[0] = '\0';
+  Thread_InitDescriptor(th, fn, arg);
 }
 
 /*****************************************************************************

@@ -155,6 +155,26 @@ struct Thread {
   Thread *prev;
 };
 
+inline void
+Thread_InitDescriptor(Thread *thread, void *(*fn)(void *), void *arg)
+{
+  if (thread == NULL) {
+    return;
+  }
+
+  thread->fn = fn;
+  thread->arg = arg;
+  thread->flags = 0;
+  thread->ptid = NULL;
+  thread->ctid = NULL;
+  thread->next = NULL;
+  thread->prev = NULL;
+  thread->state = ST_RUNNING;
+  thread->exiting = 0;
+  ThreadCoreInfo_Init(&thread->core);
+  thread->procname[0] = '\0';
+}
+
 inline char *
 Thread_GetAssertBuffer(Thread *thread, size_t *size)
 {
