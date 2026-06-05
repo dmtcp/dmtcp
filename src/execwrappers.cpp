@@ -37,6 +37,7 @@
 #include "threadsync.h"
 #include "uniquepid.h"
 #include "util.h"
+#include "util_assert.h"
 
 #define INITIAL_ARGV_MAX 128
 #define MAX_EXTRA_ARGS 32
@@ -141,16 +142,16 @@ dmtcp_prepare_atfork(void)
    * the gcc compiler.
    */
 #if 0
-  JASSERT(__register_atfork(NULL, NULL,
-                            pidVirt_pthread_atfork_child,
-                            __dso_handle) == 0);
+  ASSERT_EQ(0, __register_atfork(NULL, NULL,
+                                 pidVirt_pthread_atfork_child,
+                                 __dso_handle));
 #endif
 
   if (!dmtcp_atfork_processed) {
     dmtcp_atfork_processed = true;
-    JASSERT(pthread_atfork(dmtcp_atfork_prepare,
-                          dmtcp_atfork_parent,
-                          dmtcp_atfork_child) == 0);
+    ASSERT_EQ(0, pthread_atfork(dmtcp_atfork_prepare,
+                                dmtcp_atfork_parent,
+                                dmtcp_atfork_child));
   }
 }
 
@@ -247,7 +248,8 @@ vfork()
   static __typeof__(&vfork) vforkPtr =
     (__typeof__(&vfork)) dmtcp_dlsym(RTLD_NEXT, "vfork");
 
-  JASSERT (!isPerformingCkptRestart());
+  ASSERT(!isPerformingCkptRestart(),
+         "vfork called while checkpoint/restart is active");
 
   ThreadSync::presuspendEventHookLockLock();
 
@@ -271,7 +273,7 @@ vfork()
   stackSize =
     (char*) __builtin_frame_address(0) + (2 * sizeof(void*)) - stackStart;
   newStackAddr = JALLOC_MALLOC(stackSize);
-  JASSERT(newStackAddr);
+  ASSERT_NOT_NULL(newStackAddr);
   memcpy(newStackAddr, stackStart, stackSize);
 
   vforkPid = vforkPtr();
@@ -328,7 +330,7 @@ daemon(int nochdir, int noclose)
   }
 
   if (!nochdir) {
-    JASSERT(chdir("/") == 0);
+    ASSERT_ERRNO(chdir("/") == 0, "daemon failed to chdir to /");
   }
 
   if (!noclose) {
@@ -471,7 +473,9 @@ dmtcpProcessFailedExec(const char *path, const char *newArgv[])
   }
 
   JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
-  JASSERT(_real_close(PROTECTED_LIFEBOAT_FD) == 0) (JASSERT_ERRNO);
+  ASSERT_ERRNO(_real_close(PROTECTED_LIFEBOAT_FD) == 0,
+               "failed to close protected lifeboat fd: fd={}",
+               PROTECTED_LIFEBOAT_FD);
   errno = saved_errno;
 }
 
@@ -538,10 +542,11 @@ copyEnv(char *const envp[])
 static const char **
 stringVectorToPointerArray(const vector<string> &s, size_t len)
 {
-  JASSERT(len >= s.size());
+  ASSERT(len >= s.size(),
+         "pointer array length is too small: len={} size={}", len, s.size());
 
   const char **result = (const char **) JALLOC_MALLOC(len * sizeof (char*));
-  JASSERT(result != NULL);
+  ASSERT(result != NULL, "failed to allocate pointer array: len={}", len);
 
   // Now get the pointers.
   for (size_t i = 0; i < s.size(); i++) {
@@ -647,8 +652,9 @@ int getLifeboatFd()
   char buf[PATH_MAX] = {0};
   snprintf(buf, sizeof(buf) - 1, "%s/LifeBoat.XXXXXX", dmtcp_get_tmpdir());
   int fd = _real_mkostemps(buf, 0, 0);
-  JASSERT(fd != -1) (JASSERT_ERRNO);
-  JASSERT(unlink(buf) == 0) (JASSERT_ERRNO);
+  ASSERT_ERRNO(fd != -1, "failed to create lifeboat file: path={}", buf);
+  ASSERT_ERRNO(unlink(buf) == 0, "failed to unlink lifeboat file: path={}",
+               buf);
   Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);
   return PROTECTED_LIFEBOAT_FD;
 }
@@ -675,7 +681,7 @@ extern "C" int
 fexecve(int fd, char *const argv[], char *const envp[])
 {
   // TODO: Add dmtcp_execveat and use that.
-  JASSERT(false) .Text("Not Implemented");
+  ASSERT(false, "fexecve wrapper is not implemented: fd={}", fd);
   return -1;
 }
 
@@ -803,18 +809,19 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
 
   string programName = jalib::Filesystem::BaseName(filename);
 
-  JASSERT(programName != "dmtcp_coordinator" &&
-          programName != "dmtcp_launch" &&
-          programName != "dmtcp_restart" &&
-          programName != "mtcp_restart")
-    (programName).Text("This program should not be run under ckpt control");
+  ASSERT(programName != "dmtcp_coordinator" &&
+         programName != "dmtcp_launch" &&
+         programName != "dmtcp_restart" &&
+         programName != "mtcp_restart",
+         "program should not be run under checkpoint control: program={}",
+         programName);
 
   if (programName == "dmtcp_command") {
     // make sure coordinator connection is closed
     _real_close(PROTECTED_COORD_FD);
 
     pid_t cpid = _real_fork();
-    JASSERT(cpid != -1);
+    ASSERT_ERRNO(cpid != -1, "failed to fork before execing dmtcp_command");
     if (cpid != 0) {
       _real_exit(0);
     }
