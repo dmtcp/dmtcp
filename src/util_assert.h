@@ -772,16 +772,18 @@ assertFailureErrno(const char *expr,
   do {                                                                   \
     const auto dmtcpAssertResult = (expression);                          \
     ASSERT(dmtcpAssertResult == 0,                                        \
-           "{} failed: expected 0, returned {}",                          \
-           expressionText, dmtcpAssertResult);                            \
+           "{} failed: expected 0, returned {} ({})",                     \
+           expressionText, dmtcpAssertResult,                             \
+           ::dmtcp::errnoName(static_cast<int>(dmtcpAssertResult)));      \
   } while (0)
 
 #define DMTCP_WARNING_ZERO_RETURN(expressionText, expression)             \
   do {                                                                   \
     const auto dmtcpAssertResult = (expression);                          \
     WARNING(dmtcpAssertResult == 0,                                      \
-            "{} failed: expected 0, returned {}",                         \
-            expressionText, dmtcpAssertResult);                           \
+            "{} failed: expected 0, returned {} ({})",                    \
+            expressionText, dmtcpAssertResult,                            \
+            ::dmtcp::errnoName(static_cast<int>(dmtcpAssertResult)));     \
   } while (0)
 
 #define ASSERT_MUTEX_SUCCESS(expression) \

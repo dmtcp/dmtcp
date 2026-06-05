@@ -406,14 +406,16 @@ void warningMutexSuccessReportsExpressionAndReturnValue()
 {
   resetHook();
 
-  WARNING_MUTEX_SUCCESS(setErrnoAndReturn(7, EIO));
+  WARNING_MUTEX_SUCCESS(setErrnoAndReturn(EINVAL, EIO));
 
   UNIT_ASSERT_EQ(hookCallCount, 1);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "setErrnoAndReturn(7, EIO) failed") !=
+                               "setErrnoAndReturn(EINVAL, EIO) failed") !=
                    nullptr);
+  const std::string expected =
+    "expected 0, returned " + std::to_string(EINVAL) + " (EINVAL)";
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "expected 0, returned 7") !=
+                               expected.c_str()) !=
                    nullptr);
 }
 
