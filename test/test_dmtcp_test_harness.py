@@ -519,7 +519,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "plugin-init", "popen1", "poll-disable-event-plugin", "pthread3",
             "restartdir", "pty1", "pty2", "vfork1", "vfork2", "frisbee",
             "nocheckpoint", "checkpoint-header", "gzip-invalid-env",
-            "coordinator-exit-on-last",
+            "coordinator-exit-on-last", "command-json-bcheckpoint",
         ]:
             self.assertIn(name, names)
 
@@ -561,6 +561,12 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertIn("exit-on-last", exit_on_last.tags)
         self.assertIn("real-worker", exit_on_last.requirements)
         self.assertIn("cycles=0", exit_on_last.limits)
+        bcheckpoint = get_test("command-json-bcheckpoint")
+        self.assertEqual(bcheckpoint.checkpoint_command, "--bcheckpoint")
+        self.assertEqual(bcheckpoint.cycles, 1)
+        self.assertIn("command-json", bcheckpoint.tags)
+        self.assertIn("real-worker", bcheckpoint.requirements)
+        self.assertIn("cycles=1", bcheckpoint.limits)
 
     def test_registry_contains_configured_optional_tests(self):
         names = [test.name for test in iter_tests()]
