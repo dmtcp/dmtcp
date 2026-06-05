@@ -269,10 +269,10 @@ PtyConnList::processPtyConnection(int fd,
   }
 
   path = device.c_str();
-  if (strcmp(path, "/dev/tty") == 0) {
+  if (Util::strEquals(path, "/dev/tty")) {
     // Controlling terminal
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_DEV_TTY);
-  } else if (strcmp(path, "/dev/pty") == 0) {
+  } else if (Util::strEquals(path, "/dev/pty")) {
     ASSERT(false, "PTY path not implemented: path={}", path);
   } else if (Util::strStartsWith(path, "/dev/pty")) {
     // BSD Master
@@ -280,8 +280,8 @@ PtyConnList::processPtyConnection(int fd,
   } else if (Util::strStartsWith(path, "/dev/tty")) {
     // BSD Slave
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_BSD_SLAVE);
-  } else if (strcmp(path, "/dev/ptmx") == 0 ||
-             strcmp(path, "/dev/pts/ptmx") == 0) {
+  } else if (Util::strEquals(path, "/dev/ptmx") ||
+             Util::strEquals(path, "/dev/pts/ptmx")) {
     // POSIX Master PTY
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_MASTER);
   } else if (Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {

@@ -261,6 +261,18 @@ class SourceAuditTest(unittest.TestCase):
             with self.subTest(path=relative_path, pattern=pattern):
                 self.assert_file_does_not_match(relative_path, pattern)
 
+    def test_pty_path_equality_uses_cxx20_helpers(self):
+        checks = (
+            r"strcmp\(path, \"/dev/tty\"\) == 0",
+            r"strcmp\(path, \"/dev/pty\"\) == 0",
+            r"strcmp\(path, \"/dev/ptmx\"\) == 0",
+            r"strcmp\(path, \"/dev/pts/ptmx\"\) == 0",
+        )
+        for pattern in checks:
+            with self.subTest(pattern=pattern):
+                self.assert_file_does_not_match(
+                    "src/plugin/file/ptyconnlist.cpp", pattern)
+
     def test_hostname_checks_use_string_view_comparison(self):
         for relative_path in (
             "src/dmtcp_coordinator.cpp",
