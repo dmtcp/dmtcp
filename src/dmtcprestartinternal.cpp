@@ -118,6 +118,20 @@ static const char *theUsage =
 
 static int requestedDebugLevel = 0;
 
+static bool
+parseGdbDebugLevel(const char *text, int *level)
+{
+  int parsedLevel = 0;
+  if (text == NULL ||
+      !Util::parseInteger(text, &parsedLevel) ||
+      parsedLevel < 0) {
+    return false;
+  }
+
+  *level = parsedLevel;
+  return true;
+}
+
 class RestoreTarget;
 
 typedef map<UniquePid, RestoreTarget *>RestoreTargetMap;
@@ -795,7 +809,10 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
       restartDir = string(argv[1]);
       shift; shift;
     } else if (argc > 1 && (s == "--gdb")) {
-      requestedDebugLevel = atoi(argv[1]);
+      if (!parseGdbDebugLevel(argv[1], &requestedDebugLevel)) {
+        fprintf(stderr, "invalid gdb debug level: %s\n", argv[1]);
+        exit(DMTCP_FAIL_RC);
+      }
       shift; shift;
     } else if (s == "-q" || s == "--quiet") {
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;

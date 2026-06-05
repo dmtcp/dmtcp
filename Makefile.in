@@ -212,6 +212,7 @@ check: tests
 	cd test && $(MAKE) check-command-json
 	cd test && $(MAKE) check-command-cli
 	cd test && $(MAKE) check-launch-cli
+	cd test && $(MAKE) check-restart-cli
 	cd test && $(MAKE) check-coordinator-synthetic
 	@ if test "@HAS_PYTHON3@" = yes; then \
 	 bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py ${AUTOTEST} $*";\
@@ -242,6 +243,9 @@ check-command-cli: build
 
 check-launch-cli: build
 	cd test && $(MAKE) check-launch-cli
+
+check-restart-cli: build
+	cd test && $(MAKE) check-restart-cli
 
 check-coordinator-synthetic: build
 	cd test && $(MAKE) check-coordinator-synthetic
@@ -432,4 +436,4 @@ am--refresh:
 	build-multilib build-multilib-m32 build-multilib-m64 \
 	mkdirs dmtcp plugin contrib clean distclean am--refresh \
 	tests tests-32 check-unit check-command-cli check-launch-cli \
-	check-coordinator-synthetic
+	check-restart-cli check-coordinator-synthetic
