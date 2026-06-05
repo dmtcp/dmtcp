@@ -105,7 +105,7 @@ dmtcp_ssh_drain()
     return;
   }
 
-  ASSERT(theDrainer == NULL, "SSH drainer already exists");
+  ASSERT_NULL_MSG(theDrainer, "SSH drainer already exists");
   theDrainer = new SSHDrainer();
   if (isSshdProcess) { // dmtcp_ssh process
     theDrainer->beginDrainOf(STDIN_FILENO, sshStdin);

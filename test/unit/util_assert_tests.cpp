@@ -394,7 +394,9 @@ void convenienceAssertMacrosPassWithoutWriting()
   WARNING_SYSCALL_SUCCESS(0);
   WARNING_SYSCALL_EQ(4, 4);
   ASSERT_NOT_NULL(ptr);
+  ASSERT_NOT_NULL_MSG(ptr, "ptr context={}", "ok");
   ASSERT_NULL(nullPtr);
+  ASSERT_NULL_MSG(nullPtr, "null context={}", "ok");
 
   UNIT_ASSERT_EQ(hookCallCount, 0);
 }
@@ -404,11 +406,15 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
   resetHook();
   int lhs = 0;
   int rhs = 1;
+  int value = 2;
+  int ptrCalls = 0;
   int nullCalls = 0;
   int successCalls = 0;
 
   ASSERT_EQ(++lhs, rhs);
   ASSERT_NULL(returnNullAndCount(&nullCalls));
+  ASSERT_NULL_MSG(returnNullAndCount(&nullCalls), "null context");
+  ASSERT_NOT_NULL_MSG(returnPtrAndCount(&value, &ptrCalls), "ptr context");
   ASSERT_MUTEX_SUCCESS(returnZeroAndCount(&successCalls));
   ASSERT_PTHREAD_SUCCESS(returnZeroAndCount(&successCalls));
   ASSERT_ZERO_RETURN(returnZeroAndCount(&successCalls));
@@ -416,7 +422,8 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
   ASSERT_SYSCALL_EQ(0, returnZeroAndCount(&successCalls));
 
   UNIT_ASSERT_EQ(lhs, 1);
-  UNIT_ASSERT_EQ(nullCalls, 1);
+  UNIT_ASSERT_EQ(ptrCalls, 1);
+  UNIT_ASSERT_EQ(nullCalls, 2);
   UNIT_ASSERT_EQ(successCalls, 5);
   UNIT_ASSERT_EQ(hookCallCount, 0);
 }
@@ -461,7 +468,9 @@ void convenienceWarningMacrosPassWithoutWriting()
   WARNING_LT(value, larger);
   WARNING_LE(value, 2);
   WARNING_NOT_NULL(ptr);
+  WARNING_NOT_NULL_MSG(ptr, "ptr context={}", "ok");
   WARNING_NULL(nullPtr);
+  WARNING_NULL_MSG(nullPtr, "null context={}", "ok");
 
   UNIT_ASSERT_EQ(hookCallCount, 0);
 }
@@ -477,11 +486,13 @@ void convenienceWarningMacrosEvaluateOperandsOnce()
 
   WARNING_EQ(++lhs, rhs);
   WARNING_NULL(returnNullAndCount(&nullCalls));
+  WARNING_NULL_MSG(returnNullAndCount(&nullCalls), "null context");
   WARNING_NOT_NULL(returnPtrAndCount(&value, &calls));
+  WARNING_NOT_NULL_MSG(returnPtrAndCount(&value, &calls), "ptr context");
 
   UNIT_ASSERT_EQ(lhs, 1);
-  UNIT_ASSERT_EQ(calls, 1);
-  UNIT_ASSERT_EQ(nullCalls, 1);
+  UNIT_ASSERT_EQ(calls, 2);
+  UNIT_ASSERT_EQ(nullCalls, 2);
   UNIT_ASSERT_EQ(hookCallCount, 0);
 }
 
@@ -489,11 +500,15 @@ void convenienceWarningMessageMacrosReportFailuresAndContinue()
 {
   resetHook();
   int value = 3;
+  int *ptr = &value;
+  int *nullPtr = nullptr;
 
   WARNING_EQ_MSG(2, value, "context={}", "warning-eq");
   WARNING_GT_MSG(2, value, "context={}", "warning-gt");
+  WARNING_NULL_MSG(ptr, "context={}", "warning-null");
+  WARNING_NOT_NULL_MSG(nullPtr, "context={}", "warning-not-null");
 
-  UNIT_ASSERT_EQ(hookCallCount, 2);
+  UNIT_ASSERT_EQ(hookCallCount, 4);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
                                "expected 2 == value, got 2 and 3") !=
                    nullptr);
@@ -504,6 +519,15 @@ void convenienceWarningMessageMacrosReportFailuresAndContinue()
                    nullptr);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1],
                                "context=warning-gt") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[2],
+                               "expected null: ptr, got") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[2],
+                               "context=warning-null") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[3],
+                               "expected non-null: nullPtr, got (null)") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[3],
+                               "context=warning-not-null") != nullptr);
 }
 
 void convenienceWarningMacrosReportFailuresAndContinue()

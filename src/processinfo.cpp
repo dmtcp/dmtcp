@@ -330,7 +330,8 @@ ProcessInfo::growStack()
     // Grow the stack, if possible
     allocSize = stackSize - stackArea.size - 4095;
     tmpbuf = alloca(allocSize);
-    ASSERT(tmpbuf != NULL, "failed to grow stack: allocSize={}", allocSize);
+    ASSERT_NOT_NULL_MSG(tmpbuf, "failed to grow stack: allocSize={}",
+                        allocSize);
     memset(tmpbuf, 0, allocSize);
   }
 
@@ -664,7 +665,7 @@ ProcessInfo::endPthreadJoin(pthread_t thread)
 void
 ProcessInfo::setCkptFilename(const char *filename)
 {
-  ASSERT(filename != NULL, "checkpoint filename must not be null");
+  ASSERT_NOT_NULL_MSG(filename, "checkpoint filename must not be null");
   if (filename[0] == '/') {
     _ckptDir = jalib::Filesystem::DirName(filename);
     _ckptFileName = filename;
@@ -684,7 +685,7 @@ ProcessInfo::setCkptFilename(const char *filename)
 void
 ProcessInfo::setCkptDir(const char *dir)
 {
-  ASSERT(dir != NULL, "checkpoint directory must not be null");
+  ASSERT_NOT_NULL_MSG(dir, "checkpoint directory must not be null");
   _ckptDir = dir;
   _ckptFileName = _ckptDir + "/" + jalib::Filesystem::BaseName(_ckptFileName);
   _ckptFilesSubDir = _ckptDir + "/" + jalib::Filesystem::BaseName(

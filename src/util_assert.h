@@ -834,8 +834,14 @@ assertFailureErrno(const char *expr,
 #ifdef WARNING_NULL
 # undef WARNING_NULL
 #endif
+#ifdef WARNING_NULL_MSG
+# undef WARNING_NULL_MSG
+#endif
 #ifdef WARNING_NOT_NULL
 # undef WARNING_NOT_NULL
+#endif
+#ifdef WARNING_NOT_NULL_MSG
+# undef WARNING_NOT_NULL_MSG
 #endif
 #ifdef WARNING_FALSE
 # undef WARNING_FALSE
@@ -858,8 +864,14 @@ assertFailureErrno(const char *expr,
 #ifdef ASSERT_NULL
 # undef ASSERT_NULL
 #endif
+#ifdef ASSERT_NULL_MSG
+# undef ASSERT_NULL_MSG
+#endif
 #ifdef ASSERT_NOT_NULL
 # undef ASSERT_NOT_NULL
+#endif
+#ifdef ASSERT_NOT_NULL_MSG
+# undef ASSERT_NOT_NULL_MSG
 #endif
 #ifdef ASSERT_FALSE
 # undef ASSERT_FALSE
@@ -1475,17 +1487,63 @@ assertFailureErrno(const char *expr,
   DMTCP_WARNING_FORK_SUCCESS_MSG(#expression, expression, fmt \
                                  __VA_OPT__(,) __VA_ARGS__)
 
+#define DMTCP_ASSERT_NULL(assertion, value)                                \
+  do {                                                                     \
+    const auto dmtcpAssertValue = (value);                                  \
+    assertion(dmtcpAssertValue == nullptr,                                 \
+              "expected null: {}, got {}",                                 \
+              #value, dmtcpAssertValue);                                   \
+  } while (0)
+
+#define DMTCP_ASSERT_NULL_MSG(assertion, value, fmt, ...)                  \
+  do {                                                                     \
+    const auto dmtcpAssertValue = (value);                                  \
+    assertion(dmtcpAssertValue == nullptr,                                 \
+              "expected null: {}, got {}; " fmt,                          \
+              #value, dmtcpAssertValue                                     \
+              __VA_OPT__(,) __VA_ARGS__);                                  \
+  } while (0)
+
+#define DMTCP_ASSERT_NOT_NULL(assertion, value)                            \
+  do {                                                                     \
+    const auto dmtcpAssertValue = (value);                                  \
+    assertion(dmtcpAssertValue != nullptr,                                 \
+              "expected non-null: {}, got {}",                             \
+              #value, dmtcpAssertValue);                                   \
+  } while (0)
+
+#define DMTCP_ASSERT_NOT_NULL_MSG(assertion, value, fmt, ...)              \
+  do {                                                                     \
+    const auto dmtcpAssertValue = (value);                                  \
+    assertion(dmtcpAssertValue != nullptr,                                 \
+              "expected non-null: {}, got {}; " fmt,                      \
+              #value, dmtcpAssertValue                                     \
+              __VA_OPT__(,) __VA_ARGS__);                                  \
+  } while (0)
+
 #define ASSERT_NULL(value) \
-  ASSERT((value) == nullptr, "expected null: {}", #value)
+  DMTCP_ASSERT_NULL(ASSERT, value)
+
+#define ASSERT_NULL_MSG(value, fmt, ...) \
+  DMTCP_ASSERT_NULL_MSG(ASSERT, value, fmt __VA_OPT__(,) __VA_ARGS__)
 
 #define ASSERT_NOT_NULL(value) \
-  ASSERT((value) != nullptr, "expected non-null: {}", #value)
+  DMTCP_ASSERT_NOT_NULL(ASSERT, value)
+
+#define ASSERT_NOT_NULL_MSG(value, fmt, ...) \
+  DMTCP_ASSERT_NOT_NULL_MSG(ASSERT, value, fmt __VA_OPT__(,) __VA_ARGS__)
 
 #define WARNING_NULL(value) \
-  WARNING((value) == nullptr, "expected null: {}", #value)
+  DMTCP_ASSERT_NULL(WARNING, value)
+
+#define WARNING_NULL_MSG(value, fmt, ...) \
+  DMTCP_ASSERT_NULL_MSG(WARNING, value, fmt __VA_OPT__(,) __VA_ARGS__)
 
 #define WARNING_NOT_NULL(value) \
-  WARNING((value) != nullptr, "expected non-null: {}", #value)
+  DMTCP_ASSERT_NOT_NULL(WARNING, value)
+
+#define WARNING_NOT_NULL_MSG(value, fmt, ...) \
+  DMTCP_ASSERT_NOT_NULL_MSG(WARNING, value, fmt __VA_OPT__(,) __VA_ARGS__)
 
 #define DMTCP_ASSERT_COMPARE(assertion, lhs, rhs, op, opText)             \
   do {                                                                   \

@@ -576,6 +576,43 @@ class SourceAuditTest(unittest.TestCase):
             "use ASSERT_FORK_SUCCESS or WARNING_FORK_SUCCESS for fork result "
             f"checks: {matches}")
 
+    def test_old_chained_assert_diagnostics_are_not_reintroduced(self):
+        chained_assert = re.compile(
+            r"\b(?:ASSERT|WARNING)_[A-Z0-9_]+\s*\([^;\n]*\)\s*\(")
+        matches = []
+        for path in self.source_file_paths():
+            relative_path = path.relative_to(ROOT).as_posix()
+            text = self.strip_comments(path.read_text(encoding="utf-8"))
+            for line_number, line in enumerate(text.splitlines(), start=1):
+                if chained_assert.search(line):
+                    matches.append(f"{relative_path}:{line_number}")
+        self.assertEqual(
+            matches, [],
+            "use *_MSG helpers instead of old jalib-style chained "
+            f"diagnostics: {matches}")
+
+    def test_simple_pointer_asserts_use_named_helpers(self):
+        checks = (
+            ("src/execwrappers.cpp", r"ASSERT\s*\(\s*result\s*!=\s*NULL"),
+            ("src/processinfo.cpp", r"ASSERT\s*\(\s*tmpbuf\s*!=\s*NULL"),
+            ("src/processinfo.cpp", r"ASSERT\s*\(\s*filename\s*!=\s*NULL"),
+            ("src/processinfo.cpp", r"ASSERT\s*\(\s*dir\s*!=\s*NULL"),
+            ("src/plugin/event/eventconnection.cpp",
+             r"ASSERT\s*\(\s*pathname\s*!=\s*NULL"),
+            ("src/plugin/socket/socketconnection.cpp",
+             r"ASSERT\s*\(\s*saddr\s*!=\s*NULL"),
+            ("src/plugin/ssh/ssh.cpp",
+             r"ASSERT\s*\(\s*theDrainer\s*==\s*NULL"),
+            ("src/pluginmanager.cpp",
+             r"ASSERT\s*\(\s*entry->descriptor->pluginName\s*!=\s*nullptr"),
+            ("src/pluginmanager.cpp",
+             r"ASSERT\s*\(\s*pluginName\s*!=\s*nullptr"),
+            ("src/threadsync.cpp", r"ASSERT\s*\(\s*thread\s*!=\s*nullptr"),
+        )
+        for relative_path, pattern in checks:
+            with self.subTest(path=relative_path, pattern=pattern):
+                self.assert_file_does_not_match(relative_path, pattern)
+
     def test_signal_context_success_checks_use_named_helpers(self):
         for pattern in (
             r"SIGNAL_ASSERT_SUCCESS\s*\(",

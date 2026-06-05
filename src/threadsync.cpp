@@ -187,8 +187,9 @@ ThreadSync::wrapperExecutionLockLock()
 void
 ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
 {
-  ASSERT(thread != nullptr,
-         "wrapperExecutionLockLockForNewThread requires a thread");
+  ASSERT_NOT_NULL_MSG(thread,
+                      "wrapperExecutionLockLockForNewThread requires a "
+                      "thread");
   ASSERT(ThreadCoreInfo_GetWrapperLockCount(&thread->core) == 0,
          "new thread wrapper lock count must start at zero: count={}",
          ThreadCoreInfo_GetWrapperLockCount(&thread->core));
@@ -202,8 +203,9 @@ ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
 void
 ThreadSync::wrapperExecutionLockUnlockForNewThread(Thread *thread)
 {
-  ASSERT(thread != nullptr,
-         "wrapperExecutionLockUnlockForNewThread requires a thread");
+  ASSERT_NOT_NULL_MSG(thread,
+                      "wrapperExecutionLockUnlockForNewThread requires a "
+                      "thread");
   ASSERT(ThreadCoreInfo_GetWrapperLockCount(&thread->core) == 1,
          "new thread wrapper lock count must be one before unlock: count={}",
          ThreadCoreInfo_GetWrapperLockCount(&thread->core));

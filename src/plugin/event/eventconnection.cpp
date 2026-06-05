@@ -363,7 +363,7 @@ InotifyConnection::add_watch_descriptors(int wd,
 
   JTRACE("save inotify watch descriptor within dmtcp")
     (wd) (fd) (pathname) (mask);
-  ASSERT(pathname != NULL, "pathname is NULL");
+  ASSERT_NOT_NULL_MSG(pathname, "pathname is NULL");
   if (NULL != pathname) {
     Util::Descriptor descriptor;
     descriptor_types_u watch_descriptor;

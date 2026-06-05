@@ -289,7 +289,7 @@ getMPISpawnPortNum(const char *envVar)
 bool
 TcpConnection::isBlacklistedTcp(const sockaddr *saddr, socklen_t len)
 {
-  ASSERT(saddr != NULL, "null socket address");
+  ASSERT_NOT_NULL_MSG(saddr, "null socket address");
   if (len <= sizeof(saddr->sa_family)) {
     return false;
   }

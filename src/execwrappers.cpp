@@ -546,7 +546,7 @@ stringVectorToPointerArray(const vector<string> &s, size_t len)
          "pointer array length is too small: len={} size={}", len, s.size());
 
   const char **result = (const char **) JALLOC_MALLOC(len * sizeof (char*));
-  ASSERT(result != NULL, "failed to allocate pointer array: len={}", len);
+  ASSERT_NOT_NULL_MSG(result, "failed to allocate pointer array: len={}", len);
 
   // Now get the pointers.
   for (size_t i = 0; i < s.size(); i++) {
