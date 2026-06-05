@@ -303,6 +303,36 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertEqual(caught.exception.phase, "checkpoint")
             self.assertIn("error_message", caught.exception.message)
 
+    def test_json_command_disallows_error_payload_when_not_allowed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("disallow-error", 1, ["./test/dmtcp1"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+            result = subprocess.CompletedProcess(
+                ["dmtcp_command"], 0,
+                stdout=(
+                    '{"schema_version": 1, "type": "kill", '
+                    '"phase": "kill", "ok": false, '
+                    '"error_code": "not_running", '
+                    '"error_message": "workers are not running"}'
+                ),
+                stderr="",
+            )
+
+            with mock.patch.object(harness_module.subprocess, "run",
+                                   return_value=result):
+                with self.assertRaises(HarnessFailure) as caught:
+                    context._run_json_command("--kill", "kill",
+                                              allow_error=False)
+
+            self.assertEqual(caught.exception.phase, "kill")
+            self.assertIn("workers are not running", caught.exception.message)
+
     def test_status_payload_error_becomes_status_phase_failure(self):
         context = TestContext(
             DmtcpHarness(ROOT),

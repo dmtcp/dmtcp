@@ -683,7 +683,7 @@ class TestContext:
             validate_dmtcp_command_result_payload(payload, phase, phase)
         except ValueError as error:
             raise HarnessFailure(phase, str(error))
-        if result.returncode != 0 and not allow_error:
+        if (result.returncode != 0 or not payload.get("ok")) and not allow_error:
             message = payload.get("error_message", result.stderr)
             raise HarnessFailure(phase, str(message))
         return payload
