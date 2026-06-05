@@ -680,6 +680,43 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             if result.artifact_dir is not None:
                 shutil.rmtree(result.artifact_dir, ignore_errors=True)
 
+    def test_failed_run_records_process_status_around_cleanup(self):
+        class FakeProcess:
+            def __init__(self, pid, returncode):
+                self.pid = pid
+                self.returncode = returncode
+
+            def poll(self):
+                return self.returncode
+
+        def run_fails(self):
+            self.coordinator_proc = FakeProcess(1234, None)
+            self.processes.append(FakeProcess(2345, 7))
+            raise HarnessFailure("checkpoint", "checkpoint failed")
+
+        with mock.patch.object(harness_module.TestContext, "run", run_fails), \
+             mock.patch.object(harness_module.TestContext, "cleanup",
+                               lambda self: None):
+            result = DmtcpHarness(ROOT).run(
+                TestSpec("process-status", 1, ["./test/dmtcp1"]))
+
+        try:
+            self.assertFalse(result.passed)
+            self.assertIsNotNone(result.artifact_dir)
+            status = (result.artifact_dir / "processes.log").read_text(
+                encoding="utf-8")
+            self.assertIn("phase=before-cleanup", status)
+            self.assertIn("phase=after-cleanup", status)
+            self.assertIn(
+                "role=coordinator pid=1234 state=running returncode=None",
+                status)
+            self.assertIn(
+                "role=worker index=0 pid=2345 state=exited returncode=7",
+                status)
+        finally:
+            if result.artifact_dir is not None:
+                shutil.rmtree(result.artifact_dir, ignore_errors=True)
+
     def test_spec_records_environment_and_launch_delay(self):
         spec = TestSpec("gzip", 1, ["./test/dmtcp1"],
                         env={"DMTCP_GZIP": "1"},

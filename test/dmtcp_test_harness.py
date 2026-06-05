@@ -266,6 +266,7 @@ class DmtcpHarness:
             result = TestResult.fail(spec.name, "harness",
                                      str(failure), work.path)
         finally:
+            self._record_process_status(context, "before-cleanup")
             try:
                 context.cleanup()
             except Exception as failure:
@@ -275,6 +276,7 @@ class DmtcpHarness:
                 if result is None or result.passed:
                     result = TestResult.fail(spec.name, "cleanup",
                                              str(failure), work.path)
+            self._record_process_status(context, "after-cleanup")
             if result is not None and result.artifact_dir is not None:
                 self._record_result(result)
             if result is not None and result.passed and not self.retain_success_artifacts:
@@ -288,6 +290,15 @@ class DmtcpHarness:
             out.write(f"passed={result.passed}\n")
             out.write(f"phase={result.phase}\n")
             out.write(f"message={result.message}\n")
+
+    def _record_process_status(self, context: "TestContext", phase: str):
+        try:
+            context._record_process_status(phase)
+        except Exception:
+            with (context.work.path / "process-status-error.log").open(
+                    "a", encoding="utf-8") as out:
+                out.write(f"phase={phase}\n")
+                out.write(traceback.format_exc())
 
 
 class TestWorkDir:
@@ -572,6 +583,33 @@ class TestContext:
             out.write(f"phase={phase}\n")
             for image in images:
                 out.write(f"{image}\tgzip={checkpoint_image_is_gzip(image)}\n")
+
+    def _record_process_status(self, phase: str):
+        with (self.work.path / "processes.log").open(
+                "a", encoding="utf-8") as out:
+            out.write(f"phase={phase}\n")
+            if self.coordinator_proc is None:
+                out.write("role=coordinator state=not-started\n")
+            else:
+                self._write_process_status(out, "coordinator",
+                                           self.coordinator_proc)
+            for index, proc in enumerate(self.processes):
+                self._write_process_status(out, "worker", proc, index)
+
+    def _write_process_status(self, out, role: str, proc: subprocess.Popen,
+                              index: Optional[int] = None):
+        returncode = proc.poll()
+        state = "running" if returncode is None else "exited"
+        fields = [f"role={role}"]
+        if index is not None:
+            fields.append(f"index={index}")
+        fields.extend([
+            f"pid={proc.pid}",
+            f"state={state}",
+            f"returncode={returncode}",
+        ])
+        out.write(" ".join(fields))
+        out.write("\n")
 
     def _process_group_members(self, pgid: int) -> List[int]:
         members = []
