@@ -65,6 +65,7 @@ static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
 static DmtcpRWLock threadResumeLock;
 
 __thread Thread *curThread ATTR_TLS_INITIAL_EXEC = NULL;
+static __thread ThreadCoreInfo fallbackThreadCore ATTR_TLS_INITIAL_EXEC;
 Thread *ckptThread = NULL;
 
 static int numUserThreads = 0;
@@ -128,8 +129,14 @@ dmtcp_get_current_thread()
 extern "C" char *
 dmtcp_get_thread_assert_buffer(size_t *size)
 {
-  Thread *thread = curThread != NULL ? curThread : &motherofallStorage;
-  return Thread_GetAssertBuffer(thread, size);
+  /*
+   * curThread lives in TLS and is explicitly re-established by ThreadList
+   * during init/restart.  Diagnostics still need a fixed buffer while that
+   * pointer is unavailable or not yet trustworthy, so keep a separate
+   * per-thread core fallback for diagnostics only.
+   */
+  return Thread_GetAssertBufferOrFallback(curThread, &fallbackThreadCore,
+                                          size);
 }
 
 /*****************************************************************************

@@ -223,6 +223,18 @@ Thread_GetAssertBuffer(Thread *thread, size_t *size)
   return ThreadCoreInfo_GetAssertBuffer(&thread->core, size);
 }
 
+inline char *
+Thread_GetAssertBufferOrFallback(Thread *thread,
+                                 ThreadCoreInfo *fallback,
+                                 size_t *size)
+{
+  if (thread != NULL) {
+    return Thread_GetAssertBuffer(thread, size);
+  }
+
+  return ThreadCoreInfo_GetAssertBuffer(fallback, size);
+}
+
 Thread *dmtcp_get_current_thread();
 EXTERNC char *dmtcp_get_thread_assert_buffer(size_t *size)
   __attribute__((weak));

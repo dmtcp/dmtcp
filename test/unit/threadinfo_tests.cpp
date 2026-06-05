@@ -140,6 +140,16 @@ void threadAssertBufferHelperHandlesNullThread()
   ASSERT_EQ(size, static_cast<size_t>(0));
 }
 
+void threadAssertBufferHelperUsesFallbackCore()
+{
+  ThreadCoreInfo fallback = {};
+  size_t size = 0;
+
+  ASSERT_EQ(Thread_GetAssertBufferOrFallback(NULL, &fallback, &size),
+            fallback.assertBuffer);
+  ASSERT_EQ(size, dmtcp::kAssertBufferSize);
+}
+
 } // namespace
 
 extern const dmtcp_test::TestCase threadInfoTests[] = {
@@ -160,6 +170,8 @@ extern const dmtcp_test::TestCase threadInfoTests[] = {
    threadAssertBufferHelperReturnsCoreBuffer},
   {"Thread assert buffer helper handles null thread",
    threadAssertBufferHelperHandlesNullThread},
+  {"Thread assert buffer helper uses fallback core",
+   threadAssertBufferHelperUsesFallbackCore},
 };
 
 extern const size_t threadInfoTestCount =
