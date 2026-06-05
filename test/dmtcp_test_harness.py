@@ -101,6 +101,7 @@ class TestSpec:
     library_paths: List[str] = field(default_factory=list)
     restart_uses_directory: bool = False
     validate_checkpoint_headers: bool = False
+    expect_checkpoint_gzip: Optional[bool] = None
     completion_command: str = "--kill"
 
     def peer_counts(self) -> List[int]:
@@ -122,13 +123,18 @@ def checkpoint_payload_succeeded(spec: TestSpec,
     )
 
 
+def checkpoint_image_is_gzip(path: pathlib.Path) -> bool:
+    with path.open("rb") as image:
+        return image.read(2) == b"\x1f\x8b"
+
+
 def validate_checkpoint_bootstrap_headers(path: pathlib.Path):
     required_size = 2 * DMTCP_CKPT_HEADER_SIZE
-    raw = path.read_bytes()
-    if raw.startswith(b"\x1f\x8b"):
+    if checkpoint_image_is_gzip(path):
         with gzip.open(path, "rb") as image:
             data = image.read(required_size)
     else:
+        raw = path.read_bytes()
         data = raw[:required_size]
     if len(data) < required_size:
         raise HarnessFailure(
@@ -372,8 +378,18 @@ class TestContext:
             raise HarnessFailure("checkpoint", str(payload.get("error_message")))
         self._wait_for(lambda: bool(self._checkpoint_images()),
                        "checkpoint", "checkpoint image was not created")
+        images = self._checkpoint_images()
+        if self.spec.expect_checkpoint_gzip is not None:
+            for image in images:
+                actual = checkpoint_image_is_gzip(image)
+                if actual != self.spec.expect_checkpoint_gzip:
+                    raise HarnessFailure(
+                        "checkpoint-image",
+                        f"{image} gzip={actual}; expected "
+                        f"{self.spec.expect_checkpoint_gzip}",
+                    )
         if self.spec.validate_checkpoint_headers:
-            for image in self._checkpoint_images():
+            for image in images:
                 validate_checkpoint_bootstrap_headers(image)
         if self.spec.checkpoint_kills_workers():
             self._wait_for_status(0, False, "checkpoint")

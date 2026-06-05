@@ -29,6 +29,9 @@ class SourceAuditTest(unittest.TestCase):
             with self.subTest(path=relative_path):
                 self.assert_file_does_not_contain(relative_path, "JASSERT_ERRNO")
 
+    def test_checkpoint_serializer_uses_shared_numeric_parsers(self):
+        self.assert_file_does_not_contain("src/ckptserializer.cpp", "strtol")
+
 
 if __name__ == "__main__":
     unittest.main()

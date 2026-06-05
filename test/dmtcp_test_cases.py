@@ -2,6 +2,7 @@
 
 import os
 import platform
+import shutil
 from random import sample
 from typing import Iterable, List
 
@@ -24,6 +25,12 @@ def _processor_is_arm() -> bool:
 
 def _machine_is_armv7() -> bool:
     return os.uname().machine in ["armv7", "armv7l"]
+
+
+def _launcher_allows_gzip() -> bool:
+    if os.uname().machine == "aarch64":
+        return False
+    return shutil.which("gzip") is not None
 
 
 def _frisbee_commands() -> List[str]:
@@ -118,7 +125,12 @@ TESTS = [
     TestSpec("nocheckpoint", [1, 2], ["./test/nocheckpoint"], cycles=1),
     TestSpec("checkpoint-header", 1, ["./test/dmtcp1"], cycles=1,
              env={"DMTCP_GZIP": "0"},
-             validate_checkpoint_headers=True),
+             validate_checkpoint_headers=True,
+             expect_checkpoint_gzip=False),
+    TestSpec("gzip-invalid-env", 1, ["./test/dmtcp1"], cycles=1,
+             env={"DMTCP_GZIP": "12x"},
+             validate_checkpoint_headers=True,
+             expect_checkpoint_gzip=False),
 ]
 
 if _config_yes("HAS_EPOLL_CREATE1"):
@@ -154,7 +166,8 @@ if not _use_m32():
 if not _use_m32():
     TESTS.append(TestSpec("gzip", 1, ["./test/dmtcp1"],
                           env={"DMTCP_GZIP": "1"},
-                          validate_checkpoint_headers=True))
+                          validate_checkpoint_headers=True,
+                          expect_checkpoint_gzip=_launcher_allows_gzip()))
     TESTS.append(TestSpec("perl", 1, ["/usr/bin/perl"],
                           post_launch_delay=2.0))
     if _config_yes("HAS_PYTHON") or _config_yes("HAS_PYTHON3"):

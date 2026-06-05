@@ -23,6 +23,7 @@ from dmtcp_test_harness import (
     TestContext,
     TestResult,
     TestSpec,
+    checkpoint_image_is_gzip,
     checkpoint_payload_succeeded,
     parse_dmtcp_command_json,
     validate_checkpoint_bootstrap_headers,
@@ -304,6 +305,26 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         self.assertTrue(spec.validate_checkpoint_headers)
 
+    def test_spec_records_checkpoint_gzip_expectation(self):
+        spec = TestSpec("gzip-invalid-env", 1, ["./test/dmtcp1"],
+                        expect_checkpoint_gzip=False)
+
+        self.assertFalse(spec.expect_checkpoint_gzip)
+
+    def test_checkpoint_image_is_gzip_detects_magic(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = pathlib.Path(tmp) / "ckpt.dmtcp"
+            image.write_bytes(b"\x1f\x8bpayload")
+
+            self.assertTrue(checkpoint_image_is_gzip(image))
+
+    def test_checkpoint_image_is_gzip_rejects_plain_image(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = pathlib.Path(tmp) / "ckpt.dmtcp"
+            image.write_bytes(b"DMTCP_CHECKPOINT_IMAGE_v5.0\n\0")
+
+            self.assertFalse(checkpoint_image_is_gzip(image))
+
     def test_validate_checkpoint_bootstrap_headers_accepts_matching_records(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = pathlib.Path(tmp) / "ckpt.dmtcp"
@@ -378,7 +399,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "syscall-tester", "file2", "presuspend", "plugin-sleep2",
             "plugin-init", "popen1", "poll-disable-event-plugin", "pthread3",
             "restartdir", "pty1", "pty2", "vfork1", "vfork2", "frisbee",
-            "nocheckpoint", "checkpoint-header",
+            "nocheckpoint", "checkpoint-header", "gzip-invalid-env",
         ]:
             self.assertIn(name, names)
 
@@ -396,6 +417,11 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         checkpoint_header = get_test("checkpoint-header")
         self.assertTrue(checkpoint_header.validate_checkpoint_headers)
         self.assertEqual(checkpoint_header.env["DMTCP_GZIP"], "0")
+        self.assertFalse(checkpoint_header.expect_checkpoint_gzip)
+        invalid_gzip = get_test("gzip-invalid-env")
+        self.assertEqual(invalid_gzip.cycles, 1)
+        self.assertEqual(invalid_gzip.env["DMTCP_GZIP"], "12x")
+        self.assertFalse(invalid_gzip.expect_checkpoint_gzip)
 
     def test_registry_contains_configured_optional_tests(self):
         names = [test.name for test in iter_tests()]

@@ -161,6 +161,17 @@ inline bool parsePortNumber(std::string_view text, int *port)
   return true;
 }
 
+inline bool parseNumericFlag(std::string_view text, bool *enabled)
+{
+  long parsedValue = 0;
+  if (enabled == nullptr || !parseInteger(text, &parsedValue)) {
+    return false;
+  }
+
+  *enabled = parsedValue != 0;
+  return true;
+}
+
 bool readBooleanEnv(const char *envName, bool defaultValue);
 
 bool isNscdArea(const ProcMapsArea &area);

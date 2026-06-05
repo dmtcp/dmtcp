@@ -81,6 +81,42 @@ void parsePortNumberRejectsInvalidPortText()
   ASSERT_EQ(port, 1234);
 }
 
+void parseNumericFlagAcceptsStrictDecimalZeroAndNonzero()
+{
+  using namespace std::literals;
+
+  bool enabled = true;
+  ASSERT_TRUE(dmtcp::Util::parseNumericFlag("0"sv, &enabled));
+  ASSERT_TRUE(!enabled);
+
+  ASSERT_TRUE(dmtcp::Util::parseNumericFlag("1"sv, &enabled));
+  ASSERT_TRUE(enabled);
+
+  ASSERT_TRUE(dmtcp::Util::parseNumericFlag("-1"sv, &enabled));
+  ASSERT_TRUE(enabled);
+
+  ASSERT_TRUE(dmtcp::Util::parseNumericFlag("2"sv, &enabled));
+  ASSERT_TRUE(enabled);
+}
+
+void parseNumericFlagRejectsMalformedTextWithoutChangingOutput()
+{
+  using namespace std::literals;
+
+  bool enabled = true;
+  ASSERT_TRUE(!dmtcp::Util::parseNumericFlag("12x"sv, &enabled));
+  ASSERT_TRUE(enabled);
+
+  ASSERT_TRUE(!dmtcp::Util::parseNumericFlag(""sv, &enabled));
+  ASSERT_TRUE(enabled);
+
+  ASSERT_TRUE(!dmtcp::Util::parseNumericFlag("0x1"sv, &enabled));
+  ASSERT_TRUE(enabled);
+
+  ASSERT_TRUE(!dmtcp::Util::parseNumericFlag(" 1"sv, &enabled));
+  ASSERT_TRUE(enabled);
+}
+
 } // namespace
 
 extern const dmtcp_test::TestCase utilTests[] = {
@@ -96,6 +132,10 @@ extern const dmtcp_test::TestCase utilTests[] = {
    parsePortNumberAcceptsValidPortRange},
   {"parsePortNumber rejects invalid port text",
    parsePortNumberRejectsInvalidPortText},
+  {"parseNumericFlag accepts strict decimal zero and nonzero",
+   parseNumericFlagAcceptsStrictDecimalZeroAndNonzero},
+  {"parseNumericFlag rejects malformed text without changing output",
+   parseNumericFlagRejectsMalformedTextWithoutChangingOutput},
 };
 
 extern const size_t utilTestCount = sizeof(utilTests) / sizeof(utilTests[0]);

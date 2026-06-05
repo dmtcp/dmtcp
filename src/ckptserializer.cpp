@@ -18,7 +18,6 @@
  *  License along with DMTCP.  If not, see <http://www.gnu.org/licenses/>.  *
  ****************************************************************************/
 
-#include <limits.h> /* for LONG_MIN and LONG_MAX */
 #include <stdlib.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -166,43 +165,27 @@ double_fork()
 static int
 test_use_compression(char *compressor, char *command, char *path, int def)
 {
-  char *default_val;
   char evar[256] = "DMTCP_";
-  char *do_we_compress;
-
-  if (def) {
-    default_val = const_cast<char *>("1");
-  } else {
-    default_val = const_cast<char *>("0");
-  }
+  bool do_we_compress = def != 0;
 
   strncat(evar, compressor, sizeof(evar) - strlen(evar) - 1);
   ASSERT(strlen(evar) < sizeof(evar) - 1,
          "compressor environment variable name is too long: compressor={}",
          compressor);
-  do_we_compress = getenv(evar);
+  const char *env_value = getenv(evar);
 
   // env var is unset, let's default to enabled
-  // to disable compression, run with MTCP_GZIP=0
-  if (do_we_compress == NULL) {
-    do_we_compress = default_val;
-  }
-
-  char *endptr;
-  errno = 0;
-  long int rc = strtol(do_we_compress, &endptr, 0);
-  ASSERT_ERRNO(rc != LONG_MIN && rc != LONG_MAX,
-               "compression environment value is out of range: {}={}", evar,
-               do_we_compress);
-  if (*do_we_compress == '\0' || *endptr != '\0') {
+  // to disable compression, run with DMTCP_GZIP=0
+  if (env_value != NULL &&
+      !Util::parseNumericFlag(env_value, &do_we_compress)) {
     WARNING(false,
-            "compression environment variable is not numeric; checkpoint "
-            "image will not be compressed: {}={}",
-            evar, do_we_compress);
-    do_we_compress = const_cast<char *>("0");
+            "compression environment variable is not a strict decimal number; "
+            "checkpoint image will not be compressed: {}={}",
+            evar, env_value);
+    do_we_compress = false;
   }
 
-  if (0 == strcmp(do_we_compress, "0")) {
+  if (!do_we_compress) {
     return 0;
   }
 
