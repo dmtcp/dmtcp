@@ -273,7 +273,7 @@ ThreadList::prepareThread(Thread *th, void *(*fn)(void *), void *arg)
   th->next = NULL;
   th->state = ST_RUNNING;
   th->exiting = 0;
-  th->core.wrapperLockCount = 0;
+  ThreadCoreInfo_Init(&th->core);
   th->procname[0] = '\0';
 }
 

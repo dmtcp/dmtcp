@@ -15,6 +15,28 @@ void threadInfoOwnsAssertBuffer()
   ASSERT_EQ(thread.core.wrapperLockCount, 0u);
 }
 
+void threadCoreInfoInitResetsDiagnosticState()
+{
+  ThreadCoreInfo core = {};
+  core.wrapperLockCount = 7;
+  core.assertBuffer[0] = 'x';
+
+  ThreadCoreInfo_Init(&core);
+
+  ASSERT_EQ(core.wrapperLockCount, 0u);
+  ASSERT_EQ(core.assertBuffer[0], '\0');
+}
+
+void threadCoreInfoBufferHelperReturnsCoreBuffer()
+{
+  ThreadCoreInfo core = {};
+  size_t size = 0;
+
+  ASSERT_EQ(ThreadCoreInfo_GetAssertBuffer(&core, &size),
+            core.assertBuffer);
+  ASSERT_EQ(size, dmtcp::kAssertBufferSize);
+}
+
 void threadAssertBufferHelperReturnsCoreBuffer()
 {
   Thread thread = {};
@@ -37,6 +59,10 @@ void threadAssertBufferHelperHandlesNullThread()
 
 extern const dmtcp_test::TestCase threadInfoTests[] = {
   {"ThreadInfo owns fixed assert buffer", threadInfoOwnsAssertBuffer},
+  {"ThreadCoreInfo init resets diagnostic state",
+   threadCoreInfoInitResetsDiagnosticState},
+  {"ThreadCoreInfo buffer helper returns core buffer",
+   threadCoreInfoBufferHelperReturnsCoreBuffer},
   {"Thread assert buffer helper returns core buffer",
    threadAssertBufferHelperReturnsCoreBuffer},
   {"Thread assert buffer helper handles null thread",
