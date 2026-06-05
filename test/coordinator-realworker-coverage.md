@@ -22,7 +22,7 @@ the same coordinator behavior through `dmtcp_launch` and `dmtcp_command --json`.
 | Coordinator writes status file at startup | `test_status_file_is_written_at_startup` | coordinator startup through harness tests uses the port file; no real worker state transition | Coordinator-only hardening |
 | First worker join updates status | `test_single_synthetic_worker_join_updates_status` | `dmtcp1`, `dmtcp_command --json --status` in the harness | Real-worker-backed |
 | Multiple workers join same computation | `test_two_synthetic_workers_join_same_computation` | multi-peer harness specs such as `dmtcp5`, `sched_test`, `shared-fd1` | Real-worker-backed |
-| Replacement worker after disconnect | `test_replacement_worker_can_join_after_peer_disconnects` | none yet | Model-only |
+| Replacement worker after disconnect | `test_replacement_worker_can_join_after_peer_disconnects` | `coordinator-replacement-worker` terminates one live `dmtcp_launch` worker, waits for the coordinator to report one remaining peer, then launches a replacement worker and checks the peer count returns to two | Real-worker-backed |
 | Reject wrong or stale computation group | `test_new_worker_with_existing_computation_group_is_rejected`, `test_restart_worker_with_wrong_computation_group_is_rejected` | none yet | Model-only |
 | Reject restart worker while running/checkpointing | `test_restart_worker_is_rejected_while_computation_is_running`, `test_restart_worker_is_rejected_while_checkpoint_is_active` | none yet | Model-only |
 | Normal two-worker barrier release | `test_two_synthetic_workers_release_same_barrier` | `coordinator-barrier` drives a two-peer real-worker checkpoint/restart cycle through `dmtcp_launch` and `dmtcp_command --json --checkpoint` | Real-worker-backed |

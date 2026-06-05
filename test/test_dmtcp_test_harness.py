@@ -96,6 +96,23 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         self.assertEqual(spec.pre_checkpoint_delay, 3.0)
 
+    def test_spec_can_request_worker_replacement(self):
+        spec = TestSpec("coordinator-replacement-worker", 2,
+                        ["./test/dmtcp1", "./test/dmtcp1"],
+                        cycles=0,
+                        replace_worker_index=0)
+
+        self.assertEqual(spec.replace_worker_index, 0)
+
+    def test_replacement_worker_spec_is_registered(self):
+        spec = get_test("coordinator-replacement-worker")
+
+        self.assertEqual(spec.replace_worker_index, 0)
+        self.assertIn("coordinator", spec.tags)
+        self.assertIn("replacement-worker", spec.tags)
+        self.assertIn("real-worker", spec.requirements)
+        self.assertIn("cycles=0", spec.limits)
+
     def test_spec_default_timeout_allows_slow_checkpoint_completion(self):
         spec = TestSpec("dmtcp1", 1, ["./test/dmtcp1"])
 

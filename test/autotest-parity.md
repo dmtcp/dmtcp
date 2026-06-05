@@ -29,7 +29,7 @@ this table are authoritative when their corresponding probes enable them.
 
 | Group | Ported tests |
 | --- | --- |
-| Harness and command protocol | `command-json-bcheckpoint`, `command-json-kill`, `command-json-quit`, `coordinator-exit-on-last` |
+| Harness and command protocol | `command-json-bcheckpoint`, `command-json-kill`, `command-json-quit`, `coordinator-exit-on-last`, `coordinator-replacement-worker` |
 | Core smoke and process state | `dmtcp1`, `dmtcp2`, `dmtcp3`, `dmtcp4`, `dmtcp5`, `alarm`, `sched_test`, `coordinator-barrier`, `gettid`, `sigchild`, `rlimit-restore`, `rlimit-nofile`, `environ`, `realpath`, `forkexec`, `vfork1`, `vfork2`, `frisbee`, `checkpoint-header`, `gzip-invalid-env`, `cma`, `waitpid`, `waitid-syscall` |
 | File, fd, and path behavior | `file1`, `file2`, `file3`, `stat`, `mmap1`, `mremap`, `poll`, `shared-fd1`, `shared-fd2`, `stale-fd`, `procfd1`, `epoll1`, `epoll2`, `gzip` |
 | Threads and synchronization | `pthread1`, `pthread2`, `pthread3`, `pthread4`, `pthread5`, `pthread6`, `pthread_atfork1`, `pthread_atfork2`, `mutex1`, `mutex2`, `mutex3`, `mutex4`, `timer1`, `clock`, `gettimeofday` |
@@ -44,6 +44,7 @@ this table are authoritative when their corresponding probes enable them.
 | `command-json-bcheckpoint` | Ported with `cycles=1` | This validates `dmtcp_command --json --bcheckpoint` against a live worker with one checkpoint/restart cycle. |
 | `command-json-kill`, `command-json-quit` | Ported with `cycles=0` | These validate `dmtcp_command --json` completion behavior against live workers without running checkpoint/restart cycles. |
 | `coordinator-exit-on-last` | Ported with `cycles=0` | This validates `--exit-on-last` against a real worker without adding a checkpoint/restart cycle. |
+| `coordinator-replacement-worker` | Ported with `cycles=0` | This validates that a real replacement worker can join after one live worker disconnects, without adding a checkpoint/restart cycle. |
 | `coordinator-barrier` | Ported with `cycles=1` | This is a focused real-worker cross-check for normal two-worker coordinator barrier release. |
 | `checkpoint-header` | Ported with `cycles=1` | This validates the fixed bootstrap records in an uncompressed checkpoint image without adding a second restart cycle. |
 | `gzip-invalid-env` | Ported with `cycles=1` | This verifies invalid `DMTCP_GZIP` handling and checkpoint-header validation without adding a second restart cycle. |

@@ -164,6 +164,7 @@ class TestSpec:
     tags: List[str] = field(default_factory=list)
     requirements: List[str] = field(default_factory=list)
     limits: List[str] = field(default_factory=list)
+    replace_worker_index: Optional[int] = None
 
     def peer_counts(self) -> List[int]:
         if isinstance(self.peers, int):
@@ -343,6 +344,8 @@ class TestContext:
         self._assert_status(0, False, "initial-status")
         self._launch_processes()
         self._wait_for_status(self.spec.peer_counts(), True, "launch")
+        if self.spec.replace_worker_index is not None:
+            self._replace_worker(self.spec.replace_worker_index)
         if self.spec.post_launch_delay > 0.0:
             time.sleep(self.spec.post_launch_delay)
         for _ in range(self.spec.cycles):
@@ -435,27 +438,66 @@ class TestContext:
 
     def _launch_processes(self):
         for index, command in enumerate(self.spec.commands):
-            command_argv = shlex.split(command)
-            if command_argv and command_argv[0].startswith("./test/"):
-                executable = self.harness.root / command_argv[0]
-                if not executable.exists():
-                    raise HarnessFailure("setup", f"missing test binary: {command_argv[0]}")
-            argv = [str(self.harness.launch), *command_argv]
-            self._record_command(f"launch-worker-{index}", argv)
-            stdout = open(self.work.path / f"worker-{index}.out", "w",
-                          encoding="utf-8")
-            proc = subprocess.Popen(
-                argv,
-                cwd=str(self.harness.root),
-                env=self.env,
-                text=True,
-                stdin=subprocess.PIPE,
-                stdout=stdout,
-                stderr=subprocess.STDOUT,
-                preexec_fn=os.setpgrp,
+            self._launch_process(index, command, f"launch-worker-{index}")
+
+    def _launch_process(self, index: int, command: str, phase: str):
+        command_argv = shlex.split(command)
+        if command_argv and command_argv[0].startswith("./test/"):
+            executable = self.harness.root / command_argv[0]
+            if not executable.exists():
+                raise HarnessFailure("setup",
+                                     f"missing test binary: {command_argv[0]}")
+        argv = [str(self.harness.launch), *command_argv]
+        self._record_command(phase, argv)
+        stdout = open(self.work.path / f"worker-{index}.out", "a",
+                      encoding="utf-8")
+        proc = subprocess.Popen(
+            argv,
+            cwd=str(self.harness.root),
+            env=self.env,
+            text=True,
+            stdin=subprocess.PIPE,
+            stdout=stdout,
+            stderr=subprocess.STDOUT,
+            preexec_fn=os.setpgrp,
+        )
+        stdout.close()
+        self.processes.append(proc)
+
+    def _replace_worker(self, index: int):
+        if not isinstance(self.spec.peers, int):
+            raise HarnessFailure(
+                "setup",
+                "replace_worker_index requires a fixed integer peer count",
             )
-            stdout.close()
-            self.processes.append(proc)
+        if index < 0 or index >= len(self.spec.commands):
+            raise HarnessFailure(
+                "setup",
+                f"replace_worker_index={index} outside command list",
+            )
+        if index >= len(self.processes):
+            raise HarnessFailure(
+                "setup",
+                f"replace_worker_index={index} outside process list",
+            )
+
+        departed = self.processes[index]
+        self._terminate_process_group(
+            departed, f"replace-worker {departed.pid}")
+        remaining_peers = self.spec.peers - 1
+        self._wait_for_status(
+            remaining_peers,
+            remaining_peers > 0,
+            "replace-worker-disconnect",
+        )
+        replacement_index = len(self.processes)
+        self._launch_process(
+            replacement_index,
+            self.spec.commands[index],
+            f"replace-worker-{replacement_index}",
+        )
+        self._wait_for_status(self.spec.peer_counts(), True,
+                              "replace-worker")
 
     def _status(self) -> DmtcpStatus:
         payload = self._run_json_command("--status", "status", allow_error=False)
