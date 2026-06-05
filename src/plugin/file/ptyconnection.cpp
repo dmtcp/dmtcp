@@ -350,8 +350,8 @@ PtyConnection::refill(bool isRestart)
      */
     int extraFlags = 0; // _isControllingTTY ? 0 : O_NOCTTY;
     int tempfd = _real_open(_ptsName.c_str(), _fcntlFlags | extraFlags);
-    ASSERT_ERRNO(tempfd >= 0, "Error Opening PTS: virt={} pts={}",
-                 _virtPtsName, _ptsName);
+    ASSERT_VALID_FD_MSG(tempfd, "Error Opening PTS: virt={} pts={}",
+                        _virtPtsName, _ptsName);
 
     JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
     restoreDupFds(tempfd);
@@ -364,9 +364,8 @@ PtyConnection::refill(bool isRestart)
      * into the refill mode, we should have all the pseudo-ttys present.
      */
     int tempfd = _real_open("/dev/tty", O_RDWR, 0);
-    ASSERT_ERRNO(tempfd >= 0,
-                 "Error opening controlling terminal /dev/tty: fd={}",
-                 tempfd);
+    ASSERT_VALID_FD_MSG(tempfd,
+                        "Error opening controlling terminal /dev/tty");
 
     JTRACE("Restoring /dev/tty for the process") (_fds[0]);
     _ptsName = _virtPtsName = "/dev/tty";
@@ -461,7 +460,7 @@ PtyConnection::postRestart()
       char pts_name[80];
 
       tempfd = _real_open("/dev/ptmx", _fcntlFlags | extraFlags);
-      ASSERT_ERRNO(tempfd >= 0, "Error Opening /dev/ptmx: fd={}", tempfd);
+      ASSERT_VALID_FD_MSG(tempfd, "Error Opening /dev/ptmx");
 
       ASSERT_ERRNO(grantpt(tempfd) >= 0, "grantpt failed: fd={}", tempfd);
       ASSERT_ERRNO(unlockpt(tempfd) >= 0, "unlockpt failed: fd={}", tempfd);
@@ -497,9 +496,8 @@ PtyConnection::postRestart()
       // keep on trying all the possible BSD Master devices until one is
       // opened. It should then create a mapping between original Master/Slave
       // device name and current Master/Slave device name.
-      ASSERT_ERRNO(tempfd >= 0,
-                   "Error Opening BSD Master Pty.(Already in use?): fd={}",
-                   tempfd);
+      ASSERT_VALID_FD_MSG(tempfd,
+                          "Error Opening BSD Master Pty.(Already in use?)");
       break;
     }
     default:

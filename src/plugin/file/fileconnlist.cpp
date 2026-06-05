@@ -425,9 +425,10 @@ FileConnList::prepareShmList()
           JTRACE("Will checkpoint shared memory area") (area.name);
           int flags = Util::memProtToOpenFlags(area.prot);
           int fd = _real_open(area.name, flags, 0);
-          ASSERT_ERRNO(fd != -1,
-                       "failed to open shared memory backing file: path={}",
-                       area.name);
+          ASSERT_VALID_FD_MSG(fd,
+                              "failed to open shared memory backing file: "
+                              "path={}",
+                              area.name);
           FileConnection *fileConn =
             new FileConnection(area.name, flags, 0, FileConnection::FILE_SHM);
           add(fd, fileConn);
@@ -504,8 +505,9 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
       ((void *)area.addr);
 
     int fd = _real_openat(AT_FDCWD, area.name, O_RDWR|O_CREAT|O_EXCL, 0600);
-    ASSERT_ERRNO(fd != -1,
-                 "failed to recreate hugepage shm file: path={}", area.name);
+    ASSERT_VALID_FD_MSG(fd,
+                        "failed to recreate hugepage shm file: path={}",
+                        area.name);
 
     // Set the correct offset
     ASSERT_SYSCALL_EQ_MSG(static_cast<off_t>(area.offset),
@@ -546,8 +548,9 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
 
     if (fd == -1) {
       fd = _real_open(area.name, O_RDWR);
-      ASSERT_ERRNO(fd != -1,
-                   "failed to open existing shm file: path={}", area.name);
+      ASSERT_VALID_FD_MSG(fd,
+                          "failed to open existing shm file: path={}",
+                          area.name);
     }
 
     // Get to the correct offset
@@ -579,8 +582,9 @@ FileConnList::restoreShmArea(const ProcMapsArea &area, int fd)
                           fd, area.offset);
   }
 
-  ASSERT_ERRNO(fd != -1,
-               "failed to open shm file before restore: path={}", area.name);
+  ASSERT_VALID_FD_MSG(fd,
+                      "failed to open shm file before restore: path={}",
+                      area.name);
 
   JTRACE("Restoring shared memory area") (area.name) ((void *)area.addr);
   void *addr = mmap(area.addr, area.size, area.prot,

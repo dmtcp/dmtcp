@@ -567,21 +567,21 @@ createNewConnToCoord(CoordinatorMode mode)
   int sockfd = -1;
   if (mode & COORD_JOIN) {
     sockfd = createNewSocketToCoordinator(mode);
-    ASSERT_ERRNO(sockfd != -1,
-                 "Coordinator not found, but --join was specified");
+    ASSERT_VALID_FD_MSG(sockfd,
+                        "Coordinator not found, but --join was specified");
   } else if (mode & COORD_NEW) {
     startNewCoordinator(mode);
     sockfd = createNewSocketToCoordinator(mode);
-    ASSERT_ERRNO(sockfd != -1,
-                 "Error connecting to newly started coordinator");
+    ASSERT_VALID_FD_MSG(sockfd,
+                        "Error connecting to newly started coordinator");
   } else if (mode & COORD_ANY) {
     sockfd = createNewSocketToCoordinator(mode);
     if (sockfd == -1) {
       JTRACE("Coordinator not found, trying to start a new one.");
       startNewCoordinator(mode);
       sockfd = createNewSocketToCoordinator(mode);
-      ASSERT_ERRNO(sockfd != -1,
-                   "Error connecting to newly started coordinator");
+      ASSERT_VALID_FD_MSG(sockfd,
+                          "Error connecting to newly started coordinator");
     }
   } else {
     ASSERT(false, "invalid coordinator mode: mode={}", mode);
@@ -703,8 +703,8 @@ createNewConnectionBeforeFork(string& progname)
   SharedData::getCoordAddr((struct sockaddr *)&addr, &len);
   socklen_t addrlen = len;
   int sock = jalib::JClientSocket((struct sockaddr *)&addr, addrlen);
-  ASSERT_ERRNO(sock != -1,
-               "failed to create coordinator connection before fork");
+  ASSERT_VALID_FD_MSG(sock,
+                      "failed to create coordinator connection before fork");
 
   DmtcpMessage hello_local(DMT_NEW_WORKER);
   DmtcpMessage hello_remote = sendRecvHandshake(sock, hello_local, progname);
@@ -802,8 +802,8 @@ kvdbRequest(DmtcpMessage const& msg,
       !dmtcp_is_ckpt_thread()) {
     if (nsSock == -1) {
       nsSock = createNewSocketToCoordinator(COORD_ANY);
-      ASSERT_ERRNO(nsSock != -1,
-                   "failed to create namespace coordinator socket");
+      ASSERT_VALID_FD_MSG(nsSock,
+                          "failed to create namespace coordinator socket");
       nsSock = Util::changeFd(nsSock, PROTECTED_NS_FD);
       sock = nsSock;
       DmtcpMessage m(DMT_NAME_SERVICE_WORKER);

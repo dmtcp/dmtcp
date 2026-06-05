@@ -133,7 +133,7 @@ double_fork()
   set_trivial_sigchld_action(&trivial_sigchld_action);
   sigaction(SIGCHLD, &trivial_sigchld_action, &saved_sigchld_action);
   pid = _real_sys_fork();
-  ASSERT_ERRNO(pid >= 0, "failed first checkpoint fork: pid={}", pid);
+  ASSERT_FORK_SUCCESS_MSG(pid, "failed first checkpoint fork");
 
   if (pid > 0) {
     // 2. Allow delivery of just one SIGCHLD (due to the child that did _exit())
@@ -148,7 +148,7 @@ double_fork()
     return FORKED_CKPT_PARENT;
   } else {
     pid = _real_sys_fork();
-    ASSERT_ERRNO(pid >= 0, "failed second checkpoint fork: pid={}", pid);
+    ASSERT_FORK_SUCCESS_MSG(pid, "failed second checkpoint fork");
     if (pid > 0) {
       _exit(EXIT_SUCCESS); // Child process exits, delivers SIGCHLD
     }
@@ -229,8 +229,8 @@ perform_open_ckpt_image_fd(const char *tempCkptFilename,
   int flags = O_CREAT | O_TRUNC | O_WRONLY;
   int fd = _real_open(tempCkptFilename, flags, 0600);
   *fdCkptFileOnDisk = fd; /* if use_compression, fd will be reset to pipe */
-  ASSERT_ERRNO(fd != -1, "error creating checkpoint file: path={}",
-               tempCkptFilename);
+  ASSERT_VALID_FD_MSG(fd, "error creating checkpoint file: path={}",
+                      tempCkptFilename);
 
 #ifdef FAST_RST_VIA_MMAP
   return fd;

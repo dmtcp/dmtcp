@@ -246,19 +246,20 @@ FileConnection::preCkpt()
       int destFd = _real_open(
           _savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
           S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-      ASSERT_ERRNO(destFd != -1,
-                   "failed to open checkpointed file copy: path={} saved={}",
-                   _path, _savedFilePath);
+      ASSERT_VALID_FD_MSG(destFd,
+                          "failed to open checkpointed file copy: path={} "
+                          "saved={}",
+                          _path, _savedFilePath);
 
       JTRACE("Saving checkpointed copy of the file") (_path) (_savedFilePath);
       if (_fcntlFlags & O_WRONLY) {
         // If the file is opened() in write-only mode. Open it in readonly mode
         // to create the ckpt copy.
         int tmpfd = _real_open(_path.c_str(), O_RDONLY, 0);
-        ASSERT_ERRNO(tmpfd != -1,
-                     "failed to open write-only file for checkpoint copy: "
-                     "path={}",
-                     _path);
+        ASSERT_VALID_FD_MSG(tmpfd,
+                            "failed to open write-only file for checkpoint "
+                            "copy: path={}",
+                            _path);
         writeFileFromFd(tmpfd, destFd);
         _real_close(tmpfd);
       } else {
@@ -335,9 +336,9 @@ FileConnection::refill(bool isRestart)
 
   if (_ckpted_file && _fileAlreadyExists) {
     int savedFd = _real_open(_savedFilePath.c_str(), O_RDONLY, 0);
-    ASSERT_ERRNO(savedFd != -1,
-                 "failed to open checkpointed file copy: saved={}",
-                 _savedFilePath);
+    ASSERT_VALID_FD_MSG(savedFd,
+                        "failed to open checkpointed file copy: saved={}",
+                        _savedFilePath);
 
     if (_allow_overwrite) {
       JTRACE("Copying checkpointed file to original location")
@@ -366,7 +367,7 @@ FileConnection::refill(bool isRestart)
     if (_type == FILE_DELETED &&
         ((_fcntlFlags & O_WRONLY) || (_fcntlFlags & O_RDWR))) {
       tempfd = _real_open(_path.c_str(), _fcntlFlags | O_CREAT, 0600);
-      ASSERT_ERRNO(tempfd != -1, "open() failed: path={}", _path);
+      ASSERT_VALID_FD_MSG(tempfd, "open() failed: path={}", _path);
       ASSERT_SYSCALL_SUCCESS_MSG(truncate(_path.c_str(), _st_size),
                    "truncate failed: path={} size={}", _path, _st_size);
     } else if (jalib::Filesystem::FileExists(_path)) {
@@ -409,8 +410,9 @@ FileConnection::refill(bool isRestart)
       // File doesn't exist. If it's a WRONLY file, we'll create a new one.
       mode_t createMode = (_mode == 0) ? 0600 : (_mode & 0777);
       tempfd = _real_open(_path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, createMode);
-      ASSERT_ERRNO(tempfd != -1,
-                   "failed to create missing WRONLY file: path={}", _path);
+      ASSERT_VALID_FD_MSG(tempfd,
+                          "failed to create missing WRONLY file: path={}",
+                          _path);
       ASSERT_SYSCALL_SUCCESS_MSG(ftruncate(tempfd, _st_size),
                    "ftruncate failed: path={} fd={} size={}", _path, tempfd,
                    _st_size);
@@ -551,10 +553,10 @@ FileConnection::postRestart()
       _fileAlreadyExists = true;
     } else {
       int srcFd = _real_open(_savedFilePath.c_str(), O_RDONLY, 0);
-      ASSERT_ERRNO(srcFd != -1,
-                   "Failed to open checkpointed copy of the file: path={} "
-                   "saved={}",
-                   _path, _savedFilePath);
+      ASSERT_VALID_FD_MSG(srcFd,
+                          "Failed to open checkpointed copy of the file: "
+                          "path={} saved={}",
+                          _path, _savedFilePath);
       JTRACE("Copying saved checkpointed file to original location")
         (_savedFilePath) (_path);
       writeFileFromFd(srcFd, fd);
@@ -600,7 +602,7 @@ FileConnection::openFile()
   char realPath[PATH_MAX];
   int fd = _real_open(virtualToRealPathForInternalOpen(_path, realPath),
                       _fcntlFlags);
-  ASSERT_ERRNO(fd != -1, "open() failed: path={}", _path);
+  ASSERT_VALID_FD_MSG(fd, "open() failed: path={}", _path);
 
   JTRACE("open(_path.c_str(), _fcntlFlags)") (fd) (_path.c_str()) (realPath)
     (_fcntlFlags);
@@ -721,8 +723,8 @@ FifoConnection::drain()
   int new_flags = (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR |
     O_NONBLOCK;
   ckptfd = _real_open(_path.c_str(), new_flags);
-  ASSERT_ERRNO(ckptfd >= 0, "failed to open FIFO for checkpoint: path={}",
-               _path);
+  ASSERT_VALID_FD_MSG(ckptfd,
+                      "failed to open FIFO for checkpoint: path={}", _path);
 
   _in_data.clear();
   size_t bufsize = 256;
@@ -749,7 +751,8 @@ FifoConnection::refill(bool isRestart)
     O_NONBLOCK;
 
   ckptfd = _real_open(_path.c_str(), new_flags);
-  ASSERT_ERRNO(ckptfd >= 0, "failed to open FIFO for refill: path={}", _path);
+  ASSERT_VALID_FD_MSG(ckptfd, "failed to open FIFO for refill: path={}",
+                      _path);
 
   size_t bufsize = 256;
   char buf[bufsize];
@@ -825,7 +828,7 @@ FifoConnection::openFile()
   fd = _real_open(_path.c_str(), O_RDWR | O_NONBLOCK);
   JTRACE("Is opened") (_path.c_str()) (fd);
 
-  ASSERT_ERRNO(fd != -1, "failed to open FIFO after restart: path={}", _path);
+  ASSERT_VALID_FD_MSG(fd, "failed to open FIFO after restart: path={}", _path);
   return fd;
 }
 
@@ -986,8 +989,9 @@ PosixMQConnection::postRestart()
   }
 
   int tempfd = _real_mq_open(_name.c_str(), _oflag, _mode, &_attr);
-  ASSERT_ERRNO(tempfd != -1,
-               "failed to reopen POSIX MQ after restart: name={}", _name);
+  ASSERT_VALID_FD_MSG(tempfd,
+                      "failed to reopen POSIX MQ after restart: name={}",
+                      _name);
   restoreDupFds(tempfd);
 }
 

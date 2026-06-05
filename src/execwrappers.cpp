@@ -652,7 +652,7 @@ int getLifeboatFd()
   char buf[PATH_MAX] = {0};
   snprintf(buf, sizeof(buf) - 1, "%s/LifeBoat.XXXXXX", dmtcp_get_tmpdir());
   int fd = _real_mkostemps(buf, 0, 0);
-  ASSERT_ERRNO(fd != -1, "failed to create lifeboat file: path={}", buf);
+  ASSERT_VALID_FD_MSG(fd, "failed to create lifeboat file: path={}", buf);
   ASSERT_SYSCALL_SUCCESS_MSG(unlink(buf), "failed to unlink lifeboat file: path={}",
                buf);
   Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);
@@ -821,7 +821,8 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
     _real_close(PROTECTED_COORD_FD);
 
     pid_t cpid = _real_fork();
-    ASSERT_ERRNO(cpid != -1, "failed to fork before execing dmtcp_command");
+    ASSERT_FORK_SUCCESS_MSG(cpid,
+                            "failed to fork before execing dmtcp_command");
     if (cpid != 0) {
       _real_exit(0);
     }

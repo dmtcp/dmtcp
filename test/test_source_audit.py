@@ -489,6 +489,59 @@ class SourceAuditTest(unittest.TestCase):
             with self.subTest(path=relative_path):
                 self.assert_file_does_not_match(relative_path, pattern)
 
+    def test_fd_validity_checks_use_named_helpers(self):
+        checks = (
+            ("src/dmtcprestartinternal.cpp",
+             r"ASSERT_NE_MSG\s*\(\s*-1\s*,\s*fd\s*,"),
+            ("src/plugin/socket/socketwrappers.cpp",
+             r"ASSERT_NE_MSG\s*\(\s*-1\s*,\s*ret\s*,"),
+        )
+        for relative_path, pattern in checks:
+            with self.subTest(path=relative_path):
+                self.assert_file_does_not_match(relative_path, pattern)
+
+        simple_fd_check = re.compile(
+            r"\b(?:ASSERT|WARNING)_ERRNO\s*\(\s*"
+            r"(?:fd|sock|[A-Za-z_][A-Za-z0-9_]*"
+            r"(?:fd|Fd|FD|sock|Sock)[A-Za-z0-9_]*)"
+            r"\s*(?:!=\s*-1|>=\s*0)\s*,"
+        )
+        matches = []
+        for path in self.source_file_paths():
+            relative_path = path.relative_to(ROOT).as_posix()
+            if relative_path == "src/util_assert.h":
+                continue
+            text = self.strip_comments(path.read_text(encoding="utf-8"))
+            for line_number, line in enumerate(text.splitlines(), start=1):
+                if simple_fd_check.search(line):
+                    matches.append(f"{relative_path}:{line_number}")
+        self.assertEqual(
+            matches, [],
+            "use ASSERT_VALID_FD or WARNING_VALID_FD for simple fd validity "
+            f"checks: {matches}")
+
+    def test_fork_result_checks_use_named_helpers(self):
+        fork_check = re.compile(
+            r"\b(?:ASSERT|WARNING)_ERRNO\s*\(\s*[^,;]+"
+            r"(?:!=\s*-1|>=\s*0)\s*,[^;]*[Ff]ork")
+        matches = []
+        for path in self.source_file_paths():
+            relative_path = path.relative_to(ROOT).as_posix()
+            if relative_path == "src/util_assert.h":
+                continue
+            text = self.strip_comments(path.read_text(encoding="utf-8"))
+            lines = text.splitlines()
+            for line_number, line in enumerate(lines, start=1):
+                if "ASSERT_ERRNO" not in line and "WARNING_ERRNO" not in line:
+                    continue
+                window = " ".join(lines[line_number - 1:line_number + 4])
+                if fork_check.search(window):
+                    matches.append(f"{relative_path}:{line_number}")
+        self.assertEqual(
+            matches, [],
+            "use ASSERT_FORK_SUCCESS or WARNING_FORK_SUCCESS for fork result "
+            f"checks: {matches}")
+
     def test_signal_context_success_checks_use_named_helpers(self):
         for pattern in (
             r"SIGNAL_ASSERT_SUCCESS\s*\(",

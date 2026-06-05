@@ -264,7 +264,7 @@ createNewDmtcpSshdProcess()
   ASSERT_SYSCALL_SUCCESS_MSG(pipe(err), "creating ssh stderr pipe");
 
   pid_t sshChildPid = fork();
-  ASSERT_ERRNO(sshChildPid != -1, "failed to fork ssh child");
+  ASSERT_FORK_SUCCESS_MSG(sshChildPid, "failed to fork ssh child");
   if (sshChildPid == 0) {
     const int max_args = 16;
     char *argv[16];

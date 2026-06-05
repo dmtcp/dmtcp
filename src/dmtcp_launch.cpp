@@ -875,7 +875,7 @@ testFsGsBase()
 {
 #ifdef __x86_64__
   pid_t childPid = fork();
-  ASSERT_ERRNO(childPid != -1, "failed to fork FSGSBASE probe");
+  ASSERT_FORK_SUCCESS_MSG(childPid, "failed to fork FSGSBASE probe");
 
   if (childPid == 0) {
     unsigned long fsbase = -1;

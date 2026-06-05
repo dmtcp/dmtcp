@@ -709,10 +709,10 @@ TcpConnection::postRestart()
     }
 
     fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
-    ASSERT_ERRNO(fd != -1,
-                 "failed to recreate TCP socket: con_id={} domain={} type={} "
-                 "protocol={}",
-                 id().conId(), _sockDomain, _sockType, _sockProtocol);
+    ASSERT_VALID_FD_MSG(fd,
+                        "failed to recreate TCP socket: con_id={} domain={} "
+                        "type={} protocol={}",
+                        id().conId(), _sockDomain, _sockType, _sockProtocol);
     restoreDupFds(fd);
 
     if (_type == TCP_CREATED) {
@@ -815,10 +815,10 @@ TcpConnection::postRestart()
     fd = _real_socket(_sockDomain == AF_INET6 ? AF_INET : _sockDomain,
                       _sockType, _sockProtocol);
 #endif // ifdef ENABLE_IP6_SUPPORT
-    ASSERT_ERRNO(fd != -1,
-                 "failed to recreate connecting TCP socket: con_id={} "
-                 "domain={} type={} protocol={}",
-                 id().conId(), _sockDomain, _sockType, _sockProtocol);
+    ASSERT_VALID_FD_MSG(fd,
+                        "failed to recreate connecting TCP socket: con_id={} "
+                        "domain={} type={} protocol={}",
+                        id().conId(), _sockDomain, _sockType, _sockProtocol);
     restoreDupFds(fd);
     if (_bindAddrlen != 0) {
       WARNING_ERRNO(_real_bind(_fds[0], (sockaddr *)&_bindAddr,
@@ -954,10 +954,10 @@ RawSocketConnection::postRestart()
   {
     errno = 0;
     int fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
-    ASSERT_ERRNO(fd != -1,
-                 "failed to recreate raw socket: con_id={} domain={} type={} "
-                 "protocol={}",
-                 id().conId(), _sockDomain, _sockType, _sockProtocol);
+    ASSERT_VALID_FD_MSG(fd,
+                        "failed to recreate raw socket: con_id={} domain={} "
+                        "type={} protocol={}",
+                        id().conId(), _sockDomain, _sockType, _sockProtocol);
     restoreDupFds(fd);
     if (_type == RAW_CREATED) {
       break;

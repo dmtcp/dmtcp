@@ -88,9 +88,9 @@ EpollConnection::postRestart()
     tempfd = -1;
 #endif
   }
-  ASSERT_ERRNO(tempfd >= 0,
-               "failed to recreate epoll fd: size={} flags={}", _size,
-               _flags);
+  ASSERT_VALID_FD_MSG(tempfd,
+                      "failed to recreate epoll fd: size={} flags={}", _size,
+                      _flags);
   restoreDupFds(tempfd);
 }
 
@@ -330,8 +330,8 @@ InotifyConnection::postRestart()
   // create a new inotify instance and clone it as the old one
   int tempfd = _real_inotify_init1(_flags);
 
-  ASSERT_ERRNO(tempfd >= 0, "failed to recreate inotify fd: flags={}",
-               _flags);
+  ASSERT_VALID_FD_MSG(tempfd, "failed to recreate inotify fd: flags={}",
+                      _flags);
   restoreDupFds(tempfd);
 }
 

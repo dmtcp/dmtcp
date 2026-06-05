@@ -1575,7 +1575,7 @@ DmtcpCoordinator::eventLoop()
   struct epoll_event ev;
 
   epollFd = epoll_create(MAX_EVENTS);
-  ASSERT_ERRNO(epollFd != -1, "epoll_create failed");
+  ASSERT_VALID_FD_MSG(epollFd, "epoll_create failed");
 
   ev.events = EPOLLIN;
   ev.data.ptr = listenSock;

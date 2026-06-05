@@ -695,6 +695,107 @@ void warningSyscallEqMessageReportsExtraContext()
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=5") != nullptr);
 }
 
+void warningValidFdReportsExpressionAndReturnValue()
+{
+  resetHook();
+
+  errno = 0;
+  WARNING_VALID_FD(setErrnoAndReturn(-1, EBADF));
+
+  UNIT_ASSERT_EQ(errno, EBADF);
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "setErrnoAndReturn(-1, EBADF) failed") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "expected a valid fd >= 0, returned '-1'") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=9") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "EBADF") != nullptr);
+}
+
+void warningValidFdMessageReportsExtraContext()
+{
+  resetHook();
+
+  errno = 0;
+  WARNING_VALID_FD_MSG(setErrnoAndReturn(-1, EBADF),
+                       "path={}",
+                       "/tmp/ckpt.dmtcp");
+
+  UNIT_ASSERT_EQ(errno, EBADF);
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "setErrnoAndReturn(-1, EBADF) failed") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "expected a valid fd >= 0, returned '-1'") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "path=/tmp/ckpt.dmtcp") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=9") != nullptr);
+}
+
+void validFdMacrosEvaluateExpressionOnce()
+{
+  int calls = 0;
+
+  ASSERT_VALID_FD(returnZeroAndCount(&calls));
+  WARNING_VALID_FD(returnZeroAndCount(&calls));
+
+  UNIT_ASSERT_EQ(calls, 2);
+}
+
+void warningForkSuccessReportsExpressionReturnValueAndErrno()
+{
+  resetHook();
+
+  errno = 0;
+  WARNING_FORK_SUCCESS(setErrnoAndReturn(-1, EAGAIN));
+
+  UNIT_ASSERT_EQ(errno, EAGAIN);
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "setErrnoAndReturn(-1, EAGAIN) failed") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "expected a fork result >= 0, returned '-1'") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=11") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "EAGAIN") != nullptr);
+}
+
+void warningForkSuccessMessageReportsExtraContext()
+{
+  resetHook();
+
+  errno = 0;
+  WARNING_FORK_SUCCESS_MSG(setErrnoAndReturn(-1, EAGAIN),
+                           "phase={}",
+                           "checkpoint");
+
+  UNIT_ASSERT_EQ(errno, EAGAIN);
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "setErrnoAndReturn(-1, EAGAIN) failed") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "expected a fork result >= 0, returned '-1'") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "phase=checkpoint") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=11") != nullptr);
+}
+
+void forkSuccessMacrosEvaluateExpressionOnce()
+{
+  int calls = 0;
+
+  ASSERT_FORK_SUCCESS(returnZeroAndCount(&calls));
+  WARNING_FORK_SUCCESS(returnZeroAndCount(&calls));
+
+  UNIT_ASSERT_EQ(calls, 2);
+}
+
 void warningPthreadSuccessMessageReportsExtraContext()
 {
   resetHook();
@@ -895,6 +996,18 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    warningSyscallEqReportsExpressionReturnValueAndErrno},
   {"warning syscall-eq message reports extra context",
    warningSyscallEqMessageReportsExtraContext},
+  {"warning valid-fd reports expression and return value",
+   warningValidFdReportsExpressionAndReturnValue},
+  {"warning valid-fd message reports extra context",
+   warningValidFdMessageReportsExtraContext},
+  {"valid-fd macros evaluate expression once",
+   validFdMacrosEvaluateExpressionOnce},
+  {"warning fork-success reports expression return value and errno",
+   warningForkSuccessReportsExpressionReturnValueAndErrno},
+  {"warning fork-success message reports extra context",
+   warningForkSuccessMessageReportsExtraContext},
+  {"fork-success macros evaluate expression once",
+   forkSuccessMacrosEvaluateExpressionOnce},
   {"warning pthread success message reports extra context",
    warningPthreadSuccessMessageReportsExtraContext},
   {"signal warning uses raw diagnostic and preserves errno",

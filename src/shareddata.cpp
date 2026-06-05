@@ -195,8 +195,8 @@ SharedData::initialize(const char *tmpDir,
     ASSERT_SYSCALL_SUCCESS_MSG(truncate(o.str().c_str(), size),
                  "failed to size shared-data file: path={} size={}", o.str(),
                  size);
-    ASSERT_ERRNO(fd != -1, "failed to open shared-data file: path={}",
-                 o.str());
+    ASSERT_VALID_FD_MSG(fd, "failed to open shared-data file: path={}",
+                        o.str());
     ASSERT_SYSCALL_EQ_MSG(PROTECTED_SHM_FD,
                           _real_dup2(fd, PROTECTED_SHM_FD),
                           "failed to move shared-data fd: fd={} protected_fd={}",

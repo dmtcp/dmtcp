@@ -903,6 +903,18 @@ assertFailureErrno(const char *expr,
 #ifdef ASSERT_SYSCALL_EQ_MSG
 # undef ASSERT_SYSCALL_EQ_MSG
 #endif
+#ifdef ASSERT_VALID_FD
+# undef ASSERT_VALID_FD
+#endif
+#ifdef ASSERT_VALID_FD_MSG
+# undef ASSERT_VALID_FD_MSG
+#endif
+#ifdef ASSERT_FORK_SUCCESS
+# undef ASSERT_FORK_SUCCESS
+#endif
+#ifdef ASSERT_FORK_SUCCESS_MSG
+# undef ASSERT_FORK_SUCCESS_MSG
+#endif
 #ifdef WARNING_MUTEX_SUCCESS
 # undef WARNING_MUTEX_SUCCESS
 #endif
@@ -938,6 +950,18 @@ assertFailureErrno(const char *expr,
 #endif
 #ifdef WARNING_SYSCALL_EQ_MSG
 # undef WARNING_SYSCALL_EQ_MSG
+#endif
+#ifdef WARNING_VALID_FD
+# undef WARNING_VALID_FD
+#endif
+#ifdef WARNING_VALID_FD_MSG
+# undef WARNING_VALID_FD_MSG
+#endif
+#ifdef WARNING_FORK_SUCCESS
+# undef WARNING_FORK_SUCCESS
+#endif
+#ifdef WARNING_FORK_SUCCESS_MSG
+# undef WARNING_FORK_SUCCESS_MSG
 #endif
 #ifdef SIGNAL_WARNING
 # undef SIGNAL_WARNING
@@ -1269,6 +1293,76 @@ assertFailureErrno(const char *expr,
                   __VA_OPT__(,) __VA_ARGS__);                                                     \
   } while (0)
 
+#define DMTCP_ASSERT_VALID_FD(expressionText, expression)                    \
+  do {                                                                      \
+    const auto dmtcpAssertResult = (expression);                             \
+    ASSERT_ERRNO(dmtcpAssertResult >= 0,                                     \
+                 "{} failed: expected a valid fd >= 0, returned '{}'",       \
+                 expressionText, dmtcpAssertResult);                         \
+  } while (0)
+
+#define DMTCP_WARNING_VALID_FD(expressionText, expression)                   \
+  do {                                                                      \
+    const auto dmtcpAssertResult = (expression);                             \
+    WARNING_ERRNO(dmtcpAssertResult >= 0,                                    \
+                  "{} failed: expected a valid fd >= 0, returned '{}'",      \
+                  expressionText, dmtcpAssertResult);                        \
+  } while (0)
+
+#define DMTCP_ASSERT_VALID_FD_MSG(expressionText, expression, fmt, ...)      \
+  do {                                                                      \
+    const auto dmtcpAssertResult = (expression);                             \
+    ASSERT_ERRNO(dmtcpAssertResult >= 0,                                     \
+                 "{} failed: expected a valid fd >= 0, returned '{}'; " fmt, \
+                 expressionText, dmtcpAssertResult                           \
+                 __VA_OPT__(,) __VA_ARGS__);                                 \
+  } while (0)
+
+#define DMTCP_WARNING_VALID_FD_MSG(expressionText, expression, fmt, ...)     \
+  do {                                                                      \
+    const auto dmtcpAssertResult = (expression);                             \
+    WARNING_ERRNO(dmtcpAssertResult >= 0,                                    \
+                  "{} failed: expected a valid fd >= 0, returned '{}'; " fmt,\
+                  expressionText, dmtcpAssertResult                          \
+                  __VA_OPT__(,) __VA_ARGS__);                                \
+  } while (0)
+
+#define DMTCP_ASSERT_FORK_SUCCESS(expressionText, expression)                \
+  do {                                                                      \
+    const auto dmtcpAssertResult = (expression);                             \
+    ASSERT_ERRNO(dmtcpAssertResult >= 0,                                     \
+                 "{} failed: expected a fork result >= 0, returned '{}'",    \
+                 expressionText, dmtcpAssertResult);                         \
+  } while (0)
+
+#define DMTCP_WARNING_FORK_SUCCESS(expressionText, expression)               \
+  do {                                                                      \
+    const auto dmtcpAssertResult = (expression);                             \
+    WARNING_ERRNO(dmtcpAssertResult >= 0,                                    \
+                  "{} failed: expected a fork result >= 0, returned '{}'",   \
+                  expressionText, dmtcpAssertResult);                        \
+  } while (0)
+
+#define DMTCP_ASSERT_FORK_SUCCESS_MSG(expressionText, expression, fmt, ...)  \
+  do {                                                                      \
+    const auto dmtcpAssertResult = (expression);                             \
+    ASSERT_ERRNO(dmtcpAssertResult >= 0,                                     \
+                 "{} failed: expected a fork result >= 0, returned '{}'; "   \
+                 fmt,                                                        \
+                 expressionText, dmtcpAssertResult                           \
+                 __VA_OPT__(,) __VA_ARGS__);                                 \
+  } while (0)
+
+#define DMTCP_WARNING_FORK_SUCCESS_MSG(expressionText, expression, fmt, ...) \
+  do {                                                                      \
+    const auto dmtcpAssertResult = (expression);                             \
+    WARNING_ERRNO(dmtcpAssertResult >= 0,                                    \
+                  "{} failed: expected a fork result >= 0, returned '{}'; "  \
+                  fmt,                                                       \
+                  expressionText, dmtcpAssertResult                          \
+                  __VA_OPT__(,) __VA_ARGS__);                                \
+  } while (0)
+
 #define ASSERT_MUTEX_SUCCESS(expression) \
   DMTCP_ASSERT_ZERO_RETURN(#expression, expression)
 
@@ -1311,6 +1405,20 @@ assertFailureErrno(const char *expr,
   DMTCP_ASSERT_SYSCALL_EQ_MSG(expected, #expression, expression, fmt \
                               __VA_OPT__(,) __VA_ARGS__)
 
+#define ASSERT_VALID_FD(expression) \
+  DMTCP_ASSERT_VALID_FD(#expression, expression)
+
+#define ASSERT_VALID_FD_MSG(expression, fmt, ...) \
+  DMTCP_ASSERT_VALID_FD_MSG(#expression, expression, fmt \
+                            __VA_OPT__(,) __VA_ARGS__)
+
+#define ASSERT_FORK_SUCCESS(expression) \
+  DMTCP_ASSERT_FORK_SUCCESS(#expression, expression)
+
+#define ASSERT_FORK_SUCCESS_MSG(expression, fmt, ...) \
+  DMTCP_ASSERT_FORK_SUCCESS_MSG(#expression, expression, fmt \
+                                __VA_OPT__(,) __VA_ARGS__)
+
 #define WARNING_MUTEX_SUCCESS(expression) \
   DMTCP_WARNING_ZERO_RETURN(#expression, expression)
 
@@ -1352,6 +1460,20 @@ assertFailureErrno(const char *expr,
 #define WARNING_SYSCALL_EQ_MSG(expected, expression, fmt, ...) \
   DMTCP_WARNING_SYSCALL_EQ_MSG(expected, #expression, expression, fmt \
                                __VA_OPT__(,) __VA_ARGS__)
+
+#define WARNING_VALID_FD(expression) \
+  DMTCP_WARNING_VALID_FD(#expression, expression)
+
+#define WARNING_VALID_FD_MSG(expression, fmt, ...) \
+  DMTCP_WARNING_VALID_FD_MSG(#expression, expression, fmt \
+                             __VA_OPT__(,) __VA_ARGS__)
+
+#define WARNING_FORK_SUCCESS(expression) \
+  DMTCP_WARNING_FORK_SUCCESS(#expression, expression)
+
+#define WARNING_FORK_SUCCESS_MSG(expression, fmt, ...) \
+  DMTCP_WARNING_FORK_SUCCESS_MSG(#expression, expression, fmt \
+                                 __VA_OPT__(,) __VA_ARGS__)
 
 #define ASSERT_NULL(value) \
   ASSERT((value) == nullptr, "expected null: {}", #value)

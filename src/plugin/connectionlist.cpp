@@ -669,9 +669,10 @@ ConnectionList::sendReceiveMissingFds()
     if (numIncomingCons > 0 && (socketFd.revents & POLLIN)) {
       ConnectionIdentifier id;
       int fd = Util::receiveFd(restoreFd, &id, sizeof(id));
-      ASSERT_ERRNO(fd != -1,
-                   "receiveFd failed for missing connection: restore_fd={}",
-                   restoreFd);
+      ASSERT_VALID_FD_MSG(fd,
+                          "receiveFd failed for missing connection: "
+                          "restore_fd={}",
+                          restoreFd);
       Connection *con = getConnection(id);
       JTRACE("Received Missing Con") (id);
       ASSERT(con != NULL,

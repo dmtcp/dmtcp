@@ -101,7 +101,7 @@ ConnectionRewirer::checkForPendingIncoming(int restoreSockFd,
     if (fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
       return;
     }
-    ASSERT_ERRNO(fd != -1, "Accept failed: restore_fd={}", restoreSockFd);
+    ASSERT_VALID_FD_MSG(fd, "Accept failed: restore_fd={}", restoreSockFd);
     ConnectionIdentifier id;
     ASSERT(Util::readAll(fd, &id, sizeof id) == sizeof id,
            "failed to read incoming restore identifier: fd={} expected={}", fd,
@@ -219,7 +219,7 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
   // Open IP6 Restore Socket
   if (hasIPv6Sock) {
     int ip6fd = _real_socket(AF_INET6, SOCK_STREAM, 0);
-    ASSERT_ERRNO(ip6fd != -1, "failed to create IPv6 restore socket");
+    ASSERT_VALID_FD_MSG(ip6fd, "failed to create IPv6 restore socket");
 
     _ip6RestoreAddr.sin6_family = AF_INET6;
     _ip6RestoreAddr.sin6_port = 0;
@@ -252,7 +252,7 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     o << dmtcp_get_uniquepid_str() << "_" << dmtcp_get_coordinator_timestamp() << "_" << _udsRestoreAddr.sun_path;
     string str = o.str();
     int udsfd = _real_socket(AF_UNIX, SOCK_STREAM, 0);
-    ASSERT_ERRNO(udsfd != -1, "failed to create UDS restore socket");
+    ASSERT_VALID_FD_MSG(udsfd, "failed to create UDS restore socket");
     memset(&_udsRestoreAddr, 0, sizeof(struct sockaddr_un));
     _udsRestoreAddr.sun_family = AF_UNIX;
     strncpy(&_udsRestoreAddr.sun_path[1], str.c_str(), str.length());
@@ -272,8 +272,8 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
 
     // Also open a seqpacket listener for AF_UNIX SOCK_SEQPACKET reconnections
     int udsseqfd = _real_socket(AF_UNIX, SOCK_SEQPACKET, 0);
-    ASSERT_ERRNO(udsseqfd != -1,
-                 "failed to create UDS seqpacket restore socket");
+    ASSERT_VALID_FD_MSG(udsseqfd,
+                        "failed to create UDS seqpacket restore socket");
     memset(&_udsSeqRestoreAddr, 0, sizeof(struct sockaddr_un));
     _udsSeqRestoreAddr.sun_family = AF_UNIX;
     // Use a different abstract path suffix to avoid collision

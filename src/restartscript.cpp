@@ -595,9 +595,9 @@ writeScript(const string &ckptDir,
     string filename = RESTART_SCRIPT_BASENAME "." RESTART_SCRIPT_EXT;
     string dirname = jalib::Filesystem::DirName(uniqueFilename);
     int dirfd = open(dirname.c_str(), O_DIRECTORY | O_RDONLY);
-    ASSERT_ERRNO(dirfd != -1,
-                 "failed to open restart script directory: path={}",
-                 dirname);
+    ASSERT_VALID_FD_MSG(dirfd,
+                        "failed to open restart script directory: path={}",
+                        dirname);
 
     /* Set execute permission for user. */
     struct stat buf;

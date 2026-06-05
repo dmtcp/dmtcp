@@ -247,9 +247,9 @@ RestoreTarget::initialize()
     // the abs-path of ckpt-image.
     string dirName = jalib::Filesystem::DirName(_path);
     int dirfd = open(dirName.c_str(), O_RDONLY);
-    ASSERT_ERRNO(dirfd != -1,
-                 "failed to open checkpoint image directory: {}",
-                 dirName.c_str());
+    ASSERT_VALID_FD_MSG(dirfd,
+                        "failed to open checkpoint image directory: {}",
+                        dirName.c_str());
     if (dirfd != PROTECTED_CKPT_DIR_FD) {
       ASSERT_SYSCALL_EQ_MSG(PROTECTED_CKPT_DIR_FD,
                             dup2(dirfd, PROTECTED_CKPT_DIR_FD),
@@ -276,8 +276,8 @@ RestoreTarget::createDependentChildProcess()
 {
   pid_t pid = fork();
 
-  ASSERT_ERRNO(pid != -1,
-               "fork failed while creating dependent child process");
+  ASSERT_FORK_SUCCESS_MSG(
+    pid, "fork failed while creating dependent child process");
   if (pid != 0) {
     return;
   }
@@ -289,12 +289,12 @@ RestoreTarget::createDependentNonChildProcess()
 {
   pid_t pid = fork();
 
-  ASSERT_ERRNO(pid != -1,
-               "fork failed while creating dependent non-child process");
+  ASSERT_FORK_SUCCESS_MSG(
+    pid, "fork failed while creating dependent non-child process");
   if (pid == 0) {
     pid_t gchild = fork();
-    ASSERT_ERRNO(gchild != -1,
-                 "fork failed while creating dependent grandchild process");
+    ASSERT_FORK_SUCCESS_MSG(
+      gchild, "fork failed while creating dependent grandchild process");
     if (gchild != 0) {
       exit(0);
     }
@@ -311,12 +311,11 @@ RestoreTarget::createOrphanedProcess(bool createIndependentRootProcesses)
 {
   pid_t pid = fork();
 
-  ASSERT_ERRNO(pid != -1,
-               "fork failed while creating orphaned process");
+  ASSERT_FORK_SUCCESS_MSG(pid, "fork failed while creating orphaned process");
   if (pid == 0) {
     pid_t gchild = fork();
-    ASSERT_ERRNO(gchild != -1,
-                 "fork failed while creating orphaned grandchild process");
+    ASSERT_FORK_SUCCESS_MSG(
+      gchild, "fork failed while creating orphaned grandchild process");
     if (gchild != 0) {
       exit(0);
     }
@@ -545,8 +544,8 @@ int
 readCkptHeader(const string &path, DmtcpCkptHeader *ckptHdr)
 {
   int fd = openCkptFileToRead(path);
-  ASSERT_NE_MSG(-1, fd, "checkpoint file helper returned invalid fd: path={}",
-                path.c_str());
+  ASSERT_VALID_FD_MSG(fd, "checkpoint file helper returned invalid fd: path={}",
+                      path.c_str());
 
   ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(sizeof(*ckptHdr)),
                         Util::readAll(fd, ckptHdr, sizeof(*ckptHdr)),
@@ -582,9 +581,8 @@ openCkptFileToRead(const string &filename)
   pid_t cpid;
 
   fd = open(filename.c_str(), O_RDONLY);
-  ASSERT_ERRNO(fd >= 0,
-               "Failed to open checkpoint file: {}",
-               filename.c_str());
+  ASSERT_VALID_FD_MSG(fd, "Failed to open checkpoint file: {}",
+                      filename.c_str());
 
   DmtcpCkptHeader ckptHdr;
   ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(sizeof(ckptHdr)),
@@ -620,10 +618,10 @@ openCkptFileToRead(const string &filename)
 
     cpid = fork();
 
-    ASSERT_ERRNO(cpid != -1,
-                 "Cannot fork to execute gunzip to decompress checkpoint "
-                 "file: {}",
-                 filename.c_str());
+    ASSERT_FORK_SUCCESS_MSG(cpid,
+                            "Cannot fork to execute gunzip to decompress "
+                            "checkpoint file: {}",
+                            filename.c_str());
     if (cpid > 0) { /* parent process */
       JTRACE("created child process to uncompress checkpoint file") (cpid);
       close(fd);
@@ -644,12 +642,12 @@ openCkptFileToRead(const string &filename)
        * wait()'d upon by the corresponding mtcp_restart processes because
        * their parent is the original dmtcp_restart process and thus they
        * become zombie.
-       */
+      */
       cpid = fork();
-      ASSERT_ERRNO(cpid != -1,
-                   "Cannot fork grandchild to execute gunzip to decompress "
-                   "checkpoint file: {}",
-                   filename.c_str());
+      ASSERT_FORK_SUCCESS_MSG(cpid,
+                              "Cannot fork grandchild to execute gunzip to "
+                              "decompress checkpoint file: {}",
+                              filename.c_str());
       if (cpid > 0) {
         // Use _exit() instead of exit() to avoid popping atexit() handlers
         // registered by the parent process.
@@ -661,8 +659,9 @@ openCkptFileToRead(const string &filename)
       fd = dup(dup(dup(fd)));
       fds[1] = dup(fds[1]);
       close(fds[0]);
-      ASSERT_ERRNO(fd != -1,
-                   "failed to duplicate checkpoint fd for decompressor");
+      ASSERT_VALID_FD_MSG(fd,
+                          "failed to duplicate checkpoint fd for "
+                          "decompressor");
       ASSERT_SYSCALL_EQ_MSG(STDIN_FILENO,
                             dup2(fd, STDIN_FILENO),
                             "failed to install decompressor stdin fd");
@@ -695,8 +694,9 @@ setEnvironFd()
 
   sprintf(envFile, "%s/envFile.XXXXXX", tmpDir.c_str());
   int fd = mkstemp(envFile);
-  ASSERT_ERRNO(fd != -1,
-               "failed to create temporary environment file: {}", envFile);
+  ASSERT_VALID_FD_MSG(fd,
+                      "failed to create temporary environment file: {}",
+                      envFile);
   ASSERT_SYSCALL_SUCCESS_MSG(unlink(envFile),
                "failed to unlink temporary environment file: {}", envFile);
   ASSERT_SYSCALL_EQ_MSG(PROTECTED_ENVIRON_FD,
@@ -732,8 +732,8 @@ setNewCkptDir(const string& path)
   }
 
   int fd = open(path.c_str(), O_RDONLY);
-  ASSERT_ERRNO(fd != -1,
-               "failed to open checkpoint directory: {}", path.c_str());
+  ASSERT_VALID_FD_MSG(fd, "failed to open checkpoint directory: {}",
+                      path.c_str());
   ASSERT_SYSCALL_EQ_MSG(PROTECTED_CKPT_DIR_FD,
                         dup2(fd, PROTECTED_CKPT_DIR_FD),
                         "failed to install checkpoint directory fd for {}",
