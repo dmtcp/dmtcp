@@ -31,6 +31,7 @@ from dmtcp_test_harness import (
     checkpoint_image_is_gzip,
     checkpoint_payload_succeeded,
     parse_dmtcp_command_json,
+    validate_dmtcp_command_result_payload,
     validate_checkpoint_bootstrap_headers,
 )
 
@@ -332,6 +333,40 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
             self.assertEqual(caught.exception.phase, "kill")
             self.assertIn("workers are not running", caught.exception.message)
+
+    def test_json_command_rejects_non_string_coordinator_host(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_dmtcp_command_result_payload(
+                {
+                    "schema_version": 1,
+                    "type": "status",
+                    "phase": "status",
+                    "ok": True,
+                    "coordinator_host": 123,
+                },
+                "status",
+                "status",
+            )
+
+        self.assertIn("coordinator_host must be a string",
+                      str(caught.exception))
+
+    def test_json_command_rejects_non_integer_coordinator_port(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_dmtcp_command_result_payload(
+                {
+                    "schema_version": 1,
+                    "type": "status",
+                    "phase": "status",
+                    "ok": True,
+                    "coordinator_port": "7779",
+                },
+                "status",
+                "status",
+            )
+
+        self.assertIn("coordinator_port must be an integer",
+                      str(caught.exception))
 
     def test_status_payload_error_becomes_status_phase_failure(self):
         context = TestContext(

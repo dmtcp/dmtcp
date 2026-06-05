@@ -72,6 +72,16 @@ def validate_dmtcp_command_result_payload(payload: Dict[str, object],
         if type(error_message) is not str:
             raise ValueError(
                 "dmtcp_command JSON field error_message must be a string")
+    if "coordinator_host" in payload:
+        coordinator_host = payload.get("coordinator_host")
+        if type(coordinator_host) is not str:
+            raise ValueError(
+                "dmtcp_command JSON field coordinator_host must be a string")
+    if "coordinator_port" in payload:
+        coordinator_port = payload.get("coordinator_port")
+        if type(coordinator_port) is not int:
+            raise ValueError(
+                "dmtcp_command JSON field coordinator_port must be an integer")
 
 
 class HarnessFailure(Exception):
