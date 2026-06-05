@@ -712,6 +712,11 @@ class SourceAuditTest(unittest.TestCase):
                     self.assert_file_does_not_contain(relative_path,
                                                       forbidden)
 
+    def test_checkpoint_header_unit_tests_pin_padding_layout(self):
+        tests = self.read_text("test/unit/dmtcp_header_tests.cpp")
+        self.assertIn("offsetof(DmtcpCkptHeader, padding)", tests)
+        self.assertIn("sizeof(header.padding)", tests)
+
     def test_signal_handler_uses_signal_safe_diagnostics(self):
         body = self.extract_function_body("src/threadlist.cpp",
                                           "stopthisthread")

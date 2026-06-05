@@ -15,8 +15,12 @@ namespace {
 
 void ckptHeaderIsFixedSize()
 {
+  DmtcpCkptHeader header = {};
+
   ASSERT_EQ(sizeof(DmtcpCkptHeader), static_cast<size_t>(4096));
   ASSERT_EQ(offsetof(DmtcpCkptHeader, ckptSignature), static_cast<size_t>(0));
+  ASSERT_EQ(offsetof(DmtcpCkptHeader, padding), static_cast<size_t>(2320));
+  ASSERT_EQ(sizeof(header.padding), static_cast<size_t>(1776));
 }
 
 void ckptHeaderKeepsRestartFieldsPlain()
