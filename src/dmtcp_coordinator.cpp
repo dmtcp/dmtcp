@@ -179,6 +179,34 @@ parseCoordinatorPort(const char *text, int *port)
   return text != NULL && Util::parsePortNumber(text, port);
 }
 
+CoordFlags::CoordFlags()
+{
+  const char *portStr = getenv(ENV_VAR_NAME_PORT);
+  if (portStr == NULL) {
+    portStr = getenv("DMTCP_PORT"); // deprecated
+  }
+  if (portStr != NULL && !parseCoordinatorPort(portStr, &thePort)) {
+    fprintf(stderr, "invalid coordinator port: %s\n", portStr);
+    exit(1);
+  }
+
+  if (getenv(ENV_VAR_COORD_LOGFILE)) {
+    useLogFile = true;
+    logFilename = getenv(ENV_VAR_COORD_LOGFILE);
+  }
+
+  if (getenv(ENV_VAR_CHECKPOINT_DIR) != NULL) {
+    ckptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
+  } else {
+    ckptDir = get_current_dir_name();
+  }
+
+  const char *kvdbEnv = getenv(ENV_VAR_COORD_WRITE_KVDB);
+  if (kvdbEnv != NULL && kvdbEnv[0] == '1') {
+    writeKvData = true;
+  }
+}
+
 CoordFlags flags;
 static int offset_after_first_line = 0;
 static bool blockUntilDone = false;

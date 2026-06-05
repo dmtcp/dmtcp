@@ -402,10 +402,14 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             timeout=COMMAND_TIMEOUT,
         )
 
-    def run_coordinator(self, *args, timeout=COMMAND_TIMEOUT):
+    def run_coordinator(self, *args, env=None, timeout=COMMAND_TIMEOUT):
+        merged_env = os.environ.copy()
+        if env:
+            merged_env.update(env)
         return subprocess.run(
             [str(DMTCP_COORDINATOR), *args],
             cwd=str(ROOT),
+            env=merged_env,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -424,6 +428,16 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
 
     def test_invalid_coord_port_option_exits_with_usage(self):
         self.assert_coordinator_rejects_args("--coord-port", "12x")
+
+    def test_invalid_coord_port_env_exits_with_error(self):
+        try:
+            result = self.run_coordinator(env={"DMTCP_COORD_PORT": "65536"},
+                                          timeout=1)
+        except subprocess.TimeoutExpired:
+            self.fail("coordinator did not reject invalid DMTCP_COORD_PORT")
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("invalid coordinator port", result.stderr)
 
     def test_invalid_timeout_option_exits_with_usage(self):
         self.assert_coordinator_rejects_args("--timeout", "12x")

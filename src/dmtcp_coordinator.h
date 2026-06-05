@@ -23,7 +23,6 @@
 #define DMTCPDMTCPCOORDINATOR_H
 
 #include "../jalib/jsocket.h"
-#include "../jalib/jconvert.h"
 #include "dmtcpalloc.h"
 #include "dmtcpmessagetypes.h"
 
@@ -122,36 +121,7 @@ class CoordFlags {
       string tmpDirArg = "";
       bool writeKvData = false;
 
-      CoordFlags()
-      {
-        const char *portStr = getenv(ENV_VAR_NAME_PORT);
-        if (portStr == NULL) {
-          portStr = getenv("DMTCP_PORT");                      // deprecated
-        }
-        if (portStr != NULL) {
-          thePort = jalib::StringToInt(portStr);
-        }
-
-        if (getenv(ENV_VAR_COORD_LOGFILE)) {
-          useLogFile = true;
-          logFilename = getenv(ENV_VAR_COORD_LOGFILE);
-        }
-
-        if (getenv(ENV_VAR_CHECKPOINT_DIR) != NULL) {
-          ckptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
-        } else {
-          ckptDir = get_current_dir_name();
-        }
-
-        // Check and enable dumping KVDB.
-        {
-          const char *kvdbEnv = getenv(ENV_VAR_COORD_WRITE_KVDB);
-          if (kvdbEnv != NULL && kvdbEnv[0] == '1') {
-            writeKvData = true;
-          }
-        }
-
-      }
+      CoordFlags();
 };
 
 class DmtcpCoordinator
