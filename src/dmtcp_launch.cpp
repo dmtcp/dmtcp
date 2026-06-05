@@ -253,6 +253,29 @@ validateCoordinatorPortEnv(const char *envName)
   }
 }
 
+static int
+parseCheckpointIntervalOrExit(const char *intervalText)
+{
+  int interval = 0;
+  if (intervalText == NULL ||
+      !Util::parseInteger(intervalText, &interval) ||
+      interval < 0) {
+    fprintf(stderr, "invalid checkpoint interval: %s\n",
+            intervalText == NULL ? "(null)" : intervalText);
+    exit(DMTCP_FAIL_RC);
+  }
+  return interval;
+}
+
+static void
+validateCheckpointIntervalEnv()
+{
+  const char *intervalText = getenv(ENV_VAR_CKPT_INTR);
+  if (intervalText != NULL && intervalText[0] != '\0') {
+    parseCheckpointIntervalOrExit(intervalText);
+  }
+}
+
 // shift args
 #define shift argc--, argv++
 static void
@@ -296,6 +319,7 @@ processArgs(int *orig_argc, const char ***orig_argv)
       allowedModes = COORD_ANY;
       shift;
     } else if (s == "-i" || s == "--interval") {
+      parseCheckpointIntervalOrExit(argv[1]);
       setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
       shift; shift;
     } else if (s == "--coord-logfile") {
@@ -303,6 +327,7 @@ processArgs(int *orig_argc, const char ***orig_argv)
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'i' &&
                isdigit(argv[0][2])) { // else if -i5, for example
+      parseCheckpointIntervalOrExit(argv[0] + 2);
       setenv(ENV_VAR_CKPT_INTR, argv[0] + 2, 1);
       shift;
     } else if (argc > 1 &&
@@ -467,6 +492,7 @@ processArgs(int *orig_argc, const char ***orig_argv)
   }
   validateCoordinatorPortEnv(ENV_VAR_NAME_PORT);
   validateCoordinatorPortEnv("DMTCP_PORT");
+  validateCheckpointIntervalEnv();
   tmpDir = Util::calcTmpDir(tmpdir_arg);
   *orig_argc = argc;
   *orig_argv = argv;

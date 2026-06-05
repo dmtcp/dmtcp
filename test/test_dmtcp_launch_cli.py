@@ -45,6 +45,26 @@ class DmtcpLaunchCliTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid coordinator port", result.stderr)
 
+    def test_rejects_invalid_interval_option(self):
+        result = self.run_launch("--interval", "12x", "/bin/true")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid checkpoint interval", result.stderr)
+
+    def test_rejects_invalid_short_interval_option(self):
+        result = self.run_launch("-i12x", "/bin/true")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid checkpoint interval", result.stderr)
+
+    def test_rejects_invalid_interval_env(self):
+        result = self.run_launch(
+            "/bin/true", env={"DMTCP_CHECKPOINT_INTERVAL": "12x"}
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid checkpoint interval", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
