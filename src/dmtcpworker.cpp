@@ -219,32 +219,35 @@ dmtcp_initialize_entry_point_test()
 }
 #endif
 
-// Initialize remaining components.
-extern "C" void __attribute__((constructor(101)))
-dmtcp_initialize_entry_point()
+static void
+initializeRuntimePrimitives()
 {
-  if (dmtcp_initialized) {
-    return;
-  }
-
-  dmtcp_initialized = true;
-
   dmtcp_initialize();
-
   initializeJalib();
   dmtcp_prepare_atfork();
+}
 
+static void
+initializeBootstrapThreadState()
+{
   WorkerState::setCurrentState(WorkerState::RUNNING);
 
   // Establish current-thread state before plugin initialization or early
   // diagnostics can emit through the fixed per-thread assert buffer.
   ThreadSync::initMotherOfAll();
   ThreadList::init();
+}
 
+static void
+initializePluginManagerAndProcessState()
+{
   PluginManager::initialize();
-
   prepareLogAndProcessdDataFromSerialFile();
+}
 
+static void
+initializeRuntimeOptions()
+{
   JTRACE("libdmtcp.so:  Running ")
     (jalib::Filesystem::GetProgramName()) (getenv("LD_PRELOAD"));
 
@@ -272,7 +275,11 @@ dmtcp_initialize_entry_point()
          programName);
 
   restoreUserLDPRELOAD();
+}
 
+static void
+initializePluginsAndCheckpointThread()
+{
   // In libdmtcp.so, notify this event for each plugin.
   PluginManager::eventHook(DMTCP_EVENT_INIT, NULL);
 
@@ -283,6 +290,23 @@ dmtcp_initialize_entry_point()
 
   // Create checkpoint-thread at the very end of the initialization process.
   ThreadList::createCkptThread();
+}
+
+// Initialize remaining components.
+extern "C" void __attribute__((constructor(101)))
+dmtcp_initialize_entry_point()
+{
+  if (dmtcp_initialized) {
+    return;
+  }
+
+  dmtcp_initialized = true;
+
+  initializeRuntimePrimitives();
+  initializeBootstrapThreadState();
+  initializePluginManagerAndProcessState();
+  initializeRuntimeOptions();
+  initializePluginsAndCheckpointThread();
 }
 
 void
