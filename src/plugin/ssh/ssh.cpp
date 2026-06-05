@@ -106,7 +106,7 @@ dmtcp_ssh_drain()
     return;
   }
 
-  ASSERT_NULL_MSG(theDrainer, "SSH drainer already exists");
+  ASSERT_NULL(theDrainer, "SSH drainer already exists");
   theDrainer = new SSHDrainer();
   if (isSshdProcess) { // dmtcp_ssh process
     theDrainer->beginDrainOf(STDIN_FILENO, sshStdin);
@@ -188,7 +188,7 @@ sshdReceiveFds()
   ASSERT_ERRNO(sock.isValid(), "failed to create ssh receive socket");
   sock.changeFd(SSHD_RECEIVE_FD);
   fdReceiveAddr.sun_family = AF_UNIX;
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     _real_bind(SSHD_RECEIVE_FD,
                (struct sockaddr *)&fdReceiveAddr,
                sizeof(fdReceiveAddr.sun_family)),
@@ -196,20 +196,20 @@ sshdReceiveFds()
     SSHD_RECEIVE_FD);
 
   fdReceiveAddrLen = sizeof(fdReceiveAddr);
-  ASSERT_SYSCALL_SUCCESS_MSG(getsockname(SSHD_RECEIVE_FD,
+  ASSERT_SYSCALL_SUCCESS(getsockname(SSHD_RECEIVE_FD,
                                          (struct sockaddr *)&fdReceiveAddr,
                                          &fdReceiveAddrLen),
                              "getsockname failed for ssh receive socket: fd={}",
                              SSHD_RECEIVE_FD);
 
   // Send this information to dmtcp_ssh process
-  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(sizeof(fdReceiveAddrLen)),
+  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(sizeof(fdReceiveAddrLen)),
                         write(sshSockFd,
                               &fdReceiveAddrLen,
                               sizeof(fdReceiveAddrLen)),
                         "failed to send ssh receive address length: fd={}",
                         sshSockFd);
-  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(fdReceiveAddrLen),
+  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(fdReceiveAddrLen),
                         write(sshSockFd, &fdReceiveAddr, fdReceiveAddrLen),
                         "failed to send ssh receive address: fd={}",
                         sshSockFd);
@@ -230,7 +230,7 @@ createNewDmtcpSshdProcess()
   static char abstractSockName[20];
   int in[2], out[2], err[2];
 
-  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(sizeof(addrLen)),
+  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(sizeof(addrLen)),
                         read(sshSockFd, &addrLen, sizeof(addrLen)),
                         "failed to read ssh address length: fd={}",
                         sshSockFd);
@@ -239,7 +239,7 @@ createNewDmtcpSshdProcess()
   ASSERT(addrLen > sunPathOffset && addrLen <= sizeof(addr),
          "invalid ssh address length: len={} max={}",
          static_cast<size_t>(addrLen), sizeof(addr));
-  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(addrLen),
+  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(addrLen),
                         read(sshSockFd, &addr, addrLen),
                         "failed to read ssh address: fd={}", sshSockFd);
   const size_t abstractLen =
@@ -253,7 +253,7 @@ createNewDmtcpSshdProcess()
   struct sockaddr_in sshdSockAddr;
   socklen_t sshdSockAddrLen = sizeof(sshdSockAddr);
   char remoteHost[80];
-  ASSERT_SYSCALL_SUCCESS_MSG(getpeername(sshSockFd,
+  ASSERT_SYSCALL_SUCCESS(getpeername(sshSockFd,
                                          (struct sockaddr *)&sshdSockAddr,
                                          &sshdSockAddrLen),
                              "getpeername failed for ssh socket: fd={}",
@@ -267,12 +267,12 @@ createNewDmtcpSshdProcess()
   }
 
 
-  ASSERT_SYSCALL_SUCCESS_MSG(pipe(in), "creating ssh stdin pipe");
-  ASSERT_SYSCALL_SUCCESS_MSG(pipe(out), "creating ssh stdout pipe");
-  ASSERT_SYSCALL_SUCCESS_MSG(pipe(err), "creating ssh stderr pipe");
+  ASSERT_SYSCALL_SUCCESS(pipe(in), "creating ssh stdin pipe");
+  ASSERT_SYSCALL_SUCCESS(pipe(out), "creating ssh stdout pipe");
+  ASSERT_SYSCALL_SUCCESS(pipe(err), "creating ssh stderr pipe");
 
   pid_t sshChildPid = fork();
-  ASSERT_FORK_SUCCESS_MSG(sshChildPid, "failed to fork ssh child");
+  ASSERT_FORK_SUCCESS(sshChildPid, "failed to fork ssh child");
   if (sshChildPid == 0) {
     const int max_args = 16;
     char *argv[16];
@@ -668,7 +668,7 @@ updateCoordHost()
       }
     }
 
-    WARNING(success,
+    WARN(success,
             "Failed to find coordinator IP address. DMTCP may fail: host={}",
             hostname);
   } else {

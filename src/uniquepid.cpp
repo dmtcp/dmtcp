@@ -46,7 +46,7 @@ theUniqueHostId()
   // gethostid() calls socket() on some systems, which we don't want
   char buf[512];
 
-  ASSERT_SYSCALL_SUCCESS_MSG(::gethostname(buf, sizeof(buf)),
+  ASSERT_SYSCALL_SUCCESS(::gethostname(buf, sizeof(buf)),
                "gethostname failed");
 
   // so return a bad hash of our hostname
@@ -64,7 +64,7 @@ inline static long
 getTimeNs()
 {
   struct timespec value;
-  ASSERT_SYSCALL_SUCCESS_MSG(clock_gettime(CLOCK_MONOTONIC, &value),
+  ASSERT_SYSCALL_SUCCESS(clock_gettime(CLOCK_MONOTONIC, &value),
                "clock_gettime(CLOCK_MONOTONIC) failed");
   long nsecs = value.tv_sec * 1000000000L + value.tv_nsec;
   return nsecs;

@@ -57,6 +57,7 @@
  ****************************************************************************/
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>  // for HOST_NAME_MAX
 #include <netdb.h>
@@ -605,7 +606,7 @@ void
 DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 {
   client->setState(WorkerState::CHECKPOINTED);
-  ASSERT_NOT_NULL_MSG(extraData,
+  ASSERT_NOT_NULL(extraData,
                       "extra data expected with DMT_CKPT_FILENAME message");
 
   string ckptFilename = extraData;
@@ -728,7 +729,7 @@ DmtcpCoordinator::onData(CoordClient *client)
       (msg.from) (prevClientState) (msg.state) (barrier);
 
     if (!currentBarrier.empty() && barrier != currentBarrier) {
-      WARNING(false,
+      WARN(false,
               "worker reached a different active barrier; "
               "closing connection: barrier={} current={}",
               barrier,
@@ -738,7 +739,7 @@ DmtcpCoordinator::onData(CoordClient *client)
     }
 
     if (barrier == client->barrier()) {
-      WARNING(false,
+      WARN(false,
               "worker reached the same active barrier twice; "
               "ignoring: barrier={}",
               barrier);
@@ -828,8 +829,9 @@ DmtcpCoordinator::onData(CoordClient *client)
   }
 
   default:
-    JWARNING(false) (static_cast<int>(msg.type))
-      .Text("unexpected message from worker; closing connection");
+    WARN(false,
+         "unexpected message from worker; closing connection: type={}",
+         static_cast<int>(msg.type));
     onDisconnect(client);
     break;
   }
@@ -1029,7 +1031,7 @@ DmtcpCoordinator::onConnect()
     }
     _virtualPidToClientMap[client->virtualPid()] = client;
   } else {
-    WARNING(false,
+    WARN(false,
             "rejecting connect request from unknown remote process type: "
             "type={}",
             static_cast<int>(hello_remote.type));
@@ -1089,7 +1091,7 @@ getCurrTimestamp()
 {
   struct timespec value;
   uint64_t nsecs = 0;
-  ASSERT_SYSCALL_SUCCESS_MSG(clock_gettime(CLOCK_MONOTONIC, &value),
+  ASSERT_SYSCALL_SUCCESS(clock_gettime(CLOCK_MONOTONIC, &value),
                              "clock_gettime(CLOCK_MONOTONIC) failed");
   nsecs = value.tv_sec*1000000000L + value.tv_nsec;
   return nsecs;
@@ -1103,7 +1105,7 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
   socklen_t remoteLen)
 {
   if (hello_remote.state != WorkerState::RESTARTING) {
-    WARNING(false,
+    WARN(false,
             "rejecting restarting worker process with non-RESTARTING state: "
             "state={}",
             static_cast<int>(hello_remote.state));
@@ -1227,7 +1229,7 @@ DmtcpCoordinator::validateNewWorkerProcess(
   // Coming from dmtcp_launch or fork(), ssh(), etc.
   if (hello_remote.state != WorkerState::RUNNING &&
       hello_remote.state != WorkerState::UNKNOWN) {
-    WARNING(false,
+    WARN(false,
             "state is not RUNNING or UNKNOWN; rejecting new connection: "
             "state={}",
             static_cast<int>(hello_remote.state));
@@ -1235,7 +1237,7 @@ DmtcpCoordinator::validateNewWorkerProcess(
   }
 
   if (hello_remote.virtualPid != -1) {
-    WARNING(false,
+    WARN(false,
             "virtualPid is not -1; rejecting new connection: virtual_pid={}",
             hello_remote.virtualPid);
     return false;
@@ -1414,7 +1416,7 @@ DmtcpCoordinator::getStatus() const
                          : (WorkerState::eWorkerState)max);
   status.numPeers = count;
 
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     clock_gettime(CLOCK_MONOTONIC, &status.timestamp),
     "clock_gettime(CLOCK_MONOTONIC) failed while building status");
   return status;
@@ -1427,7 +1429,7 @@ signalHandler(int signum)
   if (signum == SIGINT) {
     theCoordinator.handleUserCommand("q");
   } else {
-    JWARNING(false) (signum).Text("ignoring unexpected signal");
+    WARN(false, "ignoring unexpected signal: signum={}", signum);
   }
 }
 
@@ -1533,8 +1535,9 @@ calcLocalAddr()
       }
     }
 
-    JWARNING(success) (hostname)
-      .Text("failed to find coordinator IP address; DMTCP may fail");
+    WARN(success,
+         "failed to find coordinator IP address; DMTCP may fail: hostname={}",
+         hostname);
   } else {
     if (error == EAI_SYSTEM) {
       perror("getaddrinfo");
@@ -1599,6 +1602,8 @@ DmtcpCoordinator::eventLoop()
                  "epoll_ctl add stdin failed");
   }
 
+  bool stdinClosed = false;
+
   while (true) {
     // Update plugins in case there was some client activity.
     CoordPluginMgr::tick(getStatus());
@@ -1644,9 +1649,13 @@ DmtcpCoordinator::eventLoop()
           std::getline(std::cin, cmd);
           if (std::cin.eof() == 1) {
             fputs("\n  Closing stdin...\n", stderr);
-            ASSERT_SYSCALL_SUCCESS_MSG(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev),
-              "epoll_ctl delete stdin after EOF failed");
-            close(STDIN_FD);
+            if (!stdinClosed) {
+              int rc = epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev);
+              ASSERT_ERRNO(rc != -1 || errno == ENOENT,
+                           "epoll_ctl delete stdin after EOF failed");
+              close(STDIN_FD);
+              stdinClosed = true;
+            }
           } else {
             std::transform(cmd.begin(), cmd.end(), cmd.begin(),
                            [](unsigned char c) { return std::tolower(c); });
@@ -1668,10 +1677,13 @@ DmtcpCoordinator::eventLoop()
           (events[n].events & EPOLLERR)) {
         JASSERT(ptr != listenSock).Text("listen socket reported hangup/error");
         if (ptr == (void *)STDIN_FILENO) {
-          ASSERT_ERRNO(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev)
-                       != -1,
-                       "epoll_ctl delete stdin after hangup failed");
-          close(STDIN_FD);
+          if (!stdinClosed) {
+            int rc = epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev);
+            ASSERT_ERRNO(rc != -1 || errno == ENOENT,
+                         "epoll_ctl delete stdin after hangup failed");
+            close(STDIN_FD);
+            stdinClosed = true;
+          }
         } else {
           onDisconnect((CoordClient *)ptr);
         }
@@ -1911,7 +1923,7 @@ main(int argc, char **argv)
                    "failed to redirect daemon stdin to /dev/null");
     } else {
       fd = open(flags.logFilename.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0644);
-      JASSERT_SET_LOG(flags.logFilename);
+      Util::setDiagnosticLogFile(flags.logFilename.c_str());
       int nullFd = open("/dev/null", O_RDWR);
       ASSERT_ERRNO(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO,
                    "failed to redirect daemon stdin to /dev/null");
@@ -1921,7 +1933,7 @@ main(int argc, char **argv)
                  "failed to redirect daemon stdout");
     ASSERT_ERRNO(dup2(fd, STDERR_FILENO) == STDERR_FILENO,
                  "failed to redirect daemon stderr");
-    JASSERT_CLOSE_STDERR();
+    Util::closeDiagnosticStderr();
     if (fd > STDERR_FILENO) {
       close(fd);
     }

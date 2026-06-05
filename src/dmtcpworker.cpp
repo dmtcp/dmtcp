@@ -53,7 +53,6 @@ static ATOMIC_SHARED_GLOBAL bool exitInProgress = false;
 static bool exitAfterCkpt = 0;
 static bool dmtcp_initialized = false;
 
-
 /* NOTE:  Please keep this function in sync with its copy at:
  *   dmtcp_nocheckpoint.cpp:restoreUserLDPRELOAD()
  */
@@ -185,7 +184,7 @@ installSegFaultHandler()
   memset(&act, 0, sizeof(act));
   act.sa_sigaction = segFaultHandler;
   act.sa_flags = SA_SIGINFO;
-  ASSERT_SYSCALL_SUCCESS_MSG(sigaction(SIGSEGV, &act, NULL),
+  ASSERT_SYSCALL_SUCCESS(sigaction(SIGSEGV, &act, NULL),
                "failed to install DMTCP SIGSEGV handler");
 }
 
@@ -511,7 +510,7 @@ DmtcpWorker::postCheckpoint()
      * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
      * So, gzip process can continue to write to file even after renaming.
      */
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
              ProcessInfo::instance().getCkptFilename().c_str()),
       "failed to rename checkpoint image: temp={} final={}",

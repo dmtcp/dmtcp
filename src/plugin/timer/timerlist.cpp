@@ -178,7 +178,7 @@ TimerList::preCheckpoint()
     timer_t virtId = _iter->first;
     timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(virtId);
     TimerInfo &tinfo = _iter->second;
-    ASSERT_SYSCALL_SUCCESS_MSG(_real_timer_gettime(
+    ASSERT_SYSCALL_SUCCESS(_real_timer_gettime(
                                  realId, &tinfo.curr_timerspec),
                                "reading timer state: virt_id={} real_id={}",
                                virtId, realId);
@@ -195,7 +195,7 @@ TimerList::postRestart()
     pid_t pid = dmtcp_pid_virtual_to_real(it1->second);
     clockid_t virtId = it1->first;
     clockid_t realId;
-    ASSERT_ZERO_RETURN_MSG(_real_clock_getcpuclockid(pid, &realId),
+    ASSERT_ZERO(_real_clock_getcpuclockid(pid, &realId),
                            "reading CPU clock id: pid={}", pid);
     _clockVirtIdTable.updateMapping(virtId, realId);
   }
@@ -205,7 +205,7 @@ TimerList::postRestart()
     pthread_t pth = it2->second;
     clockid_t virtId = it2->first;
     clockid_t realId;
-    ASSERT_PTHREAD_SUCCESS_MSG(_real_pthread_getcpuclockid(pth, &realId),
+    ASSERT_PTHREAD_SUCCESS(_real_pthread_getcpuclockid(pth, &realId),
                                "reading pthread CPU clock id: pthread={}",
                                pth);
     _clockVirtIdTable.updateMapping(virtId, realId);
@@ -221,7 +221,7 @@ TimerList::postRestart()
     if (!tinfo.sevp_null) {
       sevp = &tinfo.sevp;
     }
-    ASSERT_SYSCALL_SUCCESS_MSG(_real_timer_create(clockid, sevp, &realId),
+    ASSERT_SYSCALL_SUCCESS(_real_timer_create(clockid, sevp, &realId),
                                "creating timer: virt_id={} clock_id={}",
                                virtId, clockid);
     _timerVirtIdTable.updateMapping(virtId, realId);
@@ -239,7 +239,7 @@ TimerList::postRestart()
       } else {
         tspec = tinfo.curr_timerspec;
       }
-      ASSERT_SYSCALL_SUCCESS_MSG(_real_timer_settime(realId,
+      ASSERT_SYSCALL_SUCCESS(_real_timer_settime(realId,
                                                      tinfo.flags,
                                                      &tspec,
                                                      NULL),

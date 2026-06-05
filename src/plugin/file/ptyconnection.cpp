@@ -92,7 +92,7 @@ ptmxTestPacketMode(int masterFd)
      see command byte of TIOCPKT_DATA(0) with data. */
   tmp_buf[0] = 'x'; /* Don't set '\n'.  Could be converted to "\r\n". */
   /* Give the masterFd something to read. */
-  WARNING_SYSCALL_EQ_MSG(static_cast<ssize_t>(1),
+  WARN_SYSCALL_EQ(static_cast<ssize_t>(1),
                          rc = write(slave_fd, tmp_buf, 1),
                          "write failed while testing PTY packet mode: fd={}",
                          slave_fd);
@@ -242,7 +242,7 @@ PtyConnection::PtyConnection(int fd,
 
   case PTY_MASTER:
     _masterName = path;
-    ASSERT_ZERO_RETURN_MSG(_real_ptsname_r(fd, buf, sizeof(buf)),
+    ASSERT_ZERO(_real_ptsname_r(fd, buf, sizeof(buf)),
                            "PTY master fd={}",
                            fd);
     _ptsName = buf;
@@ -350,7 +350,7 @@ PtyConnection::refill(bool isRestart)
      */
     int extraFlags = 0; // _isControllingTTY ? 0 : O_NOCTTY;
     int tempfd = _real_open(_ptsName.c_str(), _fcntlFlags | extraFlags);
-    ASSERT_VALID_FD_MSG(tempfd, "Error Opening PTS: virt={} pts={}",
+    ASSERT_VALID_FD(tempfd, "Error Opening PTS: virt={} pts={}",
                         _virtPtsName, _ptsName);
 
     JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
@@ -364,7 +364,7 @@ PtyConnection::refill(bool isRestart)
      * into the refill mode, we should have all the pseudo-ttys present.
      */
     int tempfd = _real_open("/dev/tty", O_RDWR, 0);
-    ASSERT_VALID_FD_MSG(tempfd,
+    ASSERT_VALID_FD(tempfd,
                         "Error opening controlling terminal /dev/tty");
 
     JTRACE("Restoring /dev/tty for the process") (_fds[0]);
@@ -428,12 +428,12 @@ PtyConnection::postRestart()
                  "Replacing it with current STDIN")
             (stdinDeviceName);
         } else {
-          WARNING(false,
+          WARN(false,
                   "Unable to restore controlling terminal attached with the "
                   "parent process. Replacing it with current STDIN: stdin={}",
                   stdinDeviceName);
         }
-        WARNING(Util::strStartsWith(stdinDeviceName.c_str(), "/dev/pts/") ||
+        WARN(Util::strStartsWith(stdinDeviceName.c_str(), "/dev/pts/") ||
                 stdinDeviceName == "/dev/tty",
                 "Controlling terminal not bound to a terminal device: stdin={}",
                 stdinDeviceName);
@@ -460,13 +460,13 @@ PtyConnection::postRestart()
       char pts_name[80];
 
       tempfd = _real_open("/dev/ptmx", _fcntlFlags | extraFlags);
-      ASSERT_VALID_FD_MSG(tempfd, "Error Opening /dev/ptmx");
+      ASSERT_VALID_FD(tempfd, "Error Opening /dev/ptmx");
 
-      ASSERT_SYSCALL_SUCCESS_MSG(grantpt(tempfd), "grantpt failed: fd={}",
+      ASSERT_SYSCALL_SUCCESS(grantpt(tempfd), "grantpt failed: fd={}",
                                  tempfd);
-      ASSERT_SYSCALL_SUCCESS_MSG(unlockpt(tempfd), "unlockpt failed: fd={}",
+      ASSERT_SYSCALL_SUCCESS(unlockpt(tempfd), "unlockpt failed: fd={}",
                                  tempfd);
-      ASSERT_ZERO_RETURN_MSG(_real_ptsname_r(tempfd, pts_name, 80),
+      ASSERT_ZERO(_real_ptsname_r(tempfd, pts_name, 80),
                              "restored PTY fd={}",
                              tempfd);
 
@@ -498,7 +498,7 @@ PtyConnection::postRestart()
       // keep on trying all the possible BSD Master devices until one is
       // opened. It should then create a mapping between original Master/Slave
       // device name and current Master/Slave device name.
-      ASSERT_VALID_FD_MSG(tempfd,
+      ASSERT_VALID_FD(tempfd,
                           "Error Opening BSD Master Pty.(Already in use?)");
       break;
     }

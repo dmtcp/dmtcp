@@ -721,7 +721,7 @@ ShmSegment::ShmSegment(int shmid,
   _size = size;
   if (key == -1 || size == 0) {
     struct shmid_ds shminfo;
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       _real_shmctl(_realId, IPC_STAT, &shminfo),
       "failed to stat SysV shm during construction: shmid={}", _realId);
     _key = shminfo.shm_perm.__key;
@@ -813,7 +813,7 @@ ShmSegment::leaderElection()
   }
 
   // Remove the previously-attached segment.
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     _real_shmdt(savedAddr),
     "failed to detach temporary SysV shm leader-election address: "
     "shmid={} shmaddr={}",
@@ -825,7 +825,7 @@ ShmSegment::preCkptDrain()
 {
   struct shmid_ds info;
 
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     _real_shmctl(_realId, IPC_STAT, &info),
     "failed to stat SysV shm before checkpoint drain: shmid={}", _id);
 
@@ -869,7 +869,7 @@ ShmSegment::preCheckpoint()
 
   for (; i != _shmaddrToFlag.end(); ++i) {
     JTRACE("Unmapping shared memory segment") (_id)(i->first);
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       _real_shmdt(i->first),
       "failed to detach SysV shm before checkpoint: shmid={} shmaddr={}",
       _id, i->first);
@@ -913,7 +913,7 @@ ShmSegment::postRestart()
                "shmid={} real_shmid={}",
                _id, _realId);
   huge_memcpy((char *)tmpaddr, (char *)i->first, _size);
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     _real_shmdt(tmpaddr),
     "failed to detach temporary SysV shm after restart: shmid={} shmaddr={}",
     _id, tmpaddr);
@@ -928,7 +928,7 @@ ShmSegment::postRestart()
   JTRACE("Remapping shared memory segment to original address") (_id) (_realId);
   // Mark the segment as deleted if it was marked deleted at checkpoint.
   if (_mode & SHM_DEST) {
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       _real_shmctl(_realId, IPC_RMID, NULL),
       "failed to mark restored SysV shm deleted: shmid={} real_shmid={}",
       _id, _realId);
@@ -959,7 +959,7 @@ ShmSegment::preResume()
 
   for (; i != _shmaddrToFlag.end(); ++i) {
     // Unmap the reserved area.
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       munmap((void *)i->first, _size),
       "failed to unmap reserved SysV shm address before resume: "
       "shmid={} shmaddr={} size={}",
@@ -990,7 +990,7 @@ Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg)
     struct semid_ds buf;
     union semun se;
     se.buf = &buf;
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       _real_semctl(realSemid, 0, IPC_STAT, se),
       "failed to stat SysV sem during construction: semid={}", realSemid);
     _key = se.buf->sem_perm.__key;
@@ -1054,7 +1054,7 @@ Semaphore::leaderElection()
     sops.sem_num = 0;
     sops.sem_op = -1;
     sops.sem_flg = 0;
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       _real_semtimedop(_realId, &sops, 1, NULL),
       "failed to undo SysV sem leader-election increment: semid={}", _id);
   }
@@ -1069,7 +1069,7 @@ Semaphore::preCkptDrain()
       _real_semctl(_realId, 0, GETPID, arg)) {
     union semun info;
     info.array = &_semval[0];
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       _real_semctl(_realId, 0, GETALL, info),
       "failed to snapshot SysV sem values: semid={}", _id);
     _isCkptLeader = true;
@@ -1092,7 +1092,7 @@ Semaphore::postRestart()
 
     union semun info;
     info.array = &_semval[0];
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       _real_semctl(_realId, 0, SETALL, info),
       "failed to restore SysV sem values: semid={}", _id);
   }
@@ -1120,13 +1120,13 @@ Semaphore::refill()
     sops.sem_num = i;
     sops.sem_op = abs(_semadj[i]);
     sops.sem_flg = _semadj[i] > 0 ? 0 : SEM_UNDO;
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       _real_semop(_realId, &sops, 1),
       "failed to restore SysV sem adjustment: semid={} semnum={}", _id, i);
 
     sops.sem_op = -abs(_semadj[i]);
     sops.sem_flg = _semadj[i] < 0 ? SEM_UNDO : 0;
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       _real_semop(_realId, &sops, 1),
       "failed to rebalance SysV sem adjustment: semid={} semnum={}", _id, i);
   }
@@ -1143,7 +1143,7 @@ MsgQueue::MsgQueue(int msqid, int realMsqid, key_t key, int msgflg)
 {
   if (key == -1) {
     struct msqid_ds buf;
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       _real_msgctl(realMsqid, IPC_STAT, &buf),
       "failed to stat SysV msg queue during construction: msqid={}",
       realMsqid);
@@ -1175,7 +1175,7 @@ MsgQueue::leaderElection()
   // of messages in the queue.
   struct msqid_ds buf;
 
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     _real_msgctl(_realId, IPC_STAT, &buf),
     "failed to stat SysV msg queue for leader election: msqid={}", _id);
 
@@ -1196,7 +1196,7 @@ MsgQueue::preCkptDrain()
 
   msg.mtype = getpid();
   msg.mtext[0] = '\0';
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     _real_msgsnd(_realId, &msg, 1, IPC_NOWAIT),
     "failed to send SysV msg leader-election marker: msqid={}", _id);
   _isCkptLeader = false;
@@ -1208,7 +1208,7 @@ MsgQueue::preCheckpoint()
   struct msqid_ds buf;
 
   memset(&buf, 0, sizeof buf);
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     _real_msgctl(_realId, IPC_STAT, &buf),
     "failed to stat SysV msg queue before checkpoint: msqid={}", _id);
 
@@ -1262,14 +1262,14 @@ MsgQueue::refill()
 {
   if (_isCkptLeader) {
     struct msqid_ds buf;
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       _real_msgctl(_realId, IPC_STAT, &buf),
       "failed to stat SysV msg queue before refill: msqid={}", _id);
 
     for (size_t i = 0; i < _qnum; i++) {
       struct msgbuf *msgBuf = (struct msgbuf*) _msgInQueue[i].data();
       size_t msgSize = _msgInQueue[i].size() - sizeof(msgBuf->mtype);
-      ASSERT_SYSCALL_SUCCESS_MSG(
+      ASSERT_SYSCALL_SUCCESS(
         _real_msgsnd(_realId, msgBuf, msgSize, IPC_NOWAIT),
         "failed to refill SysV msg queue: msqid={} index={}", _id, i);
     }

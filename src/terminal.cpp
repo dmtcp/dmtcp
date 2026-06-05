@@ -75,7 +75,7 @@ restore_term_settings()
     if (foreground) {
       if ((!isatty(STDIN_FILENO)
            || safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) == -1)) {
-        WARNING(false, "failed to restore terminal");
+        WARN(false, "failed to restore terminal");
       } else {
         struct winsize cur_win;
         JTRACE("restored terminal");
@@ -90,7 +90,7 @@ restore_term_settings()
         }
       }
     } else {
-      WARNING(false, "skip restore terminal step: process is in background");
+      WARN(false, "skip restore terminal step: process is in background");
     }
   }
 

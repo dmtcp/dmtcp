@@ -54,7 +54,7 @@ Util::lockFile(int fd)
     result = _real_fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
   } while (result == -1 && errno == EINTR);
 
-  ASSERT_SYSCALL_SUCCESS_MSG(result, "Unable to lock file: fd={}", fd);
+  ASSERT_SYSCALL_SUCCESS(result, "Unable to lock file: fd={}", fd);
 #if (__arm__ || __aarch64__)
   WMB;  // DMB, ensure writes by others to memory have completed before we
         // we enter protected region.
@@ -287,7 +287,7 @@ int
 Util::changeFd(int oldfd, int newfd)
 {
   if (oldfd != newfd) {
-    ASSERT_SYSCALL_EQ_MSG(newfd,
+    ASSERT_SYSCALL_EQ(newfd,
                           _real_dup2(oldfd, newfd),
                           "dup2 failed in Util::changeFd: oldfd={} newfd={}",
                           oldfd, newfd);
@@ -314,8 +314,8 @@ Util::readLine(int fd, char *buf, int count)
   int i = 0;
   char c;
 
-  ASSERT_VALID_FD_MSG(fd, "invalid Util::readLine fd: buf={}", buf);
-  ASSERT_NOT_NULL_MSG(buf, "invalid Util::readLine buffer: fd={}", fd);
+  ASSERT_VALID_FD(fd, "invalid Util::readLine fd: buf={}", buf);
+  ASSERT_NOT_NULL(buf, "invalid Util::readLine buffer: fd={}", fd);
 #define NEWLINE '\n' // Linux, OSX
   while (i < count) {
     ssize_t rc = read(fd, &c, 1);

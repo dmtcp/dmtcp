@@ -361,7 +361,7 @@ pidVirt_PostRestart()
   JTRACE("Open dmtcpPidMapFile")(o.str());
   pidMapFile = o.str();
   int fd = openSharedFile(pidMapFile, O_RDWR);
-  ASSERT_VALID_FD_MSG(fd, "failed to open PID map file: path={}",
+  ASSERT_VALID_FD(fd, "failed to open PID map file: path={}",
                       pidMapFile);
 
   VirtualPidTable::instance().writeMapsToFile(fd);

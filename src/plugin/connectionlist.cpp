@@ -274,7 +274,7 @@ ConnectionList::serialize(jalib::JBinarySerializer &o)
       JSERIALIZE_ASSERT_POINT("[StartConnection]");
       o&key &type;
       con = createDummyConnection(type);
-      ASSERT_NOT_NULL_MSG(con,
+      ASSERT_NOT_NULL(con,
                           "failed to create dummy connection: type={} "
                           "host_id={} pid={} time={} con_id={}",
                           type, key.hostid(), key.pid(), key.time(),
@@ -580,7 +580,7 @@ ConnectionList::registerIncomingCons()
          protected_fd);
   sock.changeFd(protected_fd);
   fdReceiveAddr.sun_family = AF_UNIX;
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     _real_bind(protected_fd,
                (struct sockaddr *)&fdReceiveAddr,
                sizeof(fdReceiveAddr.sun_family)),
@@ -588,7 +588,7 @@ ConnectionList::registerIncomingCons()
     protected_fd);
 
   fdReceiveAddrLen = sizeof(fdReceiveAddr);
-  ASSERT_SYSCALL_SUCCESS_MSG(getsockname(protected_fd,
+  ASSERT_SYSCALL_SUCCESS(getsockname(protected_fd,
                                          (struct sockaddr *)&fdReceiveAddr,
                                          &fdReceiveAddrLen),
                              "getsockname failed for fd-receive socket: "
@@ -648,7 +648,7 @@ ConnectionList::sendReceiveMissingFds()
       socketFd.events |= POLLIN;
     }
 
-    ASSERT_SYSCALL_SUCCESS_MSG(_real_poll(&socketFd, 1, -1),
+    ASSERT_SYSCALL_SUCCESS(_real_poll(&socketFd, 1, -1),
                                "poll failed for missing fd exchange: fd={}",
                                restoreFd);
 
@@ -670,13 +670,13 @@ ConnectionList::sendReceiveMissingFds()
     if (numIncomingCons > 0 && (socketFd.revents & POLLIN)) {
       ConnectionIdentifier id;
       int fd = Util::receiveFd(restoreFd, &id, sizeof(id));
-      ASSERT_VALID_FD_MSG(fd,
+      ASSERT_VALID_FD(fd,
                           "receiveFd failed for missing connection: "
                           "restore_fd={}",
                           restoreFd);
       Connection *con = getConnection(id);
       JTRACE("Received Missing Con") (id);
-      ASSERT_NOT_NULL_MSG(con,
+      ASSERT_NOT_NULL(con,
                           "received unknown missing connection: host_id={} "
                           "pid={} time={} con_id={}",
                           id.hostid(), id.pid(), id.time(), id.conId());

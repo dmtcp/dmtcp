@@ -301,7 +301,7 @@ inotify_init()
     return _real_inotify_init();
   }
 
-  WARNING(false, "Inotify not yet supported by DMTCP");
+  WARN(false, "Inotify not yet supported by DMTCP");
   errno = ENOMEM;
   return -1;
 }
@@ -313,7 +313,7 @@ inotify_init1(int flags)
     return _real_inotify_init1(flags);
   }
 
-  WARNING(false, "Inotify not yet supported by DMTCP");
+  WARN(false, "Inotify not yet supported by DMTCP");
   errno = ENOMEM;
   return -1;
 }

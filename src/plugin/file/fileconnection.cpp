@@ -246,7 +246,7 @@ FileConnection::preCkpt()
       int destFd = _real_open(
           _savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
           S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-      ASSERT_VALID_FD_MSG(destFd,
+      ASSERT_VALID_FD(destFd,
                           "failed to open checkpointed file copy: path={} "
                           "saved={}",
                           _path, _savedFilePath);
@@ -256,7 +256,7 @@ FileConnection::preCkpt()
         // If the file is opened() in write-only mode. Open it in readonly mode
         // to create the ckpt copy.
         int tmpfd = _real_open(_path.c_str(), O_RDONLY, 0);
-        ASSERT_VALID_FD_MSG(tmpfd,
+        ASSERT_VALID_FD(tmpfd,
                             "failed to open write-only file for checkpoint "
                             "copy: path={}",
                             _path);
@@ -302,7 +302,7 @@ FileConnection::overwriteFileWithBackup(int savedFd)
   _real_close(_fds[0]);
 
   // Create a backup of user file
-  WARNING_SYSCALL_SUCCESS_MSG(rename(_path.c_str(), backupPath.c_str()),
+  WARN_SYSCALL_SUCCESS(rename(_path.c_str(), backupPath.c_str()),
                 "Error creating a backup: path={} backup={}", _path,
                 backupPath);
 
@@ -336,7 +336,7 @@ FileConnection::refill(bool isRestart)
 
   if (_ckpted_file && _fileAlreadyExists) {
     int savedFd = _real_open(_savedFilePath.c_str(), O_RDONLY, 0);
-    ASSERT_VALID_FD_MSG(savedFd,
+    ASSERT_VALID_FD(savedFd,
                         "failed to open checkpointed file copy: saved={}",
                         _savedFilePath);
 
@@ -347,7 +347,7 @@ FileConnection::refill(bool isRestart)
     } else {
       if (!areFilesEqual(_fds[0], savedFd, _st_size)) {
         if (_type == FILE_SHM) {
-          WARNING(false,
+          WARN(false,
                   "Mapping current version of file into memory, not file as "
                   "it existed at checkpoint: path={} saved={}",
                   _path, _savedFilePath);
@@ -367,8 +367,8 @@ FileConnection::refill(bool isRestart)
     if (_type == FILE_DELETED &&
         ((_fcntlFlags & O_WRONLY) || (_fcntlFlags & O_RDWR))) {
       tempfd = _real_open(_path.c_str(), _fcntlFlags | O_CREAT, 0600);
-      ASSERT_VALID_FD_MSG(tempfd, "open() failed: path={}", _path);
-      ASSERT_SYSCALL_SUCCESS_MSG(truncate(_path.c_str(), _st_size),
+      ASSERT_VALID_FD(tempfd, "open() failed: path={}", _path);
+      ASSERT_SYSCALL_SUCCESS(truncate(_path.c_str(), _st_size),
                    "truncate failed: path={} size={}", _path, _st_size);
     } else if (jalib::Filesystem::FileExists(_path)) {
       if (stat(_path.c_str(), &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
@@ -389,17 +389,17 @@ FileConnection::refill(bool isRestart)
           if (!dmtcp_skip_truncate_file_at_restart(_path.c_str())) {
             JTRACE("Truncating file to ckpt-size")
               (_path) (_st_size) (statbuf.st_size);
-            ASSERT_SYSCALL_SUCCESS_MSG(truncate(_path.c_str(), _st_size),
+            ASSERT_SYSCALL_SUCCESS(truncate(_path.c_str(), _st_size),
                          "truncate failed: path={} size={}", _path, _st_size);
           } else {
-            WARNING(false,
+            WARN(false,
                     "Setting saved size to the current file size: path={} "
                     "saved_size={} current_size={}",
                     _path, _st_size, statbuf.st_size);
             _st_size = statbuf.st_size;
           }
         } else if (statbuf.st_size < _st_size) {
-          WARNING(false,
+          WARN(false,
                   "Size of file smaller than expected: path={} saved_size={} "
                   "current_size={}",
                   _path, _st_size, statbuf.st_size);
@@ -410,10 +410,10 @@ FileConnection::refill(bool isRestart)
       // File doesn't exist. If it's a WRONLY file, we'll create a new one.
       mode_t createMode = (_mode == 0) ? 0600 : (_mode & 0777);
       tempfd = _real_open(_path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, createMode);
-      ASSERT_VALID_FD_MSG(tempfd,
+      ASSERT_VALID_FD(tempfd,
                           "failed to create missing WRONLY file: path={}",
                           _path);
-      ASSERT_SYSCALL_SUCCESS_MSG(ftruncate(tempfd, _st_size),
+      ASSERT_SYSCALL_SUCCESS(ftruncate(tempfd, _st_size),
                    "ftruncate failed: path={} fd={} size={}", _path, tempfd,
                    _st_size);
     } else {
@@ -427,14 +427,14 @@ FileConnection::refill(bool isRestart)
   if (jalib::Filesystem::FileExists(_path) &&
       stat(_path.c_str(), &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
     if (_offset <= statbuf.st_size && _offset <= _st_size) {
-      ASSERT_SYSCALL_EQ_MSG(static_cast<off_t>(_offset),
+      ASSERT_SYSCALL_EQ(static_cast<off_t>(_offset),
                             lseek(_fds[0], _offset, SEEK_SET),
                             "failed to restore file offset: path={} offset={}",
                             _path, _offset);
 
       // JTRACE("lseek(_fds[0], _offset, SEEK_SET)") (_fds[0]) (_offset);
     } else if (_offset > statbuf.st_size || _offset > _st_size) {
-      WARNING(false,
+      WARN(false,
               "No lseek done: offset is larger than min of old and new size: "
               "path={} offset={} saved_size={} current_size={}",
               _path, _offset, _st_size, statbuf.st_size);
@@ -454,7 +454,7 @@ FileConnection::resume(bool isRestart)
      * we unlink the file.
      */
     if (jalib::Filesystem::FileExists(_path)) {
-      WARNING_SYSCALL_SUCCESS_MSG(unlink(_path.c_str()),
+      WARN_SYSCALL_SUCCESS(unlink(_path.c_str()),
                     "The file was unlinked at checkpoint, but unlinking it "
                     "after restart failed: path={}",
                     _path);
@@ -526,7 +526,7 @@ FileConnection::postRestart()
          _savedFilePath, _path);
 
   if (_type == FILE_BATCH_QUEUE) {
-    ASSERT_NOT_NULL_MSG(dmtcp_bq_restore_file,
+    ASSERT_NOT_NULL(dmtcp_bq_restore_file,
                         "batch-queue restore hook is missing");
     tempfd = dmtcp_bq_restore_file(_path.c_str(), _savedFilePath.c_str(),
                                    _fcntlFlags, _rmtype);
@@ -553,7 +553,7 @@ FileConnection::postRestart()
       _fileAlreadyExists = true;
     } else {
       int srcFd = _real_open(_savedFilePath.c_str(), O_RDONLY, 0);
-      ASSERT_VALID_FD_MSG(srcFd,
+      ASSERT_VALID_FD(srcFd,
                           "Failed to open checkpointed copy of the file: "
                           "path={} saved={}",
                           _path, _savedFilePath);
@@ -580,14 +580,14 @@ FileConnection::checkDup(int fd, const char *npath)
   if (fullPath != fpath &&
        lseek(myfd, 0, SEEK_CUR) == lseek(fd, 0, SEEK_CUR)) {
     off_t newOffset = lseek(myfd, 1, SEEK_CUR);
-    ASSERT_SYSCALL_SUCCESS_MSG(newOffset, "lseek failed: fd={}", myfd);
+    ASSERT_SYSCALL_SUCCESS(newOffset, "lseek failed: fd={}", myfd);
 
     if (newOffset == lseek(fd, 0, SEEK_CUR)) {
       retVal = true;
     }
 
     // Now restore the old offset
-    ASSERT_SYSCALL_SUCCESS_MSG(lseek(myfd, -1, SEEK_CUR),
+    ASSERT_SYSCALL_SUCCESS(lseek(myfd, -1, SEEK_CUR),
                                "lseek failed: fd={}", myfd);
   }
   return retVal;
@@ -602,7 +602,7 @@ FileConnection::openFile()
   char realPath[PATH_MAX];
   int fd = _real_open(virtualToRealPathForInternalOpen(_path, realPath),
                       _fcntlFlags);
-  ASSERT_VALID_FD_MSG(fd, "open() failed: path={}", _path);
+  ASSERT_VALID_FD(fd, "open() failed: path={}", _path);
 
   JTRACE("open(_path.c_str(), _fcntlFlags)") (fd) (_path.c_str()) (realPath)
     (_fcntlFlags);
@@ -620,15 +620,15 @@ areFilesEqual(int fd, int savedFd, size_t size)
   off_t offset1 = lseek(fd, 0, SEEK_CUR);
   off_t offset2 = lseek(savedFd, 0, SEEK_CUR);
 
-  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
+  ASSERT_SYSCALL_SUCCESS(lseek(fd, 0, SEEK_SET),
                "failed to seek current file: fd={}", fd);
-  ASSERT_SYSCALL_SUCCESS_MSG(lseek(savedFd, 0, SEEK_SET),
+  ASSERT_SYSCALL_SUCCESS(lseek(savedFd, 0, SEEK_SET),
                "failed to seek saved file: fd={}", savedFd);
 
   int readBytes;
   while (size > 0) {
     readBytes = Util::readAll(savedFd, buf1, MIN(bufSize, size));
-    ASSERT_SYSCALL_SUCCESS_MSG(readBytes, "Read Failed: fd={}", savedFd);
+    ASSERT_SYSCALL_SUCCESS(readBytes, "Read Failed: fd={}", savedFd);
     if (readBytes == 0) {
       break;
     }
@@ -642,10 +642,10 @@ areFilesEqual(int fd, int savedFd, size_t size)
   }
   JALLOC_HELPER_FREE(buf1);
   JALLOC_HELPER_FREE(buf2);
-  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, offset1, SEEK_SET),
+  ASSERT_SYSCALL_SUCCESS(lseek(fd, offset1, SEEK_SET),
                "failed to restore current file offset: fd={} offset={}", fd,
                offset1);
-  ASSERT_SYSCALL_SUCCESS_MSG(lseek(savedFd, offset2, SEEK_SET),
+  ASSERT_SYSCALL_SUCCESS(lseek(savedFd, offset2, SEEK_SET),
                "failed to restore saved file offset: fd={} offset={}",
                savedFd, offset2);
   return size == 0;
@@ -663,23 +663,23 @@ writeFileFromFd(int fd, int destFd)
   fsync(fd);
 
   off_t offset = lseek(fd, 0, SEEK_CUR);
-  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
+  ASSERT_SYSCALL_SUCCESS(lseek(fd, 0, SEEK_SET),
                "failed to seek source file: fd={}", fd);
-  ASSERT_SYSCALL_SUCCESS_MSG(lseek(destFd, 0, SEEK_SET),
+  ASSERT_SYSCALL_SUCCESS(lseek(destFd, 0, SEEK_SET),
                "failed to seek destination file: fd={}", destFd);
 
   int readBytes, writtenBytes;
   while (1) {
     readBytes = Util::readAll(fd, buf, bufSize);
-    ASSERT_SYSCALL_SUCCESS_MSG(readBytes, "Read Failed: fd={}", fd);
+    ASSERT_SYSCALL_SUCCESS(readBytes, "Read Failed: fd={}", fd);
     if (readBytes == 0) {
       break;
     }
     writtenBytes = Util::writeAll(destFd, buf, readBytes);
-    ASSERT_SYSCALL_SUCCESS_MSG(writtenBytes, "Write failed: fd={}", destFd);
+    ASSERT_SYSCALL_SUCCESS(writtenBytes, "Write failed: fd={}", destFd);
   }
   JALLOC_HELPER_FREE(buf);
-  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, offset, SEEK_SET),
+  ASSERT_SYSCALL_SUCCESS(lseek(fd, offset, SEEK_SET),
                "failed to restore source file offset: fd={} offset={}", fd,
                offset);
 }
@@ -723,7 +723,7 @@ FifoConnection::drain()
   int new_flags = (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR |
     O_NONBLOCK;
   ckptfd = _real_open(_path.c_str(), new_flags);
-  ASSERT_VALID_FD_MSG(ckptfd,
+  ASSERT_VALID_FD(ckptfd,
                       "failed to open FIFO for checkpoint: path={}", _path);
 
   _in_data.clear();
@@ -751,7 +751,7 @@ FifoConnection::refill(bool isRestart)
     O_NONBLOCK;
 
   ckptfd = _real_open(_path.c_str(), new_flags);
-  ASSERT_VALID_FD_MSG(ckptfd, "failed to open FIFO for refill: path={}",
+  ASSERT_VALID_FD(ckptfd, "failed to open FIFO for refill: path={}",
                       _path);
 
   size_t bufsize = 256;
@@ -761,7 +761,7 @@ FifoConnection::refill(bool isRestart)
     for (j = 0; j < bufsize; j++) {
       buf[j] = _in_data[j + i * bufsize];
     }
-    ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(j),
+    ASSERT_SYSCALL_EQ(static_cast<ssize_t>(j),
                           Util::writeAll(ckptfd, buf, j),
                           "failed to refill FIFO chunk: fd={} chunk={}",
                           _fds[0], i);
@@ -773,7 +773,7 @@ FifoConnection::refill(bool isRestart)
   errno = 0;
   buf[j] = '\0';
   JTRACE("Buf internals.") ((const char *)buf);
-  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(j),
+  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(j),
                         Util::writeAll(ckptfd, buf, j),
                         "failed to refill FIFO tail: fd={}", _fds[0]);
 
@@ -828,7 +828,7 @@ FifoConnection::openFile()
   fd = _real_open(_path.c_str(), O_RDWR | O_NONBLOCK);
   JTRACE("Is opened") (_path.c_str()) (fd);
 
-  ASSERT_VALID_FD_MSG(fd, "failed to open FIFO after restart: path={}", _path);
+  ASSERT_VALID_FD(fd, "failed to open FIFO after restart: path={}", _path);
   return fd;
 }
 
@@ -870,7 +870,7 @@ StdioConnection::postRestart()
       ASSERT(false, "invalid stdio connection type: type={}", _type);
     }
     errno = 0;
-    WARNING_SYSCALL_EQ_MSG(fd,
+    WARN_SYSCALL_EQ(fd,
                            _real_dup2(oldFd, fd),
                            "failed to restore stdio fd: old_fd={} fd={}",
                            oldFd, fd);
@@ -935,14 +935,14 @@ PosixMQConnection::drain()
   JTRACE("Checkpoint Posix Message Queue.") (_fds[0]);
 
   struct stat statbuf;
-  ASSERT_SYSCALL_SUCCESS_MSG(fstat(_fds[0], &statbuf),
+  ASSERT_SYSCALL_SUCCESS(fstat(_fds[0], &statbuf),
                "failed to stat POSIX MQ: fd={}", _fds[0]);
   if (_mode == 0) {
     _mode = statbuf.st_mode;
   }
 
   struct mq_attr attr;
-  ASSERT_SYSCALL_SUCCESS_MSG(mq_getattr(_fds[0], &attr),
+  ASSERT_SYSCALL_SUCCESS(mq_getattr(_fds[0], &attr),
                "failed to read POSIX MQ attributes: fd={}", _fds[0]);
   _attr = attr;
   if (attr.mq_curmsgs < 0) {
@@ -990,7 +990,7 @@ PosixMQConnection::postRestart()
   }
 
   int tempfd = _real_mq_open(_name.c_str(), _oflag, _mode, &_attr);
-  ASSERT_VALID_FD_MSG(tempfd,
+  ASSERT_VALID_FD(tempfd,
                       "failed to reopen POSIX MQ after restart: name={}",
                       _name);
   restoreDupFds(tempfd);

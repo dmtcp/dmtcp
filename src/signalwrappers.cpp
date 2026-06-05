@@ -53,7 +53,7 @@ bannedSignalNumber()
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, stopSignal);
-    ASSERT_PTHREAD_SUCCESS_MSG(
+    ASSERT_PTHREAD_SUCCESS(
       _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),
       "unblocking checkpoint signal: signal={}",
       stopSignal);
@@ -158,7 +158,7 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
   if (signum == bannedSignalNumber() && act != NULL) {
     static int alreadyWarned = 0;
     if (!alreadyWarned) {
-      WARNING(false,
+      WARN(false,
               "application tried to use DMTCP's checkpoint signal: signal={}. "
               "Set DMTCP_SIGCKPT to a different checkpoint signal number. "
               "Further warnings will be suppressed.",
@@ -311,7 +311,7 @@ sigrelse(int sig)
 EXTERNC int
 __sigpause(int __sig_or_mask, int __is_sig)
 {
-  WARNING(false,
+  WARN(false,
           "__sigpause is deprecated; use sigsuspend instead: value={} "
           "is_sig={}. The DMTCP wrapper for this function may not be fully "
           "tested.",
@@ -325,7 +325,7 @@ __sigpause(int __sig_or_mask, int __is_sig)
 EXTERNC int
 sigpause(int sig)
 {
-  WARNING(false,
+  WARN(false,
           "sigpause is deprecated; use sigsuspend instead: signal={}. The "
           "DMTCP wrapper for this function may not be fully tested.",
           sig);
