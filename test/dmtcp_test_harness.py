@@ -41,6 +41,9 @@ def parse_dmtcp_command_json(raw_output: str) -> Dict[str, object]:
     try:
         payload = json.loads(raw_output)
     except json.JSONDecodeError as error:
+        if ("{" in raw_output and "}" in raw_output) or (
+                "[" in raw_output and "]" in raw_output):
+            raise ValueError(f"mixed human/JSON output: {error}") from error
         raise ValueError(f"invalid JSON output: {error}") from error
     validate_dmtcp_command_json_payload(payload)
     return payload
