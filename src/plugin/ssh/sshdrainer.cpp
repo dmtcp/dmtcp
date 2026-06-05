@@ -80,7 +80,7 @@ SSHDrainer::onTimeoutInterval()
       _timeoutCount = 0;
       for (size_t i = 0; i < _dataSockets.size(); ++i) {
         vector<char> &buffer = _drainedData[_dataSockets[i]->socket().sockfd()];
-        WARNING(false,
+        WARN(false,
                 "Still draining socket; perhaps remote host is not running "
                 "under DMTCP: fd={} bytes={} interval_ms={}",
                 _dataSockets[i]->socket().sockfd(), buffer.size(),

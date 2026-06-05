@@ -76,7 +76,7 @@ static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
 static void
 writeCkptAll(int fd, const void *buf, size_t count, const char *what)
 {
-  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(count),
+  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(count),
                         Util::writeAll(fd, buf, count),
                         "failed to write checkpoint data: what={} fd={}",
                         what, fd);
@@ -217,7 +217,7 @@ mtcp_writememoryareas(int fd)
   writeCkptAll(fd, &area, sizeof(area), "end-of-areas marker");
 
   /* That's all folks */
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     _real_close(fd),
     "failed to close checkpoint memory-area fd: fd={}", fd);
 }
@@ -226,7 +226,7 @@ static void
 remap_nscd_areas(const vector<ProcMapsArea> &areas)
 {
   for (size_t i = 0; i < areas.size(); i++) {
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       munmap(areas[i].addr, areas[i].size),
       "error unmapping NSCD shared area: addr={} size={}",
       areas[i].addr, areas[i].size);
@@ -491,7 +491,7 @@ writememoryarea(int fd, Area area)
    * condition.
    */
   if ((area.prot & PROT_READ) == 0) {
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       mprotect(area.addr, area.size, area.prot | PROT_READ),
       "error adding PROT_READ to memory region: addr={} size={} prot={}",
       area.addr, area.size, area.prot);
@@ -534,7 +534,7 @@ writememoryarea(int fd, Area area)
   
   // Now remove PROT_READ from the area if it didn't have it originally
   if ((area.prot & PROT_READ) == 0) {
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       mprotect(area.addr, area.size, area.prot),
       "error removing PROT_READ from memory region: addr={} size={} prot={}",
       area.addr, area.size, area.prot);

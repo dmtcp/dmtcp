@@ -21,6 +21,7 @@
 
 #include <sys/resource.h>
 #include <linux/version.h>
+#include <errno.h>
 #include <string_view>
 #include <unistd.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
@@ -29,6 +30,8 @@
 #  define ADDR_NO_RANDOMIZE  0x0040000  /* In case of old glibc, not defined */
 # endif
 #endif
+#include <stdio.h>
+#include <string.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
@@ -426,9 +429,10 @@ processArgs(int *orig_argc, const char ***orig_argv)
     setenv(ENV_VAR_COMPRESSION, "0", 1);
     if (getenv(ENV_VAR_QUIET) != NULL &&
         Util::strEquals(getenv(ENV_VAR_QUIET), "0")) {
-      JASSERT_STDERR <<
+      fputs(
         "\n*** Turning off gzip compression.  The armv8 CPU support is"
-        " still in beta testing.\n*** Gzip not yet supported.\n\n";
+        " still in beta testing.\n*** Gzip not yet supported.\n\n",
+        stderr);
     }
   }
 #endif // if __aarch64__
@@ -515,14 +519,15 @@ main(int argc, const char **argv)
   struct rlimit rlim;
   getrlimit(RLIMIT_STACK, &rlim);
   if (rlim.rlim_cur > 256 * 1024 * 1024 && rlim.rlim_cur != RLIM_INFINITY) {
-    JASSERT_STDERR <<
+    fputs(
       "*** WARNING:  RLIMIT_STACK > 1/4 GB.  This causes each thread to"
       "\n***  receive a 1/4 GB stack segment.  Checkpoint/restart will be slow,"
       "\n***  and will potentially break if many threads are created."
       "\n*** Suggest setting (sh/bash):  ulimit -s 10000"
       "\n***                (csh/tcsh):  limit stacksize 10000"
       "\n*** prior to using DMTCP.  (This will be fixed in the future, when"
-      "\n*** DMTCP supports restoring zero-mapped pages.)\n\n\n";
+      "\n*** DMTCP supports restoring zero-mapped pages.)\n\n\n",
+      stderr);
   }
 
   // Remove this when zero-mapped pages are supported.  For segments with
@@ -605,10 +610,12 @@ main(int argc, const char **argv)
     // Couldn't read argv_buf
     // FIXME:  This could have been a symbolic link.  Don't issue an error,
     // unless we're sure that the executable is not readable.
-    JASSERT_STDERR <<
+    fprintf(
+      stderr,
       "*** ERROR:  Executable to run w/ DMTCP appears not to be readable,\n"
       "***         or no such executable in path.\n\n"
-                   << argv[0] << "\n";
+      "%s\n",
+      argv[0]);
     exit(DMTCP_FAIL_RC);
   } else {
     testStaticallyLinked(argv[0]);
@@ -653,12 +660,12 @@ main(int argc, const char **argv)
   }
 
   // should be unreachable
-  JASSERT_STDERR <<
-    "ERROR: Failed to exec(\"" << argv[0] << "\"): " << JASSERT_ERRNO << "\n"
-                 << "Perhaps it is not in your $PATH?\n"
-                 << "See `dmtcp_launch --help` for usage.\n";
-
-  // fprintf(stderr, theExecFailedMsg, argv[0], JASSERT_ERRNO);
+  const int savedErrno = errno;
+  fprintf(stderr,
+          "ERROR: Failed to exec(\"%s\"): %s\n"
+          "Perhaps it is not in your $PATH?\n"
+          "See `dmtcp_launch --help` for usage.\n",
+          argv[0], strerror(savedErrno));
 
   return -1;
 }
@@ -687,7 +694,7 @@ testMatlab(const char *filename)
   if (Util::strEquals(filename, "matlab") &&
       (getenv(ENV_VAR_QUIET) == NULL ||
        !Util::strEquals(getenv(ENV_VAR_QUIET), "0"))) {
-    JASSERT_STDERR << theMatlabWarning;
+    fputs(theMatlabWarning, stderr);
     return -1;
   }
 # endif // if __GNUC__ == 4 && __GNUC_MINOR__ > 1
@@ -728,7 +735,7 @@ testJava(const char **argv)
       static_cast<unsigned long long>(pageCount) *
       static_cast<unsigned long long>(pageSize);
     if (memTotalBytes > 4ULL * 1024 * 1024 * 1024) {
-      JASSERT_STDERR << theJavaWarning;
+      fputs(theJavaWarning, stderr);
     }
   }
   return -1;
@@ -748,7 +755,7 @@ testSetuid(const char *filename)
       "***  for the best.  For some programs, you may wish to\n"
       "***  compile your own private copy, without using setuid permission.\n";
 
-    JASSERT_STDERR << theSetuidWarning;
+    fputs(theSetuidWarning, stderr);
     sleep(3);
     return true;
   }
@@ -759,21 +766,19 @@ void
 testStaticallyLinked(const char *pathname)
 {
   if (Util::isStaticallyLinked(pathname)) {
-    JASSERT_STDERR <<
-      "*** WARNING:  " ELF_INTERPRETER " --verify " << pathname << " returns\n"
-                   << "***  nonzero status.\n"
-                   << "*** This often means that " << pathname << " is\n"
-                   <<
-      "*** a statically linked target.  If so, you can confirm this with\n"
-                   << "*** the 'file' command.\n"
-                   << "***  The standard DMTCP only supports dynamically"
-                   << " linked executables.\n"
-                   <<
-      "*** If you cannot recompile dynamically, please talk to the"
-                   << " developers about a\n"
-                   <<
-      "*** custom DMTCP version for statically linked executables.\n"
-                   << "*** Proceeding for now, and hoping for the best.\n\n";
+    fprintf(stderr,
+            "*** WARNING:  " ELF_INTERPRETER " --verify %s returns\n"
+            "***  nonzero status.\n"
+            "*** This often means that %s is\n"
+            "*** a statically linked target.  If so, you can confirm this with\n"
+            "*** the 'file' command.\n"
+            "***  The standard DMTCP only supports dynamically"
+            " linked executables.\n"
+            "*** If you cannot recompile dynamically, please talk to the"
+            " developers about a\n"
+            "*** custom DMTCP version for statically linked executables.\n"
+            "*** Proceeding for now, and hoping for the best.\n\n",
+            pathname, pathname);
   }
 }
 
@@ -795,7 +800,7 @@ testFsGsBase()
 {
 #ifdef __x86_64__
   pid_t childPid = fork();
-  ASSERT_FORK_SUCCESS_MSG(childPid, "failed to fork FSGSBASE probe");
+  ASSERT_FORK_SUCCESS(childPid, "failed to fork FSGSBASE probe");
 
   if (childPid == 0) {
     unsigned long fsbase = -1;
@@ -812,7 +817,7 @@ testFsGsBase()
   }
 
   int status = 0;
-  ASSERT_SYSCALL_EQ_MSG(childPid,
+  ASSERT_SYSCALL_EQ(childPid,
                         waitpid(childPid, &status, 0),
                         "failed to wait for FSGSBASE probe: child_pid={}",
                         childPid);
@@ -910,7 +915,7 @@ setLDPreloadLibs(bool is32bitElf)
 #if defined(__x86_64__) || defined(__aarch64__)
   if (is32bitElf) {
     string libdmtcp = Util::getPath("libdmtcp.so", true);
-    WARNING(libdmtcp != "libdmtcp.so",
+    WARN(libdmtcp != "libdmtcp.so",
             "unable to find 32-bit DMTCP installation: libdmtcp={}. "
             "You appear to be checkpointing a 32-bit target under 64-bit "
             "Linux. See DMTCP FAQ or try: "

@@ -154,7 +154,7 @@ listen(int sockfd, int backlog)
 static void
 process_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
-  ASSERT_VALID_FD_MSG(ret,
+  ASSERT_VALID_FD(ret,
                       "accept result must be valid before socket state update: "
                       "sockfd={}",
                       sockfd);

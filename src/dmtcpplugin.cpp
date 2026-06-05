@@ -338,7 +338,7 @@ dmtcp_get_restart_env(const char *name,   // IN
 {
   int env_fd = dup(dmtcp_protected_environ_fd());
 
-  ASSERT_VALID_FD_MSG(env_fd,
+  ASSERT_VALID_FD(env_fd,
                       "failed to dup protected restart environ fd: "
                       "protected_fd={}",
                       dmtcp_protected_environ_fd());
@@ -410,7 +410,7 @@ dmtcp_get_restart_env(const char *name,   // IN
     JALLOC_FREE(env_buf);
   } // Else env_buf was allocated on the stack as env_buf_small.
   close(env_fd);
-  WARNING(rc != RESTART_ENV_DMTCP_BUF_TOO_SMALL,
+  WARN(rc != RESTART_ENV_DMTCP_BUF_TOO_SMALL,
           "Resize env_buf[]: name={} size={}", name, size);
   return rc;
 }

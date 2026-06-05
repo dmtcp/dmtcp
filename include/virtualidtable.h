@@ -294,7 +294,7 @@ class VirtualIdTable
       // Lock fileset before any operations
       Util::lockFile(fd);
       _do_lock_tbl();
-      ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_END),
+      ASSERT_SYSCALL_SUCCESS(lseek(fd, 0, SEEK_END),
                    "failed to seek virtual-id map file: fd={} path={}", fd,
                    mapFile);
 

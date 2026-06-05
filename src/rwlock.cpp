@@ -69,7 +69,7 @@ int DmtcpRWLockRdUnlock(DmtcpRWLock *rwlock)
 
   if (newStatus.nReaders == 0 && newStatus.nWriters > 0) {
     rwlock->writerFutex++;
-    ASSERT_SYSCALL_SUCCESS_MSG(futex_wake(&rwlock->writerFutex, 1),
+    ASSERT_SYSCALL_SUCCESS(futex_wake(&rwlock->writerFutex, 1),
                  "writer futex_wake failed from reader unlock");
   }
 
@@ -137,11 +137,11 @@ int DmtcpRWLockWrUnlock(DmtcpRWLock *rwlock)
 
   if (newStatus.nWriters > 0) {
     rwlock->writerFutex++;
-    ASSERT_SYSCALL_SUCCESS_MSG(futex_wake(&rwlock->writerFutex, 1),
+    ASSERT_SYSCALL_SUCCESS(futex_wake(&rwlock->writerFutex, 1),
                  "writer futex_wake failed from writer unlock");
   } else {
     rwlock->readerFutex++;
-    ASSERT_SYSCALL_SUCCESS_MSG(futex_wake(&rwlock->readerFutex, newStatus.nReaders),
+    ASSERT_SYSCALL_SUCCESS(futex_wake(&rwlock->readerFutex, newStatus.nReaders),
                  "reader futex_wake failed from writer unlock: readers={}",
                  newStatus.nReaders);
   }

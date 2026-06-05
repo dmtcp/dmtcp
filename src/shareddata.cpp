@@ -66,7 +66,7 @@ SharedData::initializeHeader(const char *tmpDir,
          tmpDir, compId, coordInfo, localIPAddr);
 
   off_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
-  ASSERT_SYSCALL_EQ_MSG(size,
+  ASSERT_SYSCALL_EQ(size,
                         lseek(PROTECTED_SHM_FD, size, SEEK_SET),
                         "failed to extend shared-data fd: fd={} size={}",
                         PROTECTED_SHM_FD, size);
@@ -165,7 +165,7 @@ SharedData::initialize(const char *tmpDir,
          "memory fd: coordInfo={} localIPAddr={} compId={} fd={}",
          coordInfo, localIPAddr, compId, PROTECTED_SHM_FD);
   if (!Util::isValidFd(PROTECTED_SHM_FD)) {
-    ASSERT_NOT_NULL_MSG(tmpDir,
+    ASSERT_NOT_NULL(tmpDir,
                         "SharedData::initialize requires tmpDir when "
                         "creating shared area");
     ostringstream o;
@@ -194,12 +194,12 @@ SharedData::initialize(const char *tmpDir,
     // too small. This can cause a SIGBUS later when we try to read beyond
     // the end of the file. So we must truncate the file to the correct size
     // in both the if and else branch, above.
-    ASSERT_SYSCALL_SUCCESS_MSG(truncate(o.str().c_str(), size),
+    ASSERT_SYSCALL_SUCCESS(truncate(o.str().c_str(), size),
                  "failed to size shared-data file: path={} size={}", o.str(),
                  size);
-    ASSERT_VALID_FD_MSG(fd, "failed to open shared-data file: path={}",
+    ASSERT_VALID_FD(fd, "failed to open shared-data file: path={}",
                         o.str());
-    ASSERT_SYSCALL_EQ_MSG(PROTECTED_SHM_FD,
+    ASSERT_SYSCALL_EQ(PROTECTED_SHM_FD,
                           _real_dup2(fd, PROTECTED_SHM_FD),
                           "failed to move shared-data fd: fd={} protected_fd={}",
                           fd, PROTECTED_SHM_FD);
@@ -244,7 +244,7 @@ SharedData::initialize(const char *tmpDir,
     while (1) {
       bool initialized = false;
       Util::lockFile(PROTECTED_SHM_FD);
-      ASSERT_SYSCALL_SUCCESS_MSG(fstat(PROTECTED_SHM_FD, &statbuf),
+      ASSERT_SYSCALL_SUCCESS(fstat(PROTECTED_SHM_FD, &statbuf),
                    "failed to stat shared-data fd: fd={}", PROTECTED_SHM_FD);
       initialized = sharedDataHeader->initialized;
       Util::unlockFile(PROTECTED_SHM_FD);

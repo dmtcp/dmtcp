@@ -105,7 +105,7 @@ scaleSendBuffers(int fd, double factor)
   int size;
   unsigned len = sizeof(size);
 
-  ASSERT_SYSCALL_SUCCESS_MSG(getsockopt(fd,
+  ASSERT_SYSCALL_SUCCESS(getsockopt(fd,
                                         SOL_SOCKET,
                                         SO_SNDBUF,
                                         (void *)&size,
@@ -116,7 +116,7 @@ scaleSendBuffers(int fd, double factor)
   // setsockopt, it would double the buffer size.
   int newSize = static_cast<int>(size * factor / 2);
   len = sizeof(newSize);
-  ASSERT_SYSCALL_SUCCESS_MSG(_real_setsockopt(fd,
+  ASSERT_SYSCALL_SUCCESS(_real_setsockopt(fd,
                                               SOL_SOCKET,
                                               SO_SNDBUF,
                                               (void *)&newSize,
@@ -140,7 +140,7 @@ KernelBufferDrainer::onConnect(const jalib::JSocket &sock,
                                const struct sockaddr *remoteAddr,
                                socklen_t remoteLen)
 {
-  WARNING(false,
+  WARN(false,
           "we don't yet support checkpointing non-accepted connections; "
           "restore will likely fail; closing connection: fd={}",
           sock.sockfd());
@@ -248,7 +248,7 @@ KernelBufferDrainer::onTimeoutInterval()
       _timeoutCount = 0;
       for (size_t i = 0; i < _dataSockets.size(); ++i) {
         vector<char> &buffer = _drainedData[_dataSockets[i]->socket().sockfd()];
-        WARNING(false,
+        WARN(false,
                 "Still draining socket; perhaps remote host is not running "
                 "under DMTCP: fd={} bytes={} interval_ms={}",
                 _dataSockets[i]->socket().sockfd(), buffer.size(),
@@ -262,13 +262,13 @@ KernelBufferDrainer::onTimeoutInterval()
 
         // it does it by creating a socket pair and closing one side
         int sp[2] = { -1, -1 };
-        ASSERT_SYSCALL_SUCCESS_MSG(
+        ASSERT_SYSCALL_SUCCESS(
           _real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp),
           "creating dead socket pair");
-        ASSERT_VALID_FD_MSG(sp[0],
+        ASSERT_VALID_FD(sp[0],
                             "socketpair() returned invalid first fd: fd1={}",
                             sp[1]);
-        ASSERT_VALID_FD_MSG(sp[1],
+        ASSERT_VALID_FD(sp[1],
                             "socketpair() returned invalid second fd: fd0={}",
                             sp[0]);
         _real_close(sp[1]);
@@ -315,7 +315,7 @@ KernelBufferDrainer::refillAllSockets()
       continue;
     }
     int size = i->second.size();
-    WARNING(size >= 0, "a failed drain is in our table: size={}", size);
+    WARN(size >= 0, "a failed drain is in our table: size={}", size);
     if (size < 0) {
       size = 0;
     }

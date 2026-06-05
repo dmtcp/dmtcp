@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <errno.h>
 #include <sys/syscall.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
@@ -142,7 +143,7 @@ dmtcp_prepare_atfork(void)
    * the gcc compiler.
    */
 #if 0
-  ASSERT_ZERO_RETURN(__register_atfork(NULL, NULL,
+  ASSERT_ZERO(__register_atfork(NULL, NULL,
                                        pidVirt_pthread_atfork_child,
                                        __dso_handle));
 #endif
@@ -330,7 +331,9 @@ daemon(int nochdir, int noclose)
   }
 
   if (!nochdir) {
-    ASSERT_SYSCALL_SUCCESS_MSG(chdir("/"), "daemon failed to chdir to /");
+    if (chdir("/") == -1) {
+      return -1;
+    }
   }
 
   if (!noclose) {
@@ -473,9 +476,9 @@ dmtcpProcessFailedExec(const char *path, const char *newArgv[])
   }
 
   JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
-  ASSERT_SYSCALL_SUCCESS_MSG(_real_close(PROTECTED_LIFEBOAT_FD),
-               "failed to close protected lifeboat fd: fd={}",
-               PROTECTED_LIFEBOAT_FD);
+  WARN_SYSCALL_SUCCESS(_real_close(PROTECTED_LIFEBOAT_FD),
+             "failed to close protected lifeboat fd: fd={}",
+             PROTECTED_LIFEBOAT_FD);
   errno = saved_errno;
 }
 
@@ -546,7 +549,7 @@ stringVectorToPointerArray(const vector<string> &s, size_t len)
          "pointer array length is too small: len={} size={}", len, s.size());
 
   const char **result = (const char **) JALLOC_MALLOC(len * sizeof (char*));
-  ASSERT_NOT_NULL_MSG(result, "failed to allocate pointer array: len={}", len);
+  ASSERT_NOT_NULL(result, "failed to allocate pointer array: len={}", len);
 
   // Now get the pointers.
   for (size_t i = 0; i < s.size(); i++) {
@@ -652,8 +655,8 @@ int getLifeboatFd()
   char buf[PATH_MAX] = {0};
   snprintf(buf, sizeof(buf) - 1, "%s/LifeBoat.XXXXXX", dmtcp_get_tmpdir());
   int fd = _real_mkostemps(buf, 0, 0);
-  ASSERT_VALID_FD_MSG(fd, "failed to create lifeboat file: path={}", buf);
-  ASSERT_SYSCALL_SUCCESS_MSG(unlink(buf), "failed to unlink lifeboat file: path={}",
+  ASSERT_VALID_FD(fd, "failed to create lifeboat file: path={}", buf);
+  ASSERT_SYSCALL_SUCCESS(unlink(buf), "failed to unlink lifeboat file: path={}",
                buf);
   Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);
   return PROTECTED_LIFEBOAT_FD;
@@ -681,7 +684,10 @@ extern "C" int
 fexecve(int fd, char *const argv[], char *const envp[])
 {
   // TODO: Add dmtcp_execveat and use that.
-  ASSERT(false, "fexecve wrapper is not implemented: fd={}", fd);
+  (void)fd;
+  (void)argv;
+  (void)envp;
+  errno = ENOSYS;
   return -1;
 }
 
@@ -821,7 +827,7 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
     _real_close(PROTECTED_COORD_FD);
 
     pid_t cpid = _real_fork();
-    ASSERT_FORK_SUCCESS_MSG(cpid,
+    ASSERT_FORK_SUCCESS(cpid,
                             "failed to fork before execing dmtcp_command");
     if (cpid != 0) {
       _real_exit(0);

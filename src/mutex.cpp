@@ -139,7 +139,7 @@ DmtcpMutexUnlock(DmtcpMutex *mutex)
                                           LOCK_FREE),
              "mutex unlock saw unexpected futex state: futex={}",
              mutex->futex);
-      ASSERT_SYSCALL_SUCCESS_MSG(futex_wake(&mutex->futex, 1),
+      ASSERT_SYSCALL_SUCCESS(futex_wake(&mutex->futex, 1),
                    "mutex futex_wake failed");
     }
   }

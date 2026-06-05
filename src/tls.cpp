@@ -186,11 +186,11 @@ TLSInfo_GetPidOffset(void)
 static void
 tls_get_thread_area(Thread *thread)
 {
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     _real_syscall(SYS_arch_prctl, ARCH_GET_FS,
                   (long)&thread->tlsInfo.fs, 0, 0, 0, 0, 0),
     "failed to read FS TLS register: tid={}", thread->tid);
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     _real_syscall(SYS_arch_prctl, ARCH_GET_GS,
                   (long)&thread->tlsInfo.gs, 0, 0, 0, 0, 0),
     "failed to read GS TLS register: tid={}", thread->tid);
@@ -226,7 +226,7 @@ tls_get_thread_area(Thread *thread)
 
   thread->tlsInfo.gdtentrytls.entry_number = thread->tlsInfo.gs / 8;
 
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     _real_syscall(SYS_get_thread_area,
                   (long)&thread->tlsInfo.gdtentrytls,
                   0, 0, 0, 0, 0, 0),
@@ -384,7 +384,7 @@ get_at_sysinfo()
 
   stack = (void **)&my_environ[-1];
 
-  ASSERT_NULL_MSG(*stack,
+  ASSERT_NULL(*stack,
                   "expected argv[argc] to be null while scanning auxv");
 
   // stack[-1] should be argv[argc-1]

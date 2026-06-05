@@ -223,7 +223,7 @@ ProcessInfo::growStack()
   size_t stackSize;
   const rlim_t eightMB = 8 * 1024 * 1024;
 
-  ASSERT_SYSCALL_SUCCESS_MSG(getrlimit(RLIMIT_STACK, &rlim),
+  ASSERT_SYSCALL_SUCCESS(getrlimit(RLIMIT_STACK, &rlim),
                              "failed to read RLIMIT_STACK");
   if (rlim.rlim_cur == RLIM_INFINITY) {
     if (rlim.rlim_max == RLIM_INFINITY) {
@@ -281,7 +281,7 @@ ProcessInfo::growStack()
       }
     }
   }
-  ASSERT_NOT_NULL_MSG(stackArea.addr,
+  ASSERT_NOT_NULL(stackArea.addr,
                       "failed to find current stack mapping in "
                       "/proc/self/maps");
 
@@ -289,7 +289,7 @@ ProcessInfo::growStack()
     // Grow the stack, if possible
     allocSize = stackSize - stackArea.size - 4095;
     tmpbuf = alloca(allocSize);
-    ASSERT_NOT_NULL_MSG(tmpbuf, "failed to grow stack: allocSize={}",
+    ASSERT_NOT_NULL(tmpbuf, "failed to grow stack: allocSize={}",
                         allocSize);
     memset(tmpbuf, 0, allocSize);
   }
@@ -361,7 +361,7 @@ ProcessInfo::updateRestoreBufAddr()
   //        to free the backing physical pages created by mtcp_restart.
 
   if (restoreBuf.startAddr != 0) {
-    ASSERT_SYSCALL_SUCCESS_MSG(
+    ASSERT_SYSCALL_SUCCESS(
       munmap((void*) restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE),
       "failed to unmap restore buffer: start={} size={}",
       restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE);
@@ -485,7 +485,7 @@ void
 ProcessInfo::restoreHeap()
 {
   // Release backing memory for EndOfBrkMap memory region.
-      ASSERT_SYSCALL_SUCCESS_MSG(
+      ASSERT_SYSCALL_SUCCESS(
         madvise((void *)_initialSavedBrk, EndOfBrkMapSize, MADV_DONTNEED),
         "failed to release saved brk mapping: addr={} size={}",
         (void *)_initialSavedBrk,
@@ -512,8 +512,10 @@ ProcessInfo::restoreHeap()
                  _savedHeapStart, oldsize, newsize, savedBrk, curBrk);
   } else if (curBrk < savedBrk) {
     if (brk((void *)savedBrk) != 0) {
-      JNOTE("Failed to restore area between saved_break and curr_break.")
-        (savedBrk) (curBrk) (JASSERT_ERRNO);
+      WARN_ERRNO(false,
+                 "failed to restore area between saved break and current "
+                 "break: savedBrk={} curBrk={}",
+                 savedBrk, curBrk);
     }
   }
 }
@@ -541,7 +543,7 @@ ProcessInfo::restart()
       if (chdir(rpath.c_str()) == 0) {
         JTRACE("Changed cwd") (_launchCWD) (_ckptCWD) (_launchCWD + rpath);
       } else {
-        WARNING_SYSCALL_SUCCESS_MSG(
+        WARN_SYSCALL_SUCCESS(
           chdir(_ckptCWD.c_str()),
           "failed to change directory to checkpoint cwd: "
           "ckptCWD={} launchCWD={}",
@@ -563,7 +565,7 @@ ProcessInfo::restoreProcessGroupInfo()
 
   if (sid == pid && curSid != curPid) {
     JTRACE("Restore Session Leadership") (sid) (pid) (curSid) (curPid);
-    WARNING_SYSCALL_SUCCESS_MSG(
+    WARN_SYSCALL_SUCCESS(
       setsid(),
       "cannot restore session leadership: savedSid={} savedPid={} "
       "currentSid={} currentPid={}",
@@ -575,7 +577,7 @@ ProcessInfo::restoreProcessGroupInfo()
   if (gid != cgid) {
     JTRACE("Restore Group Assignment")
       (gid) (fgid) (cgid) (pid) (ppid) (getppid());
-    WARNING_SYSCALL_SUCCESS_MSG(
+    WARN_SYSCALL_SUCCESS(
       setpgid(0, gid),
       "cannot change process group: savedGid={} currentGid={} "
       "savedPid={} savedPpid={}",
@@ -623,7 +625,7 @@ ProcessInfo::endPthreadJoin(pthread_t thread)
 void
 ProcessInfo::setCkptFilename(const char *filename)
 {
-  ASSERT_NOT_NULL_MSG(filename, "checkpoint filename must not be null");
+  ASSERT_NOT_NULL(filename, "checkpoint filename must not be null");
   if (filename[0] == '/') {
     _ckptDir = jalib::Filesystem::DirName(filename);
     _ckptFileName = filename;
@@ -643,7 +645,7 @@ ProcessInfo::setCkptFilename(const char *filename)
 void
 ProcessInfo::setCkptDir(const char *dir)
 {
-  ASSERT_NOT_NULL_MSG(dir, "checkpoint directory must not be null");
+  ASSERT_NOT_NULL(dir, "checkpoint directory must not be null");
   _ckptDir = dir;
   _ckptFileName = _ckptDir + "/" + jalib::Filesystem::BaseName(_ckptFileName);
   _ckptFilesSubDir = _ckptDir + "/" + jalib::Filesystem::BaseName(

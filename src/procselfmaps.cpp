@@ -56,7 +56,7 @@ ProcSelfMaps::ProcSelfMaps()
   // We should check for that.
 
   fd = _real_open("/proc/self/maps", O_RDONLY);
-  ASSERT_VALID_FD_MSG(fd, "failed to open /proc/self/maps");
+  ASSERT_VALID_FD(fd, "failed to open /proc/self/maps");
   ssize_t numRead = 0;
 
   // Get an approximation of the required buffer size.
@@ -71,7 +71,7 @@ ProcSelfMaps::ProcSelfMaps()
   // of /proc/self/maps, so we need to recalculate numBytes.
   size_t size = numBytes + 4096; // Add a one page buffer.
   data = (char *)JALLOC_HELPER_MALLOC(size);
-  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
+  ASSERT_SYSCALL_SUCCESS(lseek(fd, 0, SEEK_SET),
                "failed to rewind /proc/self/maps");
 
   numBytes = Util::readAll(fd, data, size);
@@ -108,7 +108,7 @@ ProcSelfMaps::~ProcSelfMaps()
   // Verify that JAlloc doesn't expand memory (via mmap)
   // while reading /proc/self/maps.
   // FIXME:  Change from JWARNING to JASSERT when we have confidence in this.
-  WARNING(numAllocExpands == jalib::JAllocDispatcher::numExpands(),
+  WARN(numAllocExpands == jalib::JAllocDispatcher::numExpands(),
           "JAlloc expanded through mmap while reading /proc/self/maps; "
           "inconsistent JAlloc will be a problem on restart: before={} "
           "after={}",

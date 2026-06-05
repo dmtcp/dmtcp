@@ -46,7 +46,7 @@ Util::writeCoordPortToFile(int port, const char *portFile)
 {
   if (portFile != NULL && strlen(portFile) > 0) {
     int fd = open(portFile, O_CREAT | O_WRONLY | O_TRUNC, 0600);
-    WARNING_VALID_FD_MSG(fd, "failed to open port file: path={}", portFile);
+    WARN_VALID_FD(fd, "failed to open port file: path={}", portFile);
     char port_buf[30];
     memset(port_buf, '\0', sizeof(port_buf));
     sprintf(port_buf, "%d", port);
@@ -116,7 +116,7 @@ Util::calcTmpDir(const char *tmpdirenv)
                "error creating tmp directory: path={}",
                tmpDir);
 
-  ASSERT_SYSCALL_SUCCESS_MSG(
+  ASSERT_SYSCALL_SUCCESS(
     access(tmpDir, X_OK | W_OK),
     "missing execute- or write-access to tmp dir: path={}",
     tmpDir);
@@ -125,18 +125,30 @@ Util::calcTmpDir(const char *tmpdirenv)
 }
 
 void
+Util::setDiagnosticLogFile(const char *path)
+{
+  jassert_internal::set_log_file(path);
+}
+
+void
+Util::closeDiagnosticStderr()
+{
+  jassert_internal::close_stderr();
+}
+
+void
 Util::initializeLogFile(const char *tmpDir, const char *prefix)
 {
   const char *logFile = getenv(ENV_VAR_LOG_FILE);
   if (logFile != NULL) {
-    JASSERT_SET_LOG(logFile);
+    setDiagnosticLogFile(logFile);
   } else {
     ostringstream o;
     o << tmpDir << "/" << prefix
       << "." << Util::getTimestampStr()
       << "." << UniquePid::ThisProcess()
       << ".log";
-    JASSERT_SET_LOG(o.str().c_str());
+    setDiagnosticLogFile(o.str().c_str());
   }
 
   // This causes an error when configure is done with --enable-logging

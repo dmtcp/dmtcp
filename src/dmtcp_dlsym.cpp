@@ -385,7 +385,7 @@ dlsym_default_internal_library_handler(void *handle,
       // Notice that default_symbol_index will be set first to the
       // base definition (1 for unversioned symbols; 2 for versioned symbols)
       if (default_symbol_index && numNonHiddenSymbols > 1) {
-        WARNING(false,
+        WARN(false,
                 "more than one default symbol version: symbol={}",
                 symbol);
       }
@@ -447,7 +447,7 @@ dlsym_default_internal_flag_handler(void *handle,
   int ret = dladdr1(addr, &info, (void **)&map, RTLD_DL_LINKMAP);
 
   if (!ret) {
-    WARNING(false,
+    WARN(false,
             "dladdr1 could not find shared object for address: symbol={}",
             symbol);
     return NULL;

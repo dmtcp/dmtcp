@@ -91,10 +91,10 @@ getRpathRunPath(void *caller, char *rpathStr, char *runpathStr)
     Util::replace(rpathStr, "$ORIGIN", dirname);
     Util::replace(rpathStr, "${ORIGIN}", dirname);
 
-    ASSERT_NULL_MSG(strstr(rpathStr, "$LIB"), "rpath={}", rpathStr);
-    ASSERT_NULL_MSG(strstr(rpathStr, "${LIB}"), "rpath={}", rpathStr);
-    ASSERT_NULL_MSG(strstr(rpathStr, "$PLATFORM"), "rpath={}", rpathStr);
-    ASSERT_NULL_MSG(strstr(rpathStr, "${PLATFORM}"), "rpath={}", rpathStr);
+    ASSERT_NULL(strstr(rpathStr, "$LIB"), "rpath={}", rpathStr);
+    ASSERT_NULL(strstr(rpathStr, "${LIB}"), "rpath={}", rpathStr);
+    ASSERT_NULL(strstr(rpathStr, "$PLATFORM"), "rpath={}", rpathStr);
+    ASSERT_NULL(strstr(rpathStr, "${PLATFORM}"), "rpath={}", rpathStr);
   }
 
   if (runpath != NULL) {
@@ -102,11 +102,11 @@ getRpathRunPath(void *caller, char *rpathStr, char *runpathStr)
     Util::replace(runpathStr, "$ORIGIN", dirname);
     Util::replace(runpathStr, "${ORIGIN}", dirname);
 
-    ASSERT_NULL_MSG(strstr(runpathStr, "$LIB"), "runpath={}", runpathStr);
-    ASSERT_NULL_MSG(strstr(runpathStr, "${LIB}"), "runpath={}", runpathStr);
-    ASSERT_NULL_MSG(strstr(runpathStr, "$PLATFORM"), "runpath={}",
+    ASSERT_NULL(strstr(runpathStr, "$LIB"), "runpath={}", runpathStr);
+    ASSERT_NULL(strstr(runpathStr, "${LIB}"), "runpath={}", runpathStr);
+    ASSERT_NULL(strstr(runpathStr, "$PLATFORM"), "runpath={}",
                     runpathStr);
-    ASSERT_NULL_MSG(strstr(runpathStr, "${PLATFORM}"), "runpath={}",
+    ASSERT_NULL(strstr(runpathStr, "${PLATFORM}"), "runpath={}",
                     runpathStr);
   }
 }

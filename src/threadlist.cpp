@@ -387,7 +387,7 @@ checkpointhread(void *dummy)
     sigdelset(&set, SIGCANCEL);
 
     ASSERT_PTHREAD_SUCCESS(pthread_sigmask(SIG_SETMASK, &set, NULL),
-                           "setting checkpoint-thread signal mask");
+                               "setting checkpoint-thread signal mask");
   }
 
   /* Set up our restart point.  I.e., we get jumped to here after a restore. */
@@ -397,8 +397,8 @@ checkpointhread(void *dummy)
          ckptThread->tid);
 #else  // ifdef SETJMP
   ASSERT_SYSCALL_SUCCESS(getcontext(&ckptThread->savctx),
-                         "failed to save checkpoint-thread context: tid={}",
-                         ckptThread->tid);
+               "failed to save checkpoint-thread context: tid={}",
+               ckptThread->tid);
 #endif  // ifdef SETJMP
   save_sp(&ckptThread->saved_sp);
   JTRACE("after sigsetjmp/getcontext") (curThread->tid) (curThread->saved_sp);
