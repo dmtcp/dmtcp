@@ -40,6 +40,9 @@ class SourceAuditTest(unittest.TestCase):
             with self.subTest(path=relative_path):
                 self.assert_file_does_not_contain(relative_path, "strtol")
 
+    def test_pid_path_translation_uses_shared_numeric_parsers(self):
+        self.assert_file_does_not_contain("src/plugin/pid/pid.cpp", "strtol")
+
 
 if __name__ == "__main__":
     unittest.main()

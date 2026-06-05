@@ -148,6 +148,50 @@ inline bool parseInteger(std::string_view text, Integer *value, int base = 10)
   return true;
 }
 
+inline bool isDecimalDigit(char ch)
+{
+  return ch >= '0' && ch <= '9';
+}
+
+template <typename Integer>
+inline bool parseIntegerPrefix(std::string_view text,
+                               Integer *value,
+                               size_t *parsedLength)
+{
+  static_assert(std::is_integral_v<Integer> &&
+                !std::is_same_v<Integer, bool>);
+  if (value == nullptr || parsedLength == nullptr || text.empty()) {
+    return false;
+  }
+
+  size_t digitStart = 0;
+  if constexpr (std::is_signed_v<Integer>) {
+    if (text[0] == '-') {
+      digitStart = 1;
+    }
+  }
+
+  size_t end = digitStart;
+  while (end < text.size() && isDecimalDigit(text[end])) {
+    ++end;
+  }
+  if (end == digitStart) {
+    return false;
+  }
+
+  Integer parsed = 0;
+  const char *begin = text.data();
+  const char *parseEnd = begin + end;
+  auto result = std::from_chars(begin, parseEnd, parsed);
+  if (result.ec != std::errc() || result.ptr != parseEnd) {
+    return false;
+  }
+
+  *value = parsed;
+  *parsedLength = end;
+  return true;
+}
+
 inline bool parsePortNumber(std::string_view text, int *port)
 {
   int parsedPort = 0;
@@ -170,11 +214,6 @@ inline bool parseNumericFlag(std::string_view text, bool *enabled)
 
   *enabled = parsedValue != 0;
   return true;
-}
-
-inline bool isDecimalDigit(char ch)
-{
-  return ch >= '0' && ch <= '9';
 }
 
 inline bool parseDottedVersionPrefix(std::string_view text,

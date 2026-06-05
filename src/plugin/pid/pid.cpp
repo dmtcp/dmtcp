@@ -41,6 +41,7 @@
 #include "pidwrappers.h"
 #include "protectedfds.h"
 #include "shareddata.h"
+#include "util.h"
 #include "util_assert.h"
 #include "virtualpidtable.h"
 
@@ -220,11 +221,13 @@ pidVirt_ProcessProcSelfTask(DmtcpEventData_t *data)
     return;
   }
 
-  char *rest = nullptr;
   char *tidStr = ptr + PROC_TASK_TOKEN_LEN;
 
-  pid_t virtualTid = strtol(tidStr, &rest, 0);
-  if (virtualTid > 0) {
+  pid_t virtualTid = 0;
+  size_t parsedLength = 0;
+  if (Util::parseIntegerPrefix(tidStr, &virtualTid, &parsedLength) &&
+      virtualTid > 0) {
+    char *rest = tidStr + parsedLength;
     char buf[PATH_MAX - 20];
     strncpy(buf, rest, PATH_MAX - 20);
     pid_t realTid = dmtcp_pid_virtual_to_real(virtualTid);
@@ -245,10 +248,12 @@ pid_virtual_to_real_filepath(DmtcpEventData_t *data)
   }
 
   int index = strlen(PROC_PREFIX);
-  char *rest;
-  pid_t virtualPid = strtol(&data->virtualToRealPath.path[index], &rest, 0);
-
-  if (virtualPid > 0) {
+  char *pidStr = &data->virtualToRealPath.path[index];
+  pid_t virtualPid = 0;
+  size_t parsedLength = 0;
+  if (Util::parseIntegerPrefix(pidStr, &virtualPid, &parsedLength) &&
+      virtualPid > 0) {
+    char *rest = pidStr + parsedLength;
     char newPath[PATH_MAX];
     pid_t realPid = dmtcp_pid_virtual_to_real(virtualPid);
     snprintf(newPath, PATH_MAX, "/proc/%d%s", realPid, rest);
@@ -267,13 +272,15 @@ pid_real_to_virtual_filepath(DmtcpEventData_t *data)
   }
 
   int index = strlen(PROC_PREFIX);
-  char *rest;
-  pid_t realPid = strtol(&data->realToVirtualPath.path[index], &rest, 0);
-
-  if (realPid <= 0) {
+  char *pidStr = &data->realToVirtualPath.path[index];
+  pid_t realPid = 0;
+  size_t parsedLength = 0;
+  if (!Util::parseIntegerPrefix(pidStr, &realPid, &parsedLength) ||
+      realPid <= 0) {
     return;
   }
 
+  char *rest = pidStr + parsedLength;
   char newPath[PATH_MAX];
   pid_t virtualPid = dmtcp_pid_real_to_virtual(realPid);
   sprintf(newPath, "/proc/%d%s", virtualPid, rest);

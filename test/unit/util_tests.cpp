@@ -54,6 +54,50 @@ void parseIntegerRejectsPartialEmptyAndOverflowText()
   ASSERT_EQ(value, 77);
 }
 
+void parseIntegerPrefixParsesLeadingDecimalText()
+{
+  using namespace std::literals;
+
+  int value = 0;
+  size_t parsedLength = 0;
+  ASSERT_TRUE(dmtcp::Util::parseIntegerPrefix("123/rest"sv,
+                                              &value,
+                                              &parsedLength));
+  ASSERT_EQ(value, 123);
+  ASSERT_EQ(parsedLength, static_cast<size_t>(3));
+
+  ASSERT_TRUE(dmtcp::Util::parseIntegerPrefix("-42abc"sv,
+                                              &value,
+                                              &parsedLength));
+  ASSERT_EQ(value, -42);
+  ASSERT_EQ(parsedLength, static_cast<size_t>(3));
+}
+
+void parseIntegerPrefixRejectsMissingDigitsWithoutChangingOutput()
+{
+  using namespace std::literals;
+
+  int value = 77;
+  size_t parsedLength = 88;
+  ASSERT_TRUE(!dmtcp::Util::parseIntegerPrefix("abc"sv,
+                                               &value,
+                                               &parsedLength));
+  ASSERT_EQ(value, 77);
+  ASSERT_EQ(parsedLength, static_cast<size_t>(88));
+
+  ASSERT_TRUE(!dmtcp::Util::parseIntegerPrefix("-"sv,
+                                               &value,
+                                               &parsedLength));
+  ASSERT_EQ(value, 77);
+  ASSERT_EQ(parsedLength, static_cast<size_t>(88));
+
+  ASSERT_TRUE(!dmtcp::Util::parseIntegerPrefix(""sv,
+                                               &value,
+                                               &parsedLength));
+  ASSERT_EQ(value, 77);
+  ASSERT_EQ(parsedLength, static_cast<size_t>(88));
+}
+
 void parsePortNumberAcceptsValidPortRange()
 {
   using namespace std::literals;
@@ -178,6 +222,10 @@ extern const dmtcp_test::TestCase utilTests[] = {
    parseIntegerParsesStrictDecimalText},
   {"parseInteger rejects partial empty and overflow text",
    parseIntegerRejectsPartialEmptyAndOverflowText},
+  {"parseIntegerPrefix parses leading decimal text",
+   parseIntegerPrefixParsesLeadingDecimalText},
+  {"parseIntegerPrefix rejects missing digits without changing output",
+   parseIntegerPrefixRejectsMissingDigitsWithoutChangingOutput},
   {"parsePortNumber accepts valid port range",
    parsePortNumberAcceptsValidPortRange},
   {"parsePortNumber rejects invalid port text",
