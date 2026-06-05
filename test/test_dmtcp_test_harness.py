@@ -367,6 +367,38 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertEqual(caught.exception.phase, "kill")
             self.assertIn("workers are not running", caught.exception.message)
 
+    def test_json_command_rejects_nonzero_exit_with_ok_payload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("nonzero-ok", 1, ["./test/dmtcp1"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+            result = subprocess.CompletedProcess(
+                ["dmtcp_command"], 17,
+                stdout=(
+                    '{"schema_version": 1, "type": "status", '
+                    '"phase": "status", "ok": true}'
+                ),
+                stderr="",
+            )
+
+            with mock.patch.object(harness_module.subprocess, "run",
+                                   return_value=result):
+                with self.assertRaises(HarnessFailure) as caught:
+                    context._run_json_command("--status", "status",
+                                              allow_error=False)
+
+            self.assertEqual(caught.exception.phase, "status")
+            self.assertIn("exit code 17 despite ok=true",
+                          caught.exception.message)
+            transcript = (tmp_path / "commands.log").read_text(
+                encoding="utf-8")
+            self.assertIn("exit=17", transcript)
+
     def test_json_command_rejects_non_string_coordinator_host(self):
         with self.assertRaises(ValueError) as caught:
             validate_dmtcp_command_result_payload(
