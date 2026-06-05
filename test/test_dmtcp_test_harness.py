@@ -159,6 +159,25 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertIn("unsupported dmtcp_command JSON schema",
                           caught.exception.message)
 
+    def test_status_payload_error_becomes_status_phase_failure(self):
+        context = TestContext(
+            DmtcpHarness(ROOT),
+            TestSpec("status-payload", 1, ["./test/dmtcp1"]),
+            mock.Mock(),
+        )
+
+        with mock.patch.object(context, "_run_json_command",
+                               return_value={
+                                   "schema_version": 1,
+                                   "type": "status",
+                                   "ok": True,
+                               }):
+            with self.assertRaises(HarnessFailure) as caught:
+                context._status()
+
+        self.assertEqual(caught.exception.phase, "status")
+        self.assertIn("missing status JSON field", caught.exception.message)
+
     def test_start_coordinator_uses_process_group(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = pathlib.Path(tmp)

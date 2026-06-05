@@ -64,6 +64,9 @@ class DmtcpStatus:
         validate_dmtcp_command_json_payload(payload)
         if payload.get("type") != "status" or not payload.get("ok"):
             raise ValueError("JSON payload is not a successful status result")
+        for field_name in ("num_peers", "running", "checkpoint_interval"):
+            if field_name not in payload:
+                raise ValueError(f"missing status JSON field: {field_name}")
         return DmtcpStatus(
             num_peers=int(payload["num_peers"]),
             running=bool(payload["running"]),
@@ -394,7 +397,10 @@ class TestContext:
 
     def _status(self) -> DmtcpStatus:
         payload = self._run_json_command("--status", "status", allow_error=False)
-        return DmtcpStatus.from_json(payload)
+        try:
+            return DmtcpStatus.from_json(payload)
+        except ValueError as error:
+            raise HarnessFailure("status", str(error)) from error
 
     def _checkpoint(self):
         if self.spec.pre_checkpoint_delay > 0.0:
