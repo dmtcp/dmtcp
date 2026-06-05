@@ -161,7 +161,7 @@ void removeExitedChildTids()
 {
   // First remove stale thread ids.
   pid_t realPid = _real_getpid();
-  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&exitedChildTidsLock));
+  ASSERT_MUTEX_SUCCESS(DmtcpMutexLock(&exitedChildTidsLock));
   for (auto it = exitedChildTids->begin(); it != exitedChildTids->end();) {
     pid_t tid = *it;
     pid_t realTid = dmtcp_pid_virtual_to_real(tid);
@@ -172,7 +172,7 @@ void removeExitedChildTids()
       VirtualPidTable::instance().erase(tid);
     }
   }
-  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&exitedChildTidsLock));
+  ASSERT_MUTEX_SUCCESS(DmtcpMutexUnlock(&exitedChildTidsLock));
 }
 
 extern "C"
@@ -358,9 +358,9 @@ pidVirt_ThreadExit(DmtcpEventData_t *data)
    *  thread actually exits?
    */
   pid_t tid = VirtualPidTable::gettid();
-  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&exitedChildTidsLock));
+  ASSERT_MUTEX_SUCCESS(DmtcpMutexLock(&exitedChildTidsLock));
   exitedChildTids->push_back(tid);
-  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&exitedChildTidsLock));
+  ASSERT_MUTEX_SUCCESS(DmtcpMutexUnlock(&exitedChildTidsLock));
 }
 
 static void

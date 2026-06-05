@@ -107,12 +107,12 @@ class ConnectionList
     void processCloseWork(int fd);
     void _lock_tbl()
     {
-      ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&_lock));
+      ASSERT_MUTEX_SUCCESS(DmtcpMutexLock(&_lock));
     }
 
     void _unlock_tbl()
     {
-      ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&_lock));
+      ASSERT_MUTEX_SUCCESS(DmtcpMutexUnlock(&_lock));
     }
 
     DmtcpMutex _lock;

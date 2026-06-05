@@ -46,12 +46,12 @@ class VirtualIdTable
   protected:
     void _do_lock_tbl()
     {
-      ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&tblLock));
+      ASSERT_MUTEX_SUCCESS(DmtcpMutexLock(&tblLock));
     }
 
     void _do_unlock_tbl()
     {
-      ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&tblLock));
+      ASSERT_MUTEX_SUCCESS(DmtcpMutexUnlock(&tblLock));
     }
 
   public:

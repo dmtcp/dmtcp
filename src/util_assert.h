@@ -694,11 +694,17 @@ assertFailureErrno(const char *expr,
 #ifdef ASSERT_TRUE
 # undef ASSERT_TRUE
 #endif
-#ifdef ASSERT_LOCK_SUCCESS
-# undef ASSERT_LOCK_SUCCESS
+#ifdef ASSERT_MUTEX_SUCCESS
+# undef ASSERT_MUTEX_SUCCESS
 #endif
-#ifdef WARNING_LOCK_SUCCESS
-# undef WARNING_LOCK_SUCCESS
+#ifdef ASSERT_RWLOCK_SUCCESS
+# undef ASSERT_RWLOCK_SUCCESS
+#endif
+#ifdef WARNING_MUTEX_SUCCESS
+# undef WARNING_MUTEX_SUCCESS
+#endif
+#ifdef WARNING_RWLOCK_SUCCESS
+# undef WARNING_RWLOCK_SUCCESS
 #endif
 #ifdef ASSERT_GT
 # undef ASSERT_GT
@@ -761,22 +767,34 @@ assertFailureErrno(const char *expr,
   ASSERT((condition), "expected true: {}", #condition)
 
 // For DMTCP/pthread-style lock APIs that return 0 on success and an error
-// number on failure. Do not use this for syscall-style or boolean success.
-#define ASSERT_LOCK_SUCCESS(expression)                                   \
+// number on failure. Do not use these for syscall-style or boolean success.
+#define DMTCP_ASSERT_ZERO_RETURN(expressionText, expression)              \
   do {                                                                   \
     const auto dmtcpAssertResult = (expression);                          \
     ASSERT(dmtcpAssertResult == 0,                                        \
            "{} failed: expected 0, returned {}",                          \
-           #expression, dmtcpAssertResult);                               \
+           expressionText, dmtcpAssertResult);                            \
   } while (0)
 
-#define WARNING_LOCK_SUCCESS(expression)                                  \
+#define DMTCP_WARNING_ZERO_RETURN(expressionText, expression)             \
   do {                                                                   \
     const auto dmtcpAssertResult = (expression);                          \
     WARNING(dmtcpAssertResult == 0,                                      \
             "{} failed: expected 0, returned {}",                         \
-            #expression, dmtcpAssertResult);                              \
+            expressionText, dmtcpAssertResult);                           \
   } while (0)
+
+#define ASSERT_MUTEX_SUCCESS(expression) \
+  DMTCP_ASSERT_ZERO_RETURN(#expression, expression)
+
+#define ASSERT_RWLOCK_SUCCESS(expression) \
+  DMTCP_ASSERT_ZERO_RETURN(#expression, expression)
+
+#define WARNING_MUTEX_SUCCESS(expression) \
+  DMTCP_WARNING_ZERO_RETURN(#expression, expression)
+
+#define WARNING_RWLOCK_SUCCESS(expression) \
+  DMTCP_WARNING_ZERO_RETURN(#expression, expression)
 
 #define ASSERT_NULL(value) \
   ASSERT((value) == nullptr, "expected null: {}", #value)

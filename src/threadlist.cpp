@@ -92,13 +92,13 @@ static void Thread_RestoreSigState(Thread *th);
 static void
 lock_threads(void)
 {
-  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadlistLock));
+  ASSERT_MUTEX_SUCCESS(DmtcpMutexLock(&threadlistLock));
 }
 
 static void
 unlk_threads(void)
 {
-  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadlistLock));
+  ASSERT_MUTEX_SUCCESS(DmtcpMutexUnlock(&threadlistLock));
 }
 
 static int
@@ -461,7 +461,7 @@ ThreadList::suspendThreads()
   Thread *next;
 
   DmtcpRWLockInit(&threadResumeLock);
-  ASSERT_LOCK_SUCCESS(DmtcpRWLockWrLock(&threadResumeLock));
+  ASSERT_RWLOCK_SUCCESS(DmtcpRWLockWrLock(&threadResumeLock));
 
   /* Halt all other threads - force them to call stopthisthread
    * If any have blocked checkpointing, wait for them to unblock before
@@ -581,7 +581,7 @@ void
 ThreadList::resumeThreads()
 {
   JTRACE("resuming user threads");
-  ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
+  ASSERT_RWLOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
 }
 
 /*************************************************************************
@@ -676,14 +676,14 @@ stopthisthread(int signum)
       // However, the sem_wait cleanup handler is now invalid and thus we get a
       // segfault.
       // The change in sem_wait behavior was first introduce in glibc 2.21.
-      ASSERT_LOCK_SUCCESS(DmtcpRWLockRdLock(&threadResumeLock));
+      ASSERT_RWLOCK_SUCCESS(DmtcpRWLockRdLock(&threadResumeLock));
 
       ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
              "failed to mark thread running after checkpoint: tid={} "
              "from={} to={}",
              curThread->tid, ST_SUSPENDED, ST_RUNNING);
 
-      ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
+      ASSERT_RWLOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
     } else {
       // If the user defined DMTCP_DISABLE_PRGNAME_PREFIX, skip this prefix.
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
@@ -893,9 +893,9 @@ restarthread(void *threadv)
 int
 Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval)
 {
-  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadStateLock));
+  ASSERT_MUTEX_SUCCESS(DmtcpMutexLock(&threadStateLock));
   int res = Thread_TryUpdateStateUnlocked(th, newval, oldval);
-  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadStateLock));
+  ASSERT_MUTEX_SUCCESS(DmtcpMutexUnlock(&threadStateLock));
   return res;
 }
 

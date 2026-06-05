@@ -374,8 +374,10 @@ void convenienceAssertMacrosPassWithoutWriting()
   ASSERT_GE(value, 2);
   ASSERT_LT(value, larger);
   ASSERT_LE(value, 2);
-  ASSERT_LOCK_SUCCESS(0);
-  WARNING_LOCK_SUCCESS(0);
+  ASSERT_MUTEX_SUCCESS(0);
+  ASSERT_RWLOCK_SUCCESS(0);
+  WARNING_MUTEX_SUCCESS(0);
+  WARNING_RWLOCK_SUCCESS(0);
   ASSERT_NOT_NULL(ptr);
   ASSERT_NULL(nullPtr);
 
@@ -392,7 +394,7 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
 
   ASSERT_EQ(++lhs, rhs);
   ASSERT_NULL(returnNullAndCount(&nullCalls));
-  ASSERT_LOCK_SUCCESS(returnZeroAndCount(&successCalls));
+  ASSERT_MUTEX_SUCCESS(returnZeroAndCount(&successCalls));
 
   UNIT_ASSERT_EQ(lhs, 1);
   UNIT_ASSERT_EQ(nullCalls, 1);
@@ -400,11 +402,11 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
   UNIT_ASSERT_EQ(hookCallCount, 0);
 }
 
-void warningLockSuccessReportsExpressionAndReturnValue()
+void warningMutexSuccessReportsExpressionAndReturnValue()
 {
   resetHook();
 
-  WARNING_LOCK_SUCCESS(setErrnoAndReturn(7, EIO));
+  WARNING_MUTEX_SUCCESS(setErrnoAndReturn(7, EIO));
 
   UNIT_ASSERT_EQ(hookCallCount, 1);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
@@ -487,8 +489,8 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    convenienceAssertMacrosPassWithoutWriting},
   {"convenience assert macros evaluate operands once",
    convenienceAssertMacrosEvaluateOperandsOnce},
-  {"warning lock success reports expression and return value",
-   warningLockSuccessReportsExpressionAndReturnValue},
+  {"warning mutex success reports expression and return value",
+   warningMutexSuccessReportsExpressionAndReturnValue},
   {"assert failure exits with raw failure code",
    assertFailureExitsWithRawFailureCode},
   {"assert failure uses raw exit path", assertFailureUsesRawExitPath},

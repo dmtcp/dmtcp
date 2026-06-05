@@ -37,13 +37,13 @@ static DmtcpMutex popen_map_lock = DMTCP_MUTEX_INITIALIZER;
 static void
 _lock_popen_map()
 {
-  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&popen_map_lock));
+  ASSERT_MUTEX_SUCCESS(DmtcpMutexLock(&popen_map_lock));
 }
 
 static void
 _unlock_popen_map()
 {
-  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&popen_map_lock));
+  ASSERT_MUTEX_SUCCESS(DmtcpMutexUnlock(&popen_map_lock));
 }
 
 extern "C"
