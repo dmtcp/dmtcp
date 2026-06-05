@@ -137,8 +137,7 @@ class VirtualIdTable
         size_t count = 0;
         while (1) {
           IdType newId = addOneToNextVirtualId();
-          id_iterator i = _idMapTable.find(newId);
-          if (i == _idMapTable.end()) {
+          if (!_idMapTable.contains(newId)) {
             *id = newId;
             res = true;
             break;
@@ -163,11 +162,7 @@ class VirtualIdTable
       bool retVal = false;
 
       _do_lock_tbl();
-      id_iterator j = _idMapTable.find(id);
-      if (j != _idMapTable.end()) {
-        retVal = true;
-      }
-
+      retVal = _idMapTable.contains(id);
       _do_unlock_tbl();
       return retVal;
     }

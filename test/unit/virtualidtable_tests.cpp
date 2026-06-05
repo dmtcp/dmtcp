@@ -65,6 +65,7 @@ void virtualIdTableAllocatesAndResolvesIds()
   table.updateMapping(id, 501);
 
   ASSERT_TRUE(table.virtualIdExists(id));
+  ASSERT_TRUE(!table.virtualIdExists(999));
   ASSERT_TRUE(table.realIdExists(501));
   ASSERT_EQ(table.virtualToReal(id), 501);
   ASSERT_EQ(table.realToVirtual(501), id);
