@@ -473,20 +473,14 @@ class TestContext:
 
     def _kill_workers(self, best_effort: bool = False):
         try:
-            payload = self._run_json_command("--kill", "kill",
-                                             allow_error=False)
-            if payload.get("type") != "kill" or not payload.get("ok"):
-                raise HarnessFailure("kill",
-                                     "dmtcp_command --json --kill failed")
+            self._run_json_command("--kill", "kill", allow_error=False)
             self._wait_for_status(0, False, "kill")
         except HarnessFailure:
             if not best_effort:
                 raise
 
     def _quit_workers_and_coordinator(self):
-        payload = self._run_json_command("--quit", "quit", allow_error=False)
-        if payload.get("type") != "quit" or not payload.get("ok"):
-            raise HarnessFailure("quit", "dmtcp_command --json --quit failed")
+        self._run_json_command("--quit", "quit", allow_error=False)
         if self.coordinator_proc is not None:
             try:
                 self.coordinator_proc.wait(timeout=self.spec.timeout)
@@ -498,10 +492,7 @@ class TestContext:
         self._wait_for_worker_exit("quit")
 
     def _kill_workers_and_wait_for_coordinator_exit(self):
-        payload = self._run_json_command("--kill", "kill", allow_error=False)
-        if payload.get("type") != "kill" or not payload.get("ok"):
-            raise HarnessFailure("kill",
-                                 "dmtcp_command --json --kill failed")
+        self._run_json_command("--kill", "kill", allow_error=False)
         self._wait_for_worker_exit("kill")
         if self.coordinator_proc is not None:
             try:
