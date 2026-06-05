@@ -330,7 +330,7 @@ daemon(int nochdir, int noclose)
   }
 
   if (!nochdir) {
-    ASSERT_ERRNO(chdir("/") == 0, "daemon failed to chdir to /");
+    ASSERT_SYSCALL_SUCCESS_MSG(chdir("/"), "daemon failed to chdir to /");
   }
 
   if (!noclose) {
@@ -473,7 +473,7 @@ dmtcpProcessFailedExec(const char *path, const char *newArgv[])
   }
 
   JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
-  ASSERT_ERRNO(_real_close(PROTECTED_LIFEBOAT_FD) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(_real_close(PROTECTED_LIFEBOAT_FD),
                "failed to close protected lifeboat fd: fd={}",
                PROTECTED_LIFEBOAT_FD);
   errno = saved_errno;
@@ -653,7 +653,7 @@ int getLifeboatFd()
   snprintf(buf, sizeof(buf) - 1, "%s/LifeBoat.XXXXXX", dmtcp_get_tmpdir());
   int fd = _real_mkostemps(buf, 0, 0);
   ASSERT_ERRNO(fd != -1, "failed to create lifeboat file: path={}", buf);
-  ASSERT_ERRNO(unlink(buf) == 0, "failed to unlink lifeboat file: path={}",
+  ASSERT_SYSCALL_SUCCESS_MSG(unlink(buf), "failed to unlink lifeboat file: path={}",
                buf);
   Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);
   return PROTECTED_LIFEBOAT_FD;

@@ -89,6 +89,13 @@ class SourceAuditTest(unittest.TestCase):
                     files.append(relative_path)
         return sorted(files)
 
+    def source_file_paths(self):
+        source_suffixes = {".c", ".cc", ".cpp", ".h", ".hpp"}
+        for root_name in ("include", "src"):
+            for path in (ROOT / root_name).rglob("*"):
+                if path.suffix in source_suffixes:
+                    yield path
+
     def read_diagnostic_migration_allowlist(self):
         path = ROOT / "test" / "diagnostic_migration_allowlist.txt"
         self.assertTrue(path.exists(),
@@ -417,6 +424,34 @@ class SourceAuditTest(unittest.TestCase):
         for relative_path, pattern in checks:
             with self.subTest(path=relative_path):
                 self.assert_file_does_not_match(relative_path, pattern)
+
+    def test_simple_syscall_asserts_use_named_success_helpers(self):
+        pattern = re.compile(
+            r"\b(?:ASSERT|WARNING)_ERRNO\s*\(\s*"
+            r"(?:[A-Za-z_][A-Za-z0-9_:]*|::[A-Za-z_][A-Za-z0-9_:]*)"
+            r"\s*\([^;\n]*\)\s*(?:==\s*0|!=\s*-1)\s*,",
+        )
+        matches = []
+        for path in self.source_file_paths():
+            relative_path = path.relative_to(ROOT).as_posix()
+            if relative_path == "src/util_assert.h":
+                continue
+            text = self.strip_comments(path.read_text(encoding="utf-8"))
+            for line_number, line in enumerate(text.splitlines(), start=1):
+                if pattern.search(line):
+                    matches.append(f"{relative_path}:{line_number}")
+        self.assertEqual(matches, [],
+                         "use ASSERT_SYSCALL_SUCCESS or "
+                         "WARNING_SYSCALL_SUCCESS for direct errno-style "
+                         f"success checks: {matches}")
+
+    def test_signal_context_success_checks_use_named_helpers(self):
+        for pattern in (
+            r"SIGNAL_ASSERT_SUCCESS\s*\(",
+            r"SIGNAL_ASSERT_ERRNO\s*\(\s*getcontext\(",
+        ):
+            with self.subTest(pattern=pattern):
+                self.assert_file_does_not_match("src/threadlist.cpp", pattern)
 
     def test_child_thread_signal_set_is_initialized_before_use(self):
         self.assert_file_does_not_match(

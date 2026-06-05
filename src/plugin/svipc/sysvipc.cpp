@@ -715,9 +715,9 @@ ShmSegment::ShmSegment(int shmid,
   _size = size;
   if (key == -1 || size == 0) {
     struct shmid_ds shminfo;
-    ASSERT_ERRNO(_real_shmctl(_realId, IPC_STAT, &shminfo) != -1,
-                 "failed to stat SysV shm during construction: shmid={}",
-                 _realId);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_shmctl(_realId, IPC_STAT, &shminfo),
+      "failed to stat SysV shm during construction: shmid={}", _realId);
     _key = shminfo.shm_perm.__key;
     _size = shminfo.shm_segsz;
     _flags = shminfo.shm_perm.mode;
@@ -807,10 +807,11 @@ ShmSegment::leaderElection()
   }
 
   // Remove the previously-attached segment.
-  ASSERT_ERRNO(_real_shmdt(savedAddr) == 0,
-               "failed to detach temporary SysV shm leader-election address: "
-               "shmid={} shmaddr={}",
-               _id, savedAddr);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    _real_shmdt(savedAddr),
+    "failed to detach temporary SysV shm leader-election address: "
+    "shmid={} shmaddr={}",
+    _id, savedAddr);
 }
 
 void
@@ -818,9 +819,9 @@ ShmSegment::preCkptDrain()
 {
   struct shmid_ds info;
 
-  ASSERT_ERRNO(_real_shmctl(_realId, IPC_STAT, &info) != -1,
-               "failed to stat SysV shm before checkpoint drain: shmid={}",
-               _id);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    _real_shmctl(_realId, IPC_STAT, &info),
+    "failed to stat SysV shm before checkpoint drain: shmid={}", _id);
 
   /* If we are the ckptLeader for this object, map it now, if not mapped
      already.
@@ -862,10 +863,10 @@ ShmSegment::preCheckpoint()
 
   for (; i != _shmaddrToFlag.end(); ++i) {
     JTRACE("Unmapping shared memory segment") (_id)(i->first);
-    ASSERT_ERRNO(_real_shmdt(i->first) == 0,
-                 "failed to detach SysV shm before checkpoint: "
-                 "shmid={} shmaddr={}",
-                 _id, i->first);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_shmdt(i->first),
+      "failed to detach SysV shm before checkpoint: shmid={} shmaddr={}",
+      _id, i->first);
 
     // We need to unmap the duplicate shared memory segments to optimize ckpt
     // image size. But we will remap it with zero pages that have no rwx
@@ -906,10 +907,10 @@ ShmSegment::postRestart()
                "shmid={} real_shmid={}",
                _id, _realId);
   huge_memcpy((char *)tmpaddr, (char *)i->first, _size);
-  ASSERT_ERRNO(_real_shmdt(tmpaddr) == 0,
-               "failed to detach temporary SysV shm after restart: "
-               "shmid={} shmaddr={}",
-               _id, tmpaddr);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    _real_shmdt(tmpaddr),
+    "failed to detach temporary SysV shm after restart: shmid={} shmaddr={}",
+    _id, tmpaddr);
   munmap((void *)i->first, _size);
 
   if (!_dmtcpMappedAddr) {
@@ -921,10 +922,10 @@ ShmSegment::postRestart()
   JTRACE("Remapping shared memory segment to original address") (_id) (_realId);
   // Mark the segment as deleted if it was marked deleted at checkpoint.
   if (_mode & SHM_DEST) {
-    ASSERT_ERRNO(_real_shmctl(_realId, IPC_RMID, NULL) != -1,
-                 "failed to mark restored SysV shm deleted: "
-                 "shmid={} real_shmid={}",
-                 _id, _realId);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_shmctl(_realId, IPC_RMID, NULL),
+      "failed to mark restored SysV shm deleted: shmid={} real_shmid={}",
+      _id, _realId);
     JTRACE("Marked shared memory segment as deleted.") (_id) (_realId);
   }
 }
@@ -952,10 +953,11 @@ ShmSegment::preResume()
 
   for (; i != _shmaddrToFlag.end(); ++i) {
     // Unmap the reserved area.
-    ASSERT_ERRNO(munmap((void *)i->first, _size) == 0,
-                 "failed to unmap reserved SysV shm address before resume: "
-                 "shmid={} shmaddr={} size={}",
-                 _id, i->first, _size);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      munmap((void *)i->first, _size),
+      "failed to unmap reserved SysV shm address before resume: "
+      "shmid={} shmaddr={} size={}",
+      _id, i->first, _size);
 
     JTRACE("Remapping shared memory segment")(_realId);
     ASSERT_ERRNO(_real_shmat(_realId, i->first, i->second) != (void *)-1,
@@ -982,9 +984,9 @@ Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg)
     struct semid_ds buf;
     union semun se;
     se.buf = &buf;
-    ASSERT_ERRNO(_real_semctl(realSemid, 0, IPC_STAT, se) != -1,
-                 "failed to stat SysV sem during construction: semid={}",
-                 realSemid);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_semctl(realSemid, 0, IPC_STAT, se),
+      "failed to stat SysV sem during construction: semid={}", realSemid);
     _key = se.buf->sem_perm.__key;
     _nsems = se.buf->sem_nsems;
     _flags = se.buf->sem_perm.mode;
@@ -1046,10 +1048,9 @@ Semaphore::leaderElection()
     sops.sem_num = 0;
     sops.sem_op = -1;
     sops.sem_flg = 0;
-    ASSERT_ERRNO(_real_semtimedop(_realId, &sops, 1, NULL) == 0,
-                 "failed to undo SysV sem leader-election increment: "
-                 "semid={}",
-                 _id);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_semtimedop(_realId, &sops, 1, NULL),
+      "failed to undo SysV sem leader-election increment: semid={}", _id);
   }
 }
 
@@ -1062,8 +1063,9 @@ Semaphore::preCkptDrain()
       _real_semctl(_realId, 0, GETPID, arg)) {
     union semun info;
     info.array = &_semval[0];
-    ASSERT_ERRNO(_real_semctl(_realId, 0, GETALL, info) != -1,
-                 "failed to snapshot SysV sem values: semid={}", _id);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_semctl(_realId, 0, GETALL, info),
+      "failed to snapshot SysV sem values: semid={}", _id);
     _isCkptLeader = true;
   }
 }
@@ -1084,8 +1086,9 @@ Semaphore::postRestart()
 
     union semun info;
     info.array = &_semval[0];
-    ASSERT_ERRNO(_real_semctl(_realId, 0, SETALL, info) != -1,
-                 "failed to restore SysV sem values: semid={}", _id);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_semctl(_realId, 0, SETALL, info),
+      "failed to restore SysV sem values: semid={}", _id);
   }
 }
 
@@ -1111,15 +1114,15 @@ Semaphore::refill()
     sops.sem_num = i;
     sops.sem_op = abs(_semadj[i]);
     sops.sem_flg = _semadj[i] > 0 ? 0 : SEM_UNDO;
-    ASSERT_ERRNO(_real_semop(_realId, &sops, 1) == 0,
-                 "failed to restore SysV sem adjustment: semid={} semnum={}",
-                 _id, i);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_semop(_realId, &sops, 1),
+      "failed to restore SysV sem adjustment: semid={} semnum={}", _id, i);
 
     sops.sem_op = -abs(_semadj[i]);
     sops.sem_flg = _semadj[i] < 0 ? SEM_UNDO : 0;
-    ASSERT_ERRNO(_real_semop(_realId, &sops, 1) == 0,
-                 "failed to rebalance SysV sem adjustment: semid={} semnum={}",
-                 _id, i);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_semop(_realId, &sops, 1),
+      "failed to rebalance SysV sem adjustment: semid={} semnum={}", _id, i);
   }
 }
 
@@ -1134,10 +1137,10 @@ MsgQueue::MsgQueue(int msqid, int realMsqid, key_t key, int msgflg)
 {
   if (key == -1) {
     struct msqid_ds buf;
-    ASSERT_ERRNO(_real_msgctl(realMsqid, IPC_STAT, &buf) == 0,
-                 "failed to stat SysV msg queue during construction: "
-                 "msqid={}",
-                 realMsqid);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_msgctl(realMsqid, IPC_STAT, &buf),
+      "failed to stat SysV msg queue during construction: msqid={}",
+      realMsqid);
     _key = buf.msg_perm.__key;
     _flags = buf.msg_perm.mode;
   }
@@ -1166,9 +1169,9 @@ MsgQueue::leaderElection()
   // of messages in the queue.
   struct msqid_ds buf;
 
-  ASSERT_ERRNO(_real_msgctl(_realId, IPC_STAT, &buf) == 0,
-               "failed to stat SysV msg queue for leader election: msqid={}",
-               _id);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    _real_msgctl(_realId, IPC_STAT, &buf),
+    "failed to stat SysV msg queue for leader election: msqid={}", _id);
 
   _qnum = buf.msg_qnum;
 }
@@ -1187,9 +1190,9 @@ MsgQueue::preCkptDrain()
 
   msg.mtype = getpid();
   msg.mtext[0] = '\0';
-  ASSERT_ERRNO(_real_msgsnd(_realId, &msg, 1, IPC_NOWAIT) == 0,
-               "failed to send SysV msg leader-election marker: msqid={}",
-               _id);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    _real_msgsnd(_realId, &msg, 1, IPC_NOWAIT),
+    "failed to send SysV msg leader-election marker: msqid={}", _id);
   _isCkptLeader = false;
 }
 
@@ -1199,9 +1202,9 @@ MsgQueue::preCheckpoint()
   struct msqid_ds buf;
 
   memset(&buf, 0, sizeof buf);
-  ASSERT_ERRNO(_real_msgctl(_realId, IPC_STAT, &buf) == 0,
-               "failed to stat SysV msg queue before checkpoint: msqid={}",
-               _id);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    _real_msgctl(_realId, IPC_STAT, &buf),
+    "failed to stat SysV msg queue before checkpoint: msqid={}", _id);
 
   if (buf.msg_lspid == dmtcp_pid_virtual_to_real(getpid())) {
     size_t size = buf.__msg_cbytes;
@@ -1251,16 +1254,16 @@ MsgQueue::refill()
 {
   if (_isCkptLeader) {
     struct msqid_ds buf;
-    ASSERT_ERRNO(_real_msgctl(_realId, IPC_STAT, &buf) == 0,
-                 "failed to stat SysV msg queue before refill: msqid={}",
-                 _id);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_msgctl(_realId, IPC_STAT, &buf),
+      "failed to stat SysV msg queue before refill: msqid={}", _id);
 
     for (size_t i = 0; i < _qnum; i++) {
       struct msgbuf *msgBuf = (struct msgbuf*) _msgInQueue[i].buffer();
       size_t msgSize = _msgInQueue[i].size() - sizeof(msgBuf->mtype);
-      ASSERT_ERRNO(_real_msgsnd(_realId, msgBuf, msgSize, IPC_NOWAIT) == 0,
-                   "failed to refill SysV msg queue: msqid={} index={}",
-                   _id, i);
+      ASSERT_SYSCALL_SUCCESS_MSG(
+        _real_msgsnd(_realId, msgBuf, msgSize, IPC_NOWAIT),
+        "failed to refill SysV msg queue: msqid={} index={}", _id, i);
     }
   }
   _msgInQueue.clear();

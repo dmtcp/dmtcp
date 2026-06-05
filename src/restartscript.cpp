@@ -601,10 +601,10 @@ writeScript(const string &ckptDir,
 
     /* Set execute permission for user. */
     struct stat buf;
-    ASSERT_ERRNO(::stat(uniqueFilename.c_str(), &buf) == 0,
+    ASSERT_SYSCALL_SUCCESS_MSG(::stat(uniqueFilename.c_str(), &buf),
                  "failed to stat restart script: path={}",
                  uniqueFilename);
-    ASSERT_ERRNO(chmod(uniqueFilename.c_str(), buf.st_mode | S_IXUSR) == 0,
+    ASSERT_SYSCALL_SUCCESS_MSG(chmod(uniqueFilename.c_str(), buf.st_mode | S_IXUSR),
                  "failed to set restart script executable: path={}",
                  uniqueFilename);
 
@@ -630,7 +630,7 @@ writeScript(const string &ckptDir,
                   "failed to link restart script: link={} target_dir={}",
                   filename,
                   dirname);
-    ASSERT_ERRNO(close(dirfd) == 0,
+    ASSERT_SYSCALL_SUCCESS_MSG(close(dirfd),
                  "failed to close restart script directory: path={}",
                  dirname);
   }

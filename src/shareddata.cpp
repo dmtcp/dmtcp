@@ -191,7 +191,7 @@ SharedData::initialize(const char *tmpDir,
     // too small. This can cause a SIGBUS later when we try to read beyond
     // the end of the file. So we must truncate the file to the correct size
     // in both the if and else branch, above.
-    ASSERT_ERRNO(truncate(o.str().c_str(), size) == 0,
+    ASSERT_SYSCALL_SUCCESS_MSG(truncate(o.str().c_str(), size),
                  "failed to size shared-data file: path={} size={}", o.str(),
                  size);
     ASSERT_ERRNO(fd != -1, "failed to open shared-data file: path={}",
@@ -240,7 +240,7 @@ SharedData::initialize(const char *tmpDir,
     while (1) {
       bool initialized = false;
       Util::lockFile(PROTECTED_SHM_FD);
-      ASSERT_ERRNO(fstat(PROTECTED_SHM_FD, &statbuf) != -1,
+      ASSERT_SYSCALL_SUCCESS_MSG(fstat(PROTECTED_SHM_FD, &statbuf),
                    "failed to stat shared-data fd: fd={}", PROTECTED_SHM_FD);
       initialized = sharedDataHeader->initialized;
       Util::unlockFile(PROTECTED_SHM_FD);

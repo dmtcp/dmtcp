@@ -372,8 +372,7 @@ FileConnList::resume(bool isRestart)
   if (isRestart) {
     // Now unlink the files that we created as a side-effect of restoreShmArea.
     for (size_t i = 0; i < missingUnlinkedShmFiles.size(); i++) {
-      WARNING_ERRNO(
-        unlink(missingUnlinkedShmFiles[i].name) != -1,
+      WARNING_SYSCALL_SUCCESS_MSG(unlink(missingUnlinkedShmFiles[i].name),
         "The file was unlinked at checkpoint, but unlinking it after restart "
         "failed: path={}",
         missingUnlinkedShmFiles[i].name);
@@ -416,7 +415,7 @@ FileConnList::prepareShmList()
        * writing them to ckpt file) will cause them to be reloaded from the
        * disk.
        */
-      WARNING_ERRNO(msync(area.addr, area.size, MS_INVALIDATE) == 0,
+      WARNING_SYSCALL_SUCCESS_MSG(msync(area.addr, area.size, MS_INVALIDATE),
                     "msync(MS_INVALIDATE) failed for shared memory area: "
                     "addr={} size={} path={} offset={}",
                     area.addr, area.size, area.name, area.offset);
@@ -623,7 +622,7 @@ FileConnList::scanForPreExisting()
       continue;
     }
     struct stat statbuf;
-    ASSERT_ERRNO(fstat(fd, &statbuf) == 0,
+    ASSERT_SYSCALL_SUCCESS_MSG(fstat(fd, &statbuf),
                  "fstat failed while scanning pre-existing fd: fd={}", fd);
     bool isRegularFile = (S_ISREG(statbuf.st_mode) || S_ISDIR(statbuf.st_mode));
 
@@ -730,7 +729,7 @@ FileConnList::processFileConnection(int fd,
   }
 
   struct stat statbuf;
-  ASSERT_ERRNO(fstat(fd, &statbuf) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(fstat(fd, &statbuf),
                "fstat failed while processing file connection: fd={}", fd);
 
   if (strstr(device.c_str(), "infiniband/uverbs") ||

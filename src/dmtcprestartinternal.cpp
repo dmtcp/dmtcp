@@ -361,7 +361,7 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
   // If we were the session leader, become one now.
   if (sid() == pid()) {
     if (getsid(0) != pid()) {
-      WARNING_ERRNO(setsid() != -1,
+      WARNING_SYSCALL_SUCCESS_MSG(setsid(),
                     "Failed to restore this process as session leader: "
                     "current session id={}",
                     getsid(0));
@@ -583,16 +583,16 @@ openCkptFileToRead(const string &filename)
   ASSERT_EQ(sizeof(ckptHdr), (size_t)Util::readAll(fd, &ckptHdr, sizeof(ckptHdr)));
   if (string(ckptHdr.ckptSignature) == DMTCP_CKPT_SIGNATURE) {
     // Uncompressed file. Rewind and return.
-    ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) == 0,
+    ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
                  "failed to rewind checkpoint file: path={}", filename);
     return fd;
   }
 
-  ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
                "failed to rewind checkpoint file before magic read: path={}",
                filename);
   ASSERT_EQ(1, Util::readAll(fd, &fc, 1));
-  ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
                "failed to rewind checkpoint file after magic read: path={}",
                filename);
 
@@ -680,11 +680,11 @@ setEnvironFd()
   int fd = mkstemp(envFile);
   ASSERT_ERRNO(fd != -1,
                "failed to create temporary environment file: {}", envFile);
-  ASSERT_ERRNO(unlink(envFile) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(unlink(envFile),
                "failed to unlink temporary environment file: {}", envFile);
   ASSERT_ERRNO(dup2(fd, PROTECTED_ENVIRON_FD) == PROTECTED_ENVIRON_FD,
                "failed to install protected environment fd");
-  ASSERT_ERRNO(close(fd) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(close(fd),
                "failed to close temporary environment fd");
   fd = PROTECTED_ENVIRON_FD;
 
@@ -885,7 +885,7 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
       if (Util::strEndsWith(file.c_str(), ".dmtcp")) {
         string restorename(restartDir + "/" + file);
         struct stat buf;
-        ASSERT_ERRNO(stat(restorename.c_str(), &buf) != -1,
+        ASSERT_SYSCALL_SUCCESS_MSG(stat(restorename.c_str(), &buf),
                      "failed to stat checkpoint image: {}",
                      restorename.c_str());
         if (buf.st_uid != getuid() && !noStrictChecking) {
@@ -907,7 +907,7 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
     for (; argc > 0; shift) {
       string restorename(argv[0]);
       struct stat buf;
-      ASSERT_ERRNO(stat(restorename.c_str(), &buf) != -1,
+      ASSERT_SYSCALL_SUCCESS_MSG(stat(restorename.c_str(), &buf),
                    "failed to stat checkpoint image: {}",
                    restorename.c_str());
 

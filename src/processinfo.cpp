@@ -265,8 +265,8 @@ ProcessInfo::growStack()
   size_t stackSize;
   const rlim_t eightMB = 8 * 1024 * 1024;
 
-  ASSERT_ERRNO(getrlimit(RLIMIT_STACK, &rlim) == 0,
-               "failed to read RLIMIT_STACK");
+  ASSERT_SYSCALL_SUCCESS_MSG(getrlimit(RLIMIT_STACK, &rlim),
+                             "failed to read RLIMIT_STACK");
   if (rlim.rlim_cur == RLIM_INFINITY) {
     if (rlim.rlim_max == RLIM_INFINITY) {
       stackSize = 8 * 1024 * 1024;
@@ -583,10 +583,11 @@ ProcessInfo::restart()
       if (chdir(rpath.c_str()) == 0) {
         JTRACE("Changed cwd") (_launchCWD) (_ckptCWD) (_launchCWD + rpath);
       } else {
-        WARNING_ERRNO(chdir(_ckptCWD.c_str()) == 0,
-                      "failed to change directory to checkpoint cwd: "
-                      "ckptCWD={} launchCWD={}",
-                      _ckptCWD, _launchCWD);
+        WARNING_SYSCALL_SUCCESS_MSG(
+          chdir(_ckptCWD.c_str()),
+          "failed to change directory to checkpoint cwd: "
+          "ckptCWD={} launchCWD={}",
+          _ckptCWD, _launchCWD);
       }
     }
   }
@@ -604,10 +605,11 @@ ProcessInfo::restoreProcessGroupInfo()
 
   if (sid == pid && curSid != curPid) {
     JTRACE("Restore Session Leadership") (sid) (pid) (curSid) (curPid);
-    WARNING_ERRNO(setsid() != -1,
-                  "cannot restore session leadership: savedSid={} "
-                  "savedPid={} currentSid={} currentPid={}",
-                  sid, pid, curSid, curPid);
+    WARNING_SYSCALL_SUCCESS_MSG(
+      setsid(),
+      "cannot restore session leadership: savedSid={} savedPid={} "
+      "currentSid={} currentPid={}",
+      sid, pid, curSid, curPid);
   }
 
   // Restore group assignment
@@ -615,10 +617,11 @@ ProcessInfo::restoreProcessGroupInfo()
   if (gid != cgid) {
     JTRACE("Restore Group Assignment")
       (gid) (fgid) (cgid) (pid) (ppid) (getppid());
-    WARNING_ERRNO(setpgid(0, gid) == 0,
-                  "cannot change process group: savedGid={} currentGid={} "
-                  "savedPid={} savedPpid={}",
-                  gid, cgid, pid, ppid);
+    WARNING_SYSCALL_SUCCESS_MSG(
+      setpgid(0, gid),
+      "cannot change process group: savedGid={} currentGid={} "
+      "savedPid={} savedPpid={}",
+      gid, cgid, pid, ppid);
   } else {
     JTRACE("Group is already assigned") (gid) (cgid);
   }

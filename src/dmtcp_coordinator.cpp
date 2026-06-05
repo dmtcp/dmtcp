@@ -474,8 +474,7 @@ void DmtcpCoordinator::getStatusStr(ostream *o)
 void
 DmtcpCoordinator::writeStatusToFile()
 {
-  ASSERT_ERRNO(
-    truncate(flags.theStatusFile.c_str(), offset_after_first_line) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(truncate(flags.theStatusFile.c_str(), offset_after_first_line),
     "failed to truncate coordinator status file: path={}",
     flags.theStatusFile.c_str());
   ofstream o;
@@ -1087,8 +1086,8 @@ getCurrTimestamp()
 {
   struct timespec value;
   uint64_t nsecs = 0;
-  ASSERT_ERRNO(clock_gettime(CLOCK_MONOTONIC, &value) == 0,
-               "clock_gettime(CLOCK_MONOTONIC) failed");
+  ASSERT_SYSCALL_SUCCESS_MSG(clock_gettime(CLOCK_MONOTONIC, &value),
+                             "clock_gettime(CLOCK_MONOTONIC) failed");
   nsecs = value.tv_sec*1000000000L + value.tv_nsec;
   return nsecs;
 }
@@ -1414,8 +1413,9 @@ DmtcpCoordinator::getStatus() const
                          : (WorkerState::eWorkerState)max);
   status.numPeers = count;
 
-  ASSERT_ERRNO(clock_gettime(CLOCK_MONOTONIC, &status.timestamp) == 0,
-               "clock_gettime(CLOCK_MONOTONIC) failed while building status");
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    clock_gettime(CLOCK_MONOTONIC, &status.timestamp),
+    "clock_gettime(CLOCK_MONOTONIC) failed while building status");
   return status;
 }
 
@@ -1448,8 +1448,8 @@ calcLocalAddr()
 {
   char hostname[HOST_NAME_MAX];
 
-  ASSERT_ERRNO(gethostname(hostname, sizeof hostname) == 0,
-               "gethostname failed");
+  ASSERT_SYSCALL_SUCCESS_MSG(gethostname(hostname, sizeof hostname),
+                             "gethostname failed");
 
   struct addrinfo *result = NULL;
   struct addrinfo *res;
@@ -1579,8 +1579,7 @@ DmtcpCoordinator::eventLoop()
 
   ev.events = EPOLLIN;
   ev.data.ptr = listenSock;
-  ASSERT_ERRNO(
-    epoll_ctl(epollFd, EPOLL_CTL_ADD, listenSock->sockfd(), &ev) != -1,
+  ASSERT_SYSCALL_SUCCESS_MSG(epoll_ctl(epollFd, EPOLL_CTL_ADD, listenSock->sockfd(), &ev),
     "epoll_ctl add listen socket failed: fd={}",
     listenSock->sockfd());
 
@@ -1596,8 +1595,7 @@ DmtcpCoordinator::eventLoop()
     ev.events |= EPOLLRDHUP;
 #endif // ifdef EPOLLRDHUP
     ev.data.ptr = (void *)STDIN_FILENO;
-    ASSERT_ERRNO(
-      epoll_ctl(epollFd, EPOLL_CTL_ADD, STDIN_FILENO, &ev) != -1,
+    ASSERT_SYSCALL_SUCCESS_MSG(epoll_ctl(epollFd, EPOLL_CTL_ADD, STDIN_FILENO, &ev),
       "epoll_ctl add stdin failed");
   }
 
@@ -1645,8 +1643,7 @@ DmtcpCoordinator::eventLoop()
           std::getline(std::cin, cmd);
           if (std::cin.eof() == 1) {
             fputs("\n  Closing stdin...\n", stderr);
-            ASSERT_ERRNO(
-              epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1,
+            ASSERT_SYSCALL_SUCCESS_MSG(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev),
               "epoll_ctl delete stdin after EOF failed");
             close(STDIN_FD);
           } else {
@@ -1670,8 +1667,7 @@ DmtcpCoordinator::eventLoop()
           (events[n].events & EPOLLERR)) {
         ASSERT(ptr != listenSock, "listen socket reported hangup/error");
         if (ptr == (void *)STDIN_FILENO) {
-          ASSERT_ERRNO(
-            epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1,
+          ASSERT_SYSCALL_SUCCESS_MSG(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev),
             "epoll_ctl delete stdin after hangup failed");
           close(STDIN_FD);
         } else {
@@ -1698,8 +1694,7 @@ DmtcpCoordinator::addDataSocket(CoordClient *client)
   ev.events = EPOLLIN;
 #endif // ifdef EPOLLRDHUP
   ev.data.ptr = client;
-  ASSERT_ERRNO(
-    epoll_ctl(epollFd, EPOLL_CTL_ADD, client->sock().sockfd(), &ev) != -1,
+  ASSERT_SYSCALL_SUCCESS_MSG(epoll_ctl(epollFd, EPOLL_CTL_ADD, client->sock().sockfd(), &ev),
     "epoll_ctl add client socket failed: fd={}",
     client->sock().sockfd());
 }

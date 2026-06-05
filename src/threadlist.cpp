@@ -395,7 +395,7 @@ checkpointhread(void *dummy)
          "failed to save checkpoint-thread jump context: tid={}",
          ckptThread->tid);
 #else  // ifdef SETJMP
-  ASSERT_ERRNO(getcontext(&ckptThread->savctx) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(getcontext(&ckptThread->savctx),
                "failed to save checkpoint-thread context: tid={}",
                ckptThread->tid);
 #endif  // ifdef SETJMP
@@ -632,8 +632,7 @@ stopthisthread(int signum)
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
-    SIGNAL_WARNING_ERRNO(prctl(PR_GET_NAME, curThread->procname) != -1,
-                         "prctl(PR_GET_NAME) failed");
+    SIGNAL_WARNING_SYSCALL_SUCCESS(prctl(PR_GET_NAME, curThread->procname));
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
     Thread_SaveSigState(curThread);  // save sig state (and block sig delivery)
@@ -644,8 +643,7 @@ stopthisthread(int signum)
     SIGNAL_ASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0,
                   "failed to save user-thread jump context");
 #else  // ifdef SETJMP
-    SIGNAL_ASSERT_ERRNO(getcontext(&curThread->savctx) == 0,
-                        "failed to save user-thread context");
+    SIGNAL_ASSERT_SYSCALL_SUCCESS(getcontext(&curThread->savctx));
 #endif  // ifdef SETJMP
     save_sp(&curThread->saved_sp);
 
@@ -674,14 +672,12 @@ stopthisthread(int signum)
       // However, the sem_wait cleanup handler is now invalid and thus we get a
       // segfault.
       // The change in sem_wait behavior was first introduce in glibc 2.21.
-      SIGNAL_ASSERT_SUCCESS(DmtcpRWLockRdLock(&threadResumeLock),
-                            "failed to acquire thread resume lock");
+      SIGNAL_ASSERT_RWLOCK_SUCCESS(DmtcpRWLockRdLock(&threadResumeLock));
 
       SIGNAL_ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
                     "failed to mark thread running after checkpoint");
 
-      SIGNAL_ASSERT_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock),
-                            "failed to release thread resume lock");
+      SIGNAL_ASSERT_RWLOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
     } else {
       // If the user defined DMTCP_DISABLE_PRGNAME_PREFIX, skip this prefix.
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)

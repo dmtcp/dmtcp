@@ -65,7 +65,7 @@ SigInfo::setupCkptSigHandler(sighandler_t handler)
 
   // We can't use standard sigaction here, because DMTCP has a wrapper around
   // it that will not allow anyone to set a signal handler for SIGUSR2.
-  ASSERT_ERRNO(_real_sigaction(STOPSIGNAL, &act, &old_act) != -1,
+  ASSERT_SYSCALL_SUCCESS_MSG(_real_sigaction(STOPSIGNAL, &act, &old_act),
                "error setting up checkpoint signal handler: signal={}",
                STOPSIGNAL);
 
@@ -101,12 +101,12 @@ SigInfo::saveSigHandlers()
   act.sa_handler = SIG_IGN;
 
   // Remove signal handler
-  ASSERT_ERRNO(_real_sigaction(STOPSIGNAL, &act, &old_act) != -1,
+  ASSERT_SYSCALL_SUCCESS_MSG(_real_sigaction(STOPSIGNAL, &act, &old_act),
                "error disabling checkpoint signal handler: signal={}",
                STOPSIGNAL);
 
   // Reinstall the previous handler
-  ASSERT_ERRNO(_real_sigaction(STOPSIGNAL, &old_act, NULL) != -1,
+  ASSERT_SYSCALL_SUCCESS_MSG(_real_sigaction(STOPSIGNAL, &old_act, NULL),
                "error restoring checkpoint signal handler: signal={}",
                STOPSIGNAL);
 

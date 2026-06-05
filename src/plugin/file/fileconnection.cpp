@@ -301,7 +301,7 @@ FileConnection::overwriteFileWithBackup(int savedFd)
   _real_close(_fds[0]);
 
   // Create a backup of user file
-  WARNING_ERRNO(rename(_path.c_str(), backupPath.c_str()) == 0,
+  WARNING_SYSCALL_SUCCESS_MSG(rename(_path.c_str(), backupPath.c_str()),
                 "Error creating a backup: path={} backup={}", _path,
                 backupPath);
 
@@ -367,7 +367,7 @@ FileConnection::refill(bool isRestart)
         ((_fcntlFlags & O_WRONLY) || (_fcntlFlags & O_RDWR))) {
       tempfd = _real_open(_path.c_str(), _fcntlFlags | O_CREAT, 0600);
       ASSERT_ERRNO(tempfd != -1, "open() failed: path={}", _path);
-      ASSERT_ERRNO(truncate(_path.c_str(), _st_size) == 0,
+      ASSERT_SYSCALL_SUCCESS_MSG(truncate(_path.c_str(), _st_size),
                    "truncate failed: path={} size={}", _path, _st_size);
     } else if (jalib::Filesystem::FileExists(_path)) {
       if (stat(_path.c_str(), &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
@@ -388,7 +388,7 @@ FileConnection::refill(bool isRestart)
           if (!dmtcp_skip_truncate_file_at_restart(_path.c_str())) {
             JTRACE("Truncating file to ckpt-size")
               (_path) (_st_size) (statbuf.st_size);
-            ASSERT_ERRNO(truncate(_path.c_str(), _st_size) == 0,
+            ASSERT_SYSCALL_SUCCESS_MSG(truncate(_path.c_str(), _st_size),
                          "truncate failed: path={} size={}", _path, _st_size);
           } else {
             WARNING(false,
@@ -411,7 +411,7 @@ FileConnection::refill(bool isRestart)
       tempfd = _real_open(_path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, createMode);
       ASSERT_ERRNO(tempfd != -1,
                    "failed to create missing WRONLY file: path={}", _path);
-      ASSERT_ERRNO(ftruncate(tempfd, _st_size) == 0,
+      ASSERT_SYSCALL_SUCCESS_MSG(ftruncate(tempfd, _st_size),
                    "ftruncate failed: path={} fd={} size={}", _path, tempfd,
                    _st_size);
     } else {
@@ -451,7 +451,7 @@ FileConnection::resume(bool isRestart)
      * we unlink the file.
      */
     if (jalib::Filesystem::FileExists(_path)) {
-      WARNING_ERRNO(unlink(_path.c_str()) != -1,
+      WARNING_SYSCALL_SUCCESS_MSG(unlink(_path.c_str()),
                     "The file was unlinked at checkpoint, but unlinking it "
                     "after restart failed: path={}",
                     _path);
@@ -617,9 +617,9 @@ areFilesEqual(int fd, int savedFd, size_t size)
   off_t offset1 = lseek(fd, 0, SEEK_CUR);
   off_t offset2 = lseek(savedFd, 0, SEEK_CUR);
 
-  ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
                "failed to seek current file: fd={}", fd);
-  ASSERT_ERRNO(lseek(savedFd, 0, SEEK_SET) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(savedFd, 0, SEEK_SET),
                "failed to seek saved file: fd={}", savedFd);
 
   int readBytes;
@@ -639,10 +639,10 @@ areFilesEqual(int fd, int savedFd, size_t size)
   }
   JALLOC_HELPER_FREE(buf1);
   JALLOC_HELPER_FREE(buf2);
-  ASSERT_ERRNO(lseek(fd, offset1, SEEK_SET) != -1,
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, offset1, SEEK_SET),
                "failed to restore current file offset: fd={} offset={}", fd,
                offset1);
-  ASSERT_ERRNO(lseek(savedFd, offset2, SEEK_SET) != -1,
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(savedFd, offset2, SEEK_SET),
                "failed to restore saved file offset: fd={} offset={}",
                savedFd, offset2);
   return size == 0;
@@ -660,9 +660,9 @@ writeFileFromFd(int fd, int destFd)
   fsync(fd);
 
   off_t offset = lseek(fd, 0, SEEK_CUR);
-  ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
                "failed to seek source file: fd={}", fd);
-  ASSERT_ERRNO(lseek(destFd, 0, SEEK_SET) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(destFd, 0, SEEK_SET),
                "failed to seek destination file: fd={}", destFd);
 
   int readBytes, writtenBytes;
@@ -676,7 +676,7 @@ writeFileFromFd(int fd, int destFd)
     ASSERT_ERRNO(writtenBytes != -1, "Write failed: fd={}", destFd);
   }
   JALLOC_HELPER_FREE(buf);
-  ASSERT_ERRNO(lseek(fd, offset, SEEK_SET) != -1,
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, offset, SEEK_SET),
                "failed to restore source file offset: fd={} offset={}", fd,
                offset);
 }
@@ -932,14 +932,14 @@ PosixMQConnection::drain()
   JTRACE("Checkpoint Posix Message Queue.") (_fds[0]);
 
   struct stat statbuf;
-  ASSERT_ERRNO(fstat(_fds[0], &statbuf) != -1,
+  ASSERT_SYSCALL_SUCCESS_MSG(fstat(_fds[0], &statbuf),
                "failed to stat POSIX MQ: fd={}", _fds[0]);
   if (_mode == 0) {
     _mode = statbuf.st_mode;
   }
 
   struct mq_attr attr;
-  ASSERT_ERRNO(mq_getattr(_fds[0], &attr) != -1,
+  ASSERT_SYSCALL_SUCCESS_MSG(mq_getattr(_fds[0], &attr),
                "failed to read POSIX MQ attributes: fd={}", _fds[0]);
   _attr = attr;
   if (attr.mq_curmsgs < 0) {

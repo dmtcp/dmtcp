@@ -418,6 +418,16 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
   UNIT_ASSERT_EQ(hookCallCount, 0);
 }
 
+void signalNamedSuccessMacrosEvaluateOperandsOnce()
+{
+  int calls = 0;
+
+  SIGNAL_ASSERT_RWLOCK_SUCCESS(returnZeroAndCount(&calls));
+  SIGNAL_ASSERT_SYSCALL_SUCCESS(returnZeroAndCount(&calls));
+
+  UNIT_ASSERT_EQ(calls, 2);
+}
+
 void convenienceAssertMessageMacrosEvaluateOperandsOnce()
 {
   resetHook();
@@ -539,6 +549,23 @@ void warningPthreadSuccessReportsExpressionAndReturnValue()
                    nullptr);
   const std::string expected =
     "expected '0' but returned '" + std::to_string(EAGAIN) + "' (EAGAIN)";
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               expected.c_str()) !=
+                   nullptr);
+}
+
+void warningRwlockSuccessReportsExpressionAndReturnValue()
+{
+  resetHook();
+
+  WARNING_RWLOCK_SUCCESS(setErrnoAndReturn(EINVAL, EIO));
+
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "setErrnoAndReturn(EINVAL, EIO) failed") !=
+                   nullptr);
+  const std::string expected =
+    "expected '0' but returned '" + std::to_string(EINVAL) + "' (EINVAL)";
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
                                expected.c_str()) !=
                    nullptr);
@@ -675,11 +702,47 @@ void signalWarningUsesRawDiagnosticAndPreservesErrno()
   UNIT_ASSERT_TRUE(std::strstr(buffer, "errno=13") != nullptr);
 }
 
-void signalAssertSuccessEvaluatesExpressionOnce()
+void signalWarningSyscallSuccessReportsResultAndErrno()
+{
+  resetHook();
+
+  int pipeFds[2];
+  UNIT_ASSERT_EQ(pipe(pipeFds), 0);
+  int savedStderr = dup(STDERR_FILENO);
+  UNIT_ASSERT_TRUE(savedStderr >= 0);
+  UNIT_ASSERT_EQ(dup2(pipeFds[1], STDERR_FILENO), STDERR_FILENO);
+  close(pipeFds[1]);
+
+  errno = 0;
+  SIGNAL_WARNING_SYSCALL_SUCCESS(setErrnoAndReturn(-1, EACCES));
+  int savedErrno = errno;
+
+  UNIT_ASSERT_EQ(dup2(savedStderr, STDERR_FILENO), STDERR_FILENO);
+  close(savedStderr);
+
+  char buffer[512];
+  ssize_t bytes = read(pipeFds[0], buffer, sizeof(buffer) - 1);
+  close(pipeFds[0]);
+
+  UNIT_ASSERT_TRUE(bytes > 0);
+  buffer[bytes] = '\0';
+  UNIT_ASSERT_EQ(savedErrno, EACCES);
+  UNIT_ASSERT_EQ(hookCallCount, 0);
+  UNIT_ASSERT_TRUE(std::strstr(buffer, "WARNING signal-context") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(buffer,
+                               "setErrnoAndReturn(-1, EACCES)") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(buffer,
+                               "expected a return value other than -1") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(buffer, "result=-1") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(buffer, "errno=13") != nullptr);
+}
+
+void signalAssertRwlockSuccessEvaluatesExpressionOnce()
 {
   int calls = 0;
 
-  SIGNAL_ASSERT_SUCCESS(returnZeroAndCount(&calls), "expected success");
+  SIGNAL_ASSERT_RWLOCK_SUCCESS(returnZeroAndCount(&calls));
 
   UNIT_ASSERT_EQ(calls, 1);
 }
@@ -756,6 +819,8 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    convenienceAssertMacrosPassWithoutWriting},
   {"convenience assert macros evaluate operands once",
    convenienceAssertMacrosEvaluateOperandsOnce},
+  {"signal named success macros evaluate operands once",
+   signalNamedSuccessMacrosEvaluateOperandsOnce},
   {"convenience assert message macros evaluate operands once",
    convenienceAssertMessageMacrosEvaluateOperandsOnce},
   {"convenience warning macros pass without writing",
@@ -770,6 +835,8 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    warningMutexSuccessReportsExpressionAndReturnValue},
   {"warning pthread success reports expression and return value",
    warningPthreadSuccessReportsExpressionAndReturnValue},
+  {"warning rwlock success reports expression and return value",
+   warningRwlockSuccessReportsExpressionAndReturnValue},
   {"warning zero-return reports expression and return value",
    warningZeroReturnReportsExpressionAndReturnValue},
   {"warning zero-return message reports extra context",
@@ -782,8 +849,10 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    warningPthreadSuccessMessageReportsExtraContext},
   {"signal warning uses raw diagnostic and preserves errno",
    signalWarningUsesRawDiagnosticAndPreservesErrno},
-  {"signal assert success evaluates expression once",
-   signalAssertSuccessEvaluatesExpressionOnce},
+  {"signal warning syscall-success reports result and errno",
+   signalWarningSyscallSuccessReportsResultAndErrno},
+  {"signal assert rwlock-success evaluates expression once",
+   signalAssertRwlockSuccessEvaluatesExpressionOnce},
   {"assert failure exits with raw failure code",
    assertFailureExitsWithRawFailureCode},
   {"assert failure uses raw exit path", assertFailureUsesRawExitPath},

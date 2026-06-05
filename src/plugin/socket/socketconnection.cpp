@@ -723,7 +723,7 @@ TcpConnection::postRestart()
       struct sockaddr_un *uaddr = (sockaddr_un *)&_bindAddr;
       if (uaddr->sun_path[0] != '\0') {
         JTRACE("Unlinking stale unix domain socket.") (uaddr->sun_path);
-        WARNING_ERRNO(unlink(uaddr->sun_path) == 0,
+        WARNING_SYSCALL_SUCCESS_MSG(unlink(uaddr->sun_path),
                       "failed to unlink stale UNIX socket: path={}",
                       uaddr->sun_path);
       }
@@ -787,7 +787,7 @@ TcpConnection::postRestart()
       JTRACE("Listening socket.") (id());
     }
     errno = 0;
-    WARNING_ERRNO(_real_listen(_fds[0], _listenBacklog) == 0,
+    WARNING_SYSCALL_SUCCESS_MSG(_real_listen(_fds[0], _listenBacklog),
                   "listen failed: fd={} con_id={} backlog={}", _fds[0],
                   id().conId(), _listenBacklog);
     if (_type == TCP_LISTEN) {
@@ -1000,7 +1000,7 @@ RawSocketConnection::postRestart()
     }
 
     errno = 0;
-    WARNING_ERRNO(_real_listen(_fds[0], _listenBacklog) == 0,
+    WARNING_SYSCALL_SUCCESS_MSG(_real_listen(_fds[0], _listenBacklog),
                   "raw socket listen failed: fd={} con_id={} backlog={}",
                   _fds[0], id().conId(), _listenBacklog);
     if (_type == RAW_LISTEN) {

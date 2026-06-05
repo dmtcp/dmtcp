@@ -71,7 +71,7 @@ ProcSelfMaps::ProcSelfMaps()
   // of /proc/self/maps, so we need to recalculate numBytes.
   size_t size = numBytes + 4096; // Add a one page buffer.
   data = (char *)JALLOC_HELPER_MALLOC(size);
-  ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
                "failed to rewind /proc/self/maps");
 
   numBytes = Util::readAll(fd, data, size);

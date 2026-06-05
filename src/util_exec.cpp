@@ -467,7 +467,7 @@ Util::patchArgvIfSetuid(const char *filename,
                          "call to system failed: cmd={}",
                          cpCmdBuf);
 
-  ASSERT_ERRNO(access(newFilename, X_OK) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(access(newFilename, X_OK),
                "setuid copy is not executable: path={}",
                newFilename);
 

@@ -140,7 +140,7 @@ EventFdConnection::drain()
   ASSERT(_fds[0] >= 0, "invalid eventfd during drain: fd={}", _fds[0]);
 
   // set the new flags
-  ASSERT_ERRNO(fcntl(_fds[0], F_SETFL, new_flags) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(fcntl(_fds[0], F_SETFL, new_flags),
                "fcntl(F_SETFL) failed for eventfd drain: fd={} flags={}",
                _fds[0], new_flags);
   uint64_t u;
@@ -225,7 +225,7 @@ SignalFdConnection::drain()
     (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR | O_NONBLOCK;
 
   // set the new flags
-  ASSERT_ERRNO(fcntl(_fds[0], F_SETFL, new_flags) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(fcntl(_fds[0], F_SETFL, new_flags),
                "fcntl(F_SETFL) failed for signalfd drain: fd={} flags={}",
                _fds[0], new_flags);
 

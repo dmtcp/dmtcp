@@ -234,7 +234,7 @@ installSegFaultHandler()
   memset(&act, 0, sizeof(act));
   act.sa_sigaction = segFaultHandler;
   act.sa_flags = SA_SIGINFO;
-  ASSERT_ERRNO(sigaction(SIGSEGV, &act, NULL) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(sigaction(SIGSEGV, &act, NULL),
                "failed to install DMTCP SIGSEGV handler");
 }
 

@@ -663,6 +663,20 @@ signalWarningFailure(const char *expr,
                    savedErrno, includeErrno, 0, false);
 }
 
+inline void
+signalWarningFailureResult(const char *expr,
+                           const char *file,
+                           int line,
+                           const char *message,
+                           int savedErrno,
+                           bool includeErrno,
+                           long result,
+                           bool includeResult)
+{
+  signalDiagnostic(AssertSeverity::Warning, expr, file, line, message,
+                   savedErrno, includeErrno, result, includeResult);
+}
+
 [[noreturn]] inline void
 signalAssertFailure(const char *expr,
                     const char *file,
@@ -925,8 +939,17 @@ assertFailureErrno(const char *expr,
 #ifdef SIGNAL_ASSERT_ERRNO
 # undef SIGNAL_ASSERT_ERRNO
 #endif
-#ifdef SIGNAL_ASSERT_SUCCESS
-# undef SIGNAL_ASSERT_SUCCESS
+#ifdef SIGNAL_WARNING_SYSCALL_SUCCESS
+# undef SIGNAL_WARNING_SYSCALL_SUCCESS
+#endif
+#ifdef SIGNAL_ASSERT_ZERO_RETURN
+# undef SIGNAL_ASSERT_ZERO_RETURN
+#endif
+#ifdef SIGNAL_ASSERT_RWLOCK_SUCCESS
+# undef SIGNAL_ASSERT_RWLOCK_SUCCESS
+#endif
+#ifdef SIGNAL_ASSERT_SYSCALL_SUCCESS
+# undef SIGNAL_ASSERT_SYSCALL_SUCCESS
 #endif
 #ifdef ASSERT_GT
 # undef ASSERT_GT
@@ -1072,16 +1095,46 @@ assertFailureErrno(const char *expr,
     }                                                                    \
   } while (0)
 
-#define SIGNAL_ASSERT_SUCCESS(expression, message)                        \
+#define SIGNAL_WARNING_SYSCALL_SUCCESS(expression)                        \
+  do {                                                                   \
+    const auto dmtcpAssertResult = (expression);                          \
+    if (dmtcpAssertResult == -1) {                                        \
+      int dmtcpAssertSavedErrno = errno;                                  \
+      ::dmtcp::signalWarningFailureResult(                                \
+        #expression, __FILE__, __LINE__,                                  \
+        "expected a return value other than -1",                          \
+        dmtcpAssertSavedErrno, true,                                      \
+        static_cast<long>(dmtcpAssertResult), true);                      \
+      errno = dmtcpAssertSavedErrno;                                      \
+    }                                                                    \
+  } while (0)
+
+#define SIGNAL_ASSERT_ZERO_RETURN(expression)                             \
   do {                                                                   \
     const auto dmtcpAssertResult = (expression);                          \
     if (dmtcpAssertResult != 0) {                                         \
       int dmtcpAssertSavedErrno = errno;                                  \
       ::dmtcp::signalAssertFailure(#expression, __FILE__, __LINE__,       \
-                                   message, dmtcpAssertSavedErrno,        \
-                                   false,                                 \
+                                   "expected '0' but returned nonzero",   \
+                                   dmtcpAssertSavedErrno, false,          \
                                    static_cast<long>(dmtcpAssertResult),  \
                                    true);                                 \
+    }                                                                    \
+  } while (0)
+
+#define SIGNAL_ASSERT_RWLOCK_SUCCESS(expression) \
+  SIGNAL_ASSERT_ZERO_RETURN(expression)
+
+#define SIGNAL_ASSERT_SYSCALL_SUCCESS(expression)                         \
+  do {                                                                   \
+    const auto dmtcpAssertResult = (expression);                          \
+    if (dmtcpAssertResult == -1) {                                        \
+      int dmtcpAssertSavedErrno = errno;                                  \
+      ::dmtcp::signalAssertFailure(                                       \
+        #expression, __FILE__, __LINE__,                                  \
+        "expected a return value other than -1",                          \
+        dmtcpAssertSavedErrno, true,                                      \
+        static_cast<long>(dmtcpAssertResult), true);                      \
     }                                                                    \
   } while (0)
 

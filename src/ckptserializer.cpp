@@ -141,7 +141,7 @@ double_fork()
     allow_delivery_of_one_sigchld();
 
     // 3. Next, we reap that child process (which is now a zombie).
-    WARNING_ERRNO(_real_waitpid(pid, NULL, 0) != -1,
+    WARNING_SYSCALL_SUCCESS_MSG(_real_waitpid(pid, NULL, 0),
                   "failed to wait for checkpoint child: pid={}", pid);
 
     // 4. ... and we then restore the original SIGCHLD handler
@@ -307,7 +307,7 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
   } else if (fork_rc == FORKED_CKPT_PARENT) { /* parent process */
     // Before running gzip in child process, we must not use LD_PRELOAD.
     // See revision log 342 for details concerning bash.
-    WARNING_ERRNO(_real_close(pipe_fds[0]) == 0,
+    WARNING_SYSCALL_SUCCESS_MSG(_real_close(pipe_fds[0]),
                   "failed to close compression read pipe: fd={}",
                   pipe_fds[0]);
     fd = pipe_fds[1];  // change return value
@@ -414,10 +414,10 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
 
   if (use_compression) {
     /* IF OUT OF DISK SPACE, REPORT IT HERE. */
-    ASSERT_ERRNO(fsync(fdCkptFileOnDisk) != -1,
+    ASSERT_SYSCALL_SUCCESS_MSG(fsync(fdCkptFileOnDisk),
                  "compression fsync error on checkpoint file: fd={}",
                  fdCkptFileOnDisk);
-    ASSERT_ERRNO(_real_close(fdCkptFileOnDisk) == 0,
+    ASSERT_SYSCALL_SUCCESS_MSG(_real_close(fdCkptFileOnDisk),
                  "compression error closing checkpoint file: fd={}",
                  fdCkptFileOnDisk);
   }
