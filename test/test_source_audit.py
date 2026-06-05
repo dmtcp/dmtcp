@@ -686,6 +686,18 @@ class SourceAuditTest(unittest.TestCase):
             with self.subTest(pattern=pattern):
                 self.assert_file_does_not_match("src/threadlist.cpp", pattern)
 
+    def test_access_success_checks_use_named_syscall_helper(self):
+        for relative_path in (
+            "src/ckptserializer.cpp",
+            "src/dmtcprestartinternal.cpp",
+            "src/util_init.cpp",
+        ):
+            with self.subTest(path=relative_path):
+                self.assert_file_does_not_match(
+                    relative_path,
+                    r"ASSERT_ERRNO\s*\(\s*0\s*==\s*access\(",
+                )
+
     def test_child_thread_signal_set_is_initialized_before_use(self):
         self.assert_file_does_not_match(
             "src/threadwrappers.cpp",

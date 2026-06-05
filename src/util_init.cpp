@@ -114,9 +114,10 @@ Util::calcTmpDir(const char *tmpdirenv)
                "error creating tmp directory: path={}",
                tmpDir);
 
-  ASSERT_ERRNO(0 == access(tmpDir, X_OK | W_OK),
-               "missing execute- or write-access to tmp dir: path={}",
-               tmpDir);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    access(tmpDir, X_OK | W_OK),
+    "missing execute- or write-access to tmp dir: path={}",
+    tmpDir);
 
   return tmpDir;
 }

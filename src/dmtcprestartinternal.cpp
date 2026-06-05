@@ -722,9 +722,10 @@ setNewCkptDir(const string& path)
   if (stat(path.c_str(), &st) == -1) {
     ASSERT_ERRNO(mkdir(path.c_str(), S_IRWXU) == 0 || errno == EEXIST,
                  "Error creating checkpoint directory: {}", path.c_str());
-    ASSERT_ERRNO(0 == access(path.c_str(), X_OK | W_OK),
-                 "Missing execute- or write-access to checkpoint directory: {}",
-                 path.c_str());
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      access(path.c_str(), X_OK | W_OK),
+      "Missing execute- or write-access to checkpoint directory: {}",
+      path.c_str());
   } else {
     ASSERT(S_ISDIR(st.st_mode),
            "checkpoint directory path is not a directory: {}",

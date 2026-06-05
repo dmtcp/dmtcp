@@ -364,10 +364,10 @@ CkptSerializer::createCkptDir()
   ASSERT_ERRNO(mkdir(ckptDir.c_str(), S_IRWXU) == 0 || errno == EEXIST,
                "error creating checkpoint directory: path={}", ckptDir);
 
-  ASSERT_ERRNO(0 == access(ckptDir.c_str(), X_OK | W_OK),
-               "missing execute or write access to checkpoint directory: "
-               "path={}",
-               ckptDir);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    access(ckptDir.c_str(), X_OK | W_OK),
+    "missing execute or write access to checkpoint directory: path={}",
+    ckptDir);
 }
 
 // Ckpt file may be gzipped, and re read it from a pipe.  We can't lseek on a
