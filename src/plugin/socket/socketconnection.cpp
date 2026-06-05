@@ -279,7 +279,10 @@ getMPISpawnPortNum(const char *envVar)
       *temp++;
     }
     if (*temp == ':') {
-      return atoi(temp + 1);
+      int port = 0;
+      if (Util::parsePortNumber(temp + 1, &port)) {
+        return port;
+      }
     }
   }
   return 0;

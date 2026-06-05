@@ -63,6 +63,10 @@ class SourceAuditTest(unittest.TestCase):
     def test_processinfo_rlimit_uses_shared_numeric_parser(self):
         self.assert_file_does_not_contain("src/processinfo.cpp", "atol")
 
+    def test_socket_mpi_spawn_port_uses_shared_numeric_parser(self):
+        self.assert_file_does_not_contain(
+            "src/plugin/socket/socketconnection.cpp", "atoi")
+
     def test_coordinator_clock_gettime_uses_errno_diagnostics(self):
         self.assert_file_does_not_contain(
             "src/dmtcp_coordinator.cpp", "ASSERT_EQ(0, clock_gettime")
