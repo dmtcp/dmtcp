@@ -323,6 +323,15 @@ class SourceAuditTest(unittest.TestCase):
             with self.subTest(path=relative_path):
                 self.assert_file_does_not_match(relative_path, pattern)
 
+    def test_syscall_style_warnings_use_named_helpers(self):
+        for relative_path in (
+            "src/plugin/event/eventconnection.cpp",
+            "src/plugin/socket/socketconnection.cpp",
+        ):
+            with self.subTest(path=relative_path):
+                self.assert_file_does_not_match(relative_path,
+                                                r"WARNING_ERRNO\(ret == 0,")
+
     def test_child_thread_signal_set_is_initialized_before_use(self):
         self.assert_file_does_not_match(
             "src/threadwrappers.cpp",

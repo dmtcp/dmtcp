@@ -145,13 +145,11 @@ SocketConnection::restoreSocketOptions(vector<int> &fds)
          opt != lvl->second.end(); ++opt) {
       JTRACE("Restoring socket option.")
         (fds[0]) (opt->first) (opt->second.size());
-      int ret = _real_setsockopt(fds[0], lvl->first, opt->first,
-                                 opt->second.buffer(),
-                                 opt->second.size());
-      WARNING_ERRNO(ret == 0,
-                    "Restoring setsockopt failed: fd={} level={} option={} "
-                    "size={}",
-                    fds[0], lvl->first, opt->first, opt->second.size());
+      WARNING_SYSCALL_SUCCESS_MSG(
+        _real_setsockopt(fds[0], lvl->first, opt->first,
+                         opt->second.buffer(), opt->second.size()),
+        "Restoring setsockopt failed: fd={} level={} option={} size={}",
+        fds[0], lvl->first, opt->first, opt->second.size());
     }
   }
 }

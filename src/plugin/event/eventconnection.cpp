@@ -65,11 +65,10 @@ EpollConnection::refill(bool isRestart)
     fdEventIterator fevt = _fdToEvent.begin();
     for (; fevt != _fdToEvent.end(); fevt++) {
       JTRACE("restore sfd options") (fevt->first);
-      int ret = _real_epoll_ctl(_fds[0], EPOLL_CTL_ADD, fevt->first,
-                                &(fevt->second));
-      WARNING_ERRNO(ret == 0,
-                    "Error in restoring epoll options: epfd={} ret={}",
-                    _fds[0], ret);
+      WARNING_SYSCALL_SUCCESS_MSG(
+        _real_epoll_ctl(_fds[0], EPOLL_CTL_ADD, fevt->first,
+                        &(fevt->second)),
+        "Error in restoring epoll options: epfd={}", _fds[0]);
     }
   }
 }
