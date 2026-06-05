@@ -582,13 +582,18 @@ openCkptFileToRead(const string &filename)
   ASSERT_EQ(sizeof(ckptHdr), (size_t)Util::readAll(fd, &ckptHdr, sizeof(ckptHdr)));
   if (string(ckptHdr.ckptSignature) == DMTCP_CKPT_SIGNATURE) {
     // Uncompressed file. Rewind and return.
-    ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
+    ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) == 0,
+                 "failed to rewind checkpoint file: path={}", filename);
     return fd;
   }
 
-  ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
+  ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) == 0,
+               "failed to rewind checkpoint file before magic read: path={}",
+               filename);
   ASSERT_EQ(1, Util::readAll(fd, &fc, 1));
-  ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
+  ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) == 0,
+               "failed to rewind checkpoint file after magic read: path={}",
+               filename);
 
   if (fc == GZIP_FIRST) {
     decomp_path = gzip_path;

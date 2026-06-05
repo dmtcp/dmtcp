@@ -409,8 +409,11 @@ FileConnection::refill(bool isRestart)
       // File doesn't exist. If it's a WRONLY file, we'll create a new one.
       mode_t createMode = (_mode == 0) ? 0600 : (_mode & 0777);
       tempfd = _real_open(_path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, createMode);
-      ASSERT_NE(-1, tempfd);
-      ASSERT_EQ(0, ftruncate(tempfd, _st_size));
+      ASSERT_ERRNO(tempfd != -1,
+                   "failed to create missing WRONLY file: path={}", _path);
+      ASSERT_ERRNO(ftruncate(tempfd, _st_size) == 0,
+                   "ftruncate failed: path={} fd={} size={}", _path, tempfd,
+                   _st_size);
     } else {
       ASSERT(false, "File not found: path={}", _path);
     }

@@ -524,8 +524,12 @@ void
 ProcessInfo::restoreHeap()
 {
   // Release backing memory for EndOfBrkMap memory region.
-  ASSERT_EQ(0,
-            madvise((void *)_initialSavedBrk, EndOfBrkMapSize, MADV_DONTNEED));
+  ASSERT_ERRNO(madvise((void *)_initialSavedBrk,
+                       EndOfBrkMapSize,
+                       MADV_DONTNEED) == 0,
+               "failed to release saved brk mapping: addr={} size={}",
+               (void *)_initialSavedBrk,
+               EndOfBrkMapSize);
 
   /* If the original start of heap is lower than the current end of heap, we
    * want to mmap the area between _savedBrk and current break. This

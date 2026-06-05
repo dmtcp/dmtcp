@@ -276,6 +276,20 @@ class SourceAuditTest(unittest.TestCase):
         self.assert_file_does_not_contain("src/plugin/file/ptyconnection.cpp",
                                           "ASSERT(ret == 0")
 
+    def test_syscall_return_checks_use_errno_diagnostics(self):
+        checks = (
+            ("src/dmtcprestartinternal.cpp", "ASSERT_EQ(0, lseek"),
+            ("src/plugin/file/fileconnection.cpp", "ASSERT_EQ(0, ftruncate"),
+            ("src/plugin/file/fileconnection.cpp", "ASSERT_NE(-1, tempfd"),
+        )
+        for relative_path, token in checks:
+            with self.subTest(path=relative_path, token=token):
+                self.assert_file_does_not_contain(relative_path, token)
+        self.assert_file_does_not_match(
+            "src/processinfo.cpp",
+            r"ASSERT_EQ\s*\(\s*0\s*,\s*madvise\s*\(",
+        )
+
     def test_child_thread_signal_set_is_initialized_before_use(self):
         self.assert_file_does_not_match(
             "src/threadwrappers.cpp",
