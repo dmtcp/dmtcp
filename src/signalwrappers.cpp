@@ -53,10 +53,10 @@ bannedSignalNumber()
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, stopSignal);
-    int rc = _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL);
-    ASSERT(rc == 0,
-           "failed to unblock checkpoint signal: signal={} result={}",
-           stopSignal, rc);
+    ASSERT_PTHREAD_SUCCESS_MSG(
+      _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),
+      "unblocking checkpoint signal: signal={}",
+      stopSignal);
   }
   return stopSignal;
 }

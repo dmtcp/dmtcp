@@ -60,6 +60,15 @@ class SourceAuditTest(unittest.TestCase):
                 self.assert_file_does_not_contain("src/threadsync.cpp",
                                                   forbidden)
 
+    def test_real_pthread_sigmask_uses_pthread_diagnostics(self):
+        for relative_path in (
+            "src/signalwrappers.cpp",
+            "src/threadwrappers.cpp",
+        ):
+            with self.subTest(path=relative_path):
+                self.assert_file_does_not_contain(relative_path,
+                                                  "ASSERT(rc == 0")
+
 
 if __name__ == "__main__":
     unittest.main()
