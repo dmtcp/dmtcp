@@ -633,8 +633,7 @@ stopthisthread(int signum)
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
-    WARNING_ERRNO(prctl(PR_GET_NAME, curThread->procname) != -1,
-                  "prctl(PR_GET_NAME) failed: tid={}", curThread->tid);
+    WARN_SYSCALL_SUCCESS(prctl(PR_GET_NAME, curThread->procname));
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
     Thread_SaveSigState(curThread);  // save sig state (and block sig delivery)
@@ -643,12 +642,9 @@ stopthisthread(int signum)
     /* Set up our restart point, ie, we get jumped to here after a restore */
 #ifdef SETJMP
     ASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0,
-           "failed to save user-thread jump context: tid={}",
-           curThread->tid);
+           "failed to save user-thread jump context");
 #else  // ifdef SETJMP
-    ASSERT_ERRNO(getcontext(&curThread->savctx) == 0,
-                 "failed to save user-thread context: tid={}",
-                 curThread->tid);
+    ASSERT_SYSCALL_SUCCESS(getcontext(&curThread->savctx));
 #endif  // ifdef SETJMP
     save_sp(&curThread->saved_sp);
 
@@ -662,8 +658,7 @@ stopthisthread(int signum)
 
       /* Tell the checkpoint thread that we're all saved away */
       ASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG),
-             "failed to mark thread suspended: tid={} from={} to={}",
-             curThread->tid, ST_SUSPINPROG, ST_SUSPENDED);
+             "failed to mark thread suspended");
       sem_post(&semNotifyCkptThread);
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
@@ -681,9 +676,7 @@ stopthisthread(int signum)
       ASSERT_LOCK_SUCCESS(DmtcpRWLockRdLock(&threadResumeLock));
 
       ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
-             "failed to mark thread running after checkpoint: tid={} "
-             "from={} to={}",
-             curThread->tid, ST_SUSPENDED, ST_RUNNING);
+             "failed to mark thread running after checkpoint");
 
       ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
     } else {
@@ -704,13 +697,11 @@ stopthisthread(int signum)
 # endif
       ASSERT_ERRNO(prctl(PR_SET_NAME, curThread->procname) != -1 ||
                    errno == EINVAL,
-                   "prctl(PR_SET_NAME) failed: tid={} name={}",
-                   curThread->tid, curThread->procname);
+                   "prctl(PR_SET_NAME) failed");
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
       ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
-             "failed to mark restored thread running: tid={} from={} to={}",
-             curThread->tid, ST_SUSPENDED, ST_RUNNING);
+             "failed to mark restored thread running");
 
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
       ThreadList::waitForAllRestored(curThread);
