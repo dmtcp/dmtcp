@@ -65,6 +65,13 @@ returnNullAndCount(int *calls)
   return nullptr;
 }
 
+int *
+returnPtrAndCount(int *value, int *calls)
+{
+  ++(*calls);
+  return value;
+}
+
 int
 returnZeroAndCount(int *calls)
 {
@@ -405,6 +412,64 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
   UNIT_ASSERT_EQ(hookCallCount, 0);
 }
 
+void convenienceWarningMacrosPassWithoutWriting()
+{
+  resetHook();
+  int value = 2;
+  int larger = 3;
+  int *ptr = &value;
+  int *nullPtr = nullptr;
+
+  WARNING_TRUE(value == 2);
+  WARNING_FALSE(value == larger);
+  WARNING_EQ(2, value);
+  WARNING_NE(larger, value);
+  WARNING_GT(larger, value);
+  WARNING_GE(value, 2);
+  WARNING_LT(value, larger);
+  WARNING_LE(value, 2);
+  WARNING_NOT_NULL(ptr);
+  WARNING_NULL(nullPtr);
+
+  UNIT_ASSERT_EQ(hookCallCount, 0);
+}
+
+void convenienceWarningMacrosEvaluateOperandsOnce()
+{
+  resetHook();
+  int lhs = 0;
+  int rhs = 1;
+  int value = 2;
+  int calls = 0;
+  int nullCalls = 0;
+
+  WARNING_EQ(++lhs, rhs);
+  WARNING_NULL(returnNullAndCount(&nullCalls));
+  WARNING_NOT_NULL(returnPtrAndCount(&value, &calls));
+
+  UNIT_ASSERT_EQ(lhs, 1);
+  UNIT_ASSERT_EQ(calls, 1);
+  UNIT_ASSERT_EQ(nullCalls, 1);
+  UNIT_ASSERT_EQ(hookCallCount, 0);
+}
+
+void convenienceWarningMacrosReportFailuresAndContinue()
+{
+  resetHook();
+  int value = 3;
+  int *ptr = &value;
+
+  WARNING_EQ(2, value);
+  WARNING_NULL(ptr);
+
+  UNIT_ASSERT_EQ(hookCallCount, 2);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "expected 2 == value, got 2 and 3") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1],
+                               "expected null: ptr") != nullptr);
+}
+
 void warningMutexSuccessReportsExpressionAndReturnValue()
 {
   resetHook();
@@ -532,6 +597,12 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    convenienceAssertMacrosPassWithoutWriting},
   {"convenience assert macros evaluate operands once",
    convenienceAssertMacrosEvaluateOperandsOnce},
+  {"convenience warning macros pass without writing",
+   convenienceWarningMacrosPassWithoutWriting},
+  {"convenience warning macros evaluate operands once",
+   convenienceWarningMacrosEvaluateOperandsOnce},
+  {"convenience warning macros report failures and continue",
+   convenienceWarningMacrosReportFailuresAndContinue},
   {"warning mutex success reports expression and return value",
    warningMutexSuccessReportsExpressionAndReturnValue},
   {"warning pthread success reports expression and return value",

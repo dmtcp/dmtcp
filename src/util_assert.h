@@ -676,6 +676,24 @@ assertFailureErrno(const char *expr,
 #ifdef WARNING_ERRNO
 # undef WARNING_ERRNO
 #endif
+#ifdef WARNING_EQ
+# undef WARNING_EQ
+#endif
+#ifdef WARNING_NE
+# undef WARNING_NE
+#endif
+#ifdef WARNING_NULL
+# undef WARNING_NULL
+#endif
+#ifdef WARNING_NOT_NULL
+# undef WARNING_NOT_NULL
+#endif
+#ifdef WARNING_FALSE
+# undef WARNING_FALSE
+#endif
+#ifdef WARNING_TRUE
+# undef WARNING_TRUE
+#endif
 #ifdef ASSERT_EQ
 # undef ASSERT_EQ
 #endif
@@ -742,6 +760,18 @@ assertFailureErrno(const char *expr,
 #ifdef ASSERT_LE
 # undef ASSERT_LE
 #endif
+#ifdef WARNING_GT
+# undef WARNING_GT
+#endif
+#ifdef WARNING_GE
+# undef WARNING_GE
+#endif
+#ifdef WARNING_LT
+# undef WARNING_LT
+#endif
+#ifdef WARNING_LE
+# undef WARNING_LE
+#endif
 
 #define WARNING(condition, fmt, ...)                                      \
   do {                                                                   \
@@ -789,6 +819,12 @@ assertFailureErrno(const char *expr,
 
 #define ASSERT_TRUE(condition) \
   ASSERT((condition), "expected true: {}", #condition)
+
+#define WARNING_FALSE(condition) \
+  WARNING(!(condition), "expected false: {}", #condition)
+
+#define WARNING_TRUE(condition) \
+  WARNING((condition), "expected true: {}", #condition)
 
 // For DMTCP/pthread-style lock APIs that return 0 on success and an error
 // number on failure. Do not use these for syscall-style or boolean success.
@@ -878,6 +914,12 @@ assertFailureErrno(const char *expr,
 #define ASSERT_NOT_NULL(value) \
   ASSERT((value) != nullptr, "expected non-null: {}", #value)
 
+#define WARNING_NULL(value) \
+  WARNING((value) == nullptr, "expected null: {}", #value)
+
+#define WARNING_NOT_NULL(value) \
+  WARNING((value) != nullptr, "expected non-null: {}", #value)
+
 #define ASSERT_EQ(expected, actual)                                       \
   do {                                                                   \
     const auto& dmtcpAssertExpected = (expected);                         \
@@ -885,6 +927,15 @@ assertFailureErrno(const char *expr,
     ASSERT(dmtcpAssertExpected == dmtcpAssertActual,                      \
            "expected {} == {}, got {} and {}",                            \
            #expected, #actual, dmtcpAssertExpected, dmtcpAssertActual);   \
+  } while (0)
+
+#define WARNING_EQ(expected, actual)                                      \
+  do {                                                                   \
+    const auto& dmtcpAssertExpected = (expected);                         \
+    const auto& dmtcpAssertActual = (actual);                             \
+    WARNING(dmtcpAssertExpected == dmtcpAssertActual,                     \
+            "expected {} == {}, got {} and {}",                           \
+            #expected, #actual, dmtcpAssertExpected, dmtcpAssertActual);  \
   } while (0)
 
 #define ASSERT_NE(expected, actual)                                       \
@@ -896,6 +947,15 @@ assertFailureErrno(const char *expr,
            #expected, #actual, dmtcpAssertExpected, dmtcpAssertActual);   \
   } while (0)
 
+#define WARNING_NE(expected, actual)                                      \
+  do {                                                                   \
+    const auto& dmtcpAssertExpected = (expected);                         \
+    const auto& dmtcpAssertActual = (actual);                             \
+    WARNING(dmtcpAssertExpected != dmtcpAssertActual,                     \
+            "expected {} != {}, got {} and {}",                           \
+            #expected, #actual, dmtcpAssertExpected, dmtcpAssertActual);  \
+  } while (0)
+
 #define ASSERT_GT(lhs, rhs)                                               \
   do {                                                                   \
     const auto& dmtcpAssertLhs = (lhs);                                   \
@@ -903,6 +963,15 @@ assertFailureErrno(const char *expr,
     ASSERT(dmtcpAssertLhs > dmtcpAssertRhs,                               \
            "expected {} > {}, got {} and {}",                             \
            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                   \
+  } while (0)
+
+#define WARNING_GT(lhs, rhs)                                              \
+  do {                                                                   \
+    const auto& dmtcpAssertLhs = (lhs);                                   \
+    const auto& dmtcpAssertRhs = (rhs);                                   \
+    WARNING(dmtcpAssertLhs > dmtcpAssertRhs,                              \
+            "expected {} > {}, got {} and {}",                            \
+            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                  \
   } while (0)
 
 #define ASSERT_LT(lhs, rhs)                                               \
@@ -914,6 +983,15 @@ assertFailureErrno(const char *expr,
            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                   \
   } while (0)
 
+#define WARNING_LT(lhs, rhs)                                              \
+  do {                                                                   \
+    const auto& dmtcpAssertLhs = (lhs);                                   \
+    const auto& dmtcpAssertRhs = (rhs);                                   \
+    WARNING(dmtcpAssertLhs < dmtcpAssertRhs,                              \
+            "expected {} < {}, got {} and {}",                            \
+            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                  \
+  } while (0)
+
 #define ASSERT_GE(lhs, rhs)                                               \
   do {                                                                   \
     const auto& dmtcpAssertLhs = (lhs);                                   \
@@ -923,6 +1001,15 @@ assertFailureErrno(const char *expr,
            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                   \
   } while (0)
 
+#define WARNING_GE(lhs, rhs)                                              \
+  do {                                                                   \
+    const auto& dmtcpAssertLhs = (lhs);                                   \
+    const auto& dmtcpAssertRhs = (rhs);                                   \
+    WARNING(dmtcpAssertLhs >= dmtcpAssertRhs,                             \
+            "expected {} >= {}, got {} and {}",                           \
+            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                  \
+  } while (0)
+
 #define ASSERT_LE(lhs, rhs)                                               \
   do {                                                                   \
     const auto& dmtcpAssertLhs = (lhs);                                   \
@@ -930,6 +1017,15 @@ assertFailureErrno(const char *expr,
     ASSERT(dmtcpAssertLhs <= dmtcpAssertRhs,                              \
            "expected {} <= {}, got {} and {}",                            \
            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                   \
+  } while (0)
+
+#define WARNING_LE(lhs, rhs)                                              \
+  do {                                                                   \
+    const auto& dmtcpAssertLhs = (lhs);                                   \
+    const auto& dmtcpAssertRhs = (rhs);                                   \
+    WARNING(dmtcpAssertLhs <= dmtcpAssertRhs,                             \
+            "expected {} <= {}, got {} and {}",                           \
+            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs);                  \
   } while (0)
 
 #endif // DMTCP_UTIL_ASSERT_NO_MACROS
