@@ -142,9 +142,9 @@ dmtcp_prepare_atfork(void)
    * the gcc compiler.
    */
 #if 0
-  ASSERT_EQ(0, __register_atfork(NULL, NULL,
-                                 pidVirt_pthread_atfork_child,
-                                 __dso_handle));
+  ASSERT_ZERO_RETURN(__register_atfork(NULL, NULL,
+                                       pidVirt_pthread_atfork_child,
+                                       __dso_handle));
 #endif
 
   if (!dmtcp_atfork_processed) {

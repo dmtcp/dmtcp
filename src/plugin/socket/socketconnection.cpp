@@ -64,8 +64,7 @@ _makeDeadSocket(const char *refillData = NULL, ssize_t len = -1)
   // it does it by creating a socket pair and closing one side
   int sp[2] = { -1, -1 };
 
-  ASSERT_ERRNO(_real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp) == 0,
-               "socketpair() failed");
+  ASSERT_SYSCALL_SUCCESS(_real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp));
   ASSERT(sp[0] >= 0 && sp[1] >= 0,
          "socketpair() returned invalid fds: fd0={} fd1={}", sp[0], sp[1]);
   if (refillData != NULL) {
@@ -459,12 +458,12 @@ TcpConnection::sendPeerInformation()
   {
     // Local connect socket information
     keysz = sizeof(key);
-    ASSERT_ERRNO(getsockname(_fds[0], &key, &keysz) == 0,
-                 "failed to query local TCP socket: fd={}", _fds[0]);
+    ASSERT_SYSCALL_SUCCESS_MSG(getsockname(_fds[0], &key, &keysz),
+                               "querying local TCP socket: fd={}", _fds[0]);
     // Information about the accept socket on the server
     valuesz = sizeof(value);
-    ASSERT_ERRNO(getpeername(_fds[0], &value, &valuesz) == 0,
-                 "failed to query peer TCP socket: fd={}", _fds[0]);
+    ASSERT_SYSCALL_SUCCESS_MSG(getpeername(_fds[0], &value, &valuesz),
+                               "querying peer TCP socket: fd={}", _fds[0]);
     sendPeerInfo = true;
     break;
   }
@@ -472,12 +471,14 @@ TcpConnection::sendPeerInformation()
   {
     // Local accept socket information
     keysz = sizeof(key);
-    ASSERT_ERRNO(getsockname(_fds[0], &key, &keysz) == 0,
-                 "failed to query accepted TCP socket: fd={}", _fds[0]);
+    ASSERT_SYSCALL_SUCCESS_MSG(getsockname(_fds[0], &key, &keysz),
+                               "querying accepted TCP socket: fd={}",
+                               _fds[0]);
     // Information about the client connect socket
     valuesz = sizeof(value);
-    ASSERT_ERRNO(getpeername(_fds[0], &value, &valuesz) == 0,
-                 "failed to query accepted TCP peer: fd={}", _fds[0]);
+    ASSERT_SYSCALL_SUCCESS_MSG(getpeername(_fds[0], &value, &valuesz),
+                               "querying accepted TCP peer: fd={}",
+                               _fds[0]);
     sendPeerInfo = true;
     break;
   }
@@ -510,9 +511,9 @@ TcpConnection::recvPeerInformation()
   if (_type == TCP_CONNECT || _type == TCP_ACCEPT ||
       _type == TCP_CONNECT_IN_PROGRESS) {
     keylen = sizeof(key);
-    ASSERT_ERRNO(getpeername(_fds[0], &key, &keylen) == 0,
-                 "failed to query TCP peer for discovery lookup: fd={}",
-                 _fds[0]);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      getpeername(_fds[0], &key, &keylen),
+      "querying TCP peer for discovery lookup: fd={}", _fds[0]);
 
     string keyStr = base64::encode((const char*) &key, keylen);
     string valStr;
@@ -556,9 +557,10 @@ TcpConnection::drain()
       JTRACE("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
     }
     errno = 0;
-    ASSERT_ERRNO(fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC) == 0,
-                 "failed to remove O_ASYNC during TCP drain: fd={} con_id={}",
-                 _fds[0], id().conId());
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC),
+      "removing O_ASYNC during TCP drain: fd={} con_id={}",
+      _fds[0], id().conId());
   }
 
   // Non blocking connect; need to hang around until it is writable.
@@ -915,10 +917,10 @@ RawSocketConnection::drain()
       JTRACE("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
     }
     errno = 0;
-    ASSERT_ERRNO(fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC) == 0,
-                 "failed to remove O_ASYNC during raw socket drain: fd={} "
-                 "con_id={}",
-                 _fds[0], id().conId());
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC),
+      "removing O_ASYNC during raw socket drain: fd={} con_id={}",
+      _fds[0], id().conId());
   }
 }
 

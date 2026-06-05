@@ -397,6 +397,27 @@ class SourceAuditTest(unittest.TestCase):
                 self.assert_file_does_not_match(relative_path,
                                                 r"WARNING_ERRNO\(ret == 0,")
 
+    def test_named_success_helpers_cover_common_status_checks(self):
+        checks = (
+            ("src/execwrappers.cpp",
+             r"ASSERT_EQ\s*\(\s*0\s*,\s*__register_atfork"),
+            ("src/threadwrappers.cpp",
+             r"ASSERT_ERRNO\s*\(\s*sigemptyset\(&set\)\s*==\s*0"),
+            ("src/plugin/ssh/ssh.cpp",
+             r"ASSERT_ERRNO\s*\(\s*pipe\("),
+            ("src/plugin/socket/socketconnection.cpp",
+             r"ASSERT_ERRNO\s*\(\s*_real_socketpair\(.*\)\s*==\s*0"),
+            ("src/plugin/socket/kernelbufferdrainer.cpp",
+             r"ASSERT_ERRNO\s*\(\s*_real_socketpair\(.*\)\s*==\s*0"),
+            ("src/plugin/timer/timerlist.cpp",
+             r"ASSERT_ERRNO\s*\(\s*_real_clock_getcpuclockid\(.*\)\s*==\s*0"),
+            ("src/dmtcprestartinternal.cpp",
+             r"ASSERT_ERRNO\s*\(\s*pipe\(fds\)\s*!=\s*-1"),
+        )
+        for relative_path, pattern in checks:
+            with self.subTest(path=relative_path):
+                self.assert_file_does_not_match(relative_path, pattern)
+
     def test_child_thread_signal_set_is_initialized_before_use(self):
         self.assert_file_does_not_match(
             "src/threadwrappers.cpp",

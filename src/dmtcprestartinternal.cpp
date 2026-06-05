@@ -600,10 +600,10 @@ openCkptFileToRead(const string &filename)
     decomp_path = gzip_path;
     decomp_args = gzip_args;
 
-    ASSERT_ERRNO(pipe(fds) != -1,
-                 "Cannot create pipe to execute gunzip to decompress "
-                 "checkpoint file: {}",
-                 filename.c_str());
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      pipe(fds),
+      "creating gunzip pipe for checkpoint file: {}",
+      filename.c_str());
 
     cpid = fork();
 

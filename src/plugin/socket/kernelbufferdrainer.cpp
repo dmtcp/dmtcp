@@ -259,8 +259,9 @@ KernelBufferDrainer::onTimeoutInterval()
 
         // it does it by creating a socket pair and closing one side
         int sp[2] = { -1, -1 };
-        ASSERT_ERRNO(_real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp) == 0,
-                     "socketpair() failed while creating dead socket");
+        ASSERT_SYSCALL_SUCCESS_MSG(
+          _real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp),
+          "creating dead socket pair");
         ASSERT(sp[0] >= 0 && sp[1] >= 0,
                "socketpair() returned invalid fds: fd0={} fd1={}", sp[0],
                sp[1]);

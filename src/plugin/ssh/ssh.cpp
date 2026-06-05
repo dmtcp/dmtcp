@@ -255,9 +255,9 @@ createNewDmtcpSshdProcess()
   }
 
 
-  ASSERT_ERRNO(pipe(in) == 0, "failed to create ssh stdin pipe");
-  ASSERT_ERRNO(pipe(out) == 0, "failed to create ssh stdout pipe");
-  ASSERT_ERRNO(pipe(err) == 0, "failed to create ssh stderr pipe");
+  ASSERT_SYSCALL_SUCCESS_MSG(pipe(in), "creating ssh stdin pipe");
+  ASSERT_SYSCALL_SUCCESS_MSG(pipe(out), "creating ssh stdout pipe");
+  ASSERT_SYSCALL_SUCCESS_MSG(pipe(err), "creating ssh stderr pipe");
 
   pid_t sshChildPid = fork();
   ASSERT_ERRNO(sshChildPid != -1, "failed to fork ssh child");
@@ -561,8 +561,9 @@ updateCoordHost()
   struct in_addr localhostIPAddr;
   char hostname[HOST_NAME_MAX];
 
-  ASSERT_ERRNO(gethostname(hostname, sizeof hostname) == 0,
-               "gethostname failed while updating coordinator host");
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    gethostname(hostname, sizeof hostname),
+    "reading hostname while updating coordinator host");
 
   struct addrinfo *result = NULL;
   struct addrinfo *res;
