@@ -331,6 +331,7 @@ class TestContext:
             "10800",
             *self.spec.coordinator_args,
         ]
+        self._record_command("start-coordinator", coordinator_args)
         self.coordinator_proc = subprocess.Popen(
             coordinator_args,
             cwd=str(self.harness.root),
@@ -365,6 +366,7 @@ class TestContext:
                 if not executable.exists():
                     raise HarnessFailure("setup", f"missing test binary: {command_argv[0]}")
             argv = [str(self.harness.launch), *command_argv]
+            self._record_command(f"launch-worker-{index}", argv)
             stdout = open(self.work.path / f"worker-{index}.out", "w",
                           encoding="utf-8")
             proc = subprocess.Popen(
@@ -480,6 +482,7 @@ class TestContext:
             restart_args.extend(["--restartdir", str(self.work.ckpt_dir)])
         else:
             restart_args.extend([str(path) for path in images])
+        self._record_command(f"restart-worker-{index}", restart_args)
         proc = subprocess.Popen(
             restart_args,
             cwd=str(self.harness.root),
@@ -508,6 +511,12 @@ class TestContext:
         with (self.work.path / "cleanup.log").open("a", encoding="utf-8") as out:
             out.write(message)
             out.write("\n")
+
+    def _record_command(self, phase: str, argv: List[str]):
+        with (self.work.path / "commands.log").open("a",
+                                                    encoding="utf-8") as out:
+            out.write(f"$ {shlex.join([str(arg) for arg in argv])}\n")
+            out.write(f"phase={phase}\n")
 
     def _process_group_members(self, pgid: int) -> List[int]:
         members = []

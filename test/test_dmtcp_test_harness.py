@@ -197,6 +197,76 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
             self.assertIn("--exit-on-last", popen.call_args.args[0])
 
+    def test_start_coordinator_records_command_transcript(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("transcript", 1, ["./test/dmtcp1"],
+                            coordinator_args=["--exit-on-last"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            with mock.patch.object(harness_module.subprocess, "Popen"), \
+                 mock.patch.object(harness_module.TestContext,
+                                   "_read_port_file",
+                                   lambda self: 12345):
+                context._start_coordinator()
+
+            transcript = (tmp_path / "commands.log").read_text(
+                encoding="utf-8")
+            self.assertIn("phase=start-coordinator", transcript)
+            self.assertIn("dmtcp_coordinator", transcript)
+            self.assertIn("--exit-on-last", transcript)
+            self.assertIn(str(work.port_file), transcript)
+
+    def test_launch_processes_records_command_transcript(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("launch-transcript", 1, ["/bin/true"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            with mock.patch.object(harness_module.subprocess, "Popen"):
+                context._launch_processes()
+
+            transcript = (tmp_path / "commands.log").read_text(
+                encoding="utf-8")
+            self.assertIn("phase=launch-worker-0", transcript)
+            self.assertIn("dmtcp_launch /bin/true", transcript)
+
+    def test_restart_records_command_transcript(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            ckpt = work.ckpt_dir / "ckpt_test.dmtcp"
+            ckpt.write_bytes(b"checkpoint")
+            spec = TestSpec("restart-transcript", 1, ["/bin/true"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            with mock.patch.object(harness_module.subprocess, "Popen"), \
+                 mock.patch.object(context, "_wait_for_status",
+                                   lambda peers, running, phase: None), \
+                 mock.patch.object(context, "_clear_checkpoint_dir",
+                                   lambda: None):
+                context._restart()
+
+            transcript = (tmp_path / "commands.log").read_text(
+                encoding="utf-8")
+            self.assertIn("phase=restart-worker-0", transcript)
+            self.assertIn("dmtcp_restart --quiet", transcript)
+            self.assertIn(str(ckpt), transcript)
+
     def test_complete_supports_kill_exit_on_last(self):
         spec = TestSpec("exit-on-last", 1, ["./test/dmtcp1"],
                         completion_command="--kill-exit-on-last")
