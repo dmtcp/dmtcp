@@ -156,9 +156,8 @@ initializeInternalPluginStateOnce()
 static void
 initializeInternalPluginState()
 {
-  int rc = pthread_once(&internalPluginInitOnce,
-                        initializeInternalPluginStateOnce);
-  ASSERT(rc == 0, "failed to initialize internal plugin state: rc={}", rc);
+  ASSERT_EQ(0, pthread_once(&internalPluginInitOnce,
+                            initializeInternalPluginStateOnce));
 }
 
 static InternalPluginEntry *

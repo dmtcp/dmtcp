@@ -239,15 +239,13 @@ LIB_PRIVATE DmtcpPluginDescriptor_t sysvipcPlugin = {
 static void
 _do_lock_tbl()
 {
-  ASSERT_ERRNO(DmtcpMutexLock(&tblLock) == 0,
-               "failed to lock SysV IPC table");
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&tblLock));
 }
 
 static void
 _do_unlock_tbl()
 {
-  ASSERT_ERRNO(DmtcpMutexUnlock(&tblLock) == 0,
-               "failed to unlock SysV IPC table");
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&tblLock));
 }
 
 static void

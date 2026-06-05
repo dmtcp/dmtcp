@@ -86,8 +86,7 @@ ThreadSync::acquireLocks()
    */
 
   JTRACE("Waiting for libdlLock");
-  int rc = DmtcpMutexLock(&libdlLock);
-  ASSERT(rc == 0, "DmtcpMutexLock(libdlLock) failed: rc={}", rc);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&libdlLock));
 
   JTRACE("Waiting for other threads to exit DMTCP-Wrappers");
   ThreadSync::wrapperExecutionLockLockExcl();
@@ -104,8 +103,7 @@ ThreadSync::releaseLocks()
 
   JTRACE("Releasing ThreadSync locks");
   ThreadSync::wrapperExecutionLockUnlock();
-  int rc = DmtcpMutexUnlock(&libdlLock);
-  ASSERT(rc == 0, "DmtcpMutexUnlock(libdlLock) failed: rc={}", rc);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&libdlLock));
 }
 
 void
@@ -137,8 +135,7 @@ ThreadSync::libdlLockLock()
   }
 
   if (libdlLockOwner != gettid()) {
-    int rc = DmtcpMutexLock(&libdlLock);
-    ASSERT(rc == 0, "DmtcpMutexLock(libdlLock) failed: rc={}", rc);
+    ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&libdlLock));
     libdlLockOwner = gettid();
     lockAcquired = true;
   }
@@ -162,8 +159,7 @@ ThreadSync::libdlLockUnlock()
          "libdlLock owner mismatch: owner={} currentTid={}", libdlLockOwner,
          currentTid);
   libdlLockOwner = 0;
-  int rc = DmtcpMutexUnlock(&libdlLock);
-  ASSERT(rc == 0, "DmtcpMutexUnlock(libdlLock) failed: rc={}", rc);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&libdlLock));
   errno = saved_errno;
 }
 
@@ -325,16 +321,12 @@ void
 ThreadSync::presuspendEventHookLockLock()
 {
   JTRACE("Acquiring event-hook lock");
-  int rc = DmtcpMutexLock(&presuspendEventHookLock);
-  ASSERT(rc == 0, "DmtcpMutexLock(presuspendEventHookLock) failed: rc={}",
-         rc);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&presuspendEventHookLock));
 }
 
 void
 ThreadSync::presuspendEventHookLockUnlock()
 {
   JTRACE("Releasing event-hook lock");
-  int rc = DmtcpMutexUnlock(&presuspendEventHookLock);
-  ASSERT(rc == 0, "DmtcpMutexUnlock(presuspendEventHookLock) failed: rc={}",
-         rc);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&presuspendEventHookLock));
 }

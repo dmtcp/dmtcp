@@ -36,15 +36,13 @@ static DmtcpMutex timerLock = DMTCP_MUTEX_INITIALIZER;
 static void
 _do_lock_tbl()
 {
-  int rc = DmtcpMutexLock(&timerLock);
-  ASSERT(rc == 0, "DmtcpMutexLock(timerLock) failed: rc={}", rc);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&timerLock));
 }
 
 static void
 _do_unlock_tbl()
 {
-  int rc = DmtcpMutexUnlock(&timerLock);
-  ASSERT(rc == 0, "DmtcpMutexUnlock(timerLock) failed: rc={}", rc);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&timerLock));
 }
 
 static void

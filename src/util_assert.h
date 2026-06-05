@@ -694,6 +694,12 @@ assertFailureErrno(const char *expr,
 #ifdef ASSERT_TRUE
 # undef ASSERT_TRUE
 #endif
+#ifdef ASSERT_LOCK_SUCCESS
+# undef ASSERT_LOCK_SUCCESS
+#endif
+#ifdef WARNING_LOCK_SUCCESS
+# undef WARNING_LOCK_SUCCESS
+#endif
 #ifdef ASSERT_GT
 # undef ASSERT_GT
 #endif
@@ -753,6 +759,22 @@ assertFailureErrno(const char *expr,
 
 #define ASSERT_TRUE(condition) \
   ASSERT((condition), "expected true: {}", #condition)
+
+#define ASSERT_LOCK_SUCCESS(expression)                                   \
+  do {                                                                   \
+    const auto dmtcpAssertResult = (expression);                          \
+    ASSERT(dmtcpAssertResult == 0,                                        \
+           "{} failed: expected 0, returned {}",                          \
+           #expression, dmtcpAssertResult);                               \
+  } while (0)
+
+#define WARNING_LOCK_SUCCESS(expression)                                  \
+  do {                                                                   \
+    const auto dmtcpAssertResult = (expression);                          \
+    WARNING(dmtcpAssertResult == 0,                                      \
+            "{} failed: expected 0, returned {}",                         \
+            #expression, dmtcpAssertResult);                              \
+  } while (0)
 
 #define ASSERT_NULL(value) \
   ASSERT((value) == nullptr, "expected null: {}", #value)

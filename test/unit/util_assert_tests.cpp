@@ -65,6 +65,13 @@ returnNullAndCount(int *calls)
   return nullptr;
 }
 
+int
+returnZeroAndCount(int *calls)
+{
+  ++(*calls);
+  return 0;
+}
+
 } // namespace
 
 extern "C" ssize_t
@@ -367,6 +374,8 @@ void convenienceAssertMacrosPassWithoutWriting()
   ASSERT_GE(value, 2);
   ASSERT_LT(value, larger);
   ASSERT_LE(value, 2);
+  ASSERT_LOCK_SUCCESS(0);
+  WARNING_LOCK_SUCCESS(0);
   ASSERT_NOT_NULL(ptr);
   ASSERT_NULL(nullPtr);
 
@@ -379,13 +388,31 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
   int lhs = 0;
   int rhs = 1;
   int nullCalls = 0;
+  int successCalls = 0;
 
   ASSERT_EQ(++lhs, rhs);
   ASSERT_NULL(returnNullAndCount(&nullCalls));
+  ASSERT_LOCK_SUCCESS(returnZeroAndCount(&successCalls));
 
   UNIT_ASSERT_EQ(lhs, 1);
   UNIT_ASSERT_EQ(nullCalls, 1);
+  UNIT_ASSERT_EQ(successCalls, 1);
   UNIT_ASSERT_EQ(hookCallCount, 0);
+}
+
+void warningLockSuccessReportsExpressionAndReturnValue()
+{
+  resetHook();
+
+  WARNING_LOCK_SUCCESS(setErrnoAndReturn(7, EIO));
+
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "setErrnoAndReturn(7, EIO) failed") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "expected 0, returned 7") !=
+                   nullptr);
 }
 
 void assertFailureExitsWithRawFailureCode()
@@ -460,6 +487,8 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    convenienceAssertMacrosPassWithoutWriting},
   {"convenience assert macros evaluate operands once",
    convenienceAssertMacrosEvaluateOperandsOnce},
+  {"warning lock success reports expression and return value",
+   warningLockSuccessReportsExpressionAndReturnValue},
   {"assert failure exits with raw failure code",
    assertFailureExitsWithRawFailureCode},
   {"assert failure uses raw exit path", assertFailureUsesRawExitPath},
