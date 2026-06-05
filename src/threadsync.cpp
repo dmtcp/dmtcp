@@ -20,7 +20,6 @@
  ****************************************************************************/
 
 #include <pthread.h>
-#include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -178,11 +177,7 @@ ThreadSync::wrapperExecutionLockLock()
 
   if (thread->wrapperLockCount == 0) {
     // If we don't have a lock, acquire it now.
-    if (DmtcpRWLockRdLock(&_wrapperExecutionLock) != 0) {
-      fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
-              errno, __FILE__, __LINE__, __PRETTY_FUNCTION__);
-      _exit(DMTCP_FAIL_RC);
-    }
+    ASSERT_LOCK_SUCCESS(DmtcpRWLockRdLock(&_wrapperExecutionLock));
   }
   thread->wrapperLockCount++;
 
@@ -195,11 +190,8 @@ ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
   JASSERT(thread != nullptr);
   JASSERT(thread->wrapperLockCount == 0);
 
-  if (DmtcpRWLockRdLockIgnoreQueuedWriter(&_wrapperExecutionLock) != 0) {
-    fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
-            errno, __FILE__, __LINE__, __PRETTY_FUNCTION__);
-    _exit(DMTCP_FAIL_RC);
-  }
+  ASSERT_LOCK_SUCCESS(
+    DmtcpRWLockRdLockIgnoreQueuedWriter(&_wrapperExecutionLock));
 
   thread->wrapperLockCount++;
 }
@@ -210,11 +202,7 @@ ThreadSync::wrapperExecutionLockUnlockForNewThread(Thread *thread)
   JASSERT(thread != nullptr);
   JASSERT(thread->wrapperLockCount == 1);
 
-  if (DmtcpRWLockUnlock(&_wrapperExecutionLock) != 0) {
-    fprintf(stderr, "ERROR %d at %s:%d %s: Failed to release lock\n",
-            errno, __FILE__, __LINE__, __PRETTY_FUNCTION__);
-    _exit(DMTCP_FAIL_RC);
-  }
+  ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&_wrapperExecutionLock));
 
   thread->wrapperLockCount = 0;
 }
@@ -267,12 +255,8 @@ ThreadSync::wrapperExecutionLockLockExcl()
 
   Thread *thread = dmtcp_get_current_thread();
 
-  if (DmtcpRWLockWrLock(&_wrapperExecutionLock) != 0) {
-    fprintf(stderr, "ERROR %s:%d %s: Failed to acquire lock\n",
-            __FILE__, __LINE__, __PRETTY_FUNCTION__);
-    _exit(DMTCP_FAIL_RC);
-  }
-  thread->wrapperLockCount++;
+  ASSERT_LOCK_SUCCESS(DmtcpRWLockWrLock(&_wrapperExecutionLock));
+  ++thread->wrapperLockCount;
   errno = saved_errno;
 }
 
@@ -294,11 +278,8 @@ ThreadSync::wrapperExecutionLockUnlock()
   JASSERT(thread->wrapperLockCount != 0);
   thread->wrapperLockCount -= 1;
 
-  if (thread->wrapperLockCount == 0 &&
-      DmtcpRWLockUnlock(&_wrapperExecutionLock) != 0) {
-    fprintf(stderr, "ERROR %s:%d %s: Failed to release lock.\n",
-            __FILE__, __LINE__, __PRETTY_FUNCTION__);
-    _exit(DMTCP_FAIL_RC);
+  if (thread->wrapperLockCount == 0) {
+    ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&_wrapperExecutionLock));
   }
 
   errno = saved_errno;

@@ -66,11 +66,10 @@ processChildThread(Thread *thread)
   // signals blocked.
   sigset_t set;
   sigaddset(&set, SigInfo::ckptSignal());
-  int rc = _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL);
-  ASSERT(rc == 0,
-         "failed to unblock checkpoint signal in child thread: signal={} "
-         "result={}",
-         SigInfo::ckptSignal(), rc);
+  ASSERT_PTHREAD_SUCCESS_MSG(
+    _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),
+    "unblocking checkpoint signal in child thread: signal={}",
+    SigInfo::ckptSignal());
 
   // Lock was acquired by the parent thread on our behalf.
   ThreadSync::wrapperExecutionLockUnlock();

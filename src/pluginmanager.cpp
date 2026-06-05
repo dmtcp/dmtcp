@@ -154,8 +154,8 @@ initializeInternalPluginStateOnce()
 static void
 initializeInternalPluginState()
 {
-  ASSERT_EQ(0, pthread_once(&internalPluginInitOnce,
-                            initializeInternalPluginStateOnce));
+  ASSERT_PTHREAD_SUCCESS(pthread_once(&internalPluginInitOnce,
+                                      initializeInternalPluginStateOnce));
 }
 
 static InternalPluginEntry *

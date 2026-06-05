@@ -432,8 +432,9 @@ dmtcp_block_ckpt_signal(void)
     initialized = true;
   }
 
-  int ret = _real_pthread_sigmask(SIG_BLOCK, &signals_set, NULL);
-  ASSERT(ret == 0, "failed to block checkpoint signal: ret={}", ret);
+  ASSERT_PTHREAD_SUCCESS(_real_pthread_sigmask(SIG_BLOCK,
+                                               &signals_set,
+                                               NULL));
 }
 
 EXTERNC void
@@ -448,8 +449,9 @@ dmtcp_unblock_ckpt_signal(void)
     initialized = true;
   }
 
-  int ret = _real_pthread_sigmask(SIG_UNBLOCK, &signals_set, NULL);
-  ASSERT(ret == 0, "failed to unblock checkpoint signal: ret={}", ret);
+  ASSERT_PTHREAD_SUCCESS(_real_pthread_sigmask(SIG_UNBLOCK,
+                                               &signals_set,
+                                               NULL));
 }
 
 EXTERNC void
