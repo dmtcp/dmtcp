@@ -26,6 +26,7 @@
 #include "../jalib/jassert.h"
 #include "dmtcpworker.h"
 #include "syscallwrappers.h"
+#include "util_assert.h"
 
 #ifndef EXTERNC
 # define EXTERNC extern "C"
@@ -52,8 +53,10 @@ bannedSignalNumber()
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, stopSignal);
-    JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0)
-      (strerror(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL))) (stopSignal);
+    int rc = _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL);
+    ASSERT(rc == 0,
+           "failed to unblock checkpoint signal: signal={} result={}",
+           stopSignal, rc);
   }
   return stopSignal;
 }
@@ -93,7 +96,7 @@ patchBSDUserMask(int how, const int mask, int *oldmask)
 static inline sigset_t
 patchPOSIXMask(const sigset_t *mask)
 {
-  JASSERT(mask != NULL);
+  ASSERT_NOT_NULL(mask);
   sigset_t t = *mask;
 
   sigdelset(&t, bannedSignalNumber());
@@ -155,12 +158,11 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
   if (signum == bannedSignalNumber() && act != NULL) {
     static int alreadyWarned = 0;
     if (!alreadyWarned) {
-      JWARNING(false) (stopSignal) .Text(
-        "Application trying to use DMTCP's signal for it's own use.\n"
-        "  You should employ a different signal by setting the\n"
-        "  environment variable DMTCP_SIGCKPT to the number\n"
-        "  of the signal that DMTCP should use for checkpointing.\n"
-        "  (Further warnings will be suppressed.)");
+      WARNING(false,
+              "application tried to use DMTCP's checkpoint signal: signal={}. "
+              "Set DMTCP_SIGCKPT to a different checkpoint signal number. "
+              "Further warnings will be suppressed.",
+              stopSignal);
       alreadyWarned = 1;
     }
     act = NULL;
@@ -309,9 +311,11 @@ sigrelse(int sig)
 EXTERNC int
 __sigpause(int __sig_or_mask, int __is_sig)
 {
-  JWARNING(false)
-  .Text("This function is deprecated. Use sigsuspend instead." \
-        "  The DMTCP wrappers for this function may not be fully tested");
+  WARNING(false,
+          "__sigpause is deprecated; use sigsuspend instead: value={} "
+          "is_sig={}. The DMTCP wrapper for this function may not be fully "
+          "tested.",
+          __sig_or_mask, __is_sig);
   return _real__sigpause(__sig_or_mask, __is_sig);
 }
 
@@ -321,9 +325,10 @@ __sigpause(int __sig_or_mask, int __is_sig)
 EXTERNC int
 sigpause(int sig)
 {
-  JWARNING(false)
-  .Text("This function is deprecated. Use sigsuspend instead." \
-        "  The DMTCP wrappers for this function may not be fully tested");
+  WARNING(false,
+          "sigpause is deprecated; use sigsuspend instead: signal={}. The "
+          "DMTCP wrapper for this function may not be fully tested.",
+          sig);
   return _real_sigpause(sig);
 }
 
