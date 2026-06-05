@@ -27,6 +27,7 @@
 #  define ADDR_NO_RANDOMIZE  0x0040000  /* In case of old glibc, not defined */
 # endif
 #endif
+#include <stdio.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
@@ -231,6 +232,27 @@ string coord_host = "";
 int coord_port = UNINITIALIZED_PORT;
 static string thePortFile;
 
+static int
+parseCoordinatorPortOrExit(const char *portText)
+{
+  int port = UNINITIALIZED_PORT;
+  if (portText == NULL || !Util::parsePortNumber(portText, &port)) {
+    fprintf(stderr, "invalid coordinator port: %s\n",
+            portText == NULL ? "(null)" : portText);
+    exit(DMTCP_FAIL_RC);
+  }
+  return port;
+}
+
+static void
+validateCoordinatorPortEnv(const char *envName)
+{
+  const char *portText = getenv(envName);
+  if (portText != NULL && portText[0] != '\0') {
+    parseCoordinatorPortOrExit(portText);
+  }
+}
+
 // shift args
 #define shift argc--, argv++
 static void
@@ -289,11 +311,11 @@ processArgs(int *orig_argc, const char ***orig_argv)
       shift; shift;
     } else if (argc > 1 &&
                (s == "-p" || s == "--coord-port" || s == "--port")) {
-      coord_port = jalib::StringToInt(argv[1]);
+      coord_port = parseCoordinatorPortOrExit(argv[1]);
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'p' &&
                isdigit(argv[0][2])) { // else if -p0, for example
-      coord_port = jalib::StringToInt(&argv[0][2]);
+      coord_port = parseCoordinatorPortOrExit(&argv[0][2]);
       shift;
     } else if (argc > 1 && s == "--port-file") {
       thePortFile = argv[1];
@@ -443,6 +465,8 @@ processArgs(int *orig_argc, const char ***orig_argv)
            "Setting mode to --new-coordinator --coord-port "
            STRINGIFY(DEFAULT_PORT));
   }
+  validateCoordinatorPortEnv(ENV_VAR_NAME_PORT);
+  validateCoordinatorPortEnv("DMTCP_PORT");
   tmpDir = Util::calcTmpDir(tmpdir_arg);
   *orig_argc = argc;
   *orig_argv = argv;
