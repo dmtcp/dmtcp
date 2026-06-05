@@ -137,7 +137,7 @@ EventFdConnection::drain()
 
   int new_flags = (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR |
     O_NONBLOCK;
-  ASSERT(_fds[0] >= 0, "invalid eventfd during drain: fd={}", _fds[0]);
+  ASSERT_VALID_FD_MSG(_fds[0], "invalid eventfd during drain");
 
   // set the new flags
   ASSERT_SYSCALL_SUCCESS_MSG(fcntl(_fds[0], F_SETFL, new_flags),

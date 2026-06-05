@@ -529,6 +529,16 @@ class SourceAuditTest(unittest.TestCase):
              r"ASSERT_NE_MSG\s*\(\s*-1\s*,\s*fd\s*,"),
             ("src/plugin/socket/socketwrappers.cpp",
              r"ASSERT_NE_MSG\s*\(\s*-1\s*,\s*ret\s*,"),
+            ("src/ckptserializer.cpp",
+             r"ASSERT\s*\(\s*fdCkptFileOnDisk\s*>=\s*0"),
+            ("src/plugin/event/eventconnection.cpp",
+             r"ASSERT\s*\(\s*_fds\[0\]\s*>=\s*0"),
+            ("src/plugin/socket/socketconnection.cpp",
+             r"ASSERT\s*\(\s*sp\[0\]\s*>=\s*0\s*&&\s*sp\[1\]\s*>=\s*0"),
+            ("src/plugin/socket/kernelbufferdrainer.cpp",
+             r"ASSERT\s*\(\s*sp\[0\]\s*>=\s*0\s*&&\s*sp\[1\]\s*>=\s*0"),
+            ("src/util_misc.cpp",
+             r"ASSERT\s*\(\s*fd\s*>=\s*0\s*&&\s*buf\s*!=\s*NULL"),
         )
         for relative_path, pattern in checks:
             with self.subTest(path=relative_path):

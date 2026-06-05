@@ -65,8 +65,10 @@ _makeDeadSocket(const char *refillData = NULL, ssize_t len = -1)
   int sp[2] = { -1, -1 };
 
   ASSERT_SYSCALL_SUCCESS(_real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp));
-  ASSERT(sp[0] >= 0 && sp[1] >= 0,
-         "socketpair() returned invalid fds: fd0={} fd1={}", sp[0], sp[1]);
+  ASSERT_VALID_FD_MSG(sp[0], "socketpair() returned invalid first fd: fd1={}",
+                      sp[1]);
+  ASSERT_VALID_FD_MSG(sp[1], "socketpair() returned invalid second fd: fd0={}",
+                      sp[0]);
   if (refillData != NULL) {
     ASSERT(Util::writeAll(sp[1], refillData, len) == len,
            "failed to seed dead socket: fd={} size={}", sp[1], len);

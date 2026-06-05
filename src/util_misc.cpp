@@ -287,8 +287,8 @@ Util::readLine(int fd, char *buf, int count)
   int i = 0;
   char c;
 
-  ASSERT(fd >= 0 && buf != NULL,
-         "invalid Util::readLine arguments: fd={} buf={}", fd, buf);
+  ASSERT_VALID_FD_MSG(fd, "invalid Util::readLine fd: buf={}", buf);
+  ASSERT_NOT_NULL_MSG(buf, "invalid Util::readLine buffer: fd={}", fd);
 #define NEWLINE '\n' // Linux, OSX
   while (i < count) {
     ssize_t rc = read(fd, &c, 1);

@@ -266,9 +266,12 @@ KernelBufferDrainer::onTimeoutInterval()
         ASSERT_SYSCALL_SUCCESS_MSG(
           _real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp),
           "creating dead socket pair");
-        ASSERT(sp[0] >= 0 && sp[1] >= 0,
-               "socketpair() returned invalid fds: fd0={} fd1={}", sp[0],
-               sp[1]);
+        ASSERT_VALID_FD_MSG(sp[0],
+                            "socketpair() returned invalid first fd: fd1={}",
+                            sp[1]);
+        ASSERT_VALID_FD_MSG(sp[1],
+                            "socketpair() returned invalid second fd: fd0={}",
+                            sp[0]);
         _real_close(sp[1]);
         JTRACE("created dead socket") (sp[0]);
         _real_dup2(sp[0], _dataSockets[i]->socket().sockfd());

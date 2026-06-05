@@ -396,9 +396,8 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
 
   fd = perform_open_ckpt_image_fd(ckptFilename.c_str(), &use_compression,
                                   &fdCkptFileOnDisk);
-  ASSERT(fdCkptFileOnDisk >= 0,
-         "checkpoint file fd on disk was not initialized: fd={}",
-         fdCkptFileOnDisk);
+  ASSERT_VALID_FD_MSG(fdCkptFileOnDisk,
+                      "checkpoint file fd on disk was not initialized");
   ASSERT(use_compression || fd == fdCkptFileOnDisk,
          "checkpoint fd mismatch without compression: fd={} disk_fd={}", fd,
          fdCkptFileOnDisk);
