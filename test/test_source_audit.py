@@ -160,6 +160,28 @@ class SourceAuditTest(unittest.TestCase):
                     matches.append(f"{relative_path}:{line_number}:{symbol}")
         return matches
 
+    def coordinator_coverage_rows(self):
+        ledger = self.read_text("test/coordinator-realworker-coverage.md")
+        rows = []
+        for line in ledger.splitlines():
+            line = line.strip()
+            if not line.startswith("|"):
+                continue
+            cells = [cell.strip() for cell in line.strip("|").split("|")]
+            if len(cells) != 4 or cells[0] in ("Coordinator behavior", "---"):
+                continue
+            rows.append({
+                "behavior": cells[0],
+                "synthetic": cells[1],
+                "real_worker": cells[2],
+                "status": cells[3],
+            })
+        return rows
+
+    def registered_autotest_names(self):
+        cases = self.read_text("test/dmtcp_test_cases.py")
+        return set(re.findall(r'TestSpec\("([^"]+)"', cases))
+
     def test_selected_runtime_paths_use_new_errno_diagnostics(self):
         for relative_path in ("src/writeckpt.cpp", "src/processinfo.cpp"):
             with self.subTest(path=relative_path):
@@ -718,6 +740,29 @@ class SourceAuditTest(unittest.TestCase):
             [],
             "coordinator synthetic tests must be classified in "
             f"coordinator-realworker-coverage.md: {missing}",
+        )
+
+    def test_coordinator_real_worker_backed_rows_name_registered_tests(self):
+        registered_tests = self.registered_autotest_names()
+        missing_tests = []
+        for row in self.coordinator_coverage_rows():
+            if row["status"] not in (
+                "Real-worker-backed",
+                "Partially real-worker-backed",
+            ):
+                continue
+            mentioned_tests = [
+                name for name in re.findall(r"`([^`]+)`", row["real_worker"])
+                if name in registered_tests
+            ]
+            if not mentioned_tests:
+                missing_tests.append(row["behavior"])
+
+        self.assertEqual(
+            missing_tests,
+            [],
+            "real-worker-backed coordinator rows must cite at least one "
+            f"registered TestSpec: {missing_tests}",
         )
 
     def test_focused_check_targets_are_phony(self):
