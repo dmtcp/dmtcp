@@ -15,6 +15,9 @@ def parse_args():
                         help="list tests known to the new harness")
     parser.add_argument("--retry-once", action="store_true",
                         help="retry a failing test once before reporting it")
+    parser.add_argument("--retain-success-artifacts", action="store_true",
+                        help="keep per-test artifact directories for "
+                             "successful tests")
     parser.add_argument("--tag", action="append", default=[],
                         help="run or list tests with this metadata tag")
     parser.add_argument("--requires", action="append", default=[],
@@ -101,7 +104,10 @@ def main():
         print("No tests selected", file=sys.stderr)
         return 2
 
-    harness = DmtcpHarness(verbose=args.verbose)
+    harness = DmtcpHarness(
+        verbose=args.verbose,
+        retain_success_artifacts=args.retain_success_artifacts,
+    )
     passed = 0
     report("== Tests ==")
     for spec in selected:
@@ -111,6 +117,8 @@ def main():
         if result.passed:
             passed += 1
             report(f"{spec.name}: PASSED")
+            if result.artifact_dir is not None:
+                report(f"{spec.name}: artifacts={result.artifact_dir}")
         else:
             report(f"{spec.name}: FAILED phase={result.phase} "
                    f"msg={result.message}")

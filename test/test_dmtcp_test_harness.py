@@ -14,6 +14,7 @@ import unittest
 from unittest import mock
 
 import autotest_config
+import autotest as autotest_module
 import dmtcp_test_harness as harness_module
 from autotest import filter_tests_by_metadata, format_list_entry
 from dmtcp_test_cases import get_test, iter_tests
@@ -524,6 +525,42 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2)
         self.assertIn("No tests selected", result.stderr)
+
+    def test_autotest_can_retain_success_artifacts(self):
+        captured = {}
+        output = []
+        spec = TestSpec("retain-success", 1, ["./test/dmtcp1"])
+        artifact_dir = pathlib.Path("/tmp/dmtcp-retain-success")
+
+        class FakeHarness:
+            def __init__(self, verbose=False,
+                         retain_success_artifacts=False):
+                captured["verbose"] = verbose
+                captured["retain_success_artifacts"] = (
+                    retain_success_artifacts)
+
+        def fake_run_with_optional_retry(harness, selected_spec, retry_once):
+            self.assertIsInstance(harness, FakeHarness)
+            self.assertEqual(selected_spec, spec)
+            self.assertFalse(retry_once)
+            return TestResult.pass_(selected_spec.name, artifact_dir)
+
+        with mock.patch.object(sys, "argv",
+                               ["autotest.py", "--retain-success-artifacts",
+                                "retain-success"]), \
+             mock.patch.object(autotest_module, "select_tests",
+                               lambda names, tags, requirements: [spec]), \
+             mock.patch.object(autotest_module, "DmtcpHarness",
+                               FakeHarness), \
+             mock.patch.object(autotest_module, "run_with_optional_retry",
+                               fake_run_with_optional_retry), \
+             mock.patch.object(autotest_module, "report", output.append):
+            rc = autotest_module.main()
+
+        self.assertEqual(rc, 0)
+        self.assertFalse(captured["verbose"])
+        self.assertTrue(captured["retain_success_artifacts"])
+        self.assertIn(f"{spec.name}: artifacts={artifact_dir}", output)
 
     def test_spec_records_checkpoint_header_validation(self):
         spec = TestSpec("checkpoint-header", 1, ["./test/dmtcp1"],
