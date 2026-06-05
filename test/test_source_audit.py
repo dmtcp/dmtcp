@@ -682,6 +682,24 @@ class SourceAuditTest(unittest.TestCase):
         self.assertEqual(self.old_jalib_diagnostic_files(),
                          self.read_diagnostic_migration_allowlist())
 
+    def test_coordinator_synthetic_tests_are_tracked_in_coverage_ledger(self):
+        synthetic = self.read_text("test/coordinator_synthetic.py")
+        ledger = self.read_text("test/coordinator-realworker-coverage.md")
+        test_names = re.findall(r"^\s+def (test_[A-Za-z0-9_]+)\(",
+                                synthetic,
+                                re.MULTILINE)
+        missing = [
+            name for name in test_names
+            if f"`{name}`" not in ledger
+        ]
+
+        self.assertEqual(
+            missing,
+            [],
+            "coordinator synthetic tests must be classified in "
+            f"coordinator-realworker-coverage.md: {missing}",
+        )
+
     def test_floating_point_diagnostic_detector_finds_fixture(self):
         text = """
         void demo(double readTime)
