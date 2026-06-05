@@ -439,6 +439,27 @@ void warningPthreadSuccessReportsExpressionAndReturnValue()
                    nullptr);
 }
 
+void warningPthreadSuccessMessageReportsExtraContext()
+{
+  resetHook();
+
+  WARNING_PTHREAD_SUCCESS_MSG(setErrnoAndReturn(EINVAL, EIO),
+                              "tid={} signal={}",
+                              123,
+                              9);
+
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "setErrnoAndReturn(EINVAL, EIO) failed") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "expected 0, returned 22 (EINVAL)") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+                               "tid=123 signal=9") !=
+                   nullptr);
+}
+
 void assertFailureExitsWithRawFailureCode()
 {
   pid_t child = fork();
@@ -515,6 +536,8 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    warningMutexSuccessReportsExpressionAndReturnValue},
   {"warning pthread success reports expression and return value",
    warningPthreadSuccessReportsExpressionAndReturnValue},
+  {"warning pthread success message reports extra context",
+   warningPthreadSuccessMessageReportsExtraContext},
   {"assert failure exits with raw failure code",
    assertFailureExitsWithRawFailureCode},
   {"assert failure uses raw exit path", assertFailureUsesRawExitPath},

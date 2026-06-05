@@ -385,9 +385,8 @@ checkpointhread(void *dummy)
     sigdelset(&set, SIGSETXID);
     sigdelset(&set, SIGCANCEL);
 
-    int rc = pthread_sigmask(SIG_SETMASK, &set, NULL);
-    ASSERT(rc == 0, "failed to set checkpoint-thread signal mask: result={}",
-           rc);
+    ASSERT_PTHREAD_SUCCESS_MSG(pthread_sigmask(SIG_SETMASK, &set, NULL),
+                               "setting checkpoint-thread signal mask");
   }
 
   /* Set up our restart point.  I.e., we get jumped to here after a restore. */
@@ -910,9 +909,10 @@ void
 Thread_SaveSigState(Thread *th)
 {
   // Save signal block mask
-  int rc = pthread_sigmask(SIG_SETMASK, NULL, &th->sigblockmask);
-  ASSERT(rc == 0, "failed to save thread signal mask: tid={} result={}",
-         th->tid, rc);
+  ASSERT_PTHREAD_SUCCESS_MSG(
+    pthread_sigmask(SIG_SETMASK, NULL, &th->sigblockmask),
+    "saving thread signal mask: tid={}",
+    th->tid);
 
   // Save pending signals
   sigpending(&th->sigpending);
@@ -929,9 +929,10 @@ Thread_RestoreSigState(Thread *th)
   int i;
 
   JTRACE("restoring signal mask for thread") (th->tid);
-  int rc = pthread_sigmask(SIG_SETMASK, &th->sigblockmask, NULL);
-  ASSERT(rc == 0, "failed to restore thread signal mask: tid={} result={}",
-         th->tid, rc);
+  ASSERT_PTHREAD_SUCCESS_MSG(
+    pthread_sigmask(SIG_SETMASK, &th->sigblockmask, NULL),
+    "restoring thread signal mask: tid={}",
+    th->tid);
 
   // Raise the signals which were pending for only this thread at the time of
   // checkpoint.

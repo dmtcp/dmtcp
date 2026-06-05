@@ -697,20 +697,38 @@ assertFailureErrno(const char *expr,
 #ifdef ASSERT_MUTEX_SUCCESS
 # undef ASSERT_MUTEX_SUCCESS
 #endif
+#ifdef ASSERT_MUTEX_SUCCESS_MSG
+# undef ASSERT_MUTEX_SUCCESS_MSG
+#endif
 #ifdef ASSERT_RWLOCK_SUCCESS
 # undef ASSERT_RWLOCK_SUCCESS
+#endif
+#ifdef ASSERT_RWLOCK_SUCCESS_MSG
+# undef ASSERT_RWLOCK_SUCCESS_MSG
 #endif
 #ifdef ASSERT_PTHREAD_SUCCESS
 # undef ASSERT_PTHREAD_SUCCESS
 #endif
+#ifdef ASSERT_PTHREAD_SUCCESS_MSG
+# undef ASSERT_PTHREAD_SUCCESS_MSG
+#endif
 #ifdef WARNING_MUTEX_SUCCESS
 # undef WARNING_MUTEX_SUCCESS
+#endif
+#ifdef WARNING_MUTEX_SUCCESS_MSG
+# undef WARNING_MUTEX_SUCCESS_MSG
 #endif
 #ifdef WARNING_RWLOCK_SUCCESS
 # undef WARNING_RWLOCK_SUCCESS
 #endif
+#ifdef WARNING_RWLOCK_SUCCESS_MSG
+# undef WARNING_RWLOCK_SUCCESS_MSG
+#endif
 #ifdef WARNING_PTHREAD_SUCCESS
 # undef WARNING_PTHREAD_SUCCESS
+#endif
+#ifdef WARNING_PTHREAD_SUCCESS_MSG
+# undef WARNING_PTHREAD_SUCCESS_MSG
 #endif
 #ifdef ASSERT_GT
 # undef ASSERT_GT
@@ -792,23 +810,67 @@ assertFailureErrno(const char *expr,
             ::dmtcp::errnoName(static_cast<int>(dmtcpAssertResult)));     \
   } while (0)
 
+#define DMTCP_ASSERT_ZERO_RETURN_MSG(expressionText, expression, fmt, ...) \
+  do {                                                                    \
+    const auto dmtcpAssertResult = (expression);                           \
+    ASSERT(dmtcpAssertResult == 0,                                         \
+           "{} failed: expected 0, returned {} ({}); " fmt,                \
+           expressionText, dmtcpAssertResult,                              \
+           ::dmtcp::errnoName(static_cast<int>(dmtcpAssertResult))         \
+           __VA_OPT__(,) __VA_ARGS__);                                     \
+  } while (0)
+
+#define DMTCP_WARNING_ZERO_RETURN_MSG(expressionText, expression, fmt, ...) \
+  do {                                                                     \
+    const auto dmtcpAssertResult = (expression);                            \
+    WARNING(dmtcpAssertResult == 0,                                         \
+            "{} failed: expected 0, returned {} ({}); " fmt,                \
+            expressionText, dmtcpAssertResult,                              \
+            ::dmtcp::errnoName(static_cast<int>(dmtcpAssertResult))         \
+            __VA_OPT__(,) __VA_ARGS__);                                     \
+  } while (0)
+
 #define ASSERT_MUTEX_SUCCESS(expression) \
   DMTCP_ASSERT_ZERO_RETURN(#expression, expression)
+
+#define ASSERT_MUTEX_SUCCESS_MSG(expression, fmt, ...) \
+  DMTCP_ASSERT_ZERO_RETURN_MSG(#expression, expression, fmt \
+                               __VA_OPT__(,) __VA_ARGS__)
 
 #define ASSERT_RWLOCK_SUCCESS(expression) \
   DMTCP_ASSERT_ZERO_RETURN(#expression, expression)
 
+#define ASSERT_RWLOCK_SUCCESS_MSG(expression, fmt, ...) \
+  DMTCP_ASSERT_ZERO_RETURN_MSG(#expression, expression, fmt \
+                               __VA_OPT__(,) __VA_ARGS__)
+
 #define ASSERT_PTHREAD_SUCCESS(expression) \
   DMTCP_ASSERT_ZERO_RETURN(#expression, expression)
+
+#define ASSERT_PTHREAD_SUCCESS_MSG(expression, fmt, ...) \
+  DMTCP_ASSERT_ZERO_RETURN_MSG(#expression, expression, fmt \
+                               __VA_OPT__(,) __VA_ARGS__)
 
 #define WARNING_MUTEX_SUCCESS(expression) \
   DMTCP_WARNING_ZERO_RETURN(#expression, expression)
 
+#define WARNING_MUTEX_SUCCESS_MSG(expression, fmt, ...) \
+  DMTCP_WARNING_ZERO_RETURN_MSG(#expression, expression, fmt \
+                                __VA_OPT__(,) __VA_ARGS__)
+
 #define WARNING_RWLOCK_SUCCESS(expression) \
   DMTCP_WARNING_ZERO_RETURN(#expression, expression)
 
+#define WARNING_RWLOCK_SUCCESS_MSG(expression, fmt, ...) \
+  DMTCP_WARNING_ZERO_RETURN_MSG(#expression, expression, fmt \
+                                __VA_OPT__(,) __VA_ARGS__)
+
 #define WARNING_PTHREAD_SUCCESS(expression) \
   DMTCP_WARNING_ZERO_RETURN(#expression, expression)
+
+#define WARNING_PTHREAD_SUCCESS_MSG(expression, fmt, ...) \
+  DMTCP_WARNING_ZERO_RETURN_MSG(#expression, expression, fmt \
+                                __VA_OPT__(,) __VA_ARGS__)
 
 #define ASSERT_NULL(value) \
   ASSERT((value) == nullptr, "expected null: {}", #value)
