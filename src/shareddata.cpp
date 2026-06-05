@@ -765,7 +765,7 @@ SharedData::getRealPtyName(const char *virt, char *out, uint32_t len)
   *out = '\0';
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < sharedDataHeader->numPtyNameMaps; i++) {
-    if (strcmp(virt, sharedDataHeader->ptyNameMap[i].virt) == 0) {
+    if (Util::strEquals(virt, sharedDataHeader->ptyNameMap[i].virt)) {
       ASSERT(strlen(sharedDataHeader->ptyNameMap[i].real) < len,
              "output buffer too small for real PTY name: len={} required={} "
              "virt={} real={}",
@@ -787,7 +787,7 @@ SharedData::getVirtPtyName(const char *real, char *out, uint32_t len)
   *out = '\0';
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < sharedDataHeader->numPtyNameMaps; i++) {
-    if (strcmp(real, sharedDataHeader->ptyNameMap[i].real) == 0) {
+    if (Util::strEquals(real, sharedDataHeader->ptyNameMap[i].real)) {
       ASSERT(strlen(sharedDataHeader->ptyNameMap[i].virt) < len,
              "output buffer too small for virtual PTY name: len={} "
              "required={} real={} virt={}",

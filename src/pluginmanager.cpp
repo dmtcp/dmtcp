@@ -139,8 +139,8 @@ initializeInternalPluginStateOnce()
     ASSERT(entry->descriptor->pluginName != nullptr,
            "internal plugin descriptor is missing a plugin name: index={}", i);
     for (size_t j = 0; j < i; j++) {
-      ASSERT(strcmp(internalPlugins[j].descriptor->pluginName,
-                    entry->descriptor->pluginName) != 0,
+      ASSERT(!Util::strEquals(internalPlugins[j].descriptor->pluginName,
+                              entry->descriptor->pluginName),
              "duplicate internal plugin name: {}",
              entry->descriptor->pluginName);
     }
@@ -167,7 +167,7 @@ findInternalPluginEntry(const char *pluginName)
   for (size_t i = 0; i < numInternalPlugins(); i++) {
     InternalPluginEntry *entry = &internalPlugins[i];
     if (entry->descriptor->pluginName == pluginName ||
-        strcmp(entry->descriptor->pluginName, pluginName) == 0) {
+        Util::strEquals(entry->descriptor->pluginName, pluginName)) {
       return entry;
     }
   }
@@ -206,7 +206,7 @@ void
 PluginManager::registerPlugin(DmtcpPluginDescriptor_t descr)
 {
   ASSERT(descr.pluginApiVersion != nullptr &&
-         strcmp(descr.pluginApiVersion, DMTCP_PLUGIN_API_VERSION) == 0,
+         Util::strEquals(descr.pluginApiVersion, DMTCP_PLUGIN_API_VERSION),
          "incompatible DMTCP plugin API version: plugin_api={} expected={}",
          descr.pluginApiVersion, DMTCP_PLUGIN_API_VERSION);
   PluginInfo *info = new PluginInfo(descr);

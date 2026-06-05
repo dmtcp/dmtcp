@@ -27,6 +27,7 @@
 #include "jalloc.h"
 #include "connectionidentifier.h"
 #include "dmtcpalloc.h"
+#include "util.h"
 #include "util_assert.h"
 
 # define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
@@ -67,7 +68,7 @@ class ConnMsg
 
     void assertValid(enum MsgType t)
     {
-      ASSERT(strcmp(sign, HANDSHAKE_SIGNATURE_MSG) == 0,
+      ASSERT(Util::strEquals(sign, HANDSHAKE_SIGNATURE_MSG),
              "read invalid message, signature mismatch. "
              "(External socket?): sign={}",
              static_cast<const char *>(sign));

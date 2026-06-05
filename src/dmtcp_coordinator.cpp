@@ -771,7 +771,7 @@ DmtcpCoordinator::onData(CoordClient *client)
   {
     ASSERT(extraData != nullptr,
            "extra data expected with DMT_UPDATE_CKPT_DIR message");
-    if (strcmp(flags.ckptDir.c_str(), extraData) != 0) {
+    if (!Util::strEquals(flags.ckptDir, extraData)) {
       flags.ckptDir = extraData;
       JNOTE("Updated ckptDir") (flags.ckptDir);
     }

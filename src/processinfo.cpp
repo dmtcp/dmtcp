@@ -285,16 +285,16 @@ ProcessInfo::growStack()
   void *tmpbuf;
   ProcSelfMaps procSelfMaps;
   while (procSelfMaps.getNextArea(&area)) {
-    if (strcmp(area.name, "[heap]") == 0) {
+    if (Util::strEquals(area.name, "[heap]")) {
       // Record start of heap which will later be used to restore heap
       _savedHeapStart = (unsigned long)area.addr;
-    } else if (strcmp(area.name, "[vdso]") == 0) {
+    } else if (Util::strEquals(area.name, "[vdso]")) {
       vdso.startAddr = (unsigned long)area.addr;
       vdso.endAddr = (unsigned long)area.endAddr;
-    } else if (strcmp(area.name, "[vvar]") == 0) {
+    } else if (Util::strEquals(area.name, "[vvar]")) {
       vvar.startAddr = (unsigned long)area.addr;
       vvar.endAddr = (unsigned long)area.endAddr;
-    } else if (strcmp(area.name, "[vvar_vclock]") == 0) {
+    } else if (Util::strEquals(area.name, "[vvar_vclock]")) {
       vvarVClock.startAddr = (unsigned long)area.addr;
       vvarVClock.endAddr = (unsigned long)area.endAddr;
     } else if ((VA)&area >= area.addr && (VA)&area < area.endAddr) {

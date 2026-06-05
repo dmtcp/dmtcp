@@ -392,10 +392,10 @@ writememoryarea(int fd, Area area)
     return;
   }
 
-  if (0 == strcmp(area.name, "[vsyscall]") ||
-      0 == strcmp(area.name, "[vectors]") ||
-      0 == strcmp(area.name, "[vvar]") ||
-      0 == strcmp(area.name, "[vvar_vclock]")) {
+  if (Util::strEquals(area.name, "[vsyscall]") ||
+      Util::strEquals(area.name, "[vectors]") ||
+      Util::strEquals(area.name, "[vvar]") ||
+      Util::strEquals(area.name, "[vvar_vclock]")) {
     // NOTE: We can't trust kernel's "[vdso]" label here.  See below.
     JTRACE("skipping over memory special section")
       (area.name) ((void*)area.addr) (area.size);

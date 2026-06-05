@@ -273,6 +273,37 @@ class SourceAuditTest(unittest.TestCase):
                 self.assert_file_does_not_match(
                     "src/plugin/file/ptyconnlist.cpp", pattern)
 
+    def test_runtime_string_equality_uses_cxx20_helpers(self):
+        checks = (
+            ("src/writeckpt.cpp", r"strcmp\(area\.name, \"\[vsyscall\]\"\)"),
+            ("src/writeckpt.cpp", r"strcmp\(area\.name, \"\[vectors\]\"\)"),
+            ("src/writeckpt.cpp", r"strcmp\(area\.name, \"\[vvar\]\"\)"),
+            ("src/writeckpt.cpp",
+             r"strcmp\(area\.name, \"\[vvar_vclock\]\"\)"),
+            ("src/processinfo.cpp", r"strcmp\(area\.name, \"\[heap\]\"\)"),
+            ("src/processinfo.cpp", r"strcmp\(area\.name, \"\[vdso\]\"\)"),
+            ("src/processinfo.cpp", r"strcmp\(area\.name, \"\[vvar\]\"\)"),
+            ("src/processinfo.cpp",
+             r"strcmp\(area\.name, \"\[vvar_vclock\]\"\)"),
+            ("src/shareddata.cpp", r"strcmp\(virt, .*\.virt\)"),
+            ("src/shareddata.cpp", r"strcmp\(real, .*\.real\)"),
+            ("src/plugin/file/ptyconnection.cpp",
+             r'_ptsName\.compare\("\?"\) != 0'),
+            ("src/pluginmanager.cpp",
+             r"strcmp\(internalPlugins\[j\]\.descriptor->pluginName"),
+            ("src/pluginmanager.cpp",
+             r"strcmp\(entry->descriptor->pluginName, pluginName\)"),
+            ("src/pluginmanager.cpp",
+             r"strcmp\(descr\.pluginApiVersion, DMTCP_PLUGIN_API_VERSION\)"),
+            ("src/dmtcp_coordinator.cpp",
+             r"strcmp\(flags\.ckptDir\.c_str\(\), extraData\)"),
+            ("src/plugin/socket/connectionmessage.h",
+             r"strcmp\(sign, HANDSHAKE_SIGNATURE_MSG\)"),
+        )
+        for relative_path, pattern in checks:
+            with self.subTest(path=relative_path, pattern=pattern):
+                self.assert_file_does_not_match(relative_path, pattern)
+
     def test_hostname_checks_use_string_view_comparison(self):
         for relative_path in (
             "src/dmtcp_coordinator.cpp",
