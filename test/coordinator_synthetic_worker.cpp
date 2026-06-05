@@ -1,5 +1,6 @@
 #include "../src/dmtcpmessagetypes.h"
 #include "../src/workerstate.h"
+#include "util.h"
 
 #include <arpa/inet.h>
 #include <cerrno>
@@ -138,13 +139,11 @@ handshakeExtraData(const char *progname)
 int
 parsePort(const char *text)
 {
-  char *end = nullptr;
-  errno = 0;
-  long port = strtol(text, &end, 10);
-  if (errno != 0 || end == text || *end != '\0' || port <= 0 || port > 65535) {
+  int port = 0;
+  if (!dmtcp::Util::parseInteger(text, &port) || port <= 0 || port > 65535) {
     throw std::runtime_error("invalid port");
   }
-  return static_cast<int>(port);
+  return port;
 }
 
 int

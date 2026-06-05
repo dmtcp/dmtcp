@@ -102,7 +102,10 @@ struct MtcpRestartThreadArg {
 };
 
 #ifdef __cplusplus
+# include <charconv>
+# include <system_error>
 # include <string_view>
+# include <type_traits>
 # include "dmtcpalloc.h"
 namespace dmtcp
 {
@@ -122,6 +125,27 @@ inline bool strStartsWith(std::string_view str, std::string_view pattern)
 inline bool strEndsWith(std::string_view str, std::string_view pattern)
 {
   return str.ends_with(pattern);
+}
+
+template <typename Integer>
+inline bool parseInteger(std::string_view text, Integer *value, int base = 10)
+{
+  static_assert(std::is_integral_v<Integer> &&
+                !std::is_same_v<Integer, bool>);
+  if (value == nullptr || text.empty()) {
+    return false;
+  }
+
+  Integer parsed = 0;
+  const char *begin = text.data();
+  const char *end = begin + text.size();
+  auto result = std::from_chars(begin, end, parsed, base);
+  if (result.ec != std::errc() || result.ptr != end) {
+    return false;
+  }
+
+  *value = parsed;
+  return true;
 }
 
 bool readBooleanEnv(const char *envName, bool defaultValue);
