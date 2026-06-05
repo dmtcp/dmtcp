@@ -177,6 +177,35 @@ class SourceAuditTest(unittest.TestCase):
             r"_timerInfo\.find\([^)]+\) != _timerInfo\.end\(\)",
         )
 
+    def test_plugin_maps_use_contains_for_membership_checks(self):
+        checks = (
+            (
+                "src/plugin/connectionlist.cpp",
+                r"_(?:connections|fdToCon)\.find\([^)]+\) "
+                r"(?:==|!=) _(?:connections|fdToCon)\.end\(\)",
+            ),
+            (
+                "src/plugin/svipc/sysvipc.cpp",
+                r"_(?:keyMap|map|shmaddrToFlag)\.find\([^)]+\) "
+                r"(?:==|!=) _(?:keyMap|map|shmaddrToFlag)\.end\(\)",
+            ),
+            (
+                "src/plugin/socket/kernelbufferdrainer.cpp",
+                r"_(?:isSeqpacket|disconnectedSockets)\.find\([^)]+\) "
+                r"!= _(?:isSeqpacket|disconnectedSockets)\.end\(\)",
+            ),
+        )
+        for relative_path, pattern in checks:
+            with self.subTest(path=relative_path):
+                self.assert_file_does_not_match(relative_path, pattern)
+
+    def test_sysvipc_shmaddr_membership_uses_contains(self):
+        self.assert_file_does_not_match(
+            "src/plugin/svipc/sysvipc.cpp",
+            r"_shmaddrToFlag\.find\(\(void \*\)shmaddr\) "
+            r"!= _shmaddrToFlag\.end\(\)",
+        )
+
     def test_restartscript_uses_contains_for_shell_command_checks(self):
         for pattern in (
             r"sshCmdFileNames\.find\(host->first\) != sshCmdFileNames\.end\(\)",

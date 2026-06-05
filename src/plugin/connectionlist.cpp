@@ -314,7 +314,7 @@ ConnectionList::list()
 Connection *
 ConnectionList::getConnection(const ConnectionIdentifier &id)
 {
-  if (_connections.find(id) == _connections.end()) {
+  if (!_connections.contains(id)) {
     return NULL;
   }
   return _connections[id];
@@ -323,7 +323,7 @@ ConnectionList::getConnection(const ConnectionIdentifier &id)
 Connection *
 ConnectionList::getConnection(int fd)
 {
-  if (_fdToCon.find(fd) == _fdToCon.end()) {
+  if (!_fdToCon.contains(fd)) {
     return NULL;
   }
   return _fdToCon[fd];
@@ -334,7 +334,7 @@ ConnectionList::add(int fd, Connection *c)
 {
   _lock_tbl();
 
-  if (_fdToCon.find(fd) != _fdToCon.end()) {
+  if (_fdToCon.contains(fd)) {
     /* In ordinary situations, we never exercise this path since we already
      * capture close() and remove the connection. However, there is one
      * particular case where this assumption fails -- when glibc opens a socket
@@ -362,7 +362,7 @@ ConnectionList::add(int fd, Connection *c)
     processCloseWork(fd);
   }
 
-  if (_connections.find(c->id()) == _connections.end()) {
+  if (!_connections.contains(c->id())) {
     _connections[c->id()] = c;
   }
   c->addFd(fd);
@@ -373,7 +373,7 @@ ConnectionList::add(int fd, Connection *c)
 void
 ConnectionList::processCloseWork(int fd)
 {
-  ASSERT(_fdToCon.find(fd) != _fdToCon.end(),
+  ASSERT(_fdToCon.contains(fd),
          "fd missing from connection table during close: fd={}", fd);
   Connection *con = _fdToCon[fd];
 
@@ -389,7 +389,7 @@ void
 ConnectionList::processClose(int fd)
 {
   _lock_tbl();
-  if (_fdToCon.find(fd) != _fdToCon.end()) {
+  if (_fdToCon.contains(fd)) {
     processCloseWork(fd);
   }
   _unlock_tbl();
@@ -403,10 +403,10 @@ ConnectionList::processDup(int oldfd, int newfd)
   }
 
   _lock_tbl();
-  if (_fdToCon.find(newfd) != _fdToCon.end()) {
+  if (_fdToCon.contains(newfd)) {
     Connection *newFdCon = _fdToCon[newfd];
     Connection *oldFdCon = NULL;
-    if (_fdToCon.find(oldfd) != _fdToCon.end()) {
+    if (_fdToCon.contains(oldfd)) {
       oldFdCon = _fdToCon[oldfd];
     }
     /*
@@ -429,7 +429,7 @@ ConnectionList::processDup(int oldfd, int newfd)
   }
 
   // Add only if the oldfd was already in the _fdToCon table.
-  if (_fdToCon.find(oldfd) != _fdToCon.end()) {
+  if (_fdToCon.contains(oldfd)) {
     Connection *con = _fdToCon[oldfd];
     _fdToCon[newfd] = con;
     con->addFd(newfd);

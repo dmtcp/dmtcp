@@ -149,7 +149,7 @@ KernelBufferDrainer::onData(jalib::JReaderInterface *sock)
 {
   int fd = sock->socket().sockfd();
   // Detect and cache socket type
-  ASSERT(_isSeqpacket.find(fd) != _isSeqpacket.end(),
+  ASSERT(_isSeqpacket.contains(fd),
          "missing socket type while draining data: fd={}", fd);
 
   if (_isSeqpacket[fd]) {
@@ -415,7 +415,7 @@ KernelBufferDrainer::refillAllSockets()
 const vector<char>&
 KernelBufferDrainer::getDrainedData(ConnectionIdentifier id)
 {
-  ASSERT(_disconnectedSockets.find(id) != _disconnectedSockets.end(),
+  ASSERT(_disconnectedSockets.contains(id),
          "missing drained data for disconnected socket: host_id={} pid={} "
          "time={} con_id={}",
          id.hostid(), id.pid(), id.time(), id.conId());

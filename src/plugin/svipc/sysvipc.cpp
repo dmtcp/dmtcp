@@ -467,7 +467,7 @@ SysVIPC::serialize(jalib::JBinarySerializer &o)
 int
 SysVShm::virtualToRealKey(key_t k)
 {
-  if (_keyMap.find(k) != _keyMap.end()) {
+  if (_keyMap.contains(k)) {
     return _keyMap[k];
   } else {
     int realId = SharedData::getRealIPCId(SYSV_SHM_KEY, k, true);
@@ -511,7 +511,7 @@ SysVShm::on_shmget(int shmid, key_t realKey, key_t key, size_t size, int shmflg)
 {
   _do_lock_tbl();
   if (!_virtIdTable.realIdExists(shmid)) {
-    ASSERT(_map.find(shmid) == _map.end(),
+    ASSERT(!_map.contains(shmid),
            "SysV shm map already has real id: shmid={}", shmid);
     int virtId = getNewVirtualId();
     JTRACE("Shmid not found in table. Creating new entry")
@@ -520,7 +520,7 @@ SysVShm::on_shmget(int shmid, key_t realKey, key_t key, size_t size, int shmflg)
     updateKeyMapping(key, realKey);
     _map[virtId] = new ShmSegment(virtId, shmid, key, size, shmflg);
   } else {
-    ASSERT(_map.find(shmid) != _map.end(),
+    ASSERT(_map.contains(shmid),
            "SysV shm map missing existing real id: shmid={}", shmid);
   }
   _do_unlock_tbl();
@@ -534,7 +534,7 @@ SysVShm::on_shmat(int shmid, const void *shmaddr, int shmflg, void *newaddr)
     int realId = SharedData::getRealIPCId(_type, shmid);
     updateMapping(shmid, realId);
   }
-  if (_map.find(shmid) == _map.end()) {
+  if (!_map.contains(shmid)) {
     int realId = VIRTUAL_TO_REAL_SHM_ID(shmid);
     _map[shmid] = new ShmSegment(shmid, realId, -1, -1, -1);
   }
@@ -591,13 +591,13 @@ SysVSem::on_semget(int realSemId, key_t key, int nsems, int semflg)
     // (realSemId);
     JTRACE("Semid not found in table. Creating new entry") (realSemId);
     int virtId = getNewVirtualId();
-    ASSERT(_map.find(virtId) == _map.end(),
+    ASSERT(!_map.contains(virtId),
            "SysV sem map already has virtual id: semid={}", virtId);
     updateMapping(virtId, realSemId);
     _map[virtId] = new Semaphore(virtId, realSemId, key, nsems, semflg);
   } else {
     int virtId = REAL_TO_VIRTUAL_SEM_ID(realSemId);
-    ASSERT(_map.find(virtId) != _map.end(),
+    ASSERT(_map.contains(virtId),
            "SysV sem map missing virtual id: real_semid={} semid={}",
            realSemId, virtId);
   }
@@ -624,7 +624,7 @@ SysVSem::on_semop(int semid, struct sembuf *sops, unsigned nsops)
     int realId = SharedData::getRealIPCId(_type, semid);
     updateMapping(semid, realId);
   }
-  if (_map.find(semid) == _map.end()) {
+  if (!_map.contains(semid)) {
     int realId = VIRTUAL_TO_REAL_SEM_ID(semid);
     _map[semid] = new Semaphore(semid, realId, -1, -1, -1);
   }
@@ -640,14 +640,14 @@ SysVMsq::on_msgget(int msqid, key_t key, int msgflg)
 {
   _do_lock_tbl();
   if (!_virtIdTable.realIdExists(msqid)) {
-    ASSERT(_map.find(msqid) == _map.end(),
+    ASSERT(!_map.contains(msqid),
            "SysV msg map already has real id: msqid={}", msqid);
     JTRACE("Msqid not found in table. Creating new entry") (msqid);
     int virtId = getNewVirtualId();
     updateMapping(virtId, msqid);
     _map[virtId] = new MsgQueue(virtId, msqid, key, msgflg);
   } else {
-    ASSERT(_map.find(msqid) != _map.end(),
+    ASSERT(_map.contains(msqid),
            "SysV msg map missing existing real id: msqid={}", msqid);
   }
   _do_unlock_tbl();
@@ -673,7 +673,7 @@ SysVMsq::on_msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
     int realId = SharedData::getRealIPCId(_type, msqid);
     updateMapping(msqid, realId);
   }
-  if (_map.find(msqid) == _map.end()) {
+  if (!_map.contains(msqid)) {
     int realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
     _map[msqid] = new MsgQueue(msqid, realId, -1, -1);
   }
@@ -692,7 +692,7 @@ SysVMsq::on_msgrcv(int msqid,
     int realId = SharedData::getRealIPCId(_type, msqid);
     updateMapping(msqid, realId);
   }
-  if (_map.find(msqid) == _map.end()) {
+  if (!_map.contains(msqid)) {
     int realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
     _map[msqid] = new MsgQueue(msqid, realId, -1, -1);
   }
@@ -745,7 +745,7 @@ ShmSegment::on_shmdt(const void *shmaddr)
 bool
 ShmSegment::isValidShmaddr(const void *shmaddr)
 {
-  return _shmaddrToFlag.find((void *)shmaddr) != _shmaddrToFlag.end();
+  return _shmaddrToFlag.contains((void *)shmaddr);
 }
 
 bool
@@ -783,7 +783,7 @@ ShmSegment::leaderElection()
                _id);
 
   // The kernel can give us one of our previous addresses.
-  if (_shmaddrToFlag.find(savedAddr) != _shmaddrToFlag.end()) {
+  if (_shmaddrToFlag.contains(savedAddr)) {
     _shmaddrToFlag.erase(savedAddr);
   }
 
