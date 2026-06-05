@@ -645,9 +645,9 @@ ConnectionList::sendReceiveMissingFds()
       socketFd.events |= POLLIN;
     }
 
-    int ret = _real_poll(&socketFd, 1, -1);
-    ASSERT_ERRNO(ret != -1, "poll failed for missing fd exchange: fd={}",
-                 restoreFd);
+    ASSERT_SYSCALL_SUCCESS_MSG(_real_poll(&socketFd, 1, -1),
+                               "poll failed for missing fd exchange: fd={}",
+                               restoreFd);
 
     if (numOutgoingCons > 0 && (socketFd.revents & POLLOUT)) {
       size_t idx = outgoingCons.back();

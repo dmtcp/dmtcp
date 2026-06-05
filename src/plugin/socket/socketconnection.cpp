@@ -758,14 +758,13 @@ TcpConnection::postRestart()
                 JTRACE("Restoring socket option.")
                   (_fds[0]) (opt->first) (opt->second.size());
               }
-              int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
-                                         opt->second.buffer(),
-                                         opt->second.size());
-              ASSERT_ERRNO(ret == 0,
-                           "Restoring IPV6_V6ONLY setsockopt failed: fd={} "
-                           "level={} option={} value={} size={}",
-                           _fds[0], lvl->first, opt->first,
-                           opt->second.buffer(), opt->second.size());
+              ASSERT_SYSCALL_SUCCESS_MSG(
+                _real_setsockopt(_fds[0], lvl->first, opt->first,
+                                 opt->second.buffer(), opt->second.size()),
+                "Restoring IPV6_V6ONLY setsockopt failed: fd={} level={} "
+                "option={} value={} size={}",
+                _fds[0], lvl->first, opt->first, opt->second.buffer(),
+                opt->second.size());
             }
           }
         }
@@ -978,14 +977,13 @@ RawSocketConnection::postRestart()
                 JTRACE("Restoring socket option.")
                   (_fds[0]) (opt->first) (opt->second.size());
               }
-              int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
-                                         opt->second.buffer(),
-                                         opt->second.size());
-              ASSERT_ERRNO(ret == 0,
-                           "Restoring raw socket filter setsockopt failed: "
-                           "fd={} level={} option={} value={} size={}",
-                           _fds[0], lvl->first, opt->first,
-                           opt->second.buffer(), opt->second.size());
+              ASSERT_SYSCALL_SUCCESS_MSG(
+                _real_setsockopt(_fds[0], lvl->first, opt->first,
+                                 opt->second.buffer(), opt->second.size()),
+                "Restoring raw socket filter setsockopt failed: fd={} "
+                "level={} option={} value={} size={}",
+                _fds[0], lvl->first, opt->first, opt->second.buffer(),
+                opt->second.size());
             }
           }
         }

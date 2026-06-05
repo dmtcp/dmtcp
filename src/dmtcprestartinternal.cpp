@@ -541,7 +541,8 @@ int
 readCkptHeader(const string &path, DmtcpCkptHeader *ckptHdr)
 {
   int fd = openCkptFileToRead(path);
-  ASSERT_NE(-1, fd);
+  ASSERT_NE_MSG(-1, fd, "checkpoint file helper returned invalid fd: path={}",
+                path.c_str());
 
   ASSERT_EQ(sizeof(*ckptHdr), (size_t)Util::readAll(fd, ckptHdr, sizeof(*ckptHdr)));
   validateCkptHeader(ckptHdr);

@@ -877,6 +877,12 @@ assertFailureErrno(const char *expr,
 #ifdef ASSERT_ZERO_RETURN_MSG
 # undef ASSERT_ZERO_RETURN_MSG
 #endif
+#ifdef ASSERT_SYSCALL_SUCCESS
+# undef ASSERT_SYSCALL_SUCCESS
+#endif
+#ifdef ASSERT_SYSCALL_SUCCESS_MSG
+# undef ASSERT_SYSCALL_SUCCESS_MSG
+#endif
 #ifdef WARNING_MUTEX_SUCCESS
 # undef WARNING_MUTEX_SUCCESS
 #endif
@@ -900,6 +906,12 @@ assertFailureErrno(const char *expr,
 #endif
 #ifdef WARNING_ZERO_RETURN_MSG
 # undef WARNING_ZERO_RETURN_MSG
+#endif
+#ifdef WARNING_SYSCALL_SUCCESS
+# undef WARNING_SYSCALL_SUCCESS
+#endif
+#ifdef WARNING_SYSCALL_SUCCESS_MSG
+# undef WARNING_SYSCALL_SUCCESS_MSG
 #endif
 #ifdef SIGNAL_WARNING
 # undef SIGNAL_WARNING
@@ -1114,6 +1126,46 @@ assertFailureErrno(const char *expr,
             __VA_OPT__(,) __VA_ARGS__);                                     \
   } while (0)
 
+// For libc/syscall-style APIs that return -1 on failure and set errno. Do not
+// use these for pthread-style APIs that return a status code directly.
+#define DMTCP_ASSERT_SYSCALL_SUCCESS(expressionText, expression)       \
+  do {                                                                \
+    const auto dmtcpAssertResult = (expression);                       \
+    ASSERT_ERRNO(dmtcpAssertResult != -1,                              \
+                 "{} failed: expected a return value other than -1, "  \
+                 "returned {}",                                       \
+                 expressionText, dmtcpAssertResult);                   \
+  } while (0)
+
+#define DMTCP_WARNING_SYSCALL_SUCCESS(expressionText, expression)      \
+  do {                                                                \
+    const auto dmtcpAssertResult = (expression);                       \
+    WARNING_ERRNO(dmtcpAssertResult != -1,                             \
+                  "{} failed: expected a return value other than -1, " \
+                  "returned {}",                                      \
+                  expressionText, dmtcpAssertResult);                  \
+  } while (0)
+
+#define DMTCP_ASSERT_SYSCALL_SUCCESS_MSG(expressionText, expression, fmt, ...) \
+  do {                                                                        \
+    const auto dmtcpAssertResult = (expression);                               \
+    ASSERT_ERRNO(dmtcpAssertResult != -1,                                      \
+                 "{} failed: expected a return value other than -1, "          \
+                 "returned {}; " fmt,                                         \
+                 expressionText, dmtcpAssertResult                             \
+                 __VA_OPT__(,) __VA_ARGS__);                                   \
+  } while (0)
+
+#define DMTCP_WARNING_SYSCALL_SUCCESS_MSG(expressionText, expression, fmt, ...) \
+  do {                                                                         \
+    const auto dmtcpAssertResult = (expression);                                \
+    WARNING_ERRNO(dmtcpAssertResult != -1,                                      \
+                  "{} failed: expected a return value other than -1, "          \
+                  "returned {}; " fmt,                                         \
+                  expressionText, dmtcpAssertResult                             \
+                  __VA_OPT__(,) __VA_ARGS__);                                   \
+  } while (0)
+
 #define ASSERT_MUTEX_SUCCESS(expression) \
   DMTCP_ASSERT_ZERO_RETURN(#expression, expression)
 
@@ -1142,6 +1194,13 @@ assertFailureErrno(const char *expr,
   DMTCP_ASSERT_ZERO_RETURN_MSG(#expression, expression, fmt \
                                __VA_OPT__(,) __VA_ARGS__)
 
+#define ASSERT_SYSCALL_SUCCESS(expression) \
+  DMTCP_ASSERT_SYSCALL_SUCCESS(#expression, expression)
+
+#define ASSERT_SYSCALL_SUCCESS_MSG(expression, fmt, ...) \
+  DMTCP_ASSERT_SYSCALL_SUCCESS_MSG(#expression, expression, fmt \
+                                   __VA_OPT__(,) __VA_ARGS__)
+
 #define WARNING_MUTEX_SUCCESS(expression) \
   DMTCP_WARNING_ZERO_RETURN(#expression, expression)
 
@@ -1169,6 +1228,13 @@ assertFailureErrno(const char *expr,
 #define WARNING_ZERO_RETURN_MSG(expression, fmt, ...) \
   DMTCP_WARNING_ZERO_RETURN_MSG(#expression, expression, fmt \
                                 __VA_OPT__(,) __VA_ARGS__)
+
+#define WARNING_SYSCALL_SUCCESS(expression) \
+  DMTCP_WARNING_SYSCALL_SUCCESS(#expression, expression)
+
+#define WARNING_SYSCALL_SUCCESS_MSG(expression, fmt, ...) \
+  DMTCP_WARNING_SYSCALL_SUCCESS_MSG(#expression, expression, fmt \
+                                    __VA_OPT__(,) __VA_ARGS__)
 
 #define ASSERT_NULL(value) \
   ASSERT((value) == nullptr, "expected null: {}", #value)

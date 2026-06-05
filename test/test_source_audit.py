@@ -309,6 +309,20 @@ class SourceAuditTest(unittest.TestCase):
             r"ASSERT_EQ\s*\(\s*0\s*,\s*madvise\s*\(",
         )
 
+    def test_syscall_style_asserts_use_named_helpers(self):
+        checks = (
+            ("src/dmtcprestartinternal.cpp", r"ASSERT_NE\(-1, fd\)"),
+            ("src/plugin/connectionlist.cpp",
+             r"ASSERT_ERRNO\(ret != -1,"),
+            ("src/plugin/socket/socketconnection.cpp",
+             r"ASSERT_ERRNO\(ret == 0,"),
+            ("src/plugin/socket/socketwrappers.cpp",
+             r"ASSERT_NE\(-1, ret\)"),
+        )
+        for relative_path, pattern in checks:
+            with self.subTest(path=relative_path):
+                self.assert_file_does_not_match(relative_path, pattern)
+
     def test_child_thread_signal_set_is_initialized_before_use(self):
         self.assert_file_does_not_match(
             "src/threadwrappers.cpp",
