@@ -130,10 +130,10 @@ timer_create_sigev_thread(clockid_t clock_id,
   int res = _real_timer_create(clock_id, sevOut, timerid);
   if (res == 0) {
     /* Add to the queue of active timers with thread delivery.  */
-    DmtcpMutexLock(&active_timer_sigev_thread_lock);
+    ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&active_timer_sigev_thread_lock));
     newp->next = active_timer_sigev_thread;
     active_timer_sigev_thread = newp;
-    DmtcpMutexUnlock(&active_timer_sigev_thread_lock);
+    ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&active_timer_sigev_thread_lock));
     return 0;
   }
 
@@ -205,7 +205,7 @@ timer_helper_thread(void *arg)
 
         /* Check the timer is still used and will not go away
            while we are reading the values here.  */
-        DmtcpMutexLock(&active_timer_sigev_thread_lock);
+        ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&active_timer_sigev_thread_lock));
 
         struct timer *runp = active_timer_sigev_thread;
         while (runp != NULL) {
@@ -231,7 +231,7 @@ timer_helper_thread(void *arg)
           }
         }
 
-        DmtcpMutexUnlock(&active_timer_sigev_thread_lock);
+        ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&active_timer_sigev_thread_lock));
       } else if (si.si_code == SI_TKILL) {
         /* The thread is canceled.  */
         pthread_exit(NULL);
