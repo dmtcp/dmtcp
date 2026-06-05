@@ -104,6 +104,9 @@ check-harness-unit:
 check-command-json:
 	python3 $(srcdir)/test_dmtcp_command_json.py
 
+check-command-cli:
+	python3 $(srcdir)/test_dmtcp_command_cli.py
+
 check-launch-cli:
 	python3 $(srcdir)/test_dmtcp_launch_cli.py
 

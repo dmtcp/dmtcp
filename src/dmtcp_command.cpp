@@ -140,6 +140,13 @@ coordinatorPortEnvIsValid()
   return parseCoordinatorPort(port, &parsedPort);
 }
 
+static bool
+parseCheckpointInterval(const string &text)
+{
+  int interval = 0;
+  return Util::parseInteger(text, &interval) && interval >= 0;
+}
+
 static int
 getCoordinatorPort()
 {
@@ -394,6 +401,9 @@ main(int argc, char **argv)
   // After this, the first char of the request is unique.  We only need that.
   char cmdChar = *(char *)request.c_str();
   if (!coordinatorPortEnvIsValid()) {
+    return printUsageOrJsonError(jsonOutput);
+  }
+  if (cmdChar == 'i' && !parseCheckpointInterval(interval)) {
     return printUsageOrJsonError(jsonOutput);
   }
   if (jsonOutput && !jsonCommandSupported(cmdChar)) {
