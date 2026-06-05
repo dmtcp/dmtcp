@@ -772,6 +772,70 @@ logDiagnostic(AssertSeverity severity,
   DMTCP_ASSERT_COMPARE(WARN_ERRNO, expression, 0, >=, ">=", ""           \
                        __VA_OPT__("; " __VA_ARGS__))
 
+#define ASSERT_EQ_MSG(expected, actual, ...) \
+  ASSERT_EQ(expected, actual __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_NE_MSG(expected, actual, ...) \
+  ASSERT_NE(expected, actual __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_GT_MSG(lhs, rhs, ...) \
+  ASSERT_GT(lhs, rhs __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_GE_MSG(lhs, rhs, ...) \
+  ASSERT_GE(lhs, rhs __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_LT_MSG(lhs, rhs, ...) \
+  ASSERT_LT(lhs, rhs __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_LE_MSG(lhs, rhs, ...) \
+  ASSERT_LE(lhs, rhs __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_NULL_MSG(value, ...) \
+  ASSERT_NULL(value __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_NOT_NULL_MSG(value, ...) \
+  ASSERT_NOT_NULL(value __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_LOCK_SUCCESS_MSG(expression, ...) \
+  ASSERT_LOCK_SUCCESS(expression __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_MUTEX_SUCCESS(expression, ...) \
+  ASSERT_LOCK_SUCCESS(expression __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_MUTEX_SUCCESS_MSG(expression, ...) \
+  ASSERT_LOCK_SUCCESS(expression __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_RWLOCK_SUCCESS(expression, ...) \
+  ASSERT_LOCK_SUCCESS(expression __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_RWLOCK_SUCCESS_MSG(expression, ...) \
+  ASSERT_LOCK_SUCCESS(expression __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_PTHREAD_SUCCESS_MSG(expression, ...) \
+  ASSERT_PTHREAD_SUCCESS(expression __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_ZERO_MSG(expression, ...) \
+  ASSERT_ZERO(expression __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_ZERO_RETURN(expression, ...) \
+  ASSERT_ZERO(expression __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_ZERO_RETURN_MSG(expression, ...) \
+  ASSERT_ZERO(expression __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_SYSCALL_SUCCESS_MSG(expression, ...) \
+  ASSERT_SYSCALL_SUCCESS(expression __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_SYSCALL_EQ_MSG(expected, expression, ...) \
+  ASSERT_SYSCALL_EQ(expected, expression __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_VALID_FD_MSG(expression, ...) \
+  ASSERT_VALID_FD(expression __VA_OPT__(,) __VA_ARGS__)
+#define ASSERT_FORK_SUCCESS_MSG(expression, ...) \
+  ASSERT_FORK_SUCCESS(expression __VA_OPT__(,) __VA_ARGS__)
+
+#define WARNING(condition, ...) \
+  WARN(condition __VA_OPT__(,) __VA_ARGS__)
+#define WARNING_ERRNO(condition, ...) \
+  WARN_ERRNO(condition __VA_OPT__(,) __VA_ARGS__)
+#define WARNING_EQ(expected, actual, ...) \
+  WARN_EQ(expected, actual __VA_OPT__(,) __VA_ARGS__)
+#define WARNING_EQ_MSG(expected, actual, ...) \
+  WARN_EQ(expected, actual __VA_OPT__(,) __VA_ARGS__)
+#define WARNING_NE(expected, actual, ...) \
+  WARN_NE(expected, actual __VA_OPT__(,) __VA_ARGS__)
+#define WARNING_NE_MSG(expected, actual, ...) \
+  WARN_NE(expected, actual __VA_OPT__(,) __VA_ARGS__)
+#define WARNING_SYSCALL_SUCCESS(expression, ...) \
+  WARN_SYSCALL_SUCCESS(expression __VA_OPT__(,) __VA_ARGS__)
+#define WARNING_SYSCALL_SUCCESS_MSG(expression, ...) \
+  WARN_SYSCALL_SUCCESS(expression __VA_OPT__(,) __VA_ARGS__)
+#define WARNING_VALID_FD(expression, ...) \
+  WARN_VALID_FD(expression __VA_OPT__(,) __VA_ARGS__)
+#define WARNING_VALID_FD_MSG(expression, ...) \
+  WARN_VALID_FD(expression __VA_OPT__(,) __VA_ARGS__)
+
 #endif // DMTCP_UTIL_ASSERT_NO_MACROS
 
 #endif // DMTCP_UTIL_ASSERT_H

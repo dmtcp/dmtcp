@@ -223,8 +223,8 @@ ProcessInfo::growStack()
   size_t stackSize;
   const rlim_t eightMB = 8 * 1024 * 1024;
 
-  ASSERT_ERRNO(getrlimit(RLIMIT_STACK, &rlim) == 0,
-               "failed to read RLIMIT_STACK");
+  ASSERT_SYSCALL_SUCCESS_MSG(getrlimit(RLIMIT_STACK, &rlim),
+                             "failed to read RLIMIT_STACK");
   if (rlim.rlim_cur == RLIM_INFINITY) {
     if (rlim.rlim_max == RLIM_INFINITY) {
       stackSize = 8 * 1024 * 1024;
@@ -281,14 +281,16 @@ ProcessInfo::growStack()
       }
     }
   }
-  ASSERT(stackArea.addr != NULL,
-         "failed to find current stack mapping in /proc/self/maps");
+  ASSERT_NOT_NULL_MSG(stackArea.addr,
+                      "failed to find current stack mapping in "
+                      "/proc/self/maps");
 
   if (stackSize > stackArea.size + 4095) {
     // Grow the stack, if possible
     allocSize = stackSize - stackArea.size - 4095;
     tmpbuf = alloca(allocSize);
-    ASSERT(tmpbuf != NULL, "failed to grow stack: allocSize={}", allocSize);
+    ASSERT_NOT_NULL_MSG(tmpbuf, "failed to grow stack: allocSize={}",
+                        allocSize);
     memset(tmpbuf, 0, allocSize);
   }
 
@@ -359,10 +361,10 @@ ProcessInfo::updateRestoreBufAddr()
   //        to free the backing physical pages created by mtcp_restart.
 
   if (restoreBuf.startAddr != 0) {
-    ASSERT_ERRNO(munmap((void*) restoreBuf.startAddr,
-                        RESTORE_BUF_TOTAL_SIZE) == 0,
-                 "failed to unmap restore buffer: start={} size={}",
-                 restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      munmap((void*) restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE),
+      "failed to unmap restore buffer: start={} size={}",
+      restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE);
   }
 
   int flags = MAP_SHARED | MAP_ANONYMOUS;
@@ -483,8 +485,11 @@ void
 ProcessInfo::restoreHeap()
 {
   // Release backing memory for EndOfBrkMap memory region.
-  ASSERT_EQ(0,
-            madvise((void *)_initialSavedBrk, EndOfBrkMapSize, MADV_DONTNEED));
+      ASSERT_SYSCALL_SUCCESS_MSG(
+        madvise((void *)_initialSavedBrk, EndOfBrkMapSize, MADV_DONTNEED),
+        "failed to release saved brk mapping: addr={} size={}",
+        (void *)_initialSavedBrk,
+        EndOfBrkMapSize);
 
   /* If the original start of heap is lower than the current end of heap, we
    * want to mmap the area between _savedBrk and current break. This
@@ -536,10 +541,11 @@ ProcessInfo::restart()
       if (chdir(rpath.c_str()) == 0) {
         JTRACE("Changed cwd") (_launchCWD) (_ckptCWD) (_launchCWD + rpath);
       } else {
-        WARNING_ERRNO(chdir(_ckptCWD.c_str()) == 0,
-                      "failed to change directory to checkpoint cwd: "
-                      "ckptCWD={} launchCWD={}",
-                      _ckptCWD, _launchCWD);
+        WARNING_SYSCALL_SUCCESS_MSG(
+          chdir(_ckptCWD.c_str()),
+          "failed to change directory to checkpoint cwd: "
+          "ckptCWD={} launchCWD={}",
+          _ckptCWD, _launchCWD);
       }
     }
   }
@@ -557,10 +563,11 @@ ProcessInfo::restoreProcessGroupInfo()
 
   if (sid == pid && curSid != curPid) {
     JTRACE("Restore Session Leadership") (sid) (pid) (curSid) (curPid);
-    WARNING_ERRNO(setsid() != -1,
-                  "cannot restore session leadership: savedSid={} "
-                  "savedPid={} currentSid={} currentPid={}",
-                  sid, pid, curSid, curPid);
+    WARNING_SYSCALL_SUCCESS_MSG(
+      setsid(),
+      "cannot restore session leadership: savedSid={} savedPid={} "
+      "currentSid={} currentPid={}",
+      sid, pid, curSid, curPid);
   }
 
   // Restore group assignment
@@ -568,10 +575,11 @@ ProcessInfo::restoreProcessGroupInfo()
   if (gid != cgid) {
     JTRACE("Restore Group Assignment")
       (gid) (fgid) (cgid) (pid) (ppid) (getppid());
-    WARNING_ERRNO(setpgid(0, gid) == 0,
-                  "cannot change process group: savedGid={} currentGid={} "
-                  "savedPid={} savedPpid={}",
-                  gid, cgid, pid, ppid);
+    WARNING_SYSCALL_SUCCESS_MSG(
+      setpgid(0, gid),
+      "cannot change process group: savedGid={} currentGid={} "
+      "savedPid={} savedPpid={}",
+      gid, cgid, pid, ppid);
   } else {
     JTRACE("Group is already assigned") (gid) (cgid);
   }
@@ -615,7 +623,7 @@ ProcessInfo::endPthreadJoin(pthread_t thread)
 void
 ProcessInfo::setCkptFilename(const char *filename)
 {
-  ASSERT(filename != NULL, "checkpoint filename must not be null");
+  ASSERT_NOT_NULL_MSG(filename, "checkpoint filename must not be null");
   if (filename[0] == '/') {
     _ckptDir = jalib::Filesystem::DirName(filename);
     _ckptFileName = filename;
@@ -635,7 +643,7 @@ ProcessInfo::setCkptFilename(const char *filename)
 void
 ProcessInfo::setCkptDir(const char *dir)
 {
-  ASSERT(dir != NULL, "checkpoint directory must not be null");
+  ASSERT_NOT_NULL_MSG(dir, "checkpoint directory must not be null");
   _ckptDir = dir;
   _ckptFileName = _ckptDir + "/" + jalib::Filesystem::BaseName(_ckptFileName);
   _ckptFilesSubDir = _ckptDir + "/" + jalib::Filesystem::BaseName(

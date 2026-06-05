@@ -56,7 +56,7 @@ ProcSelfMaps::ProcSelfMaps()
   // We should check for that.
 
   fd = _real_open("/proc/self/maps", O_RDONLY);
-  ASSERT_ERRNO(fd != -1, "failed to open /proc/self/maps");
+  ASSERT_VALID_FD_MSG(fd, "failed to open /proc/self/maps");
   ssize_t numRead = 0;
 
   // Get an approximation of the required buffer size.
@@ -71,7 +71,7 @@ ProcSelfMaps::ProcSelfMaps()
   // of /proc/self/maps, so we need to recalculate numBytes.
   size_t size = numBytes + 4096; // Add a one page buffer.
   data = (char *)JALLOC_HELPER_MALLOC(size);
-  ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
                "failed to rewind /proc/self/maps");
 
   numBytes = Util::readAll(fd, data, size);

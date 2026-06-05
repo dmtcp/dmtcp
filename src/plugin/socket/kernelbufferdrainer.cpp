@@ -105,20 +105,24 @@ scaleSendBuffers(int fd, double factor)
   int size;
   unsigned len = sizeof(size);
 
-  ASSERT_ERRNO(getsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *)&size,
-                          &len) == 0,
-               "getsockopt(SO_SNDBUF) failed: fd={}", fd);
+  ASSERT_SYSCALL_SUCCESS_MSG(getsockopt(fd,
+                                        SOL_SOCKET,
+                                        SO_SNDBUF,
+                                        (void *)&size,
+                                        &len),
+                             "getsockopt(SO_SNDBUF) failed: fd={}", fd);
 
   // getsockopt returns doubled size. So, if we pass the same value to
   // setsockopt, it would double the buffer size.
   int newSize = static_cast<int>(size * factor / 2);
   len = sizeof(newSize);
-  ASSERT_ERRNO(_real_setsockopt(fd,
-                                SOL_SOCKET,
-                                SO_SNDBUF,
-                                (void *)&newSize,
-                                len) == 0,
-               "setsockopt(SO_SNDBUF) failed: fd={} size={}", fd, newSize);
+  ASSERT_SYSCALL_SUCCESS_MSG(_real_setsockopt(fd,
+                                              SOL_SOCKET,
+                                              SO_SNDBUF,
+                                              (void *)&newSize,
+                                              len),
+                             "setsockopt(SO_SNDBUF) failed: fd={} size={}",
+                             fd, newSize);
 }
 
 static KernelBufferDrainer *theDrainer = NULL;
@@ -258,11 +262,15 @@ KernelBufferDrainer::onTimeoutInterval()
 
         // it does it by creating a socket pair and closing one side
         int sp[2] = { -1, -1 };
-        ASSERT_ERRNO(_real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp) == 0,
-                     "socketpair() failed while creating dead socket");
-        ASSERT(sp[0] >= 0 && sp[1] >= 0,
-               "socketpair() returned invalid fds: fd0={} fd1={}", sp[0],
-               sp[1]);
+        ASSERT_SYSCALL_SUCCESS_MSG(
+          _real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp),
+          "creating dead socket pair");
+        ASSERT_VALID_FD_MSG(sp[0],
+                            "socketpair() returned invalid first fd: fd1={}",
+                            sp[1]);
+        ASSERT_VALID_FD_MSG(sp[1],
+                            "socketpair() returned invalid second fd: fd0={}",
+                            sp[0]);
         _real_close(sp[1]);
         JTRACE("created dead socket") (sp[0]);
         _real_dup2(sp[0], _dataSockets[i]->socket().sockfd());

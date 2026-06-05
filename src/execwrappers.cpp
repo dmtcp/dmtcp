@@ -142,9 +142,9 @@ dmtcp_prepare_atfork(void)
    * the gcc compiler.
    */
 #if 0
-  ASSERT_EQ(0, __register_atfork(NULL, NULL,
-                                 pidVirt_pthread_atfork_child,
-                                 __dso_handle));
+  ASSERT_ZERO_RETURN(__register_atfork(NULL, NULL,
+                                       pidVirt_pthread_atfork_child,
+                                       __dso_handle));
 #endif
 
   if (!dmtcp_atfork_processed) {
@@ -330,7 +330,7 @@ daemon(int nochdir, int noclose)
   }
 
   if (!nochdir) {
-    ASSERT_ERRNO(chdir("/") == 0, "daemon failed to chdir to /");
+    ASSERT_SYSCALL_SUCCESS_MSG(chdir("/"), "daemon failed to chdir to /");
   }
 
   if (!noclose) {
@@ -473,7 +473,7 @@ dmtcpProcessFailedExec(const char *path, const char *newArgv[])
   }
 
   JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
-  ASSERT_ERRNO(_real_close(PROTECTED_LIFEBOAT_FD) == 0,
+  ASSERT_SYSCALL_SUCCESS_MSG(_real_close(PROTECTED_LIFEBOAT_FD),
                "failed to close protected lifeboat fd: fd={}",
                PROTECTED_LIFEBOAT_FD);
   errno = saved_errno;
@@ -546,7 +546,7 @@ stringVectorToPointerArray(const vector<string> &s, size_t len)
          "pointer array length is too small: len={} size={}", len, s.size());
 
   const char **result = (const char **) JALLOC_MALLOC(len * sizeof (char*));
-  ASSERT(result != NULL, "failed to allocate pointer array: len={}", len);
+  ASSERT_NOT_NULL_MSG(result, "failed to allocate pointer array: len={}", len);
 
   // Now get the pointers.
   for (size_t i = 0; i < s.size(); i++) {
@@ -652,8 +652,8 @@ int getLifeboatFd()
   char buf[PATH_MAX] = {0};
   snprintf(buf, sizeof(buf) - 1, "%s/LifeBoat.XXXXXX", dmtcp_get_tmpdir());
   int fd = _real_mkostemps(buf, 0, 0);
-  ASSERT_ERRNO(fd != -1, "failed to create lifeboat file: path={}", buf);
-  ASSERT_ERRNO(unlink(buf) == 0, "failed to unlink lifeboat file: path={}",
+  ASSERT_VALID_FD_MSG(fd, "failed to create lifeboat file: path={}", buf);
+  ASSERT_SYSCALL_SUCCESS_MSG(unlink(buf), "failed to unlink lifeboat file: path={}",
                buf);
   Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);
   return PROTECTED_LIFEBOAT_FD;
@@ -821,7 +821,8 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
     _real_close(PROTECTED_COORD_FD);
 
     pid_t cpid = _real_fork();
-    ASSERT_ERRNO(cpid != -1, "failed to fork before execing dmtcp_command");
+    ASSERT_FORK_SUCCESS_MSG(cpid,
+                            "failed to fork before execing dmtcp_command");
     if (cpid != 0) {
       _real_exit(0);
     }

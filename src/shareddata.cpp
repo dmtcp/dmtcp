@@ -66,9 +66,10 @@ SharedData::initializeHeader(const char *tmpDir,
          tmpDir, compId, coordInfo, localIPAddr);
 
   off_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
-  ASSERT_ERRNO(lseek(PROTECTED_SHM_FD, size, SEEK_SET) == size,
-               "failed to extend shared-data fd: fd={} size={}",
-               PROTECTED_SHM_FD, size);
+  ASSERT_SYSCALL_EQ_MSG(size,
+                        lseek(PROTECTED_SHM_FD, size, SEEK_SET),
+                        "failed to extend shared-data fd: fd={} size={}",
+                        PROTECTED_SHM_FD, size);
   Util::writeAll(PROTECTED_SHM_FD, "", 1);
   memset(sharedDataHeader, 0, size);
 
@@ -164,8 +165,9 @@ SharedData::initialize(const char *tmpDir,
          "memory fd: coordInfo={} localIPAddr={} compId={} fd={}",
          coordInfo, localIPAddr, compId, PROTECTED_SHM_FD);
   if (!Util::isValidFd(PROTECTED_SHM_FD)) {
-    ASSERT(tmpDir != NULL,
-           "SharedData::initialize requires tmpDir when creating shared area");
+    ASSERT_NOT_NULL_MSG(tmpDir,
+                        "SharedData::initialize requires tmpDir when "
+                        "creating shared area");
     ostringstream o;
     o << tmpDir << "/dmtcpSharedArea."
       << *compId << "." << std::hex << coordInfo->timeStamp;
@@ -192,14 +194,15 @@ SharedData::initialize(const char *tmpDir,
     // too small. This can cause a SIGBUS later when we try to read beyond
     // the end of the file. So we must truncate the file to the correct size
     // in both the if and else branch, above.
-    ASSERT_ERRNO(truncate(o.str().c_str(), size) == 0,
+    ASSERT_SYSCALL_SUCCESS_MSG(truncate(o.str().c_str(), size),
                  "failed to size shared-data file: path={} size={}", o.str(),
                  size);
-    ASSERT_ERRNO(fd != -1, "failed to open shared-data file: path={}",
-                 o.str());
-    ASSERT_ERRNO(_real_dup2(fd, PROTECTED_SHM_FD) == PROTECTED_SHM_FD,
-                 "failed to move shared-data fd: fd={} protected_fd={}", fd,
-                 PROTECTED_SHM_FD);
+    ASSERT_VALID_FD_MSG(fd, "failed to open shared-data file: path={}",
+                        o.str());
+    ASSERT_SYSCALL_EQ_MSG(PROTECTED_SHM_FD,
+                          _real_dup2(fd, PROTECTED_SHM_FD),
+                          "failed to move shared-data fd: fd={} protected_fd={}",
+                          fd, PROTECTED_SHM_FD);
     if (fd != PROTECTED_SHM_FD) {
       _real_close(fd);
     }
@@ -241,7 +244,7 @@ SharedData::initialize(const char *tmpDir,
     while (1) {
       bool initialized = false;
       Util::lockFile(PROTECTED_SHM_FD);
-      ASSERT_ERRNO(fstat(PROTECTED_SHM_FD, &statbuf) != -1,
+      ASSERT_SYSCALL_SUCCESS_MSG(fstat(PROTECTED_SHM_FD, &statbuf),
                    "failed to stat shared-data fd: fd={}", PROTECTED_SHM_FD);
       initialized = sharedDataHeader->initialized;
       Util::unlockFile(PROTECTED_SHM_FD);

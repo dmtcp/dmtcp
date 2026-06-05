@@ -76,11 +76,10 @@ static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
 static void
 writeCkptAll(int fd, const void *buf, size_t count, const char *what)
 {
-  ssize_t written = Util::writeAll(fd, buf, count);
-  ASSERT_ERRNO(written == (ssize_t) count,
-               "failed to write checkpoint data: what={} fd={} expected={} "
-               "written={}",
-               what, fd, count, written);
+  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(count),
+                        Util::writeAll(fd, buf, count),
+                        "failed to write checkpoint data: what={} fd={}",
+                        what, fd);
 }
 
 static void
@@ -218,17 +217,19 @@ mtcp_writememoryareas(int fd)
   writeCkptAll(fd, &area, sizeof(area), "end-of-areas marker");
 
   /* That's all folks */
-  ASSERT_ERRNO(_real_close(fd) == 0,
-               "failed to close checkpoint memory-area fd: fd={}", fd);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    _real_close(fd),
+    "failed to close checkpoint memory-area fd: fd={}", fd);
 }
 
 static void
 remap_nscd_areas(const vector<ProcMapsArea> &areas)
 {
   for (size_t i = 0; i < areas.size(); i++) {
-    ASSERT_ERRNO(munmap(areas[i].addr, areas[i].size) == 0,
-                 "error unmapping NSCD shared area: addr={} size={}",
-                 areas[i].addr, areas[i].size);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      munmap(areas[i].addr, areas[i].size),
+      "error unmapping NSCD shared area: addr={} size={}",
+      areas[i].addr, areas[i].size);
     ASSERT_ERRNO(mmap(areas[i].addr, areas[i].size, areas[i].prot,
                       MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, 0, 0) !=
                  MAP_FAILED,
@@ -490,10 +491,10 @@ writememoryarea(int fd, Area area)
    * condition.
    */
   if ((area.prot & PROT_READ) == 0) {
-    ASSERT_ERRNO(mprotect(area.addr, area.size, area.prot | PROT_READ) == 0,
-                 "error adding PROT_READ to memory region: addr={} size={} "
-                 "prot={}",
-                 area.addr, area.size, area.prot);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      mprotect(area.addr, area.size, area.prot | PROT_READ),
+      "error adding PROT_READ to memory region: addr={} size={} prot={}",
+      area.addr, area.size, area.prot);
   }
 
   if ((area.flags & MAP_ANONYMOUS) != 0) {
@@ -533,9 +534,9 @@ writememoryarea(int fd, Area area)
   
   // Now remove PROT_READ from the area if it didn't have it originally
   if ((area.prot & PROT_READ) == 0) {
-    ASSERT_ERRNO(mprotect(area.addr, area.size, area.prot) == 0,
-                 "error removing PROT_READ from memory region: addr={} "
-                 "size={} prot={}",
-                 area.addr, area.size, area.prot);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      mprotect(area.addr, area.size, area.prot),
+      "error removing PROT_READ from memory region: addr={} size={} prot={}",
+      area.addr, area.size, area.prot);
   }
 }

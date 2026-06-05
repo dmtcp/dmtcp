@@ -46,7 +46,7 @@ Util::writeCoordPortToFile(int port, const char *portFile)
 {
   if (portFile != NULL && strlen(portFile) > 0) {
     int fd = open(portFile, O_CREAT | O_WRONLY | O_TRUNC, 0600);
-    WARNING_ERRNO(fd != -1, "failed to open port file: path={}", portFile);
+    WARNING_VALID_FD_MSG(fd, "failed to open port file: path={}", portFile);
     char port_buf[30];
     memset(port_buf, '\0', sizeof(port_buf));
     sprintf(port_buf, "%d", port);
@@ -116,9 +116,10 @@ Util::calcTmpDir(const char *tmpdirenv)
                "error creating tmp directory: path={}",
                tmpDir);
 
-  ASSERT_ERRNO(0 == access(tmpDir, X_OK | W_OK),
-               "missing execute- or write-access to tmp dir: path={}",
-               tmpDir);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    access(tmpDir, X_OK | W_OK),
+    "missing execute- or write-access to tmp dir: path={}",
+    tmpDir);
 
   return tmpDir;
 }

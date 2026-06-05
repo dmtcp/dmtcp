@@ -225,13 +225,13 @@ RestoreTarget::initialize()
     // the abs-path of ckpt-image.
     string dirName = jalib::Filesystem::DirName(_path);
     int dirfd = open(dirName.c_str(), O_RDONLY);
-    ASSERT_ERRNO(dirfd != -1,
-                 "failed to open checkpoint image directory: {}",
-                 dirName.c_str());
+    ASSERT_VALID_FD_MSG(dirfd,
+                        "failed to open checkpoint image directory: {}",
+                        dirName.c_str());
     if (dirfd != PROTECTED_CKPT_DIR_FD) {
-      ASSERT_ERRNO(dup2(dirfd, PROTECTED_CKPT_DIR_FD) ==
-                   PROTECTED_CKPT_DIR_FD,
-                   "failed to install checkpoint directory fd");
+      ASSERT_SYSCALL_EQ_MSG(PROTECTED_CKPT_DIR_FD,
+                            dup2(dirfd, PROTECTED_CKPT_DIR_FD),
+                            "failed to install checkpoint directory fd");
       close(dirfd);
     }
   }
@@ -254,8 +254,8 @@ RestoreTarget::createDependentChildProcess()
 {
   pid_t pid = fork();
 
-  ASSERT_ERRNO(pid != -1,
-               "fork failed while creating dependent child process");
+  ASSERT_FORK_SUCCESS_MSG(
+    pid, "fork failed while creating dependent child process");
   if (pid != 0) {
     return;
   }
@@ -267,18 +267,20 @@ RestoreTarget::createDependentNonChildProcess()
 {
   pid_t pid = fork();
 
-  ASSERT_ERRNO(pid != -1,
-               "fork failed while creating dependent non-child process");
+  ASSERT_FORK_SUCCESS_MSG(
+    pid, "fork failed while creating dependent non-child process");
   if (pid == 0) {
     pid_t gchild = fork();
-    ASSERT_ERRNO(gchild != -1,
-                 "fork failed while creating dependent grandchild process");
+    ASSERT_FORK_SUCCESS_MSG(
+      gchild, "fork failed while creating dependent grandchild process");
     if (gchild != 0) {
       exit(0);
     }
     createProcess();
   } else {
-    ASSERT_EQ(pid, waitpid(pid, NULL, 0));
+    ASSERT_SYSCALL_EQ_MSG(pid,
+                          waitpid(pid, NULL, 0),
+                          "failed to wait for dependent child process");
   }
 }
 
@@ -287,18 +289,19 @@ RestoreTarget::createOrphanedProcess(bool createIndependentRootProcesses)
 {
   pid_t pid = fork();
 
-  ASSERT_ERRNO(pid != -1,
-               "fork failed while creating orphaned process");
+  ASSERT_FORK_SUCCESS_MSG(pid, "fork failed while creating orphaned process");
   if (pid == 0) {
     pid_t gchild = fork();
-    ASSERT_ERRNO(gchild != -1,
-                 "fork failed while creating orphaned grandchild process");
+    ASSERT_FORK_SUCCESS_MSG(
+      gchild, "fork failed while creating orphaned grandchild process");
     if (gchild != 0) {
       exit(0);
     }
     createProcess(createIndependentRootProcesses);
   } else {
-    ASSERT_EQ(pid, waitpid(pid, NULL, 0));
+    ASSERT_SYSCALL_EQ_MSG(pid,
+                          waitpid(pid, NULL, 0),
+                          "failed to wait for orphan parent process");
     exit(0);
   }
 }
@@ -339,7 +342,7 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
   // If we were the session leader, become one now.
   if (sid() == pid()) {
     if (getsid(0) != pid()) {
-      WARNING_ERRNO(setsid() != -1,
+      WARNING_SYSCALL_SUCCESS_MSG(setsid(),
                     "Failed to restore this process as session leader: "
                     "current session id={}",
                     getsid(0));
@@ -482,10 +485,12 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
       execvp(command[0], command);
     } else if (pid == 0) {
       close(debugPipe[0]); // child doesn't need the read end
-      ASSERT_ERRNO(dup2(debugPipe[1], PROTECTED_DEBUG_SOCKET_FD)
-                   == PROTECTED_DEBUG_SOCKET_FD,
-                   "failed to install protected debug socket fd");
-      close(debugPipe[1]);
+      ASSERT_SYSCALL_EQ_MSG(PROTECTED_DEBUG_SOCKET_FD,
+                            dup2(debugPipe[1], PROTECTED_DEBUG_SOCKET_FD),
+                            "failed to install protected debug socket fd");
+      if (debugPipe[1] != PROTECTED_DEBUG_SOCKET_FD) {
+        close(debugPipe[1]);
+      }
     } else {
      ASSERT_ERRNO(false, "Fork failed");
     }
@@ -519,7 +524,8 @@ int
 readCkptHeader(const string &path, DmtcpCkptHeader *ckptHdr)
 {
   int fd = openCkptFileToRead(path);
-  ASSERT_NE(-1, fd);
+  ASSERT_ERRNO(fd >= 0, "checkpoint file helper returned invalid fd: path={}",
+               path.c_str());
 
   ASSERT_EQ(sizeof(*ckptHdr), (size_t)Util::readAll(fd, ckptHdr, sizeof(*ckptHdr)));
   ASSERT_EQ(DMTCP_CKPT_SIGNATURE, string(ckptHdr->ckptSignature));
@@ -552,44 +558,56 @@ openCkptFileToRead(const string &filename)
   pid_t cpid;
 
   fd = open(filename.c_str(), O_RDONLY);
-  ASSERT_ERRNO(fd >= 0,
-               "Failed to open checkpoint file: {}",
-               filename.c_str());
+  ASSERT_VALID_FD_MSG(fd, "Failed to open checkpoint file: {}",
+                      filename.c_str());
 
   DmtcpCkptHeader ckptHdr;
-  ASSERT_EQ(sizeof(ckptHdr), (size_t)Util::readAll(fd, &ckptHdr, sizeof(ckptHdr)));
+  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(sizeof(ckptHdr)),
+                        Util::readAll(fd, &ckptHdr, sizeof(ckptHdr)),
+                        "failed to read checkpoint header: path={}",
+                        filename.c_str());
   if (string(ckptHdr.ckptSignature) == DMTCP_CKPT_SIGNATURE) {
     // Uncompressed file. Rewind and return.
-    ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
+    ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
+                 "failed to rewind checkpoint file: path={}", filename);
     return fd;
   }
 
-  ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
-  ASSERT_EQ(1, Util::readAll(fd, &fc, 1));
-  ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
+               "failed to rewind checkpoint file before magic read: path={}",
+               filename);
+  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(1),
+                        Util::readAll(fd, &fc, 1),
+                        "failed to read checkpoint magic byte: path={}",
+                        filename.c_str());
+  ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, 0, SEEK_SET),
+               "failed to rewind checkpoint file after magic read: path={}",
+               filename);
 
   if (fc == GZIP_FIRST) {
     decomp_path = gzip_path;
     decomp_args = gzip_args;
 
-    ASSERT_ERRNO(pipe(fds) != -1,
-                 "Cannot create pipe to execute gunzip to decompress "
-                 "checkpoint file: {}",
-                 filename.c_str());
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      pipe(fds),
+      "creating gunzip pipe for checkpoint file: {}",
+      filename.c_str());
 
     cpid = fork();
 
-    ASSERT_ERRNO(cpid != -1,
-                 "Cannot fork to execute gunzip to decompress checkpoint "
-                 "file: {}",
-                 filename.c_str());
+    ASSERT_FORK_SUCCESS_MSG(cpid,
+                            "Cannot fork to execute gunzip to decompress "
+                            "checkpoint file: {}",
+                            filename.c_str());
     if (cpid > 0) { /* parent process */
       JTRACE("created child process to uncompress checkpoint file") (cpid);
       close(fd);
       close(fds[1]);
 
       // Wait for child process
-      ASSERT_EQ(cpid, waitpid(cpid, NULL, 0));
+      ASSERT_SYSCALL_EQ_MSG(cpid,
+                            waitpid(cpid, NULL, 0),
+                            "failed to wait for decompressor process");
       return fds[0];
     } else { /* child process */
       /* Fork a grandchild process and kill the parent. This way the grandchild
@@ -601,12 +619,12 @@ openCkptFileToRead(const string &filename)
        * wait()'d upon by the corresponding mtcp_restart processes because
        * their parent is the original dmtcp_restart process and thus they
        * become zombie.
-       */
+      */
       cpid = fork();
-      ASSERT_ERRNO(cpid != -1,
-                   "Cannot fork grandchild to execute gunzip to decompress "
-                   "checkpoint file: {}",
-                   filename.c_str());
+      ASSERT_FORK_SUCCESS_MSG(cpid,
+                              "Cannot fork grandchild to execute gunzip to "
+                              "decompress checkpoint file: {}",
+                              filename.c_str());
       if (cpid > 0) {
         // Use _exit() instead of exit() to avoid popping atexit() handlers
         // registered by the parent process.
@@ -618,13 +636,16 @@ openCkptFileToRead(const string &filename)
       fd = dup(dup(dup(fd)));
       fds[1] = dup(fds[1]);
       close(fds[0]);
-      ASSERT_ERRNO(fd != -1,
-                   "failed to duplicate checkpoint fd for decompressor");
-      ASSERT_ERRNO(dup2(fd, STDIN_FILENO) == STDIN_FILENO,
-                   "failed to install decompressor stdin fd");
+      ASSERT_VALID_FD_MSG(fd,
+                          "failed to duplicate checkpoint fd for "
+                          "decompressor");
+      ASSERT_SYSCALL_EQ_MSG(STDIN_FILENO,
+                            dup2(fd, STDIN_FILENO),
+                            "failed to install decompressor stdin fd");
       close(fd);
-      ASSERT_ERRNO(dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO,
-                   "failed to install decompressor stdout fd");
+      ASSERT_SYSCALL_EQ_MSG(STDOUT_FILENO,
+                            dup2(fds[1], STDOUT_FILENO),
+                            "failed to install decompressor stdout fd");
       close(fds[1]);
       execvp(decomp_path, (char **)decomp_args);
 
@@ -650,14 +671,18 @@ setEnvironFd()
 
   sprintf(envFile, "%s/envFile.XXXXXX", tmpDir.c_str());
   int fd = mkstemp(envFile);
-  ASSERT_ERRNO(fd != -1,
-               "failed to create temporary environment file: {}", envFile);
-  ASSERT_ERRNO(unlink(envFile) == 0,
+  ASSERT_VALID_FD_MSG(fd,
+                      "failed to create temporary environment file: {}",
+                      envFile);
+  ASSERT_SYSCALL_SUCCESS_MSG(unlink(envFile),
                "failed to unlink temporary environment file: {}", envFile);
-  ASSERT_ERRNO(dup2(fd, PROTECTED_ENVIRON_FD) == PROTECTED_ENVIRON_FD,
-               "failed to install protected environment fd");
-  ASSERT_ERRNO(close(fd) == 0,
-               "failed to close temporary environment fd");
+  ASSERT_SYSCALL_EQ_MSG(PROTECTED_ENVIRON_FD,
+                        dup2(fd, PROTECTED_ENVIRON_FD),
+                        "failed to install protected environment fd");
+  if (fd != PROTECTED_ENVIRON_FD) {
+    ASSERT_SYSCALL_SUCCESS_MSG(close(fd),
+                               "failed to close temporary environment fd");
+  }
   fd = PROTECTED_ENVIRON_FD;
 
   char **env = environ;
@@ -676,9 +701,10 @@ setNewCkptDir(const string& path)
   if (stat(path.c_str(), &st) == -1) {
     ASSERT_ERRNO(mkdir(path.c_str(), S_IRWXU) == 0 || errno == EEXIST,
                  "Error creating checkpoint directory: {}", path.c_str());
-    ASSERT_ERRNO(0 == access(path.c_str(), X_OK | W_OK),
-                 "Missing execute- or write-access to checkpoint directory: {}",
-                 path.c_str());
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      access(path.c_str(), X_OK | W_OK),
+      "Missing execute- or write-access to checkpoint directory: {}",
+      path.c_str());
   } else {
     ASSERT(S_ISDIR(st.st_mode),
            "checkpoint directory path is not a directory: {}",
@@ -686,11 +712,12 @@ setNewCkptDir(const string& path)
   }
 
   int fd = open(path.c_str(), O_RDONLY);
-  ASSERT_ERRNO(fd != -1,
-               "failed to open checkpoint directory: {}", path.c_str());
-  ASSERT_ERRNO(dup2(fd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD,
-               "failed to install checkpoint directory fd for {}",
-               path.c_str());
+  ASSERT_VALID_FD_MSG(fd, "failed to open checkpoint directory: {}",
+                      path.c_str());
+  ASSERT_SYSCALL_EQ_MSG(PROTECTED_CKPT_DIR_FD,
+                        dup2(fd, PROTECTED_CKPT_DIR_FD),
+                        "failed to install checkpoint directory fd for {}",
+                        path.c_str());
   if (fd != PROTECTED_CKPT_DIR_FD) {
     close(fd);
   }
@@ -854,7 +881,7 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
       if (Util::strEndsWith(file.c_str(), ".dmtcp")) {
         string restorename(restartDir + "/" + file);
         struct stat buf;
-        ASSERT_ERRNO(stat(restorename.c_str(), &buf) != -1,
+        ASSERT_SYSCALL_SUCCESS_MSG(stat(restorename.c_str(), &buf),
                      "failed to stat checkpoint image: {}",
                      restorename.c_str());
         if (buf.st_uid != getuid() && !noStrictChecking) {
@@ -876,7 +903,7 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
     for (; argc > 0; shift) {
       string restorename(argv[0]);
       struct stat buf;
-      ASSERT_ERRNO(stat(restorename.c_str(), &buf) != -1,
+      ASSERT_SYSCALL_SUCCESS_MSG(stat(restorename.c_str(), &buf),
                    "failed to stat checkpoint image: {}",
                    restorename.c_str());
 

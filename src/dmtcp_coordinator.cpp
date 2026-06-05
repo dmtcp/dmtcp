@@ -473,9 +473,10 @@ void DmtcpCoordinator::getStatusStr(ostream *o)
 void
 DmtcpCoordinator::writeStatusToFile()
 {
-  JASSERT(truncate(flags.theStatusFile.c_str(), offset_after_first_line) == 0)
-    (flags.theStatusFile) (JASSERT_ERRNO)
-    .Text("failed to truncate coordinator status file");
+  ASSERT_ERRNO(truncate(flags.theStatusFile.c_str(),
+                        offset_after_first_line) == 0,
+               "failed to truncate coordinator status file: path={}",
+               flags.theStatusFile.c_str());
   ofstream o;
   // Don't use std::ios::trunc.  A timestamp was previously written.
   o.open(flags.theStatusFile.c_str(), std::ios::app);
@@ -604,8 +605,8 @@ void
 DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 {
   client->setState(WorkerState::CHECKPOINTED);
-  ASSERT(extraData != nullptr,
-         "extra data expected with DMT_CKPT_FILENAME message");
+  ASSERT_NOT_NULL_MSG(extraData,
+                      "extra data expected with DMT_CKPT_FILENAME message");
 
   string ckptFilename = extraData;
   string hostname = extraData + ckptFilename.length() + 1;
@@ -767,8 +768,8 @@ DmtcpCoordinator::onData(CoordClient *client)
   }
   case DMT_UPDATE_CKPT_DIR:
   {
-    JASSERT(extraData != nullptr)
-      .Text("extra data expected with DMT_UPDATE_CKPT_DIR message");
+    ASSERT_NOT_NULL(extraData,
+                    "extra data expected with DMT_UPDATE_CKPT_DIR message");
     if (flags.ckptDir != extraData) {
       flags.ckptDir = extraData;
       JNOTE("Updated ckptDir") (flags.ckptDir);
@@ -1088,8 +1089,8 @@ getCurrTimestamp()
 {
   struct timespec value;
   uint64_t nsecs = 0;
-  ASSERT_ERRNO(clock_gettime(CLOCK_MONOTONIC, &value) == 0,
-               "clock_gettime(CLOCK_MONOTONIC) failed");
+  ASSERT_SYSCALL_SUCCESS_MSG(clock_gettime(CLOCK_MONOTONIC, &value),
+                             "clock_gettime(CLOCK_MONOTONIC) failed");
   nsecs = value.tv_sec*1000000000L + value.tv_nsec;
   return nsecs;
 }
@@ -1413,8 +1414,9 @@ DmtcpCoordinator::getStatus() const
                          : (WorkerState::eWorkerState)max);
   status.numPeers = count;
 
-  ASSERT_ERRNO(clock_gettime(CLOCK_MONOTONIC, &status.timestamp) == 0,
-               "clock_gettime(CLOCK_MONOTONIC) failed while building status");
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    clock_gettime(CLOCK_MONOTONIC, &status.timestamp),
+    "clock_gettime(CLOCK_MONOTONIC) failed while building status");
   return status;
 }
 
@@ -1447,8 +1449,8 @@ calcLocalAddr()
 {
   char hostname[HOST_NAME_MAX];
 
-  JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO)
-    .Text("gethostname failed");
+  ASSERT_ERRNO(gethostname(hostname, sizeof hostname) == 0,
+               "gethostname failed");
 
   struct addrinfo *result = NULL;
   struct addrinfo *res;
@@ -1572,13 +1574,14 @@ DmtcpCoordinator::eventLoop()
   struct epoll_event ev;
 
   epollFd = epoll_create(MAX_EVENTS);
-  JASSERT(epollFd != -1) (JASSERT_ERRNO).Text("epoll_create failed");
+  ASSERT_ERRNO(epollFd >= 0, "epoll_create failed");
 
   ev.events = EPOLLIN;
   ev.data.ptr = listenSock;
-  JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, listenSock->sockfd(), &ev) != -1)
-    (listenSock->sockfd()) (JASSERT_ERRNO)
-    .Text("epoll_ctl add listen socket failed");
+  ASSERT_ERRNO(epoll_ctl(epollFd, EPOLL_CTL_ADD, listenSock->sockfd(), &ev)
+               != -1,
+               "epoll_ctl add listen socket failed: fd={}",
+               listenSock->sockfd());
 
   if (!flags.daemon &&
 
@@ -1592,9 +1595,8 @@ DmtcpCoordinator::eventLoop()
     ev.events |= EPOLLRDHUP;
 #endif // ifdef EPOLLRDHUP
     ev.data.ptr = (void *)STDIN_FILENO;
-    JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, STDIN_FILENO, &ev) != -1)
-      (JASSERT_ERRNO)
-      .Text("epoll_ctl add stdin failed");
+    ASSERT_ERRNO(epoll_ctl(epollFd, EPOLL_CTL_ADD, STDIN_FILENO, &ev) != -1,
+                 "epoll_ctl add stdin failed");
   }
 
   while (true) {
@@ -1642,8 +1644,7 @@ DmtcpCoordinator::eventLoop()
           std::getline(std::cin, cmd);
           if (std::cin.eof() == 1) {
             fputs("\n  Closing stdin...\n", stderr);
-            ASSERT_ERRNO(
-              epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1,
+            ASSERT_SYSCALL_SUCCESS_MSG(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev),
               "epoll_ctl delete stdin after EOF failed");
             close(STDIN_FD);
           } else {
@@ -1667,9 +1668,9 @@ DmtcpCoordinator::eventLoop()
           (events[n].events & EPOLLERR)) {
         JASSERT(ptr != listenSock).Text("listen socket reported hangup/error");
         if (ptr == (void *)STDIN_FILENO) {
-          JASSERT(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev) != -1)
-            (JASSERT_ERRNO)
-            .Text("epoll_ctl delete stdin after hangup failed");
+          ASSERT_ERRNO(epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev)
+                       != -1,
+                       "epoll_ctl delete stdin after hangup failed");
           close(STDIN_FD);
         } else {
           onDisconnect((CoordClient *)ptr);
@@ -1695,9 +1696,10 @@ DmtcpCoordinator::addDataSocket(CoordClient *client)
   ev.events = EPOLLIN;
 #endif // ifdef EPOLLRDHUP
   ev.data.ptr = client;
-  JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, client->sock().sockfd(), &ev) != -1)
-    (client->sock().sockfd()) (JASSERT_ERRNO)
-    .Text("epoll_ctl add client socket failed");
+  ASSERT_ERRNO(epoll_ctl(epollFd, EPOLL_CTL_ADD, client->sock().sockfd(),
+                         &ev) != -1,
+               "epoll_ctl add client socket failed: fd={}",
+               client->sock().sockfd());
 }
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
@@ -1905,20 +1907,20 @@ main(int argc, char **argv)
     int fd = -1;
     if (!flags.useLogFile) {
       fd = open("/dev/null", O_RDWR);
-      JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO) (JASSERT_ERRNO)
-        .Text("failed to redirect daemon stdin to /dev/null");
+      ASSERT_ERRNO(dup2(fd, STDIN_FILENO) == STDIN_FILENO,
+                   "failed to redirect daemon stdin to /dev/null");
     } else {
       fd = open(flags.logFilename.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0644);
       JASSERT_SET_LOG(flags.logFilename);
       int nullFd = open("/dev/null", O_RDWR);
-      JASSERT(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO) (JASSERT_ERRNO)
-        .Text("failed to redirect daemon stdin to /dev/null");
+      ASSERT_ERRNO(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO,
+                   "failed to redirect daemon stdin to /dev/null");
       close(nullFd);
     }
-    JASSERT(dup2(fd, STDOUT_FILENO) == STDOUT_FILENO) (JASSERT_ERRNO)
-      .Text("failed to redirect daemon stdout");
-    JASSERT(dup2(fd, STDERR_FILENO) == STDERR_FILENO) (JASSERT_ERRNO)
-      .Text("failed to redirect daemon stderr");
+    ASSERT_ERRNO(dup2(fd, STDOUT_FILENO) == STDOUT_FILENO,
+                 "failed to redirect daemon stdout");
+    ASSERT_ERRNO(dup2(fd, STDERR_FILENO) == STDERR_FILENO,
+                 "failed to redirect daemon stderr");
     JASSERT_CLOSE_STDERR();
     if (fd > STDERR_FILENO) {
       close(fd);

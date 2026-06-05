@@ -595,16 +595,16 @@ writeScript(const string &ckptDir,
     string filename = RESTART_SCRIPT_BASENAME "." RESTART_SCRIPT_EXT;
     string dirname = jalib::Filesystem::DirName(uniqueFilename);
     int dirfd = open(dirname.c_str(), O_DIRECTORY | O_RDONLY);
-    ASSERT_ERRNO(dirfd != -1,
-                 "failed to open restart script directory: path={}",
-                 dirname);
+    ASSERT_VALID_FD_MSG(dirfd,
+                        "failed to open restart script directory: path={}",
+                        dirname);
 
     /* Set execute permission for user. */
     struct stat buf;
-    ASSERT_ERRNO(::stat(uniqueFilename.c_str(), &buf) == 0,
+    ASSERT_SYSCALL_SUCCESS_MSG(::stat(uniqueFilename.c_str(), &buf),
                  "failed to stat restart script: path={}",
                  uniqueFilename);
-    ASSERT_ERRNO(chmod(uniqueFilename.c_str(), buf.st_mode | S_IXUSR) == 0,
+    ASSERT_SYSCALL_SUCCESS_MSG(chmod(uniqueFilename.c_str(), buf.st_mode | S_IXUSR),
                  "failed to set restart script executable: path={}",
                  uniqueFilename);
 
@@ -624,13 +624,12 @@ writeScript(const string &ckptDir,
     ASSERT(uniq_fname_str[PATH_MAX-1] == '\0',
            "restart script path too long: path={}",
            uniqueFilename);
-    WARNING_ERRNO(symlinkat(basename(uniq_fname_str),
-                            dirfd,
-                            filename.c_str()) == 0,
-                  "failed to link restart script: link={} target_dir={}",
-                  filename,
-                  dirname);
-    ASSERT_ERRNO(close(dirfd) == 0,
+    WARNING_SYSCALL_SUCCESS_MSG(
+      symlinkat(basename(uniq_fname_str), dirfd, filename.c_str()),
+      "failed to link restart script: link={} target_dir={}",
+      filename,
+      dirname);
+    ASSERT_SYSCALL_SUCCESS_MSG(close(dirfd),
                  "failed to close restart script directory: path={}",
                  dirname);
   }

@@ -77,11 +77,10 @@ void mtcp_writememoryareas(int fd) __attribute__((weak));
 static void
 writeCkptBytes(int fd, const void *buf, size_t count, const char *what)
 {
-  ssize_t written = Util::writeAll(fd, buf, count);
-  ASSERT_ERRNO(written == (ssize_t) count,
-               "failed to write checkpoint data: what={} fd={} expected={} "
-               "written={}",
-               what, fd, count, written);
+  ASSERT_SYSCALL_EQ_MSG(static_cast<ssize_t>(count),
+                        Util::writeAll(fd, buf, count),
+                        "failed to write checkpoint data: what={} fd={}",
+                        what, fd);
 }
 
 static void
@@ -145,7 +144,7 @@ double_fork()
     allow_delivery_of_one_sigchld();
 
     // 3. Next, we reap that child process (which is now a zombie).
-    WARNING_ERRNO(_real_waitpid(pid, NULL, 0) != -1,
+    WARNING_SYSCALL_SUCCESS_MSG(_real_waitpid(pid, NULL, 0),
                   "failed to wait for checkpoint child: pid={}", pid);
 
     // 4. ... and we then restore the original SIGCHLD handler
@@ -153,7 +152,7 @@ double_fork()
     return FORKED_CKPT_PARENT;
   } else {
     pid = _real_sys_fork();
-    ASSERT_ERRNO(pid >= 0, "failed second checkpoint fork: pid={}", pid);
+    ASSERT_FORK_SUCCESS_MSG(pid, "failed second checkpoint fork");
     if (pid > 0) {
       _exit(EXIT_SUCCESS); // Child process exits, delivers SIGCHLD
     }
@@ -250,8 +249,8 @@ perform_open_ckpt_image_fd(const char *tempCkptFilename,
   int flags = O_CREAT | O_TRUNC | O_WRONLY;
   int fd = _real_open(tempCkptFilename, flags, 0600);
   *fdCkptFileOnDisk = fd; /* if use_compression, fd will be reset to pipe */
-  ASSERT_ERRNO(fd != -1, "error creating checkpoint file: path={}",
-               tempCkptFilename);
+  ASSERT_VALID_FD_MSG(fd, "error creating checkpoint file: path={}",
+                      tempCkptFilename);
 
 #ifdef FAST_RST_VIA_MMAP
   return fd;
@@ -327,7 +326,7 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
   } else if (fork_rc == FORKED_CKPT_PARENT) { /* parent process */
     // Before running gzip in child process, we must not use LD_PRELOAD.
     // See revision log 342 for details concerning bash.
-    WARNING_ERRNO(_real_close(pipe_fds[0]) == 0,
+    WARNING_SYSCALL_SUCCESS_MSG(_real_close(pipe_fds[0]),
                   "failed to close compression read pipe: fd={}",
                   pipe_fds[0]);
     fd = pipe_fds[1];  // change return value
@@ -385,10 +384,10 @@ CkptSerializer::createCkptDir()
   ASSERT_ERRNO(mkdir(ckptDir.c_str(), S_IRWXU) == 0 || errno == EEXIST,
                "error creating checkpoint directory: path={}", ckptDir);
 
-  ASSERT_ERRNO(0 == access(ckptDir.c_str(), X_OK | W_OK),
-               "missing execute or write access to checkpoint directory: "
-               "path={}",
-               ckptDir);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    access(ckptDir.c_str(), X_OK | W_OK),
+    "missing execute or write access to checkpoint directory: path={}",
+    ckptDir);
 }
 
 // Ckpt file may be gzipped, and re read it from a pipe.  We can't lseek on a
@@ -417,9 +416,8 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
 
   fd = perform_open_ckpt_image_fd(ckptFilename.c_str(), &use_compression,
                                   &fdCkptFileOnDisk);
-  ASSERT(fdCkptFileOnDisk >= 0,
-         "checkpoint file fd on disk was not initialized: fd={}",
-         fdCkptFileOnDisk);
+  ASSERT_VALID_FD_MSG(fdCkptFileOnDisk,
+                      "checkpoint file fd on disk was not initialized");
   ASSERT(use_compression || fd == fdCkptFileOnDisk,
          "checkpoint fd mismatch without compression: fd={} disk_fd={}", fd,
          fdCkptFileOnDisk);
@@ -434,10 +432,10 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
 
   if (use_compression) {
     /* IF OUT OF DISK SPACE, REPORT IT HERE. */
-    ASSERT_ERRNO(fsync(fdCkptFileOnDisk) != -1,
+    ASSERT_SYSCALL_SUCCESS_MSG(fsync(fdCkptFileOnDisk),
                  "compression fsync error on checkpoint file: fd={}",
                  fdCkptFileOnDisk);
-    ASSERT_ERRNO(_real_close(fdCkptFileOnDisk) == 0,
+    ASSERT_SYSCALL_SUCCESS_MSG(_real_close(fdCkptFileOnDisk),
                  "compression error closing checkpoint file: fd={}",
                  fdCkptFileOnDisk);
   }
@@ -447,11 +445,12 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
      * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
      * So, gzip process can continue to write to file even after renaming.
      */
-    ASSERT_ERRNO(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
-                        ProcessInfo::instance().getCkptFilename().c_str()) == 0,
-                 "failed to rename checkpoint image: from={} to={}",
-                 ProcessInfo::instance().getTempCkptFilename(),
-                 ProcessInfo::instance().getCkptFilename());
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+             ProcessInfo::instance().getCkptFilename().c_str()),
+      "failed to rename checkpoint image: from={} to={}",
+      ProcessInfo::instance().getTempCkptFilename(),
+      ProcessInfo::instance().getCkptFilename());
 
     // Use _exit() instead of exit() to avoid popping atexit() handlers
     // registered by the parent process.

@@ -65,10 +65,11 @@ _makeDeadSocket(const char *refillData = NULL, ssize_t len = -1)
   // it does it by creating a socket pair and closing one side
   int sp[2] = { -1, -1 };
 
-  ASSERT_ERRNO(_real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp) == 0,
-               "socketpair() failed");
-  ASSERT(sp[0] >= 0 && sp[1] >= 0,
-         "socketpair() returned invalid fds: fd0={} fd1={}", sp[0], sp[1]);
+  ASSERT_SYSCALL_SUCCESS(_real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp));
+  ASSERT_VALID_FD_MSG(sp[0], "socketpair() returned invalid first fd: fd1={}",
+                      sp[1]);
+  ASSERT_VALID_FD_MSG(sp[1], "socketpair() returned invalid second fd: fd0={}",
+                      sp[0]);
   if (refillData != NULL) {
     ASSERT(Util::writeAll(sp[1], refillData, len) == len,
            "failed to seed dead socket: fd={} size={}", sp[1], len);
@@ -155,10 +156,10 @@ SocketConnection::restoreSocketOptions(vector<int> &fds)
       int ret = _real_setsockopt(fds[0], lvl->first, opt->first,
                                  opt->second.data(),
                                  opt->second.size());
-      WARNING_ERRNO(ret == 0,
-                    "Restoring setsockopt failed: fd={} level={} option={} "
-                    "size={}",
-                    fds[0], lvl->first, opt->first, opt->second.size());
+      WARN_ERRNO(ret == 0,
+                 "Restoring setsockopt failed: fd={} level={} option={} "
+                 "size={}",
+                 fds[0], lvl->first, opt->first, opt->second.size());
     }
   }
 }
@@ -300,7 +301,7 @@ getMPISpawnPortNum(const char *envVar)
 bool
 TcpConnection::isBlacklistedTcp(const sockaddr *saddr, socklen_t len)
 {
-  ASSERT(saddr != NULL, "null socket address");
+  ASSERT_NOT_NULL_MSG(saddr, "null socket address");
   if (len <= sizeof(saddr->sa_family)) {
     return false;
   }
@@ -374,10 +375,11 @@ TcpConnection::onBind(const struct sockaddr *addr, socklen_t len)
     // Do not rely on the address passed on to bind as it may contain port 0
     // which allows the OS to give any unused port. Thus we look ourselves up
     // using getsockname.
-    ASSERT_ERRNO(getsockname(_fds[0],
-                             (struct sockaddr *)&_bindAddr,
-                             &_bindAddrlen) == 0,
-                 "failed to query bound socket address: fd={}", _fds[0]);
+    ASSERT_SYSCALL_SUCCESS_MSG(getsockname(_fds[0],
+                                           (struct sockaddr *)&_bindAddr,
+                                           &_bindAddrlen),
+                               "failed to query bound socket address: fd={}",
+                               _fds[0]);
   }
   _type = TCP_BIND;
 }
@@ -470,16 +472,15 @@ TcpConnection::sendPeerInformation()
   {
     // Local connect socket information
     keysz = sizeof(key);
-    ASSERT_ERRNO(getsockname(_fds[0],
-                             reinterpret_cast<struct sockaddr *>(&key),
-                             &keysz) == 0,
-                 "failed to query local TCP socket: fd={}", _fds[0]);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      getsockname(_fds[0], reinterpret_cast<struct sockaddr *>(&key), &keysz),
+                               "querying local TCP socket: fd={}", _fds[0]);
     // Information about the accept socket on the server
     valuesz = sizeof(value);
-    ASSERT_ERRNO(getpeername(_fds[0],
-                             reinterpret_cast<struct sockaddr *>(&value),
-                             &valuesz) == 0,
-                 "failed to query peer TCP socket: fd={}", _fds[0]);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      getpeername(_fds[0], reinterpret_cast<struct sockaddr *>(&value),
+                  &valuesz),
+                               "querying peer TCP socket: fd={}", _fds[0]);
     sendPeerInfo = true;
     break;
   }
@@ -487,16 +488,17 @@ TcpConnection::sendPeerInformation()
   {
     // Local accept socket information
     keysz = sizeof(key);
-    ASSERT_ERRNO(getsockname(_fds[0],
-                             reinterpret_cast<struct sockaddr *>(&key),
-                             &keysz) == 0,
-                 "failed to query accepted TCP socket: fd={}", _fds[0]);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      getsockname(_fds[0], reinterpret_cast<struct sockaddr *>(&key), &keysz),
+                               "querying accepted TCP socket: fd={}",
+                               _fds[0]);
     // Information about the client connect socket
     valuesz = sizeof(value);
-    ASSERT_ERRNO(getpeername(_fds[0],
-                             reinterpret_cast<struct sockaddr *>(&value),
-                             &valuesz) == 0,
-                 "failed to query accepted TCP peer: fd={}", _fds[0]);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      getpeername(_fds[0], reinterpret_cast<struct sockaddr *>(&value),
+                  &valuesz),
+                               "querying accepted TCP peer: fd={}",
+                               _fds[0]);
     sendPeerInfo = true;
     break;
   }
@@ -536,11 +538,10 @@ TcpConnection::recvPeerInformation()
   if (_type == TCP_CONNECT || _type == TCP_ACCEPT ||
       _type == TCP_CONNECT_IN_PROGRESS) {
     keylen = sizeof(key);
-    ASSERT_ERRNO(getpeername(_fds[0],
-                             reinterpret_cast<struct sockaddr *>(&key),
-                             &keylen) == 0,
-                 "failed to query TCP peer for discovery lookup: fd={}",
-                 _fds[0]);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      getpeername(_fds[0], reinterpret_cast<struct sockaddr *>(&key),
+                  &keylen),
+      "querying TCP peer for discovery lookup: fd={}", _fds[0]);
 
     ASSERT(keylen <= sizeof(key), "TCP peer key size overflow: size={} max={}",
            keylen, sizeof(key));
@@ -587,9 +588,10 @@ TcpConnection::drain()
       JTRACE("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
     }
     errno = 0;
-    ASSERT_ERRNO(fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC) == 0,
-                 "failed to remove O_ASYNC during TCP drain: fd={} con_id={}",
-                 _fds[0], id().conId());
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC),
+      "removing O_ASYNC during TCP drain: fd={} con_id={}",
+      _fds[0], id().conId());
   }
 
   // Non blocking connect; need to hang around until it is writable.
@@ -737,10 +739,10 @@ TcpConnection::postRestart()
     }
 
     fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
-    ASSERT_ERRNO(fd != -1,
-                 "failed to recreate TCP socket: con_id={} domain={} type={} "
-                 "protocol={}",
-                 id().conId(), _sockDomain, _sockType, _sockProtocol);
+    ASSERT_VALID_FD_MSG(fd,
+                        "failed to recreate TCP socket: con_id={} domain={} "
+                        "type={} protocol={}",
+                        id().conId(), _sockDomain, _sockType, _sockProtocol);
     restoreDupFds(fd);
 
     if (_type == TCP_CREATED) {
@@ -752,7 +754,7 @@ TcpConnection::postRestart()
       struct sockaddr_un *uaddr = (sockaddr_un *)&_bindAddr;
       if (uaddr->sun_path[0] != '\0') {
         JTRACE("Unlinking stale unix domain socket.") (uaddr->sun_path);
-        WARNING_ERRNO(unlink(uaddr->sun_path) == 0,
+        WARNING_SYSCALL_SUCCESS_MSG(unlink(uaddr->sun_path),
                       "failed to unlink stale UNIX socket: path={}",
                       uaddr->sun_path);
       }
@@ -805,10 +807,11 @@ TcpConnection::postRestart()
       JTRACE("Binding socket.") (id());
     }
     errno = 0;
-    WARNING_ERRNO(_real_bind(_fds[0], (sockaddr *)&_bindAddr,
-                             _bindAddrlen) == 0,
-                  "Bind failed: fd={} con_id={} addrlen={}", _fds[0],
-                  id().conId(), _bindAddrlen);
+    WARNING_SYSCALL_SUCCESS_MSG(_real_bind(_fds[0],
+                                           (sockaddr *)&_bindAddr,
+                                           _bindAddrlen),
+                                "Bind failed: fd={} con_id={} addrlen={}",
+                                _fds[0], id().conId(), _bindAddrlen);
     if (_type == TCP_BIND) {
       break;
     }
@@ -817,7 +820,7 @@ TcpConnection::postRestart()
       JTRACE("Listening socket.") (id());
     }
     errno = 0;
-    WARNING_ERRNO(_real_listen(_fds[0], _listenBacklog) == 0,
+    WARNING_SYSCALL_SUCCESS_MSG(_real_listen(_fds[0], _listenBacklog),
                   "listen failed: fd={} con_id={} backlog={}", _fds[0],
                   id().conId(), _listenBacklog);
     if (_type == TCP_LISTEN) {
@@ -843,10 +846,10 @@ TcpConnection::postRestart()
     fd = _real_socket(_sockDomain == AF_INET6 ? AF_INET : _sockDomain,
                       _sockType, _sockProtocol);
 #endif // ifdef ENABLE_IP6_SUPPORT
-    ASSERT_ERRNO(fd != -1,
-                 "failed to recreate connecting TCP socket: con_id={} "
-                 "domain={} type={} protocol={}",
-                 id().conId(), _sockDomain, _sockType, _sockProtocol);
+    ASSERT_VALID_FD_MSG(fd,
+                        "failed to recreate connecting TCP socket: con_id={} "
+                        "domain={} type={} protocol={}",
+                        id().conId(), _sockDomain, _sockType, _sockProtocol);
     restoreDupFds(fd);
     if (_bindAddrlen != 0) {
       WARNING_ERRNO(_real_bind(_fds[0], (sockaddr *)&_bindAddr,
@@ -947,10 +950,10 @@ RawSocketConnection::drain()
       JTRACE("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
     }
     errno = 0;
-    ASSERT_ERRNO(fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC) == 0,
-                 "failed to remove O_ASYNC during raw socket drain: fd={} "
-                 "con_id={}",
-                 _fds[0], id().conId());
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC),
+      "removing O_ASYNC during raw socket drain: fd={} con_id={}",
+      _fds[0], id().conId());
   }
 }
 
@@ -982,10 +985,10 @@ RawSocketConnection::postRestart()
   {
     errno = 0;
     int fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
-    ASSERT_ERRNO(fd != -1,
-                 "failed to recreate raw socket: con_id={} domain={} type={} "
-                 "protocol={}",
-                 id().conId(), _sockDomain, _sockType, _sockProtocol);
+    ASSERT_VALID_FD_MSG(fd,
+                        "failed to recreate raw socket: con_id={} domain={} "
+                        "type={} protocol={}",
+                        id().conId(), _sockDomain, _sockType, _sockProtocol);
     restoreDupFds(fd);
     if (_type == RAW_CREATED) {
       break;
@@ -1022,16 +1025,18 @@ RawSocketConnection::postRestart()
     }
 
     errno = 0;
-    WARNING_ERRNO(_real_bind(_fds[0], (sockaddr *)&_bindAddr,
-                             _bindAddrlen) == 0,
-                  "raw socket bind failed: fd={} con_id={} addrlen={}",
-                  _fds[0], id().conId(), _bindAddrlen);
+    WARNING_SYSCALL_SUCCESS_MSG(_real_bind(_fds[0],
+                                           (sockaddr *)&_bindAddr,
+                                           _bindAddrlen),
+                                "raw socket bind failed: fd={} con_id={} "
+                                "addrlen={}",
+                                _fds[0], id().conId(), _bindAddrlen);
     if (_type == RAW_BIND) {
       break;
     }
 
     errno = 0;
-    WARNING_ERRNO(_real_listen(_fds[0], _listenBacklog) == 0,
+    WARNING_SYSCALL_SUCCESS_MSG(_real_listen(_fds[0], _listenBacklog),
                   "raw socket listen failed: fd={} con_id={} backlog={}",
                   _fds[0], id().conId(), _listenBacklog);
     if (_type == RAW_LISTEN) {

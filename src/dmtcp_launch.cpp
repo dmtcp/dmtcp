@@ -795,7 +795,7 @@ testFsGsBase()
 {
 #ifdef __x86_64__
   pid_t childPid = fork();
-  ASSERT_ERRNO(childPid != -1, "failed to fork FSGSBASE probe");
+  ASSERT_FORK_SUCCESS_MSG(childPid, "failed to fork FSGSBASE probe");
 
   if (childPid == 0) {
     unsigned long fsbase = -1;
@@ -812,8 +812,10 @@ testFsGsBase()
   }
 
   int status = 0;
-  ASSERT_ERRNO(waitpid(childPid, &status, 0) == childPid,
-               "failed to wait for FSGSBASE probe: child_pid={}", childPid);
+  ASSERT_SYSCALL_EQ_MSG(childPid,
+                        waitpid(childPid, &status, 0),
+                        "failed to wait for FSGSBASE probe: child_pid={}",
+                        childPid);
 
   if (status == 0) {
     setenv(ENV_VAR_FSGSBASE_ENABLED, "1", 1);
