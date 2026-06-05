@@ -299,8 +299,10 @@ mtcp_write_anonymous_pages(int fd, Area area)
       writeCkptAll(fd, a.addr, a.size, "anonymous page data");
     } else {
       if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
-        JTRACE("error doing madvise(..., MADV_DONTNEED)")
-          (JASSERT_ERRNO) ((void *)a.addr) ((int)a.size);
+        WARNING_ERRNO(false,
+                      "madvise(MADV_DONTNEED) failed for zero checkpoint "
+                      "page range: addr={} size={}",
+                      a.addr, a.size);
       }
     }
     area.addr += size;

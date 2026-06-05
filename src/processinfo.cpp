@@ -543,8 +543,10 @@ ProcessInfo::restoreHeap()
                  _savedHeapStart, oldsize, newsize, savedBrk, curBrk);
   } else if (curBrk < savedBrk) {
     if (brk((void *)savedBrk) != 0) {
-      JNOTE("Failed to restore area between saved_break and curr_break.")
-        (savedBrk) (curBrk) (JASSERT_ERRNO);
+      WARNING_ERRNO(false,
+                    "failed to restore area between saved break and current "
+                    "break: savedBrk={} curBrk={}",
+                    savedBrk, curBrk);
     }
   }
 }

@@ -113,6 +113,9 @@ check-launch-cli:
 check-restart-cli:
 	python3 $(srcdir)/test_dmtcp_restart_cli.py
 
+check-source-audit:
+	python3 $(srcdir)/test_source_audit.py
+
 check-coordinator-synthetic: $(COORDINATOR_SYNTHETIC_WORKER)
 	python3 $(srcdir)/coordinator_synthetic.py
 
