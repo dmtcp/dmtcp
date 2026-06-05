@@ -462,8 +462,10 @@ PtyConnection::postRestart()
       tempfd = _real_open("/dev/ptmx", _fcntlFlags | extraFlags);
       ASSERT_VALID_FD_MSG(tempfd, "Error Opening /dev/ptmx");
 
-      ASSERT_ERRNO(grantpt(tempfd) >= 0, "grantpt failed: fd={}", tempfd);
-      ASSERT_ERRNO(unlockpt(tempfd) >= 0, "unlockpt failed: fd={}", tempfd);
+      ASSERT_SYSCALL_SUCCESS_MSG(grantpt(tempfd), "grantpt failed: fd={}",
+                                 tempfd);
+      ASSERT_SYSCALL_SUCCESS_MSG(unlockpt(tempfd), "unlockpt failed: fd={}",
+                                 tempfd);
       ASSERT_ZERO_RETURN_MSG(_real_ptsname_r(tempfd, pts_name, 80),
                              "restored PTY fd={}",
                              tempfd);

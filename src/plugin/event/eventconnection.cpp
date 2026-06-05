@@ -197,9 +197,9 @@ EventFdConnection::postRestart()
   JTRACE("Restoring EventFd Connection") (id());
   errno = 0;
   int tempfd = _real_eventfd(_initval, _flags);
-  ASSERT_ERRNO(tempfd > 0,
-               "failed to recreate eventfd: fd={} initval={} flags={}",
-               tempfd, _initval, _flags);
+  ASSERT_VALID_FD_MSG(tempfd,
+                      "failed to recreate eventfd: initval={} flags={}",
+                      _initval, _flags);
   restoreDupFds(tempfd);
 }
 
@@ -260,9 +260,8 @@ SignalFdConnection::postRestart()
   JTRACE("Restoring SignalFd Connection") (id());
   errno = 0;
   int tempfd = _real_signalfd(-1, &_mask, _flags);
-  ASSERT_ERRNO(tempfd > 0,
-               "failed to recreate signalfd: fd={} flags={}", tempfd,
-               _flags);
+  ASSERT_VALID_FD_MSG(tempfd, "failed to recreate signalfd: flags={}",
+                      _flags);
   restoreDupFds(tempfd);
 }
 

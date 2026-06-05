@@ -53,7 +53,7 @@ Util::lockFile(int fd)
     result = _real_fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
   } while (result == -1 && errno == EINTR);
 
-  ASSERT_ERRNO(result != -1, "Unable to lock file: fd={}", fd);
+  ASSERT_SYSCALL_SUCCESS_MSG(result, "Unable to lock file: fd={}", fd);
 #if (__arm__ || __aarch64__)
   WMB;  // DMB, ensure writes by others to memory have completed before we
         // we enter protected region.

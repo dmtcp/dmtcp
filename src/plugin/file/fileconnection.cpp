@@ -628,7 +628,7 @@ areFilesEqual(int fd, int savedFd, size_t size)
   int readBytes;
   while (size > 0) {
     readBytes = Util::readAll(savedFd, buf1, MIN(bufSize, size));
-    ASSERT_ERRNO(readBytes != -1, "Read Failed: fd={}", savedFd);
+    ASSERT_SYSCALL_SUCCESS_MSG(readBytes, "Read Failed: fd={}", savedFd);
     if (readBytes == 0) {
       break;
     }
@@ -671,12 +671,12 @@ writeFileFromFd(int fd, int destFd)
   int readBytes, writtenBytes;
   while (1) {
     readBytes = Util::readAll(fd, buf, bufSize);
-    ASSERT_ERRNO(readBytes != -1, "Read Failed: fd={}", fd);
+    ASSERT_SYSCALL_SUCCESS_MSG(readBytes, "Read Failed: fd={}", fd);
     if (readBytes == 0) {
       break;
     }
     writtenBytes = Util::writeAll(destFd, buf, readBytes);
-    ASSERT_ERRNO(writtenBytes != -1, "Write failed: fd={}", destFd);
+    ASSERT_SYSCALL_SUCCESS_MSG(writtenBytes, "Write failed: fd={}", destFd);
   }
   JALLOC_HELPER_FREE(buf);
   ASSERT_SYSCALL_SUCCESS_MSG(lseek(fd, offset, SEEK_SET),
@@ -954,9 +954,9 @@ PosixMQConnection::drain()
   for (long i = 0; i < _qnum; i++) {
     unsigned prio;
     ssize_t numBytes = _real_mq_receive(_fds[0], buf, attr.mq_msgsize, &prio);
-    ASSERT_ERRNO(numBytes != -1,
-                 "failed to drain POSIX MQ message: fd={} index={}", _fds[0],
-                 i);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      numBytes, "failed to drain POSIX MQ message: fd={} index={}", _fds[0],
+      i);
     _msgInQueue.push_back(jalib::JBuffer((const char *)buf, numBytes));
     _msgInQueuePrio.push_back(prio);
   }
@@ -967,12 +967,11 @@ void
 PosixMQConnection::refill(bool isRestart)
 {
   for (long i = 0; i < _qnum; i++) {
-    ASSERT_ERRNO(_real_mq_send(_fds[0], _msgInQueue[i].buffer(),
-                               _msgInQueue[i].size(),
-                               _msgInQueuePrio[i]) != -1,
-                 "failed to refill POSIX MQ message: fd={} index={} size={} "
-                 "prio={}",
-                 _fds[0], i, _msgInQueue[i].size(), _msgInQueuePrio[i]);
+    ASSERT_SYSCALL_SUCCESS_MSG(
+      _real_mq_send(_fds[0], _msgInQueue[i].buffer(),
+                    _msgInQueue[i].size(), _msgInQueuePrio[i]),
+      "failed to refill POSIX MQ message: fd={} index={} size={} prio={}",
+      _fds[0], i, _msgInQueue[i].size(), _msgInQueuePrio[i]);
   }
   _msgInQueue.clear();
   _msgInQueuePrio.clear();

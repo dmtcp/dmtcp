@@ -49,11 +49,11 @@ markSocketNonBlocking(int sockfd)
   // Remove O_NONBLOCK flag from listener socket
   int flags = _real_fcntl(sockfd, F_GETFL, NULL);
 
-  ASSERT_ERRNO(flags != -1, "fcntl(F_GETFL) failed: fd={}", sockfd);
-  ASSERT_ERRNO(_real_fcntl(sockfd, F_SETFL,
-                           (void *)(long)(flags | O_NONBLOCK)) != -1,
-               "fcntl(F_SETFL, O_NONBLOCK) failed: fd={} flags={}",
-               sockfd, flags | O_NONBLOCK);
+  ASSERT_SYSCALL_SUCCESS_MSG(flags, "fcntl(F_GETFL) failed: fd={}", sockfd);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    _real_fcntl(sockfd, F_SETFL, (void *)(long)(flags | O_NONBLOCK)),
+    "fcntl(F_SETFL, O_NONBLOCK) failed: fd={} flags={}", sockfd,
+    flags | O_NONBLOCK);
 }
 
 static void
@@ -62,11 +62,11 @@ markSocketBlocking(int sockfd)
   // Remove O_NONBLOCK flag from listener socket
   int flags = _real_fcntl(sockfd, F_GETFL, NULL);
 
-  ASSERT_ERRNO(flags != -1, "fcntl(F_GETFL) failed: fd={}", sockfd);
-  ASSERT_ERRNO(_real_fcntl(sockfd, F_SETFL,
-                           (void *)(long)(flags & ~O_NONBLOCK)) != -1,
-               "fcntl(F_SETFL, blocking) failed: fd={} flags={}", sockfd,
-               flags & ~O_NONBLOCK);
+  ASSERT_SYSCALL_SUCCESS_MSG(flags, "fcntl(F_GETFL) failed: fd={}", sockfd);
+  ASSERT_SYSCALL_SUCCESS_MSG(
+    _real_fcntl(sockfd, F_SETFL, (void *)(long)(flags & ~O_NONBLOCK)),
+    "fcntl(F_SETFL, blocking) failed: fd={} flags={}", sockfd,
+    flags & ~O_NONBLOCK);
 }
 
 static ConnectionRewirer *theRewirer = NULL;
