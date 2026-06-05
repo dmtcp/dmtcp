@@ -160,6 +160,92 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertIn("unsupported dmtcp_command JSON schema",
                           caught.exception.message)
 
+    def test_json_command_wrong_type_becomes_phase_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("wrong-type", 1, ["./test/dmtcp1"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+            result = subprocess.CompletedProcess(
+                ["dmtcp_command"], 0,
+                stdout=(
+                    '{"schema_version": 1, "type": "status", '
+                    '"phase": "status", "ok": true}'
+                ),
+                stderr="",
+            )
+
+            with mock.patch.object(harness_module.subprocess, "run",
+                                   return_value=result):
+                with self.assertRaises(HarnessFailure) as caught:
+                    context._run_json_command("--checkpoint", "checkpoint",
+                                              allow_error=False)
+
+            self.assertEqual(caught.exception.phase, "checkpoint")
+            self.assertIn("expected JSON type 'checkpoint'",
+                          caught.exception.message)
+
+    def test_json_command_wrong_phase_becomes_phase_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("wrong-phase", 1, ["./test/dmtcp1"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+            result = subprocess.CompletedProcess(
+                ["dmtcp_command"], 0,
+                stdout=(
+                    '{"schema_version": 1, "type": "kill", '
+                    '"phase": "checkpoint", "ok": true}'
+                ),
+                stderr="",
+            )
+
+            with mock.patch.object(harness_module.subprocess, "run",
+                                   return_value=result):
+                with self.assertRaises(HarnessFailure) as caught:
+                    context._run_json_command("--kill", "kill",
+                                              allow_error=False)
+
+            self.assertEqual(caught.exception.phase, "kill")
+            self.assertIn("expected JSON phase 'kill'",
+                          caught.exception.message)
+
+    def test_json_command_rejects_non_boolean_ok_field(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("bad-ok", 1, ["./test/dmtcp1"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+            result = subprocess.CompletedProcess(
+                ["dmtcp_command"], 0,
+                stdout=(
+                    '{"schema_version": 1, "type": "kill", '
+                    '"phase": "kill", "ok": "true"}'
+                ),
+                stderr="",
+            )
+
+            with mock.patch.object(harness_module.subprocess, "run",
+                                   return_value=result):
+                with self.assertRaises(HarnessFailure) as caught:
+                    context._run_json_command("--kill", "kill",
+                                              allow_error=False)
+
+            self.assertEqual(caught.exception.phase, "kill")
+            self.assertIn("ok must be a boolean", caught.exception.message)
+
     def test_status_payload_error_becomes_status_phase_failure(self):
         context = TestContext(
             DmtcpHarness(ROOT),

@@ -46,6 +46,34 @@ def parse_dmtcp_command_json(raw_output: str) -> Dict[str, object]:
     return payload
 
 
+def validate_dmtcp_command_result_payload(payload: Dict[str, object],
+                                          expected_type: str,
+                                          expected_phase: str):
+    validate_dmtcp_command_json_payload(payload)
+    actual_type = payload.get("type")
+    if actual_type != expected_type:
+        raise ValueError(
+            f"expected JSON type '{expected_type}', got {actual_type!r}"
+        )
+    actual_phase = payload.get("phase")
+    if actual_phase != expected_phase:
+        raise ValueError(
+            f"expected JSON phase '{expected_phase}', got {actual_phase!r}"
+        )
+    ok = payload.get("ok")
+    if type(ok) is not bool:
+        raise ValueError("dmtcp_command JSON field ok must be a boolean")
+    if not ok:
+        error_code = payload.get("error_code")
+        if error_code is not None and type(error_code) is not str:
+            raise ValueError(
+                "dmtcp_command JSON field error_code must be a string")
+        error_message = payload.get("error_message")
+        if error_message is not None and type(error_message) is not str:
+            raise ValueError(
+                "dmtcp_command JSON field error_message must be a string")
+
+
 class HarnessFailure(Exception):
     def __init__(self, phase: str, message: str):
         super().__init__(message)
@@ -649,6 +677,10 @@ class TestContext:
             out.write("\n")
         try:
             payload = parse_dmtcp_command_json(result.stdout)
+        except ValueError as error:
+            raise HarnessFailure(phase, str(error))
+        try:
+            validate_dmtcp_command_result_payload(payload, phase, phase)
         except ValueError as error:
             raise HarnessFailure(phase, str(error))
         if result.returncode != 0 and not allow_error:
