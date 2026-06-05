@@ -267,6 +267,34 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertIn("dmtcp_restart --quiet", transcript)
             self.assertIn(str(ckpt), transcript)
 
+    def test_checkpoint_records_image_list(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            ckpt = work.ckpt_dir / "ckpt_test.dmtcp"
+            ckpt.write_bytes(b"DMTCP_CHECKPOINT_IMAGE_v5.0\n\0")
+            spec = TestSpec("checkpoint-images", 1, ["/bin/true"])
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            with mock.patch.object(context, "_run_json_command",
+                                   lambda command, phase, allow_error:
+                                   {"ok": True, "type": "checkpoint"}), \
+                 mock.patch.object(context, "_wait_for",
+                                   lambda predicate, phase, message: None), \
+                 mock.patch.object(context, "_wait_for_status",
+                                   lambda peers, running, phase: None):
+                context._checkpoint()
+
+            image_log = (tmp_path / "checkpoint-images.log").read_text(
+                encoding="utf-8")
+            self.assertIn("phase=checkpoint", image_log)
+            self.assertIn(str(ckpt), image_log)
+            self.assertIn("gzip=False", image_log)
+
     def test_complete_supports_kill_exit_on_last(self):
         spec = TestSpec("exit-on-last", 1, ["./test/dmtcp1"],
                         completion_command="--kill-exit-on-last")

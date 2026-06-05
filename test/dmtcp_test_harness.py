@@ -399,6 +399,7 @@ class TestContext:
         self._wait_for(lambda: bool(self._checkpoint_images()),
                        "checkpoint", "checkpoint image was not created")
         images = self._checkpoint_images()
+        self._record_checkpoint_images("checkpoint", images)
         if self.spec.expect_checkpoint_gzip is not None:
             for image in images:
                 actual = checkpoint_image_is_gzip(image)
@@ -474,6 +475,7 @@ class TestContext:
         images = self._checkpoint_images()
         if not images:
             raise HarnessFailure("restart", "no checkpoint image available")
+        self._record_checkpoint_images("restart", images)
         index = len(self.processes)
         stdout = open(self.work.path / f"restart-{index}.out", "w",
                       encoding="utf-8")
@@ -517,6 +519,14 @@ class TestContext:
                                                     encoding="utf-8") as out:
             out.write(f"$ {shlex.join([str(arg) for arg in argv])}\n")
             out.write(f"phase={phase}\n")
+
+    def _record_checkpoint_images(self, phase: str,
+                                  images: List[pathlib.Path]):
+        with (self.work.path / "checkpoint-images.log").open(
+                "a", encoding="utf-8") as out:
+            out.write(f"phase={phase}\n")
+            for image in images:
+                out.write(f"{image}\tgzip={checkpoint_image_is_gzip(image)}\n")
 
     def _process_group_members(self, pgid: int) -> List[int]:
         members = []
