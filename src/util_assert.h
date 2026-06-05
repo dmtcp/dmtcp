@@ -549,6 +549,135 @@ writeAllNoAlloc(int fd, const char *data, size_t length)
   }
 }
 
+inline void
+signalAppendLiteral(char **cursor, size_t *remaining, const char *text)
+{
+  if (text == nullptr) {
+    text = "(null)";
+  }
+
+  while (*text != '\0' && *remaining > 1) {
+    **cursor = *text;
+    ++(*cursor);
+    --(*remaining);
+    ++text;
+  }
+}
+
+inline void
+signalAppendInteger(char **cursor, size_t *remaining, long value)
+{
+  char digits[32];
+  size_t count = 0;
+  unsigned long magnitude;
+
+  if (value < 0) {
+    signalAppendLiteral(cursor, remaining, "-");
+    magnitude = static_cast<unsigned long>(-(value + 1)) + 1;
+  } else {
+    magnitude = static_cast<unsigned long>(value);
+  }
+
+  do {
+    digits[count++] = static_cast<char>('0' + (magnitude % 10));
+    magnitude /= 10;
+  } while (magnitude != 0 && count < sizeof(digits));
+
+  while (count > 0 && *remaining > 1) {
+    --count;
+    **cursor = digits[count];
+    ++(*cursor);
+    --(*remaining);
+  }
+}
+
+inline void
+signalWriteAll(const char *data, size_t length)
+{
+  while (length > 0) {
+    ssize_t written = syscall(SYS_write, STDERR_FILENO, data, length);
+    if (written == -1 && errno == EINTR) {
+      continue;
+    }
+    if (written <= 0) {
+      return;
+    }
+    data += written;
+    length -= written;
+  }
+}
+
+inline void
+signalDiagnostic(AssertSeverity severity,
+                 const char *expr,
+                 const char *file,
+                 int line,
+                 const char *message,
+                 int savedErrno,
+                 bool includeErrno,
+                 long result,
+                 bool includeResult)
+{
+  char storage[512];
+  char *cursor = storage;
+  size_t remaining = sizeof(storage);
+
+  signalAppendLiteral(&cursor, &remaining, severityName(severity));
+  signalAppendLiteral(&cursor, &remaining, " signal-context at ");
+  signalAppendLiteral(&cursor, &remaining, file);
+  signalAppendLiteral(&cursor, &remaining, ":");
+  signalAppendInteger(&cursor, &remaining, line);
+  signalAppendLiteral(&cursor, &remaining, ": ");
+  signalAppendLiteral(&cursor, &remaining, expr);
+  signalAppendLiteral(&cursor, &remaining, ": ");
+  signalAppendLiteral(&cursor, &remaining, message);
+  if (includeResult) {
+    signalAppendLiteral(&cursor, &remaining, ": result=");
+    signalAppendInteger(&cursor, &remaining, result);
+  }
+  if (includeErrno) {
+    signalAppendLiteral(&cursor, &remaining, ": errno=");
+    signalAppendInteger(&cursor, &remaining, savedErrno);
+  }
+  signalAppendLiteral(&cursor, &remaining, "\n");
+
+  if (remaining == 0) {
+    storage[sizeof(storage) - 1] = '\n';
+    signalWriteAll(storage, sizeof(storage));
+    return;
+  }
+
+  *cursor = '\0';
+  signalWriteAll(storage, static_cast<size_t>(cursor - storage));
+}
+
+inline void
+signalWarningFailure(const char *expr,
+                     const char *file,
+                     int line,
+                     const char *message,
+                     int savedErrno,
+                     bool includeErrno)
+{
+  signalDiagnostic(AssertSeverity::Warning, expr, file, line, message,
+                   savedErrno, includeErrno, 0, false);
+}
+
+[[noreturn]] inline void
+signalAssertFailure(const char *expr,
+                    const char *file,
+                    int line,
+                    const char *message,
+                    int savedErrno,
+                    bool includeErrno,
+                    long result,
+                    bool includeResult)
+{
+  signalDiagnostic(AssertSeverity::Error, expr, file, line, message,
+                   savedErrno, includeErrno, result, includeResult);
+  _exit(kAssertFailureExitCode);
+}
+
 inline AssertBuffer
 currentAssertBuffer(bool reentrant)
 {
@@ -748,6 +877,21 @@ assertFailureErrno(const char *expr,
 #ifdef WARNING_PTHREAD_SUCCESS_MSG
 # undef WARNING_PTHREAD_SUCCESS_MSG
 #endif
+#ifdef SIGNAL_WARNING
+# undef SIGNAL_WARNING
+#endif
+#ifdef SIGNAL_WARNING_ERRNO
+# undef SIGNAL_WARNING_ERRNO
+#endif
+#ifdef SIGNAL_ASSERT
+# undef SIGNAL_ASSERT
+#endif
+#ifdef SIGNAL_ASSERT_ERRNO
+# undef SIGNAL_ASSERT_ERRNO
+#endif
+#ifdef SIGNAL_ASSERT_SUCCESS
+# undef SIGNAL_ASSERT_SUCCESS
+#endif
 #ifdef ASSERT_GT
 # undef ASSERT_GT
 #endif
@@ -825,6 +969,61 @@ assertFailureErrno(const char *expr,
 
 #define WARNING_TRUE(condition) \
   WARNING((condition), "expected true: {}", #condition)
+
+#define SIGNAL_WARNING(condition, message)                                \
+  do {                                                                   \
+    if (!(condition)) {                                                   \
+      int dmtcpAssertSavedErrno = errno;                                  \
+      ::dmtcp::signalWarningFailure(#condition, __FILE__, __LINE__,       \
+                                    message, dmtcpAssertSavedErrno,       \
+                                    false);                               \
+      errno = dmtcpAssertSavedErrno;                                      \
+    }                                                                    \
+  } while (0)
+
+#define SIGNAL_WARNING_ERRNO(condition, message)                          \
+  do {                                                                   \
+    if (!(condition)) {                                                   \
+      int dmtcpAssertSavedErrno = errno;                                  \
+      ::dmtcp::signalWarningFailure(#condition, __FILE__, __LINE__,       \
+                                    message, dmtcpAssertSavedErrno,       \
+                                    true);                                \
+      errno = dmtcpAssertSavedErrno;                                      \
+    }                                                                    \
+  } while (0)
+
+#define SIGNAL_ASSERT(condition, message)                                 \
+  do {                                                                   \
+    if (!(condition)) {                                                   \
+      int dmtcpAssertSavedErrno = errno;                                  \
+      ::dmtcp::signalAssertFailure(#condition, __FILE__, __LINE__,        \
+                                   message, dmtcpAssertSavedErrno,        \
+                                   false, 0, false);                      \
+    }                                                                    \
+  } while (0)
+
+#define SIGNAL_ASSERT_ERRNO(condition, message)                           \
+  do {                                                                   \
+    if (!(condition)) {                                                   \
+      int dmtcpAssertSavedErrno = errno;                                  \
+      ::dmtcp::signalAssertFailure(#condition, __FILE__, __LINE__,        \
+                                   message, dmtcpAssertSavedErrno,        \
+                                   true, 0, false);                       \
+    }                                                                    \
+  } while (0)
+
+#define SIGNAL_ASSERT_SUCCESS(expression, message)                        \
+  do {                                                                   \
+    const auto dmtcpAssertResult = (expression);                          \
+    if (dmtcpAssertResult != 0) {                                         \
+      int dmtcpAssertSavedErrno = errno;                                  \
+      ::dmtcp::signalAssertFailure(#expression, __FILE__, __LINE__,       \
+                                   message, dmtcpAssertSavedErrno,        \
+                                   false,                                 \
+                                   static_cast<long>(dmtcpAssertResult),  \
+                                   true);                                 \
+    }                                                                    \
+  } while (0)
 
 // For DMTCP/pthread-style lock APIs that return 0 on success and an error
 // number on failure. Do not use these for syscall-style or boolean success.

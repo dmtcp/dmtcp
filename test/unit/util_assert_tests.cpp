@@ -525,6 +525,47 @@ void warningPthreadSuccessMessageReportsExtraContext()
                    nullptr);
 }
 
+void signalWarningUsesRawDiagnosticAndPreservesErrno()
+{
+  resetHook();
+
+  int pipeFds[2];
+  UNIT_ASSERT_EQ(pipe(pipeFds), 0);
+  int savedStderr = dup(STDERR_FILENO);
+  UNIT_ASSERT_TRUE(savedStderr >= 0);
+  UNIT_ASSERT_EQ(dup2(pipeFds[1], STDERR_FILENO), STDERR_FILENO);
+  close(pipeFds[1]);
+
+  errno = EACCES;
+  SIGNAL_WARNING_ERRNO(false, "signal warning");
+  int savedErrno = errno;
+
+  UNIT_ASSERT_EQ(dup2(savedStderr, STDERR_FILENO), STDERR_FILENO);
+  close(savedStderr);
+
+  char buffer[512];
+  ssize_t bytes = read(pipeFds[0], buffer, sizeof(buffer) - 1);
+  close(pipeFds[0]);
+
+  UNIT_ASSERT_TRUE(bytes > 0);
+  buffer[bytes] = '\0';
+  UNIT_ASSERT_EQ(savedErrno, EACCES);
+  UNIT_ASSERT_EQ(hookCallCount, 0);
+  UNIT_ASSERT_TRUE(std::strstr(buffer, "WARNING signal-context") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(buffer, "false") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(buffer, "signal warning") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(buffer, "errno=13") != nullptr);
+}
+
+void signalAssertSuccessEvaluatesExpressionOnce()
+{
+  int calls = 0;
+
+  SIGNAL_ASSERT_SUCCESS(returnZeroAndCount(&calls), "expected success");
+
+  UNIT_ASSERT_EQ(calls, 1);
+}
+
 void assertFailureExitsWithRawFailureCode()
 {
   pid_t child = fork();
@@ -609,6 +650,10 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    warningPthreadSuccessReportsExpressionAndReturnValue},
   {"warning pthread success message reports extra context",
    warningPthreadSuccessMessageReportsExtraContext},
+  {"signal warning uses raw diagnostic and preserves errno",
+   signalWarningUsesRawDiagnosticAndPreservesErrno},
+  {"signal assert success evaluates expression once",
+   signalAssertSuccessEvaluatesExpressionOnce},
   {"assert failure exits with raw failure code",
    assertFailureExitsWithRawFailureCode},
   {"assert failure uses raw exit path", assertFailureUsesRawExitPath},

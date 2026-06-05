@@ -632,8 +632,8 @@ stopthisthread(int signum)
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
-    WARNING_ERRNO(prctl(PR_GET_NAME, curThread->procname) != -1,
-                  "prctl(PR_GET_NAME) failed: tid={}", curThread->tid);
+    SIGNAL_WARNING_ERRNO(prctl(PR_GET_NAME, curThread->procname) != -1,
+                         "prctl(PR_GET_NAME) failed");
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
     Thread_SaveSigState(curThread);  // save sig state (and block sig delivery)
@@ -641,13 +641,11 @@ stopthisthread(int signum)
 
     /* Set up our restart point, ie, we get jumped to here after a restore */
 #ifdef SETJMP
-    ASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0,
-           "failed to save user-thread jump context: tid={}",
-           curThread->tid);
+    SIGNAL_ASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0,
+                  "failed to save user-thread jump context");
 #else  // ifdef SETJMP
-    ASSERT_ERRNO(getcontext(&curThread->savctx) == 0,
-                 "failed to save user-thread context: tid={}",
-                 curThread->tid);
+    SIGNAL_ASSERT_ERRNO(getcontext(&curThread->savctx) == 0,
+                        "failed to save user-thread context");
 #endif  // ifdef SETJMP
     save_sp(&curThread->saved_sp);
 
@@ -660,9 +658,8 @@ stopthisthread(int signum)
        */
 
       /* Tell the checkpoint thread that we're all saved away */
-      ASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG),
-             "failed to mark thread suspended: tid={} from={} to={}",
-             curThread->tid, ST_SUSPINPROG, ST_SUSPENDED);
+      SIGNAL_ASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG),
+                    "failed to mark thread suspended");
       sem_post(&semNotifyCkptThread);
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
@@ -677,14 +674,14 @@ stopthisthread(int signum)
       // However, the sem_wait cleanup handler is now invalid and thus we get a
       // segfault.
       // The change in sem_wait behavior was first introduce in glibc 2.21.
-      ASSERT_RWLOCK_SUCCESS(DmtcpRWLockRdLock(&threadResumeLock));
+      SIGNAL_ASSERT_SUCCESS(DmtcpRWLockRdLock(&threadResumeLock),
+                            "failed to acquire thread resume lock");
 
-      ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
-             "failed to mark thread running after checkpoint: tid={} "
-             "from={} to={}",
-             curThread->tid, ST_SUSPENDED, ST_RUNNING);
+      SIGNAL_ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
+                    "failed to mark thread running after checkpoint");
 
-      ASSERT_RWLOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
+      SIGNAL_ASSERT_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock),
+                            "failed to release thread resume lock");
     } else {
       // If the user defined DMTCP_DISABLE_PRGNAME_PREFIX, skip this prefix.
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
@@ -701,15 +698,13 @@ stopthisthread(int signum)
         curThread->procname[sizeof(curThread->procname) - 1] = '\0';
       }
 # endif
-      ASSERT_ERRNO(prctl(PR_SET_NAME, curThread->procname) != -1 ||
-                   errno == EINVAL,
-                   "prctl(PR_SET_NAME) failed: tid={} name={}",
-                   curThread->tid, curThread->procname);
+      SIGNAL_ASSERT_ERRNO(prctl(PR_SET_NAME, curThread->procname) != -1 ||
+                          errno == EINVAL,
+                          "prctl(PR_SET_NAME) failed");
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
-      ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
-             "failed to mark restored thread running: tid={} from={} to={}",
-             curThread->tid, ST_SUSPENDED, ST_RUNNING);
+      SIGNAL_ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
+                    "failed to mark restored thread running");
 
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
       ThreadList::waitForAllRestored(curThread);

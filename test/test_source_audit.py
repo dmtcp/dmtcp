@@ -9,6 +9,32 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class SourceAuditTest(unittest.TestCase):
+    def read_text(self, relative_path):
+        return (ROOT / relative_path).read_text(encoding="utf-8")
+
+    def extract_function_body(self, relative_path, function_name):
+        text = self.read_text(relative_path)
+        match = re.search(rf"\b{re.escape(function_name)}\s*\([^)]*\)\s*\{{",
+                          text)
+        self.assertIsNotNone(match,
+                             f"could not find function {function_name} in "
+                             f"{relative_path}")
+
+        body_start = match.end()
+        depth = 1
+        index = body_start
+        while index < len(text) and depth > 0:
+            if text[index] == "{":
+                depth += 1
+            elif text[index] == "}":
+                depth -= 1
+            index += 1
+
+        self.assertEqual(depth, 0,
+                         f"could not find end of {function_name} in "
+                         f"{relative_path}")
+        return text[body_start:index - 1]
+
     def assert_file_does_not_contain(self, relative_path, forbidden):
         path = ROOT / relative_path
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -167,6 +193,14 @@ class SourceAuditTest(unittest.TestCase):
                 with self.subTest(path=relative_path, token=forbidden):
                     self.assert_file_does_not_contain(relative_path,
                                                       forbidden)
+
+    def test_signal_handler_uses_signal_safe_diagnostics(self):
+        body = self.extract_function_body("src/threadlist.cpp",
+                                          "stopthisthread")
+        self.assertIsNone(
+            re.search(r"\b(?:ASSERT|WARNING)(?:_[A-Z0-9]+)?\s*\(", body),
+            "stopthisthread is a signal handler; use signal-safe diagnostics",
+        )
 
 
 if __name__ == "__main__":
