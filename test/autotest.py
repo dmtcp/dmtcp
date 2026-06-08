@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import concurrent.futures
 from collections import Counter
 import errno
 import json
@@ -1703,6 +1704,9 @@ def parse_args():
                         help="list tests known to the new harness")
     parser.add_argument("--retry-once", action="store_true",
                         help="retry a failing test once before reporting it")
+    parser.add_argument("--jobs", type=positive_int, default=1,
+                        help="run up to N checkpoint/restart integration "
+                             "tests in parallel (default: 1)")
     parser.add_argument("--slow", action="count", default=0,
                         help="multiply checkpoint settle time and timeouts "
                              "by 5; repeat to multiply again")
@@ -1725,6 +1729,18 @@ def parse_args():
     parser.add_argument("tests", nargs="*", metavar="TESTNAME",
                         help="test names to run")
     return parser.parse_args()
+
+
+def positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            f"expected a positive integer, got {value!r}") from error
+    if parsed < 1:
+        raise argparse.ArgumentTypeError(
+            f"expected a positive integer, got {value!r}")
+    return parsed
 
 
 LIST_HEADER = ("Test",)
@@ -1995,6 +2011,72 @@ class IntegrationProgressPrinter:
         self.active_activity = False
 
 
+class IntegrationProgressRecorder:
+    def __init__(self):
+        self.row_started = False
+        self.active_activity = False
+        self.parts: List[str] = []
+
+    def start_test(self, spec: TestSpec, verbose: bool):
+        self.row_started = False
+        self.active_activity = False
+        self.parts = []
+
+    def _ensure_row(self):
+        self.row_started = True
+
+    def event(self, event: str):
+        if event == "cycle-separator":
+            self._ensure_row()
+            self.parts.append(" -> ")
+        elif event == "ckpt-start":
+            self._ensure_row()
+            self.parts.append("ckpt:")
+            self.active_activity = True
+        elif event == "ckpt-passed":
+            self._ensure_row()
+            self.parts.append("PASSED; ")
+            self.active_activity = False
+        elif event == "rstr-start":
+            self._ensure_row()
+            self.parts.append("rstr:")
+            self.active_activity = True
+        elif event == "rstr-passed":
+            self._ensure_row()
+            self.parts.append("PASSED")
+            self.active_activity = False
+        elif event == "run-passed":
+            self._ensure_row()
+            self.parts.append("run:PASSED")
+            self.active_activity = False
+
+    def abort_result(self, result: TestResult):
+        self.row_started = False
+        self.active_activity = False
+        self.parts = []
+
+    def finish_result(self, result: TestResult) -> str:
+        if result.passed:
+            if not self.row_started:
+                self.event("run-passed")
+            return "".join(self.parts)
+        if self.active_activity:
+            self.parts.append(format_active_failed_run_status(result))
+        elif self.row_started:
+            self.parts.append(format_failed_run_status(result))
+        else:
+            self.parts.append(format_failed_run_status(result))
+        return "".join(self.parts)
+
+
+@dataclass(frozen=True)
+class IntegrationRunRecord:
+    spec: TestSpec
+    result: TestResult
+    elapsed: float
+    status: str
+
+
 def selected_suites(requested_suites: Optional[List[str]]) -> List[str]:
     if not requested_suites:
         return ["integration"]
@@ -2180,6 +2262,70 @@ def run_integration_specs(args, harness: DmtcpHarness,
     return passed, len(tests), failures
 
 
+def make_integration_harness(args) -> DmtcpHarness:
+    return DmtcpHarness(
+        verbose=args.verbose,
+        retain_success_artifacts=args.retain_success_artifacts,
+        slow_count=args.slow,
+    )
+
+
+def run_integration_spec_record(args, spec: TestSpec) -> IntegrationRunRecord:
+    harness = make_integration_harness(args)
+    progress = IntegrationProgressRecorder()
+    harness.progress = progress.event
+    harness.start_progress = progress.start_test
+    harness.abort_progress = progress.abort_result
+    start_time = time.monotonic()
+    result = run_with_optional_retry(harness, spec, args.retry_once)
+    elapsed = time.monotonic() - start_time
+    status = progress.finish_result(result)
+    return IntegrationRunRecord(spec, result, elapsed, status)
+
+
+def print_integration_record(record: IntegrationRunRecord,
+                             name_width: int):
+    status = f"{record.status}{_elapsed_suffix(record.elapsed)}"
+    row = format_run_entry(record.spec, status, name_width)
+    print(f"  {row}", flush=True)
+    if record.result.artifact_dir is not None:
+        artifact_status = f"artifacts={record.result.artifact_dir}"
+        row = format_run_entry(record.spec, artifact_status, name_width)
+        print(f"  {row}", flush=True)
+
+
+def run_integration_specs_parallel(args, tests: List[TestSpec],
+                                   name_width: int
+                                   ) -> Tuple[int, int, List[FailureRecord]]:
+    passed = 0
+    failures = []
+    with concurrent.futures.ThreadPoolExecutor(
+            max_workers=args.jobs) as executor:
+        futures = {
+            executor.submit(run_integration_spec_record, args, spec): spec
+            for spec in tests
+        }
+        for future in concurrent.futures.as_completed(futures):
+            spec = futures[future]
+            try:
+                record = future.result()
+            except Exception as error:
+                result = TestResult.fail(spec.name, "harness", str(error))
+                record = IntegrationRunRecord(
+                    spec,
+                    result,
+                    0.0,
+                    format_failed_run_status(result),
+                )
+            if record.result.passed:
+                passed += 1
+            else:
+                failures.append(failure_records_from_result(
+                    record.spec, record.result))
+            print_integration_record(record, name_width)
+    return passed, len(tests), failures
+
+
 def run_command_suites(suites: Iterable[str],
                        name_width: int = RUN_TESTNAME_WIDTH,
                        integration_by_category=None,
@@ -2218,11 +2364,7 @@ def run_command_suites(suites: Iterable[str],
 
 
 def make_integration_runner(args, name_width: int = RUN_TESTNAME_WIDTH):
-    harness = DmtcpHarness(
-        verbose=args.verbose,
-        retain_success_artifacts=args.retain_success_artifacts,
-        slow_count=args.slow,
-    )
+    harness = make_integration_harness(args)
     progress = IntegrationProgressPrinter(name_width)
     harness.progress = progress.event
     harness.start_progress = progress.start_test
@@ -2271,7 +2413,6 @@ def run_integration_tests(
         args, selected: List[TestSpec],
         show_suite_heading: bool,
         name_width: int = RUN_TESTNAME_WIDTH) -> Tuple[int, int, List[FailureRecord]]:
-    harness, progress = make_integration_runner(args, name_width)
     passed = 0
     failures = []
     if show_suite_heading:
@@ -2280,8 +2421,13 @@ def run_integration_tests(
     for category, tests in list_groups(selected):
         print(flush=True)
         print_section_header(category)
-        group_passed, _, group_failures = run_integration_specs(
-            args, harness, progress, tests, name_width)
+        if args.jobs > 1:
+            group_passed, _, group_failures = run_integration_specs_parallel(
+                args, tests, name_width)
+        else:
+            harness, progress = make_integration_runner(args, name_width)
+            group_passed, _, group_failures = run_integration_specs(
+                args, harness, progress, tests, name_width)
         passed += group_passed
         failures.extend(group_failures)
 
@@ -2348,11 +2494,17 @@ def main():
                 category: tests
                 for category, tests in list_groups(consumed_specs)
             }
-            harness, progress = make_integration_runner(args, name_width)
-            integration_runner = (
-                lambda tests: run_integration_specs(
-                    args, harness, progress, tests, name_width)
-            )
+            if args.jobs > 1:
+                integration_runner = (
+                    lambda tests: run_integration_specs_parallel(
+                        args, tests, name_width)
+                )
+            else:
+                harness, progress = make_integration_runner(args, name_width)
+                integration_runner = (
+                    lambda tests: run_integration_specs(
+                        args, harness, progress, tests, name_width)
+                )
 
     command_passed, command_total, command_failures = run_command_suites(
         suites, name_width, integration_by_command_category,

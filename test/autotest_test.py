@@ -1849,6 +1849,172 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertFalse(captured["retain_success_artifacts"])
         self.assertEqual(captured["slow_count"], 2)
 
+    def test_autotest_accepts_jobs_argument(self):
+        with mock.patch.object(sys, "argv", ["autotest.py", "--jobs", "4"]):
+            args = autotest_module.parse_args()
+
+        self.assertEqual(args.jobs, 4)
+
+    def test_autotest_rejects_non_positive_jobs_argument(self):
+        stderr = io.StringIO()
+        with mock.patch.object(sys, "argv", ["autotest.py", "--jobs", "0"]), \
+             contextlib.redirect_stderr(stderr):
+            with self.assertRaises(SystemExit):
+                autotest_module.parse_args()
+
+        self.assertIn("expected a positive integer", stderr.getvalue())
+
+    def test_autotest_parallel_integration_uses_requested_jobs(self):
+        stdout = io.StringIO()
+        selected_specs = [
+            TestSpec("dmtcp1", 1, ["./test/dmtcp1"]),
+            TestSpec("dmtcp2", 1, ["./test/dmtcp2"]),
+        ]
+        harnesses = []
+        run_order = []
+
+        class FakeHarness:
+            def __init__(self, verbose=False,
+                         retain_success_artifacts=False,
+                         slow_count=0):
+                self.progress = lambda event: None
+                harnesses.append(self)
+
+        class ImmediateFuture:
+            def __init__(self, value):
+                self._value = value
+
+            def result(self):
+                return self._value
+
+        class RecordingExecutor:
+            created_max_workers = []
+
+            def __init__(self, max_workers):
+                self.created_max_workers.append(max_workers)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+            def submit(self, fn, *args):
+                return ImmediateFuture(fn(*args))
+
+        def fake_as_completed(futures):
+            return list(futures)
+
+        def fake_run_with_optional_retry(harness, selected_spec, retry_once):
+            self.assertIsInstance(harness, FakeHarness)
+            run_order.append(selected_spec.name)
+            harness.progress("ckpt-start")
+            harness.progress("ckpt-passed")
+            harness.progress("rstr-start")
+            harness.progress("rstr-passed")
+            return TestResult.pass_(selected_spec.name)
+
+        with mock.patch.object(sys, "argv",
+                               ["autotest.py", "--jobs", "4"]), \
+             mock.patch.object(REGISTRY, "select",
+                               lambda names, tags, requirements:
+                               selected_specs), \
+             mock.patch.object(autotest_module, "DmtcpHarness",
+                               FakeHarness), \
+             mock.patch.object(autotest_module, "run_with_optional_retry",
+                               fake_run_with_optional_retry), \
+             mock.patch.object(autotest_module.concurrent.futures,
+                               "ThreadPoolExecutor", RecordingExecutor), \
+             mock.patch.object(autotest_module.concurrent.futures,
+                               "as_completed", fake_as_completed), \
+             mock.patch.object(REGISTRY, "disabled_reason_counts",
+                               lambda tags, requirements: {}), \
+             mock.patch.object(autotest_module.time, "monotonic",
+                               lambda: 0.0), \
+             contextlib.redirect_stdout(stdout):
+            rc = autotest_module.main()
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(RecordingExecutor.created_max_workers, [4])
+        self.assertEqual(len(harnesses), 2)
+        self.assertEqual(run_order, ["dmtcp1", "dmtcp2"])
+        self.assertIn("  dmtcp1         ckpt:PASSED; rstr:PASSED (0.0s)",
+                      stdout.getvalue().splitlines())
+        self.assertIn("  dmtcp2         ckpt:PASSED; rstr:PASSED (0.0s)",
+                      stdout.getvalue().splitlines())
+
+    def test_autotest_parallel_integration_reports_failures(self):
+        stdout = io.StringIO()
+        spec = TestSpec("dmtcp1", 1, ["./test/dmtcp1"])
+        artifact_dir = pathlib.Path("/tmp/dmtcp-parallel-failed")
+
+        class FakeHarness:
+            def __init__(self, verbose=False,
+                         retain_success_artifacts=False,
+                         slow_count=0):
+                self.progress = lambda event: None
+
+        class ImmediateFuture:
+            def __init__(self, value):
+                self._value = value
+
+            def result(self):
+                return self._value
+
+        class RecordingExecutor:
+            def __init__(self, max_workers):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+            def submit(self, fn, *args):
+                return ImmediateFuture(fn(*args))
+
+        def fake_as_completed(futures):
+            return list(futures)
+
+        def fake_run_with_optional_retry(harness, selected_spec, retry_once):
+            harness.progress("ckpt-start")
+            return TestResult.fail(selected_spec.name, "checkpoint",
+                                   "no ckpt image", artifact_dir)
+
+        with mock.patch.object(sys, "argv",
+                               ["autotest.py", "--jobs", "4",
+                                "--color", "always"]), \
+             mock.patch.object(REGISTRY, "select",
+                               lambda names, tags, requirements: [spec]), \
+             mock.patch.object(autotest_module, "DmtcpHarness",
+                               FakeHarness), \
+             mock.patch.object(autotest_module, "run_with_optional_retry",
+                               fake_run_with_optional_retry), \
+             mock.patch.object(autotest_module.concurrent.futures,
+                               "ThreadPoolExecutor", RecordingExecutor), \
+             mock.patch.object(autotest_module.concurrent.futures,
+                               "as_completed", fake_as_completed), \
+             mock.patch.object(REGISTRY, "disabled_reason_counts",
+                               lambda tags, requirements: {}), \
+             mock.patch.object(autotest_module.time, "monotonic",
+                               lambda: 0.0), \
+             contextlib.redirect_stdout(stdout):
+            rc = autotest_module.main()
+
+        self.assertEqual(rc, 1)
+        self.assertIn(
+            "  dmtcp1         ckpt:\033[0;31mFAILED phase=checkpoint "
+            "msg=no ckpt image\033[0m (0.0s)",
+            stdout.getvalue().splitlines(),
+        )
+        self.assertIn("  dmtcp1         artifacts=/tmp/dmtcp-parallel-failed",
+                      stdout.getvalue().splitlines())
+        self.assertIn(
+            "  dmtcp1         phase=checkpoint msg=no ckpt image",
+            stdout.getvalue().splitlines(),
+        )
+
     def test_retry_once_reports_failed_attempt_artifacts(self):
         spec = TestSpec("retry-artifacts", 1, ["./test/dmtcp1"])
         failure_dir = pathlib.Path("/tmp/dmtcp-retry-artifacts")

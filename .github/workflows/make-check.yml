@@ -24,4 +24,4 @@ jobs:
     - name: make tests
       run: make tests
     - name: make check
-      run: make check AUTOTEST=--retry-once
+      run: make check AUTOTEST="--retry-once --jobs 8"
