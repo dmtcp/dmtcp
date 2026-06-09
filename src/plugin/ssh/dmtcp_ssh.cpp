@@ -13,6 +13,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "ssh.h"
+#include "util.h"
+
+using dmtcp::Util::strEquals;
 
 static int listenSock = -1;
 static int noStrictHostKeyChecking = 0;
@@ -154,13 +157,13 @@ main(int argc, char *argv[], char *envp[])
 
   shift;
   while (true) {
-    if ( strcmp(argv[0], "--noStrictHostKeyChecking") == 0 ) {
+    if (strEquals(argv[0], "--noStrictHostKeyChecking")) {
       noStrictHostKeyChecking = 1;
       shift;
-    } else if ( strcmp(argv[0], "--rsh-slave") == 0 ) {
+    } else if (strEquals(argv[0], "--rsh-slave")) {
       isRshProcess = 1;
       shift;
-    } else if ( strcmp(argv[0], "--ssh-slave")== 0 ) {
+    } else if (strEquals(argv[0], "--ssh-slave")) {
       isRshProcess = 0;
       shift;
     } else {

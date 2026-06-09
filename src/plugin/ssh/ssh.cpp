@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include <limits.h> // for HOST_NAME_MAX
 #include <netinet/in.h>
+#include <string_view>
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/un.h>
@@ -370,10 +371,14 @@ prepareForExec(DmtcpEventData_t *data)
 
   // find command part
   size_t commandStart = 2;
-  for (size_t i = 1; i < nargs; ++i) {
+  for (size_t i = 1; i + 1 < nargs; ++i) {
     string s = argv[i];
-    if (strcmp(argv[i], "-o") == 0) {
-      if (strcmp(argv[i + 1], "StrictHostKeyChecking=no") == 0) {
+    if (s == "-o") {
+      if (i + 2 >= nargs) {
+        JNOTE("ssh option -o requires an argument");
+        return;
+      }
+      if (std::string_view(argv[i + 1]) == "StrictHostKeyChecking=no") {
         noStrictChecking = true;
       }
       i++;
@@ -538,9 +543,10 @@ updateCoordHost()
   }
 
   struct in_addr localhostIPAddr;
-  char hostname[HOST_NAME_MAX];
+  char hostname[HOST_NAME_MAX + 1];
 
   JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO);
+  hostname[sizeof hostname - 1] = '\0';
 
   struct addrinfo *result = NULL;
   struct addrinfo *res;
@@ -586,6 +592,8 @@ updateCoordHost()
     bool success = false;
     bool at_least_one_match = false;
     char name[NI_MAXHOST] = "";
+    const std::string_view hostnameView(hostname,
+                                        strnlen(hostname, sizeof hostname));
     for (res = result; res != NULL; res = res->ai_next) {
       struct sockaddr_in *s = (struct sockaddr_in *)res->ai_addr;
 
@@ -601,7 +609,7 @@ updateCoordHost()
         continue;
       } else {
         JASSERT(sizeof localhostIPAddr == sizeof s->sin_addr);
-        if ( strncmp( name, hostname, sizeof hostname ) == 0 ) {
+        if (std::string_view(name) == hostnameView) {
           success = true;
           memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
           break; // Stop here.  We found a matching hostname.
@@ -617,7 +625,7 @@ updateCoordHost()
     }
     if (at_least_one_match) {
       success = true;  // Call it a success even if hostname != name
-      if ( strncmp( name, hostname, sizeof hostname ) != 0 ) {
+      if (std::string_view(name) != hostnameView) {
         JTRACE("Canonical hostname different from original hostname")
               (name)(hostname);
       }

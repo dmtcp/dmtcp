@@ -472,10 +472,9 @@ startNewCoordinator(CoordinatorMode mode)
   int port = UNINITIALIZED_PORT;
   getCoordHostAndPort(mode, &host, &port);
 
-  JASSERT(strcmp(host.c_str(), "localhost") == 0 ||
-          strcmp(host.c_str(), "127.0.0.1") == 0 ||
-          jalib::Filesystem::GetCurrentHostname() == host.c_str())
-    (host) (jalib::Filesystem::GetCurrentHostname())
+  string currentHost = jalib::Filesystem::GetCurrentHostname();
+  JASSERT(host == "localhost" || host == "127.0.0.1" || currentHost == host)
+    (host) (currentHost)
   .Text("Won't automatically start coordinator because DMTCP_HOST"
         " is set to a remote host.");
 

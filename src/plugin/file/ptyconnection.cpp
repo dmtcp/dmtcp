@@ -319,7 +319,7 @@ PtyConnection::refill(bool isRestart)
   }
 
   if (_type == PTY_SLAVE || _type == PTY_BSD_SLAVE) {
-    JASSERT(_ptsName.compare("?") != 0);
+    JASSERT(_ptsName != "?");
     JTRACE("Restoring PTY slave") (_fds[0]) (_ptsName) (_virtPtsName);
     if (_type == PTY_SLAVE) {
       char buf[32];
