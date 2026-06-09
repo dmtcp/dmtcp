@@ -4,32 +4,12 @@
 #include <atomic>
 
 #include "futex.h"
+#include "jassert.h"
+#include "util.h"
 
 #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
 
 #define LLL_PRIVATE 0
-
-static inline int
-glibcMajorVersion()
-{
-  static int major = 0;
-  if (major == 0) {
-    major = (int)strtol(gnu_get_libc_version(), NULL, 10);
-  }
-  return major;
-}
-
-static inline int
-glibcMinorVersion()
-{
-  static long minor = 0;
-  if (minor == 0) {
-    char *ptr;
-    strtol(gnu_get_libc_version(), &ptr, 10);
-    minor = (int)strtol(ptr + 1, NULL, 10);
-  }
-  return minor;
-}
 
 void
 glibc_lll_lock(int *futex)
@@ -70,7 +50,7 @@ struct libc_pthread_addr dmtcp_pthread_get_addrs(pthread_t th)
     dmtcp_initialize_entry_point();
   }
 
-  static int libcMinor = glibcMinorVersion();
+  static int libcMinor = dmtcp::Util::glibcVersion().minor;
   struct libc_pthread_addr ret;
 
   if (libcMinor >= 33) {

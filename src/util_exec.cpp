@@ -21,6 +21,8 @@
 
 #include "util.h"
 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/time.h>
@@ -34,6 +36,46 @@
 
 using namespace dmtcp;
 
+static void
+setPidEnvVar(const char *envName, pid_t value)
+{
+  static const size_t kPidEnvValueSize = 32;
+  char valueBuf[kPidEnvValueSize];
+  char paddedBuf[kPidEnvValueSize];
+
+  int len = snprintf(valueBuf, sizeof(valueBuf), "%d", value);
+  JASSERT(len > 0 && (size_t)len < sizeof(valueBuf)) (value);
+
+  if (getenv(envName) == NULL) {
+    int paddedLen = snprintf(paddedBuf, sizeof(paddedBuf), "%031d", value);
+    JASSERT(paddedLen == (int)sizeof(paddedBuf) - 1) (value) (paddedLen);
+    setenv(envName, paddedBuf, 1);
+  } else {
+    char *envStr = (char *)getenv(envName);
+    memcpy(envStr, valueBuf, len + 1);
+  }
+}
+
+static pid_t
+getPidEnvVar(const char *envName)
+{
+  const char *str = getenv(envName);
+  if (str == NULL) {
+    fprintf(stderr, "ERROR at %s:%d: env var %s not set\n\n",
+            __FILE__, __LINE__, envName);
+    _exit(DMTCP_FAIL_RC);
+  }
+
+  pid_t pid = 0;
+  if (!Util::parseInteger(str, &pid)) {
+    fprintf(stderr, "ERROR at %s:%d: env var %s invalid: %s\n\n",
+            __FILE__, __LINE__, envName, str);
+    _exit(DMTCP_FAIL_RC);
+  }
+
+  return pid;
+}
+
 void
 Util::setVirtualPidEnvVar(pid_t virtPid,
                           pid_t realPid,
@@ -45,21 +87,10 @@ Util::setVirtualPidEnvVar(pid_t virtPid,
   // implements its own setenv by keeping a private copy libc:environ and never
   // refers to libc:private, thus libc:setenv is outdated and calling setenv()
   // can cause segfault.
-  char buf1[80];
-  char buf2[80];
-
-  memset(buf2, '#', sizeof(buf2));
-  buf2[sizeof(buf2) - 1] = '\0';
-
-  sprintf(buf1, "%d:%d:%d:%d:", virtPid, realPid, virtPpid, realPpid);
-
-  if (getenv(ENV_VAR_VIRTUAL_PID) == NULL) {
-    memcpy(buf2, buf1, strlen(buf1));
-    setenv(ENV_VAR_VIRTUAL_PID, buf2, 1);
-  } else {
-    char *envStr = (char *)getenv(ENV_VAR_VIRTUAL_PID);
-    memcpy(envStr, buf1, strlen(buf1));
-  }
+  setPidEnvVar(ENV_VAR_VIRTUAL_PID, virtPid);
+  setPidEnvVar(ENV_VAR_REAL_PID, realPid);
+  setPidEnvVar(ENV_VAR_VIRTUAL_PPID, virtPpid);
+  setPidEnvVar(ENV_VAR_REAL_PPID, realPpid);
 }
 
 void
@@ -68,16 +99,10 @@ Util::getVirtualPidFromEnvVar(pid_t *virtPid,
                               pid_t *virtPpid,
                               pid_t *realPpid)
 {
-  pid_t vPid, rPid, vPpid, rPpid;
-
-  const char *str = getenv(ENV_VAR_VIRTUAL_PID);
-  if (str == NULL) {
-    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
-            __FILE__, __LINE__);
-    _exit(DMTCP_FAIL_RC);
-  }
-
-  ASSERT_EQ(4, sscanf(str, "%d:%d:%d:%d:", &vPid, &rPid, &vPpid, &rPpid));
+  const pid_t vPid = getPidEnvVar(ENV_VAR_VIRTUAL_PID);
+  const pid_t rPid = getPidEnvVar(ENV_VAR_REAL_PID);
+  const pid_t vPpid = getPidEnvVar(ENV_VAR_VIRTUAL_PPID);
+  const pid_t rPpid = getPidEnvVar(ENV_VAR_REAL_PPID);
 
   if (virtPid) {
     *virtPid = vPid;

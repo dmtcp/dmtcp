@@ -21,6 +21,7 @@
 
 #include "util.h"
 #include <fcntl.h>
+#include <gnu/libc-version.h>
 #include <limits.h>  // for PATH_MAX
 #include <stdlib.h>
 #include <string.h>
@@ -91,12 +92,7 @@ Util::strStartsWith(const char *str, const char *pattern)
   if (str == NULL || pattern == NULL) {
     return false;
   }
-  int len1 = strlen(str);
-  int len2 = strlen(pattern);
-  if (len1 >= len2) {
-    return strncmp(str, pattern, len2) == 0;
-  }
-  return false;
+  return strStartsWith(std::string_view(str), std::string_view(pattern));
 }
 
 bool
@@ -105,13 +101,7 @@ Util::strEndsWith(const char *str, const char *pattern)
   if (str == NULL || pattern == NULL) {
     return false;
   }
-  int len1 = strlen(str);
-  int len2 = strlen(pattern);
-  if (len1 >= len2) {
-    size_t idx = len1 - len2;
-    return strncmp(str + idx, pattern, len2) == 0;
-  }
-  return false;
+  return strEndsWith(std::string_view(str), std::string_view(pattern));
 }
 
 bool
@@ -137,6 +127,32 @@ Util::readBooleanEnv(const char *envName, bool defaultValue)
   JASSERT(false) (envName) (value)
   .Text("Invalid value for the environment variable.");
   return defaultValue;
+}
+
+Util::Version
+Util::glibcVersion()
+{
+  static const Version cachedVersion = [] {
+    const char *versionText = gnu_get_libc_version();
+    const char *dot = strchr(versionText, '.');
+    JASSERT(dot != NULL && dot != versionText && dot[1] != '\0') (versionText)
+      .Text("unsupported glibc version text");
+
+    Version parsed = {0, 0};
+    JASSERT(parseInteger(std::string_view(versionText, dot - versionText),
+                         &parsed.major)) (versionText);
+    const char *minorStart = dot + 1;
+    const char *minorEnd = strchr(minorStart, '.');
+    if (minorEnd == NULL) {
+      minorEnd = minorStart + strlen(minorStart);
+    }
+    JASSERT(parseInteger(std::string_view(minorStart, minorEnd - minorStart),
+                         &parsed.minor))
+      (versionText);
+    return parsed;
+  }();
+
+  return cachedVersion;
 }
 
 // Add it back if needed.

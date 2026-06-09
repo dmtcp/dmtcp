@@ -19,8 +19,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <charconv>
 #include <signal.h>
 #include <fcntl.h>
+#include <system_error>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/sem.h>
@@ -41,6 +43,7 @@
 #include "pidwrappers.h"
 #include "protectedfds.h"
 #include "shareddata.h"
+#include "util.h"
 #include "virtualpidtable.h"
 
 static char PROC_PREFIX[] = "/proc/";
@@ -51,6 +54,26 @@ static char PROC_TASK_TOKEN[] = "/task/";
 static const size_t PROC_TASK_TOKEN_LEN = sizeof(PROC_TASK_TOKEN) - 1;
 
 using namespace dmtcp;
+
+static bool
+parseProcPidPrefix(char *pidStr, pid_t *pid, char **rest)
+{
+  char *end = pidStr;
+  while (*end >= '0' && *end <= '9') {
+    ++end;
+  }
+  if (end == pidStr) {
+    return false;
+  }
+
+  auto result = std::from_chars(pidStr, end, *pid);
+  if (result.ec != std::errc() || result.ptr != end) {
+    return false;
+  }
+
+  *rest = end;
+  return true;
+}
 
 extern "C" pid_t dmtcp_update_ppid();
 static volatile bool restartInProgress = false;
@@ -219,13 +242,15 @@ pidVirt_ProcessProcSelfTask(DmtcpEventData_t *data)
     return;
   }
 
-  char *rest = nullptr;
   char *tidStr = ptr + PROC_TASK_TOKEN_LEN;
 
-  pid_t virtualTid = strtol(tidStr, &rest, 0);
-  if (virtualTid > 0) {
+  pid_t virtualTid = 0;
+  char *rest = nullptr;
+  if (parseProcPidPrefix(tidStr, &virtualTid, &rest) && virtualTid > 0) {
     char buf[PATH_MAX - 20];
-    strncpy(buf, rest, PATH_MAX - 20);
+    size_t len = strnlen(rest, sizeof buf - 1);
+    memcpy(buf, rest, len);
+    buf[len] = '\0';
     pid_t realTid = dmtcp_pid_virtual_to_real(virtualTid);
     JASSERT(20+strlen(buf) < PATH_MAX); // Reserve char[20] for realTid, below.
     snprintf(tidStr, PATH_MAX, "%d%s", realTid, buf);
@@ -241,10 +266,10 @@ pid_virtual_to_real_filepath(DmtcpEventData_t *data)
   }
 
   int index = strlen(PROC_PREFIX);
-  char *rest;
-  pid_t virtualPid = strtol(&data->virtualToRealPath.path[index], &rest, 0);
-
-  if (virtualPid > 0) {
+  char *pidStr = &data->virtualToRealPath.path[index];
+  pid_t virtualPid = 0;
+  char *rest = nullptr;
+  if (parseProcPidPrefix(pidStr, &virtualPid, &rest) && virtualPid > 0) {
     char newPath[PATH_MAX];
     pid_t realPid = dmtcp_pid_virtual_to_real(virtualPid);
     snprintf(newPath, PATH_MAX, "/proc/%d%s", realPid, rest);
@@ -263,10 +288,10 @@ pid_real_to_virtual_filepath(DmtcpEventData_t *data)
   }
 
   int index = strlen(PROC_PREFIX);
-  char *rest;
-  pid_t realPid = strtol(&data->realToVirtualPath.path[index], &rest, 0);
-
-  if (realPid <= 0) {
+  char *pidStr = &data->realToVirtualPath.path[index];
+  pid_t realPid = 0;
+  char *rest = nullptr;
+  if (!parseProcPidPrefix(pidStr, &realPid, &rest) || realPid <= 0) {
     return;
   }
 

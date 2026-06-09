@@ -21,6 +21,8 @@
 
 #include <sys/resource.h>
 #include <linux/version.h>
+#include <string_view>
+#include <unistd.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 # include <sys/personality.h>
 # ifndef ADDR_NO_RANDOMIZE
@@ -717,19 +719,16 @@ testJava(const char **argv)
     }
   }
 
-  // If user has more than 4 GB of RAM, warn them that -Xmx is faster.
-  int fd;
-  char buf[100];
-  static const char *meminfoPrefix = "MemTotal:       ";
-  if ((fd = open("/proc/meminfo", O_RDONLY)) != -1 &&
-      read(fd, buf, sizeof(meminfoPrefix) + 16) == sizeof(meminfoPrefix) + 16 &&
-      strncmp(buf, meminfoPrefix, sizeof(meminfoPrefix) + 1) == 0 &&
-      atol(buf + sizeof(meminfoPrefix)) > 17000000) { /* units of kB : mem > 4
-                                                         GB */
-    JASSERT_STDERR << theJavaWarning;
-  }
-  if (fd != -1) {
-    close(fd);
+  // If physical memory is large enough, warn them that -Xmx is faster.
+  const long pageCount = sysconf(_SC_PHYS_PAGES);
+  const long pageSize = sysconf(_SC_PAGESIZE);
+  if (pageCount > 0 && pageSize > 0) {
+    const unsigned long long memTotalBytes =
+      static_cast<unsigned long long>(pageCount) *
+      static_cast<unsigned long long>(pageSize);
+    if (memTotalBytes > 4ULL * 1024 * 1024 * 1024) {
+      JASSERT_STDERR << theJavaWarning;
+    }
   }
   return -1;
 }
