@@ -573,8 +573,7 @@ ProcessInfo::beginPthreadJoin(pthread_t thread)
   bool res = false;
 
   _do_lock_tbl();
-  map<pthread_t, pthread_t>::iterator i = _pthreadJoinId.find(thread);
-  if (i == _pthreadJoinId.end()) {
+  if (!_pthreadJoinId.contains(thread)) {
     _pthreadJoinId[thread] = pthread_self();
     res = true;
   }
@@ -586,7 +585,7 @@ void
 ProcessInfo::clearPthreadJoinState(pthread_t thread)
 {
   _do_lock_tbl();
-  if (_pthreadJoinId.find(thread) != _pthreadJoinId.end()) {
+  if (_pthreadJoinId.contains(thread)) {
     _pthreadJoinId.erase(thread);
   }
   _do_unlock_tbl();
@@ -596,7 +595,7 @@ void
 ProcessInfo::endPthreadJoin(pthread_t thread)
 {
   _do_lock_tbl();
-  if (_pthreadJoinId.find(thread) != _pthreadJoinId.end() &&
+  if (_pthreadJoinId.contains(thread) &&
       pthread_equal(_pthreadJoinId[thread], pthread_self())) {
     _pthreadJoinId.erase(thread);
   }
@@ -695,7 +694,7 @@ const string&
 ProcessInfo::getValue(const string &key)
 {
   static string *empty = new string();
-  if (kvmap.find(key) != kvmap.end()) {
+  if (kvmap.contains(key)) {
     return kvmap[key];
   }
 
