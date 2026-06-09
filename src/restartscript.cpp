@@ -492,9 +492,9 @@ writeScript(const string &ckptDir,
        * give preference to ssh when no rsh command is found.
        */
 
-      if(sshCmdFileNames.find(host->first) != sshCmdFileNames.end()) {
+      if(sshCmdFileNames.contains(host->first)) {
         defaultShellType = "ssh";
-      } else if(rshCmdFileNames.find(host->first) != rshCmdFileNames.end()) {
+      } else if(rshCmdFileNames.contains(host->first)) {
         defaultShellType = "rsh";
       } else {
         defaultShellType = rshCmdFileNames.empty() ? "ssh" : "rsh";

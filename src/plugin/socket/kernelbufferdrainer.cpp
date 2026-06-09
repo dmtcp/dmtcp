@@ -144,7 +144,7 @@ KernelBufferDrainer::onData(jalib::JReaderInterface *sock)
 {
   int fd = sock->socket().sockfd();
   // Detect and cache socket type
-  JASSERT(_isSeqpacket.find(fd) != _isSeqpacket.end()) (fd);
+  JASSERT(_isSeqpacket.contains(fd)) (fd);
 
   if (_isSeqpacket[fd]) {
     // Each onData corresponds to one full frame from JSeqpacketReader
@@ -406,6 +406,6 @@ KernelBufferDrainer::refillAllSockets()
 const vector<char>&
 KernelBufferDrainer::getDrainedData(ConnectionIdentifier id)
 {
-  JASSERT(_disconnectedSockets.find(id) != _disconnectedSockets.end()) (id);
+  JASSERT(_disconnectedSockets.contains(id)) (id);
   return _disconnectedSockets[id];
 }

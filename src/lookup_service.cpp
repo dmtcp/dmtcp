@@ -50,18 +50,20 @@ LookupService::set(string const& id, string const& key, string const& val)
 KVDBResponse
 LookupService::get(string const& id, string const& key, string *val)
 {
-  if (_maps.find(id) == _maps.end()) {
+  auto mapIt = _maps.find(id);
+  if (mapIt == _maps.end()) {
     JTRACE("Lookup Failed, database not found.") (id);
     return KVDBResponse::DB_NOT_FOUND;
   }
 
-  KeyValueMap &kvmap = _maps[id];
-  if (kvmap.find(key) == kvmap.end()) {
+  KeyValueMap &kvmap = mapIt->second;
+  auto valueIt = kvmap.find(key);
+  if (valueIt == kvmap.end()) {
     JTRACE("Lookup Failed, Key not found.") (id) (key);
     return KVDBResponse::KEY_NOT_FOUND;
   }
 
-  *val = kvmap[key];
+  *val = valueIt->second;
 
   return KVDBResponse::SUCCESS;
 }
@@ -137,40 +139,41 @@ LookupService::processSet(jalib::JSocket &remote,
   string oldVal("0");
   get(msg.kvdbId, key, &oldVal);
 
+  auto valueIt = kvmap.find(key);
   if (msg.kvdbRequest == KVDBRequest::SET ||
-      kvmap.find(key) == kvmap.end()) {
+      valueIt == kvmap.end()) {
     kvmap[key] = val;
     sendResponse(remote, oldVal);
     return;
   }
 
   int64_t val64 = jalib::StringToInt64(val);
-  int64_t oldVal64 = jalib::StringToInt64(kvmap[key]);
+  int64_t oldVal64 = jalib::StringToInt64(valueIt->second);
 
   switch (msg.kvdbRequest)
   {
   case KVDBRequest::INCRBY:
-    kvmap[key] = jalib::XToString(oldVal64 + val64);
+    valueIt->second = jalib::XToString(oldVal64 + val64);
     break;
 
   case KVDBRequest::OR:
-    kvmap[key] = jalib::XToString(oldVal64 | val64);
+    valueIt->second = jalib::XToString(oldVal64 | val64);
     break;
 
   case KVDBRequest::XOR:
-    kvmap[key] = jalib::XToString(oldVal64 ^ val64);
+    valueIt->second = jalib::XToString(oldVal64 ^ val64);
     break;
 
   case KVDBRequest::AND:
-    kvmap[key] = jalib::XToString(oldVal64 & val64);
+    valueIt->second = jalib::XToString(oldVal64 & val64);
     break;
 
   case KVDBRequest::MIN:
-    kvmap[key] = jalib::XToString(MIN(oldVal64, val64));
+    valueIt->second = jalib::XToString(MIN(oldVal64, val64));
     break;
 
   case KVDBRequest::MAX:
-    kvmap[key] = jalib::XToString(MAX(oldVal64, val64));
+    valueIt->second = jalib::XToString(MAX(oldVal64, val64));
     break;
 
   default:

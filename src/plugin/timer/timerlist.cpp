@@ -244,7 +244,7 @@ int
 TimerList::getoverrun(timer_t id)
 {
   _do_lock_tbl();
-  JASSERT(_timerInfo.find(id) != _timerInfo.end());
+  JASSERT(_timerInfo.contains(id)) (id);
   int ret = _timerInfo[id].overrun;
   _timerInfo[id].overrun = 0;
   _do_unlock_tbl();
@@ -284,7 +284,7 @@ TimerList::on_timer_delete(timer_t timerid)
 {
   _do_lock_tbl();
   _timerVirtIdTable.erase(timerid);
-  JASSERT(_timerInfo.find(timerid) != _timerInfo.end());
+  JASSERT(_timerInfo.contains(timerid)) (timerid);
   _timerInfo.erase(timerid);
   _do_unlock_tbl();
 }
@@ -295,7 +295,7 @@ TimerList::on_timer_settime(timer_t timerid,
                             const struct itimerspec *new_value)
 {
   _do_lock_tbl();
-  JASSERT(_timerInfo.find(timerid) != _timerInfo.end());
+  JASSERT(_timerInfo.contains(timerid)) (timerid);
   _timerInfo[timerid].flags = flags;
   _timerInfo[timerid].initial_timerspec = *new_value;
   _do_unlock_tbl();

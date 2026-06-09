@@ -308,7 +308,7 @@ DmtcpCoordinator::getNewVirtualPid()
     if (_nextVirtualPid > MAX_VIRTUAL_PID) {
       _nextVirtualPid = INITIAL_VIRTUAL_PID;
     }
-    if (_virtualPidToClientMap.find(pid) == _virtualPidToClientMap.end()) {
+    if (!_virtualPidToClientMap.contains(pid)) {
       break;
     }
   }
@@ -358,7 +358,7 @@ DmtcpCoordinator::handleUserCommand(string cmd, DmtcpMessage *reply /*= NULL*/)
     JASSERT_STDERR << "HOST => # connected clients \n";
     dmtcp::map<string, int>clientHosts;
     for (size_t i = 0; i < clients.size(); i++) {
-      if (clientHosts.find(clients[i]->hostname()) == clientHosts.end()) {
+      if (!clientHosts.contains(clients[i]->hostname())) {
         clientHosts[clients[i]->hostname()] = 1;
       } else {
         clientHosts[clients[i]->hostname()] += 1;
