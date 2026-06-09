@@ -19,10 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <charconv>
 #include <signal.h>
 #include <fcntl.h>
-#include <system_error>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/sem.h>
@@ -66,8 +64,7 @@ parseProcPidPrefix(char *pidStr, pid_t *pid, char **rest)
     return false;
   }
 
-  auto result = std::from_chars(pidStr, end, *pid);
-  if (result.ec != std::errc() || result.ptr != end) {
+  if (!Util::parseInteger(std::string_view(pidStr, end - pidStr), pid)) {
     return false;
   }
 

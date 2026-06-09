@@ -760,13 +760,12 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
       // Just in case a non-standard version of setenv is being used:
       setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
       shift;
-    } else if ((s.length() > 2 && s.substr(0, 2) == "--") ||
-               (s.length() > 1 && s.substr(0, 1) == "-")) {
-      printf("Invalid Argument\n%s", theUsage);
-      exit(DMTCP_FAIL_RC);
     } else if (argc > 1 && s == "--") {
       shift;
       break;
+    } else if (s.length() > 1 && s.starts_with("-")) {
+      printf("Invalid Argument\n%s", theUsage);
+      exit(DMTCP_FAIL_RC);
     } else {
       break; // argv[0] is first ckpt file to be restored; finish parsing later
     }

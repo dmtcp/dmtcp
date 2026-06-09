@@ -719,7 +719,7 @@ SharedData::getRealPtyName(const char *virt, char *out, uint32_t len)
   *out = '\0';
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < sharedDataHeader->numPtyNameMaps; i++) {
-    if (strcmp(virt, sharedDataHeader->ptyNameMap[i].virt) == 0) {
+    if (Util::strEquals(virt, sharedDataHeader->ptyNameMap[i].virt)) {
       JASSERT(strlen(sharedDataHeader->ptyNameMap[i].real) < len);
       strcpy(out, sharedDataHeader->ptyNameMap[i].real);
       break;
@@ -737,7 +737,7 @@ SharedData::getVirtPtyName(const char *real, char *out, uint32_t len)
   *out = '\0';
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < sharedDataHeader->numPtyNameMaps; i++) {
-    if (strcmp(real, sharedDataHeader->ptyNameMap[i].real) == 0) {
+    if (Util::strEquals(real, sharedDataHeader->ptyNameMap[i].real)) {
       JASSERT(strlen(sharedDataHeader->ptyNameMap[i].virt) < len);
       strcpy(out, sharedDataHeader->ptyNameMap[i].virt);
       break;

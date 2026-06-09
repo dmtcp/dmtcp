@@ -268,10 +268,10 @@ PtyConnList::processPtyConnection(int fd,
   }
 
   path = device.c_str();
-  if (strcmp(path, "/dev/tty") == 0) {
+  if (device == "/dev/tty") {
     // Controlling terminal
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_DEV_TTY);
-  } else if (strcmp(path, "/dev/pty") == 0) {
+  } else if (device == "/dev/pty") {
     JASSERT(false).Text("Not Implemented");
   } else if (Util::strStartsWith(path, "/dev/pty")) {
     // BSD Master
@@ -279,8 +279,7 @@ PtyConnList::processPtyConnection(int fd,
   } else if (Util::strStartsWith(path, "/dev/tty")) {
     // BSD Slave
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_BSD_SLAVE);
-  } else if (strcmp(path, "/dev/ptmx") == 0 ||
-             strcmp(path, "/dev/pts/ptmx") == 0) {
+  } else if (device == "/dev/ptmx" || device == "/dev/pts/ptmx") {
     // POSIX Master PTY
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_MASTER);
   } else if (Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {

@@ -20,11 +20,8 @@
  ****************************************************************************/
 
 #include "processinfo.h"
-#include <charconv>
 #include <fcntl.h>
 #include <fenv.h>
-#include <string_view>
-#include <system_error>
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
@@ -243,16 +240,16 @@ ProcessInfo::growStack()
   void *tmpbuf;
   ProcSelfMaps procSelfMaps;
   while (procSelfMaps.getNextArea(&area)) {
-    if (strcmp(area.name, "[heap]") == 0) {
+    if (Util::strEquals(area.name, "[heap]")) {
       // Record start of heap which will later be used to restore heap
       _savedHeapStart = (unsigned long)area.addr;
-    } else if (strcmp(area.name, "[vdso]") == 0) {
+    } else if (Util::strEquals(area.name, "[vdso]")) {
       vdso.startAddr = (unsigned long)area.addr;
       vdso.endAddr = (unsigned long)area.endAddr;
-    } else if (strcmp(area.name, "[vvar]") == 0) {
+    } else if (Util::strEquals(area.name, "[vvar]")) {
       vvar.startAddr = (unsigned long)area.addr;
       vvar.endAddr = (unsigned long)area.endAddr;
-    } else if (strcmp(area.name, "[vvar_vclock]") == 0) {
+    } else if (Util::strEquals(area.name, "[vvar_vclock]")) {
       vvarVClock.startAddr = (unsigned long)area.addr;
       vvarVClock.endAddr = (unsigned long)area.endAddr;
     } else if ((VA)&area >= area.addr && (VA)&area < area.endAddr) {
@@ -397,11 +394,7 @@ ProcessInfo::processRlimit()
   { char *rlim_cur_char = getenv("DMTCP_RLIMIT_STACK");
     if (rlim_cur_char != NULL) {
       rlim_t parsedLimit = 0;
-      std::string_view limitText(rlim_cur_char);
-      const char *begin = limitText.data();
-      const char *end = begin + limitText.size();
-      auto result = std::from_chars(begin, end, parsedLimit);
-      if (result.ec == std::errc() && result.ptr == end) {
+      if (Util::parseInteger(rlim_cur_char, &parsedLimit)) {
         struct rlimit rlim;
         getrlimit(RLIMIT_STACK, &rlim);
         rlim.rlim_cur = parsedLimit;

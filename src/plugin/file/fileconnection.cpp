@@ -129,7 +129,7 @@ FileConnection::calculateRelativePath()
 {
   string cwd = jalib::Filesystem::GetCWD();
 
-  if (_path.compare(0, cwd.length(), cwd) == 0 &&
+  if (_path.starts_with(cwd) &&
       _path.length() > cwd.length()) {
     /* CWD = "/A/B", FileName = "/A/B/C/D" ==> relPath = "C/D" */
     _rel_path = _path.substr(cwd.length() + 1);
@@ -206,8 +206,8 @@ FileConnection::drain()
   } else if (_type == FILE_DELETED || _type == FILE_SHM) {
     _ckpted_file = true;
   } else if (_isVimApp() &&
-             (Util::strEndsWith(_path.c_str(), ".swp") == 0 ||
-              Util::strEndsWith(_path.c_str(), ".swo") == 0)) {
+             (!Util::strEndsWith(_path.c_str(), ".swp") &&
+              !Util::strEndsWith(_path.c_str(), ".swo"))) {
     _ckpted_file = true;
   } else if (Util::strStartsWith(jalib::Filesystem::GetProgramName().c_str(),
                                  "emacs")) {
