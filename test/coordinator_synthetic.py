@@ -421,7 +421,6 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             stderr=subprocess.PIPE,
             timeout=COMMAND_TIMEOUT,
             check=False,
-            timeout=COMMAND_TIMEOUT,
         )
 
     def coordinator_status(self, port):
@@ -985,7 +984,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
 
                 status = self.coordinator_status(coordinator.port)
 
-                self.assertTrue(status["ok"])
+                self.assertCommandSuccess(status)
                 self.assertEqual(status["num_peers"], 0)
                 self.assertFalse(status["running"])
             finally:

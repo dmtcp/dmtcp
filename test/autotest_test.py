@@ -1106,6 +1106,49 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertTrue(screen_dir.is_dir())
             self.assertEqual(screen_dir.stat().st_mode & 0o777, 0o700)
 
+    def test_make_env_expands_workname_for_private_environment_directories(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             tempfile.TemporaryDirectory() as private_tmp:
+            tmp_path = pathlib.Path(tmp) / "dmtcp-screen-test"
+            tmp_path.mkdir()
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec(
+                "screen", 1, ["/usr/bin/screen"],
+                private_env_dirs={
+                    "SCREENDIR": f"{private_tmp}/{{workname}}-screen",
+                },
+            )
+
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+            expected = pathlib.Path(private_tmp) / "dmtcp-screen-test-screen"
+
+            self.assertEqual(context.env["SCREENDIR"], str(expected))
+            self.assertTrue(expected.is_dir())
+            context.cleanup()
+            self.assertFalse(expected.exists())
+
+    def test_make_env_rejects_private_environment_symlink(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            target = tmp_path / "target"
+            target.mkdir()
+            link = tmp_path / "screen"
+            link.symlink_to(target)
+            spec = TestSpec("screen", 1, ["/usr/bin/screen"],
+                            private_env_dirs={"SCREENDIR": str(link)})
+
+            with self.assertRaisesRegex(HarnessFailure, "symlink"):
+                TestContext(DmtcpHarness(ROOT), spec, work)
+
     def test_spec_records_library_path_appends(self):
         spec = TestSpec("pthread_atfork1", 2, ["./test/pthread_atfork1"],
                         library_paths=["./test"])
@@ -2328,7 +2371,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertEqual(screen.launch_mode, "pty")
             self.assertEqual(screen.env["TERM"], "vt100")
             self.assertEqual(screen.private_env_dirs["SCREENDIR"],
-                             "screen")
+                             "/tmp/{workname}-screen")
             self.assertIn("pty", screen.tags)
         assert_registered_when_repo_file_exists(self, names, "cilk1",
                                                 "test/cilk1")
