@@ -426,6 +426,8 @@ class TestContext:
         self.harness = harness
         self.spec = spec
         self.work = work
+        self.private_env_paths: List[pathlib.Path] = []
+        self._created_private_env_paths: List[pathlib.Path] = []
         self.env = self._make_env()
         self.coordinator_proc: Optional[subprocess.Popen] = None
         self.processes: List[subprocess.Popen] = []
@@ -472,6 +474,8 @@ class TestContext:
         if self.coordinator_proc is not None and self.coordinator_proc.poll() is None:
             self._terminate_process_group(self.coordinator_proc,
                                           f"coordinator {self.coordinator_proc.pid}")
+        for path in self._created_private_env_paths:
+            shutil.rmtree(path, ignore_errors=True)
 
     def _verify_spec(self):
         if self.spec.launch_mode not in VALID_LAUNCH_MODES:
@@ -500,12 +504,29 @@ class TestContext:
             else:
                 env[name] = value.replace("{workdir}", str(self.work.path))
         for name, path in self.spec.private_env_dirs.items():
-            env_dir = pathlib.Path(path.replace("{workdir}",
-                                                str(self.work.path)))
+            env_dir_template = (path.replace("{workdir}", str(self.work.path))
+                                .replace("{workname}", self.work.path.name))
+            env_dir = pathlib.Path(env_dir_template)
             if not env_dir.is_absolute():
                 env_dir = self.work.path / env_dir
-            env_dir.mkdir(parents=True, exist_ok=True)
+            if env_dir.is_symlink():
+                raise HarnessFailure(
+                    "setup",
+                    f"private env path is a symlink: {env_dir}",
+                )
+            env_dir_existed = env_dir.exists()
+            if env_dir_existed:
+                if not env_dir.is_dir():
+                    raise HarnessFailure(
+                        "setup",
+                        f"private env path is not a directory: {env_dir}",
+                    )
+            else:
+                env_dir.mkdir(parents=True, exist_ok=False)
             env_dir.chmod(0o700)
+            self.private_env_paths.append(env_dir)
+            if not env_dir_existed:
+                self._created_private_env_paths.append(env_dir)
             env[name] = str(env_dir)
         for path in self.spec.library_paths:
             if env.get("LD_LIBRARY_PATH"):
@@ -1572,7 +1593,7 @@ class TestRegistry:
                 "screen", 3,
                 ["/usr/bin/screen -c /dev/null -s /bin/sh"],
                 env={"TERM": "vt100"},
-                private_env_dirs={"SCREENDIR": "screen"},
+                private_env_dirs={"SCREENDIR": "/tmp/{workname}-screen"},
                 pre_checkpoint_delay=0.9,
                 launch_mode="pty",
                 tags=["slow", "pty"],

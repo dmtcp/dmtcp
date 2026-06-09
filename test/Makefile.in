@@ -122,7 +122,8 @@ coordinator_synthetic_worker: $(srcdir)/coordinator_synthetic_worker.cpp \
 		$(top_builddir)/src/libdmtcpinternal.a \
 		$(top_builddir)/src/libjalib.a \
 		$(top_builddir)/src/libnohijack.a
-	$(CXX) $(CXXFLAGS) -o $@ $< $(COORDINATOR_SYNTHETIC_LDADD)
+	$(CXX) $(CXXFLAGS) -I$(top_srcdir)/src -o $@ $< \
+		$(COORDINATOR_SYNTHETIC_LDADD)
 
 unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 		$(srcdir)/unit/dmtcp_header_tests.cpp \
