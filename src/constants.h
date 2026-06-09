@@ -92,8 +92,10 @@
 #define ENV_VAR_QUIET               "DMTCP_QUIET"
 #define ENV_VAR_DMTCP_DUMMY         "DMTCP_DUMMY"
 
-// Keep in sync with plugin/pid/pidwrappers.h
 #define ENV_VAR_VIRTUAL_PID         "DMTCP_VIRTUAL_PID"
+#define ENV_VAR_REAL_PID            "DMTCP_REAL_PID"
+#define ENV_VAR_VIRTUAL_PPID        "DMTCP_VIRTUAL_PPID"
+#define ENV_VAR_REAL_PPID           "DMTCP_REAL_PPID"
 
 // Keep in sync with plugin/batch-queue/rm_pmi.h
 #define ENV_VAR_EXPLICIT_SRUN       "DMTCP_EXPLICIT_SRUN"
@@ -160,6 +162,9 @@
   ENV_VAR_SIGCKPT,                    \
   ENV_VAR_SCREENDIR,                  \
   ENV_VAR_VIRTUAL_PID,                \
+  ENV_VAR_REAL_PID,                   \
+  ENV_VAR_VIRTUAL_PPID,               \
+  ENV_VAR_REAL_PPID,                  \
   ENV_VAR_FSGSBASE_ENABLED,           \
   ENV_VAR_LOG_FILE
 

@@ -84,9 +84,6 @@ struct user_desc {
 #include "dmtcp.h"
 #include "pidhelpers.h"
 
-// Keep in sync with dmtcp/src/constants.h
-#define ENV_VAR_VIRTUAL_PID "DMTCP_VIRTUAL_PID"
-
 #ifdef __cplusplus
 extern "C"
 {

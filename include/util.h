@@ -102,6 +102,12 @@ struct MtcpRestartThreadArg {
 };
 
 #ifdef __cplusplus
+# include <charconv>
+# include <cstddef>
+# include <span>
+# include <system_error>
+# include <string_view>
+# include "../jalib/jassert.h"
 # include "dmtcpalloc.h"
 namespace dmtcp
 {
@@ -113,6 +119,67 @@ int changeFd(int oldfd, int newfd);
 
 bool strStartsWith(const char *str, const char *pattern);
 bool strEndsWith(const char *str, const char *pattern);
+inline bool strStartsWith(std::string_view str, std::string_view pattern)
+{
+  return str.starts_with(pattern);
+}
+
+inline bool strEndsWith(std::string_view str, std::string_view pattern)
+{
+  return str.ends_with(pattern);
+}
+
+inline bool strEquals(std::string_view str, std::string_view pattern)
+{
+  return str == pattern;
+}
+
+inline bool strEquals(const char *str, const char *pattern)
+{
+  if (str == nullptr || pattern == nullptr) {
+    return false;
+  }
+  return strEquals(std::string_view(str), std::string_view(pattern));
+}
+
+template <typename T>
+inline bool parseInteger(std::string_view text, T *value)
+{
+  JASSERT(value != nullptr);
+  T parsedValue = {};
+  auto result =
+    std::from_chars(text.data(), text.data() + text.size(), parsedValue);
+  if (result.ec != std::errc() || result.ptr != text.data() + text.size()) {
+    return false;
+  }
+  *value = parsedValue;
+  return true;
+}
+
+inline bool parsePortInteger(std::string_view text, int *port)
+{
+  if (port == nullptr) {
+    return false;
+  }
+
+  int parsedPort = 0;
+  if (!parseInteger(text, &parsedPort) ||
+      parsedPort < 0 ||
+      parsedPort > 65535) {
+    return false;
+  }
+
+  *port = parsedPort;
+  return true;
+}
+
+struct Version {
+  int major;
+  int minor;
+};
+
+Version glibcVersion();
+
 bool readBooleanEnv(const char *envName, bool defaultValue);
 
 bool isNscdArea(const ProcMapsArea &area);
@@ -123,6 +190,26 @@ ssize_t writeAll(int fd, const void *buf, size_t count);
 ssize_t readAll(int fd, void *buf, size_t count);
 ssize_t skipBytes(int fd, size_t count);
 ssize_t readAll(const char *path, void *buf, size_t count);
+
+inline ssize_t writeAll(int fd, std::span<const char> buffer)
+{
+  return writeAll(fd, buffer.data(), buffer.size());
+}
+
+inline ssize_t writeAll(int fd, std::span<const std::byte> buffer)
+{
+  return writeAll(fd, buffer.data(), buffer.size());
+}
+
+inline ssize_t readAll(int fd, std::span<char> buffer)
+{
+  return readAll(fd, buffer.data(), buffer.size());
+}
+
+inline ssize_t readAll(int fd, std::span<std::byte> buffer)
+{
+  return readAll(fd, buffer.data(), buffer.size());
+}
 
 int safeMkdir(const char *pathname, mode_t mode);
 int safeSystem(const char *command);

@@ -20,8 +20,11 @@
  ****************************************************************************/
 
 #include "processinfo.h"
+#include <charconv>
 #include <fcntl.h>
 #include <fenv.h>
+#include <string_view>
+#include <system_error>
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
@@ -393,11 +396,21 @@ ProcessInfo::processRlimit()
 # else // if 0
   { char *rlim_cur_char = getenv("DMTCP_RLIMIT_STACK");
     if (rlim_cur_char != NULL) {
-      struct rlimit rlim;
-      getrlimit(RLIMIT_STACK, &rlim);
-      rlim.rlim_cur = atol(rlim_cur_char);
-      JTRACE("rlim_cur for RLIMIT_STACK being restored.") (rlim.rlim_cur);
-      setrlimit(RLIMIT_STACK, &rlim);
+      rlim_t parsedLimit = 0;
+      std::string_view limitText(rlim_cur_char);
+      const char *begin = limitText.data();
+      const char *end = begin + limitText.size();
+      auto result = std::from_chars(begin, end, parsedLimit);
+      if (result.ec == std::errc() && result.ptr == end) {
+        struct rlimit rlim;
+        getrlimit(RLIMIT_STACK, &rlim);
+        rlim.rlim_cur = parsedLimit;
+        JTRACE("rlim_cur for RLIMIT_STACK being restored.") (rlim.rlim_cur);
+        setrlimit(RLIMIT_STACK, &rlim);
+      } else {
+        JWARNING(false) (rlim_cur_char)
+          .Text("Invalid DMTCP_RLIMIT_STACK value.");
+      }
       _dmtcp_unsetenv("DMTCP_RLIMIT_STACK");
     }
   }

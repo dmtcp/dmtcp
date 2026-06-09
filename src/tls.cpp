@@ -20,7 +20,6 @@
 #include <pthread.h>  // for pthread_self(), needed for WSL
 #include <elf.h>
 #include <errno.h>
-#include <gnu/libc-version.h>
 #include <linux/version.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,6 +36,7 @@
 #include "jassert.h"
 #include "mtcp/mtcp_sys.h"
 #include "syscallwrappers.h"
+#include "util.h"
 
 #if defined(__x86_64__) || defined(__aarch64__)
 # define ELF_AUXV_T Elf64_auxv_t
@@ -49,28 +49,6 @@
 #endif /* if defined(__x86_64__) || defined(__aarch64__) */
 
 const char *tlsErrorMsg = "*** DMTCP: Error restoring TLS information\n.";
-
-static int glibcMajorVersion()
-{
-  static int major = 0;
-  if (major == 0) {
-    major = (int) strtol(gnu_get_libc_version(), NULL, 10);
-    JASSERT(major == 2);
-  }
-  return major;
-}
-
-static int glibcMinorVersion()
-{
-  static long minor = 0;
-  if (minor == 0) {
-    char *ptr;
-    int major = (int) strtol(gnu_get_libc_version(), &ptr, 10);
-    JASSERT(major == 2);
-    minor = (int) strtol(ptr+1, NULL, 10);
-  }
-  return minor;
-}
 
 /*****************************************************************************
  *
@@ -161,11 +139,12 @@ TLSInfo_GetTidOffset(void)
 
   // tcbhead_t, etc., were introduced in glibc 2.4. We don't support earlier
   // versions.
-  JASSERT(glibcMajorVersion() == 2) (glibcMajorVersion());
-  JASSERT(glibcMinorVersion() >= 4) (glibcMinorVersion());
+  dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
+  JASSERT(glibc.major == 2) (glibc.major);
+  JASSERT(glibc.minor >= 4) (glibc.minor);
 
 #ifdef __x86_64__
-  if (glibcMinorVersion() >= 11) {
+  if (glibc.minor >= 11) {
     offset = 720;  // sizeof(tcbhead_t) + sizeof(list_t)
     return offset;
   }
@@ -173,7 +152,7 @@ TLSInfo_GetTidOffset(void)
 
 //FIXME:Define offset for __aarch64__
 
-  if (glibcMinorVersion() >= 10) {
+  if (glibc.minor >= 10) {
     offset = 26 * sizeof(void *);  // sizeof(__padding) + sizeof(list_t)
   } else {
     offset = 18 * sizeof(void *);  // sizeof(__padding) + sizeof(list_t)
@@ -518,8 +497,8 @@ TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
 
   // For glibc > 2.24, pid field is unused. Here we do the <24 check to ensure
   // that distros with glibc 2.24-NNN are covered as well.
-  JASSERT((glibcMajorVersion() == 2 && glibcMinorVersion() >= 24)
-          || tls_pid == pid)
+  dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
+  JASSERT((glibc.major == 2 && glibc.minor >= 24) || tls_pid == pid)
     (tls_pid) (pid) .Text("tls pid doesn't match getpid");
 }
 
@@ -561,7 +540,8 @@ TLSInfo_RestoreTLSTidPid(Thread *thread)
 {
   int mtcp_sys_errno __attribute__((unused));
 
-  if (glibcMajorVersion() == 2 && glibcMinorVersion() <= 24) {
+  dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
+  if (glibc.major == 2 && glibc.minor <= 24) {
     *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetPidOffset()) =
       getpid();
   }

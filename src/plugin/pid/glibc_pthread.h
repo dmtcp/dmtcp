@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <thread_db.h>
-#include <gnu/libc-version.h>
 
 #define USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
 #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
