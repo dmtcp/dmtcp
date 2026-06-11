@@ -130,8 +130,7 @@ nobase_noinst_HEADERS += $(jalibdir)/jalib.h			\
 			 $(jalibdir)/jconvert.h			\
 			 $(jalibdir)/jfilesystem.h		\
 			 $(jalibdir)/jserialize.h		\
-			 $(jalibdir)/jsocket.h			\
-			 $(jalibdir)/jtimer.h
+			 $(jalibdir)/jsocket.h
 
 nobase_noinst_HEADERS += $(dmtcpincludedir)/dmtcp.h		\
 			 $(dmtcpincludedir)/dmtcpalloc.h	\
@@ -172,8 +171,7 @@ libjalib_a_SOURCES = $(jalibdir)/jalib.cpp			\
 		     $(jalibdir)/jbuffer.cpp			\
 		     $(jalibdir)/jfilesystem.cpp 		\
 		     $(jalibdir)/jserialize.cpp			\
-		     $(jalibdir)/jsocket.cpp 			\
-		     $(jalibdir)/jtimer.cpp
+		     $(jalibdir)/jsocket.cpp
 
 # This is required for jalib/jalloc.cpp:__sync_bool_compare_and_swap()
 libjalib_a_CFLAGS = -march=native

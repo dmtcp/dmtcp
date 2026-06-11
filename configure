@@ -1510,9 +1510,6 @@ Optional Features:
                           (default is disabled); also, see --enable-logging
   --enable-quiet          disable NOTE and WARNING (default is to print NOTE,
                           WARNING, but no TRACE)
-  --enable-timing         record checkpoint/restart timing information to
-                          jtimings.csv, in working directory of
-                          dmtcp_coordinator, and to stderr.
   --enable-realtime-ckpt-signal
                           Use a realtime signal (SIGRTMAX - 2) instead of the
                           default SIGUSR2 signal. The signal can be overridden
@@ -8218,22 +8215,6 @@ fi
 if test "$use_quiet" = "yes"; then
 
 printf "%s\n" "#define QUIET 1" >>confdefs.h
-
-fi
-
-# Check whether --enable-timing was given.
-if test ${enable_timing+y}
-then :
-  enableval=$enable_timing; use_jtiming=$enableval
-else case e in #(
-  e) use_jtiming=no ;;
-esac
-fi
-
-
-if test "$use_jtiming" = "yes"; then
-
-printf "%s\n" "#define TIMING 1" >>confdefs.h
 
 fi
 

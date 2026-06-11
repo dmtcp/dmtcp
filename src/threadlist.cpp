@@ -721,7 +721,7 @@ ThreadList::waitForAllRestored(Thread *thread)
 
     JTRACE("before DmtcpWorker::postRestart()");
 
-    DmtcpWorker::postRestart(thread->ckptReadTime);
+    DmtcpWorker::postRestart();
 
     JTRACE("after DmtcpWorker::postRestart()");
 
@@ -758,7 +758,7 @@ ThreadList::waitForAllRestored(Thread *thread)
  *
  *****************************************************************************/
 void
-ThreadList::postRestart(double readTime, int restartPause)
+ThreadList::postRestart(int restartPause)
 {
   // This function and related ones are defined in src/mtcp/restore_libc.c
   TLSInfo_RestoreTLSState(motherofall);
@@ -769,14 +769,14 @@ ThreadList::postRestart(double readTime, int restartPause)
   restartPauseLevel = restartPause;
   DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 2);
 
-  postRestartWork(readTime);
+  postRestartWork();
 }
 
 /*****************************************************************************
  *
  *****************************************************************************/
 void
-ThreadList::postRestartWork(double readTime)
+ThreadList::postRestartWork()
 {
   Thread *thread;
   sigset_t tmp;
@@ -805,8 +805,6 @@ ThreadList::postRestartWork(double readTime)
     if (thread == motherofall) {
       continue;
     }
-
-    thread->ckptReadTime = readTime;
 
     /* Create the thread so it can finish restoring itself. */
     pid_t tid = _real_clone(restarthread,

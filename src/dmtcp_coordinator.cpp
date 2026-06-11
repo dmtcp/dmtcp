@@ -77,7 +77,6 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
-#include "../jalib/jtimer.h"
 #include "constants.h"
 #include "dmtcpmessagetypes.h"
 #include "lookup_service.h"
@@ -185,9 +184,6 @@ static bool killInProgress = false;
 static bool uniqueCkptFilenames = false;
 
 const int STDIN_FD = fileno(stdin);
-
-JTIMER(checkpoint);
-JTIMER(restart);
 
 static int workersAtCurrentBarrier = 0;
 static string currentBarrier;
@@ -592,7 +588,6 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 
     JNOTE("Checkpoint complete. Wrote restart script") (restartScriptPath);
 
-    JTIMER_STOP(checkpoint);
     recordEvent("Ckpt-Complete");
     serializeKVDB();
 
@@ -654,7 +649,6 @@ DmtcpCoordinator::onData(CoordClient *client)
       // A worker is switching from RESTARTING, stop restart timer.
       // Multiple calls are harmless.
       if (prevClientState == WorkerState::RESTARTING) {
-          JTIMER_STOP(restart);
           recordEvent("Restart-Complete");
           serializeKVDB();
           CoordPluginMgr::resumeAfterRestart(s);
@@ -1019,7 +1013,6 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
     curTimeStamp = getCurrTimestamp();
     JNOTE("FIRST restart connection. Set numRestartPeers. Generate timestamp")
       (numRestartPeers) (curTimeStamp) (compId);
-    JTIMER_START(restart);
     recordEvent("Restart-Start");
   } else if (minimumState() != WorkerState::RESTARTING) {
     JNOTE("Computation not in RESTARTING state."
@@ -1191,7 +1184,6 @@ DmtcpCoordinator::startCheckpoint()
       && !workersRunningAndSuspendMsgSent) {
     uniqueCkptFilenames = false;
     time(&ckptTimeStamp);
-    JTIMER_START(checkpoint);
     recordEvent("Ckpt-Start");
     _numRestartFilenames = 0;
     numRestartPeers = -1;

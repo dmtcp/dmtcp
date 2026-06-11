@@ -144,9 +144,6 @@
    backward compatibility; new code need not use it. */
 #undef STDC_HEADERS
 
-/* Record timing information to stderr and jtimings.csv */
-#undef TIMING
-
 /* Use unique filenames for checkpoint images */
 #undef UNIQUE_CHECKPOINT_FILENAMES
 

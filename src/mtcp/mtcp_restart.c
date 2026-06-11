@@ -395,10 +395,6 @@ mtcp_restart(RestoreInfo *rinfo)
   // In GDB, 'set rinfo.restart_pause=2' to continue to next statement.
   MTCP_RESTART_PAUSE_WHILE(rinfo->restart_pause == 1);
 
-#ifdef TIMING
-  mtcp_sys_gettimeofday(&rinfo->startValue, NULL);
-#endif
-
   restore_vdso_vvar(rinfo);
   restore_brk(rinfo);
   restorememoryareas(rinfo);
@@ -565,15 +561,6 @@ restorememoryareas(RestoreInfo *rinfo)
 
   DPRINTF("close cpfd %d\n", rinfo->fd);
   mtcp_sys_close(rinfo->fd);
-  double readTime = 0.0;
-#ifdef TIMING
-  struct timeval endValue;
-  mtcp_sys_gettimeofday(&endValue, NULL);
-  struct timeval diff;
-  timersub(&endValue, &rinfo->startValue, &diff);
-  readTime = diff.tv_sec + (diff.tv_usec / 1000000.0);
-#endif
-
   IMB; /* flush instruction cache, since mtcp_restart.c code is now gone. */
 
   /* System calls and libc library calls should now work. */
@@ -605,7 +592,7 @@ restorememoryareas(RestoreInfo *rinfo)
 
   fnptr_post_restart_t post_restart_fptr =
     (fnptr_post_restart_t) rinfo->ckptHdr.postRestartAddr;
-  post_restart_fptr(readTime, rinfo->restart_pause);
+  post_restart_fptr(rinfo->restart_pause);
   // NOTREACHED
 }
 

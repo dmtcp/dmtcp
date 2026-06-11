@@ -10,12 +10,10 @@
 #include "config.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
-#include "jtimer.h"
 #include "plugininfo.h"
 #include "util.h"
 
 static dmtcp::PluginManager *pluginManager = NULL;
-JTIMER_NOPRINT(ckptWriteTime);
 
 extern LIB_PRIVATE DmtcpPluginDescriptor_t UniqueCkptPlugin;
 extern LIB_PRIVATE DmtcpPluginDescriptor_t sshPlugin;

@@ -53,8 +53,8 @@ void vforkResumeThreads();
 
 void waitForAllRestored(Thread *thisthread);
 void writeCkpt();
-void postRestartWork(double readTime = 0.0);
-void postRestart(double readTime, int restartPause);
+void postRestartWork();
+void postRestart(int restartPause);
 }
 }
 
