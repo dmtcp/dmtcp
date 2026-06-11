@@ -31,7 +31,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "jbuffer.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "connectionlist.h"

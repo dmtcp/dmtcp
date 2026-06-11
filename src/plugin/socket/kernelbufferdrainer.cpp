@@ -21,7 +21,6 @@
 
 #include "kernelbufferdrainer.h"
 #include "../jalib/jassert.h"
-#include "../jalib/jbuffer.h"
 #include "connectionlist.h"
 #include "connectionmessage.h"
 #include "socketwrappers.h"
@@ -337,9 +336,9 @@ KernelBufferDrainer::refillAllSockets()
     JTRACE("repeating buffer back to peer") (size);
     if (size > 0) {
       // echo it back...
-      jalib::JBuffer tmp(size);
-      sock.readAll(tmp, size);
-      sock.writeAll(tmp, size);
+      vector<char> tmp(size);
+      sock.readAll(tmp.data(), tmp.size());
+      sock.writeAll(tmp.data(), tmp.size());
     }
 
     // Reset the send buffer
@@ -385,10 +384,10 @@ KernelBufferDrainer::refillAllSockets()
       uint32_t len32 = 0;
       sock.readAll((char *)&len32, sizeof(len32));
       if (len32 > 0) {
-        jalib::JBuffer tmp(len32);
-        sock.readAll(tmp, len32);
+        vector<char> tmp(len32);
+        sock.readAll(tmp.data(), tmp.size());
         sock.writeAll((const char *)&len32, sizeof(len32));
-        sock.writeAll(tmp, len32);
+        sock.writeAll(tmp.data(), tmp.size());
       } else {
         sock.writeAll((const char *)&len32, sizeof(len32));
       }

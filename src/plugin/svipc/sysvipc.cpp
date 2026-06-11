@@ -1134,8 +1134,10 @@ MsgQueue::preCheckpoint()
     for (size_t i = 0; i < _qnum; i++) {
       ssize_t numBytes = _real_msgrcv(_realId, msgBuf, size, 0, 0);
       JASSERT(numBytes != -1) (_id) (JASSERT_ERRNO);
-      _msgInQueue.push_back(jalib::JBuffer((const char *)msgBuf,
-                                           numBytes + sizeof(msgBuf->mtype)));
+      char *msgData = (char *)msgBuf;
+      // Append msgData to the end of the vector.
+      _msgInQueue.emplace_back(msgData,
+                               msgData + numBytes + sizeof(msgBuf->mtype));
     }
     JASSERT(_msgInQueue.size() == _qnum) (_qnum);
 
@@ -1165,7 +1167,7 @@ MsgQueue::refill()
     JASSERT(_real_msgctl(_realId, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
 
     for (size_t i = 0; i < _qnum; i++) {
-      struct msgbuf *msgBuf = (struct msgbuf*) _msgInQueue[i].buffer();
+      struct msgbuf *msgBuf = (struct msgbuf*) _msgInQueue[i].data();
       size_t msgSize = _msgInQueue[i].size() - sizeof(msgBuf->mtype);
       JASSERT(_real_msgsnd(_realId, msgBuf, msgSize, IPC_NOWAIT) == 0);
     }

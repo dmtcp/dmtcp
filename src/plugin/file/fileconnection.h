@@ -34,7 +34,6 @@
 # include <sys/types.h>
 # include <unistd.h>
 
-# include "jbuffer.h"
 # include "jconvert.h"
 # include "jfilesystem.h"
 
@@ -241,7 +240,7 @@ class PosixMQConnection : public Connection
     int64_t _qnum;
     char _notifyReg;
     struct sigevent _sevp;
-    vector<jalib::JBuffer>_msgInQueue;
+    vector<vector<char> >_msgInQueue;
     vector<uint32_t>_msgInQueuePrio;
 };
 }

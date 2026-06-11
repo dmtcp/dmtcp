@@ -10,8 +10,6 @@
 # include <sys/types.h>
 # include <unistd.h>
 
-# include "jbuffer.h"
-
 # include "connectionlist.h"
 # include "socketconnection.h"
 namespace dmtcp

@@ -35,7 +35,6 @@
 
 #include "jalloc.h"
 #include "jassert.h"
-#include "jbuffer.h"
 #include "jconvert.h"
 #include "jserialize.h"
 #include "dmtcpalloc.h"
@@ -361,7 +360,7 @@ class MsgQueue : public SysVObj
     }
 
   private:
-    vector<jalib::JBuffer>_msgInQueue;
+    vector<vector<char> >_msgInQueue;
     msgqnum_t _qnum;
 };
 }
