@@ -381,7 +381,7 @@ close(int fd)
   WrapperLock wrapperLock;
 
   if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to close protected fd") (fd);
+    TRACE("blocked attempt to close protected fd: fd={}", fd);
     errno = EBADF;
     return -1;
   }
@@ -436,7 +436,7 @@ fclose(FILE *fp)
   int fd = fileno(fp);
 
   if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to fclose protected fd") (fd);
+    TRACE("blocked attempt to fclose protected fd: fd={}", fd);
     errno = EBADF;
     return -1;
   }
@@ -457,7 +457,7 @@ closedir(DIR *dir)
   int fd = dirfd(dir);
 
   if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to closedir protected fd") (fd);
+    TRACE("blocked attempt to closedir protected fd: fd={}", fd);
     errno = EBADF;
     return -1;
   }
@@ -1035,7 +1035,7 @@ extern "C" char *ptsname(int fd)
 {
   /* No need to acquire Wrapper Protection lock since it will be done in
      ptsname_r */
-  JTRACE("ptsname() promoted to ptsname_r()");
+  TRACE("ptsname() promoted to ptsname_r()");
   static char path[PATH_MAX];
 
   if (ptsname_r_work(fd, path, sizeof(path)) != 0) {

@@ -26,6 +26,7 @@
 #include "coordinatorapi.h"
 #include "json.h"
 #include "util.h"
+#include "util_assert.h"
 
 #define BINARY_NAME "dmtcp_command"
 
@@ -173,6 +174,7 @@ main(int argc, char **argv)
       return 1;
     } else if (s == "--json") {
       jsonOutput = true;
+      setLogLevel(LogLevel::Error);
       shift;
     } else if (argc > 1 &&
                (s == "-h" || s == "--coord-host" || s == "--host")) {

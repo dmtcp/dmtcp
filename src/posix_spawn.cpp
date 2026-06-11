@@ -5,6 +5,7 @@
 
 #include "dmtcp.h"
 #include "jassert.h"
+#include "util_assert.h"
 #include "syscallwrappers.h"
 
 #define SPAWN_ERROR 127
@@ -78,7 +79,7 @@ dmtcp_spawn(pid_t *pid,
     for (int sig = 1; sig < _NSIG; ++sig) {
       if (sig != ckptSig && sigismember(&attrp->__sd, sig) != 0 &&
           sigaction(sig, &sa, NULL) != 0) {
-        JTRACE("sigaction failed");
+        TRACE("sigaction failed");
         exit(SPAWN_ERROR);
       }
     }
@@ -86,14 +87,14 @@ dmtcp_spawn(pid_t *pid,
 
   /* Set the process group ID.  */
   if ((flags & POSIX_SPAWN_SETPGROUP) != 0 && setpgid(0, attrp->__pgrp) != 0) {
-    JTRACE("setpgid failed");
+    TRACE("setpgid failed");
     exit(SPAWN_ERROR);
   }
 
   /* Set the effective user and group IDs.  */
   if ((flags & POSIX_SPAWN_RESETIDS) != 0 &&
       (seteuid(getuid()) != 0 || setegid(getgid()) != 0)) {
-    JTRACE("setegid failed");
+    TRACE("setegid failed");
     exit(SPAWN_ERROR);
   }
 
@@ -105,7 +106,7 @@ dmtcp_spawn(pid_t *pid,
       switch (action->tag) {
         case spawn_do_close:
           if (close(action->action.close_action.fd) != 0) {
-            JTRACE("Close failed");
+            TRACE("Close failed");
           }
           break;
 
@@ -116,7 +117,7 @@ dmtcp_spawn(pid_t *pid,
 
           if (new_fd == -1) {
             /* The `open' call failed.  */
-            JTRACE("open failed");
+            TRACE("open failed");
             exit(SPAWN_ERROR);
           }
 
@@ -125,13 +126,13 @@ dmtcp_spawn(pid_t *pid,
             if (dup2(new_fd, action->action.open_action.fd) !=
                 action->action.open_action.fd) {
               /* The `dup2' call failed.  */
-              JTRACE("dup failed");
+              TRACE("dup failed");
               exit(SPAWN_ERROR);
             }
 
             if (close(new_fd) != 0) {
               /* The `close' call failed.  */
-              JTRACE("close failed");
+              TRACE("close failed");
               exit(SPAWN_ERROR);
             }
           }
@@ -142,7 +143,7 @@ dmtcp_spawn(pid_t *pid,
                    action->action.dup2_action.newfd) !=
               action->action.dup2_action.newfd) {
             /* The `dup2' call failed.  */
-            JTRACE("dup2 failed");
+            TRACE("dup2 failed");
             exit(SPAWN_ERROR);
           }
           break;

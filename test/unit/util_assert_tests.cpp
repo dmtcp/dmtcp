@@ -1,3 +1,4 @@
+#define DMTCP_TEST_NO_SHORT_ASSERT_MACROS
 #include "unit_test.h"
 
 #include "util_assert.h"
@@ -40,6 +41,8 @@ copyHookBuffer(int slot, const void *buf, size_t count)
 void
 resetHook()
 {
+  dmtcp::setLogLevel(dmtcp::LogLevel::Note);
+  dmtcp::setLogOverrides("");
   hookCallCount = 0;
   hookFd = -1;
   hookBuffer[0] = '\0';
@@ -77,6 +80,13 @@ returnZeroAndCount(int *calls)
 {
   ++(*calls);
   return 0;
+}
+
+int
+incrementAndReturn(int *calls)
+{
+  ++(*calls);
+  return *calls;
 }
 
 } // namespace
@@ -241,7 +251,7 @@ void diagnosticIncludesLocationAndMessage()
   dmtcp::AssertBuffer buffer(storage, sizeof(storage));
 
   dmtcp::formatDiagnostic(buffer,
-                          dmtcp::AssertSeverity::Warning,
+                          dmtcp::LogLevel::Warn,
                           "x > 0",
                           "file.cpp",
                           42,
@@ -260,7 +270,7 @@ void diagnosticIncludesErrno()
   dmtcp::AssertBuffer buffer(storage, sizeof(storage));
 
   dmtcp::formatDiagnosticWithErrno(buffer,
-                                   dmtcp::AssertSeverity::Warning,
+                                   dmtcp::LogLevel::Warn,
                                    "fd >= 0",
                                    "file.cpp",
                                    42,
@@ -281,7 +291,7 @@ void diagnosticTruncationIncludesMarker()
   dmtcp::AssertBuffer buffer(storage, sizeof(storage));
 
   dmtcp::formatDiagnostic(buffer,
-                          dmtcp::AssertSeverity::Warning,
+                          dmtcp::LogLevel::Warn,
                           "x > 0",
                           "file.cpp",
                           42,
@@ -341,6 +351,18 @@ void warningDoesNotEvaluateMessageArgsWhenConditionPasses()
   UNIT_ASSERT_EQ(hookCallCount, 0);
 }
 
+void warningDoesNotEvaluateMessageArgsWhenLogLevelDisabled()
+{
+  resetHook();
+  int calls = 0;
+  dmtcp::setLogLevel(dmtcp::LogLevel::Error);
+
+  WARN(false, "arg={}", incrementAndReturn(&calls));
+
+  UNIT_ASSERT_EQ(calls, 0);
+  UNIT_ASSERT_EQ(hookCallCount, 0);
+}
+
 void warningErrnoUsesSavedErrnoAcrossMessageArgs()
 {
   resetHook();
@@ -374,13 +396,13 @@ void convenienceAssertMacrosPassWithoutWriting()
   ASSERT_LOCK_SUCCESS(0);
   ASSERT_PTHREAD_SUCCESS(0);
   ASSERT_ZERO(0);
-  ASSERT_SYSCALL_SUCCESS(0);
-  ASSERT_SYSCALL_EQ(3, 3);
+  ASSERT_NE(-1, 0);
+  ASSERT_EQ(3, 3);
   WARN_LOCK_SUCCESS(0);
   WARN_PTHREAD_SUCCESS(0);
   WARN_ZERO(0);
-  WARN_SYSCALL_SUCCESS(0);
-  WARN_SYSCALL_EQ(4, 4);
+  WARN_NE(-1, 0);
+  WARN_EQ(4, 4);
   ASSERT_NOT_NULL(ptr);
   ASSERT_NOT_NULL(ptr, "ptr context={}", "ok");
   ASSERT_NULL(nullPtr);
@@ -406,8 +428,8 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
   ASSERT_LOCK_SUCCESS(returnZeroAndCount(&successCalls));
   ASSERT_PTHREAD_SUCCESS(returnZeroAndCount(&successCalls));
   ASSERT_ZERO(returnZeroAndCount(&successCalls));
-  ASSERT_SYSCALL_SUCCESS(returnZeroAndCount(&successCalls));
-  ASSERT_SYSCALL_EQ(0, returnZeroAndCount(&successCalls));
+  ASSERT_NE(-1, returnZeroAndCount(&successCalls));
+  ASSERT_EQ(0, returnZeroAndCount(&successCalls));
 
   UNIT_ASSERT_EQ(lhs, 1);
   UNIT_ASSERT_EQ(ptrCalls, 1);
@@ -575,9 +597,9 @@ void warningZeroReturnMessageReportsExtraContext()
   resetHook();
 
   WARN_ZERO(setErrnoAndReturn(EINVAL, EIO),
-                          "fd={} path={}",
-                          9,
-                          "/dev/ptmx");
+            "fd={} path={}",
+            9,
+            "/dev/ptmx");
 
   UNIT_ASSERT_EQ(hookCallCount, 1);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
@@ -591,208 +613,14 @@ void warningZeroReturnMessageReportsExtraContext()
                    nullptr);
 }
 
-void warningSyscallSuccessReportsExpressionReturnValueAndErrno()
-{
-  resetHook();
-  errno = 0;
-
-  WARN_SYSCALL_SUCCESS(setErrnoAndReturn(-1, EACCES));
-
-  UNIT_ASSERT_EQ(errno, EACCES);
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "expected -1 != setErrnoAndReturn(") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "got -1 and -1") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=13") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "EACCES") != nullptr);
-}
-
-void warningSyscallSuccessMessageReportsExtraContext()
-{
-  resetHook();
-  errno = 0;
-
-  WARN_SYSCALL_SUCCESS(setErrnoAndReturn(-1, EACCES),
-                              "fd={} path={}",
-                              9,
-                              "/tmp/missing");
-
-  UNIT_ASSERT_EQ(errno, EACCES);
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "expected -1 != setErrnoAndReturn(") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "got -1 and -1") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "fd=9 path=/tmp/missing") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=13") != nullptr);
-}
-
-void warningSyscallEqReportsExpressionReturnValueAndErrno()
-{
-  resetHook();
-  errno = 0;
-
-  WARN_SYSCALL_EQ(7, setErrnoAndReturn(-1, EACCES));
-
-  UNIT_ASSERT_EQ(errno, EACCES);
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "expected 7 == setErrnoAndReturn(") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "got 7 and -1") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=13") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "EACCES") != nullptr);
-}
-
-void warningSyscallEqMessageReportsExtraContext()
-{
-  resetHook();
-  errno = 0;
-
-  WARN_SYSCALL_EQ(9,
-                         setErrnoAndReturn(4, EIO),
-                         "fd={} path={}",
-                         5,
-                         "/tmp/short");
-
-  UNIT_ASSERT_EQ(errno, EIO);
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "expected 9 == setErrnoAndReturn(") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "got 9 and 4") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "fd=5 path=/tmp/short") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=5") != nullptr);
-}
-
-void warningValidFdReportsExpressionAndReturnValue()
-{
-  resetHook();
-
-  errno = 0;
-  WARN_VALID_FD(setErrnoAndReturn(-1, EBADF));
-
-  UNIT_ASSERT_EQ(errno, EBADF);
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "expected setErrnoAndReturn(") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               ">= 0") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "got -1 and 0") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=9") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "EBADF") != nullptr);
-}
-
-void warningValidFdMessageReportsExtraContext()
-{
-  resetHook();
-
-  errno = 0;
-  WARN_VALID_FD(setErrnoAndReturn(-1, EBADF),
-                       "path={}",
-                       "/tmp/ckpt.dmtcp");
-
-  UNIT_ASSERT_EQ(errno, EBADF);
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "expected setErrnoAndReturn(") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               ">= 0") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "got -1 and 0") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "path=/tmp/ckpt.dmtcp") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=9") != nullptr);
-}
-
-void validFdMacrosEvaluateExpressionOnce()
-{
-  int calls = 0;
-
-  ASSERT_VALID_FD(returnZeroAndCount(&calls));
-  WARN_VALID_FD(returnZeroAndCount(&calls));
-
-  UNIT_ASSERT_EQ(calls, 2);
-}
-
-void warningForkSuccessReportsExpressionReturnValueAndErrno()
-{
-  resetHook();
-
-  errno = 0;
-  WARN_FORK_SUCCESS(setErrnoAndReturn(-1, EAGAIN));
-
-  UNIT_ASSERT_EQ(errno, EAGAIN);
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "expected setErrnoAndReturn(") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               ">= 0") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "got -1 and 0") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=11") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "EAGAIN") != nullptr);
-}
-
-void warningForkSuccessMessageReportsExtraContext()
-{
-  resetHook();
-
-  errno = 0;
-  WARN_FORK_SUCCESS(setErrnoAndReturn(-1, EAGAIN),
-                           "phase={}",
-                           "checkpoint");
-
-  UNIT_ASSERT_EQ(errno, EAGAIN);
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "expected setErrnoAndReturn(") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               ">= 0") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "got -1 and 0") !=
-                   nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "phase=checkpoint") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=11") != nullptr);
-}
-
-void forkSuccessMacrosEvaluateExpressionOnce()
-{
-  int calls = 0;
-
-  ASSERT_FORK_SUCCESS(returnZeroAndCount(&calls));
-  WARN_FORK_SUCCESS(returnZeroAndCount(&calls));
-
-  UNIT_ASSERT_EQ(calls, 2);
-}
-
 void warningPthreadSuccessMessageReportsExtraContext()
 {
   resetHook();
 
   WARN_PTHREAD_SUCCESS(setErrnoAndReturn(EINVAL, EIO),
-                              "tid={} signal={}",
-                              123,
-                              9);
+                       "tid={} signal={}",
+                       123,
+                       9);
 
   UNIT_ASSERT_EQ(hookCallCount, 1);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
@@ -804,6 +632,126 @@ void warningPthreadSuccessMessageReportsExtraContext()
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
                                "tid=123 signal=9") !=
                    nullptr);
+}
+
+void logLevelOrderingMatchesRuntimePolicy()
+{
+  UNIT_ASSERT_TRUE(static_cast<int>(dmtcp::LogLevel::Error) <
+                   static_cast<int>(dmtcp::LogLevel::Warn));
+  UNIT_ASSERT_TRUE(static_cast<int>(dmtcp::LogLevel::Warn) <
+                   static_cast<int>(dmtcp::LogLevel::Note));
+  UNIT_ASSERT_TRUE(static_cast<int>(dmtcp::LogLevel::Note) <
+                   static_cast<int>(dmtcp::LogLevel::Trace));
+}
+
+void parseLogLevelAcceptsNamesAndNumbers()
+{
+  dmtcp::LogLevel level = dmtcp::LogLevel::Error;
+
+  UNIT_ASSERT_TRUE(dmtcp::parseLogLevel("trace", &level));
+  UNIT_ASSERT_EQ(static_cast<int>(level),
+                 static_cast<int>(dmtcp::LogLevel::Trace));
+  UNIT_ASSERT_TRUE(dmtcp::parseLogLevel("warning", &level));
+  UNIT_ASSERT_EQ(static_cast<int>(level),
+                 static_cast<int>(dmtcp::LogLevel::Warn));
+  UNIT_ASSERT_TRUE(dmtcp::parseLogLevel("2", &level));
+  UNIT_ASSERT_EQ(static_cast<int>(level),
+                 static_cast<int>(dmtcp::LogLevel::Note));
+  UNIT_ASSERT_TRUE(!dmtcp::parseLogLevel("verbose", &level));
+}
+
+void noteRespectsLogLevelAndPreservesErrno()
+{
+  resetHook();
+  dmtcp::setLogLevel(dmtcp::LogLevel::Note);
+  errno = EACCES;
+
+  NOTE("note value={}", 17);
+
+  UNIT_ASSERT_EQ(errno, EACCES);
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "NOTE") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "note value=17") != nullptr);
+}
+
+void noteDoesNotEvaluateArgsWhenDisabled()
+{
+  resetHook();
+  int calls = 0;
+  dmtcp::setLogLevel(dmtcp::LogLevel::Warn);
+
+  NOTE("calls={}", incrementAndReturn(&calls));
+
+  UNIT_ASSERT_EQ(calls, 0);
+  UNIT_ASSERT_EQ(hookCallCount, 0);
+}
+
+void traceDoesNotEvaluateArgsWhenDisabled()
+{
+  resetHook();
+  int calls = 0;
+  dmtcp::setLogLevel(dmtcp::LogLevel::Note);
+
+  TRACE("calls={}", incrementAndReturn(&calls));
+
+  UNIT_ASSERT_EQ(calls, 0);
+  UNIT_ASSERT_EQ(hookCallCount, 0);
+}
+
+void traceLogsWhenEnabled()
+{
+  resetHook();
+  int calls = 0;
+  dmtcp::setLogLevel(dmtcp::LogLevel::Trace);
+
+  TRACE("trace calls={}", incrementAndReturn(&calls));
+
+  UNIT_ASSERT_EQ(calls, 1);
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "TRACE") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "trace calls=1") != nullptr);
+}
+
+void traceSupportsFormattedValues()
+{
+  resetHook();
+  int fd = 7;
+  dmtcp::setLogLevel(dmtcp::LogLevel::Trace);
+
+  TRACE("formatted trace fd={}", fd);
+
+  UNIT_ASSERT_EQ(hookCallCount, 1);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "formatted trace fd=7") !=
+                   nullptr);
+}
+
+void componentOverrideEnablesTraceForMatchingComponent()
+{
+  resetHook();
+  dmtcp::setLogLevel(dmtcp::LogLevel::Warn);
+  UNIT_ASSERT_TRUE(dmtcp::setLogOverrides("pid=trace;socket=error"));
+
+  UNIT_ASSERT_TRUE(dmtcp::logEnabled(dmtcp::LogLevel::Trace,
+                                     "pid",
+                                     "src/plugin/pid/pid.cpp"));
+  UNIT_ASSERT_TRUE(!dmtcp::logEnabled(dmtcp::LogLevel::Trace,
+                                      "socket",
+                                      "src/plugin/socket/socketwrappers.cpp"));
+}
+
+void fileOverrideBeatsComponentOverride()
+{
+  resetHook();
+  dmtcp::setLogLevel(dmtcp::LogLevel::Warn);
+  UNIT_ASSERT_TRUE(dmtcp::setLogOverrides(
+    "pid=error;file:src/plugin/pid/pid.cpp=trace"));
+
+  UNIT_ASSERT_TRUE(dmtcp::logEnabled(dmtcp::LogLevel::Trace,
+                                     "pid",
+                                     "/build/src/plugin/pid/pid.cpp"));
+  UNIT_ASSERT_TRUE(!dmtcp::logEnabled(dmtcp::LogLevel::Trace,
+                                      "pid",
+                                      "/build/src/plugin/pid/pidwrappers.cpp"));
 }
 
 void assertFailureExitsWithRawFailureCode()
@@ -870,6 +818,8 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    warningReentryKeepsOuterDiagnosticStable},
   {"warning skips message args when condition passes",
    warningDoesNotEvaluateMessageArgsWhenConditionPasses},
+  {"warning skips message args when log level disabled",
+   warningDoesNotEvaluateMessageArgsWhenLogLevelDisabled},
   {"warning errno uses saved errno across message args",
    warningErrnoUsesSavedErrnoAcrossMessageArgs},
   {"convenience assert macros pass without writing",
@@ -894,28 +844,21 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    warningZeroReturnReportsExpressionAndReturnValue},
   {"warning zero-return message reports extra context",
    warningZeroReturnMessageReportsExtraContext},
-  {"warning syscall-success reports expression return value and errno",
-   warningSyscallSuccessReportsExpressionReturnValueAndErrno},
-  {"warning syscall-success message reports extra context",
-   warningSyscallSuccessMessageReportsExtraContext},
-  {"warning syscall-eq reports expression return value and errno",
-   warningSyscallEqReportsExpressionReturnValueAndErrno},
-  {"warning syscall-eq message reports extra context",
-   warningSyscallEqMessageReportsExtraContext},
-  {"warning valid-fd reports expression and return value",
-   warningValidFdReportsExpressionAndReturnValue},
-  {"warning valid-fd message reports extra context",
-   warningValidFdMessageReportsExtraContext},
-  {"valid-fd macros evaluate expression once",
-   validFdMacrosEvaluateExpressionOnce},
-  {"warning fork-success reports expression return value and errno",
-   warningForkSuccessReportsExpressionReturnValueAndErrno},
-  {"warning fork-success message reports extra context",
-   warningForkSuccessMessageReportsExtraContext},
-  {"fork-success macros evaluate expression once",
-   forkSuccessMacrosEvaluateExpressionOnce},
   {"warning pthread success message reports extra context",
    warningPthreadSuccessMessageReportsExtraContext},
+  {"LogLevel ordering matches runtime policy",
+   logLevelOrderingMatchesRuntimePolicy},
+  {"parseLogLevel accepts names and numbers",
+   parseLogLevelAcceptsNamesAndNumbers},
+  {"NOTE respects log level and preserves errno",
+   noteRespectsLogLevelAndPreservesErrno},
+  {"NOTE skips args when disabled", noteDoesNotEvaluateArgsWhenDisabled},
+  {"TRACE skips args when disabled", traceDoesNotEvaluateArgsWhenDisabled},
+  {"TRACE logs when enabled", traceLogsWhenEnabled},
+  {"TRACE supports formatted values", traceSupportsFormattedValues},
+  {"component override enables trace for matching component",
+   componentOverrideEnablesTraceForMatchingComponent},
+  {"file override beats component override", fileOverrideBeatsComponentOverride},
   {"assert failure exits with raw failure code",
    assertFailureExitsWithRawFailureCode},
   {"assert failure uses raw exit path", assertFailureUsesRawExitPath},

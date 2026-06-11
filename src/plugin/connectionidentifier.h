@@ -31,6 +31,8 @@
 
 namespace dmtcp
 {
+class AssertBuffer;
+
 class ConnectionIdentifier
 {
   public:
@@ -68,6 +70,7 @@ class ConnectionIdentifier
     bool isNull() const { return _id < 0; }
 
     string toString() const;
+    void appendTo(AssertBuffer& buffer) const;
 
     bool operator==(const ConnectionIdentifier &that) const;
     bool operator<(const ConnectionIdentifier &that) const;

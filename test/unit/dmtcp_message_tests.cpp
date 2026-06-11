@@ -1,12 +1,6 @@
 #include "dmtcpmessagetypes.h"
 #include "json.h"
 
-#undef ASSERT_EQ
-#undef ASSERT_NE
-#undef ASSERT_LT
-#undef ASSERT_NULL
-#undef ASSERT_NOT_NULL
-
 #include "unit_test.h"
 
 #include <cstdint>

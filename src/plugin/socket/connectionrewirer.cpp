@@ -49,8 +49,8 @@ markSocketNonBlocking(int sockfd)
   // Remove O_NONBLOCK flag from listener socket
   int flags = _real_fcntl(sockfd, F_GETFL, NULL);
 
-  ASSERT_SYSCALL_SUCCESS(flags, "fcntl(F_GETFL) failed: fd={}", sockfd);
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1, flags, "fcntl(F_GETFL) failed: fd={}", sockfd);
+  ASSERT_NE(-1,
     _real_fcntl(sockfd, F_SETFL, (void *)(long)(flags | O_NONBLOCK)),
     "fcntl(F_SETFL, O_NONBLOCK) failed: fd={} flags={}", sockfd,
     flags | O_NONBLOCK);
@@ -62,8 +62,8 @@ markSocketBlocking(int sockfd)
   // Remove O_NONBLOCK flag from listener socket
   int flags = _real_fcntl(sockfd, F_GETFL, NULL);
 
-  ASSERT_SYSCALL_SUCCESS(flags, "fcntl(F_GETFL) failed: fd={}", sockfd);
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1, flags, "fcntl(F_GETFL) failed: fd={}", sockfd);
+  ASSERT_NE(-1,
     _real_fcntl(sockfd, F_SETFL, (void *)(long)(flags & ~O_NONBLOCK)),
     "fcntl(F_SETFL, blocking) failed: fd={} flags={}", sockfd,
     flags & ~O_NONBLOCK);
@@ -101,7 +101,7 @@ ConnectionRewirer::checkForPendingIncoming(int restoreSockFd,
     if (fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
       return;
     }
-    ASSERT_VALID_FD(fd, "Accept failed: restore_fd={}", restoreSockFd);
+    ASSERT_NE(-1, fd, "Accept failed: restore_fd={}", restoreSockFd);
     ConnectionIdentifier id;
     ASSERT(Util::readAll(fd, &id, sizeof id) == sizeof id,
            "failed to read incoming restore identifier: fd={} expected={}", fd,
@@ -115,7 +115,7 @@ ConnectionRewirer::checkForPendingIncoming(int restoreSockFd,
 
     (i->second)->restoreDupFds(fd);
 
-    JTRACE("restoring incoming connection") (id);
+    TRACE("restoring incoming connection (id = {};)", id);
     conList->erase(i);
   }
 }
@@ -131,7 +131,7 @@ ConnectionRewirer::doReconnect()
     struct RemoteAddr &remoteAddr = _remoteInfo[id];
     int fd = con->getFds()[0];
     errno = 0;
-    ASSERT_SYSCALL_SUCCESS(_real_connect(fd, (sockaddr *)&remoteAddr.addr, remoteAddr.len),
+    ASSERT_NE(-1, _real_connect(fd, (sockaddr *)&remoteAddr.addr, remoteAddr.len),
       "failed to restore connection: fd={} host={} pid={} time={} con_id={}",
       fd, id.hostid(), id.pid(), id.time(), id.conId());
 
@@ -175,7 +175,7 @@ ConnectionRewirer::doReconnect()
                             &_pendingUDSSeqIncoming);
     _real_close(PROTECTED_RESTORE_UDS_SEQ_SOCK_FD);
   }
-  JTRACE("Closed restore sockets");
+  TRACE("Closed restore sockets");
 }
 
 void
@@ -211,36 +211,35 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     _ip4RestoreAddr.sin_port = htons(restoreSocket.port());
     _ip4RestoreAddrlen = sizeof(_ip4RestoreAddr);
 
-    JTRACE("opened listen socket") (restoreSocket.sockfd())
-      (inet_ntoa(_ip4RestoreAddr.sin_addr)) (ntohs(_ip4RestoreAddr.sin_port));
+    TRACE("opened listen socket (restoreSocket.sockfd() = {};) (inet_ntoa(_ip4RestoreAddr.sin_addr) = {};) (ntohs(_ip4RestoreAddr.sin_port) = {};)", restoreSocket.sockfd(), inet_ntoa(_ip4RestoreAddr.sin_addr), ntohs(_ip4RestoreAddr.sin_port));
     markSocketNonBlocking(PROTECTED_RESTORE_IP4_SOCK_FD);
   }
 
   // Open IP6 Restore Socket
   if (hasIPv6Sock) {
     int ip6fd = _real_socket(AF_INET6, SOCK_STREAM, 0);
-    ASSERT_VALID_FD(ip6fd, "failed to create IPv6 restore socket");
+    ASSERT_NE(-1, ip6fd, "failed to create IPv6 restore socket");
 
     _ip6RestoreAddr.sin6_family = AF_INET6;
     _ip6RestoreAddr.sin6_port = 0;
     _ip6RestoreAddr.sin6_addr = in6addr_any;
     _ip6RestoreAddrlen = sizeof(_ip6RestoreAddr);
-    ASSERT_SYSCALL_SUCCESS(_real_bind(ip6fd,
+    ASSERT_NE(-1, _real_bind(ip6fd,
                                           (struct sockaddr *)&_ip6RestoreAddr,
                                           _ip6RestoreAddrlen),
                                "failed to bind IPv6 restore socket: fd={}",
                                ip6fd);
-    ASSERT_SYSCALL_SUCCESS(getsockname(ip6fd,
+    ASSERT_NE(-1, getsockname(ip6fd,
                                            (struct sockaddr *)&_ip6RestoreAddr,
                                            &_ip6RestoreAddrlen),
                                "getsockname failed for IPv6 restore socket: "
                                "fd={}",
                                ip6fd);
-    ASSERT_SYSCALL_SUCCESS(_real_listen(ip6fd, 32),
+    ASSERT_NE(-1, _real_listen(ip6fd, 32),
                  "listen failed for IPv6 restore socket: fd={}", ip6fd);
     Util::changeFd(ip6fd, PROTECTED_RESTORE_IP6_SOCK_FD);
 
-    JTRACE("opened ip6 listen socket") (PROTECTED_RESTORE_IP6_SOCK_FD);
+    TRACE("opened ip6 listen socket (PROTECTED_RESTORE_IP6_SOCK_FD = {};)", PROTECTED_RESTORE_IP6_SOCK_FD);
     markSocketNonBlocking(PROTECTED_RESTORE_IP6_SOCK_FD);
   }
 
@@ -252,27 +251,26 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     o << dmtcp_get_uniquepid_str() << "_" << dmtcp_get_coordinator_timestamp() << "_" << _udsRestoreAddr.sun_path;
     string str = o.str();
     int udsfd = _real_socket(AF_UNIX, SOCK_STREAM, 0);
-    ASSERT_VALID_FD(udsfd, "failed to create UDS restore socket");
+    ASSERT_NE(-1, udsfd, "failed to create UDS restore socket");
     memset(&_udsRestoreAddr, 0, sizeof(struct sockaddr_un));
     _udsRestoreAddr.sun_family = AF_UNIX;
     strncpy(&_udsRestoreAddr.sun_path[1], str.c_str(), str.length());
     _udsRestoreAddrlen = sizeof(sa_family_t) + str.length() + 1;
-    ASSERT_SYSCALL_SUCCESS(_real_bind(udsfd,
+    ASSERT_NE(-1, _real_bind(udsfd,
                                           (struct sockaddr *)&_udsRestoreAddr,
                                           _udsRestoreAddrlen),
                                "failed to bind UDS restore socket: fd={}",
                                udsfd);
-    ASSERT_SYSCALL_SUCCESS(_real_listen(udsfd, 32),
+    ASSERT_NE(-1, _real_listen(udsfd, 32),
                  "listen failed for UDS restore socket: fd={}", udsfd);
     Util::changeFd(udsfd, PROTECTED_RESTORE_UDS_SOCK_FD);
 
-    JTRACE("opened UDS listen socket")
-      (PROTECTED_RESTORE_UDS_SOCK_FD) (&_udsRestoreAddr.sun_path[1]);
+    TRACE("opened UDS listen socket (PROTECTED_RESTORE_UDS_SOCK_FD = {};) (&_udsRestoreAddr.sun_path[1] = {};)", PROTECTED_RESTORE_UDS_SOCK_FD, &_udsRestoreAddr.sun_path[1]);
     markSocketNonBlocking(PROTECTED_RESTORE_UDS_SOCK_FD);
 
     // Also open a seqpacket listener for AF_UNIX SOCK_SEQPACKET reconnections
     int udsseqfd = _real_socket(AF_UNIX, SOCK_SEQPACKET, 0);
-    ASSERT_VALID_FD(udsseqfd,
+    ASSERT_NE(-1, udsseqfd,
                         "failed to create UDS seqpacket restore socket");
     memset(&_udsSeqRestoreAddr, 0, sizeof(struct sockaddr_un));
     _udsSeqRestoreAddr.sun_family = AF_UNIX;
@@ -284,19 +282,18 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     string strSeq = o2.str();
     strncpy(&_udsSeqRestoreAddr.sun_path[1], strSeq.c_str(), strSeq.length());
     _udsSeqRestoreAddrlen = sizeof(sa_family_t) + strSeq.length() + 1;
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       _real_bind(udsseqfd,
                  (struct sockaddr *)&_udsSeqRestoreAddr,
                  _udsSeqRestoreAddrlen),
       "failed to bind UDS seqpacket restore socket: fd={}",
       udsseqfd);
-    ASSERT_SYSCALL_SUCCESS(_real_listen(udsseqfd, 32),
+    ASSERT_NE(-1, _real_listen(udsseqfd, 32),
                  "listen failed for UDS seqpacket restore socket: fd={}",
                  udsseqfd);
     Util::changeFd(udsseqfd, PROTECTED_RESTORE_UDS_SEQ_SOCK_FD);
 
-    JTRACE("opened UDS SEQPACKET listen socket")
-      (PROTECTED_RESTORE_UDS_SEQ_SOCK_FD) (&_udsSeqRestoreAddr.sun_path[1]);
+    TRACE("opened UDS SEQPACKET listen socket (PROTECTED_RESTORE_UDS_SEQ_SOCK_FD = {};) (&_udsSeqRestoreAddr.sun_path[1] = {};)", PROTECTED_RESTORE_UDS_SEQ_SOCK_FD, &_udsSeqRestoreAddr.sun_path[1]);
     markSocketNonBlocking(PROTECTED_RESTORE_UDS_SEQ_SOCK_FD);
   }
 }
@@ -330,7 +327,7 @@ ConnectionRewirer::registerIncoming(const ConnectionIdentifier &local,
     ASSERT(false, "Unsupported incoming connection domain: domain={}", domain);
   }
 
-  JTRACE("announcing pending incoming") (local);
+  TRACE("announcing pending incoming (local = {};)", local);
 }
 
 void
@@ -338,7 +335,7 @@ ConnectionRewirer::registerOutgoing(const ConnectionIdentifier &remote,
                                     Connection *con)
 {
   _pendingOutgoing[remote] = con;
-  JTRACE("announcing pending outgoing") (remote);
+  TRACE("announcing pending outgoing (remote = {};)", remote);
 }
 
 void
@@ -371,7 +368,7 @@ ConnectionRewirer::registerNSData(void *addr,
     sockaddr_in *sn = (sockaddr_in*) &_restoreAddr;
     unsigned short port = htons(sn->sin_port);
     char *ip = inet_ntoa(sn->sin_addr);
-    JTRACE("Send NS information:")(id)(sn->sin_family)(port)(ip);
+    TRACE("Send NS information: (id = {};) (sn->sin_family = {};) (port = {};) (ip = {};)", id, sn->sin_family, port, ip);
     */
   }
 
@@ -410,7 +407,7 @@ ConnectionRewirer::sendQueries()
     sockaddr_in *sn = (sockaddr_in*) &remote.addr;
     unsigned short port = htons(sn->sin_port);
     char *ip = inet_ntoa(sn->sin_addr);
-    JTRACE("Send Queries. Get remote from coordinator:")(id)(sn->sin_family)(port)(ip);
+    TRACE("Send Queries. Get remote from coordinator: (id = {};) (sn->sin_family = {};) (port = {};) (ip = {};)", id, sn->sin_family, port, ip);
     */
     _remoteInfo[id] = remote;
   }
@@ -420,7 +417,6 @@ ConnectionRewirer::sendQueries()
 void
 ConnectionRewirer::debugPrint() const
 {
-# ifdef LOGGING
   ostringstream o;
   o << "Pending Incoming:\n";
   const_iterator i;
@@ -435,7 +431,6 @@ ConnectionRewirer::debugPrint() const
     o << i->first << " numFds=" << con->getFds().size()
       << " firstFd=" << con->getFds()[0] << '\n';
   }
-  JNOTE("Pending connections") (o.str());
-# endif // ifdef LOGGING
+  NOTE("Pending connections (o.str() = {};)", o.str());
 }
 #endif // if 0

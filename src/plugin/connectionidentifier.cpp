@@ -104,6 +104,19 @@ string ConnectionIdentifier::toString() const
   return o.str();
 }
 
+void
+ConnectionIdentifier::appendTo(AssertBuffer& buffer) const
+{
+  buffer.appendHex(hostid());
+  buffer.append("-");
+  buffer.append(pid());
+  buffer.append("-");
+  buffer.appendHex(time());
+  buffer.append("(");
+  buffer.append(conId());
+  buffer.append(")");
+}
+
 ostream&
 dmtcp::operator<<(ostream &o, const ConnectionIdentifier &id)
 {

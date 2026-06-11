@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include "connection.h"
 #include "connectionlist.h"
+#include "util_assert.h"
 
 #ifdef HAVE_SYS_INOTIFY_H
 #include <sys/inotify.h>
@@ -76,7 +77,7 @@ class EpollConnection : public Connection
       _size(size),
       _flags(flags)
     {
-      JTRACE("new epoll connection created");
+      TRACE("new epoll connection created");
     }
 
     virtual void drain() override;
@@ -109,7 +110,7 @@ class EventFdConnection : public Connection
       _initval(initval),
       _flags(flags)
     {
-      JTRACE("new eventfd connection created");
+      TRACE("new eventfd connection created");
     }
 
     virtual void drain() override;
@@ -178,7 +179,7 @@ class InotifyConnection : public Connection
       _flags(flags),
       _state(INOTIFY_CREATE)
     {
-      JTRACE("new inotify connection created");
+      TRACE("new inotify connection created");
     }
 
     int inotifyState() const { return (int)_state; }

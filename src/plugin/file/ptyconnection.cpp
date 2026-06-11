@@ -92,7 +92,7 @@ ptmxTestPacketMode(int masterFd)
      see command byte of TIOCPKT_DATA(0) with data. */
   tmp_buf[0] = 'x'; /* Don't set '\n'.  Could be converted to "\r\n". */
   /* Give the masterFd something to read. */
-  WARN_SYSCALL_EQ(static_cast<ssize_t>(1),
+  WARN_EQ(static_cast<ssize_t>(1),
                          rc = write(slave_fd, tmp_buf, 1),
                          "write failed while testing PTY packet mode: fd={}",
                          slave_fd);
@@ -236,7 +236,7 @@ PtyConnection::PtyConnection(int fd,
       SharedData::createVirtualPtyName(path, buf, sizeof(buf));
     }
     _virtPtsName = buf;
-    JTRACE("creating CTTY connection") (_ptsName) (_virtPtsName);
+    TRACE("creating CTTY connection (_ptsName = {};) (_virtPtsName = {};)", _ptsName, _virtPtsName);
 
     break;
 
@@ -259,7 +259,7 @@ PtyConnection::PtyConnection(int fd,
     // Generate new Unique buf
     SharedData::createVirtualPtyName(_ptsName.c_str(), buf, sizeof(buf));
     _virtPtsName = buf;
-    JTRACE("creating ptmx connection") (_ptsName) (_virtPtsName);
+    TRACE("creating ptmx connection (_ptsName = {};) (_virtPtsName = {};)", _ptsName, _virtPtsName);
     break;
 
   case PTY_SLAVE:
@@ -267,7 +267,7 @@ PtyConnection::PtyConnection(int fd,
     SharedData::getVirtPtyName(path, buf, sizeof(buf));
     _virtPtsName = buf;
     ASSERT(strlen(buf) != 0, "missing virtual PTY name: path={}", path);
-    JTRACE("creating pts connection") (_ptsName) (_virtPtsName);
+    TRACE("creating pts connection (_ptsName = {};) (_virtPtsName = {};)", _ptsName, _virtPtsName);
     break;
 
   case PTY_BSD_MASTER:
@@ -310,7 +310,7 @@ PtyConnection::drain()
     // _fds[0] is master fd
     numRead = ptmxReadAll(_fds[0], buf, maxCount);
     _ptmxIsPacketMode = ptmxTestPacketMode(_fds[0]);
-    JTRACE("_fds[0] is master(/dev/ptmx)") (_fds[0]) (_ptmxIsPacketMode);
+    TRACE("_fds[0] is master(/dev/ptmx) (_fds[0] = {};) (_ptmxIsPacketMode = {};)", _fds[0], _ptmxIsPacketMode);
     numWritten = ptmxWriteAll(_fds[0], buf, _ptmxIsPacketMode);
     ASSERT(numRead == numWritten,
            "PTY drain/read-back mismatch: read={} written={}", numRead,
@@ -334,7 +334,8 @@ PtyConnection::refill(bool isRestart)
 
   if (_type == PTY_SLAVE || _type == PTY_BSD_SLAVE) {
     ASSERT(_ptsName != "?", "invalid PTY slave name");
-    JTRACE("Restoring PTY slave") (_fds[0]) (_ptsName) (_virtPtsName);
+    TRACE("Restoring PTY slave: fd={} pts={} virt_pts={}",
+          _fds[0], _ptsName, _virtPtsName);
     if (_type == PTY_SLAVE) {
       char buf[32];
       SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
@@ -350,10 +351,10 @@ PtyConnection::refill(bool isRestart)
      */
     int extraFlags = 0; // _isControllingTTY ? 0 : O_NOCTTY;
     int tempfd = _real_open(_ptsName.c_str(), _fcntlFlags | extraFlags);
-    ASSERT_VALID_FD(tempfd, "Error Opening PTS: virt={} pts={}",
+    ASSERT_NE(-1, tempfd, "Error Opening PTS: virt={} pts={}",
                         _virtPtsName, _ptsName);
 
-    JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
+    TRACE("Restoring PTS real (_ptsName = {};) (_virtPtsName = {};) (_fds[0] = {};)", _ptsName, _virtPtsName, _fds[0]);
     restoreDupFds(tempfd);
   }
 
@@ -364,10 +365,10 @@ PtyConnection::refill(bool isRestart)
      * into the refill mode, we should have all the pseudo-ttys present.
      */
     int tempfd = _real_open("/dev/tty", O_RDWR, 0);
-    ASSERT_VALID_FD(tempfd,
+    ASSERT_NE(-1, tempfd,
                         "Error opening controlling terminal /dev/tty");
 
-    JTRACE("Restoring /dev/tty for the process") (_fds[0]);
+    TRACE("Restoring /dev/tty for the process (_fds[0] = {};)", _fds[0]);
     _ptsName = _virtPtsName = "/dev/tty";
     restoreDupFds(tempfd);
   }
@@ -388,7 +389,7 @@ PtyConnection::postRestart()
     case PTY_INVALID:
 
       // tempfd = _real_open("/dev/null", O_RDWR);
-      JTRACE("Restoring invalid PTY.") (id());
+      TRACE("Restoring invalid PTY. (id() = {};)", id());
       return;
 
     case PTY_CTTY:
@@ -423,10 +424,9 @@ PtyConnection::postRestart()
           tempfd, _fcntlFlags, controllingTty);
       } else {
         if (_type == PTY_CTTY) {
-          JTRACE("Unable to restore controlling terminal attached with the "
+          TRACE("Unable to restore controlling terminal attached with the "
                  "parent process.\n"
-                 "Replacing it with current STDIN")
-            (stdinDeviceName);
+                 "Replacing it with current STDIN (stdinDeviceName = {};)", stdinDeviceName);
         } else {
           WARN(false,
                   "Unable to restore controlling terminal attached with the "
@@ -447,8 +447,7 @@ PtyConnection::postRestart()
         }
       }
 
-      JTRACE("Restoring parent CTTY for the process")
-        (controllingTty) (_fds[0]);
+      TRACE("Restoring parent CTTY for the process (controllingTty = {};) (_fds[0] = {};)", controllingTty, _fds[0]);
 
       _ptsName = controllingTty;
       SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
@@ -460,11 +459,11 @@ PtyConnection::postRestart()
       char pts_name[80];
 
       tempfd = _real_open("/dev/ptmx", _fcntlFlags | extraFlags);
-      ASSERT_VALID_FD(tempfd, "Error Opening /dev/ptmx");
+      ASSERT_NE(-1, tempfd, "Error Opening /dev/ptmx");
 
-      ASSERT_SYSCALL_SUCCESS(grantpt(tempfd), "grantpt failed: fd={}",
+      ASSERT_NE(-1, grantpt(tempfd), "grantpt failed: fd={}",
                                  tempfd);
-      ASSERT_SYSCALL_SUCCESS(unlockpt(tempfd), "unlockpt failed: fd={}",
+      ASSERT_NE(-1, unlockpt(tempfd), "unlockpt failed: fd={}",
                                  tempfd);
       ASSERT_ZERO(_real_ptsname_r(tempfd, pts_name, 80),
                              "restored PTY fd={}",
@@ -478,12 +477,12 @@ PtyConnection::postRestart()
         ioctl(_fds[0], TIOCPKT, &packetMode);     /* Restore old packet mode */
       }
 
-      JTRACE("Restoring /dev/ptmx") (_fds[0]) (_ptsName) (_virtPtsName);
+      TRACE("Restoring /dev/ptmx (_fds[0] = {};) (_ptsName = {};) (_virtPtsName = {};)", _fds[0], _ptsName, _virtPtsName);
       break;
     }
     case PTY_BSD_MASTER:
     {
-      JTRACE("Restoring BSD Master Pty") (_masterName) (_fds[0]);
+      TRACE("Restoring BSD Master Pty (_masterName = {};) (_fds[0] = {};)", _masterName, _fds[0]);
 
       // string slaveDeviceName =
       // _masterName.replace(0, strlen("/dev/pty"), "/dev/tty");
@@ -498,7 +497,7 @@ PtyConnection::postRestart()
       // keep on trying all the possible BSD Master devices until one is
       // opened. It should then create a mapping between original Master/Slave
       // device name and current Master/Slave device name.
-      ASSERT_VALID_FD(tempfd,
+      ASSERT_NE(-1, tempfd,
                           "Error Opening BSD Master Pty.(Already in use?)");
       break;
     }
@@ -522,5 +521,5 @@ PtyConnection::serializeSubClass(jalib::JBinarySerializer &o)
   JSERIALIZE_ASSERT_POINT("PtyConnection");
   o&_ptsName&_virtPtsName&_masterName &_type;
   o&_flags&_mode &_preExistingCTTY;
-  JTRACE("Serializing PtyConn.") (_ptsName) (_virtPtsName);
+  TRACE("Serializing PtyConn. (_ptsName = {};) (_virtPtsName = {};)", _ptsName, _virtPtsName);
 }

@@ -188,7 +188,7 @@ sshdReceiveFds()
   ASSERT_ERRNO(sock.isValid(), "failed to create ssh receive socket");
   sock.changeFd(SSHD_RECEIVE_FD);
   fdReceiveAddr.sun_family = AF_UNIX;
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     _real_bind(SSHD_RECEIVE_FD,
                (struct sockaddr *)&fdReceiveAddr,
                sizeof(fdReceiveAddr.sun_family)),
@@ -196,20 +196,20 @@ sshdReceiveFds()
     SSHD_RECEIVE_FD);
 
   fdReceiveAddrLen = sizeof(fdReceiveAddr);
-  ASSERT_SYSCALL_SUCCESS(getsockname(SSHD_RECEIVE_FD,
+  ASSERT_NE(-1, getsockname(SSHD_RECEIVE_FD,
                                          (struct sockaddr *)&fdReceiveAddr,
                                          &fdReceiveAddrLen),
                              "getsockname failed for ssh receive socket: fd={}",
                              SSHD_RECEIVE_FD);
 
   // Send this information to dmtcp_ssh process
-  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(sizeof(fdReceiveAddrLen)),
+  ASSERT_EQ(static_cast<ssize_t>(sizeof(fdReceiveAddrLen)),
                         write(sshSockFd,
                               &fdReceiveAddrLen,
                               sizeof(fdReceiveAddrLen)),
                         "failed to send ssh receive address length: fd={}",
                         sshSockFd);
-  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(fdReceiveAddrLen),
+  ASSERT_EQ(static_cast<ssize_t>(fdReceiveAddrLen),
                         write(sshSockFd, &fdReceiveAddr, fdReceiveAddrLen),
                         "failed to send ssh receive address: fd={}",
                         sshSockFd);
@@ -230,7 +230,7 @@ createNewDmtcpSshdProcess()
   static char abstractSockName[20];
   int in[2], out[2], err[2];
 
-  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(sizeof(addrLen)),
+  ASSERT_EQ(static_cast<ssize_t>(sizeof(addrLen)),
                         read(sshSockFd, &addrLen, sizeof(addrLen)),
                         "failed to read ssh address length: fd={}",
                         sshSockFd);
@@ -239,7 +239,7 @@ createNewDmtcpSshdProcess()
   ASSERT(addrLen > sunPathOffset && addrLen <= sizeof(addr),
          "invalid ssh address length: len={} max={}",
          static_cast<size_t>(addrLen), sizeof(addr));
-  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(addrLen),
+  ASSERT_EQ(static_cast<ssize_t>(addrLen),
                         read(sshSockFd, &addr, addrLen),
                         "failed to read ssh address: fd={}", sshSockFd);
   const size_t abstractLen =
@@ -253,7 +253,7 @@ createNewDmtcpSshdProcess()
   struct sockaddr_in sshdSockAddr;
   socklen_t sshdSockAddrLen = sizeof(sshdSockAddr);
   char remoteHost[80];
-  ASSERT_SYSCALL_SUCCESS(getpeername(sshSockFd,
+  ASSERT_NE(-1, getpeername(sshSockFd,
                                          (struct sockaddr *)&sshdSockAddr,
                                          &sshdSockAddrLen),
                              "getpeername failed for ssh socket: fd={}",
@@ -267,12 +267,12 @@ createNewDmtcpSshdProcess()
   }
 
 
-  ASSERT_SYSCALL_SUCCESS(pipe(in), "creating ssh stdin pipe");
-  ASSERT_SYSCALL_SUCCESS(pipe(out), "creating ssh stdout pipe");
-  ASSERT_SYSCALL_SUCCESS(pipe(err), "creating ssh stderr pipe");
+  ASSERT_NE(-1, pipe(in), "creating ssh stdin pipe");
+  ASSERT_NE(-1, pipe(out), "creating ssh stdout pipe");
+  ASSERT_NE(-1, pipe(err), "creating ssh stderr pipe");
 
   pid_t sshChildPid = fork();
-  ASSERT_FORK_SUCCESS(sshChildPid, "failed to fork ssh child");
+  ASSERT_NE(-1, sshChildPid, "failed to fork ssh child");
   if (sshChildPid == 0) {
     const int max_args = 16;
     char *argv[16];
@@ -310,8 +310,7 @@ createNewDmtcpSshdProcess()
     dup2(out[1], STDOUT_FILENO);
     dup2(err[1], STDERR_FILENO);
 
-    JTRACE("Launching ")
-      (argv[0]) (argv[1]) (argv[2]) (argv[3]) (argv[4]) (argv[5]);
+    TRACE("Launching  (argv[0] = {};) (argv[1] = {};) (argv[2] = {};) (argv[3] = {};) (argv[4] = {};) (argv[5] = {};)", argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]);
     execvp(argv[0], argv);
     ASSERT_ERRNO(false, "execvp failed for ssh child: path={}", argv[0]);
   }
@@ -390,10 +389,10 @@ prepareForExec(DmtcpEventData_t *data)
 
   if (nargs < 3) {
     if (!isRshProcess) {
-    JNOTE("ssh with less than 3 args") (argv[0]) (argv[1]);
+    NOTE("ssh with less than 3 args (argv[0] = {};) (argv[1] = {};)", argv[0], argv[1]);
     return;
     } else if (nargs < 2) {
-        JNOTE("rsh with less than 2 args") (argv[0]);
+        NOTE("rsh with less than 2 args (argv[0] = {};)", argv[0]);
         return;
       }
   }
@@ -404,7 +403,7 @@ prepareForExec(DmtcpEventData_t *data)
     string s = argv[i];
     if (s == "-o") {
       if (i + 2 >= nargs) {
-        JNOTE("ssh option -o requires an argument");
+        NOTE("ssh option -o requires an argument");
         return;
       }
       if (std::string_view(argv[i + 1]) == "StrictHostKeyChecking=no") {
@@ -427,7 +426,7 @@ prepareForExec(DmtcpEventData_t *data)
     // addresses, etc.
     if (s == "-b" || s == "-D" || s == "-L" || s == "-m" || s == "-R" ||
         s == "-W" || s == "-w") {
-      JNOTE("The '" + s + "' ssh option isn't fully supported!");
+      NOTE("The '" + s + "' ssh option isn't fully supported!");
       i++;
       continue;
     }
@@ -479,7 +478,7 @@ prepareForExec(DmtcpEventData_t *data)
     }
   }
 
-  JTRACE("Prefix")(prefix);
+  TRACE("Prefix (prefix = {};)", prefix);
 
   // process command
   size_t semipos, pos;
@@ -562,9 +561,9 @@ prepareForExec(DmtcpEventData_t *data)
   JALLOC_FREE(new_argv);
 
   if (isRshProcess) {
-    JNOTE("New rsh command") (newCommand);
+    NOTE("New rsh command (newCommand = {};)", newCommand);
   } else {
-    JNOTE("New ssh command") (newCommand);
+    NOTE("New ssh command (newCommand = {};)", newCommand);
   }
 }
 
@@ -640,7 +639,7 @@ updateCoordHost()
                           0,
                           0);
       if (error != 0) {
-        JTRACE("getnameinfo() failed.") (gai_strerror(error));
+        TRACE("getnameinfo() failed. (gai_strerror(error) = {};)", gai_strerror(error));
         continue;
       } else {
         ASSERT(sizeof localhostIPAddr == sizeof s->sin_addr,
@@ -663,8 +662,9 @@ updateCoordHost()
     if (at_least_one_match) {
       success = true;  // Call it a success even if hostname != name
       if (std::string_view(name) != hostnameView) {
-        JTRACE("Canonical hostname different from original hostname")
-              (name)(hostname);
+        TRACE("Canonical hostname different from original hostname: "
+              "canonical={} original={}",
+              name, hostname);
       }
     }
 
@@ -675,7 +675,7 @@ updateCoordHost()
     if (error == EAI_SYSTEM) {
       perror("getaddrinfo");
     } else {
-      JTRACE("Error in getaddrinfo") (gai_strerror(error));
+      TRACE("Error in getaddrinfo (gai_strerror(error) = {};)", gai_strerror(error));
     }
     inet_aton("127.0.0.1", &localhostIPAddr);
   }

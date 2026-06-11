@@ -466,7 +466,7 @@ dlsym_default_internal_flag_handler(void *handle,
   if (handle == RTLD_NEXT) {
     // Skip current library
     if (!map->l_next) {
-      JTRACE("There are no libraries after the current library.");
+      TRACE("There are no libraries after the current library.");
       return NULL;
     }
     map = map->l_next;

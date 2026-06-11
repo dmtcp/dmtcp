@@ -87,10 +87,12 @@ inline int runTests(std::span<const TestCase> tests)
 
 } // namespace dmtcp_test
 
-#define ASSERT_TRUE(expr) \
-  ::dmtcp_test::assertTrue((expr), #expr, __FILE__, __LINE__)
+#ifndef DMTCP_TEST_NO_SHORT_ASSERT_MACROS
+# define ASSERT_TRUE(expr) \
+   ::dmtcp_test::assertTrue((expr), #expr, __FILE__, __LINE__)
 
-#define ASSERT_EQ(lhs, rhs) \
-  ::dmtcp_test::assertEqual((lhs), (rhs), #lhs, #rhs, __FILE__, __LINE__)
+# define ASSERT_EQ(lhs, rhs) \
+   ::dmtcp_test::assertEqual((lhs), (rhs), #lhs, #rhs, __FILE__, __LINE__)
+#endif
 
 #endif // DMTCP_TEST_UNIT_TEST_H

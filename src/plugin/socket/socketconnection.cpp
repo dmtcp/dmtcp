@@ -65,10 +65,10 @@ _makeDeadSocket(const char *refillData = NULL, ssize_t len = -1)
   // it does it by creating a socket pair and closing one side
   int sp[2] = { -1, -1 };
 
-  ASSERT_SYSCALL_SUCCESS(_real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp));
-  ASSERT_VALID_FD(sp[0], "socketpair() returned invalid first fd: fd1={}",
+  ASSERT_NE(-1, _real_socketpair(AF_UNIX, SOCK_STREAM, 0, sp));
+  ASSERT_NE(-1, sp[0], "socketpair() returned invalid first fd: fd1={}",
                       sp[1]);
-  ASSERT_VALID_FD(sp[1], "socketpair() returned invalid second fd: fd0={}",
+  ASSERT_NE(-1, sp[1], "socketpair() returned invalid second fd: fd0={}",
                       sp[0]);
   if (refillData != NULL) {
     ASSERT(Util::writeAll(sp[1], refillData, len) == len,
@@ -76,7 +76,7 @@ _makeDeadSocket(const char *refillData = NULL, ssize_t len = -1)
   }
   _real_close(sp[1]);
   if (really_verbose) {
-    JTRACE("Created dead socket.") (sp[0]);
+    TRACE("Created dead socket. (sp[0] = {};)", sp[0]);
   }
   return sp[0];
 }
@@ -132,7 +132,7 @@ SocketConnection::addSetsockopt(int level,
                                 const void *value,
                                 int len)
 {
-  JASSERT(len >= 0) (len);
+  ASSERT_GE(len, 0, "invalid socket option length");
   const char *data = (const char *)value;
   vector<char> &buffer = _sockOptions[level][option];
   buffer.clear();
@@ -149,10 +149,10 @@ SocketConnection::restoreSocketOptions(vector<int> &fds)
 
   for (levelIterator lvl = _sockOptions.begin();
        lvl != _sockOptions.end(); ++lvl) {
-    for (optionIterator opt = lvl->second.begin();
-         opt != lvl->second.end(); ++opt) {
-      JTRACE("Restoring socket option.")
-        (fds[0]) (opt->first) (opt->second.size());
+     for (optionIterator opt = lvl->second.begin();
+          opt != lvl->second.end(); ++opt) {
+      TRACE("Restoring socket option: fd={} option={} size={}",
+            fds[0], opt->first, opt->second.size());
       int ret = _real_setsockopt(fds[0], lvl->first, opt->first,
                                  opt->second.data(),
                                  opt->second.size());
@@ -173,8 +173,8 @@ SocketConnection::serialize(jalib::JBinarySerializer &o)
   JSERIALIZE_ASSERT_POINT("SocketOptions:");
   uint64_t numSockOpts = _sockOptions.size();
   o &numSockOpts;
-  if (o.isWriter()) {
-    // JTRACE("TCP Serialize ") (_type) (_id.conId());
+    if (o.isWriter()) {
+    // TRACE("TCP Serialize: type={} con_id={}", _type, _id.conId());
     typedef map<int64_t, map<int64_t, vector<char> > >::iterator levelIterator;
     typedef map<int64_t, vector<char> >::iterator optionIterator;
 
@@ -222,7 +222,7 @@ SocketConnection::serialize(jalib::JBinarySerializer &o)
 
         o&optType &bufLen;
 
-        JASSERT(bufLen >= 0) (bufLen);
+        ASSERT_GE(bufLen, 0, "invalid socket option buffer length");
         vector<char> buffer(bufLen);
         o.readOrWrite(buffer.data(), bufLen);
 
@@ -265,7 +265,7 @@ TcpConnection::TcpConnection(int domain, int type, int protocol)
                 domain, type, protocol, bt);
       }
     }
-    JTRACE("Creating TcpConnection.") (id()) (domain) (type) (protocol);
+    TRACE("Creating TcpConnection. (id() = {};) (domain = {};) (type = {};) (protocol = {};)", id(), domain, type, protocol);
   }
   memset(&_bindAddr, 0, sizeof _bindAddr);
 }
@@ -321,17 +321,16 @@ TcpConnection::isBlacklistedTcp(const sockaddr *saddr, socklen_t len)
                                      -1 };
 #ifdef STAMPEDE_MPISPAWN_FIX
     int mpispawnPort = getMPISpawnPortNum("PMI_PORT");
-    JTRACE("PMI_PORT port") (mpispawnPort) (ntohs(addr->sin_port));
+    TRACE("PMI_PORT port (mpispawnPort = {};) (ntohs(addr->sin_port) = {};)", mpispawnPort, ntohs(addr->sin_port));
     ASSERT(mpispawnPort != 0, "PMI_PORT not found");
     if (ntohs(addr->sin_port) == mpispawnPort) {
-      JTRACE("PMI_PORT port found") (mpispawnPort);
+      TRACE("PMI_PORT port found (mpispawnPort = {};)", mpispawnPort);
       return true;
     }
 #endif // ifdef STAMPEDE_MPISPAWN_FIX
     for (size_t i = 0; blacklistedRemotePorts[i] != -1; i++) {
       if (ntohs(addr->sin_port) == blacklistedRemotePorts[i]) {
-        JTRACE("LDAP port found") (ntohs(addr->sin_port))
-          (blacklistedRemotePorts[0]) (blacklistedRemotePorts[1]);
+        TRACE("LDAP port found (ntohs(addr->sin_port) = {};) (blacklistedRemotePorts[0] = {};) (blacklistedRemotePorts[1] = {};)", ntohs(addr->sin_port), blacklistedRemotePorts[0], blacklistedRemotePorts[1]);
         return true;
       }
     }
@@ -341,7 +340,7 @@ TcpConnection::isBlacklistedTcp(const sockaddr *saddr, socklen_t len)
     for (size_t i = 0; blacklist[i] != ""; i++) {
       if (Util::strStartsWith(uaddr->sun_path, blacklist[i].c_str()) ||
           Util::strStartsWith(&uaddr->sun_path[1], blacklist[i].c_str())) {
-        JTRACE("Blacklisted socket address") (uaddr->sun_path);
+        TRACE("Blacklisted socket address (uaddr->sun_path = {};)", uaddr->sun_path);
         return true;
       }
     }
@@ -356,7 +355,7 @@ void
 TcpConnection::onBind(const struct sockaddr *addr, socklen_t len)
 {
   if (really_verbose) {
-    JTRACE("Binding.") (id()) (len);
+    TRACE("Binding. (id() = {};) (len = {};)", id(), len);
   }
 
   // If the bind succeeded, we do not need any additional assert.
@@ -375,7 +374,7 @@ TcpConnection::onBind(const struct sockaddr *addr, socklen_t len)
     // Do not rely on the address passed on to bind as it may contain port 0
     // which allows the OS to give any unused port. Thus we look ourselves up
     // using getsockname.
-    ASSERT_SYSCALL_SUCCESS(getsockname(_fds[0],
+    ASSERT_NE(-1, getsockname(_fds[0],
                                            (struct sockaddr *)&_bindAddr,
                                            &_bindAddrlen),
                                "failed to query bound socket address: fd={}",
@@ -397,7 +396,7 @@ TcpConnection::onListen(int backlog)
   }
 
   if (really_verbose) {
-    JTRACE("Listening.") (id()) (backlog);
+    TRACE("Listening. (id() = {};) (backlog = {};)", id(), backlog);
   }
   ASSERT(_type == TCP_BIND,
          "Listening on a non-bind()ed socket: type={} con_id={}", _type,
@@ -417,7 +416,7 @@ TcpConnection::onConnect(const struct sockaddr *addr,
                          bool connectInProgress)
 {
   if (really_verbose) {
-    JTRACE("Connecting.") (id());
+    TRACE("Connecting. (id() = {};)", id());
   }
   WARN(_type == TCP_CREATED || _type == TCP_BIND,
           "Connecting with an in-use socket: type={} con_id={}", _type,
@@ -445,7 +444,7 @@ TcpConnection::TcpConnection(const TcpConnection &parent,
                      remote)
 {
   if (really_verbose) {
-    JTRACE("Accepting.") (id()) (parent.id()) (remote);
+    TRACE("Accepting. (id() = {};) (parent.id() = {};) (remote = {};)", id(), parent.id(), remote);
   }
 
   // JASSERT(parent._type == TCP_LISTEN) (parent._type) (parent.id())
@@ -472,12 +471,12 @@ TcpConnection::sendPeerInformation()
   {
     // Local connect socket information
     keysz = sizeof(key);
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       getsockname(_fds[0], reinterpret_cast<struct sockaddr *>(&key), &keysz),
                                "querying local TCP socket: fd={}", _fds[0]);
     // Information about the accept socket on the server
     valuesz = sizeof(value);
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       getpeername(_fds[0], reinterpret_cast<struct sockaddr *>(&value),
                   &valuesz),
                                "querying peer TCP socket: fd={}", _fds[0]);
@@ -488,13 +487,13 @@ TcpConnection::sendPeerInformation()
   {
     // Local accept socket information
     keysz = sizeof(key);
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       getsockname(_fds[0], reinterpret_cast<struct sockaddr *>(&key), &keysz),
                                "querying accepted TCP socket: fd={}",
                                _fds[0]);
     // Information about the client connect socket
     valuesz = sizeof(value);
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       getpeername(_fds[0], reinterpret_cast<struct sockaddr *>(&value),
                   &valuesz),
                                "querying accepted TCP peer: fd={}",
@@ -538,7 +537,7 @@ TcpConnection::recvPeerInformation()
   if (_type == TCP_CONNECT || _type == TCP_ACCEPT ||
       _type == TCP_CONNECT_IN_PROGRESS) {
     keylen = sizeof(key);
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       getpeername(_fds[0], reinterpret_cast<struct sockaddr *>(&key),
                   &keylen),
       "querying TCP peer for discovery lookup: fd={}", _fds[0]);
@@ -569,9 +568,9 @@ TcpConnection::recvPeerInformation()
 void
 TcpConnection::onError()
 {
-  JTRACE("Error.") (id());
+  TRACE("Error. (id() = {};)", id());
   _type = TCP_ERROR;
-  JTRACE("Creating dead socket.") (_fds[0]) (_fds.size());
+  TRACE("Creating dead socket. (_fds[0] = {};) (_fds.size() = {};)", _fds[0], _fds.size());
   const vector<char> &buffer =
     KernelBufferDrainer::instance().getDrainedData(_id);
   restoreDupFds(_makeDeadSocket(&buffer[0], buffer.size()));
@@ -585,10 +584,10 @@ TcpConnection::drain()
 
   if ((_fcntlFlags & O_ASYNC) != 0) {
     if (really_verbose) {
-      JTRACE("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
+      TRACE("Removing O_ASYNC flag during checkpoint. (_fds[0] = {};) (id() = {};)", _fds[0], id());
     }
     errno = 0;
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC),
       "removing O_ASYNC during TCP drain: fd={} con_id={}",
       _fds[0], id().conId());
@@ -605,12 +604,12 @@ TcpConnection::drain()
     retval = _real_poll(&socketFd, 1, 60 * 1000);
 
     if (retval == -1) {
-      JTRACE("poll() failed") (strerror(errno));
+      TRACE("poll() failed (strerror(errno) = {};)", strerror(errno));
     } else if (socketFd.revents & POLLOUT) {
       int val = -1;
       socklen_t sz = sizeof(val);
       getsockopt(_fds[0], SOL_SOCKET, SO_ERROR, &val, &sz);
-      JTRACE("Connect-in-progress socket is now writable.") (_fds[0]);
+      TRACE("Connect-in-progress socket is now writable. (_fds[0] = {};)", _fds[0]);
       _type = TCP_CONNECT;
     } else {
       WARN(false,
@@ -629,7 +628,7 @@ TcpConnection::drain()
   // might be some stale data on it.
   case TCP_CONNECT:
   case TCP_ACCEPT:
-    JTRACE("Will drain socket") (_hasLock) (_fds[0]) (_id) (_remotePeerId);
+    TRACE("Will drain socket (_hasLock = {};) (_fds[0] = {};) (_id = {};) (_remotePeerId = {};)", _hasLock, _fds[0], _id, _remotePeerId);
     KernelBufferDrainer::instance().beginDrainOf(_fds[0], _id, baseType());
     break;
   case TCP_LISTEN:
@@ -642,7 +641,7 @@ TcpConnection::drain()
             _fds[0]);
     break;
   case TCP_EXTERNAL_CONNECT:
-    JTRACE("Socket to External Process, won't be drained") (_fds[0]);
+    TRACE("Socket to External Process, won't be drained (_fds[0] = {};)", _fds[0]);
     break;
   }
 }
@@ -653,11 +652,11 @@ TcpConnection::doSendHandshakes(const ConnectionIdentifier &coordId)
   switch (_type) {
   case TCP_CONNECT:
   case TCP_ACCEPT:
-    JTRACE("Sending handshake ...") (id()) (_fds[0]);
+    TRACE("Sending handshake ... (id() = {};) (_fds[0] = {};)", id(), _fds[0]);
     sendHandshake(_fds[0], coordId);
     break;
   case TCP_EXTERNAL_CONNECT:
-    JTRACE("Socket to External Process, skipping handshake send") (_fds[0]);
+    TRACE("Socket to External Process, skipping handshake send (_fds[0] = {};)", _fds[0]);
     break;
   }
 }
@@ -669,10 +668,10 @@ TcpConnection::doRecvHandshakes(const ConnectionIdentifier &coordId)
   case TCP_CONNECT:
   case TCP_ACCEPT:
     recvHandshake(_fds[0], coordId);
-    JTRACE("Received handshake.") (id()) (_remotePeerId) (_fds[0]);
+    TRACE("Received handshake. (id() = {};) (_remotePeerId = {};) (_fds[0] = {};)", id(), _remotePeerId, _fds[0]);
     break;
   case TCP_EXTERNAL_CONNECT:
-    JTRACE("Socket to External Process, skipping handshake recv") (_fds[0]);
+    TRACE("Socket to External Process, skipping handshake recv (_fds[0] = {};)", _fds[0]);
     break;
   }
 }
@@ -681,7 +680,7 @@ void
 TcpConnection::refill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
-    JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
+    TRACE("Re-adding O_ASYNC flag. (_fds[0] = {};) (id() = {};)", _fds[0], id());
     restoreSocketOptions(_fds);
   } else if (isRestart && _sockDomain != AF_INET6 &&
              _type != TCP_EXTERNAL_CONNECT) {
@@ -699,7 +698,7 @@ TcpConnection::postRestart()
   case TCP_PREEXISTING:
   case TCP_INVALID:
   case TCP_EXTERNAL_CONNECT:
-    JTRACE("Creating dead socket.") (_fds[0]) (_fds.size());
+    TRACE("Creating dead socket. (_fds[0] = {};) (_fds.size() = {};)", _fds[0], _fds.size());
     restoreDupFds(_makeDeadSocket());
     break;
 
@@ -735,11 +734,11 @@ TcpConnection::postRestart()
     }
 
     if (really_verbose) {
-      JTRACE("Restoring socket.") (id()) (_fds[0]);
+      TRACE("Restoring socket. (id() = {};) (_fds[0] = {};)", id(), _fds[0]);
     }
 
     fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
-    ASSERT_VALID_FD(fd,
+    ASSERT_NE(-1, fd,
                         "failed to recreate TCP socket: con_id={} domain={} "
                         "type={} protocol={}",
                         id().conId(), _sockDomain, _sockType, _sockProtocol);
@@ -753,8 +752,8 @@ TcpConnection::postRestart()
         _bindAddrlen > sizeof(_bindAddr.ss_family)) {
       struct sockaddr_un *uaddr = (sockaddr_un *)&_bindAddr;
       if (uaddr->sun_path[0] != '\0') {
-        JTRACE("Unlinking stale unix domain socket.") (uaddr->sun_path);
-        WARN_SYSCALL_SUCCESS(unlink(uaddr->sun_path),
+        TRACE("Unlinking stale unix domain socket. (uaddr->sun_path = {};)", uaddr->sun_path);
+        WARN_NE(-1, unlink(uaddr->sun_path),
                       "failed to unlink stale UNIX socket: path={}",
                       uaddr->sun_path);
       }
@@ -774,7 +773,7 @@ TcpConnection::postRestart()
      */
 
     if (_sockDomain == AF_INET6) {
-      JTRACE("Restoring some socket options before binding.");
+      TRACE("Restoring some socket options before binding.");
       typedef map<int64_t,
                   map<int64_t, vector<char> > >::iterator levelIterator;
       typedef map<int64_t, vector<char> >::iterator optionIterator;
@@ -786,8 +785,8 @@ TcpConnection::postRestart()
                opt != lvl->second.end(); ++opt) {
             if (opt->first == IPV6_V6ONLY) {
               if (really_verbose) {
-                JTRACE("Restoring socket option.")
-                  (_fds[0]) (opt->first) (opt->second.size());
+                TRACE("Restoring socket option: fd={} option={} size={}",
+                      _fds[0], opt->first, opt->second.size());
               }
               int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
                                          opt->second.data(),
@@ -804,10 +803,10 @@ TcpConnection::postRestart()
     }
 
     if (really_verbose) {
-      JTRACE("Binding socket.") (id());
+      TRACE("Binding socket. (id() = {};)", id());
     }
     errno = 0;
-    WARN_SYSCALL_SUCCESS(_real_bind(_fds[0],
+    WARN_NE(-1, _real_bind(_fds[0],
                                            (sockaddr *)&_bindAddr,
                                            _bindAddrlen),
                                 "Bind failed: fd={} con_id={} addrlen={}",
@@ -817,10 +816,10 @@ TcpConnection::postRestart()
     }
 
     if (really_verbose) {
-      JTRACE("Listening socket.") (id());
+      TRACE("Listening socket. (id() = {};)", id());
     }
     errno = 0;
-    WARN_SYSCALL_SUCCESS(_real_listen(_fds[0], _listenBacklog),
+    WARN_NE(-1, _real_listen(_fds[0], _listenBacklog),
                   "listen failed: fd={} con_id={} backlog={}", _fds[0],
                   id().conId(), _listenBacklog);
     if (_type == TCP_LISTEN) {
@@ -835,7 +834,7 @@ TcpConnection::postRestart()
            "perhaps handshake went wrong: con_id={} fd={}",
            id().conId(), _fds[0]);
 
-    JTRACE("registerIncoming") (id()) (_remotePeerId) (_fds[0]);
+    TRACE("registerIncoming (id() = {};) (_remotePeerId = {};) (_fds[0] = {};)", id(), _remotePeerId, _fds[0]);
     ConnectionRewirer::instance().registerIncoming(id(), this, _sockDomain);
     break;
 
@@ -846,7 +845,7 @@ TcpConnection::postRestart()
     fd = _real_socket(_sockDomain == AF_INET6 ? AF_INET : _sockDomain,
                       _sockType, _sockProtocol);
 #endif // ifdef ENABLE_IP6_SUPPORT
-    ASSERT_VALID_FD(fd,
+    ASSERT_NE(-1, fd,
                         "failed to recreate connecting TCP socket: con_id={} "
                         "domain={} type={} protocol={}",
                         id().conId(), _sockDomain, _sockType, _sockProtocol);
@@ -858,7 +857,7 @@ TcpConnection::postRestart()
                     "con_id={} addrlen={}",
                     _fds[0], id().conId(), _bindAddrlen);
     }
-    JTRACE("registerOutgoing") (id()) (_remotePeerId) (_fds[0]);
+    TRACE("registerOutgoing (id() = {};) (_remotePeerId = {};) (_fds[0] = {};)", id(), _remotePeerId, _fds[0]);
     ConnectionRewirer::instance().registerOutgoing(_remotePeerId, this);
     break;
 
@@ -935,7 +934,7 @@ RawSocketConnection::RawSocketConnection(int domain, int type, int protocol)
          "raw socket connection created with non-raw type: type={}", type);
   ASSERT(domain == -1 || domain == AF_NETLINK,
          "Only Netlink raw socket supported: domain={}", domain);
-  JTRACE("Creating Raw socket.") (id()) (domain) (type) (protocol);
+  TRACE("Creating Raw socket. (id() = {};) (domain = {};) (type = {};) (protocol = {};)", id(), domain, type, protocol);
 }
 
 void
@@ -947,10 +946,10 @@ RawSocketConnection::drain()
 
   if ((_fcntlFlags & O_ASYNC) != 0) {
     if (really_verbose) {
-      JTRACE("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
+      TRACE("Removing O_ASYNC flag during checkpoint. (_fds[0] = {};) (id() = {};)", _fds[0], id());
     }
     errno = 0;
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC),
       "removing O_ASYNC during raw socket drain: fd={} con_id={}",
       _fds[0], id().conId());
@@ -961,7 +960,7 @@ void
 RawSocketConnection::refill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
-    JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
+    TRACE("Re-adding O_ASYNC flag. (_fds[0] = {};) (id() = {};)", _fds[0], id());
     restoreSocketOptions(_fds);
   } else if (isRestart) {
     restoreSocketOptions(_fds);
@@ -975,7 +974,7 @@ RawSocketConnection::postRestart()
          "raw socket connection has no fds during postRestart");
 
   if (really_verbose) {
-    JTRACE("Restoring socket.") (id()) (_fds[0]);
+    TRACE("Restoring socket. (id() = {};) (_fds[0] = {};)", id(), _fds[0]);
   }
 
   switch (_type) {
@@ -985,7 +984,7 @@ RawSocketConnection::postRestart()
   {
     errno = 0;
     int fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
-    ASSERT_VALID_FD(fd,
+    ASSERT_NE(-1, fd,
                         "failed to recreate raw socket: con_id={} domain={} "
                         "type={} protocol={}",
                         id().conId(), _sockDomain, _sockType, _sockProtocol);
@@ -995,7 +994,7 @@ RawSocketConnection::postRestart()
     }
 
     if (_sockDomain == AF_NETLINK) {
-      JTRACE("Restoring some socket options before binding.");
+      TRACE("Restoring some socket options before binding.");
       typedef map<int64_t,
                   map<int64_t, vector<char> > >::iterator levelIterator;
       typedef map<int64_t, vector<char> >::iterator optionIterator;
@@ -1007,8 +1006,8 @@ RawSocketConnection::postRestart()
                opt != lvl->second.end(); ++opt) {
             if (opt->first == SO_ATTACH_FILTER) {
               if (really_verbose) {
-                JTRACE("Restoring socket option.")
-                  (_fds[0]) (opt->first) (opt->second.size());
+                TRACE("Restoring socket option: fd={} option={} size={}",
+                      _fds[0], opt->first, opt->second.size());
               }
               int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
                                          opt->second.data(),
@@ -1025,7 +1024,7 @@ RawSocketConnection::postRestart()
     }
 
     errno = 0;
-    WARN_SYSCALL_SUCCESS(_real_bind(_fds[0],
+    WARN_NE(-1, _real_bind(_fds[0],
                                            (sockaddr *)&_bindAddr,
                                            _bindAddrlen),
                                 "raw socket bind failed: fd={} con_id={} "
@@ -1036,7 +1035,7 @@ RawSocketConnection::postRestart()
     }
 
     errno = 0;
-    WARN_SYSCALL_SUCCESS(_real_listen(_fds[0], _listenBacklog),
+    WARN_NE(-1, _real_listen(_fds[0], _listenBacklog),
                   "raw socket listen failed: fd={} con_id={} backlog={}",
                   _fds[0], id().conId(), _listenBacklog);
     if (_type == RAW_LISTEN) {
@@ -1058,7 +1057,7 @@ RawSocketConnection::serializeSubClass(jalib::JBinarySerializer &o)
 void
 RawSocketConnection::onBind(const struct sockaddr *addr, socklen_t len)
 {
-  JTRACE("bind on raw socket") (_fds[0]) (this->conType()) (this->id());
+  TRACE("bind on raw socket (_fds[0] = {};) (this->conType() = {};) (this->id() = {};)", _fds[0], this->conType(), this->id());
   if (addr != NULL) {
     ASSERT(len <= sizeof _bindAddr,
            "raw socket bind address is too large: len={} max={}", len,
@@ -1072,8 +1071,7 @@ RawSocketConnection::onBind(const struct sockaddr *addr, socklen_t len)
 void
 RawSocketConnection::onListen(int backlog)
 {
-  JTRACE("listen on raw socket") (_fds[0]) (this->conType()) (this->id()) (
-    backlog);
+  TRACE("listen on raw socket (_fds[0] = {};) (this->conType() = {};) (this->id() = {};) (backlog = {};)", _fds[0], this->conType(), this->id(), backlog);
   _listenBacklog = backlog;
   _type = RAW_LISTEN;
 }
@@ -1087,7 +1085,7 @@ RawSocketConnection::RawSocketConnection(const RawSocketConnection &parent,
                      remote)
 {
   if (really_verbose) {
-    JTRACE("Accepting.") (id()) (parent.id()) (remote);
+    TRACE("Accepting. (id() = {};) (parent.id() = {};) (remote = {};)", id(), parent.id(), remote);
   }
 
   // JASSERT(parent._type == RAW_LISTEN) (parent._type) (parent.id())

@@ -46,7 +46,10 @@ Util::writeCoordPortToFile(int port, const char *portFile)
 {
   if (portFile != NULL && strlen(portFile) > 0) {
     int fd = open(portFile, O_CREAT | O_WRONLY | O_TRUNC, 0600);
-    WARN_VALID_FD(fd, "failed to open port file: path={}", portFile);
+    WARN_NE(-1, fd, "failed to open port file: path={}", portFile);
+    if (fd == -1) {
+      return;
+    }
     char port_buf[30];
     memset(port_buf, '\0', sizeof(port_buf));
     sprintf(port_buf, "%d", port);
@@ -116,7 +119,7 @@ Util::calcTmpDir(const char *tmpdirenv)
                "error creating tmp directory: path={}",
                tmpDir);
 
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     access(tmpDir, X_OK | W_OK),
     "missing execute- or write-access to tmp dir: path={}",
     tmpDir);
@@ -151,16 +154,36 @@ Util::initializeLogFile(const char *tmpDir, const char *prefix)
     setDiagnosticLogFile(o.str().c_str());
   }
 
-  // This causes an error when configure is done with --enable-logging
-  //   JLOG(a.str().c_str());
+  int quietCount = 0;
   if (getenv(ENV_VAR_QUIET)) {
-    jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
-  } else {
-    // jassert.cpp initializes jassert_quiet to 0
+    quietCount = *getenv(ENV_VAR_QUIET) - '0';
   }
 
 #ifdef QUIET
-  jassert_quiet = 2;
+  quietCount = 2;
 #endif // ifdef QUIET
+
+  jassert_quiet = quietCount;
+  LogLevel logLevel = LogLevel::Note;
+  if (quietCount >= 2) {
+    logLevel = LogLevel::Error;
+  } else if (quietCount == 1) {
+    logLevel = LogLevel::Warn;
+  }
+  if (const char *envLogLevel = getenv(ENV_VAR_LOG_LEVEL)) {
+    LogLevel parsedLogLevel;
+    if (parseLogLevel(envLogLevel, &parsedLogLevel)) {
+      logLevel = parsedLogLevel;
+    }
+  }
+  setLogLevel(logLevel);
+
+  if (const char *envLogOverrides = getenv(ENV_VAR_LOG_OVERRIDES)) {
+    if (!setLogOverrides(envLogOverrides)) {
+      setLogOverrides("");
+    }
+  } else {
+    setLogOverrides("");
+  }
   unsetenv(ENV_VAR_STDERR_PATH);
 }

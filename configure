@@ -701,7 +701,6 @@ FAST_RST_VIA_MMAP_FALSE
 FAST_RST_VIA_MMAP_TRUE
 FAST_RST_VIA_MMAP
 DEBUG
-LOGGING
 OPENMP_CXXFLAGS
 OPENMP_CFLAGS
 HAVE_CXX20
@@ -1496,10 +1495,8 @@ Optional Features:
   --disable-dependency-tracking
                           speeds up one-time build
   --disable-openmp        do not use OpenMP
-  --enable-logging        enable (very) verbose logging output and write log
-                          files to $DMTCP_TMPDIR (default is disabled)
   --enable-debug          Use debugging flags "-Wall -g3 -O0" on DMTCP libs
-                          (default is disabled); also, see --enable-logging
+                          (default is disabled)
   --enable-quiet          disable NOTE and WARNING (default is to print NOTE,
                           WARNING, but no TRACE)
   --enable-realtime-ckpt-signal
@@ -8144,30 +8141,6 @@ if test -n "$ac_unrecognized_opts"; then
    { (exit 1); exit 1; }; } ;;
     *)     printf "%s\n" "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2 ;;
   esac
-fi
-
-# Check whether --enable-logging was given.
-if test ${enable_logging+y}
-then :
-  enableval=$enable_logging; use_logging=$enableval
-else case e in #(
-  e) use_logging=no ;;
-esac
-fi
-
-
-if test "$use_logging" = "yes"; then
-  LOGGING=yes
-
-
-printf "%s\n" "#define LOGGING 1" >>confdefs.h
-
-  CFLAGS="$CFLAGS -DLOGGING"
-  CPPFLAGS="$CPPFLAGS -DLOGGING"
-  CXXFLAGS="$CXXFLAGS -DLOGGING"
-else
-  LOGGING=no
-
 fi
 
 # Check whether --enable-debug was given.

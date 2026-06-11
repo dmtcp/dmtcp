@@ -223,7 +223,7 @@ ProcessInfo::growStack()
   size_t stackSize;
   const rlim_t eightMB = 8 * 1024 * 1024;
 
-  ASSERT_SYSCALL_SUCCESS(getrlimit(RLIMIT_STACK, &rlim),
+  ASSERT_NE(-1, getrlimit(RLIMIT_STACK, &rlim),
                              "failed to read RLIMIT_STACK");
   if (rlim.rlim_cur == RLIM_INFINITY) {
     if (rlim.rlim_max == RLIM_INFINITY) {
@@ -256,7 +256,8 @@ ProcessInfo::growStack()
       vvarVClock.startAddr = (unsigned long)area.addr;
       vvarVClock.endAddr = (unsigned long)area.endAddr;
     } else if ((VA)&area >= area.addr && (VA)&area < area.endAddr) {
-      JTRACE("Original stack area") ((void *)area.addr) (area.size);
+      TRACE("Original stack area: addr={} size={}",
+            (void *)area.addr, area.size);
       stackArea = area;
       endOfStack = (uintptr_t) area.endAddr;
       /*
@@ -276,7 +277,7 @@ ProcessInfo::growStack()
       int ret = mprotect(area.addr + area.size, 0x1000,
                          PROT_READ | PROT_WRITE | PROT_EXEC);
       if (ret == 0) {
-        JTRACE("bottommost page of stack (page with highest address) was"
+        TRACE("bottommost page of stack (page with highest address) was"
                " invisible in /proc/self/maps. It is made visible again now.");
       }
     }
@@ -294,17 +295,16 @@ ProcessInfo::growStack()
     memset(tmpbuf, 0, allocSize);
   }
 
-#ifdef LOGGING
-  {
+  if (logEnabled(LogLevel::Trace, DMTCP_LOG_COMPONENT, __FILE__)) {
     ProcSelfMaps maps;
     while (maps.getNextArea(&area)) {
       if ((VA)&area >= area.addr && (VA)&area < area.endAddr) { // Stack found
-        JTRACE("New stack size") ((void *)area.addr) (area.size);
+        TRACE("New stack size: addr={} size={}",
+              (void *)area.addr, area.size);
         break;
       }
     }
   }
-#endif // ifdef LOGGING
 }
 
 void
@@ -361,7 +361,7 @@ ProcessInfo::updateRestoreBufAddr()
   //        to free the backing physical pages created by mtcp_restart.
 
   if (restoreBuf.startAddr != 0) {
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       munmap((void*) restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE),
       "failed to unmap restore buffer: start={} size={}",
       restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE);
@@ -399,7 +399,7 @@ ProcessInfo::processRlimit()
 
     // DMTCP had set ADDR_COMPAT_LAYOUT.  Now unset it.
     personality((unsigned long)personality(0xffffffff) ^ ADDR_COMPAT_LAYOUT);
-    JTRACE("unsetting ADDR_COMPAT_LAYOUT");
+    TRACE("unsetting ADDR_COMPAT_LAYOUT");
   }
 # else // if 0
   { char *rlim_cur_char = getenv("DMTCP_RLIMIT_STACK");
@@ -409,11 +409,12 @@ ProcessInfo::processRlimit()
         struct rlimit rlim;
         getrlimit(RLIMIT_STACK, &rlim);
         rlim.rlim_cur = parsedLimit;
-        JTRACE("rlim_cur for RLIMIT_STACK being restored.") (rlim.rlim_cur);
+        TRACE("rlim_cur for RLIMIT_STACK being restored: rlim_cur={}",
+              rlim.rlim_cur);
         setrlimit(RLIMIT_STACK, &rlim);
       } else {
-        JWARNING(false) (rlim_cur_char)
-          .Text("Invalid DMTCP_RLIMIT_STACK value.");
+        WARN(false, "Invalid DMTCP_RLIMIT_STACK value: value={}",
+             rlim_cur_char);
       }
       _dmtcp_unsetenv("DMTCP_RLIMIT_STACK");
     }
@@ -485,7 +486,7 @@ void
 ProcessInfo::restoreHeap()
 {
   // Release backing memory for EndOfBrkMap memory region.
-      ASSERT_SYSCALL_SUCCESS(
+      ASSERT_NE(-1,
         madvise((void *)_initialSavedBrk, EndOfBrkMapSize, MADV_DONTNEED),
         "failed to release saved brk mapping: addr={} size={}",
         (void *)_initialSavedBrk,
@@ -499,8 +500,9 @@ ProcessInfo::restoreHeap()
   uint64_t curBrk = (uint64_t)sbrk(0);
 
   if (curBrk > savedBrk) {
-    JNOTE("Area between saved_break and curr_break not mapped, mapping it now")
-      (savedBrk) (curBrk);
+    NOTE("Area between saved_break and curr_break not mapped, mapping it now: "
+         "savedBrk={} curBrk={}",
+         savedBrk, curBrk);
     size_t oldsize = savedBrk - _savedHeapStart;
     size_t newsize = curBrk - _savedHeapStart;
 
@@ -541,9 +543,10 @@ ProcessInfo::restart()
       // _launchCWD = "/A/B"; _ckptCWD = "/A/B/C" -> rpath = "./c"
       rpath = "./" + _ckptCWD.substr(llen + 1);
       if (chdir(rpath.c_str()) == 0) {
-        JTRACE("Changed cwd") (_launchCWD) (_ckptCWD) (_launchCWD + rpath);
+        TRACE("Changed cwd: launchCWD={} ckptCWD={} newCWD={}",
+              _launchCWD, _ckptCWD, _launchCWD + rpath);
       } else {
-        WARN_SYSCALL_SUCCESS(
+        WARN_NE(-1,
           chdir(_ckptCWD.c_str()),
           "failed to change directory to checkpoint cwd: "
           "ckptCWD={} launchCWD={}",
@@ -564,8 +567,10 @@ ProcessInfo::restoreProcessGroupInfo()
   pid_t curSid = getsid(0);
 
   if (sid == pid && curSid != curPid) {
-    JTRACE("Restore Session Leadership") (sid) (pid) (curSid) (curPid);
-    WARN_SYSCALL_SUCCESS(
+    TRACE("Restore Session Leadership: savedSid={} savedPid={} curSid={} "
+          "curPid={}",
+          sid, pid, curSid, curPid);
+    WARN_NE(-1,
       setsid(),
       "cannot restore session leadership: savedSid={} savedPid={} "
       "currentSid={} currentPid={}",
@@ -575,15 +580,16 @@ ProcessInfo::restoreProcessGroupInfo()
   // Restore group assignment
   pid_t cgid = getpgid(0);
   if (gid != cgid) {
-    JTRACE("Restore Group Assignment")
-      (gid) (fgid) (cgid) (pid) (ppid) (getppid());
-    WARN_SYSCALL_SUCCESS(
+    TRACE("Restore Group Assignment: gid={} fgid={} currentGid={} pid={} "
+          "ppid={} currentPpid={}",
+          gid, fgid, cgid, pid, ppid, getppid());
+    WARN_NE(-1,
       setpgid(0, gid),
       "cannot change process group: savedGid={} currentGid={} "
       "savedPid={} savedPpid={}",
       gid, cgid, pid, ppid);
   } else {
-    JTRACE("Group is already assigned") (gid) (cgid);
+    TRACE("Group is already assigned: gid={} currentGid={}", gid, cgid);
   }
 }
 
@@ -651,7 +657,8 @@ ProcessInfo::setCkptDir(const char *dir)
   _ckptFilesSubDir = _ckptDir + "/" + jalib::Filesystem::BaseName(
       _ckptFilesSubDir);
 
-  JTRACE("setting ckptdir") (_ckptDir) (_ckptFilesSubDir);
+  TRACE("setting ckptdir: ckptDir={} ckptFilesSubDir={}",
+        _ckptDir, _ckptFilesSubDir);
 
   // JASSERT(access(_ckptDir.c_str(), X_OK|W_OK) == 0) (_ckptDir)
   // .Text("Missing execute- or write-access to checkpoint dir.");
@@ -704,7 +711,8 @@ ProcessInfo::getState()
 
   savedBrk = (uint64_t) sbrk(0);
 
-  JTRACE("CHECK GROUP PID")(gid)(fgid)(ppid)(pid);
+  TRACE("CHECK GROUP PID: gid={} fgid={} ppid={} pid={}",
+        gid, fgid, ppid, pid);
 }
 
 // NOTE: ProcessInfo object acts as the checkpoint header for DMTCP.
@@ -744,13 +752,14 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
   o & kvmap;
 
-  JTRACE("Serialized process information")
-    (sid) (ppid) (gid) (fgid) (isRootOfProcessTree)
-    (procname) (_hostname) (_launchCWD) (_ckptCWD) (upid) (uppid)
-    (compGroup) (numPeers) (elfType);
+  TRACE("Serialized process information: sid={} ppid={} gid={} fgid={} "
+        "isRootOfProcessTree={} procname={} hostname={} launchCWD={} "
+        "ckptCWD={} upid={} uppid={} compGroup={} numPeers={} elfType={}",
+        sid, ppid, gid, fgid, isRootOfProcessTree, procname, _hostname,
+        _launchCWD, _ckptCWD, upid, uppid, compGroup, numPeers, elfType);
 
   if (isRootOfProcessTree) {
-    JTRACE("This process is Root of Process Tree");
+    TRACE("This process is Root of Process Tree");
   }
 
   JSERIALIZE_ASSERT_POINT("EOF");

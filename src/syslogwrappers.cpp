@@ -117,7 +117,7 @@ extern "C" void
 openlog(const char *ident, int option, int facility)
 {
   ASSERT(!_isSuspended, "openlog called while syslog is suspended");
-  JTRACE("openlog") (ident);
+  TRACE("openlog: ident={}", ident);
   _real_openlog(ident, option, facility);
   _syslogEnabled = true;
 
@@ -133,7 +133,7 @@ extern "C" void
 closelog(void)
 {
   ASSERT(!_isSuspended, "closelog called while syslog is suspended");
-  JTRACE("closelog");
+  TRACE("closelog");
   _real_closelog();
   _syslogEnabled = false;
 }

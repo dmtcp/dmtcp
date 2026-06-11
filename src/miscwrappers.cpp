@@ -27,6 +27,7 @@
 #endif
 #include <poll.h>
 #include "../jalib/jassert.h"
+#include "util_assert.h"
 #include "../jalib/jconvert.h"
 #include "constants.h"
 #include "dmtcpworker.h"
@@ -95,9 +96,9 @@ extern "C" int
 setrlimit (int resource, const struct rlimit *rlim) {
   if ( resource == RLIMIT_NOFILE &&
        (rlim->rlim_cur < 1024 || rlim->rlim_max < 1024) ) {
-    JNOTE("Blocked attempt to lower RLIMIT_NOFILE\n"
-                 "  below 1024 (needed for DMTCP protected fd)")
-         (rlim->rlim_cur) (rlim->rlim_max);
+    NOTE("Blocked attempt to lower RLIMIT_NOFILE\n"
+         "  below 1024 (needed for DMTCP protected fd): cur={} max={}",
+         rlim->rlim_cur, rlim->rlim_max);
     struct rlimit rlim2 = {0};
     if (rlim->rlim_cur < 1024) { rlim2.rlim_cur = 1024; }
     if (rlim->rlim_max < 1024) { rlim2.rlim_max = 1024; }
@@ -109,7 +110,7 @@ setrlimit (int resource, const struct rlimit *rlim) {
 extern "C" int
 pipe(int fds[2])
 {
-  JTRACE("promoting pipe() to socketpair()");
+  TRACE("promoting pipe() to socketpair()");
 
   // just promote pipes to socketpairs
   return socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
@@ -121,7 +122,7 @@ pipe(int fds[2])
 extern "C" int
 pipe2(int fds[2], int flags)
 {
-  JTRACE("promoting pipe2() to socketpair()");
+  TRACE("promoting pipe2() to socketpair()");
 
   // just promote pipes to socketpairs
   int newFlags = 0;
@@ -216,7 +217,7 @@ extern "C" int __clone(int (*fn)(void *arg),
  * If we discover system calls for which the 7 args strategy doesn't work,
  *  we can special case them.
  *
- * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
+ * XXX: DO NOT USE TRACE/NOTE/ASSERT in this function; even better, do not
  *      use any STL here.  (--Kapil)
  */
 extern "C" long

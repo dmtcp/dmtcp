@@ -8,6 +8,7 @@
 #include "socketconnection.h"
 #include "socketconnlist.h"
 #include "util.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -149,7 +150,7 @@ SocketConnList::drain()
     const ConnectionIdentifier &id = it->first;
     TcpConnection *con =
       (TcpConnection *)SocketConnList::instance().getConnection(id);
-    JTRACE("recreating disconnected socket") (id);
+    TRACE("recreating disconnected socket (id = {};)", id);
 
     // reading from the socket, and taking the error, resulted in an
     // implicit close().
@@ -162,7 +163,7 @@ void
 SocketConnList::preCkpt()
 {
   // handshake is done after one barrier after drain
-  JTRACE("beginning handshakes");
+  TRACE("beginning handshakes");
   DmtcpUniqueProcessId coordId = dmtcp_get_coord_id();
 
   // must send first to avoid deadlock
@@ -181,7 +182,7 @@ SocketConnList::preCkpt()
       ((TcpConnection *)con)->doRecvHandshakes(coordId);
     }
   }
-  JTRACE("handshaking done");
+  TRACE("handshaking done");
   _hasIPv4Sock = _hasIPv6Sock = _hasUNIXSock = false;
 
   // Now check if we have IPv4, IPv6, or UNIX domain sockets to restore.
@@ -269,7 +270,7 @@ SocketConnList::scanForPreExisting()
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
-    JTRACE("scanning pre-existing device") (fd) (device);
+    TRACE("scanning pre-existing device (fd = {};) (device = {};)", fd, device);
     if (device ==
         jalib::Filesystem::GetControllingTerm()) {} else if (dmtcp_is_bq_file &&
                                                              dmtcp_is_bq_file(
@@ -277,8 +278,7 @@ SocketConnList::scanForPreExisting()
     {} else if (fd <=
                 2)
     {} else if (Util::strStartsWith(device.c_str(), "/")) {} else {
-      JNOTE("found pre-existing socket... will not be restored")
-        (fd) (device);
+      NOTE("found pre-existing socket... will not be restored (fd = {};) (device = {};)", fd, device);
       TcpConnection *con = new TcpConnection(0, 0, 0);
       con->markPreExisting();
       add(fd, con);

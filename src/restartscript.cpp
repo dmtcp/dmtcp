@@ -391,7 +391,7 @@ writeScript(const string &ckptDir,
   char timestamp[80];
   gethostname(hostname, 80);
 
-  JTRACE("writing restart script") (uniqueFilename);
+  TRACE("writing restart script: path={}", uniqueFilename);
 
   FILE *fp = fopen(uniqueFilename.c_str(), "w");
   ASSERT_ERRNO(fp != 0,
@@ -444,7 +444,7 @@ writeScript(const string &ckptDir,
           numPeers);
 
   if (isSingleHost) {
-    JTRACE("Single HOST");
+    TRACE("Single HOST");
 
     host = restartFilenames.begin();
     ostringstream o;
@@ -595,41 +595,43 @@ writeScript(const string &ckptDir,
     string filename = RESTART_SCRIPT_BASENAME "." RESTART_SCRIPT_EXT;
     string dirname = jalib::Filesystem::DirName(uniqueFilename);
     int dirfd = open(dirname.c_str(), O_DIRECTORY | O_RDONLY);
-    ASSERT_VALID_FD(dirfd,
+    ASSERT_NE(-1, dirfd,
                         "failed to open restart script directory: path={}",
                         dirname);
 
     /* Set execute permission for user. */
     struct stat buf;
-    ASSERT_SYSCALL_SUCCESS(::stat(uniqueFilename.c_str(), &buf),
+    ASSERT_NE(-1, ::stat(uniqueFilename.c_str(), &buf),
                  "failed to stat restart script: path={}",
                  uniqueFilename);
-    ASSERT_SYSCALL_SUCCESS(chmod(uniqueFilename.c_str(), buf.st_mode | S_IXUSR),
-                 "failed to set restart script executable: path={}",
+    ASSERT_NE(-1, chmod(uniqueFilename.c_str(), buf.st_mode | S_IXUSR),
+                 "failed to make restart script executable: path={}",
                  uniqueFilename);
 
     // Create a symlink from
     // dmtcp_restart_script.sh -> dmtcp_restart_script_<curCompId>.sh
     unlink(filename.c_str());
-    JTRACE("linking \"dmtcp_restart_script.sh\" filename to uniqueFilename")
-      (filename) (dirname) (uniqueFilename);
+    TRACE("linking \"dmtcp_restart_script.sh\" filename to uniqueFilename: "
+          "filename={} dirname={} uniqueFilename={}",
+          filename, dirname, uniqueFilename);
 
     // FIXME:  Handle error case of symlink()
     unlink(filename.c_str());
-    JTRACE("linking \"dmtcp_restart_script.sh\" filename to uniqueFilename")
-          (filename) (dirname) (uniqueFilename);
+    TRACE("linking \"dmtcp_restart_script.sh\" filename to uniqueFilename: "
+          "filename={} dirname={} uniqueFilename={}",
+          filename, dirname, uniqueFilename);
     char uniq_fname_str[PATH_MAX];
     strncpy(uniq_fname_str, uniqueFilename.c_str(), PATH_MAX);
     // orig str less than PATH_MAX     // FIXME:  Handle error case of symlink()
     ASSERT(uniq_fname_str[PATH_MAX-1] == '\0',
            "restart script path too long: path={}",
            uniqueFilename);
-    WARN_SYSCALL_SUCCESS(
+    WARN_NE(-1,
       symlinkat(basename(uniq_fname_str), dirfd, filename.c_str()),
       "failed to link restart script: link={} target_dir={}",
       filename,
       dirname);
-    ASSERT_SYSCALL_SUCCESS(close(dirfd),
+    ASSERT_NE(-1, close(dirfd),
                  "failed to close restart script directory: path={}",
                  dirname);
   }

@@ -46,12 +46,6 @@
 
 using namespace dmtcp;
 
-#ifdef LOGGING
-const static bool dbg = true;
-#else // ifdef LOGGING
-const static bool dbg = false;
-#endif // ifdef LOGGING
-
 /* This is defined by newer gcc version unique for each module.  */
 extern void *__dso_handle __attribute__((__weak__,
                                          __visibility__("hidden")));
@@ -215,10 +209,10 @@ fork()
      * within the DmtcpWorker constructor to make sure that this is the first
      * registered handle.
      */
-    JTRACE("fork() done [CHILD]")
-      (UniquePid::ThisProcess()) (UniquePid::ParentProcess());
+    TRACE("fork() done [CHILD]: process={} parent={}",
+          UniquePid::ThisProcess(), UniquePid::ParentProcess());
   } else if (childPid > 0) { /* Parent Process */
-    JTRACE("fork()ed [PARENT] done") (childPid);
+    TRACE("fork()ed [PARENT] done: childPid={}", childPid);
     if (dmtcp_pid_is_enabled()) {
       pid_t virtualChildPid;
       Util::getVirtualPidFromEnvVar(&virtualChildPid, NULL, NULL, NULL);
@@ -242,7 +236,7 @@ static void* newStackAddr;
 extern "C" pid_t
 vfork()
 {
-  JTRACE("Simulating vfork with fork");
+  TRACE("Simulating vfork with fork");
   return fork();
 
   char dummy;
@@ -289,7 +283,7 @@ vfork()
 
   if (vforkPid == -1) {
     PluginManager::eventHook(DMTCP_EVENT_VFORK_FAILED, NULL);
-    JTRACE("vfork failed") (vforkPid);
+    TRACE("vfork failed: pid={}", vforkPid);
   } else if (vforkPid == 0) { /* child process */
     PluginManager::eventHook(DMTCP_EVENT_VFORK_CHILD, NULL);
 
@@ -297,10 +291,10 @@ vfork()
 
     WorkerState::setCurrentState(WorkerState::RUNNING);
 
-    JTRACE("vfork() done [CHILD]") (UniquePid::ThisProcess());
+    TRACE("vfork() done [CHILD]: process={}", UniquePid::ThisProcess());
   } else if (vforkPid > 0) { /* Parent Process */
     PluginManager::eventHook(DMTCP_EVENT_VFORK_PARENT, NULL);
-    JTRACE("vfork()ed [PARENT] done") (vforkPid);
+    TRACE("vfork()ed [PARENT] done: childPid={}", vforkPid);
   }
 
   if (vforkPid != 0) {
@@ -398,7 +392,7 @@ dmtcpPrepareForExec(const char *path,
                     const char **filename,
                     const char ***newArgv)
 {
-  JTRACE("Preparing for Exec") (path);
+  TRACE("Preparing for Exec: path={}", path);
 
   const char *libPrefix = "/lib/lib";
   const char *lib64Prefix = "/lib64/lib";
@@ -415,7 +409,8 @@ dmtcpPrepareForExec(const char *path,
   // WE DIRECTLY HANDLE, LIKE 'screen'.  (Need to name special routine,
   // execScreenProcess() ??)
   if (path != NULL && Util::strEndsWith(path, "/utempter")) {
-    JTRACE("Trying to exec: utempter")(path)(argv[0])(argv[1]);
+    TRACE("Trying to exec utempter: path={} argv0={} argv1={}",
+          path, argv[0], argv[1]);
     string realPtsNameStr;
 
     // utempter takes a pts slave name as an argument. Since we virtualize
@@ -452,7 +447,8 @@ dmtcpPrepareForExec(const char *path,
     *newArgv = argv;
   }
 
-  JTRACE("Will exec filename instead of path") (path) (*filename);
+  TRACE("Will exec filename instead of path: path={} filename={}",
+        path, *filename);
 
   Util::adjustRlimitStack();
 
@@ -463,7 +459,7 @@ dmtcpPrepareForExec(const char *path,
       fcntl(i, F_SETFD, flags & ~FD_CLOEXEC);
     }
   }
-  JTRACE("Prepared for Exec") (getenv("LD_PRELOAD"));
+  TRACE("Prepared for Exec: LD_PRELOAD={}", getenv("LD_PRELOAD"));
 }
 
 static void
@@ -475,8 +471,9 @@ dmtcpProcessFailedExec(const char *path, const char *newArgv[])
     Util::freePatchedArgv(newArgv);
   }
 
-  JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
-  WARN_SYSCALL_SUCCESS(_real_close(PROTECTED_LIFEBOAT_FD),
+  TRACE("Processed failed Exec Attempt: path={} LD_PRELOAD={}",
+        path, getenv("LD_PRELOAD"));
+  WARN_NE(-1, _real_close(PROTECTED_LIFEBOAT_FD),
              "failed to close protected lifeboat fd: fd={}",
              PROTECTED_LIFEBOAT_FD);
   errno = saved_errno;
@@ -545,8 +542,9 @@ copyEnv(char *const envp[])
 static const char **
 stringVectorToPointerArray(const vector<string> &s, size_t len)
 {
-  ASSERT(len >= s.size(),
-         "pointer array length is too small: len={} size={}", len, s.size());
+  ASSERT(len > s.size(),
+         "pointer array length is too small: len={} required={}",
+         len, s.size() + 1);
 
   const char **result = (const char **) JALLOC_MALLOC(len * sizeof (char*));
   ASSERT_NOT_NULL(result, "failed to allocate pointer array: len={}", len);
@@ -585,13 +583,17 @@ patchUserEnv(const char *env[], const char *filename)
 {
   vector<string>result;
   string userPreloadStr;
+  const bool traceEnabled =
+    logEnabled(LogLevel::Trace, DMTCP_LOG_COMPONENT, __FILE__);
 
   ostringstream out;
-  out << "non-DMTCP env vars:\n";
+  if (traceEnabled) {
+    out << "non-DMTCP env vars:\n";
+  }
 
   for (size_t i = 0; env[i] != NULL; i++) {
     if (isImportantEnv(env[i])) {
-      if (dbg) {
+      if (traceEnabled) {
         out << "     skipping: " << env[i] << '\n';
       }
       continue;
@@ -602,14 +604,17 @@ patchUserEnv(const char *env[], const char *filename)
     }
 
     result.push_back(env[i]);
-    if (dbg) {
+    if (traceEnabled) {
       out << "     addenv[user]:" << result.back() << '\n';
     }
   }
-  JTRACE("Creating a copy of (non-DMTCP) user env vars...") (out.str());
+  TRACE("Creating a copy of non-DMTCP user env vars: env={}", out.str());
 
   // pack up our ENV into the new ENV
-  out.str("DMTCP env vars:\n");
+  if (traceEnabled) {
+    out.str("DMTCP env vars:\n");
+    out.clear();
+  }
   for (size_t i = 0; i < ourImportantEnvsCnt; ++i) {
     const char *v = getenv(ourImportantEnvs[i]);
     const string e = ourImportantEnvs[i];
@@ -617,7 +622,7 @@ patchUserEnv(const char *env[], const char *filename)
       result.push_back(e + "=" + userPreloadStr);
     } else if (v != NULL) {
       result.push_back(e + '=' + v);
-      if (dbg) {
+      if (traceEnabled) {
         out << "     addenv[dmtcp]:" << result.back() << '\n';
       }
     }
@@ -640,11 +645,11 @@ patchUserEnv(const char *env[], const char *filename)
     result.push_back(pathVirt);
   }
 
-  if (dbg) {
+  if (traceEnabled) {
     out << "     addenv[dmtcp]:" << result.back() << '\n';
   }
 
-  JTRACE("Patched user envp...")  (out.str());
+  TRACE("Patched user envp: env={}", out.str());
 
   return result;
 }
@@ -655,8 +660,8 @@ int getLifeboatFd()
   char buf[PATH_MAX] = {0};
   snprintf(buf, sizeof(buf) - 1, "%s/LifeBoat.XXXXXX", dmtcp_get_tmpdir());
   int fd = _real_mkostemps(buf, 0, 0);
-  ASSERT_VALID_FD(fd, "failed to create lifeboat file: path={}", buf);
-  ASSERT_SYSCALL_SUCCESS(unlink(buf), "failed to unlink lifeboat file: path={}",
+  ASSERT_NE(-1, fd, "failed to create lifeboat file: path={}", buf);
+  ASSERT_NE(-1, unlink(buf), "failed to unlink lifeboat file: path={}",
                buf);
   Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);
   return PROTECTED_LIFEBOAT_FD;
@@ -701,7 +706,7 @@ execvpe(const char *filename, char *const argv[], char *const envp[])
 extern "C" int
 execl(const char *path, const char *arg, ...)
 {
-  JTRACE("execl() wrapper") (path);
+  TRACE("execl() wrapper: path={}", path);
 
   va_list args;
   va_start(args, arg);
@@ -714,7 +719,7 @@ execl(const char *path, const char *arg, ...)
 extern "C" int
 execlp(const char *file, const char *arg, ...)
 {
-  JTRACE("execlp() wrapper") (file);
+  TRACE("execlp() wrapper: file={}", file);
 
   va_list args;
   va_start(args, arg);
@@ -727,7 +732,7 @@ execlp(const char *file, const char *arg, ...)
 extern "C" int
 execle(const char *path, const char *arg, ...)
 {
-  JTRACE("execle() wrapper") (path);
+  TRACE("execle() wrapper: path={}", path);
 
   va_list args;
   va_start(args, arg);
@@ -742,8 +747,9 @@ extern int do_system(const char *line);
 extern "C" int
 system(const char *line)
 {
-  JTRACE("before system(), checkpointing may not work")
-    (line) (getenv(ENV_VAR_HIJACK_LIBS)) (getenv("LD_PRELOAD"));
+  TRACE("before system(), checkpointing may not work: line={} hijackLibs={} "
+        "LD_PRELOAD={}",
+        line, getenv(ENV_VAR_HIJACK_LIBS), getenv("LD_PRELOAD"));
 
   if (line == NULL) {
     /* Check that we have a command processor available.  It might
@@ -753,7 +759,7 @@ system(const char *line)
 
   int result = do_system(line);
 
-  JTRACE("after system()");
+  TRACE("after system()");
 
   return result;
 }
@@ -827,7 +833,7 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
     _real_close(PROTECTED_COORD_FD);
 
     pid_t cpid = _real_fork();
-    ASSERT_FORK_SUCCESS(cpid,
+    ASSERT_NE(-1, cpid,
                             "failed to fork before execing dmtcp_command");
     if (cpid != 0) {
       _real_exit(0);

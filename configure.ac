@@ -62,29 +62,10 @@ if test -n "$ac_unrecognized_opts"; then
   esac
 fi
 
-AC_ARG_ENABLE([logging],
-            [AS_HELP_STRING([--enable-logging],
-                            [enable (very) verbose logging output
-                             and write log files to $DMTCP_TMPDIR (default is
-                             disabled)])],
-            [use_logging=$enableval],
-            [use_logging=no])
-
-if test "$use_logging" = "yes"; then
-  AC_SUBST([LOGGING], [yes])
-  AC_DEFINE([LOGGING],[1],[Verbose trace output and log files in $DMTCP_TMPDIR])
-  CFLAGS="$CFLAGS -DLOGGING"
-  CPPFLAGS="$CPPFLAGS -DLOGGING"
-  CXXFLAGS="$CXXFLAGS -DLOGGING"
-else
-  AC_SUBST([LOGGING], [no])
-fi
-
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
                             [Use debugging flags "-Wall -g3 -O0" on DMTCP libs
-                             (default is
-                             disabled); also, see --enable-logging])],
+                             (default is disabled)])],
             [use_debug=$enableval],
             [use_debug=no])
 

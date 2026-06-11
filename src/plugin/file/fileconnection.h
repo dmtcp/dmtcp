@@ -54,7 +54,7 @@ class StdioConnection : public Connection
 
     StdioConnection(int fd) : Connection(STDIO_IN + fd)
     {
-      JTRACE("creating stdio connection") (fd) (id());
+      TRACE("creating stdio connection: fd={} id={}", fd, id());
       ASSERT(jalib::Between(0, fd, 2),
              "invalid fd for StdioConnection: fd={}", fd);
     }
@@ -169,7 +169,8 @@ class FifoConnection : public Connection
         offs++;
         _rel_path = _path.substr(offs);
       }
-      JTRACE("New Fifo connection created") (_path) (_rel_path);
+      TRACE("New Fifo connection created: path={} relativePath={}",
+            _path, _rel_path);
       _in_data.clear();
     }
 

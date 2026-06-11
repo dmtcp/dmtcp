@@ -207,7 +207,8 @@ class VirtualIdTable
         IdType realId = i->second;
         out << "\t" << virtualId << "\t->   " << realId << "\n";
       }
-      JTRACE("Virtual To Real Mappings:") (_idMapTable.size()) (out.str());
+      TRACE("Virtual To Real Mappings: size={} maps={}",
+            _idMapTable.size(), out.str());
     }
 
     vector<IdType>getIdVector()
@@ -289,12 +290,12 @@ class VirtualIdTable
       ASSERT(mapFile.length() > 0,
              "failed to resolve virtual-id map fd path: fd={} path={}", fd,
              file);
-      JTRACE("Write Maps to file") (mapFile);
+      TRACE("Write Maps to file: path={}", mapFile);
 
       // Lock fileset before any operations
       Util::lockFile(fd);
       _do_lock_tbl();
-      ASSERT_SYSCALL_SUCCESS(lseek(fd, 0, SEEK_END),
+      ASSERT_NE(-1, lseek(fd, 0, SEEK_END),
                    "failed to seek virtual-id map file: fd={} path={}", fd,
                    mapFile);
 
@@ -313,7 +314,7 @@ class VirtualIdTable
       ASSERT(mapFile.length() > 0,
              "failed to resolve virtual-id map fd path: fd={} path={}", fd,
              file);
-      JTRACE("Read Maps from file") (mapFile);
+      TRACE("Read Maps from file: path={}", mapFile);
 
       // No need to lock the file as we are the only process using this fd.
       // Util::lockFile(fd);

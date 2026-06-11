@@ -25,6 +25,7 @@
 #include "dmtcp.h"
 
 #include "jassert.h"
+#include "util_assert.h"
 
 namespace dmtcp
 {
@@ -34,7 +35,7 @@ static void
 checkpoint()
 {
   timeLeft = alarm(0);
-  JTRACE("*** Alarm stopped. ***") (timeLeft);
+  TRACE("*** Alarm stopped. *** timeLeft={}", timeLeft);
 }
 
 static void
@@ -42,7 +43,7 @@ resume()
 {
   /* Need to restart the timer on resume/restart. */
   if (timeLeft > 0) {
-    JTRACE("*** Resuming alarm. ***") (timeLeft);
+    TRACE("*** Resuming alarm. *** timeLeft={}", timeLeft);
     timeLeft = alarm(timeLeft);
   }
 }

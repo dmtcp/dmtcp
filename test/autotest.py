@@ -1354,6 +1354,12 @@ class TestRegistry:
 
         tests = [
             TestSpec("dmtcp1", 1, ["./test/dmtcp1"]),
+            TestSpec("dmtcp1-trace", 1, ["./test/dmtcp1"],
+                     env={"DMTCP_LOG_LEVEL": "trace"},
+                     list_notes=["runtime trace logging"]),
+            TestSpec("dmtcp1-quiet", 1, ["./test/dmtcp1"],
+                     env={"DMTCP_QUIET": "2"},
+                     list_notes=["quiet logging"]),
             TestSpec("command-json-kill", 1, ["./test/dmtcp1"], cycles=0,
                      limits=["cycles=0"]),
             TestSpec("command-json-quit", 1, ["./test/dmtcp1"], cycles=0,

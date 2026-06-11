@@ -56,7 +56,7 @@ ProcSelfMaps::ProcSelfMaps()
   // We should check for that.
 
   fd = _real_open("/proc/self/maps", O_RDONLY);
-  ASSERT_VALID_FD(fd, "failed to open /proc/self/maps");
+  ASSERT_NE(-1, fd, "failed to open /proc/self/maps");
   ssize_t numRead = 0;
 
   // Get an approximation of the required buffer size.
@@ -71,7 +71,7 @@ ProcSelfMaps::ProcSelfMaps()
   // of /proc/self/maps, so we need to recalculate numBytes.
   size_t size = numBytes + 4096; // Add a one page buffer.
   data = (char *)JALLOC_HELPER_MALLOC(size);
-  ASSERT_SYSCALL_SUCCESS(lseek(fd, 0, SEEK_SET),
+  ASSERT_NE(-1, lseek(fd, 0, SEEK_SET),
                "failed to rewind /proc/self/maps");
 
   numBytes = Util::readAll(fd, data, size);
@@ -297,6 +297,7 @@ ProcSelfMaps::getStackInfo(ProcMapsArea *area)
       return;
     }
   }
-  ASSERT(false, "stack mapping not found in /proc/self/maps: frame={}",
+  ASSERT(false, "failed to find stack segment in /proc/self/maps holding "
+                "current call frame: call_frame={}",
          stackFrameAddr);
 }

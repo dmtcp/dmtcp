@@ -64,11 +64,11 @@ restore_rlimit_float_settings()
     getrlimit(_RLIMIT, &rlim);                                               \
     if (_rlim_cur <= rlim.rlim_max) {                                        \
       rlim.rlim_cur = _rlim_cur;                                             \
-      ASSERT_SYSCALL_SUCCESS(setrlimit(_RLIMIT, &rlim),                           \
+      ASSERT_NE(-1, setrlimit(_RLIMIT, &rlim),                           \
                    "setrlimit(" #_RLIMIT ") failed");                       \
     } else {                                                                 \
-      JTRACE("Prev. soft limit of " #_RLIMIT " lowered to new hard limit")   \
-        (_rlim_cur) (rlim.rlim_max);                                         \
+      TRACE("Prev. soft limit of " #_RLIMIT " lowered to new hard limit: "  \
+            "prev={} hard={}", _rlim_cur, rlim.rlim_max);                    \
       _rlim_cur = rlim.rlim_max;                                             \
     }                                                                        \
   }

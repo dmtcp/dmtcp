@@ -200,8 +200,8 @@ ConnectionList::deleteStaleConnections()
     }
   }
 
-#ifdef LOGGING
-  if (staleFds.size() > 0) {
+  if (staleFds.size() > 0 &&
+      logEnabled(LogLevel::Trace, DMTCP_LOG_COMPONENT, __FILE__)) {
     ostringstream out;
     out << "\tDevice \t\t->\t File Descriptor -> ConnectionId\n";
     out << "==================================================\n";
@@ -214,9 +214,8 @@ ConnectionList::deleteStaleConnections()
           << "\t->\t" << c->id() << "\n";
     }
     out << "==================================================\n";
-    JTRACE("Deleting Stale Connections") (out.str());
+    TRACE("Deleting Stale Connections (out.str() = {};)", out.str());
   }
-#endif // ifdef LOGGING
 
   // delete all the stale connections
   for (size_t i = 0; i < staleFds.size(); ++i) {
@@ -309,7 +308,9 @@ ConnectionList::list()
     o << "\t" << i->first << "\t" << c->str();
     o << "\n";
   }
-  JTRACE("ConnectionList") (dmtcp_get_uniquepid_str()) (o.str());
+  TRACE("ConnectionList (dmtcp_get_uniquepid_str() = {};) "
+        "(o.str() = {};)",
+        dmtcp_get_uniquepid_str(), o.str());
 }
 
 Connection *
@@ -510,9 +511,9 @@ ConnectionList::refill(bool isRestart)
     }
   }
   if (isRestart) {
-    JTRACE("Waiting for Missing Cons");
+    TRACE("Waiting for Missing Cons");
     sendReceiveMissingFds();
-    JTRACE("Done waiting for Missing Cons");
+    TRACE("Done waiting for Missing Cons");
   }
 }
 
@@ -580,7 +581,7 @@ ConnectionList::registerIncomingCons()
          protected_fd);
   sock.changeFd(protected_fd);
   fdReceiveAddr.sun_family = AF_UNIX;
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     _real_bind(protected_fd,
                (struct sockaddr *)&fdReceiveAddr,
                sizeof(fdReceiveAddr.sun_family)),
@@ -588,7 +589,7 @@ ConnectionList::registerIncomingCons()
     protected_fd);
 
   fdReceiveAddrLen = sizeof(fdReceiveAddr);
-  ASSERT_SYSCALL_SUCCESS(getsockname(protected_fd,
+  ASSERT_NE(-1, getsockname(protected_fd,
                                          (struct sockaddr *)&fdReceiveAddr,
                                          &fdReceiveAddrLen),
                              "getsockname failed for fd-receive socket: "
@@ -610,7 +611,8 @@ ConnectionList::registerIncomingCons()
       out << "\n\t" << con->str() << i->first;
     }
   }
-  JTRACE("Incoming/Outgoing Cons") (in.str()) (out.str());
+  TRACE("Incoming/Outgoing Cons (in.str() = {};) (out.str() = {};)",
+        in.str(), out.str());
   numIncomingCons = incomingCons.size();
   if (numIncomingCons > 0) {
     SharedData::registerIncomingCons(incomingCons, fdReceiveAddr,
@@ -648,7 +650,7 @@ ConnectionList::sendReceiveMissingFds()
       socketFd.events |= POLLIN;
     }
 
-    ASSERT_SYSCALL_SUCCESS(_real_poll(&socketFd, 1, -1),
+    ASSERT_NE(-1, _real_poll(&socketFd, 1, -1),
                                "poll failed for missing fd exchange: fd={}",
                                restoreFd);
 
@@ -657,7 +659,7 @@ ConnectionList::sendReceiveMissingFds()
       outgoingCons.pop_back();
       ConnectionIdentifier *id = (ConnectionIdentifier *)maps[idx].id;
       Connection *con = getConnection(*id);
-      JTRACE("Sending Missing Con") (*id);
+      TRACE("Sending Missing Con (*id = {};)", *id);
       ASSERT_ERRNO(Util::sendFd(restoreFd, con->getFds()[0], id, sizeof(*id),
                                 maps[idx].addr, maps[idx].len) != -1,
                    "sendFd failed for missing connection: restore_fd={} "
@@ -670,12 +672,12 @@ ConnectionList::sendReceiveMissingFds()
     if (numIncomingCons > 0 && (socketFd.revents & POLLIN)) {
       ConnectionIdentifier id;
       int fd = Util::receiveFd(restoreFd, &id, sizeof(id));
-      ASSERT_VALID_FD(fd,
+      ASSERT_NE(-1, fd,
                           "receiveFd failed for missing connection: "
                           "restore_fd={}",
                           restoreFd);
       Connection *con = getConnection(id);
-      JTRACE("Received Missing Con") (id);
+      TRACE("Received Missing Con (id = {};)", id);
       ASSERT_NOT_NULL(con,
                           "received unknown missing connection: host_id={} "
                           "pid={} time={} con_id={}",
