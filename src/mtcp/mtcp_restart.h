@@ -81,7 +81,7 @@
 
 struct RestoreInfo;
 typedef void (*fnptr_t)(struct RestoreInfo *);
-typedef void (*fnptr_post_restart_t)(double, int);
+typedef void (*fnptr_post_restart_t)(int);
 
 #define MAX_REGIONS_TO_MUNMAP 16
 
@@ -109,9 +109,6 @@ typedef struct RestoreInfo {
   // void (*post_restart)();
   // void (*restorememoryareas_fptr)();
   int use_gdb;
-#ifdef TIMING
-  struct timeval startValue;
-#endif
   volatile int restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE_WHILE
 
   // The following fields are only valid until mtcp_restart memory is unmapped,

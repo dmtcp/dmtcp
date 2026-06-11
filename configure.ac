@@ -109,18 +109,6 @@ if test "$use_quiet" = "yes"; then
   AC_DEFINE([QUIET],[1],[No output, not even NOTE and WARNING])
 fi
 
-AC_ARG_ENABLE([timing],
-            [AS_HELP_STRING([--enable-timing],
-                            [record checkpoint/restart timing information
-                            to jtimings.csv, in working directory of
-                            dmtcp_coordinator, and to stderr.])],
-            [use_jtiming=$enableval],
-            [use_jtiming=no])
-
-if test "$use_jtiming" = "yes"; then
-  AC_DEFINE([TIMING],[1],[Record timing information to stderr and jtimings.csv])
-fi
-
 AC_ARG_ENABLE([realtime_ckpt_signal],
             [AS_HELP_STRING([--enable-realtime-ckpt-signal],
                             [Use a realtime signal (SIGRTMAX - 2) instead of

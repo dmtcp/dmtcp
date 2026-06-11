@@ -522,7 +522,7 @@ DmtcpWorker::postCheckpoint()
 }
 
 void
-DmtcpWorker::postRestart(double ckptReadTime)
+DmtcpWorker::postRestart()
 {
   JTRACE("begin postRestart()");
   WorkerState::setCurrentState(WorkerState::RESTARTING);

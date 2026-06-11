@@ -42,7 +42,7 @@ namespace DmtcpWorker
   void releaseLocks();
   void preCheckpoint();
   void postCheckpoint();
-  void postRestart(double ckptReadTime = 0.0);
+  void postRestart();
 
   void resetOnFork();
 

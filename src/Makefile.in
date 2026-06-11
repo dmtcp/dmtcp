@@ -161,8 +161,7 @@ am_libjalib_a_OBJECTS = $(jalibdir)/jalib.$(OBJEXT) \
 	$(jalibdir)/jalloc.$(OBJEXT) $(jalibdir)/jassert.$(OBJEXT) \
 	$(jalibdir)/jbuffer.$(OBJEXT) \
 	$(jalibdir)/jfilesystem.$(OBJEXT) \
-	$(jalibdir)/jserialize.$(OBJEXT) $(jalibdir)/jsocket.$(OBJEXT) \
-	$(jalibdir)/jtimer.$(OBJEXT)
+	$(jalibdir)/jserialize.$(OBJEXT) $(jalibdir)/jsocket.$(OBJEXT)
 libjalib_a_OBJECTS = $(am_libjalib_a_OBJECTS)
 libnohijack_a_AR = $(AR) $(ARFLAGS)
 libnohijack_a_RANLIB = $(RANLIB)
@@ -364,7 +363,6 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	$(jalibdir)/$(DEPDIR)/jfilesystem.Po \
 	$(jalibdir)/$(DEPDIR)/jserialize.Po \
 	$(jalibdir)/$(DEPDIR)/jsocket.Po \
-	$(jalibdir)/$(DEPDIR)/jtimer.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-alarm.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-ckptserializer.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.Po \
@@ -855,7 +853,7 @@ nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 	$(jalibdir)/jalib.h $(jalibdir)/jalloc.h $(jalibdir)/jassert.h \
 	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h \
 	$(jalibdir)/jfilesystem.h $(jalibdir)/jserialize.h \
-	$(jalibdir)/jsocket.h $(jalibdir)/jtimer.h \
+	$(jalibdir)/jsocket.h \
 	$(dmtcpincludedir)/dmtcp.h $(dmtcpincludedir)/dmtcpalloc.h \
 	$(dmtcpincludedir)/futex.h $(dmtcpincludedir)/procmapsarea.h \
 	$(dmtcpincludedir)/procselfmaps.h \
@@ -891,8 +889,7 @@ libjalib_a_SOURCES = $(jalibdir)/jalib.cpp			\
 		     $(jalibdir)/jbuffer.cpp			\
 		     $(jalibdir)/jfilesystem.cpp 		\
 		     $(jalibdir)/jserialize.cpp			\
-		     $(jalibdir)/jsocket.cpp 			\
-		     $(jalibdir)/jtimer.cpp
+		     $(jalibdir)/jsocket.cpp
 
 
 # This is required for jalib/jalloc.cpp:__sync_bool_compare_and_swap()
@@ -1297,9 +1294,6 @@ $(jalibdir)/jserialize.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
 	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
 $(jalibdir)/jsocket.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
 	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
-$(jalibdir)/jtimer.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
-	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
-
 libjalib.a: $(libjalib_a_OBJECTS) $(libjalib_a_DEPENDENCIES) $(EXTRA_libjalib_a_DEPENDENCIES)
 	$(AM_V_at)-rm -f libjalib.a
 	$(AM_V_AR)$(libjalib_a_AR) libjalib.a $(libjalib_a_OBJECTS) $(libjalib_a_LIBADD)
@@ -1433,7 +1427,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jfilesystem.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jserialize.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jsocket.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jtimer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-alarm.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-ckptserializer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.Po@am__quote@ # am--include-marker
@@ -2173,7 +2166,6 @@ distclean: distclean-recursive
 	-rm -f $(jalibdir)/$(DEPDIR)/jfilesystem.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jserialize.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jsocket.Po
-	-rm -f $(jalibdir)/$(DEPDIR)/jtimer.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-alarm.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-ckptserializer.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.Po
@@ -2280,7 +2272,6 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f $(jalibdir)/$(DEPDIR)/jfilesystem.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jserialize.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jsocket.Po
-	-rm -f $(jalibdir)/$(DEPDIR)/jtimer.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-alarm.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-ckptserializer.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.Po

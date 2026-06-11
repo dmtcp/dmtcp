@@ -86,12 +86,6 @@ struct Thread {
   ucontext_t savctx;     // context saved on suspend
 #endif // ifdef SETJMP
 
-  /* This field is used by the ckpt thread to store and print the time
-   * mtcp_restart took to read and map memory regions from the ckpt
-   * image. This is only used when configured with --enable-timing.
-   */
-  double ckptReadTime;
-
   uint32_t wrapperLockCount;
 
   Thread *next;

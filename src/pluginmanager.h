@@ -77,11 +77,6 @@ class PluginManager
     static void processResumeBarriers();
     static void processRestartBarriers();
     static void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data = NULL);
-#ifdef TIMING
-    static void logCkptResumeBarrierOverhead();
-    static void logRestartBarrierOverhead(double ckptReadTime);
-#endif
-
   private:
     vector<PluginInfo *>pluginInfos;
 };
