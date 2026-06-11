@@ -681,7 +681,7 @@ DmtcpCoordinator::onData(CoordClient *client)
     return;
   }
 
-  msg.assertValid();
+  JASSERT(msg.isValid());
   char *extraData = 0;
   if (msg.extraBytes > 0) {
     extraData = new char[msg.extraBytes];
