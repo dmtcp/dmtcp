@@ -908,7 +908,8 @@ PosixMQConnection::drain()
     unsigned prio;
     ssize_t numBytes = _real_mq_receive(_fds[0], buf, attr.mq_msgsize, &prio);
     JASSERT(numBytes != -1) (JASSERT_ERRNO);
-    _msgInQueue.push_back(jalib::JBuffer((const char *)buf, numBytes));
+    // Append buf to the end of the vector.
+    _msgInQueue.emplace_back(buf, buf + numBytes);
     _msgInQueuePrio.push_back(prio);
   }
   JALLOC_HELPER_FREE(buf);
@@ -918,7 +919,7 @@ void
 PosixMQConnection::refill(bool isRestart)
 {
   for (long i = 0; i < _qnum; i++) {
-    JASSERT(_real_mq_send(_fds[0], _msgInQueue[i].buffer(),
+    JASSERT(_real_mq_send(_fds[0], _msgInQueue[i].data(),
                           _msgInQueue[i].size(), _msgInQueuePrio[i]) != -1);
   }
   _msgInQueue.clear();

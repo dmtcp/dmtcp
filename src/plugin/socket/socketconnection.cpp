@@ -126,14 +126,20 @@ SocketConnection::addSetsockopt(int level,
                                 const void *value,
                                 int len)
 {
-  _sockOptions[level][option] = jalib::JBuffer(value, len);
+  JASSERT(len >= 0) (len);
+  const char *data = (const char *)value;
+  vector<char> &buffer = _sockOptions[level][option];
+  buffer.clear();
+  if (len > 0) {
+    buffer.assign(data, data + len);
+  }
 }
 
 void
 SocketConnection::restoreSocketOptions(vector<int> &fds)
 {
-  typedef map<int64_t, map<int64_t, jalib::JBuffer> >::iterator levelIterator;
-  typedef map<int64_t, jalib::JBuffer>::iterator optionIterator;
+  typedef map<int64_t, map<int64_t, vector<char> > >::iterator levelIterator;
+  typedef map<int64_t, vector<char> >::iterator optionIterator;
 
   for (levelIterator lvl = _sockOptions.begin();
        lvl != _sockOptions.end(); ++lvl) {
@@ -142,7 +148,7 @@ SocketConnection::restoreSocketOptions(vector<int> &fds)
       JTRACE("Restoring socket option.")
         (fds[0]) (opt->first) (opt->second.size());
       int ret = _real_setsockopt(fds[0], lvl->first, opt->first,
-                                 opt->second.buffer(),
+                                 opt->second.data(),
                                  opt->second.size());
       JWARNING(ret == 0) (JASSERT_ERRNO) (fds[0])
         (lvl->first) (opt->first) (opt->second.size())
@@ -162,8 +168,8 @@ SocketConnection::serialize(jalib::JBinarySerializer &o)
   o &numSockOpts;
   if (o.isWriter()) {
     // JTRACE("TCP Serialize ") (_type) (_id.conId());
-    typedef map<int64_t, map<int64_t, jalib::JBuffer> >::iterator levelIterator;
-    typedef map<int64_t, jalib::JBuffer>::iterator optionIterator;
+    typedef map<int64_t, map<int64_t, vector<char> > >::iterator levelIterator;
+    typedef map<int64_t, vector<char> >::iterator optionIterator;
 
     uint64_t numLvl = _sockOptions.size();
     o &numLvl;
@@ -180,13 +186,13 @@ SocketConnection::serialize(jalib::JBinarySerializer &o)
       for (optionIterator opt = lvl->second.begin();
            opt != lvl->second.end(); ++opt) {
         int64_t optType = opt->first;
-        jalib::JBuffer &buffer = opt->second;
+        vector<char> &buffer = opt->second;
         int64_t bufLen = buffer.size();
 
         JSERIALIZE_ASSERT_POINT("Opt");
 
         o&optType &bufLen;
-        o.readOrWrite(buffer.buffer(), bufLen);
+        o.readOrWrite(buffer.data(), bufLen);
       }
     }
   } else {
@@ -209,8 +215,9 @@ SocketConnection::serialize(jalib::JBinarySerializer &o)
 
         o&optType &bufLen;
 
-        jalib::JBuffer buffer(bufLen);
-        o.readOrWrite(buffer.buffer(), bufLen);
+        JASSERT(bufLen >= 0) (bufLen);
+        vector<char> buffer(bufLen);
+        o.readOrWrite(buffer.data(), bufLen);
 
         _sockOptions[lvlVal][optType] = buffer;
       }
@@ -706,8 +713,8 @@ TcpConnection::postRestart()
     if (_sockDomain == AF_INET6) {
       JTRACE("Restoring some socket options before binding.");
       typedef map<int64_t,
-                  map<int64_t, jalib::JBuffer> >::iterator levelIterator;
-      typedef map<int64_t, jalib::JBuffer>::iterator optionIterator;
+                  map<int64_t, vector<char> > >::iterator levelIterator;
+      typedef map<int64_t, vector<char> >::iterator optionIterator;
 
       for (levelIterator lvl = _sockOptions.begin();
            lvl != _sockOptions.end(); ++lvl) {
@@ -720,10 +727,10 @@ TcpConnection::postRestart()
                   (_fds[0]) (opt->first) (opt->second.size());
               }
               int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
-                                         opt->second.buffer(),
+                                         opt->second.data(),
                                          opt->second.size());
               JASSERT(ret == 0) (JASSERT_ERRNO) (_fds[0]) (lvl->first)
-                (opt->first) (opt->second.buffer()) (opt->second.size())
+                (opt->first) (opt->second.data()) (opt->second.size())
               .Text("Restoring setsockopt failed.");
             }
           }
@@ -904,8 +911,8 @@ RawSocketConnection::postRestart()
     if (_sockDomain == AF_NETLINK) {
       JTRACE("Restoring some socket options before binding.");
       typedef map<int64_t,
-                  map<int64_t, jalib::JBuffer> >::iterator levelIterator;
-      typedef map<int64_t, jalib::JBuffer>::iterator optionIterator;
+                  map<int64_t, vector<char> > >::iterator levelIterator;
+      typedef map<int64_t, vector<char> >::iterator optionIterator;
 
       for (levelIterator lvl = _sockOptions.begin();
            lvl != _sockOptions.end(); ++lvl) {
@@ -918,10 +925,10 @@ RawSocketConnection::postRestart()
                   (_fds[0]) (opt->first) (opt->second.size());
               }
               int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
-                                         opt->second.buffer(),
+                                         opt->second.data(),
                                          opt->second.size());
               JASSERT(ret == 0) (JASSERT_ERRNO) (_fds[0]) (lvl->first)
-                (opt->first) (opt->second.buffer()) (opt->second.size())
+                (opt->first) (opt->second.data()) (opt->second.size())
               .Text("Restoring setsockopt failed.");
             }
           }

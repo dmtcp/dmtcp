@@ -33,8 +33,6 @@
 # include <sys/types.h>
 # include <unistd.h>
 
-# include "jbuffer.h"
-
 # include "connection.h"
 
 namespace dmtcp
@@ -86,7 +84,7 @@ class SocketConnection
       struct sockaddr_storage _connectAddr;
     };
     ConnectionIdentifier _remotePeerId;
-    map<int64_t, map<int64_t, jalib::JBuffer> >_sockOptions;
+    map<int64_t, map<int64_t, vector<char> > >_sockOptions;
 };
 
 class TcpConnection : public Connection, public SocketConnection

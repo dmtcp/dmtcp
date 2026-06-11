@@ -159,7 +159,6 @@ libjalib_a_LIBADD =
 am__dirstamp = $(am__leading_dot)dirstamp
 am_libjalib_a_OBJECTS = $(jalibdir)/jalib.$(OBJEXT) \
 	$(jalibdir)/jalloc.$(OBJEXT) $(jalibdir)/jassert.$(OBJEXT) \
-	$(jalibdir)/jbuffer.$(OBJEXT) \
 	$(jalibdir)/jfilesystem.$(OBJEXT) \
 	$(jalibdir)/jserialize.$(OBJEXT) $(jalibdir)/jsocket.$(OBJEXT)
 libjalib_a_OBJECTS = $(am_libjalib_a_OBJECTS)
@@ -359,7 +358,6 @@ am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	$(jalibdir)/$(DEPDIR)/jalloc.Po \
 	$(jalibdir)/$(DEPDIR)/jassert.Po \
-	$(jalibdir)/$(DEPDIR)/jbuffer.Po \
 	$(jalibdir)/$(DEPDIR)/jfilesystem.Po \
 	$(jalibdir)/$(DEPDIR)/jserialize.Po \
 	$(jalibdir)/$(DEPDIR)/jsocket.Po \
@@ -851,8 +849,7 @@ nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 	tls.h siginfo.h syscallwrappers.h threadinfo.h threadlist.h \
 	threadsync.h uniquepid.h workerstate.h plugin/alloc/alloc.h \
 	$(jalibdir)/jalib.h $(jalibdir)/jalloc.h $(jalibdir)/jassert.h \
-	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h \
-	$(jalibdir)/jfilesystem.h $(jalibdir)/jserialize.h \
+	$(jalibdir)/jconvert.h $(jalibdir)/jfilesystem.h $(jalibdir)/jserialize.h \
 	$(jalibdir)/jsocket.h \
 	$(dmtcpincludedir)/dmtcp.h $(dmtcpincludedir)/dmtcpalloc.h \
 	$(dmtcpincludedir)/futex.h $(dmtcpincludedir)/procmapsarea.h \
@@ -886,7 +883,6 @@ libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
 libjalib_a_SOURCES = $(jalibdir)/jalib.cpp			\
 		     $(jalibdir)/jalloc.cpp			\
 		     $(jalibdir)/jassert.cpp 			\
-		     $(jalibdir)/jbuffer.cpp			\
 		     $(jalibdir)/jfilesystem.cpp 		\
 		     $(jalibdir)/jserialize.cpp			\
 		     $(jalibdir)/jsocket.cpp
@@ -1286,8 +1282,6 @@ $(jalibdir)/jalloc.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
 	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
 $(jalibdir)/jassert.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
 	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
-$(jalibdir)/jbuffer.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
-	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
 $(jalibdir)/jfilesystem.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
 	$(jalibdir)/$(DEPDIR)/$(am__dirstamp)
 $(jalibdir)/jserialize.$(OBJEXT): $(jalibdir)/$(am__dirstamp) \
@@ -1423,7 +1417,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jalib.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jalloc.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jassert.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jbuffer.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jfilesystem.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jserialize.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(jalibdir)/$(DEPDIR)/jsocket.Po@am__quote@ # am--include-marker
@@ -2162,7 +2155,6 @@ distclean: distclean-recursive
 	-rm -f $(jalibdir)/$(DEPDIR)/jalib.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jalloc.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jassert.Po
-	-rm -f $(jalibdir)/$(DEPDIR)/jbuffer.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jfilesystem.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jserialize.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jsocket.Po
@@ -2268,7 +2260,6 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f $(jalibdir)/$(DEPDIR)/jalib.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jalloc.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jassert.Po
-	-rm -f $(jalibdir)/$(DEPDIR)/jbuffer.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jfilesystem.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jserialize.Po
 	-rm -f $(jalibdir)/$(DEPDIR)/jsocket.Po
