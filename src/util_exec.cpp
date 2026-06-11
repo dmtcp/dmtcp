@@ -53,7 +53,11 @@ setPidEnvVar(const char *envName, pid_t value)
     setenv(envName, paddedBuf, 1);
   } else {
     char *envStr = (char *)getenv(envName);
-    memcpy(envStr, valueBuf, len + 1);
+    if (strlen(envStr) < static_cast<size_t>(len)) {
+      setenv(envName, valueBuf, 1);
+    } else {
+      memcpy(envStr, valueBuf, len + 1);
+    }
   }
 }
 
@@ -489,7 +493,7 @@ Util::patchArgvIfSetuid(const char *filename,
                          "call to system failed: cmd={}",
                          cpCmdBuf);
 
-  ASSERT_SYSCALL_SUCCESS(access(newFilename, X_OK),
+  ASSERT_NE(-1, access(newFilename, X_OK),
                "setuid copy is not executable: path={}",
                newFilename);
 
@@ -576,7 +580,7 @@ Util::adjustRlimitStack()
     if (!(oldPersonality & ADDR_COMPAT_LAYOUT)) {
       // Force ADDR_COMPAT_LAYOUT for libs in high mem, to avoid vdso conflict
       personality(oldPersonality & ADDR_COMPAT_LAYOUT);
-      JTRACE("setting ADDR_COMPAT_LAYOUT");
+      TRACE("setting ADDR_COMPAT_LAYOUT");
       setenv("DMTCP_ADDR_COMPAT_LAYOUT", "temporarily is set", 1);
     }
   }
@@ -586,7 +590,7 @@ Util::adjustRlimitStack()
     if (rlim.rlim_cur != RLIM_INFINITY) {
       char buf[100];
       sprintf(buf, "%lu", rlim.rlim_cur); // "%llu" for BSD/Mac OS
-      JTRACE("setting rlim_cur for RLIMIT_STACK") (rlim.rlim_cur);
+      TRACE("setting rlim_cur for RLIMIT_STACK: rlim_cur={}", rlim.rlim_cur);
       setenv("DMTCP_RLIMIT_STACK", buf, 1);
 
       // Force kernel's internal compat_va_layout to 0; Force libs to high mem.
@@ -672,10 +676,18 @@ Util::getDmtcpArgs(void)
   argVector.push_back("--coord-port");
   argVector.push_back(jalib::XToString(SharedData::coordPort()));
 
-  if (jassert_quiet == 1) {
+  int quietCount = 0;
+  if (const char *quiet = getenv(ENV_VAR_QUIET)) {
+    if (quiet[0] >= '0' && quiet[0] <= '9') {
+      quietCount = quiet[0] - '0';
+    }
+  }
+
+  if (quietCount == 1) {
     argVector.push_back("-q");
-  } else if (jassert_quiet == 2) {
-    argVector.push_back("-q -q");
+  } else if (quietCount == 2) {
+    argVector.push_back("-q");
+    argVector.push_back("-q");
   }
 
   if (sigckpt != NULL) {
@@ -703,7 +715,7 @@ Util::getDmtcpArgs(void)
   }
 
   if (compression != NULL) {
-    if (Util::strEquals(compression, "1")) {
+    if (Util::strEquals(compression, "0")) {
       argVector.push_back("--no-gzip");
     } else {
       argVector.push_back("--gzip");

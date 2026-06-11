@@ -93,19 +93,20 @@ bool
 DmtcpMessage::isValid() const
 {
   if (!messageMagicIsValid(_magicBits)) {
-    JNOTE("read invalid message, _magicBits mismatch."
+    NOTE("read invalid message, _magicBits mismatch."
           " Closing remote connection.");
     return false;
   }
   if (_msgSize != sizeof(DmtcpMessage)) {
-    JNOTE("read invalid message, size mismatch. Closing remote connection.")
-      (_msgSize) (sizeof(DmtcpMessage));
+    NOTE("read invalid message, size mismatch. Closing remote connection: "
+         "msgSize={} expected={}",
+         _msgSize, sizeof(DmtcpMessage));
     return false;
   }
   if (!messageExtraBytesIsValid(extraBytes)) {
-    JNOTE("read invalid message, extraBytes too large."
-          " Closing remote connection.")
-      (extraBytes) (DMTCP_MAX_MESSAGE_EXTRA_BYTES);
+    NOTE("read invalid message, extraBytes too large. Closing remote "
+         "connection: extraBytes={} max={}",
+         extraBytes, DMTCP_MAX_MESSAGE_EXTRA_BYTES);
     return false;
   }
   return true;

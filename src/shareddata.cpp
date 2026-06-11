@@ -66,7 +66,7 @@ SharedData::initializeHeader(const char *tmpDir,
          tmpDir, compId, coordInfo, localIPAddr);
 
   off_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
-  ASSERT_SYSCALL_EQ(size,
+  ASSERT_EQ(size,
                         lseek(PROTECTED_SHM_FD, size, SEEK_SET),
                         "failed to extend shared-data fd: fd={} size={}",
                         PROTECTED_SHM_FD, size);
@@ -183,7 +183,7 @@ SharedData::initialize(const char *tmpDir,
        * FIXME: We're unlikely to hit this bug since we are using a higher
        *        resolution timer, clock_gettime() (1 nanosecond).
        */
-      JTRACE("Internal error detected! Shared data area already exists.");
+      TRACE("Internal error detected! Shared data area already exists.");
       fd = _real_open(o.str().c_str(), O_RDWR, 0600);
     } else {
       needToInitialize = true;
@@ -194,12 +194,12 @@ SharedData::initialize(const char *tmpDir,
     // too small. This can cause a SIGBUS later when we try to read beyond
     // the end of the file. So we must truncate the file to the correct size
     // in both the if and else branch, above.
-    ASSERT_SYSCALL_SUCCESS(truncate(o.str().c_str(), size),
+    ASSERT_NE(-1, truncate(o.str().c_str(), size),
                  "failed to size shared-data file: path={} size={}", o.str(),
                  size);
-    ASSERT_VALID_FD(fd, "failed to open shared-data file: path={}",
+    ASSERT_NE(-1, fd, "failed to open shared-data file: path={}",
                         o.str());
-    ASSERT_SYSCALL_EQ(PROTECTED_SHM_FD,
+    ASSERT_EQ(PROTECTED_SHM_FD,
                           _real_dup2(fd, PROTECTED_SHM_FD),
                           "failed to move shared-data fd: fd={} protected_fd={}",
                           fd, PROTECTED_SHM_FD);
@@ -244,7 +244,7 @@ SharedData::initialize(const char *tmpDir,
     while (1) {
       bool initialized = false;
       Util::lockFile(PROTECTED_SHM_FD);
-      ASSERT_SYSCALL_SUCCESS(fstat(PROTECTED_SHM_FD, &statbuf),
+      ASSERT_NE(-1, fstat(PROTECTED_SHM_FD, &statbuf),
                    "failed to stat shared-data fd: fd={}", PROTECTED_SHM_FD);
       initialized = sharedDataHeader->initialized;
       Util::unlockFile(PROTECTED_SHM_FD);
@@ -281,7 +281,7 @@ SharedData::initialize(const char *tmpDir,
 
     Util::unlockFile(PROTECTED_SHM_FD);
   }
-  JTRACE("Shared area mapped") (sharedDataHeader);
+  TRACE("Shared area mapped: header={}", sharedDataHeader);
 }
 
 bool

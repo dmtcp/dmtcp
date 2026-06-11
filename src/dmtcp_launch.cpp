@@ -444,7 +444,7 @@ processArgs(int *orig_argc, const char ***orig_argv)
     // Use static; some compilers save string const on local stack otherwise.
     static const char *default_port = STRINGIFY(DEFAULT_PORT);
     setenv(ENV_VAR_NAME_PORT, default_port, 1);
-    JTRACE("No port specified\n"
+    TRACE("No port specified\n"
            "Setting mode to --new-coordinator --coord-port "
            STRINGIFY(DEFAULT_PORT));
   }
@@ -472,7 +472,7 @@ main(int argc, const char **argv)
   // FIXME:  This was changed in Mar., 2022.
   //         We can remove this msg in 2 or 3 years.
   if (getenv("DMTCP_ABORT_ON_FAILED_ASSERT")) {
-    JNOTE("\n\n*********************************************\n"
+    NOTE("\n\n*********************************************\n"
               "* DMTCP_ABORT_ON_FAILED_ASSERT is obsolete. *\n"
               "* Please use DMTCP_ABORT_ON_FAILURE instead.*\n"
               "*********************************************\n");
@@ -581,7 +581,7 @@ main(int argc, const char **argv)
 #endif
 
   if (argc > 0) {
-    JTRACE("dmtcp_launch starting new program:")(argv[0]);
+    TRACE("dmtcp_launch starting new program: argv0={}", argv[0]);
   }
 
   // set up CHECKPOINT_DIR
@@ -595,7 +595,7 @@ main(int argc, const char **argv)
       ckptDir = ".";
     }
     setenv(ENV_VAR_CHECKPOINT_DIR, ckptDir, 0);
-    JTRACE("setting " ENV_VAR_CHECKPOINT_DIR)(ckptDir);
+    TRACE("setting " ENV_VAR_CHECKPOINT_DIR ": value={}", ckptDir);
   }
 
   if (checkpointOpenFiles) {
@@ -640,7 +640,7 @@ main(int argc, const char **argv)
   // should disable the SESSION_MANAGER environment variable to prevent the
   // application from communication with the X session manager.
   if (getenv("SESSION_MANAGER") != NULL) {
-    JTRACE("Unsetting SESSION_MANAGER environment variable.");
+    TRACE("Unsetting SESSION_MANAGER environment variable.");
     unsetenv("SESSION_MANAGER");
   }
 
@@ -693,7 +693,7 @@ testMatlab(const char *filename)
   // FIXME:  should expand filename and "matlab" before checking
   if (Util::strEquals(filename, "matlab") &&
       (getenv(ENV_VAR_QUIET) == NULL ||
-       !Util::strEquals(getenv(ENV_VAR_QUIET), "0"))) {
+       Util::strEquals(getenv(ENV_VAR_QUIET), "0"))) {
     fputs(theMatlabWarning, stderr);
     return -1;
   }
@@ -800,7 +800,7 @@ testFsGsBase()
 {
 #ifdef __x86_64__
   pid_t childPid = fork();
-  ASSERT_FORK_SUCCESS(childPid, "failed to fork FSGSBASE probe");
+  ASSERT_NE(-1, childPid, "failed to fork FSGSBASE probe");
 
   if (childPid == 0) {
     unsigned long fsbase = -1;
@@ -817,9 +817,9 @@ testFsGsBase()
   }
 
   int status = 0;
-  ASSERT_SYSCALL_EQ(childPid,
+  ASSERT_EQ(childPid,
                         waitpid(childPid, &status, 0),
-                        "failed to wait for FSGSBASE probe: child_pid={}",
+                        "failed to wait for FSGSBASE probe child: child_pid={}",
                         childPid);
 
   if (status == 0) {
@@ -930,6 +930,6 @@ setLDPreloadLibs(bool is32bitElf)
     }
   }
 #endif // if defined(__x86_64__) || defined(__aarch64__)
-  JTRACE("getting value of LD_PRELOAD")
-    (getenv("LD_PRELOAD")) (preloadLibs) (preloadLibs32);
+  TRACE("getting value of LD_PRELOAD: env={} preloadLibs={} preloadLibs32={}",
+        getenv("LD_PRELOAD"), preloadLibs, preloadLibs32);
 }

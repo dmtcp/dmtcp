@@ -136,7 +136,7 @@ TimerList::removeStaleClockIds()
     }
   }
   for (size_t i = 0; i < staleClockIds.size(); i++) {
-    JTRACE("Removing stale clock") (staleClockIds[i]);
+    TRACE("Removing stale clock (staleClockIds[i] = {};)", staleClockIds[i]);
     _clockPidList.erase(staleClockIds[i]);
   }
   staleClockIds.clear();
@@ -153,7 +153,7 @@ TimerList::removeStaleClockIds()
     }
   }
   for (size_t i = 0; i < staleClockIds.size(); i++) {
-    JNOTE("Removing stale clock") (staleClockIds[i]);
+    NOTE("Removing stale clock (staleClockIds[i] = {};)", staleClockIds[i]);
     _clockPthreadList.erase(staleClockIds[i]);
   }
 }
@@ -178,7 +178,7 @@ TimerList::preCheckpoint()
     timer_t virtId = _iter->first;
     timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(virtId);
     TimerInfo &tinfo = _iter->second;
-    ASSERT_SYSCALL_SUCCESS(_real_timer_gettime(
+    ASSERT_NE(-1, _real_timer_gettime(
                                  realId, &tinfo.curr_timerspec),
                                "reading timer state: virt_id={} real_id={}",
                                virtId, realId);
@@ -221,7 +221,7 @@ TimerList::postRestart()
     if (!tinfo.sevp_null) {
       sevp = &tinfo.sevp;
     }
-    ASSERT_SYSCALL_SUCCESS(_real_timer_create(clockid, sevp, &realId),
+    ASSERT_NE(-1, _real_timer_create(clockid, sevp, &realId),
                                "creating timer: virt_id={} clock_id={}",
                                virtId, clockid);
     _timerVirtIdTable.updateMapping(virtId, realId);
@@ -239,14 +239,15 @@ TimerList::postRestart()
       } else {
         tspec = tinfo.curr_timerspec;
       }
-      ASSERT_SYSCALL_SUCCESS(_real_timer_settime(realId,
+      ASSERT_NE(-1, _real_timer_settime(realId,
                                                      tinfo.flags,
                                                      &tspec,
                                                      NULL),
                                  "restoring timer: virt_id={} real_id={} "
                                  "flags={}",
                                  virtId, realId, tinfo.flags);
-      JTRACE("Restoring timer") (realId) (virtId);
+      TRACE("Restoring timer (realId = {};) (virtId = {};)",
+            realId, virtId);
     }
   }
 }

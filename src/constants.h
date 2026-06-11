@@ -93,6 +93,8 @@
                                     "DMTCP_ALLOW_OVERWRITE_WITH_CKPTED_FILES"
 #define ENV_VAR_PLUGIN              "DMTCP_PLUGIN"
 #define ENV_VAR_QUIET               "DMTCP_QUIET"
+#define ENV_VAR_LOG_LEVEL           "DMTCP_LOG_LEVEL"
+#define ENV_VAR_LOG_OVERRIDES       "DMTCP_LOG_OVERRIDES"
 #define ENV_VAR_DMTCP_DUMMY         "DMTCP_DUMMY"
 
 #define ENV_VAR_VIRTUAL_PID         "DMTCP_VIRTUAL_PID"
@@ -148,6 +150,8 @@
   ENV_VAR_TMPDIR,                     \
   ENV_VAR_CKPT_OPEN_FILES,            \
   ENV_VAR_QUIET,                      \
+  ENV_VAR_LOG_LEVEL,                  \
+  ENV_VAR_LOG_OVERRIDES,              \
   ENV_VAR_STDERR_PATH,                \
   ENV_VAR_COMPRESSION,                \
   ENV_VAR_ALLOC_PLUGIN,               \

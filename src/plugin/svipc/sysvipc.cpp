@@ -515,8 +515,7 @@ SysVShm::on_shmget(int shmid, key_t realKey, key_t key, size_t size, int shmflg)
     ASSERT(!_map.contains(virtId),
            "SysV shm map already has virtual id: shmid={} virt_id={}",
            shmid, virtId);
-    JTRACE("Shmid not found in table. Creating new entry")
-      (shmid) (virtId);
+    TRACE("Shmid not found in table. Creating new entry (shmid = {};) (virtId = {};)", shmid, virtId);
     updateMapping(virtId, shmid);
     updateKeyMapping(key, realKey);
     _map[virtId] = new ShmSegment(virtId, shmid, key, size, shmflg);
@@ -592,7 +591,7 @@ SysVSem::on_semget(int realSemId, key_t key, int nsems, int semflg)
   if (!_virtIdTable.realIdExists(realSemId)) {
     // JASSERT(key == IPC_PRIVATE || (semflg & IPC_CREAT) != 0) (key)
     // (realSemId);
-    JTRACE("Semid not found in table. Creating new entry") (realSemId);
+    TRACE("Semid not found in table. Creating new entry (realSemId = {};)", realSemId);
     int virtId = getNewVirtualId();
     ASSERT(!_map.contains(virtId),
            "SysV sem map already has virtual id: semid={}", virtId);
@@ -643,7 +642,7 @@ SysVMsq::on_msgget(int msqid, key_t key, int msgflg)
 {
   _do_lock_tbl();
   if (!_virtIdTable.realIdExists(msqid)) {
-    JTRACE("Msqid not found in table. Creating new entry") (msqid);
+    TRACE("Msqid not found in table. Creating new entry (msqid = {};)", msqid);
     int virtId = getNewVirtualId();
     ASSERT(!_map.contains(virtId),
            "SysV msg map already has virtual id: msqid={} virt_id={}",
@@ -721,14 +720,14 @@ ShmSegment::ShmSegment(int shmid,
   _size = size;
   if (key == -1 || size == 0) {
     struct shmid_ds shminfo;
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       _real_shmctl(_realId, IPC_STAT, &shminfo),
       "failed to stat SysV shm during construction: shmid={}", _realId);
     _key = shminfo.shm_perm.__key;
     _size = shminfo.shm_segsz;
     _flags = shminfo.shm_perm.mode;
   }
-  JTRACE("New Shm Segment") (_key) (_size) (_flags) (_id) (_isCkptLeader);
+  TRACE("New Shm Segment (_key = {};) (_size = {};) (_flags = {};) (_id = {};) (_isCkptLeader = {};)", _key, _size, _flags, _id, _isCkptLeader);
 }
 
 void
@@ -797,8 +796,7 @@ ShmSegment::leaderElection()
   while (i != _shmaddrToFlag.end()) {
     if (_real_shmdt(i->first) == -1) {
       // The application might have munmap'd an area; let's stop tracking it.
-      JNOTE("No SHM segment attached at shmaddr; removing it from list.")
-        (_id) (i->first);
+      NOTE("No SHM segment attached at shmaddr; removing it from list. (_id = {};) (i->first = {};)", _id, i->first);
       i = _shmaddrToFlag.erase(i);
       continue;
     }
@@ -813,7 +811,7 @@ ShmSegment::leaderElection()
   }
 
   // Remove the previously-attached segment.
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     _real_shmdt(savedAddr),
     "failed to detach temporary SysV shm leader-election address: "
     "shmid={} shmaddr={}",
@@ -825,7 +823,7 @@ ShmSegment::preCkptDrain()
 {
   struct shmid_ds info;
 
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     _real_shmctl(_realId, IPC_STAT, &info),
     "failed to stat SysV shm before checkpoint drain: shmid={}", _id);
 
@@ -868,8 +866,8 @@ ShmSegment::preCheckpoint()
   }
 
   for (; i != _shmaddrToFlag.end(); ++i) {
-    JTRACE("Unmapping shared memory segment") (_id)(i->first);
-    ASSERT_SYSCALL_SUCCESS(
+    TRACE("Unmapping shared memory segment (_id = {};) (i->first = {};)", _id, i->first);
+    ASSERT_NE(-1,
       _real_shmdt(i->first),
       "failed to detach SysV shm before checkpoint: shmid={} shmaddr={}",
       _id, i->first);
@@ -913,7 +911,7 @@ ShmSegment::postRestart()
                "shmid={} real_shmid={}",
                _id, _realId);
   huge_memcpy((char *)tmpaddr, (char *)i->first, _size);
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     _real_shmdt(tmpaddr),
     "failed to detach temporary SysV shm after restart: shmid={} shmaddr={}",
     _id, tmpaddr);
@@ -925,14 +923,14 @@ ShmSegment::postRestart()
                  "shmid={} real_shmid={} shmaddr={} flags={} pid={}",
                  _id, _realId, i->first, i->second, getpid());
   }
-  JTRACE("Remapping shared memory segment to original address") (_id) (_realId);
+  TRACE("Remapping shared memory segment to original address (_id = {};) (_realId = {};)", _id, _realId);
   // Mark the segment as deleted if it was marked deleted at checkpoint.
   if (_mode & SHM_DEST) {
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       _real_shmctl(_realId, IPC_RMID, NULL),
       "failed to mark restored SysV shm deleted: shmid={} real_shmid={}",
       _id, _realId);
-    JTRACE("Marked shared memory segment as deleted.") (_id) (_realId);
+    TRACE("Marked shared memory segment as deleted. (_id = {};) (_realId = {};)", _id, _realId);
   }
 }
 
@@ -959,13 +957,13 @@ ShmSegment::preResume()
 
   for (; i != _shmaddrToFlag.end(); ++i) {
     // Unmap the reserved area.
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       munmap((void *)i->first, _size),
       "failed to unmap reserved SysV shm address before resume: "
       "shmid={} shmaddr={} size={}",
       _id, i->first, _size);
 
-    JTRACE("Remapping shared memory segment")(_realId);
+    TRACE("Remapping shared memory segment (_realId = {};)", _realId);
     ASSERT_ERRNO(_real_shmat(_realId, i->first, i->second) != (void *)-1,
                  "failed to remap SysV shm before resume: "
                  "shmid={} real_shmid={} shmaddr={} flags={} pid={}",
@@ -990,7 +988,7 @@ Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg)
     struct semid_ds buf;
     union semun se;
     se.buf = &buf;
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       _real_semctl(realSemid, 0, IPC_STAT, se),
       "failed to stat SysV sem during construction: semid={}", realSemid);
     _key = se.buf->sem_perm.__key;
@@ -1001,7 +999,7 @@ Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg)
   _semval.assign(_nsems, 0);
   _semadj.assign(_nsems, 0);
 
-  JTRACE("New Semaphore") (_key) (_nsems) (_flags) (_id) (_isCkptLeader);
+  TRACE("New Semaphore (_key = {};) (_nsems = {};) (_flags = {};) (_id = {};) (_isCkptLeader = {};)", _key, _nsems, _flags, _id, _isCkptLeader);
 }
 
 void
@@ -1054,7 +1052,7 @@ Semaphore::leaderElection()
     sops.sem_num = 0;
     sops.sem_op = -1;
     sops.sem_flg = 0;
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       _real_semtimedop(_realId, &sops, 1, NULL),
       "failed to undo SysV sem leader-election increment: semid={}", _id);
   }
@@ -1069,7 +1067,7 @@ Semaphore::preCkptDrain()
       _real_semctl(_realId, 0, GETPID, arg)) {
     union semun info;
     info.array = &_semval[0];
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       _real_semctl(_realId, 0, GETALL, info),
       "failed to snapshot SysV sem values: semid={}", _id);
     _isCkptLeader = true;
@@ -1092,7 +1090,7 @@ Semaphore::postRestart()
 
     union semun info;
     info.array = &_semval[0];
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       _real_semctl(_realId, 0, SETALL, info),
       "failed to restore SysV sem values: semid={}", _id);
   }
@@ -1120,13 +1118,13 @@ Semaphore::refill()
     sops.sem_num = i;
     sops.sem_op = abs(_semadj[i]);
     sops.sem_flg = _semadj[i] > 0 ? 0 : SEM_UNDO;
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       _real_semop(_realId, &sops, 1),
       "failed to restore SysV sem adjustment: semid={} semnum={}", _id, i);
 
     sops.sem_op = -abs(_semadj[i]);
     sops.sem_flg = _semadj[i] < 0 ? SEM_UNDO : 0;
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       _real_semop(_realId, &sops, 1),
       "failed to rebalance SysV sem adjustment: semid={} semnum={}", _id, i);
   }
@@ -1143,14 +1141,14 @@ MsgQueue::MsgQueue(int msqid, int realMsqid, key_t key, int msgflg)
 {
   if (key == -1) {
     struct msqid_ds buf;
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       _real_msgctl(realMsqid, IPC_STAT, &buf),
       "failed to stat SysV msg queue during construction: msqid={}",
       realMsqid);
     _key = buf.msg_perm.__key;
     _flags = buf.msg_perm.mode;
   }
-  JTRACE("New MsgQueue Created") (_key) (_flags) (_id);
+  TRACE("New MsgQueue Created (_key = {};) (_flags = {};) (_id = {};)", _key, _flags, _id);
 }
 
 bool
@@ -1175,7 +1173,7 @@ MsgQueue::leaderElection()
   // of messages in the queue.
   struct msqid_ds buf;
 
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     _real_msgctl(_realId, IPC_STAT, &buf),
     "failed to stat SysV msg queue for leader election: msqid={}", _id);
 
@@ -1196,7 +1194,7 @@ MsgQueue::preCkptDrain()
 
   msg.mtype = getpid();
   msg.mtext[0] = '\0';
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     _real_msgsnd(_realId, &msg, 1, IPC_NOWAIT),
     "failed to send SysV msg leader-election marker: msqid={}", _id);
   _isCkptLeader = false;
@@ -1208,7 +1206,7 @@ MsgQueue::preCheckpoint()
   struct msqid_ds buf;
 
   memset(&buf, 0, sizeof buf);
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     _real_msgctl(_realId, IPC_STAT, &buf),
     "failed to stat SysV msg queue before checkpoint: msqid={}", _id);
 
@@ -1262,14 +1260,14 @@ MsgQueue::refill()
 {
   if (_isCkptLeader) {
     struct msqid_ds buf;
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       _real_msgctl(_realId, IPC_STAT, &buf),
       "failed to stat SysV msg queue before refill: msqid={}", _id);
 
     for (size_t i = 0; i < _qnum; i++) {
       struct msgbuf *msgBuf = (struct msgbuf*) _msgInQueue[i].data();
       size_t msgSize = _msgInQueue[i].size() - sizeof(msgBuf->mtype);
-      ASSERT_SYSCALL_SUCCESS(
+      ASSERT_NE(-1,
         _real_msgsnd(_realId, msgBuf, msgSize, IPC_NOWAIT),
         "failed to refill SysV msg queue: msqid={} index={}", _id, i);
     }

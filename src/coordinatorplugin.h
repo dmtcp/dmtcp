@@ -27,6 +27,7 @@
 #include "dmtcpalloc.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcp_coordinator.h"
+#include "util_assert.h"
 
 namespace dmtcp
 {
@@ -78,7 +79,7 @@ class CkptIntervalManager : public CoordinatorPlugin
         nextCkptTimeout = {0, 0};
       } else if (theCheckpointInterval > 0) {
         nextCkptTimeout.tv_sec = status.timestamp.tv_sec + theCheckpointInterval;
-        JNOTE("Time before next ckpt") (theCheckpointInterval);
+        NOTE("Time before next ckpt: interval={}", theCheckpointInterval);
       }
     }
 
@@ -104,7 +105,7 @@ class CkptIntervalManager : public CoordinatorPlugin
 
       if (nextCkptTimeout.tv_sec != 0 && status.timestamp.tv_sec > nextCkptTimeout.tv_sec) {
         nextCkptTimeout.tv_sec = 0;
-        JTRACE("Next ckpt timeout expired; triggering ckpt");
+        TRACE("Next ckpt timeout expired; triggering ckpt");
         DmtcpCoordinator::queueCheckpoint();
       }
     }
@@ -128,14 +129,15 @@ class CkptIntervalManager : public CoordinatorPlugin
       theDefaultCheckpointInterval = msg.theCheckpointInterval;
       theCheckpointInterval = theDefaultCheckpointInterval;
 
-      JTRACE("Setting checkpoint interval...");
+      TRACE("Setting checkpoint interval...");
       updateCheckpointInterval(theCheckpointInterval, status);
 
       if (theCheckpointInterval == 0) {
-        JNOTE("Current Checkpoint Interval:"
+        NOTE("Current Checkpoint Interval:"
               " Disabled (checkpoint manually instead)");
       } else {
-        JNOTE("Current Checkpoint Interval:") (theCheckpointInterval);
+        NOTE("Current Checkpoint Interval: interval={}",
+             theCheckpointInterval);
       }
     };
 
@@ -202,11 +204,14 @@ class StaleTimeoutManager : public CoordinatorPlugin
       if (theStaleTimeout != 0 && stopTime.tv_sec == 0) {
         // Set stop time.
         stopTime.tv_sec = status.timestamp.tv_sec + theStaleTimeout;
-        JNOTE("No active clients; starting stale timeout")(theStaleTimeout);
+        NOTE("No active clients; starting stale timeout: timeout={}",
+             theStaleTimeout);
       }
 
       if (stopTime.tv_sec != 0 && status.timestamp.tv_sec > stopTime.tv_sec) {
-        JNOTE("*** dmtcp_coordinator:  --stale-timeout timed out") (stopTime.tv_sec) (theStaleTimeout);
+        NOTE("*** dmtcp_coordinator:  --stale-timeout timed out: "
+             "stopTime={} timeout={}",
+             stopTime.tv_sec, theStaleTimeout);
         exit(1);
       }
     }
@@ -233,7 +238,8 @@ class TimeoutManager : public CoordinatorPlugin
       }
 
       if (stopTime.tv_sec != 0 && status.timestamp.tv_sec > stopTime.tv_sec) {
-        JNOTE("*** dmtcp_coordinator:  --timeout timed out") (theTimeout);
+        NOTE("*** dmtcp_coordinator:  --timeout timed out: timeout={}",
+             theTimeout);
         exit(1);
       }
     }

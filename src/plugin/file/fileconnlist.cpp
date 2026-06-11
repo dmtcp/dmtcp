@@ -371,7 +371,7 @@ FileConnList::resume(bool isRestart)
   if (isRestart) {
     // Now unlink the files that we created as a side-effect of restoreShmArea.
     for (size_t i = 0; i < missingUnlinkedShmFiles.size(); i++) {
-      WARN_SYSCALL_SUCCESS(unlink(missingUnlinkedShmFiles[i].name),
+      WARN_NE(-1, unlink(missingUnlinkedShmFiles[i].name),
         "The file was unlinked at checkpoint, but unlinking it after restart "
         "failed: path={}",
         missingUnlinkedShmFiles[i].name);
@@ -414,17 +414,17 @@ FileConnList::prepareShmList()
        * writing them to ckpt file) will cause them to be reloaded from the
        * disk.
        */
-      WARN_SYSCALL_SUCCESS(msync(area.addr, area.size, MS_INVALIDATE),
+      WARN_NE(-1, msync(area.addr, area.size, MS_INVALIDATE),
                     "msync(MS_INVALIDATE) failed for shared memory area: "
                     "addr={} size={} path={} offset={}",
                     area.addr, area.size, area.name, area.offset);
 
       if (jalib::Filesystem::FileExists(area.name)) {
         if (_real_access(area.name, W_OK) == 0) {
-          JTRACE("Will checkpoint shared memory area") (area.name);
+          TRACE("Will checkpoint shared memory area (area.name = {};)", area.name);
           int flags = Util::memProtToOpenFlags(area.prot);
           int fd = _real_open(area.name, flags, 0);
-          ASSERT_VALID_FD(fd,
+          ASSERT_NE(-1, fd,
                               "failed to open shared memory backing file: "
                               "path={}",
                               area.name);
@@ -451,7 +451,7 @@ FileConnList::prepareShmList()
                        "failed to protect shared memory area: addr={} size={}",
                        area.addr, area.size);
         } else {
-          JTRACE("Will not checkpoint shared memory area") (area.name);
+          TRACE("Will not checkpoint shared memory area (area.name = {};)", area.name);
         }
       } else {
         // TODO: Shared memory areas with unlinked backing files.
@@ -465,7 +465,7 @@ FileConnList::prepareShmList()
                   "path={}",
                   area.name);
         } else {
-          JTRACE("Will recreate shm file on restart.") (area.name);
+          TRACE("Will recreate shm file on restart. (area.name = {};)", area.name);
 
           // Remove the DELETED suffix.
           area.name[strlen(area.name) - strlen(DELETED_FILE_SUFFIX)] = '\0';
@@ -500,16 +500,15 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
   // The file is a virtual file.  It is not really unlinked, and the memory
   // segment was originally backed by this solely to force the use of hugepages.
   if (strstr(area.name, "/libhugetlbfs.tmp")) {
-    JTRACE("Unlinked huge page region detected") (area.name)
-      ((void *)area.addr);
+    TRACE("Unlinked huge page region detected (area.name = {};) ((void *)area.addr = {};)", area.name, (void *)area.addr);
 
     int fd = _real_openat(AT_FDCWD, area.name, O_RDWR|O_CREAT|O_EXCL, 0600);
-    ASSERT_VALID_FD(fd,
+    ASSERT_NE(-1, fd,
                         "failed to recreate hugepage shm file: path={}",
                         area.name);
 
     // Set the correct offset
-    ASSERT_SYSCALL_EQ(static_cast<off_t>(area.offset),
+    ASSERT_EQ(static_cast<off_t>(area.offset),
                           lseek(fd, area.offset, SEEK_SET),
                           "failed to seek hugepage shm file: fd={} offset={}",
                           fd, area.offset);
@@ -547,19 +546,19 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
 
     if (fd == -1) {
       fd = _real_open(area.name, O_RDWR);
-      ASSERT_VALID_FD(fd,
+      ASSERT_NE(-1, fd,
                           "failed to open existing shm file: path={}",
                           area.name);
     }
 
     // Get to the correct offset
-    ASSERT_SYSCALL_EQ(static_cast<off_t>(area.offset),
+    ASSERT_EQ(static_cast<off_t>(area.offset),
                           lseek(fd, area.offset, SEEK_SET),
                           "failed to seek shm file: fd={} offset={}", fd,
                           area.offset);
 
     // Now populate file contents from memory.
-    ASSERT_SYSCALL_EQ(static_cast<ssize_t>(area.size),
+    ASSERT_EQ(static_cast<ssize_t>(area.size),
                           Util::writeAll(fd, area.addr, area.size),
                           "failed to populate shm file: fd={} size={}", fd,
                           area.size);
@@ -574,18 +573,18 @@ FileConnList::restoreShmArea(const ProcMapsArea &area, int fd)
     fd = _real_open(area.name, Util::memProtToOpenFlags(area.prot));
 
     // Set the correct offset
-    ASSERT_SYSCALL_EQ(static_cast<off_t>(area.offset),
+    ASSERT_EQ(static_cast<off_t>(area.offset),
                           lseek(fd, area.offset, SEEK_SET),
                           "failed to seek shm file before restore: fd={} "
                           "offset={}",
                           fd, area.offset);
   }
 
-  ASSERT_VALID_FD(fd,
+  ASSERT_NE(-1, fd,
                       "failed to open shm file before restore: path={}",
                       area.name);
 
-  JTRACE("Restoring shared memory area") (area.name) ((void *)area.addr);
+  TRACE("Restoring shared memory area (area.name = {};) ((void *)area.addr = {};)", area.name, (void *)area.addr);
   void *addr = mmap(area.addr, area.size, area.prot,
                     MAP_FIXED | area.flags, fd, area.offset);
   ASSERT_ERRNO(addr != MAP_FAILED,
@@ -602,7 +601,7 @@ FileConnList::remapShmMaps()
     ProcMapsArea *area = &shmAreas[i];
     FileConnection *fileCon = shmAreaConn[i];
     int fd = fileCon->getFds()[0];
-    JTRACE("Restoring shared memory area") (area->name) ((void *)area->addr);
+    TRACE("Restoring shared memory area (area->name = {};) ((void *)area->addr = {};)", area->name, (void *)area->addr);
     void *addr = mmap(area->addr, area->size, area->prot,
                       MAP_FIXED | area->flags, fd, area->offset);
     ASSERT_ERRNO(addr != MAP_FAILED,
@@ -631,13 +630,13 @@ FileConnList::scanForPreExisting()
       continue;
     }
     struct stat statbuf;
-    ASSERT_SYSCALL_SUCCESS(fstat(fd, &statbuf),
+    ASSERT_NE(-1, fstat(fd, &statbuf),
                  "fstat failed while scanning pre-existing fd: fd={}", fd);
     bool isRegularFile = (S_ISREG(statbuf.st_mode) || S_ISDIR(statbuf.st_mode));
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
-    JTRACE("scanning pre-existing device") (fd) (device);
+    TRACE("scanning pre-existing device (fd = {};) (device = {};)", fd, device);
 
     if (dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
       if (isRegularFile) {
@@ -673,7 +672,7 @@ FileConnList::scanForPreExisting()
         continue;
       }
     } else {
-      JTRACE("Ignoring pre-existing fd") (device);
+      TRACE("Ignoring pre-existing fd (device = {};)", device);
     }
   }
 }
@@ -738,7 +737,7 @@ FileConnList::processFileConnection(int fd,
   }
 
   struct stat statbuf;
-  ASSERT_SYSCALL_SUCCESS(fstat(fd, &statbuf),
+  ASSERT_NE(-1, fstat(fd, &statbuf),
                "fstat failed while processing file connection: fd={}", fd);
 
   if (strstr(device.c_str(), "infiniband/uverbs") ||

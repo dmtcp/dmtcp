@@ -58,7 +58,7 @@ restoreUserLDPRELOAD()
   char *preload = getenv("LD_PRELOAD");
   char *userPreload = getenv(ENV_VAR_ORIG_LD_PRELOAD);
 
-  // This is a C program.  JASSERT and JTRACE are not available:
+  // This is a C program.  ASSERT and TRACE are not available:
   // JASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload));
   // Destructively modify environment variable "LD_PRELOAD" in place:
   preload[0] = '\0';
@@ -70,6 +70,8 @@ restoreUserLDPRELOAD()
     // setenv("LD_PRELOAD", userPreload, 1);
   }
 
-  // JTRACE("LD_PRELOAD") (preload) (userPreload) (getenv(ENV_VAR_HIJACK_LIBS))
-  // (getenv(ENV_VAR_HIJACK_LIBS_M32)) (getenv("LD_PRELOAD"));
+  // TRACE("LD_PRELOAD: preload={} userPreload={} hijackLibs={} "
+  //       "hijackLibsM32={} current={}",
+  //       preload, userPreload, getenv(ENV_VAR_HIJACK_LIBS),
+  //       getenv(ENV_VAR_HIJACK_LIBS_M32), getenv("LD_PRELOAD"));
 }

@@ -189,6 +189,22 @@ libnohijack_a_SOURCES = dmtcpnohijackstubs.cpp			\
 #
 # Built-in plugin libraries.
 #
+plugin/alloc/%.o plugin/alloc/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"alloc\"
+plugin/dl/%.o plugin/dl/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"dl\"
+plugin/event/%.o plugin/event/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"event\"
+# Shared connection bookkeeping is used by file, pty, socket, and event plugins.
+plugin/connection%.o plugin/connection%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"connection\"
+plugin/file/file%.o plugin/file/file%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"file\"
+plugin/file/openwrappers.o plugin/file/openwrappers.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"file\"
+plugin/file/posixipcwrappers.o plugin/file/posixipcwrappers.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"file\"
+plugin/file/pty%.o plugin/file/pty%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"pty\"
+plugin/socket/%.o plugin/socket/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"socket\"
+plugin/ssh/%.o plugin/ssh/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"ssh\"
+plugin/svipc/%.o plugin/svipc/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"svipc\"
+plugin/timer/%.o plugin/timer/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"timer\"
+plugin/pid/%.o plugin/pid/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"pid\"
+plugin/unique-ckpt/%.o plugin/unique-ckpt/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"unique-ckpt\"
+
 libssh_a_SOURCES =							\
 	plugin/ssh/util_ssh.cpp					\
 	plugin/ssh/util_ssh.h
@@ -199,12 +215,10 @@ libdmtcp_alloc_internal_a_SOURCES =					\
 	plugin/alloc/alloc.h						\
 	plugin/alloc/mallocwrappers.cpp				\
 	plugin/alloc/mmapwrappers.cpp
-libdmtcp_alloc_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_alloc_internal_a_SHORTNAME = i
 
 libdmtcp_dl_internal_a_SOURCES =					\
 	plugin/dl/dlwrappers.cpp
-libdmtcp_dl_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_dl_internal_a_SHORTNAME = i
 
 libdmtcp_event_internal_a_SOURCES =					\
@@ -216,7 +230,6 @@ libdmtcp_event_internal_a_SOURCES =					\
 	plugin/event/eventwrappers.h				\
 	plugin/event/util_descriptor.cpp				\
 	plugin/event/util_descriptor.h
-libdmtcp_event_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_event_internal_a_SHORTNAME = i
 
 libdmtcp_file_internal_a_SOURCES =					\
@@ -234,7 +247,6 @@ libdmtcp_file_internal_a_SOURCES =					\
 	plugin/file/filewrappers.h					\
 	plugin/file/openwrappers.cpp				\
 	plugin/file/posixipcwrappers.cpp
-libdmtcp_file_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_file_internal_a_SHORTNAME = i
 
 libdmtcp_pty_internal_a_SOURCES =					\
@@ -244,7 +256,6 @@ libdmtcp_pty_internal_a_SOURCES =					\
 	plugin/file/ptyconnlist.h					\
 	plugin/file/ptywrappers.cpp					\
 	plugin/file/ptywrappers.h
-libdmtcp_pty_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_pty_internal_a_SHORTNAME = i
 
 libdmtcp_socket_internal_a_SOURCES =					\
@@ -259,7 +270,6 @@ libdmtcp_socket_internal_a_SOURCES =					\
 	plugin/socket/socketconnlist.h				\
 	plugin/socket/socketwrappers.cpp				\
 	plugin/socket/socketwrappers.h
-libdmtcp_socket_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_socket_internal_a_SHORTNAME = i
 
 libdmtcp_ssh_internal_a_SOURCES =					\
@@ -267,7 +277,6 @@ libdmtcp_ssh_internal_a_SOURCES =					\
 	plugin/ssh/sshdrainer.cpp					\
 	plugin/ssh/sshdrainer.h					\
 	plugin/ssh/ssh.h
-libdmtcp_ssh_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_ssh_internal_a_SHORTNAME = i
 
 libdmtcp_svipc_internal_a_SOURCES =					\
@@ -275,7 +284,6 @@ libdmtcp_svipc_internal_a_SOURCES =					\
 	plugin/svipc/sysvipc.h						\
 	plugin/svipc/sysvipcwrappers.cpp				\
 	plugin/svipc/sysvipcwrappers.h
-libdmtcp_svipc_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_svipc_internal_a_SHORTNAME = i
 
 libdmtcp_timer_internal_a_SOURCES =					\
@@ -284,7 +292,6 @@ libdmtcp_timer_internal_a_SOURCES =					\
 	plugin/timer/timerlist.h					\
 	plugin/timer/timerwrappers.cpp					\
 	plugin/timer/timerwrappers.h
-libdmtcp_timer_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_timer_internal_a_SHORTNAME = i
 
 libdmtcp_pid_internal_a_SOURCES =					\
@@ -299,12 +306,10 @@ libdmtcp_pid_internal_a_SOURCES =					\
 	plugin/pid/sched_wrappers.cpp					\
 	plugin/pid/virtualpidtable.cpp					\
 	plugin/pid/virtualpidtable.h
-libdmtcp_pid_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_pid_internal_a_SHORTNAME = i
 
 libdmtcp_unique_ckpt_internal_a_SOURCES =				\
 	plugin/unique-ckpt/unique-ckpt.cpp
-libdmtcp_unique_ckpt_internal_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)
 libdmtcp_unique_ckpt_internal_a_SHORTNAME = i
 
 __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\

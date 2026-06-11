@@ -186,11 +186,11 @@ TLSInfo_GetPidOffset(void)
 static void
 tls_get_thread_area(Thread *thread)
 {
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     _real_syscall(SYS_arch_prctl, ARCH_GET_FS,
                   (long)&thread->tlsInfo.fs, 0, 0, 0, 0, 0),
     "failed to read FS TLS register: tid={}", thread->tid);
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     _real_syscall(SYS_arch_prctl, ARCH_GET_GS,
                   (long)&thread->tlsInfo.gs, 0, 0, 0, 0, 0),
     "failed to read GS TLS register: tid={}", thread->tid);
@@ -226,7 +226,7 @@ tls_get_thread_area(Thread *thread)
 
   thread->tlsInfo.gdtentrytls.entry_number = thread->tlsInfo.gs / 8;
 
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     _real_syscall(SYS_get_thread_area,
                   (long)&thread->tlsInfo.gdtentrytls,
                   0, 0, 0, 0, 0, 0),
@@ -406,7 +406,8 @@ get_at_sysinfo()
   for (auxv = (ELF_AUXV_T *)stack; auxv->a_type != AT_NULL; auxv++) {
     // mtcp_printf("0x%x 0x%x\n", auxv->a_type, auxv->a_un.a_val);
     if (auxv->a_type == (UINT_T)AT_SYSINFO) {
-      // JNOTE("AT_SYSINFO") (&auxv->a_un.a_val) (auxv->a_un.a_val);
+      // NOTE("AT_SYSINFO: ptr={} value={}",
+      //      &auxv->a_un.a_val, auxv->a_un.a_val);
       return (void *)auxv->a_un.a_val;
     }
   }

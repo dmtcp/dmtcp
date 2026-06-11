@@ -338,7 +338,7 @@ dmtcp_get_restart_env(const char *name,   // IN
 {
   int env_fd = dup(dmtcp_protected_environ_fd());
 
-  ASSERT_VALID_FD(env_fd,
+  ASSERT_NE(-1, env_fd,
                       "failed to dup protected restart environ fd: "
                       "protected_fd={}",
                       dmtcp_protected_environ_fd());
@@ -464,22 +464,22 @@ dmtcp_get_local_ip_addr(struct in_addr *in)
 EXTERNC void
 dmtcp_global_barrier(const char *barrier)
 {
-  JTRACE("Waiting for global barrier") (barrier);
+  TRACE("Waiting for global barrier: barrier={}", barrier);
   if (!CoordinatorAPI::waitForBarrier(barrier)) {
-    JTRACE("Failed to read message from coordinator; process exiting?");
+    TRACE("Failed to read message from coordinator; process exiting?");
     ASSERT(DmtcpWorker::isExitInProgress(),
            "global barrier failed while worker exit is not in progress: "
            "barrier={}",
            barrier);
     DmtcpWorker::ckptThreadPerformExit();
   }
-  JTRACE("Barrier Released") (barrier);
+  TRACE("Barrier Released: barrier={}", barrier);
 }
 
 EXTERNC void
 dmtcp_local_barrier(const char *barrier)
 {
-  JTRACE("Waiting for local barrier") (barrier);
+  TRACE("Waiting for local barrier: barrier={}", barrier);
   SharedData::waitForBarrier(barrier);
 }
 

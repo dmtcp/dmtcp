@@ -64,7 +64,7 @@ socket(int domain, int type, int protocol)
   int ret = _real_socket(domain, type, protocol);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     Connection *con;
-    JTRACE("socket created") (ret) (domain) (type) (protocol);
+    TRACE("socket created (ret = {};) (domain = {};) (type = {};) (protocol = {};)", ret, domain, type, protocol);
     if ((type & 0xff) == SOCK_RAW) {
       ASSERT(domain == AF_NETLINK,
              "only Netlink raw sockets supported: domain={} type={}",
@@ -97,7 +97,7 @@ connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen)
       dynamic_cast<SocketConnection *>(SocketConnList::instance().getConnection(
                                          sockfd));
     if (con == NULL) {
-      JTRACE("Connect operation on unsupported socket type.");
+      TRACE("Connect operation on unsupported socket type.");
     } else {
       con->onConnect(serv_addr, addrlen, (ret == -1 && errno == EINPROGRESS));
     }
@@ -121,7 +121,7 @@ bind(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen)
       dynamic_cast<SocketConnection *>(SocketConnList::instance().getConnection(
                                          sockfd));
     if (con == NULL) {
-      JTRACE("bind operation on unsupported socket type.");
+      TRACE("bind operation on unsupported socket type.");
     } else {
       con->onBind((struct sockaddr *)my_addr, addrlen);
     }
@@ -143,7 +143,7 @@ listen(int sockfd, int backlog)
       dynamic_cast<SocketConnection *>(SocketConnList::instance().getConnection(
                                          sockfd));
     if (con == NULL) {
-      JTRACE("listen operation on unsupported socket type.");
+      TRACE("listen operation on unsupported socket type.");
     } else {
       con->onListen(backlog);
     }
@@ -154,13 +154,13 @@ listen(int sockfd, int backlog)
 static void
 process_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
-  ASSERT_VALID_FD(ret,
+  ASSERT_NE(-1, ret,
                       "accept result must be valid before socket state update: "
                       "sockfd={}",
                       sockfd);
   Connection *parent = SocketConnList::instance().getConnection(sockfd);
   if (parent == NULL) {
-    JTRACE("unable to get the connection.");
+    TRACE("unable to get the connection.");
     return;
   }
 
@@ -177,7 +177,7 @@ process_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen)
   }
 
   if (con == NULL) {
-    JTRACE("accept operation on unsupported socket type.");
+    TRACE("accept operation on unsupported socket type.");
     return;
   } else {
     SocketConnList::instance().add(ret, dynamic_cast<Connection *>(con));
@@ -262,12 +262,12 @@ setsockopt(int sockfd,
   int ret = _real_setsockopt(sockfd, level, optname, optval, optlen);
 
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
-    JTRACE("setsockopt") (ret) (sockfd) (optname);
+    TRACE("setsockopt (ret = {};) (sockfd = {};) (optname = {};)", ret, sockfd, optname);
     SocketConnection *con =
       dynamic_cast<SocketConnection *>(SocketConnList::instance().getConnection(
                                          sockfd));
     if (con == NULL) {
-      JTRACE("setsockopt operation on unsupported socket type.");
+      TRACE("setsockopt operation on unsupported socket type.");
       return ret;
     } else {
       con->addSetsockopt(level, optname, optval, optlen);
@@ -305,7 +305,7 @@ socketpair(int d, int type, int protocol, int sv[2])
   ASSERT_NOT_NULL(sv);
   int rv = _real_socketpair(d, type, protocol, sv);
   if (rv != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
-    JTRACE("socketpair()") (sv[0]) (sv[1]);
+    TRACE("socketpair() (sv[0] = {};) (sv[1] = {};)", sv[0], sv[1]);
 
     TcpConnection *a, *b;
 

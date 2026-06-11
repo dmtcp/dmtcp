@@ -45,7 +45,7 @@ int DmtcpRWLockRdLock(DmtcpRWLock *rwlock)
     do {
       ret = futex_wait(&rwlock->readerFutex, waitVal);
     } while (ret != 0 && errno == EINTR);
-    
+
     ASSERT_ERRNO(ret == 0 || errno == EAGAIN,
                  "unexpected reader futex_wait failure: ret={}", ret);
   }
@@ -69,7 +69,7 @@ int DmtcpRWLockRdUnlock(DmtcpRWLock *rwlock)
 
   if (newStatus.nReaders == 0 && newStatus.nWriters > 0) {
     rwlock->writerFutex++;
-    ASSERT_SYSCALL_SUCCESS(futex_wake(&rwlock->writerFutex, 1),
+    ASSERT_NE(-1, futex_wake(&rwlock->writerFutex, 1),
                  "writer futex_wake failed from reader unlock");
   }
 
@@ -137,11 +137,11 @@ int DmtcpRWLockWrUnlock(DmtcpRWLock *rwlock)
 
   if (newStatus.nWriters > 0) {
     rwlock->writerFutex++;
-    ASSERT_SYSCALL_SUCCESS(futex_wake(&rwlock->writerFutex, 1),
+    ASSERT_NE(-1, futex_wake(&rwlock->writerFutex, 1),
                  "writer futex_wake failed from writer unlock");
   } else {
     rwlock->readerFutex++;
-    ASSERT_SYSCALL_SUCCESS(futex_wake(&rwlock->readerFutex, newStatus.nReaders),
+    ASSERT_NE(-1, futex_wake(&rwlock->readerFutex, newStatus.nReaders),
                  "reader futex_wake failed from writer unlock: readers={}",
                  newStatus.nReaders);
   }

@@ -185,7 +185,8 @@ RestoreTarget::RestoreTarget(const string &path)
   _fd = readCkptHeader(_path, &_ckptHdr);
   checkVdsoOffsetMismatch(&_ckptHdr);
 
-  JTRACE("restore target")(_path)(numPeers())(compGroup());
+  TRACE("restore target: path={} numPeers={} compGroup={}",
+        _path, numPeers(), compGroup());
 }
 
 void
@@ -244,7 +245,7 @@ RestoreTarget::restoreGroup()
 {
   if (isGroupLeader()) {
     // create new Group where this process becomes a leader
-    JTRACE("Create new Group.");
+    TRACE("Create new Group.");
     setpgid(0, 0);
   }
 }
@@ -254,7 +255,7 @@ RestoreTarget::createDependentChildProcess()
 {
   pid_t pid = fork();
 
-  ASSERT_FORK_SUCCESS(
+  ASSERT_NE(-1,
     pid, "fork failed while creating dependent child process");
   if (pid != 0) {
     return;
@@ -267,18 +268,18 @@ RestoreTarget::createDependentNonChildProcess()
 {
   pid_t pid = fork();
 
-  ASSERT_FORK_SUCCESS(
+  ASSERT_NE(-1,
     pid, "fork failed while creating dependent non-child process");
   if (pid == 0) {
     pid_t gchild = fork();
-    ASSERT_FORK_SUCCESS(
+    ASSERT_NE(-1,
       gchild, "fork failed while creating dependent grandchild process");
     if (gchild != 0) {
       exit(0);
     }
     createProcess();
   } else {
-    ASSERT_SYSCALL_EQ(pid,
+    ASSERT_EQ(pid,
                           waitpid(pid, NULL, 0),
                           "failed to wait for dependent child process");
   }
@@ -289,17 +290,17 @@ RestoreTarget::createOrphanedProcess(bool createIndependentRootProcesses)
 {
   pid_t pid = fork();
 
-  ASSERT_FORK_SUCCESS(pid, "fork failed while creating orphaned process");
+  ASSERT_NE(-1, pid, "fork failed while creating orphaned process");
   if (pid == 0) {
     pid_t gchild = fork();
-    ASSERT_FORK_SUCCESS(
+    ASSERT_NE(-1,
       gchild, "fork failed while creating orphaned grandchild process");
     if (gchild != 0) {
       exit(0);
     }
     createProcess(createIndependentRootProcesses);
   } else {
-    ASSERT_SYSCALL_EQ(pid,
+    ASSERT_EQ(pid,
                           waitpid(pid, NULL, 0),
                           "failed to wait for orphan parent process");
     exit(0);
@@ -315,8 +316,8 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
     allowedModes = COORD_ANY; // we have coord; restore default of COORD_ANY
   }
 
-  JTRACE("Creating process during restart")(upid())(procname());
-  JTRACE("Creating process during restart")(upid())(procname());
+  TRACE("Creating process during restart: upid={} procname={}",
+        upid(), procname());
 
   RestoreTargetMap::iterator it;
   for (it = targets.begin(); it != targets.end(); it++) {
@@ -342,7 +343,7 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
   // If we were the session leader, become one now.
   if (sid() == pid()) {
     if (getsid(0) != pid()) {
-      WARN_SYSCALL_SUCCESS(setsid(),
+      WARN_NE(-1, setsid(),
                     "Failed to restore this process as session leader: "
                     "current session id={}",
                     getsid(0));
@@ -380,14 +381,15 @@ char *get_pause_param()
 {
 #ifdef HAS_PR_SET_PTRACER
   if (getenv("DMTCP_GDB_ATTACH_ON_RESTART")) {
-    JNOTE("\n     *******************************************************\n"
-          "     *** Environment variable, DMTCP_GDB_ATTACH_ON_RESTART is set\n"
-          "     *** You can attach to the running process as follows:\n"
-          "     ***     gdb _PROGRAM_NAME_ PID  [See below for PID.]\n"
-          "     *** NOTE:  This mode can be a security risk.\n"
-          "     ***        Do not set the env. variable normally.\n"
-          "     *******************************************************")
-      (getpid());
+    NOTE("\n     *******************************************************\n"
+         "     *** Environment variable, DMTCP_GDB_ATTACH_ON_RESTART is set\n"
+         "     *** You can attach to the running process as follows:\n"
+         "     ***     gdb _PROGRAM_NAME_ PID  [See below for PID.]\n"
+         "     *** NOTE:  This mode can be a security risk.\n"
+         "     ***        Do not set the env. variable normally.\n"
+         "     *** PID: {}\n"
+         "     *******************************************************",
+         getpid());
     prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // Allow 'gdb attach'
   }
 #endif // ifdef HAS_PR_SET_PTRACER
@@ -485,7 +487,7 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
       execvp(command[0], command);
     } else if (pid == 0) {
       close(debugPipe[0]); // child doesn't need the read end
-      ASSERT_SYSCALL_EQ(PROTECTED_DEBUG_SOCKET_FD,
+      ASSERT_EQ(PROTECTED_DEBUG_SOCKET_FD,
                             dup2(debugPipe[1], PROTECTED_DEBUG_SOCKET_FD),
                             "failed to install protected debug socket fd");
       if (debugPipe[1] != PROTECTED_DEBUG_SOCKET_FD) {
@@ -562,7 +564,7 @@ openCkptFileToRead(const string &filename)
                filename.c_str());
 
   DmtcpCkptHeader ckptHdr;
-  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(sizeof(ckptHdr)),
+  ASSERT_EQ(static_cast<ssize_t>(sizeof(ckptHdr)),
                         Util::readAll(fd, &ckptHdr, sizeof(ckptHdr)),
                         "failed to read checkpoint header: path={}",
                         filename.c_str());
@@ -576,7 +578,7 @@ openCkptFileToRead(const string &filename)
   ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) != -1,
                "failed to rewind checkpoint file before magic read: path={}",
                filename);
-  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(1),
+  ASSERT_EQ(static_cast<ssize_t>(1),
                         Util::readAll(fd, &fc, 1),
                         "failed to read checkpoint magic byte: path={}",
                         filename.c_str());
@@ -599,7 +601,8 @@ openCkptFileToRead(const string &filename)
                  "checkpoint file: {}",
                  filename.c_str());
     if (cpid > 0) { /* parent process */
-      JTRACE("created child process to uncompress checkpoint file") (cpid);
+      TRACE("created child process to uncompress checkpoint file: pid={}",
+            cpid);
       close(fd);
       close(fds[1]);
 
@@ -630,7 +633,7 @@ openCkptFileToRead(const string &filename)
       }
 
       // Grandchild process
-      JTRACE("child process, will exec into external de-compressor");
+      TRACE("child process, will exec into external de-compressor");
       fd = dup(dup(dup(fd)));
       fds[1] = dup(fds[1]);
       close(fds[0]);
@@ -839,7 +842,7 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
     }
     allowedModes = (allowedModes == COORD_ANY) ? COORD_NEW : allowedModes;
     setenv(ENV_VAR_NAME_PORT, STRINGIFY(DEFAULT_PORT), 1);
-    JTRACE("No port specified\n"
+    TRACE("No port specified\n"
            "Setting mode to --new-coordinator --coord-port "
                                                   STRINGIFY(DEFAULT_PORT));
   }
@@ -858,7 +861,7 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
       stderr);
   }
 
-  JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
+  TRACE("New dmtcp_restart process: argc={}", argc);
 
   // If there are still arguments not processed (argc > 0), the remaining
   // arguments should be ckpt images. Can't specify ckpt images
@@ -874,7 +877,7 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
       if (Util::strEndsWith(file.c_str(), ".dmtcp")) {
         string restorename(restartDir + "/" + file);
         struct stat buf;
-        ASSERT_SYSCALL_SUCCESS(stat(restorename.c_str(), &buf),
+        ASSERT_NE(-1, stat(restorename.c_str(), &buf),
                      "failed to stat checkpoint image: {}",
                      restorename.c_str());
         if (buf.st_uid != getuid() && !noStrictChecking) {
@@ -888,7 +891,7 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
                  getuid(), buf.st_uid, restorename.c_str());
         }
 
-        JTRACE("Will restart ckpt image") (restorename);
+        TRACE("Will restart ckpt image: path={}", restorename);
         ckptImages.push_back(restorename);
       }
     }
@@ -896,14 +899,15 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
     for (; argc > 0; shift) {
       string restorename(argv[0]);
       struct stat buf;
-      ASSERT_SYSCALL_SUCCESS(stat(restorename.c_str(), &buf),
+      ASSERT_NE(-1, stat(restorename.c_str(), &buf),
                    "failed to stat checkpoint image: {}",
                    restorename.c_str());
 
       if (Util::strEndsWith(restorename.c_str(), "_files")) {
         continue;
       } else if (!Util::strEndsWith(restorename.c_str(), ".dmtcp")) {
-        JNOTE("File doesn't have .dmtcp extension. Check Usage.") (restorename);
+        NOTE("File doesn't have .dmtcp extension. Check Usage: path={}",
+             restorename);
         // Don't test for --quiet here.  We're aborting.  We need to say why.
         fputs(theUsage, stderr);
         exit(DMTCP_FAIL_RC);
@@ -918,7 +922,7 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
                getuid(), buf.st_uid, restorename.c_str());
       }
 
-      JTRACE("Will restart ckpt image") (argv[0]);
+      TRACE("Will restart ckpt image: path={}", argv[0]);
       ckptImages.push_back(argv[0]);
     }
   }

@@ -24,6 +24,7 @@
 #include "plugin/pid/pidhelpers.h"
 #include "timerlist.h"
 #include "wrapperlock.h"
+#include "util_assert.h"
 
 using namespace dmtcp;
 
@@ -78,7 +79,9 @@ timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
   }
   if (ret != -1 && timerid != NULL) {
     virtId = TimerList::instance().on_timer_create(realId, clockid, sevIn);
-    JTRACE("Creating new timer") (clockid) (realClockId) (realId) (virtId);
+    TRACE("Creating new timer (clockid = {};) (realClockId = {};) "
+          "(realId = {};) (virtId = {};)",
+          clockid, realClockId, realId, virtId);
     *timerid = virtId;
   }
   return ret;
@@ -96,7 +99,7 @@ timer_delete(timer_t timerid)
   int ret = _real_timer_delete(realId);
   if (ret != -1) {
     TimerList::instance().on_timer_delete(timerid);
-    JTRACE("Deleted timer") (timerid);
+    TRACE("Deleted timer (timerid = {};)", timerid);
   }
   return ret;
 }

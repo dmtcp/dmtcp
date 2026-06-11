@@ -84,13 +84,13 @@ ThreadSync::acquireLocks()
    * these locks to prevent future deadlocks due to rank violation.
    */
 
-  JTRACE("Waiting for libdlLock");
+  TRACE("Waiting for libdlLock");
   ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&libdlLock));
 
-  JTRACE("Waiting for other threads to exit DMTCP-Wrappers");
+  TRACE("Waiting for other threads to exit DMTCP-Wrappers");
   ThreadSync::wrapperExecutionLockLockExcl();
 
-  JTRACE("Done acquiring all locks");
+  TRACE("Done acquiring all locks");
 }
 
 void
@@ -100,7 +100,7 @@ ThreadSync::releaseLocks()
          "releaseLocks expected SUSPENDED worker state: state={}",
          WorkerState::currentState());
 
-  JTRACE("Releasing ThreadSync locks");
+  TRACE("Releasing ThreadSync locks");
   ThreadSync::wrapperExecutionLockUnlock();
   ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&libdlLock));
 }
@@ -299,13 +299,13 @@ ThreadSync::wrapperExecutionLockUnlock()
 void
 ThreadSync::presuspendEventHookLockLock()
 {
-  JTRACE("Acquiring event-hook lock");
+  TRACE("Acquiring event-hook lock");
   ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&presuspendEventHookLock));
 }
 
 void
 ThreadSync::presuspendEventHookLockUnlock()
 {
-  JTRACE("Releasing event-hook lock");
+  TRACE("Releasing event-hook lock");
   ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&presuspendEventHookLock));
 }

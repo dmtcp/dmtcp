@@ -77,7 +77,7 @@ void mtcp_writememoryareas(int fd) __attribute__((weak));
 static void
 writeCkptBytes(int fd, const void *buf, size_t count, const char *what)
 {
-  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(count),
+  ASSERT_EQ(static_cast<ssize_t>(count),
                         Util::writeAll(fd, buf, count),
                         "failed to write checkpoint data: what={} fd={}",
                         what, fd);
@@ -144,15 +144,24 @@ double_fork()
     allow_delivery_of_one_sigchld();
 
     // 3. Next, we reap that child process (which is now a zombie).
-    WARN_SYSCALL_SUCCESS(_real_waitpid(pid, NULL, 0),
-                  "failed to wait for checkpoint child: pid={}", pid);
+    int status = 0;
+    if (_real_waitpid(pid, &status, 0) == -1) {
+      WARN_ERRNO(false, "failed to wait for checkpoint child: pid={}", pid);
+      sigaction(SIGCHLD, &saved_sigchld_action, NULL);
+      return FORKED_CKPT_FAILED;
+    }
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != EXIT_SUCCESS) {
+      WARN(false, "checkpoint child failed: pid={} status={}", pid, status);
+      sigaction(SIGCHLD, &saved_sigchld_action, NULL);
+      return FORKED_CKPT_FAILED;
+    }
 
     // 4. ... and we then restore the original SIGCHLD handler
     sigaction(SIGCHLD, &saved_sigchld_action, NULL);
     return FORKED_CKPT_PARENT;
   } else {
     pid = _real_sys_fork();
-    ASSERT_FORK_SUCCESS(pid, "failed second checkpoint fork");
+    ASSERT_NE(-1, pid, "failed second checkpoint fork");
     if (pid > 0) {
       _exit(EXIT_SUCCESS); // Child process exits, delivers SIGCHLD
     }
@@ -232,7 +241,7 @@ open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path)
   };
 
   gzip_args[0] = gzip_path;
-  JTRACE("open_ckpt_to_write_gz\n");
+  TRACE("open_ckpt_to_write_gz\n");
 
   return open_ckpt_to_write(fd, pipe_fds, gzip_args);
 }
@@ -326,7 +335,7 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
   } else if (fork_rc == FORKED_CKPT_PARENT) { /* parent process */
     // Before running gzip in child process, we must not use LD_PRELOAD.
     // See revision log 342 for details concerning bash.
-    WARN_SYSCALL_SUCCESS(_real_close(pipe_fds[0]),
+    WARN_NE(-1, _real_close(pipe_fds[0]),
                   "failed to close compression read pipe: fd={}",
                   pipe_fds[0]);
     fd = pipe_fds[1];  // change return value
@@ -384,7 +393,7 @@ CkptSerializer::createCkptDir()
   ASSERT_ERRNO(mkdir(ckptDir.c_str(), S_IRWXU) == 0 || errno == EEXIST,
                "error creating checkpoint directory: path={}", ckptDir);
 
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     access(ckptDir.c_str(), X_OK | W_OK),
     "missing execute or write access to checkpoint directory: path={}",
     ckptDir);
@@ -399,11 +408,11 @@ void
 CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
                                const string& ckptFilename)
 {
-  JTRACE("Thread performing checkpoint.");
+  TRACE("Thread performing checkpoint.");
   createCkptDir();
   forked_ckpt_status = test_and_prepare_for_forked_ckpt();
   if (forked_ckpt_status == FORKED_CKPT_PARENT) {
-    JTRACE("*** Using forked checkpointing.\n");
+    TRACE("*** Using forked checkpointing.\n");
     return;
   }
 
@@ -416,7 +425,7 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
 
   fd = perform_open_ckpt_image_fd(ckptFilename.c_str(), &use_compression,
                                   &fdCkptFileOnDisk);
-  ASSERT_VALID_FD(fdCkptFileOnDisk,
+  ASSERT_NE(-1, fdCkptFileOnDisk,
                       "checkpoint file fd on disk was not initialized");
   ASSERT(use_compression || fd == fdCkptFileOnDisk,
          "checkpoint fd mismatch without compression: fd={} disk_fd={}", fd,
@@ -427,7 +436,8 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
   writeCkptBytes(fd, &ckptHdr, sizeof(ckptHdr), "restart checkpoint header");
   writeCkptBytes(fd, &ckptHdr, sizeof(ckptHdr), "mtcp checkpoint header");
 
-  JTRACE("MTCP is about to write checkpoint image.")(ckptFilename);
+  TRACE("MTCP is about to write checkpoint image: path={}",
+        ckptFilename);
   mtcp_writememoryareas(fd);
 
   if (use_compression) {
@@ -445,7 +455,7 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
      * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
      * So, gzip process can continue to write to file even after renaming.
      */
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
              ProcessInfo::instance().getCkptFilename().c_str()),
       "failed to rename checkpoint image: from={} to={}",
@@ -457,5 +467,5 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
     _exit(0); /* grandchild exits */
   }
 
-  JTRACE("checkpoint complete");
+  TRACE("checkpoint complete");
 }

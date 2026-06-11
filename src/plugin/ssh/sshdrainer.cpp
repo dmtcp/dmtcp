@@ -24,7 +24,7 @@ SSHDrainer::onData(jalib::JReaderInterface *sock)
   int startIdx = buffer.size() - sock->bytesRead();
   memcpy(&buffer[startIdx], sock->buffer(), sock->bytesRead());
 
-  // JTRACE("got buffer chunk") (sock->bytesRead());
+  // TRACE("got buffer chunk (sock->bytesRead() = {};)", sock->bytesRead());
   sock->reset();
 }
 
@@ -40,8 +40,7 @@ SSHDrainer::onDisconnect(jalib::JReaderInterface *sock)
   if (fd < 0) {
     return;
   }
-  JNOTE("found disconnected socket... marking it dead")
-    (fd) (strerror(errno));
+  NOTE("found disconnected socket... marking it dead (fd = {};) (strerror(errno) = {};)", fd, strerror(errno));
   _drainedData.erase(fd);
   ASSERT(false, "SSHDrainer::onDisconnect is not implemented");
 }
@@ -61,8 +60,7 @@ SSHDrainer::onTimeoutInterval()
                   theMagicDrainCookie,
                   sizeof(theMagicDrainCookie)) == 0) {
       buffer.resize(buffer.size() - sizeof(theMagicDrainCookie));
-      JTRACE("buffer drain complete") (_dataSockets[i]->socket().sockfd())
-        (buffer.size()) ((_dataSockets.size()));
+      TRACE("buffer drain complete (_dataSockets[i]->socket().sockfd() = {};) (buffer.size() = {};) ((_dataSockets.size()) = {};)", _dataSockets[i]->socket().sockfd(), buffer.size(), (_dataSockets.size()));
       _dataSockets[i]->socket() = -1; // poison socket
     } else {
       ++count;
@@ -108,7 +106,7 @@ SSHDrainer::beginDrainOf(int fd, int refillFd)
 void
 SSHDrainer::refill()
 {
-  JTRACE("refilling socket buffers") (_drainedData.size());
+  TRACE("refilling socket buffers (_drainedData.size() = {};)", _drainedData.size());
 
   // write all buffers out
   map<int, vector<char> >::iterator i;

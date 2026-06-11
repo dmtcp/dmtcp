@@ -53,14 +53,14 @@ LookupService::get(string const& id, string const& key, string *val)
 {
   auto mapIt = _maps.find(id);
   if (mapIt == _maps.end()) {
-    JTRACE("Lookup Failed, database not found.") (id);
+    TRACE("Lookup Failed, database not found: id={}", id);
     return KVDBResponse::DB_NOT_FOUND;
   }
 
   KeyValueMap &kvmap = mapIt->second;
   auto valueIt = kvmap.find(key);
   if (valueIt == kvmap.end()) {
-    JTRACE("Lookup Failed, Key not found.") (id) (key);
+    TRACE("Lookup Failed, Key not found: id={} key={}", id, key);
     return KVDBResponse::KEY_NOT_FOUND;
   }
 

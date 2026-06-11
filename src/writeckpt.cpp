@@ -76,7 +76,7 @@ static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
 static void
 writeCkptAll(int fd, const void *buf, size_t count, const char *what)
 {
-  ASSERT_SYSCALL_EQ(static_cast<ssize_t>(count),
+  ASSERT_EQ(static_cast<ssize_t>(count),
                         Util::writeAll(fd, buf, count),
                         "failed to write checkpoint data: what={} fd={}",
                         what, fd);
@@ -106,11 +106,11 @@ mtcp_writememoryareas(int fd)
 {
   Area area;
 
-  JTRACE("Performing checkpoint.");
+  TRACE("Performing checkpoint.");
 
   // Here we want to sync the shared memory pages with the backup files
   // FIXME: Why do we need this?
-  // JTRACE("syncing shared memory with backup files");
+  // TRACE("syncing shared memory with backup files");
   // sync_shared_mem();
 
   /**************************************************************************/
@@ -134,11 +134,12 @@ mtcp_writememoryareas(int fd)
     while (procSelfMapsTmp.getNextArea(&area)) {
       if (Util::isNscdArea(area)) {
         /* Special Case Handling: nscd is enabled*/
-        JTRACE("NSCD daemon shared memory area present.\n"
-               "  DMTCP will now try to remap this area in read/write mode as\n"
-               "  private (zero pages), so that glibc will automatically\n"
-               "  stop using NSCD or ask NSCD daemon for new shared area\n")
-          (area.name);
+        TRACE("NSCD daemon shared memory area present.\n"
+              "  DMTCP will now try to remap this area in read/write mode as\n"
+              "  private (zero pages), so that glibc will automatically\n"
+              "  stop using NSCD or ask NSCD daemon for new shared area\n"
+              "  area={}",
+              area.name);
 
         nscdAreas->push_back(area);
       }
@@ -160,7 +161,7 @@ mtcp_writememoryareas(int fd)
    * That method had called mmap to create a shared memory segment at
    * address ProcessInfo::_restoreBuf.startAddr, of length _restoreBufAddr:_restoreBufLen,
    * a synonym for RESTORE_TOTAL_SIZE (defined both in src/processinfo.h
-   * and src/mtcp/mtcp_restart.h).  The JTRACE below confirms that this
+   * and src/mtcp/mtcp_restart.h).  The TRACE below confirms that this
    * was done in the "init" event, with a hint only here: (to hold mtcp_restart code)
    *     In src/mtcp/mtcp_restart.c, we see that restoreBuf.startAddr and restoreBufLen
    * have been transferred to the command line, and now have the new synonyms:
@@ -180,9 +181,10 @@ mtcp_writememoryareas(int fd)
    *        to processinfo.cpp, we have it used in: ProcessInfo::restart()
    *        and 'case DMTCP_EVENT_RESTART' in processInfo_EventHook().
    */
-  JTRACE("addr and len of restoreBuf (to hold mtcp_restart code)")
-    ((void *)ProcessInfo::instance().restoreBuf.startAddr)
-    (ProcessInfo::instance().restoreBuf.endAddr);
+  TRACE("addr and len of restoreBuf (to hold mtcp_restart code): "
+        "start={} end={}",
+        (void *)ProcessInfo::instance().restoreBuf.startAddr,
+        ProcessInfo::instance().restoreBuf.endAddr);
   procSelfMaps = new ProcSelfMaps();
 
   // We must not cause an mmap() here, or the mem regions will not be correct.
@@ -196,14 +198,15 @@ mtcp_writememoryareas(int fd)
         skip = dmtcp_skip_memory_region_ckpting(&area);
       }
       if (skip) {
-        JTRACE("skipping over memory section as suggested by plugin")
-          (area.name) ((void*)area.addr) (area.size);
+        TRACE("skipping over memory section as suggested by plugin: "
+              "name={} addr={} size={}",
+              area.name, (void*)area.addr, area.size);
         break;
       }
 
       unchecked_area.addr = area.endAddr;
       unchecked_area.size = unchecked_area.endAddr - area.endAddr;
-      
+
       // the whole thing comes after the restore image
       writememoryarea(fd, area);
     } while (unchecked_area.size != 0);
@@ -217,7 +220,7 @@ mtcp_writememoryareas(int fd)
   writeCkptAll(fd, &area, sizeof(area), "end-of-areas marker");
 
   /* That's all folks */
-  ASSERT_SYSCALL_SUCCESS(
+  ASSERT_NE(-1,
     _real_close(fd),
     "failed to close checkpoint memory-area fd: fd={}", fd);
 }
@@ -226,7 +229,7 @@ static void
 remap_nscd_areas(const vector<ProcMapsArea> &areas)
 {
   for (size_t i = 0; i < areas.size(); i++) {
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       munmap(areas[i].addr, areas[i].size),
       "error unmapping NSCD shared area: addr={} size={}",
       areas[i].addr, areas[i].size);
@@ -300,8 +303,9 @@ mtcp_write_anonymous_pages(int fd, Area area)
       writeCkptAll(fd, a.addr, a.size, "anonymous page data");
     } else {
       if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
-        JTRACE("error doing madvise(..., MADV_DONTNEED)")
-          (JASSERT_ERRNO) ((void *)a.addr) ((int)a.size);
+        TRACE("error doing madvise(..., MADV_DONTNEED): errno={} addr={} "
+              "size={}",
+              JASSERT_ERRNO, (void *)a.addr, (int)a.size);
       }
     }
     area.addr += size;
@@ -386,8 +390,8 @@ writememoryarea(int fd, Area area)
 
   if (area.size == 0) {
     /* Kernel won't let us munmap this.  But we don't need to restore it. */
-    JTRACE("skipping over zero-sized segment")
-      ((void*)area.addr) (area.size);
+    TRACE("skipping over zero-sized segment: addr={} size={}",
+          (void*)area.addr, area.size);
     return;
   }
 
@@ -396,8 +400,8 @@ writememoryarea(int fd, Area area)
       Util::strEquals(area.name, "[vvar]") ||
       Util::strEquals(area.name, "[vvar_vclock]")) {
     // NOTE: We can't trust kernel's "[vdso]" label here.  See below.
-    JTRACE("skipping over memory special section")
-      (area.name) ((void*)area.addr) (area.size);
+    TRACE("skipping over memory special section: name={} addr={} size={}",
+          area.name, (void*)area.addr, area.size);
     return;
   } else if ((uint64_t) area.addr == ProcessInfo::instance().vdso.startAddr) {
     //  vDSO issue:
@@ -425,8 +429,8 @@ writememoryarea(int fd, Area area)
     //  user data.  This was observed to happen in RHEL 6.6.  The solution is
     //  to trust DMTCP for the vdso location (as in the if condition above),
     //  and not to trust the kernel's "[vdso]" label.
-    JTRACE("skipping vDSO special section")
-      (area.name) ((void*)area.addr) (area.size);
+    TRACE("skipping vDSO special section: name={} addr={} size={}",
+          area.name, (void*)area.addr, area.size);
     return;
   } else if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
       Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
@@ -441,11 +445,11 @@ writememoryarea(int fd, Area area)
      *
      * The above explanation also applies to "/dev/null (deleted)"
      */
-    JTRACE("saving area as Anonymous") (area.name);
+    TRACE("saving area as Anonymous: name={}", area.name);
     area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
     area.name[0] = '\0';
   } else if (Util::isSysVShmArea(area)) {
-    JTRACE("Saving SysV SHM area as Anonymous") (area.name);
+    TRACE("Saving SysV SHM area as Anonymous: name={}", area.name);
     area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
     area.name[0] = '\0';
   } else if (Util::isNscdArea(area)) {
@@ -467,11 +471,13 @@ writememoryarea(int fd, Area area)
   }
 
   if (!(area.flags & MAP_ANONYMOUS)) {
-    JTRACE("save region") ((void*)area.addr) (area.size) (area.name) (area.offset);
+    TRACE("save region: addr={} size={} name={} offset={}",
+          (void*)area.addr, area.size, area.name, area.offset);
   } else if (area.name[0] == '\0') {
-    JTRACE("save anonymous") ((void*)area.addr) (area.size);
+    TRACE("save anonymous: addr={} size={}", (void*)area.addr, area.size);
   } else {
-    JTRACE("save anonymous") ((void*)area.addr) (area.size) (area.name) (area.offset);
+    TRACE("save anonymous: addr={} size={} name={} offset={}",
+          (void*)area.addr, area.size, area.name, area.offset);
   }
 
   if (area.name[0] == '\0') {
@@ -491,7 +497,7 @@ writememoryarea(int fd, Area area)
    * condition.
    */
   if ((area.prot & PROT_READ) == 0) {
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       mprotect(area.addr, area.size, area.prot | PROT_READ),
       "error adding PROT_READ to memory region: addr={} size={} prot={}",
       area.addr, area.size, area.prot);
@@ -531,10 +537,10 @@ writememoryarea(int fd, Area area)
     }
   }
 
-  
+
   // Now remove PROT_READ from the area if it didn't have it originally
   if ((area.prot & PROT_READ) == 0) {
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       mprotect(area.addr, area.size, area.prot),
       "error removing PROT_READ from memory region: addr={} size={} prot={}",
       area.addr, area.size, area.prot);

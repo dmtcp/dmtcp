@@ -70,15 +70,16 @@ restore_term_settings()
      *   warning.  If we try to call tcsetattr in background, we will hang up.
      */
     int foreground = (tcgetpgrp(STDIN_FILENO) == getpgrp());
-    JTRACE("restore terminal attributes, check foreground status first")
-      (foreground);
+    TRACE("restore terminal attributes, check foreground status first: "
+          "foreground={}",
+          foreground);
     if (foreground) {
       if ((!isatty(STDIN_FILENO)
            || safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) == -1)) {
         WARN(false, "failed to restore terminal");
       } else {
         struct winsize cur_win;
-        JTRACE("restored terminal");
+        TRACE("restored terminal");
         ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&cur_win);
 
         /* ws_row/ws_col was probably not 0/0 prior to checkpoint.  We change

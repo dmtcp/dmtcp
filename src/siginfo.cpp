@@ -59,9 +59,9 @@ SigInfo::setupCkptSigHandler(sighandler_t handler)
              getenv("DMTCP_SIGCKPT"), CKPT_SIGNAL);
         STOPSIGNAL = CKPT_SIGNAL;
       } else if (STOPSIGNAL < 1 || STOPSIGNAL >= SIGRTMAX) {
-        JNOTE("Your chosen SIGCKPT is not a valid signal, and cannot be used."
-              " Default signal will be used instead.")
-          (STOPSIGNAL) (CKPT_SIGNAL);
+        NOTE("Your chosen SIGCKPT is not a valid signal, and cannot be used. "
+             "Default signal will be used instead: requested={} default={}",
+             STOPSIGNAL, CKPT_SIGNAL);
         STOPSIGNAL = CKPT_SIGNAL;
       }
     }
@@ -75,7 +75,7 @@ SigInfo::setupCkptSigHandler(sighandler_t handler)
 
   // We can't use standard sigaction here, because DMTCP has a wrapper around
   // it that will not allow anyone to set a signal handler for SIGUSR2.
-  ASSERT_SYSCALL_SUCCESS(_real_sigaction(STOPSIGNAL, &act, &old_act),
+  ASSERT_NE(-1, _real_sigaction(STOPSIGNAL, &act, &old_act),
                "error setting up checkpoint signal handler: signal={}",
                STOPSIGNAL);
 
@@ -111,17 +111,17 @@ SigInfo::saveSigHandlers()
   act.sa_handler = SIG_IGN;
 
   // Remove signal handler
-  ASSERT_SYSCALL_SUCCESS(_real_sigaction(STOPSIGNAL, &act, &old_act),
+  ASSERT_NE(-1, _real_sigaction(STOPSIGNAL, &act, &old_act),
                "error disabling checkpoint signal handler: signal={}",
                STOPSIGNAL);
 
   // Reinstall the previous handler
-  ASSERT_SYSCALL_SUCCESS(_real_sigaction(STOPSIGNAL, &old_act, NULL),
+  ASSERT_NE(-1, _real_sigaction(STOPSIGNAL, &old_act, NULL),
                "error restoring checkpoint signal handler: signal={}",
                STOPSIGNAL);
 
   /* Now save all the signal handlers */
-  JTRACE("saving signal handlers");
+  TRACE("saving signal handlers");
   for (sig = SIGRTMAX; sig > 0; --sig) {
     if (_real_syscall(SYS_rt_sigaction, sig, (long)NULL,
                       (long)&sigactions[sig], _NSIG / 8, 0, 0, 0) < 0) {
@@ -131,7 +131,7 @@ SigInfo::saveSigHandlers()
     }
 
     if (sigactions[sig].sa_handler != SIG_DFL) {
-      JTRACE("saving signal handler (non-default) for") (sig);
+      TRACE("saving signal handler (non-default): sig={}", sig);
     }
   }
 }
@@ -146,10 +146,10 @@ SigInfo::restoreSigHandlers()
 {
   int sig;
 
-  JTRACE("restoring signal handlers");
+  TRACE("restoring signal handlers");
   for (sig = SIGRTMAX; sig > 0; --sig) {
 #ifdef VERBOSE_LOGGING
-    JTRACE("restore signal handler for") (sig);
+    TRACE("restore signal handler: sig={}", sig);
 #endif // ifdef VERBOSE_LOGGING
 
     ASSERT_ERRNO(_real_syscall(SYS_rt_sigaction, sig, (long)&sigactions[sig],

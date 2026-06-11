@@ -86,7 +86,7 @@ thread_start(void *arg)
 
   void *result = thread->fn(thread->arg);
 
-  JTRACE("Thread returned") (thread->tid);
+  TRACE("Thread returned: tid={}", thread->tid);
   WrapperLock wrapperLock;
   ThreadList::threadExit();
 
@@ -240,7 +240,7 @@ pthread_join(pthread_t thread, void **retval)
 
   while (1) {
     WrapperLock wrapperLock;
-    ASSERT_SYSCALL_SUCCESS(clock_gettime(CLOCK_REALTIME, &ts),
+    ASSERT_NE(-1, clock_gettime(CLOCK_REALTIME, &ts),
                                "reading CLOCK_REALTIME before pthread_join");
     TIMESPEC_ADD(&ts, &ts_100ms, &ts);
     ret = _real_pthread_timedjoin_np(thread, retval, &ts);
@@ -289,7 +289,7 @@ pthread_timedjoin_np(pthread_t thread,
    */
   while (1) {
     WrapperLock wrapperLock;
-    ASSERT_SYSCALL_SUCCESS(
+    ASSERT_NE(-1,
       clock_gettime(CLOCK_REALTIME, &ts),
       "reading CLOCK_REALTIME before pthread_timedjoin_np");
     if (TIMESPEC_CMP(&ts, abstime, <)) {

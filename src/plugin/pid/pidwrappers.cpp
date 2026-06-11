@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "jassert.h"
+#include "util_assert.h"
 #include "jconvert.h"
 #include "dmtcp.h"
 #include "pid.h"
@@ -154,10 +155,10 @@ tcsetpgrp(int fd, pid_t pgrp)
   WrapperLock wrapperLock;
   pid_t currPgrp = dmtcp_pid_virtual_to_real(pgrp);
 
-  // JTRACE("Inside tcsetpgrp wrapper") (fd) (pgrp) (currPgrp);
+  // TRACE("Inside tcsetpgrp wrapper (fd = {};) (pgrp = {};) (currPgrp = {};)", fd, pgrp, currPgrp);
   int ret = _real_tcsetpgrp(fd, currPgrp);
 
-  // JTRACE("tcsetpgrp return value") (fd) (pgrp) (currPgrp) (retval);
+  // TRACE("tcsetpgrp return value (fd = {};) (pgrp = {};) (currPgrp = {};) (retval = {};)", fd, pgrp, currPgrp, retval);
   return ret;
 }
 
@@ -171,7 +172,7 @@ tcgetpgrp(int fd)
   WrapperLock wrapperLock;
   pid_t retval = dmtcp_pid_real_to_virtual(_real_tcgetpgrp(fd));
 
-  JTRACE("tcgetpgrp return value") (fd) (retval);
+  TRACE("tcgetpgrp return value (fd = {};) (retval = {};)", fd, retval);
 
   return retval;
 }
@@ -186,7 +187,7 @@ tcgetsid(int fd)
   WrapperLock wrapperLock;
   pid_t retval = dmtcp_pid_real_to_virtual(_real_tcgetsid(fd));
 
-  JTRACE("tcgetsid return value") (fd) (retval);
+  TRACE("tcgetsid return value (fd = {};) (retval = {};)", fd, retval);
 
   return retval;
 }

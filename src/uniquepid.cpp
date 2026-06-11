@@ -46,7 +46,7 @@ theUniqueHostId()
   // gethostid() calls socket() on some systems, which we don't want
   char buf[512];
 
-  ASSERT_SYSCALL_SUCCESS(::gethostname(buf, sizeof(buf)),
+  ASSERT_NE(-1, ::gethostname(buf, sizeof(buf)),
                "gethostname failed");
 
   // so return a bad hash of our hostname
@@ -64,7 +64,7 @@ inline static long
 getTimeNs()
 {
   struct timespec value;
-  ASSERT_SYSCALL_SUCCESS(clock_gettime(CLOCK_MONOTONIC, &value),
+  ASSERT_NE(-1, clock_gettime(CLOCK_MONOTONIC, &value),
                "clock_gettime(CLOCK_MONOTONIC) failed");
   long nsecs = value.tv_sec * 1000000000L + value.tv_nsec;
   return nsecs;
@@ -114,7 +114,7 @@ UniquePid::ThisProcess(bool disableJTrace /*=false*/)
   if (theProcess() == nullProcess()) {
     theProcess() = UniquePid(theUniqueHostId(), ::getpid(), getTimeNs());
     if (disableJTrace == false) {
-      JTRACE("recalculated process UniquePid...")(theProcess());
+      TRACE("recalculated process UniquePid: process={}", theProcess());
     }
   }
 
@@ -216,7 +216,7 @@ UniquePid::resetOnFork()
   // parentProcess() is for inspection tools
   parentProcess() = ThisProcess();
   theProcess() = UniquePid(host, getpid(), getTimeNs());
-  JTRACE("Explicitly setting process UniquePid")(ThisProcess());
+  TRACE("Explicitly setting process UniquePid: process={}", ThisProcess());
 }
 
 bool
@@ -228,7 +228,7 @@ UniquePid::isNull() const
 void
 UniquePid::serialize(jalib::JBinarySerializer &o)
 {
-  // NOTE: Do not put JTRACE/JNOTE/JASSERT in here
+  // NOTE: Do not put TRACE/NOTE/ASSERT in here
   UniquePid theCurrentProcess, theParentProcess;
 
   if (o.isWriter()) {

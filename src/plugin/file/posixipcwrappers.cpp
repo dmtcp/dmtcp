@@ -96,7 +96,7 @@ mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned msg_prio)
   struct timespec ts;
 
   do {
-    ASSERT_SYSCALL_SUCCESS(clock_gettime(CLOCK_REALTIME, &ts),
+    ASSERT_NE(-1, clock_gettime(CLOCK_REALTIME, &ts),
                  "clock_gettime(CLOCK_REALTIME) failed before mq_timedsend");
     ts.tv_sec += 1000;
     res = mq_timedsend(mqdes, msg_ptr, msg_len, msg_prio, &ts);
@@ -116,7 +116,7 @@ mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned *msg_prio)
   struct timespec ts;
 
   do {
-    ASSERT_SYSCALL_SUCCESS(clock_gettime(CLOCK_REALTIME, &ts),
+    ASSERT_NE(-1, clock_gettime(CLOCK_REALTIME, &ts),
                  "clock_gettime(CLOCK_REALTIME) failed before mq_timedreceive");
     ts.tv_sec += 1000;
     res = mq_timedreceive(mqdes, msg_ptr, msg_len, msg_prio, &ts);
@@ -157,7 +157,7 @@ mq_timedsend(mqd_t mqdes,
   do {
     {
       WrapperLock wrapperLock;
-      ASSERT_SYSCALL_SUCCESS(clock_gettime(CLOCK_REALTIME, &ts),
+      ASSERT_NE(-1, clock_gettime(CLOCK_REALTIME, &ts),
                    "clock_gettime(CLOCK_REALTIME) failed in mq_timedsend");
       if (TIMESPEC_CMP(&ts, abs_timeout, <=)) {
         advanceTimeoutUpToDeadline(&ts, abs_timeout);
@@ -193,7 +193,7 @@ mq_timedreceive(mqd_t mqdes,
   do {
     {
       WrapperLock wrapperLock;
-      ASSERT_SYSCALL_SUCCESS(clock_gettime(CLOCK_REALTIME, &ts),
+      ASSERT_NE(-1, clock_gettime(CLOCK_REALTIME, &ts),
                    "clock_gettime(CLOCK_REALTIME) failed in mq_timedreceive");
       if (TIMESPEC_CMP(&ts, abs_timeout, <=)) {
         advanceTimeoutUpToDeadline(&ts, abs_timeout);
