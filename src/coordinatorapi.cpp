@@ -379,7 +379,7 @@ connectAndSendUserCommand(CoordinatorCmd command,
   DmtcpMessage reply;
   reply.poison();
   recvMsgFromCoordinatorRaw(coordFd, &reply, (void**)&replyData);
-  reply.assertValid();
+  JASSERT(reply.isValid());
   JASSERT(reply.type == DMT_USER_CMD_RESULT);
   reply.coordCmd = command;
 
@@ -656,7 +656,7 @@ sendRecvHandshake(int fd,
   sendMsgToCoordinatorRaw(fd, msg, buf, buflen);
 
   recvMsgFromCoordinatorRaw(fd, &msg);
-  msg.assertValid();
+  JASSERT(msg.isValid());
 
   if (msg.type == DMT_REJECT_NOT_RUNNING) {
     JASSERT(false)
@@ -845,7 +845,7 @@ kvdbRequest(DmtcpMessage const& msg,
   DmtcpMessage reply;
   reply.poison();
   JASSERT(Util::readAll(sock, &reply, sizeof(reply)) == sizeof(reply));
-  reply.assertValid();
+  JASSERT(reply.isValid());
   JASSERT(reply.type == DMT_KVDB_RESPONSE);
 
   if (reply.extraBytes != 0) {

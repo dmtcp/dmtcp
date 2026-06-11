@@ -358,7 +358,7 @@ DmtcpWorker::waitForPreSuspendMessage()
     ckptThreadPerformExit();
   }
 
-  msg.assertValid();
+  JASSERT(msg.isValid());
 
   JASSERT(msg.type == DMT_DO_CHECKPOINT) (msg.type);
 
