@@ -26,7 +26,6 @@
 #include "util.h"
 #include "lookup_service.h"
 #include "tokenize.h"
-#include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jsocket.h"
 #include "util_assert.h"

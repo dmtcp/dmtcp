@@ -20,7 +20,6 @@
  ****************************************************************************/
 
 #include "kernelbufferdrainer.h"
-#include "../jalib/jassert.h"
 #include "connectionlist.h"
 #include "connectionmessage.h"
 #include "socketwrappers.h"

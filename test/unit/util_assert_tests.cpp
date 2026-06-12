@@ -46,9 +46,9 @@ resetHook()
 {
   dmtcp::setLogLevel(dmtcp::LogLevel::Note);
   dmtcp::setLogOverrides("");
-  dmtcp::closeDiagnosticConsole();
-  dmtcp::initializeDiagnosticConsole(nullptr);
-  dmtcp::setDiagnosticLogFile(nullptr);
+  dmtcp::closeLogConsole();
+  dmtcp::initializeLogConsole(nullptr);
+  dmtcp::setLogFile(nullptr);
   hookCallCount = 0;
   hookFd = -1;
   hookBuffer[0] = '\0';
@@ -113,7 +113,7 @@ dmtcp_assert_write(int fd, const void *buf, size_t count)
   hookLength = count;
   if (hookTriggerNestedWarning && !hookInNestedWarning) {
     hookInNestedWarning = true;
-    WARN(false, "inner diagnostic");
+    WARN(false, "inner log");
     hookInNestedWarning = false;
   }
 
@@ -246,21 +246,22 @@ void formatReportsMissingArguments()
 
 void formatTruncatesWithTerminator()
 {
-  char storage[8];
+  char storage[32];
   dmtcp::AssertBuffer buffer(storage, sizeof(storage));
 
-  dmtcp::formatTo(buffer, "abcdefghi");
+  dmtcp::formatTo(buffer, "abcdefghijklmnopqrstuvwxyz");
 
-  UNIT_ASSERT_EQ(std::strcmp(buffer.c_str(), "abcdefg"), 0);
+  UNIT_ASSERT_EQ(std::strcmp(buffer.c_str(),
+                             "abcdefghijklmnopqr [truncated]\n"), 0);
   UNIT_ASSERT_TRUE(buffer.truncated());
 }
 
-void diagnosticIncludesLocationAndMessage()
+void logIncludesLocationAndMessage()
 {
   char storage[256];
   dmtcp::AssertBuffer buffer(storage, sizeof(storage));
 
-  dmtcp::formatDiagnostic(buffer,
+  dmtcp::formatLogMessage(buffer,
                           dmtcp::LogLevel::Warn,
                           "x > 0",
                           "file.cpp",
@@ -274,12 +275,12 @@ void diagnosticIncludesLocationAndMessage()
   UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "fd=9") != nullptr);
 }
 
-void diagnosticIncludesErrno()
+void logIncludesErrno()
 {
   char storage[256];
   dmtcp::AssertBuffer buffer(storage, sizeof(storage));
 
-  dmtcp::formatDiagnosticWithErrno(buffer,
+  dmtcp::formatLogMessageWithErrno(buffer,
                                    dmtcp::LogLevel::Warn,
                                    "fd >= 0",
                                    "file.cpp",
@@ -295,12 +296,12 @@ void diagnosticIncludesErrno()
   UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "EACCES") != nullptr);
 }
 
-void diagnosticTruncationIncludesMarker()
+void logTruncationIncludesMarker()
 {
   char storage[64];
   dmtcp::AssertBuffer buffer(storage, sizeof(storage));
 
-  dmtcp::formatDiagnostic(buffer,
+  dmtcp::formatLogMessage(buffer,
                           dmtcp::LogLevel::Warn,
                           "x > 0",
                           "file.cpp",
@@ -325,7 +326,7 @@ void writeAllUsesAssertWriteHook()
   UNIT_ASSERT_EQ(std::strcmp(hookBuffer, "hooked"), 0);
 }
 
-void warningDiagnosticsUseAuthoritativeStderrFd()
+void warningLogsUseAuthoritativeStderrFd()
 {
   resetHook();
 
@@ -335,7 +336,7 @@ void warningDiagnosticsUseAuthoritativeStderrFd()
   UNIT_ASSERT_EQ(hookFd, PROTECTED_STDERR_FD);
 }
 
-void warningDiagnosticsAlsoUseLogFile()
+void warningLogsAlsoUseLogFile()
 {
   resetHook();
 
@@ -344,9 +345,9 @@ void warningDiagnosticsAlsoUseLogFile()
                 static_cast<long>(getpid()));
   unlink(path);
 
-  UNIT_ASSERT_TRUE(dmtcp::setDiagnosticLogFile(path));
+  UNIT_ASSERT_TRUE(dmtcp::setLogFile(path));
   WARN(false, "log destination");
-  dmtcp::setDiagnosticLogFile(nullptr);
+  dmtcp::setLogFile(nullptr);
   unlink(path);
 
   UNIT_ASSERT_EQ(hookCallCount, 2);
@@ -356,18 +357,18 @@ void warningDiagnosticsAlsoUseLogFile()
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1], "log destination") != nullptr);
 }
 
-void warningReentryKeepsOuterDiagnosticStable()
+void warningReentryKeepsOuterLogStable()
 {
   resetHook();
   hookTriggerNestedWarning = true;
 
-  WARN(false, "outer diagnostic");
+  WARN(false, "outer log");
 
   UNIT_ASSERT_EQ(hookCallCount, 2);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "outer diagnostic") != nullptr);
+                               "outer log") != nullptr);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1],
-                               "inner diagnostic") != nullptr);
+                               "inner log") != nullptr);
 }
 
 void warningDoesNotEvaluateMessageArgsWhenConditionPasses()
@@ -853,18 +854,18 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
   {"fixed formatter reports unused arguments", formatReportsUnusedArguments},
   {"fixed formatter reports missing arguments", formatReportsMissingArguments},
   {"fixed formatter truncates with terminator", formatTruncatesWithTerminator},
-  {"diagnostic formatter includes location and message",
-   diagnosticIncludesLocationAndMessage},
-  {"diagnostic formatter includes errno", diagnosticIncludesErrno},
-  {"diagnostic truncation includes marker",
-   diagnosticTruncationIncludesMarker},
-  {"diagnostic writer uses assert write hook", writeAllUsesAssertWriteHook},
-  {"warning diagnostics use authoritative stderr fd",
-   warningDiagnosticsUseAuthoritativeStderrFd},
-  {"warning diagnostics also use log file",
-   warningDiagnosticsAlsoUseLogFile},
-  {"warning reentry keeps outer diagnostic stable",
-   warningReentryKeepsOuterDiagnosticStable},
+  {"log formatter includes location and message",
+   logIncludesLocationAndMessage},
+  {"log formatter includes errno", logIncludesErrno},
+  {"log truncation includes marker",
+   logTruncationIncludesMarker},
+  {"log writer uses assert write hook", writeAllUsesAssertWriteHook},
+  {"warning logs use authoritative stderr fd",
+   warningLogsUseAuthoritativeStderrFd},
+  {"warning logs also use log file",
+   warningLogsAlsoUseLogFile},
+  {"warning reentry keeps outer log stable",
+   warningReentryKeepsOuterLogStable},
   {"warning skips message args when condition passes",
    warningDoesNotEvaluateMessageArgsWhenConditionPasses},
   {"warning skips message args when log level disabled",

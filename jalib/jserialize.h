@@ -24,7 +24,7 @@
 
 #include "dmtcpalloc.h"
 #include "jalloc.h"
-#include "jassert.h"
+#include "util_assert.h"
 
 #include <stdint.h>
 #include <string>
@@ -34,9 +34,9 @@
   { char versionCheck[] = str;                                      \
     dmtcp::string correctValue = versionCheck;                      \
     o &versionCheck;                                                \
-    JASSERT(versionCheck ==                                         \
-            correctValue)(versionCheck)(correctValue)(o.filename()) \
-    .Text("invalid file format"); }
+    ASSERT(versionCheck == correctValue,                            \
+           "invalid file format: got={} expected={} file={}",       \
+           versionCheck, correctValue, o.filename()); }
 
 namespace jalib
 {

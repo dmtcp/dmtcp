@@ -30,7 +30,6 @@
 #include <utility>
 #include <unistd.h>
 
-#include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "jsocket.h"

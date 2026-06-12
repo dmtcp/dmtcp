@@ -33,7 +33,7 @@ namespace dmtcp
 struct UniquePid : public DmtcpUniqueProcessId {
   public:
     static UniquePid &ParentProcess();
-    static UniquePid &ThisProcess(bool disableJTrace = false);
+    static UniquePid &ThisProcess(bool disableTrace = false);
     UniquePid();
 
     UniquePid(const uint64_t &host,

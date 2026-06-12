@@ -32,7 +32,6 @@
 
 #include "config.h"
 #include "dmtcp.h"
-#include "jassert.h"
 #include "jfilesystem.h"
 #include "pluginmanager.h"
 #include "util.h"

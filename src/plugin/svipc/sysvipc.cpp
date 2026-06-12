@@ -28,7 +28,6 @@
 #include <ios>
 #include <iostream>
 
-#include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "jserialize.h"
@@ -589,8 +588,6 @@ SysVSem::on_semget(int realSemId, key_t key, int nsems, int semflg)
 {
   _do_lock_tbl();
   if (!_virtIdTable.realIdExists(realSemId)) {
-    // JASSERT(key == IPC_PRIVATE || (semflg & IPC_CREAT) != 0) (key)
-    // (realSemId);
     TRACE("Semid not found in table. Creating new entry (realSemId = {};)", realSemId);
     int virtId = getNewVirtualId();
     ASSERT(!_map.contains(virtId),

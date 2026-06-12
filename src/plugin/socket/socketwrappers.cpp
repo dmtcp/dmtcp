@@ -34,7 +34,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "pluginmanager.h"
-#include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 #include "socketconnection.h"
 #include "socketconnlist.h"

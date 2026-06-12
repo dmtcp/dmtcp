@@ -38,8 +38,9 @@
 #include <unistd.h>
 
 #include "jalib.h"
-#include "jassert.h"
+#define DMTCP_LOG_COMPONENT "jalib"
 #include "jsocket.h"
+#include "util_assert.h"
 
 const jalib::JSockAddr jalib::JSockAddr::ANY(NULL);
 
@@ -72,23 +73,27 @@ jalib::JSockAddr::JSockAddr(const char *hostname /* == NULL*/,
 
   // Fall back to gethostbyname on error
   if (res != 0) {
-    JWARNING(false) (hostname) (hstrerror(h_errno))
-    .Text("gethostbyname_r failed, calling gethostbyname");
+    WARN(false,
+         "gethostbyname_r failed, calling gethostbyname: hostname={} "
+         "error={}",
+         hostname, hstrerror(h_errno));
     result = gethostbyname(hostname);
   }
 
-  JWARNING(result != NULL) (hostname).Text("No such host");
+  WARN(result != NULL, "no such host: hostname={}", hostname);
 
   if (result != NULL) {
-    JASSERT((int)sizeof(_addr.sin_addr.s_addr) <= result->h_length)
-      (sizeof(_addr.sin_addr.s_addr)) (result->h_length);
+    ASSERT((int)sizeof(_addr.sin_addr.s_addr) <= result->h_length,
+           "host address is too large: capacity={} length={}",
+           sizeof(_addr.sin_addr.s_addr), result->h_length);
 
     memcpy(&_addr.sin_addr.s_addr, result->h_addr, result->h_length);
     if (port != -1) {
       _addr.sin_port = htons(port);
     }
   } else { // else (hostname, port) not valid; poison the port number
-    JASSERT(typeid(_addr.sin_port) == typeid(in_port_t));
+    ASSERT(typeid(_addr.sin_port) == typeid(in_port_t),
+           "unexpected socket port type");
     _addr.sin_port = (in_port_t)-2;
   }
 #else // if 0
@@ -123,9 +128,12 @@ jalib::JSockAddr::JSockAddr(const char *hostname /* == NULL*/,
     e = getaddrinfo(hostname, NULL, &hints, &res);
   }
 
-  JWARNING(e == 0) (e) (gai_strerror(e)) (hostname).Text("No such host");
+  WARN(e == 0, "no such host: hostname={} error={} message={}",
+       hostname, e, gai_strerror(e));
   if (e == 0) {
-    JASSERT(sizeof(*_addr) >= res->ai_addrlen)(sizeof(*_addr))(res->ai_addrlen);
+    ASSERT(sizeof(*_addr) >= res->ai_addrlen,
+           "resolved address is too large: capacity={} length={}",
+           sizeof(*_addr), res->ai_addrlen);
 
     // 1. count number of addresses returned
     struct addrinfo *r;
@@ -185,12 +193,15 @@ jalib::JSocket::connect(const struct  sockaddr *addr,
   struct sockaddr_storage addrbuf;
 
   memset(&addrbuf, 0, sizeof(addrbuf));
-  JASSERT(addrlen <= sizeof(addrbuf)) (addrlen) (sizeof(addrbuf));
+  ASSERT(addrlen <= sizeof(addrbuf),
+         "socket address is too large: length={} capacity={}",
+         addrlen, sizeof(addrbuf));
   // if condition needed to stop gcc-7.x warning: -Wstringop-overflow=
   if (addrlen <= sizeof(addrbuf))
     memcpy ( &addrbuf, addr, addrlen );
-  JWARNING(addrlen == sizeof(sockaddr_in)) (addrlen)
-    (sizeof(sockaddr_in)).Text("may not be correct socket type");
+  WARN(addrlen == sizeof(sockaddr_in),
+       "may not be correct socket type: length={} expected={}",
+       addrlen, sizeof(sockaddr_in));
   if (port != -1) {
     ((sockaddr_in *)&addrbuf)->sin_port = htons(port);
   }
@@ -259,7 +270,7 @@ jalib::JSocket::enablePortReuse()
   // http://stackoverflow.com/a/14388707/1136967
   if (jalib::setsockopt(_sockfd, SOL_SOCKET, SO_REUSEADDR, &one,
                         sizeof(one)) < 0) {
-    JWARNING(false)(JASSERT_ERRNO).Text("setsockopt(SO_REUSEADDR) failed");
+    WARN_ERRNO(false, "setsockopt(SO_REUSEADDR) failed");
   }
 #endif // ifdef SO_REUSEADDR
 #ifdef SO_REUSEPORT
@@ -269,10 +280,6 @@ jalib::JSocket::enablePortReuse()
    *   http://stackoverflow.com/a/14388707/1136967
    */
 
-  // if (jalib::setsockopt(_sockfd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one))
-  // < 0){
-  // JWARNING(false)(JASSERT_ERRNO).Text("setsockopt(SO_REUSEPORT) failed");
-  // }
 #endif // ifdef SO_REUSEPORT
 }
 
@@ -452,8 +459,9 @@ jalib::JSocket::changeFd(int newFd)
   if (_sockfd == newFd) {
     return;
   }
-  JASSERT(newFd == jalib::dup2(_sockfd, newFd))
-    (_sockfd) (newFd).Text("dup2 failed");
+  ASSERT_ERRNO(newFd == jalib::dup2(_sockfd, newFd),
+               "dup2 failed: oldfd={} newfd={}",
+               _sockfd, newFd);
   close();
   _sockfd = newFd;
 }
@@ -486,7 +494,8 @@ jalib::JMultiSocketProgram::setTimeoutInterval(double dblTimeout)
   timeoutInterval.tv_usec = tMs;
   timeoutEnabled = dblTimeout > 0 && timerisset(&timeoutInterval);
 
-  JASSERT(gettimeofday(&stoptime, NULL) == 0);
+  ASSERT_ERRNO(gettimeofday(&stoptime, NULL) == 0,
+               "failed to get timeout start time");
   timeradd(&timeoutInterval, &stoptime, &stoptime);
 }
 
@@ -528,7 +537,7 @@ jalib::JMultiSocketProgram::monitorSockets(double dblTimeout)
         _listenSockets[i].close();
 
         // socket is dead... remove it
-        JTRACE("listen socket failure") (i);
+        TRACE("listen socket failure: index={}", i);
 
         // swap with last
         _listenSockets[i] = _listenSockets[_listenSockets.size() - 1];
@@ -548,7 +557,8 @@ jalib::JMultiSocketProgram::monitorSockets(double dblTimeout)
         closedFds.insert(dsock->socket().sockfd());
 
         // socket is dead... remove it
-        JTRACE("disconnect") (i) (_dataSockets[i]->socket().sockfd());
+        TRACE("disconnect: index={} fd={}",
+              i, _dataSockets[i]->socket().sockfd());
 
         _dataSockets[i] = 0;
 
@@ -582,7 +592,7 @@ jalib::JMultiSocketProgram::monitorSockets(double dblTimeout)
     }
 
     if (fds.size() == 0) {
-      JTRACE("no sockets left");
+      TRACE("no sockets left");
       return;
     }
 
@@ -600,8 +610,9 @@ jalib::JMultiSocketProgram::monitorSockets(double dblTimeout)
     int retval = poll((struct pollfd *)&fds[0], fds.size(), millis);
 
     if (retval == -1) {
-      JWARNING(retval != -1)
-        (fds.size()) (retval) (JASSERT_ERRNO).Text("poll failed");
+      WARN_ERRNO(retval != -1,
+                 "poll failed: nfds={} retval={}",
+                 fds.size(), retval);
       return;
     } else if (retval > 0) {
       // write all data
@@ -614,7 +625,7 @@ jalib::JMultiSocketProgram::monitorSockets(double dblTimeout)
           }
         }
         if (fd >= 0 && it != fds.end()) {
-          JTRACE("writing data")(_writes[i]->socket().sockfd());
+          TRACE("writing data: fd={}", _writes[i]->socket().sockfd());
           _writes[i]->writeOnce();
         }
       }
@@ -629,7 +640,8 @@ jalib::JMultiSocketProgram::monitorSockets(double dblTimeout)
           }
         }
         if (fd >= 0 && it != fds.end()) {
-          JTRACE("receiving data")(i)(_dataSockets[i]->socket().sockfd());
+          TRACE("receiving data: index={} fd={}",
+                i, _dataSockets[i]->socket().sockfd());
           if (_dataSockets[i]->readOnce()) {
             onData(_dataSockets[i]);
             _dataSockets[i]->reset();
@@ -650,8 +662,9 @@ jalib::JMultiSocketProgram::monitorSockets(double dblTimeout)
           struct sockaddr_storage addr;
           socklen_t addrlen = sizeof(addr);
           JSocket sk = _listenSockets[i].accept(&addr, &addrlen);
-          JTRACE("accepting new connection") (i) (sk.sockfd())
-            (_listenSockets[i].sockfd()) (JASSERT_ERRNO);
+          TRACE("accepting new connection: index={} accepted_fd={} "
+                "listen_fd={} errno={}",
+                i, sk.sockfd(), _listenSockets[i].sockfd(), errno);
           if (sk.isValid()) {
             onConnect(sk, (sockaddr *)&addr, addrlen);
           } else if (errno != EAGAIN && errno != EINTR) {
@@ -662,7 +675,8 @@ jalib::JMultiSocketProgram::monitorSockets(double dblTimeout)
     }
 
     if (timeoutEnabled) {
-      JASSERT(gettimeofday(&tmptime, NULL) == 0);
+      ASSERT_ERRNO(gettimeofday(&tmptime, NULL) == 0,
+                   "failed to get current time");
       if (timercmp(&tmptime, &stoptime, <)) {
         timersub(&stoptime, &tmptime, &timeoutBuf);
       } else {

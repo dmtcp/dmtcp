@@ -22,18 +22,18 @@ extern "C" ssize_t dmtcp_assert_write(int fd, const void *buf, size_t count);
 namespace dmtcp {
 
 inline constexpr int kAssertFailureExitCode = 99;
-inline constexpr int kDiagnosticFd = STDERR_FILENO;
+inline constexpr int kLogFd = STDERR_FILENO;
 inline constexpr size_t kAssertBufferSize = 4096;
 inline constexpr std::string_view kLogTruncatedMarker = " [truncated]\n";
 
 /*
- * Diagnostic destination policy:
- * - Generic ASSERT/WARNING diagnostics write to kDiagnosticFd, currently
- *   stderr.  The caller may redirect or close stderr; the diagnostic emit path
+ * Log destination policy:
+ * - Generic ASSERT/WARNING logs write to kLogFd, currently stderr.  The
+ *   caller may redirect or close stderr; the log emit path
  *   treats write failures as best-effort and never falls back to allocation,
  *   logging policy, environment variables, or richer DMTCP runtime services.
- * - Signal-handler diagnostics use the same fixed-buffer backend.  Keep this
- *   path free of allocation, locks, wrapped I/O, and richer DMTCP runtime
+ * - Signal-handler logs use the same fixed-buffer backend.  Keep this path
+ *   free of allocation, locks, wrapped I/O, and richer DMTCP runtime
  *   services so it remains usable from fragile runtime contexts.
  * - Fatal ASSERT exits through DMTCP_FAIL_RC after honoring
  *   DMTCP_SLEEP_ON_FAILURE and DMTCP_ABORT_ON_FAILURE.
@@ -48,11 +48,11 @@ inline constexpr std::string_view kLogTruncatedMarker = " [truncated]\n";
  * - Named helpers such as ASSERT_EQ(expected, actual),
  *   ASSERT_NOT_NULL(ptr), ASSERT_ZERO(expr), ASSERT_LOCK_SUCCESS(expr), and
  *   ASSERT_PTHREAD_SUCCESS(expr) evaluate their operands once and include the
- *   operand text plus observed values in the diagnostic.
+ *   operand text plus observed values in the log.
  * - Format strings support only "{}" replacement plus "{{" and "}}" escapes.
  *   There are no width, alignment, precision, or type specifiers.  Pointers
  *   print in hexadecimal; bools print as true/false; missing or unused
- *   arguments are reported in the diagnostic text.
+ *   arguments are reported in the log text.
  * - Message arguments are evaluated only when the check fails.
  */
 
@@ -69,9 +69,9 @@ bool setLogOverrides(std::string_view overrides);
 bool logEnabled(LogLevel level,
                 std::string_view component,
                 std::string_view file);
-void initializeDiagnosticConsole(const char *stderrPath);
-bool setDiagnosticLogFile(const char *path);
-void closeDiagnosticConsole();
+void initializeLogConsole(const char *stderrPath);
+bool setLogFile(const char *path);
+void closeLogConsole();
 
 class AssertBuffer;
 
@@ -397,11 +397,11 @@ appendErrno(AssertBuffer& buffer, int savedErrno)
 }
 
 inline void
-appendDiagnosticPrefix(AssertBuffer& buffer,
-                       LogLevel level,
-                       const char *expr,
-                       const char *file,
-                       int line)
+appendLogPrefix(AssertBuffer& buffer,
+                LogLevel level,
+                const char *expr,
+                const char *file,
+                int line)
 {
   buffer.append(logLevelName(level));
   buffer.append(" at ");
@@ -414,9 +414,9 @@ appendDiagnosticPrefix(AssertBuffer& buffer,
 
 template <typename... Args>
 inline void
-appendDiagnosticMessage(AssertBuffer& buffer,
-                        std::string_view fmt,
-                        const Args&... args)
+appendLogMessage(AssertBuffer& buffer,
+                 std::string_view fmt,
+                 const Args&... args)
 {
   if (!fmt.empty()) {
     buffer.append(": ");
@@ -425,7 +425,7 @@ appendDiagnosticMessage(AssertBuffer& buffer,
 }
 
 inline void
-finishDiagnostic(AssertBuffer& buffer)
+finishLogMessage(AssertBuffer& buffer)
 {
   if (!buffer.truncated()) {
     buffer.append("\n");
@@ -433,7 +433,7 @@ finishDiagnostic(AssertBuffer& buffer)
 }
 
 inline void writeAllNoAlloc(int fd, const char *data, size_t length);
-void emitDiagnostic(const char *data, size_t length);
+void emitLogMessage(const char *data, size_t length);
 
 [[noreturn]] inline void
 exitAfterAssertFailure()
@@ -445,7 +445,7 @@ exitAfterAssertFailure()
 
 template <typename... Args>
 inline void
-formatDiagnostic(AssertBuffer& buffer,
+formatLogMessage(AssertBuffer& buffer,
                  LogLevel level,
                  const char *expr,
                  const char *file,
@@ -453,14 +453,14 @@ formatDiagnostic(AssertBuffer& buffer,
                  std::string_view fmt,
                  const Args&... args)
 {
-  appendDiagnosticPrefix(buffer, level, expr, file, line);
-  appendDiagnosticMessage(buffer, fmt, args...);
-  finishDiagnostic(buffer);
+  appendLogPrefix(buffer, level, expr, file, line);
+  appendLogMessage(buffer, fmt, args...);
+  finishLogMessage(buffer);
 }
 
 template <typename... Args>
 inline void
-formatDiagnosticWithErrno(AssertBuffer& buffer,
+formatLogMessageWithErrno(AssertBuffer& buffer,
                           LogLevel level,
                           const char *expr,
                           const char *file,
@@ -469,10 +469,10 @@ formatDiagnosticWithErrno(AssertBuffer& buffer,
                           std::string_view fmt,
                           const Args&... args)
 {
-  appendDiagnosticPrefix(buffer, level, expr, file, line);
-  appendDiagnosticMessage(buffer, fmt, args...);
+  appendLogPrefix(buffer, level, expr, file, line);
+  appendLogMessage(buffer, fmt, args...);
   appendErrno(buffer, savedErrno);
-  finishDiagnostic(buffer);
+  finishLogMessage(buffer);
 }
 
 inline void
@@ -493,24 +493,24 @@ writeAllNoAlloc(int fd, const char *data, size_t length)
 
 template <typename... Args>
 inline void
-logDiagnostic(LogLevel level,
-              const char *expr,
-              const char *file,
-              int line,
-              int savedErrno,
-              bool includeErrno,
-              std::string_view fmt,
-              const Args&... args)
+logMessage(LogLevel level,
+           const char *expr,
+           const char *file,
+           int line,
+           int savedErrno,
+           bool includeErrno,
+           std::string_view fmt,
+           const Args&... args)
 {
   char storage[kAssertBufferSize];
   AssertBuffer buffer(storage, sizeof(storage));
   if (includeErrno) {
-    formatDiagnosticWithErrno(buffer, level, expr, file, line, savedErrno,
+    formatLogMessageWithErrno(buffer, level, expr, file, line, savedErrno,
                               fmt, args...);
   } else {
-    formatDiagnostic(buffer, level, expr, file, line, fmt, args...);
+    formatLogMessage(buffer, level, expr, file, line, fmt, args...);
   }
-  emitDiagnostic(buffer.c_str(), buffer.size());
+  emitLogMessage(buffer.c_str(), buffer.size());
 }
 
 } // namespace dmtcp
@@ -530,10 +530,10 @@ logDiagnostic(LogLevel level,
     if (::dmtcp::logEnabled(::dmtcp::LogLevel::Trace,                    \
                             DMTCP_LOG_COMPONENT, __FILE__)) {            \
       int dmtcpAssertSavedErrno = errno;                                  \
-      ::dmtcp::logDiagnostic(::dmtcp::LogLevel::Trace,                    \
-                             nullptr, __FILE__, __LINE__,                 \
-                             dmtcpAssertSavedErrno, false, fmt            \
-                             __VA_OPT__(,) __VA_ARGS__);                 \
+      ::dmtcp::logMessage(::dmtcp::LogLevel::Trace,                      \
+                          nullptr, __FILE__, __LINE__,                   \
+                          dmtcpAssertSavedErrno, false, fmt              \
+                          __VA_OPT__(,) __VA_ARGS__);                    \
       errno = dmtcpAssertSavedErrno;                                      \
     }                                                                    \
   } while (0)
@@ -543,10 +543,10 @@ logDiagnostic(LogLevel level,
     if (::dmtcp::logEnabled(::dmtcp::LogLevel::Note,                     \
                             DMTCP_LOG_COMPONENT, __FILE__)) {            \
       int dmtcpAssertSavedErrno = errno;                                  \
-      ::dmtcp::logDiagnostic(::dmtcp::LogLevel::Note,                     \
-                             nullptr, __FILE__, __LINE__,                 \
-                             dmtcpAssertSavedErrno, false, fmt            \
-                             __VA_OPT__(,) __VA_ARGS__);                 \
+      ::dmtcp::logMessage(::dmtcp::LogLevel::Note,                       \
+                          nullptr, __FILE__, __LINE__,                   \
+                          dmtcpAssertSavedErrno, false, fmt              \
+                          __VA_OPT__(,) __VA_ARGS__);                    \
       errno = dmtcpAssertSavedErrno;                                      \
     }                                                                    \
   } while (0)
@@ -557,10 +557,10 @@ logDiagnostic(LogLevel level,
         ::dmtcp::logEnabled(::dmtcp::LogLevel::Warn,                     \
                             DMTCP_LOG_COMPONENT, __FILE__)) {            \
       int dmtcpAssertSavedErrno = errno;                                  \
-      ::dmtcp::logDiagnostic(::dmtcp::LogLevel::Warn,                     \
-                             #condition, __FILE__, __LINE__,              \
-                             dmtcpAssertSavedErrno, false, fmt            \
-                             __VA_OPT__(,) __VA_ARGS__);                 \
+      ::dmtcp::logMessage(::dmtcp::LogLevel::Warn,                       \
+                          #condition, __FILE__, __LINE__,                \
+                          dmtcpAssertSavedErrno, false, fmt              \
+                          __VA_OPT__(,) __VA_ARGS__);                    \
       errno = dmtcpAssertSavedErrno;                                      \
     }                                                                    \
   } while (0)
@@ -571,10 +571,10 @@ logDiagnostic(LogLevel level,
         ::dmtcp::logEnabled(::dmtcp::LogLevel::Warn,                     \
                             DMTCP_LOG_COMPONENT, __FILE__)) {            \
       int dmtcpAssertSavedErrno = errno;                                  \
-      ::dmtcp::logDiagnostic(::dmtcp::LogLevel::Warn,                     \
-                             #condition, __FILE__, __LINE__,              \
-                             dmtcpAssertSavedErrno, true, fmt             \
-                             __VA_OPT__(,) __VA_ARGS__);                 \
+      ::dmtcp::logMessage(::dmtcp::LogLevel::Warn,                       \
+                          #condition, __FILE__, __LINE__,                \
+                          dmtcpAssertSavedErrno, true, fmt               \
+                          __VA_OPT__(,) __VA_ARGS__);                    \
       errno = dmtcpAssertSavedErrno;                                      \
     }                                                                    \
   } while (0)
@@ -583,10 +583,10 @@ logDiagnostic(LogLevel level,
   do {                                                                   \
     if (!(condition)) {                                                   \
       int dmtcpAssertSavedErrno = errno;                                  \
-      ::dmtcp::logDiagnostic(::dmtcp::LogLevel::Error,                    \
-                             #condition, __FILE__, __LINE__,              \
-                             dmtcpAssertSavedErrno, false, fmt            \
-                             __VA_OPT__(,) __VA_ARGS__);                 \
+      ::dmtcp::logMessage(::dmtcp::LogLevel::Error,                      \
+                          #condition, __FILE__, __LINE__,                \
+                          dmtcpAssertSavedErrno, false, fmt              \
+                          __VA_OPT__(,) __VA_ARGS__);                    \
       ::dmtcp::exitAfterAssertFailure();                                  \
     }                                                                    \
   } while (0)
@@ -595,10 +595,10 @@ logDiagnostic(LogLevel level,
   do {                                                                   \
     if (!(condition)) {                                                   \
       int dmtcpAssertSavedErrno = errno;                                  \
-      ::dmtcp::logDiagnostic(::dmtcp::LogLevel::Error,                    \
-                             #condition, __FILE__, __LINE__,              \
-                             dmtcpAssertSavedErrno, true, fmt             \
-                             __VA_OPT__(,) __VA_ARGS__);                 \
+      ::dmtcp::logMessage(::dmtcp::LogLevel::Error,                      \
+                          #condition, __FILE__, __LINE__,                \
+                          dmtcpAssertSavedErrno, true, fmt               \
+                          __VA_OPT__(,) __VA_ARGS__);                    \
       errno = dmtcpAssertSavedErrno;                                      \
       ::dmtcp::exitAfterAssertFailure();                                  \
     }                                                                    \

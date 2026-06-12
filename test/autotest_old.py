@@ -32,7 +32,7 @@ if 'PATH' in os.environ and os.environ['PATH'].startswith('/usr/bin:') \
 parser = argparse.ArgumentParser()
 parser.add_argument('-v', '--verbose',
                     action='store_true',
-                    help='Print JTRACE/JLOG/JWARNING messages')
+                    help='Print TRACE/NOTE/WARN messages')
 #parser.add_argument('-l', '--list',
 #                    action='store_true',
 #                    help='List available tests')
@@ -662,7 +662,7 @@ def runTestRaw(name, numProcs, cmds):
 
   try:
     sys.stdout.flush()
-    # If verbose mode, maybe JWARNING/KASSERT was interrupted during color print
+    # If verbose mode, maybe WARN/ASSERT was interrupted during color print
     if args.verbose:
       os.write(sys.stdout.fileno(), COLOR_RESET.encode("ascii"))
     printFixed(name, DEFAULT_TESTNAME_WIDTH)

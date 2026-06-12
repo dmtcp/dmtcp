@@ -26,7 +26,6 @@
 #include <unordered_map>
 
 #include "../jalib/jalloc.h"
-#include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jserialize.h"
@@ -227,8 +226,8 @@ class VirtualIdTable
       bool retVal = false;
 
       /* This code is called from MTCP while the checkpoint thread may already
-         be inside diagnostic logging. Therefore, don't call normal
-         diagnostics in this function. */
+         be inside logging. Therefore, don't call normal logging APIs in this
+         function. */
       _do_lock_tbl();
       id_iterator i = _idMapTable.find(virtualId);
       if (i != _idMapTable.end()) {
@@ -244,8 +243,8 @@ class VirtualIdTable
       IdType retVal = 0;
 
       /* This code is called from MTCP while the checkpoint thread may already
-         be inside diagnostic logging. Therefore, don't call normal
-         diagnostics in this function. */
+         be inside logging. Therefore, don't call normal logging APIs in this
+         function. */
       _do_lock_tbl();
       id_iterator i = _idMapTable.find(virtualId);
       if (i == _idMapTable.end()) {
@@ -260,8 +259,8 @@ class VirtualIdTable
     virtual IdType realToVirtual(IdType realId)
     {
       /* This code is called from MTCP while the checkpoint thread may already
-         be inside diagnostic logging. Therefore, don't call normal
-         diagnostics in this function. */
+         be inside logging. Therefore, don't call normal logging APIs in this
+         function. */
       _do_lock_tbl();
       for (id_iterator i = _idMapTable.begin(); i != _idMapTable.end(); ++i) {
         if (realId == i->second) {

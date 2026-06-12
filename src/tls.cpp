@@ -33,7 +33,6 @@
 #include <sys/types.h>
 
 #include "config.h"  // define WSL if present
-#include "jassert.h"
 #include "mtcp/mtcp_sys.h"
 #include "syscallwrappers.h"
 #include "util.h"

@@ -244,8 +244,8 @@ int readLine(int fd, char *buf, int count);
 
 void writeCoordPortToFile(int port, const char *portFile);
 char *calcTmpDir(const char *tmpDir);
-void setDiagnosticLogFile(const char *path);
-void closeDiagnosticStderr();
+void setLogFile(const char *path);
+void closeLogStderr();
 void initializeLogFile(const char *tmpDir, const char *prefix = "dmtcpworker");
 
 void adjustRlimitStack();

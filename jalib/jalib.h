@@ -103,6 +103,6 @@ bool strEndsWith(const char *str, const char *pattern);
 extern "C" void jalib_init(JalibFuncPtrs jalibFuncPtrs,
                            const char *elfInterpreter,
                            int stderrFd,
-                           int jassertLogFd,
+                           int logFd,
                            int dmtcp_fail_rc);
 #endif // ifndef JALIB_H

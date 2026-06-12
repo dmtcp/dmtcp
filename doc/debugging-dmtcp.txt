@@ -6,7 +6,7 @@ to re-sync them with the code again).  (Updated May, 2015)
 
 The topics on debugging include:
 A. PRINT DEBUGGING
-B. STOPPING GDB BEFORE JASSERT CAUSES PROCESS EXIT
+B. STOPPING GDB BEFORE ASSERT CAUSES PROCESS EXIT
 C. LAUNCHING A PROCESS UNDER DMTCP CONTROL USING GDB
 D. DEBUGGING ON RESTART USING GDB ATTACH
 E. TRICKS FOR DEBUGGING WHILE INSIDE GDB
@@ -16,35 +16,33 @@ A. PRINT DEBUGGING
 
 There are several ways to debug.  If you want "print debugging", with
 a trace of the major operations, do:
-  ./configure --enable-logging
-  make -j clean
-  make -j check-dmtcp1
-and look in /tmp/dmtcp-USER@HOST for files of the form jassertlog.*,
-which contain copies of calls to JTRACE/JWARN/JNOTE inside DMTCP,
+  DMTCP_LOG_LEVEL=trace bin/dmtcp_launch ./a.out
+and look in /tmp/dmtcp-USER@HOST for files of the form *.log,
+which contain copies of calls to TRACE/WARN/NOTE inside DMTCP,
 with one file per process, and per exec into a new program.
 
 If there are multiple processes, then a log from each process will
-be in its own file in /tmp/dmtcp-USER@HOST/jassertlog*
+be in its own file in /tmp/dmtcp-USER@HOST/*.log
 
 ===
-B. STOPPING GDB BEFORE JASSERT CAUSES PROCESS EXIT
+B. STOPPING GDB BEFORE ASSERT CAUSES PROCESS EXIT
 
 If debugging under GDB, and the process exits before you can examine
 the cause, try:
  (gdb) break _exit
-   [ The function _exit is used when JASSERT() exits. ]
+   [ The function _exit is used when ASSERT() exits. ]
 
 Note that a DMTCP application returns 'return code' 99 or else
 'getenv("DMTCP_FAIL_RC")' when DMTCP fails an assertion.
 If the 'DMTCP_ABORT_ON_FAILURE' environment variable is set, DMTCP attempts
-to create a core dump on a JASSERT failure.
+to create a core dump on an ASSERT failure.
 If the 'DMTCP_SLEEP_ON_FAILURE' environment variable is set, DMTCP goes into
 an infinite loop, and a user can attach to a live process with GDB.
 
 ===
 C. LAUNCHING A PROCESS UNDER DMTCP CONTROL USING GDB
 
-JASSERT doesn't generate a core dump by default (because it calls _exit()).
+ASSERT doesn't generate a core dump by default (because it calls _exit()).
 Exporting the environment variable DMTCP_ABORT_ON_FAILURE will cause
 it to call abort(). This can be useful when debugging distributed processes.
 Example:

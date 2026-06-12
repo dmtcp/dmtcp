@@ -109,11 +109,11 @@ parentProcess()
 // _computation_generation field of return value may later have to be modified.
 // So, it can't return a const UniquePid
 UniquePid&
-UniquePid::ThisProcess(bool disableJTrace /*=false*/)
+UniquePid::ThisProcess(bool disableTrace /*=false*/)
 {
   if (theProcess() == nullProcess()) {
     theProcess() = UniquePid(theUniqueHostId(), ::getpid(), getTimeNs());
-    if (disableJTrace == false) {
+    if (disableTrace == false) {
       TRACE("recalculated process UniquePid: process={}", theProcess());
     }
   }

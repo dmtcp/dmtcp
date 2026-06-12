@@ -34,7 +34,6 @@
 #include <vector>
 
 #include "jalloc.h"
-#include "jassert.h"
 #include "jconvert.h"
 #include "jserialize.h"
 #include "dmtcpalloc.h"

@@ -64,7 +64,7 @@ initializeJalib()
   jalib_init(jalibFuncPtrs,
              ELF_INTERPRETER,
              PROTECTED_STDERR_FD,
-             PROTECTED_JASSERTLOG_FD,
+             PROTECTED_LOG_FD,
              DMTCP_FAIL_RC_PARAM);
 
 }

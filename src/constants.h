@@ -40,8 +40,6 @@
 # define CKPT_SIGNAL SIGUSR2
 #endif // ifndef CKPT_SIGNAL
 
-// This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
-// always be kept in sync with that.
 #define LIBC_FILENAME            "libc.so.6"
 
 #define LIBDL_FILENAME           "libdl.so.2"

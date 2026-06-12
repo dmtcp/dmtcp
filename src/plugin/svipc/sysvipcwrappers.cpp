@@ -31,7 +31,6 @@
 
 #undef msgrcv
 
-#include "jassert.h"
 #include "pluginmanager.h"
 #include "dmtcp.h"
 #include "plugin/pid/pidhelpers.h"

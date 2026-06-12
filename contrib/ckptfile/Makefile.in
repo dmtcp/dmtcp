@@ -61,7 +61,7 @@ CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
 HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcp.h \
-	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h
+	  $(JALIB_PATH)/jalloc.h
 
 OBJS = ckptfile.o
 

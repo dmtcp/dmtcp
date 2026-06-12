@@ -58,8 +58,6 @@ restoreUserLDPRELOAD()
   char *preload = getenv("LD_PRELOAD");
   char *userPreload = getenv(ENV_VAR_ORIG_LD_PRELOAD);
 
-  // This is a C program.  ASSERT and TRACE are not available:
-  // JASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload));
   // Destructively modify environment variable "LD_PRELOAD" in place:
   preload[0] = '\0';
   if (userPreload == NULL) {

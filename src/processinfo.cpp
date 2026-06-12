@@ -660,8 +660,6 @@ ProcessInfo::setCkptDir(const char *dir)
   TRACE("setting ckptdir: ckptDir={} ckptFilesSubDir={}",
         _ckptDir, _ckptFilesSubDir);
 
-  // JASSERT(access(_ckptDir.c_str(), X_OK|W_OK) == 0) (_ckptDir)
-  // .Text("Missing execute- or write-access to checkpoint dir.");
 }
 
 void

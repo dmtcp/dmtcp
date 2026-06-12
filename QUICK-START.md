@@ -108,11 +108,10 @@ To run a program with checkpointing:
    (gdb) continue
    ```
 
-2. To enable debug statements for DMTCP, configure with: `./configure
-   --enable-debug` (or `./configure --help`, in general).
-   The flag `--enable-debug` both prints to stderr and writes files.
-   ```
-   $DMTCP_TMPDIR/dmtcp-$USER@$HOST/jassertlog.*
+2. To enable trace statements for DMTCP, set `DMTCP_LOG_LEVEL=trace` before
+   launching the target program. DMTCP writes logs under:
+   ```text
+   $DMTCP_TMPDIR/dmtcp-$USER@$HOST/*.log
    ```
    where `$DMTCP_TMPDIR` is `/tmp` by default on most distributions.
    In reading this, it's useful to know that

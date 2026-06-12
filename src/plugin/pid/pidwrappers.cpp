@@ -30,7 +30,6 @@
 #include <string>
 #include <vector>
 
-#include "jassert.h"
 #include "util_assert.h"
 #include "jconvert.h"
 #include "dmtcp.h"
