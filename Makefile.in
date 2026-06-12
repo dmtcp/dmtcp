@@ -225,6 +225,9 @@ check-autotest: tests
 	 echo '*** Please add python to path'; \
 	fi
 
+check-list:
+	cd test && $(MAKE) check-list
+
 check-32: tests-32
 	@ if python -c 'print("Python exits.")' > /dev/null; then \
 	  bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
@@ -427,4 +430,4 @@ am--refresh:
 	build-multilib build-multilib-m32 build-multilib-m64 \
 	mkdirs dmtcp plugin contrib clean distclean am--refresh \
 	tests tests-32 check-unit check-harness-unit \
-	check-coordinator-synthetic check check-autotest
+	check-coordinator-synthetic check check-autotest check-list

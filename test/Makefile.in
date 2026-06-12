@@ -115,6 +115,9 @@ check-harness-unit:
 check-coordinator-synthetic: $(COORDINATOR_SYNTHETIC_WORKER)
 	$(PYTHON) $(srcdir)/autotest.py --suite coordinator
 
+check-list:
+	$(PYTHON) $(srcdir)/autotest.py --list $(AUTOTEST)
+
 coordinator_synthetic_worker: $(srcdir)/coordinator_synthetic_worker.cpp \
 		$(top_builddir)/src/libdmtcpinternal.a \
 		$(top_builddir)/src/libjalib.a \

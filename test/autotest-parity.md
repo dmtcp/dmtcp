@@ -36,7 +36,7 @@ or executable-path checks enable them.
 | Threads and synchronization | `pthread1`, `pthread2`, `pthread3`, `pthread4`, `pthread5`, `pthread6`, `pthread_atfork1`, `pthread_atfork2`, `mutex1`, `mutex2`, `mutex3`, `mutex4`, `timer1`, `clock`, `gettimeofday` |
 | IPC, sockets, and PTY smoke | `client-server`, `seqpacket`, `ssh1`, `shared-memory1`, `shared-memory2`, `shared-memory3`, `sysv-shm1`, `sysv-shm2`, `sysv-sem`, `sysv-msg`, `posix-mq1`, `posix-mq-close-untracked`, `pty1`, `pty2` |
 | Plugins and events | `dlopen1`, `dlopen2`, `syscall-tester`, `presuspend`, `plugin-sleep2`, `plugin-example-db`, `plugin-init`, `poll-disable-event-plugin`, `popen1`, `restartdir`, `nocheckpoint` |
-| Shells, terminal apps, and language/runtime smoke | `perl`, `python`, `bash`, `dash`, `zsh`, `readline`, `tcsh`, `script`, `emacs`, `screen`, `java1`, `cilk1`, `matlab-nodisplay`, `openmp-1`, `openmp-2` |
+| Shells, terminal apps, and language/runtime smoke | `perl`, `python`, `bash`, `dash`, `zsh`, `readline`, `tcsh`, `script`, `vim`, `emacs`, `screen`, `java1`, `cilk1`, `matlab-nodisplay`, `openmp-1`, `openmp-2` |
 | MPI smoke | `hellompich-n1`, `hellompich-n2`, `openmpi` |
 
 ## Ported With Explicit Limits
@@ -58,6 +58,7 @@ or executable-path checks enable them.
 | `matlab-nodisplay` | Configure-flag-gated | The command path is discovered by configure and carried on the `TestSpec`; the registry filters it with `HAS_MATLAB`. |
 | `tcsh`, `dash`, `zsh` | Path-gated | The harness registers these shell tests directly and filters them out when their absolute command path is missing. |
 | `script` | Path-gated, slow | Uses a per-test work directory for the transcript artifact so the migrated harness does not write `dmtcp-test-typescript.tmp` in the repository root. |
+| `vim` | Configure-flag-gated, PTY, slow, disabled on AArch64 | Uses explicit PTY launch and restart with the old harness's `-X -u DEFAULTS -i NONE` arguments. Ubuntu 24.04 AArch64 `vim` is built with PAC and fails under DMTCP on that host class, so the registry keeps the x64 coverage while blocking `AARCH64_HOST`. |
 | `emacs` | Path-gated, PTY, slow | Uses explicit PTY launch and restart so `emacs -nw` has a controlling terminal. It preserves the old harness's `S=40*DEFAULT_S` checkpoint settle delay and `DMTCP_GZIP=0` setting, but uses `-Q` instead of only `--no-init-file` to avoid host site-start/native-compilation temp-file churn. |
 | `screen` | Path-gated, PTY, slow | Uses explicit PTY launch and restart plus a private per-test `SCREENDIR` with `0700` permissions. This avoids depending on a host `/run/screen` directory that may be unavailable or unwritable in CI. |
 | `hellompich-n1`, `hellompich-n2`, `openmpi` | Configure-flag-gated and built-artifact-gated | MPI smoke tests require configure-discovered launchers and the built MPI test binary; `openmpi` keeps the old `[5, 6]` peer-count allowance. |
@@ -79,7 +80,6 @@ Tests that had explicit longer `S` timing in `autotest_old.py` are tagged
 
 | Test or group | Status | Rationale / next step |
 | --- | --- | --- |
-| `vim` | Deferred | The old PTY runner fails by default before the second checkpoint, but passes with `--slow` on the current host. This points to interactive editor restart settling, not a simple registry omission. Promote only with a PTY-specific shim that waits for stable `RUNNING` state and records PTY output and coordinator status/list around restart. |
 | `gcl` | Deferred | The old runner reproduces a checkpoint-time failure when GCL is installed. Direct `/usr/bin/gcl` exits cleanly on stdin EOF in a non-interactive command, so the current command is not a stable checkpoint target. Keep it out of `make check` until a deterministic GCL workload is defined. |
 
 ## Old-Harness Disabled Tests

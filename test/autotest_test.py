@@ -1373,16 +1373,17 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "exit-on-last PASS",
         )
 
-    def test_run_name_width_accounts_for_command_and_integration_rows(self):
+    def test_run_name_width_keeps_default_alignment(self):
         selected_specs = [
             TestSpec("coordinator-exit-on-last", 1, ["./test/dmtcp1"],
                      cycles=0),
+            TestSpec("posix-mq-close-untracked", 1,
+                     ["./test/posix-mq-close-untracked"]),
         ]
 
         width = autotest_module.run_name_width(["all"], selected_specs)
 
-        self.assertGreaterEqual(width, len("synthetic"))
-        self.assertGreaterEqual(width, len("exit-on-last"))
+        self.assertEqual(width, autotest_module.RUN_TESTNAME_WIDTH)
 
     def test_autotest_filters_tests_by_metadata(self):
         tests = [
@@ -1469,6 +1470,27 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                 "requires MISSING_AUTOTEST_FLAG": 1,
             },
         )
+
+    def test_registry_blocks_vim_on_aarch64(self):
+        tests = [
+            TestSpec("vim", 1, ["/usr/bin/vim"],
+                     configure_flags=["HAS_VIM"],
+                     blocked_configure_flags=["AARCH64_HOST"]),
+        ]
+
+        with mock.patch.object(
+                TestRegistry, "_config_yes",
+                staticmethod(lambda flag: flag in {
+                    "HAS_VIM", "AARCH64_HOST"
+                })):
+            registry = TestRegistry(tests)
+
+        self.assertEqual(registry.select(), [])
+        listed = registry.select_for_listing(["vim"])
+        self.assertEqual(len(listed), 1)
+        self.assertEqual(listed[0].category, "Disabled tests")
+        self.assertEqual(listed[0].list_notes,
+                         ["blocked by AARCH64_HOST"])
 
     def test_registry_listing_can_select_disabled_tests_by_name(self):
         tests = [
@@ -2423,7 +2445,6 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
     def test_registry_keeps_deferred_old_runtime_tests_out_of_make_check(self):
         names = {test.name for test in REGISTRY.select()}
 
-        self.assertNotIn("vim", names)
         self.assertNotIn("gcl", names)
 
     def test_parity_ledger_mentions_authoritative_registry_tests(self):
