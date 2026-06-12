@@ -1,6 +1,5 @@
 #include "dmtcp.h"
 #include "futex.h"
-#include "jassert.h"
 #include "syscallwrappers.h"
 #include "util_assert.h"
 

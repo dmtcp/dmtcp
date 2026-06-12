@@ -21,7 +21,6 @@
 
 #include <errno.h>
 #include <sys/syscall.h>
-#include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "constants.h"

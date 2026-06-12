@@ -21,7 +21,6 @@
 
 #include <syslog.h>
 #include <string>
-#include "../jalib/jassert.h"
 #include "dmtcpalloc.h"
 #include "syscallwrappers.h"
 #include "util_assert.h"

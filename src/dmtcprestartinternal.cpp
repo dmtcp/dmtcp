@@ -31,7 +31,6 @@
 #include <sys/prctl.h>
 #endif  // ifdef HAS_PR_SET_PTRACER
 
-#include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "constants.h"
@@ -830,7 +829,7 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
 
   tmpDir = Util::calcTmpDir(tmpdir_arg);
 
-  // make sure JASSERT initializes now, rather than during restart
+  // Initialize logs now, rather than during restart.
   Util::initializeLogFile(tmpDir.c_str(), binaryName.c_str());
 
   if ((getenv(ENV_VAR_NAME_PORT) == NULL ||
@@ -851,8 +850,8 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
     setNewCkptDir(ckptdir_arg);
   }
 
-  jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
-  if (!noStrictChecking && jassert_quiet < 2 &&
+  int quietCount = *getenv(ENV_VAR_QUIET) - '0';
+  if (!noStrictChecking && quietCount < 2 &&
       (getuid() == 0 || geteuid() == 0)) {
     fputs(
       "WARNING:  Running dmtcp_restart as root can be dangerous.\n"

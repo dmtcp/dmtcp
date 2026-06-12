@@ -24,7 +24,6 @@
 #include "config.h"
 #include "dmtcp.h"
 
-#include "jassert.h"
 #include "util_assert.h"
 
 namespace dmtcp

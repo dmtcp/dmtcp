@@ -12,7 +12,6 @@
 #include <dlfcn.h>
 
 #include "dmtcp.h"
-#include "jassert.h"
 #include "util_assert.h"
 #include "config.h"
 #include "threadsync.h"

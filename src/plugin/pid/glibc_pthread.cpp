@@ -4,7 +4,6 @@
 #include <atomic>
 
 #include "futex.h"
-#include "jassert.h"
 #include "util.h"
 
 #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD

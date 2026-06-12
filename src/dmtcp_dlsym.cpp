@@ -68,7 +68,6 @@
 #include <dlfcn.h>
 
 #include "dmtcp.h"
-#include "jassert.h"
 #include "config.h"
 #include "util_assert.h"
 

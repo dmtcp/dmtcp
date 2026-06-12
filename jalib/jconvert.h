@@ -27,7 +27,7 @@
 #include <string>
 
 #include "dmtcpalloc.h"
-#include "jassert.h"
+#include "util_assert.h"
 
 namespace jalib
 {
@@ -42,9 +42,9 @@ StdLibEC(const dmtcp::string &s, bool strict)
   char *end = 0;
   T v = (*strtoT)(begin, &end, 0);
 
-  JASSERT(end != 0 && end != begin &&
-          (!strict || *end == '\0')) (end) (begin) (strict)
-  .Text("conversion failed");
+  ASSERT(end != 0 && end != begin && (!strict || *end == '\0'),
+         "conversion failed: text={} end={} strict={}",
+         begin, end, strict);
   return v;
 }
 
@@ -57,9 +57,9 @@ StdLibEC(const dmtcp::string &s, bool strict)
   char *end = 0;
   T v = (*strtoT)(begin, &end);
 
-  JASSERT(end != 0 && end != begin &&
-          (!strict || *end == '\0')) (end) (begin) (strict)
-  .Text("conversion failed");
+  ASSERT(end != 0 && end != begin && (!strict || *end == '\0'),
+         "conversion failed: text={} end={} strict={}",
+         begin, end, strict);
   return v;
 }
 }

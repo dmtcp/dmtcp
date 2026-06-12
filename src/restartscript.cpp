@@ -34,7 +34,6 @@
 
 #include "constants.h"
 
-#include "jassert.h"
 #include "jfilesystem.h"
 #include "util_assert.h"
 

@@ -31,7 +31,6 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "jsocket.h"
@@ -358,10 +357,6 @@ TcpConnection::onBind(const struct sockaddr *addr, socklen_t len)
     TRACE("Binding. (id() = {};) (len = {};)", id(), len);
   }
 
-  // If the bind succeeded, we do not need any additional assert.
-  // JASSERT(_type == TCP_CREATED) (_type) (id())
-  // .Text("Binding a socket in use????");
-
   if (_sockDomain == AF_UNIX && addr != NULL) {
     ASSERT(len <= sizeof _bindAddr,
            "socket bind address is too large: len={} max={}", len,
@@ -401,10 +396,6 @@ TcpConnection::onListen(int backlog)
   ASSERT(_type == TCP_BIND,
          "Listening on a non-bind()ed socket: type={} con_id={}", _type,
          id().conId());
-
-  // A -1 backlog is not an error.
-  // JASSERT(backlog > 0) (backlog)
-  // .Text("That is an odd backlog????");
 
   _type = TCP_LISTEN;
   _listenBacklog = backlog;
@@ -447,8 +438,6 @@ TcpConnection::TcpConnection(const TcpConnection &parent,
     TRACE("Accepting. (id() = {};) (parent.id() = {};) (remote = {};)", id(), parent.id(), remote);
   }
 
-  // JASSERT(parent._type == TCP_LISTEN) (parent._type) (parent.id())
-  // .Text("Accepting from a non listening socket????");
   memset(&_bindAddr, 0, sizeof _bindAddr);
 }
 
@@ -861,15 +850,6 @@ TcpConnection::postRestart()
     ConnectionRewirer::instance().registerOutgoing(_remotePeerId, this);
     break;
 
-    // case TCP_EXTERNAL_CONNECT:
-    // int sockFd = _real_socket(_sockDomain, _sockType, _sockProtocol);
-    // JASSERT(sockFd >= 0);
-    // JASSERT(_real_dup2(sockFd, _fds[0]) == _fds[0]);
-    // JWARN(0 == _real_connect(sockFd,(sockaddr*) &_connectAddr,
-    // _connectAddrlen))
-    // (_fds[0]) (JASSERT_ERRNO)
-    // .Text("Unable to connect to external process");
-    // break;
   }
 }
 
@@ -1088,8 +1068,6 @@ RawSocketConnection::RawSocketConnection(const RawSocketConnection &parent,
     TRACE("Accepting. (id() = {};) (parent.id() = {};) (remote = {};)", id(), parent.id(), remote);
   }
 
-  // JASSERT(parent._type == RAW_LISTEN) (parent._type) (parent.id())
-  // .Text("Accepting from a non listening socket????");
   WARN(false,
           "Accept on raw socket type not supported; socket will not be "
           "restored: parent_con_id={} remote_con_id={}",

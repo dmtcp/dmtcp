@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 #ifndef STANDALONE
-#include "jassert.h"
+#include "config.h"
 #include "dmtcp.h"
 #endif  // ifndef STANDALONE
 
@@ -117,6 +117,7 @@ parse_data_file()
     i++;
   }
   listlen = i;
+  return 0;
 }
 
 static int
@@ -177,7 +178,7 @@ restart()
 
 #ifndef STANDALONE
 static void
-ckpfile_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+ckptfile_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
   case DMTCP_EVENT_PRECHECKPOINT:
@@ -200,7 +201,7 @@ main()
 }
 #endif // ifndef STANDALONE
 
-DmtcpPluginDescriptor_t ckpfile_plugin = {
+DmtcpPluginDescriptor_t ckptfile_plugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "ckptfile",
@@ -210,4 +211,4 @@ DmtcpPluginDescriptor_t ckpfile_plugin = {
   ckptfile_event_hook
 };
 
-DMTCP_DECL_PLUGIN(ckpfile_plugin);
+DMTCP_DECL_PLUGIN(ckptfile_plugin);

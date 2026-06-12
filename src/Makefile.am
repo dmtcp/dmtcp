@@ -127,7 +127,6 @@ nobase_noinst_HEADERS =						\
 
 nobase_noinst_HEADERS += $(jalibdir)/jalib.h			\
 			 $(jalibdir)/jalloc.h			\
-			 $(jalibdir)/jassert.h			\
 			 $(jalibdir)/jconvert.h			\
 			 $(jalibdir)/jfilesystem.h		\
 			 $(jalibdir)/jserialize.h		\
@@ -170,7 +169,6 @@ libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
 
 libjalib_a_SOURCES = $(jalibdir)/jalib.cpp			\
 		     $(jalibdir)/jalloc.cpp			\
-		     $(jalibdir)/jassert.cpp 			\
 		     $(jalibdir)/jfilesystem.cpp 		\
 		     $(jalibdir)/jserialize.cpp			\
 		     $(jalibdir)/jsocket.cpp

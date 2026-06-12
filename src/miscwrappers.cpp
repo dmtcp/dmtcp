@@ -26,7 +26,6 @@
 #include <sys/uio.h>
 #endif
 #include <poll.h>
-#include "../jalib/jassert.h"
 #include "util_assert.h"
 #include "../jalib/jconvert.h"
 #include "constants.h"

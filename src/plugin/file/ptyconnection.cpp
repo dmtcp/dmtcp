@@ -26,7 +26,6 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include "jassert.h"
 #include "jfilesystem.h"
 #include "dmtcp.h"
 #include "shareddata.h"

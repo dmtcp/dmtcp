@@ -7,7 +7,6 @@
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/un.h>
-#include "jassert.h"
 #include "jfilesystem.h"
 #include "dmtcp.h"
 #include "shareddata.h"

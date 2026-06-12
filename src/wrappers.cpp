@@ -31,7 +31,6 @@
 #undef openat64
 
 #include "dmtcp.h"
-#include "jassert.h"
 #include "jfilesystem.h"
 #include "plugin/pid/pidhelpers.h"
 #include "pluginmanager.h"

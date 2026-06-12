@@ -35,7 +35,6 @@
 #include <sys/mman.h>
 #include <iostream>
 #include "../jalib/jalloc.h"
-#include "../jalib/jassert.h"
 #include "util_assert.h"
 #include "util_descriptor.h"
 

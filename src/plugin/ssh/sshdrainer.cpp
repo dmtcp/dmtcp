@@ -1,5 +1,4 @@
 #include "sshdrainer.h"
-#include "../jalib/jassert.h"
 #include "util.h"
 #include "util_assert.h"
 

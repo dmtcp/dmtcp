@@ -25,7 +25,6 @@
 
 #include <signal.h>
 #include <time.h>
-#include "jassert.h"
 #include "jconvert.h"
 #include "dmtcpalloc.h"
 #include "virtualidtable.h"

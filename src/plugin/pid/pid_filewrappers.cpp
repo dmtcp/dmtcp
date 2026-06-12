@@ -43,7 +43,6 @@
 #undef readlink
 #undef realpath
 
-#include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "dmtcp.h"

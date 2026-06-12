@@ -1,7 +1,6 @@
 #include <fenv.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#include "../jalib/jassert.h"
 #include "shareddata.h"
 #include "util.h"
 #include "util_assert.h"

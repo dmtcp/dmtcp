@@ -21,7 +21,6 @@
 
 #include "procselfmaps.h"
 #include <fcntl.h>
-#include "jassert.h"
 #include "syscallwrappers.h"
 #include "util.h"
 #include "util_assert.h"
@@ -107,7 +106,7 @@ ProcSelfMaps::~ProcSelfMaps()
 
   // Verify that JAlloc doesn't expand memory (via mmap)
   // while reading /proc/self/maps.
-  // FIXME:  Change from JWARNING to JASSERT when we have confidence in this.
+  // FIXME: Promote this warning to an assertion when we have confidence in it.
   WARN(numAllocExpands == jalib::JAllocDispatcher::numExpands(),
           "JAlloc expanded through mmap while reading /proc/self/maps; "
           "inconsistent JAlloc will be a problem on restart: before={} "

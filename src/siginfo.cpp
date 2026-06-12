@@ -3,7 +3,6 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include "jassert.h"
 #include "constants.h"
 #include "dmtcp.h"
 #include "syscallwrappers.h"

@@ -23,7 +23,6 @@
 #define DMTCPMESSAGETYPES_H
 
 #include "../jalib/jalloc.h"
-#include "../jalib/jassert.h"
 #include "constants.h"
 #include "dmtcpalloc.h"
 #include "uniquepid.h"

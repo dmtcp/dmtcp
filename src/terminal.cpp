@@ -5,7 +5,6 @@
 #ifdef HAS_PR_SET_PTRACER
 #include <sys/prctl.h>
 #endif  // ifdef HAS_PR_SET_PTRACER
-#include "../jalib/jassert.h"
 #include "config.h"
 #include "dmtcp.h"
 #include "util_assert.h"

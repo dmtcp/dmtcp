@@ -23,7 +23,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../jalib/jassert.h"
 #include "dmtcpworker.h"
 #include "syscallwrappers.h"
 #include "util_assert.h"

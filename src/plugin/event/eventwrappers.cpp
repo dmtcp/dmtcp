@@ -29,7 +29,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "pluginmanager.h"
-#include "jassert.h"
 #include "dmtcpalloc.h"
 #include "eventconnection.h"
 #include "eventconnlist.h"

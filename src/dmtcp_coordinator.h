@@ -103,7 +103,7 @@ typedef struct {
 class CoordFlags {
   public:
       bool quiet = false;
-      int jassert_quiet = 0;
+      int quietLevel = 0;
       bool exitOnLast = false;
       bool killAfterCkpt = false;
       int timeout = 0;

@@ -88,6 +88,12 @@ inline int runTests(std::span<const TestCase> tests)
 } // namespace dmtcp_test
 
 #ifndef DMTCP_TEST_NO_SHORT_ASSERT_MACROS
+# ifdef ASSERT_TRUE
+#  undef ASSERT_TRUE
+# endif
+# ifdef ASSERT_EQ
+#  undef ASSERT_EQ
+# endif
 # define ASSERT_TRUE(expr) \
    ::dmtcp_test::assertTrue((expr), #expr, __FILE__, __LINE__)
 

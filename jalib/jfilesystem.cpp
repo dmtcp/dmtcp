@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include "jalib.h"
+#define DMTCP_LOG_COMPONENT "jalib"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include <algorithm>
@@ -58,7 +59,7 @@ _GetProgramExe()
   // C++ dmtcp::string is smart enough to copy it.
   dmtcp::string exeRes = jalib::Filesystem::ResolveSymlink(exe);
 
-  JASSERT(exe != exeRes) (exe).Text("problem with /proc/self/exe");
+  ASSERT(exe != exeRes, "problem with /proc/self/exe: exe={}", exe);
 
   // Bug fix for Linux 2.6.19
   if (jalib::strEndsWith(exeRes.c_str(), DELETED_FILE_SUFFIX)) {
@@ -75,7 +76,7 @@ _GetProgramCmdline(char *buf, int size)
   int fd = jalib::open("/proc/self/cmdline", O_RDONLY, 0);
   int rc;
 
-  JASSERT(fd >= 0);
+  ASSERT_ERRNO(fd >= 0, "failed to open /proc/self/cmdline");
 
   // rc == 0 means EOF, or else it means buf is full (size chars read)
   rc = jalib::readAll(fd, buf, size);
@@ -90,8 +91,7 @@ jalib::Filesystem::GetCWD()
   dmtcp::string cwd;
   char buf[PATH_MAX];
 
-  JASSERT(getcwd(buf, PATH_MAX) == buf)
-  .Text("Pathname too long");
+  ASSERT_ERRNO(getcwd(buf, PATH_MAX) == buf, "pathname too long");
   cwd = buf;
   return cwd;
 }
@@ -203,21 +203,21 @@ jalib::Filesystem::mkdir_r(const dmtcp::string &dir, mode_t mode)
   struct stat buf;
   int ret = stat(dir.c_str(), &buf);
 
-  JTRACE("Create dir")(dir);
+  TRACE("create directory path: dir={}", dir);
 
   if (ret && errno != ENOENT) {
-    JTRACE("Cannot create directory path")(dir)(errno)(strerror(errno));
+    TRACE("cannot create directory path: dir={} errno={}", dir, errno);
     return ret;
   }
 
   if (ret && errno == ENOENT) {
     dmtcp::string pdir = DirName(dir);
-    JTRACE("Create parent dir")(pdir);
+    TRACE("create parent directory path: dir={}", pdir);
     mkdir_r(pdir, mode);
     return mkdir(dir.c_str(), mode);
   }
 
-  JTRACE("Directory already exists")(dir);
+  TRACE("directory already exists: dir={}", dir);
   return 0;
 }
 
@@ -319,7 +319,7 @@ ListDirEntriesInternal(const dmtcp::string& dir, int *procSelfFd = nullptr)
   int fd = jalib::open(dir.c_str(),
                        O_RDONLY | O_NDELAY | O_LARGEFILE | O_DIRECTORY);
 
-  JASSERT(fd >= 0);
+  ASSERT_ERRNO(fd >= 0, "failed to open directory: dir={}", dir);
 
   if (procSelfFd != nullptr) {
     *procSelfFd = fd;
@@ -337,7 +337,7 @@ ListDirEntriesInternal(const dmtcp::string& dir, int *procSelfFd = nullptr)
     if (nread == 0) {
       break;
     }
-    JASSERT(nread > 0);
+    ASSERT_ERRNO(nread > 0, "failed to read directory entries: dir={}", dir);
     for (int pos = 0; pos < nread;) {
       struct linux_dirent64 *d = (struct linux_dirent64 *)(&buf[pos]);
       if (d->d_ino > 0) {
@@ -384,7 +384,7 @@ jalib::Filesystem::GetCurrentHostname()
   struct utsname tmp;
 
   memset(&tmp, 0, sizeof(tmp));
-  JASSERT(uname(&tmp) != -1) (JASSERT_ERRNO);
+  ASSERT_ERRNO(uname(&tmp) != -1, "failed to get current hostname");
   dmtcp::string name = "unknown";
   if (strlen(tmp.nodename) != 0) {
     name = tmp.nodename;
@@ -417,8 +417,8 @@ jalib::Filesystem::GetControllingTerm(pid_t pid /* = -1*/)
   }
   fd = jalib::open(procPath, O_RDONLY, 0);
 
-  JASSERT(fd >= 0) (strerror(errno))
-  .Text("Unable to open /proc/self/stat\n");
+  ASSERT_ERRNO(fd >= 0, "unable to open process stat file: path={}",
+               procPath);
 
   num_read = read(fd, sbuf, sizeof sbuf - 1);
   close(fd);

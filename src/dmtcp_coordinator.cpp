@@ -76,7 +76,6 @@
 #include <cstring>
 #include <iomanip>
 #include "dmtcp_coordinator.h"
-#include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "constants.h"
@@ -1815,7 +1814,7 @@ main(int argc, char **argv)
       return 0;
     } else if (s == "-q" || s == "--quiet") {
       flags.quiet = true;
-      flags.jassert_quiet++;
+      flags.quietLevel++;
       shift;
     } else if (s == "--exit-on-last") {
       flags.exitOnLast = true;
@@ -1883,9 +1882,9 @@ main(int argc, char **argv)
     }
   }
 
-  if (flags.jassert_quiet > 0) {
+  if (flags.quietLevel > 0) {
     char quietValue[] = {
-      static_cast<char>('0' + (flags.jassert_quiet > 9 ? 9 : flags.jassert_quiet)),
+      static_cast<char>('0' + (flags.quietLevel > 9 ? 9 : flags.quietLevel)),
       '\0'
     };
     setenv(ENV_VAR_QUIET, quietValue, 1);
@@ -1953,7 +1952,7 @@ main(int argc, char **argv)
                    "failed to redirect daemon stdin to /dev/null");
     } else {
       fd = open(flags.logFilename.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0644);
-      Util::setDiagnosticLogFile(flags.logFilename.c_str());
+      Util::setLogFile(flags.logFilename.c_str());
       int nullFd = open("/dev/null", O_RDWR);
       ASSERT_ERRNO(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO,
                    "failed to redirect daemon stdin to /dev/null");
@@ -1963,7 +1962,7 @@ main(int argc, char **argv)
                  "failed to redirect daemon stdout");
     ASSERT_ERRNO(dup2(fd, STDERR_FILENO) == STDERR_FILENO,
                  "failed to redirect daemon stderr");
-    Util::closeDiagnosticStderr();
+    Util::closeLogStderr();
     if (fd > STDERR_FILENO) {
       close(fd);
     }

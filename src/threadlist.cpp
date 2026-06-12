@@ -997,10 +997,6 @@ ThreadList::addToActiveList(Thread *th)
       continue;
     }
 
-    // FIXME:  This causes segfault on second restart.  Why?
-    // JASSERT(thread != curThread)(thread)
-    // .Text("adding curThread, but it's already on activeThreads");
-
     /* NOTE:  ST_ZOMBIE is used only for the sake of efficiency.  We
      *   test threads in state ST_ZOMBIE using tgkill to remove them
      *   early (before reaching a checkpoint) so that the

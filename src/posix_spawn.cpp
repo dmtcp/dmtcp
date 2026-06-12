@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "dmtcp.h"
-#include "jassert.h"
 #include "util_assert.h"
 #include "syscallwrappers.h"
 

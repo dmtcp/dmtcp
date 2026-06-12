@@ -20,7 +20,6 @@
  ****************************************************************************/
 
 #include "trampolines.h"
-#include "../jalib/jassert.h"
 #include "syscallwrappers.h"
 
 static trampoline_info_t sbrk_trampoline_info;

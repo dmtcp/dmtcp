@@ -29,7 +29,6 @@
 
 #include <iomanip>
 
-#include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jsocket.h"
@@ -128,34 +127,34 @@ Util::calcTmpDir(const char *tmpdirenv)
 }
 
 void
-Util::setDiagnosticLogFile(const char *path)
+Util::setLogFile(const char *path)
 {
-  if (!::dmtcp::setDiagnosticLogFile(path)) {
-    WARN(false, "failed to open diagnostic log file: path={}", path);
+  if (!::dmtcp::setLogFile(path)) {
+    WARN(false, "failed to open log file: path={}", path);
   }
 }
 
 void
-Util::closeDiagnosticStderr()
+Util::closeLogStderr()
 {
-  ::dmtcp::closeDiagnosticConsole();
+  ::dmtcp::closeLogConsole();
 }
 
 void
 Util::initializeLogFile(const char *tmpDir, const char *prefix)
 {
-  ::dmtcp::initializeDiagnosticConsole(getenv(ENV_VAR_STDERR_PATH));
+  ::dmtcp::initializeLogConsole(getenv(ENV_VAR_STDERR_PATH));
 
   const char *logFile = getenv(ENV_VAR_LOG_FILE);
   if (logFile != NULL) {
-    setDiagnosticLogFile(logFile);
+    setLogFile(logFile);
   } else {
     ostringstream o;
     o << tmpDir << "/" << prefix
       << "." << Util::getTimestampStr()
       << "." << UniquePid::ThisProcess()
       << ".log";
-    setDiagnosticLogFile(o.str().c_str());
+    setLogFile(o.str().c_str());
   }
 
   int quietCount = 0;
@@ -167,7 +166,6 @@ Util::initializeLogFile(const char *tmpDir, const char *prefix)
   quietCount = 2;
 #endif // ifdef QUIET
 
-  jassert_quiet = quietCount;
   LogLevel logLevel = LogLevel::Note;
   if (quietCount >= 2) {
     logLevel = LogLevel::Error;

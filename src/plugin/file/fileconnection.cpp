@@ -33,7 +33,6 @@
 #include <ios>
 #include <iostream>
 
-#include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "jsocket.h"
