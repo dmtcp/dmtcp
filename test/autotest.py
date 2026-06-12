@@ -1071,6 +1071,7 @@ class TestRegistry:
         "zsh",
         "tcsh",
         "script",
+        "vim",
         "emacs",
         "screen",
         "cilk1",
@@ -1149,6 +1150,7 @@ class TestRegistry:
         "zsh": "Interactive shells",
         "tcsh": "Interactive shells",
         "script": "Interactive shells",
+        "vim": "Terminal-oriented programs",
         "emacs": "Terminal-oriented programs",
         "screen": "Terminal-oriented programs",
         "perl": "Language runtimes",
@@ -1545,6 +1547,19 @@ class TestRegistry:
                 post_launch_delay=2.0,
                 pre_checkpoint_delay=2.1,
                 tags=["slow"]),
+            # Ubuntu 24.04 aarch64 vim is built with PAC and fails under
+            # DMTCP; keep this PTY coverage enabled for non-AArch64 hosts.
+            TestSpec(
+                "vim", 1,
+                [f"{getattr(autotest_config, 'VIM', 'vim')} "
+                 "-X -u DEFAULTS -i NONE /etc/passwd +3"],
+                env={"TERM": "vt100"},
+                pre_checkpoint_delay=10.0,
+                launch_mode="pty",
+                tags=["slow", "pty"],
+                requirements=["pty", "vim"],
+                configure_flags=["HAS_VIM"],
+                blocked_configure_flags=["AARCH64_HOST"]),
             TestSpec(
                 "emacs", [1, 2],
                 ["/usr/bin/emacs -nw -Q /etc/passwd"],
@@ -1896,17 +1911,7 @@ def run_display_name(spec: Union[TestSpec, CommandTestSpec]) -> str:
 
 def run_name_width(suites: Iterable[str],
                    selected: Iterable[TestSpec]) -> int:
-    names = [
-        run_display_name(spec)
-        for spec in selected
-    ]
-    names.extend(
-        run_display_name(spec)
-        for spec in command_tests_for_suites(suites)
-    )
-    if not names:
-        return RUN_TESTNAME_WIDTH
-    return max(RUN_TESTNAME_WIDTH, *(len(name) for name in names))
+    return RUN_TESTNAME_WIDTH
 
 
 def format_run_entry(spec: Union[TestSpec, CommandTestSpec],

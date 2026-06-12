@@ -16,6 +16,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 DMTCP_COMMAND = ROOT / "bin" / "dmtcp_command"
 DMTCP_COORDINATOR = ROOT / "bin" / "dmtcp_coordinator"
 SYNTHETIC_WORKER = ROOT / "test" / "coordinator_synthetic_worker"
+COMMAND_TIMEOUT = 10
 
 
 def read_port_file(path):
@@ -412,6 +413,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            timeout=COMMAND_TIMEOUT,
             check=False,
         )
 
