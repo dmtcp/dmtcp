@@ -23,7 +23,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "jassert.h"
 #include "syscallwrappers.h"
 #include "threadinfo.h"
 #include "threadsync.h"
@@ -281,7 +280,10 @@ ThreadSync::wrapperExecutionLockUnlock()
 
   Thread *thread = dmtcp_get_current_thread();
 
-  JASSERT(thread->wrapperLockCount != 0);
+  ASSERT_NE(0,
+            thread->wrapperLockCount,
+            "wrapper execution lock unlock without matching lock: tid={}",
+            thread->tid);
   thread->wrapperLockCount -= 1;
 
   if (thread->wrapperLockCount == 0) {

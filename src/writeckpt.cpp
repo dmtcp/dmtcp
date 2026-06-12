@@ -29,7 +29,6 @@
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
-#include "jassert.h"
 #include "jfilesystem.h"
 #include "constants.h"
 #include "dmtcp.h"
@@ -305,7 +304,7 @@ mtcp_write_anonymous_pages(int fd, Area area)
       if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
         TRACE("error doing madvise(..., MADV_DONTNEED): errno={} addr={} "
               "size={}",
-              JASSERT_ERRNO, (void *)a.addr, (int)a.size);
+              strerror(errno), (void *)a.addr, (int)a.size);
       }
     }
     area.addr += size;

@@ -364,7 +364,7 @@ DmtcpWorker::waitForPreSuspendMessage()
     ckptThreadPerformExit();
   }
 
-  JASSERT(msg.isValid());
+  msg.assertValid();
 
   ASSERT(msg.type == DMT_DO_CHECKPOINT,
          "unexpected coordinator message while waiting for checkpoint: type={}",
