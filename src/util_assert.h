@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cerrno>
+#include <cstdlib>
 #include <string_view>
 #include <system_error>
 #include <type_traits>
@@ -34,8 +35,8 @@ inline constexpr std::string_view kLogTruncatedMarker = " [truncated]\n";
  * - Signal-handler diagnostics use the same fixed-buffer backend.  Keep this
  *   path free of allocation, locks, wrapped I/O, and richer DMTCP runtime
  *   services so it remains usable from fragile runtime contexts.
- * - Fatal ASSERT exits use kAssertFailureExitCode and do not consult
- *   environment-controlled jalib failure policy.
+ * - Fatal ASSERT exits through DMTCP_FAIL_RC after honoring
+ *   DMTCP_SLEEP_ON_FAILURE and DMTCP_ABORT_ON_FAILURE.
  */
 
 /*
@@ -68,6 +69,9 @@ bool setLogOverrides(std::string_view overrides);
 bool logEnabled(LogLevel level,
                 std::string_view component,
                 std::string_view file);
+void initializeDiagnosticConsole(const char *stderrPath);
+bool setDiagnosticLogFile(const char *path);
+void closeDiagnosticConsole();
 
 class AssertBuffer;
 
@@ -429,6 +433,15 @@ finishDiagnostic(AssertBuffer& buffer)
 }
 
 inline void writeAllNoAlloc(int fd, const char *data, size_t length);
+void emitDiagnostic(const char *data, size_t length);
+
+[[noreturn]] inline void
+exitAfterAssertFailure()
+{
+  while (std::getenv("DMTCP_SLEEP_ON_FAILURE") != nullptr) {
+  }
+  _exit(DMTCP_FAIL_RC);
+}
 
 template <typename... Args>
 inline void
@@ -497,7 +510,7 @@ logDiagnostic(LogLevel level,
   } else {
     formatDiagnostic(buffer, level, expr, file, line, fmt, args...);
   }
-  writeAllNoAlloc(kDiagnosticFd, buffer.c_str(), buffer.size());
+  emitDiagnostic(buffer.c_str(), buffer.size());
 }
 
 } // namespace dmtcp
@@ -574,7 +587,7 @@ logDiagnostic(LogLevel level,
                              #condition, __FILE__, __LINE__,              \
                              dmtcpAssertSavedErrno, false, fmt            \
                              __VA_OPT__(,) __VA_ARGS__);                 \
-      _exit(::dmtcp::kAssertFailureExitCode);                             \
+      ::dmtcp::exitAfterAssertFailure();                                  \
     }                                                                    \
   } while (0)
 
@@ -587,7 +600,7 @@ logDiagnostic(LogLevel level,
                              dmtcpAssertSavedErrno, true, fmt             \
                              __VA_OPT__(,) __VA_ARGS__);                 \
       errno = dmtcpAssertSavedErrno;                                      \
-      _exit(::dmtcp::kAssertFailureExitCode);                             \
+      ::dmtcp::exitAfterAssertFailure();                                  \
     }                                                                    \
   } while (0)
 

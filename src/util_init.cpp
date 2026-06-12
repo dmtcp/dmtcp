@@ -130,18 +130,22 @@ Util::calcTmpDir(const char *tmpdirenv)
 void
 Util::setDiagnosticLogFile(const char *path)
 {
-  jassert_internal::set_log_file(path);
+  if (!::dmtcp::setDiagnosticLogFile(path)) {
+    WARN(false, "failed to open diagnostic log file: path={}", path);
+  }
 }
 
 void
 Util::closeDiagnosticStderr()
 {
-  jassert_internal::close_stderr();
+  ::dmtcp::closeDiagnosticConsole();
 }
 
 void
 Util::initializeLogFile(const char *tmpDir, const char *prefix)
 {
+  ::dmtcp::initializeDiagnosticConsole(getenv(ENV_VAR_STDERR_PATH));
+
   const char *logFile = getenv(ENV_VAR_LOG_FILE);
   if (logFile != NULL) {
     setDiagnosticLogFile(logFile);
@@ -180,6 +184,8 @@ Util::initializeLogFile(const char *tmpDir, const char *prefix)
 
   if (const char *envLogOverrides = getenv(ENV_VAR_LOG_OVERRIDES)) {
     if (!setLogOverrides(envLogOverrides)) {
+      WARN(false, "invalid log override configuration, ignoring: {}={}",
+           ENV_VAR_LOG_OVERRIDES, envLogOverrides);
       setLogOverrides("");
     }
   } else {

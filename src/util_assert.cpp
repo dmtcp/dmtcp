@@ -1,8 +1,15 @@
 #include "util_assert.h"
 
 #include <atomic>
+#include <fcntl.h>
+#include <limits.h>
+#include <cstdio>
 #include <cstring>
+#include <sys/stat.h>
 #include <unistd.h>
+
+#include "protectedfds.h"
+#include "syscallwrappers.h"
 
 extern "C" __attribute__((weak)) ssize_t
 dmtcp_assert_write(int fd, const void *buf, size_t count)
@@ -24,7 +31,55 @@ struct LogOverride {
 
 std::atomic<int> gLogLevel{static_cast<int>(LogLevel::Note)};
 std::atomic<int> gLogOverrideCount{0};
+// Log override and diagnostic fd state is configured during single-threaded
+// process initialization. Runtime diagnostics read it without synchronization.
+// Revisit this invariant before adding runtime log reconfiguration.
 LogOverride gLogOverrides[kMaxLogOverrides];
+int gDiagnosticConsoleFd = kDiagnosticFd;
+int gDiagnosticLogFd = -1;
+
+int
+openProtectedFile(const char *path, int protectedFd)
+{
+  int fd = _real_open(path, O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
+  if (fd == -1) {
+    return -1;
+  }
+
+  int newFd = _real_dup2(fd, protectedFd);
+  if (fd != newFd) {
+    _real_close(fd);
+  }
+  return newFd;
+}
+
+int
+openLogFile(const char *path)
+{
+  return openProtectedFile(path, PROTECTED_DIAGNOSTIC_LOG_FD);
+}
+
+int
+openLogFileWithFallbacks(const char *path)
+{
+  int fd = openLogFile(path);
+  if (fd != -1) {
+    return fd;
+  }
+
+  char fallback[PATH_MAX];
+  for (int suffix = 2; suffix <= 5; ++suffix) {
+    int len = snprintf(fallback, sizeof(fallback), "%s_%d", path, suffix);
+    if (len <= 0 || static_cast<size_t>(len) >= sizeof(fallback)) {
+      return -1;
+    }
+    fd = openLogFile(fallback);
+    if (fd != -1) {
+      return fd;
+    }
+  }
+  return -1;
+}
 
 std::string_view
 trim(std::string_view text)
@@ -218,6 +273,69 @@ logEnabled(LogLevel level,
     }
   }
   return static_cast<int>(effectiveLevel) >= static_cast<int>(level);
+}
+
+void
+initializeDiagnosticConsole(const char *stderrPath)
+{
+  if (_real_dup2(PROTECTED_STDERR_FD, PROTECTED_STDERR_FD) ==
+      PROTECTED_STDERR_FD) {
+    gDiagnosticConsoleFd = PROTECTED_STDERR_FD;
+    return;
+  }
+
+  if (stderrPath != nullptr && stderrPath[0] != '\0') {
+    int fd = openProtectedFile(stderrPath, PROTECTED_STDERR_FD);
+    if (fd != -1) {
+      gDiagnosticConsoleFd = fd;
+      return;
+    }
+  }
+
+  int fd = _real_dup2(STDERR_FILENO, PROTECTED_STDERR_FD);
+  if (fd == PROTECTED_STDERR_FD) {
+    gDiagnosticConsoleFd = fd;
+    return;
+  }
+
+  fd = openProtectedFile("/dev/null", PROTECTED_STDERR_FD);
+  gDiagnosticConsoleFd = fd == -1 ? STDERR_FILENO : fd;
+}
+
+bool
+setDiagnosticLogFile(const char *path)
+{
+  if (gDiagnosticLogFd != -1) {
+    _real_close(gDiagnosticLogFd);
+    gDiagnosticLogFd = -1;
+  }
+
+  if (path == nullptr || path[0] == '\0') {
+    return true;
+  }
+
+  gDiagnosticLogFd = openLogFileWithFallbacks(path);
+  return gDiagnosticLogFd != -1;
+}
+
+void
+closeDiagnosticConsole()
+{
+  if (gDiagnosticConsoleFd != -1 && gDiagnosticConsoleFd != STDERR_FILENO) {
+    _real_close(gDiagnosticConsoleFd);
+  }
+  gDiagnosticConsoleFd = -1;
+}
+
+void
+emitDiagnostic(const char *data, size_t length)
+{
+  if (gDiagnosticConsoleFd != -1) {
+    writeAllNoAlloc(gDiagnosticConsoleFd, data, length);
+  }
+  if (gDiagnosticLogFd != -1 && gDiagnosticLogFd != gDiagnosticConsoleFd) {
+    writeAllNoAlloc(gDiagnosticLogFd, data, length);
+  }
 }
 
 } // namespace dmtcp
