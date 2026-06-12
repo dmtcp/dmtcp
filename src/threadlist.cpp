@@ -19,7 +19,6 @@
 #include "dmtcpalloc.h"
 #include "dmtcpworker.h"
 #include "jalloc.h"
-#include "jassert.h"
 #include "mtcp/mtcp_header.h"
 #include "plugin/pid/pidhelpers.h"
 #include "pluginmanager.h"
@@ -888,12 +887,14 @@ Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval)
 {
   int res = 0;
 
-  JASSERT(DmtcpMutexLock(&threadStateLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadStateLock),
+                      "locking thread state");
   if (oldval == th->state) {
     th->state = newval;
     res = 1;
   }
-  JASSERT(DmtcpMutexUnlock(&threadStateLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadStateLock),
+                      "unlocking thread state");
   return res;
 }
 

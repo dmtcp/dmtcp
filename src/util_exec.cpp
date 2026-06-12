@@ -26,7 +26,6 @@
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/time.h>
-#include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "protectedfds.h"
@@ -45,11 +44,18 @@ setPidEnvVar(const char *envName, pid_t value)
   char paddedBuf[kPidEnvValueSize];
 
   int len = snprintf(valueBuf, sizeof(valueBuf), "%d", value);
-  JASSERT(len > 0 && (size_t)len < sizeof(valueBuf)) (value);
+  ASSERT(len > 0 && (size_t)len < sizeof(valueBuf),
+         "pid environment value exceeded buffer: name={} value={} len={} "
+         "capacity={}",
+         envName, value, len, sizeof(valueBuf));
 
   if (getenv(envName) == NULL) {
     int paddedLen = snprintf(paddedBuf, sizeof(paddedBuf), "%031d", value);
-    JASSERT(paddedLen == (int)sizeof(paddedBuf) - 1) (value) (paddedLen);
+    ASSERT_EQ((int)sizeof(paddedBuf) - 1,
+              paddedLen,
+              "padded pid environment value exceeded buffer: name={} value={}",
+              envName,
+              value);
     setenv(envName, paddedBuf, 1);
   } else {
     char *envStr = (char *)getenv(envName);

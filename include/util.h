@@ -107,7 +107,6 @@ struct MtcpRestartThreadArg {
 # include <span>
 # include <system_error>
 # include <string_view>
-# include "../jalib/jassert.h"
 # include "dmtcpalloc.h"
 namespace dmtcp
 {
@@ -145,7 +144,10 @@ inline bool strEquals(const char *str, const char *pattern)
 template <typename T>
 inline bool parseInteger(std::string_view text, T *value)
 {
-  JASSERT(value != nullptr);
+  if (value == nullptr) {
+    return false;
+  }
+
   T parsedValue = {};
   auto result =
     std::from_chars(text.data(), text.data() + text.size(), parsedValue);

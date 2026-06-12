@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
-#include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 #include "dmtcp.h"
 #include "membarrier.h"
@@ -136,20 +135,24 @@ Util::glibcVersion()
   static const Version cachedVersion = [] {
     const char *versionText = gnu_get_libc_version();
     const char *dot = strchr(versionText, '.');
-    JASSERT(dot != NULL && dot != versionText && dot[1] != '\0') (versionText)
-      .Text("unsupported glibc version text");
+    ASSERT(dot != NULL && dot != versionText && dot[1] != '\0',
+           "unsupported glibc version text: version={}",
+           versionText);
 
     Version parsed = {0, 0};
-    JASSERT(parseInteger(std::string_view(versionText, dot - versionText),
-                         &parsed.major)) (versionText);
+    ASSERT(parseInteger(std::string_view(versionText, dot - versionText),
+                        &parsed.major),
+           "failed to parse glibc major version: version={}",
+           versionText);
     const char *minorStart = dot + 1;
     const char *minorEnd = strchr(minorStart, '.');
     if (minorEnd == NULL) {
       minorEnd = minorStart + strlen(minorStart);
     }
-    JASSERT(parseInteger(std::string_view(minorStart, minorEnd - minorStart),
-                         &parsed.minor))
-      (versionText);
+    ASSERT(parseInteger(std::string_view(minorStart, minorEnd - minorStart),
+                        &parsed.minor),
+           "failed to parse glibc minor version: version={}",
+           versionText);
     return parsed;
   }();
 

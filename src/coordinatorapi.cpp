@@ -684,7 +684,7 @@ sendRecvHandshake(int fd,
   sendMsgToCoordinatorRaw(fd, msg, buf, buflen);
 
   recvMsgFromCoordinatorRaw(fd, &msg);
-  JASSERT(msg.isValid());
+  msg.assertValid();
 
   if (msg.type == DMT_REJECT_NOT_RUNNING) {
     ASSERT(false,
