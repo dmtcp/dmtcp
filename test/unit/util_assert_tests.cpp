@@ -1,12 +1,14 @@
 #define DMTCP_TEST_NO_SHORT_ASSERT_MACROS
 #include "unit_test.h"
 
+#include "protectedfds.h"
 #include "util_assert.h"
 
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <csignal>
+#include <cstdio>
 #include <string>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -21,6 +23,7 @@ namespace {
 
 int hookCallCount = 0;
 int hookFd = -1;
+int hookFds[4];
 char hookBuffer[128];
 char hookBuffers[4][256];
 size_t hookLength = 0;
@@ -43,6 +46,9 @@ resetHook()
 {
   dmtcp::setLogLevel(dmtcp::LogLevel::Note);
   dmtcp::setLogOverrides("");
+  dmtcp::closeDiagnosticConsole();
+  dmtcp::initializeDiagnosticConsole(nullptr);
+  dmtcp::setDiagnosticLogFile(nullptr);
   hookCallCount = 0;
   hookFd = -1;
   hookBuffer[0] = '\0';
@@ -51,6 +57,9 @@ resetHook()
   hookInNestedWarning = false;
   for (char *buffer : hookBuffers) {
     buffer[0] = '\0';
+  }
+  for (int& fd : hookFds) {
+    fd = -1;
   }
 }
 
@@ -100,6 +109,7 @@ dmtcp_assert_write(int fd, const void *buf, size_t count)
   }
   hookCallCount++;
   hookFd = fd;
+  hookFds[slot] = fd;
   hookLength = count;
   if (hookTriggerNestedWarning && !hookInNestedWarning) {
     hookInNestedWarning = true;
@@ -321,9 +331,29 @@ void warningDiagnosticsUseAuthoritativeStderrFd()
 
   WARN(false, "stderr destination");
 
-  UNIT_ASSERT_EQ(dmtcp::kDiagnosticFd, STDERR_FILENO);
   UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_EQ(hookFd, dmtcp::kDiagnosticFd);
+  UNIT_ASSERT_EQ(hookFd, PROTECTED_STDERR_FD);
+}
+
+void warningDiagnosticsAlsoUseLogFile()
+{
+  resetHook();
+
+  char path[128];
+  std::snprintf(path, sizeof(path), "/tmp/dmtcp-util-assert-test-%ld.log",
+                static_cast<long>(getpid()));
+  unlink(path);
+
+  UNIT_ASSERT_TRUE(dmtcp::setDiagnosticLogFile(path));
+  WARN(false, "log destination");
+  dmtcp::setDiagnosticLogFile(nullptr);
+  unlink(path);
+
+  UNIT_ASSERT_EQ(hookCallCount, 2);
+  UNIT_ASSERT_EQ(hookFds[0], PROTECTED_STDERR_FD);
+  UNIT_ASSERT_TRUE(hookFds[1] != PROTECTED_STDERR_FD);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "log destination") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1], "log destination") != nullptr);
 }
 
 void warningReentryKeepsOuterDiagnosticStable()
@@ -771,7 +801,24 @@ void assertFailureExitsWithRawFailureCode()
   UNIT_ASSERT_EQ(WEXITSTATUS(status), dmtcp::kAssertFailureExitCode);
 }
 
-void assertFailureUsesRawExitPath()
+void assertFailureHonorsFailRc()
+{
+  pid_t child = fork();
+  UNIT_ASSERT_TRUE(child >= 0);
+
+  if (child == 0) {
+    unsetenv("DMTCP_ABORT_ON_FAILURE");
+    setenv("DMTCP_FAIL_RC", "17", 1);
+    ASSERT(false, "fatal");
+  }
+
+  int status = 0;
+  UNIT_ASSERT_EQ(waitpid(child, &status, 0), child);
+  UNIT_ASSERT_TRUE(WIFEXITED(status));
+  UNIT_ASSERT_EQ(WEXITSTATUS(status), 17);
+}
+
+void assertFailureHonorsAbortOnFailure()
 {
   pid_t child = fork();
   UNIT_ASSERT_TRUE(child >= 0);
@@ -784,8 +831,8 @@ void assertFailureUsesRawExitPath()
 
   int status = 0;
   UNIT_ASSERT_EQ(waitpid(child, &status, 0), child);
-  UNIT_ASSERT_TRUE(WIFEXITED(status));
-  UNIT_ASSERT_EQ(WEXITSTATUS(status), dmtcp::kAssertFailureExitCode);
+  UNIT_ASSERT_TRUE(WIFSIGNALED(status));
+  UNIT_ASSERT_EQ(WTERMSIG(status), SIGABRT);
 }
 
 } // namespace
@@ -814,6 +861,8 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
   {"diagnostic writer uses assert write hook", writeAllUsesAssertWriteHook},
   {"warning diagnostics use authoritative stderr fd",
    warningDiagnosticsUseAuthoritativeStderrFd},
+  {"warning diagnostics also use log file",
+   warningDiagnosticsAlsoUseLogFile},
   {"warning reentry keeps outer diagnostic stable",
    warningReentryKeepsOuterDiagnosticStable},
   {"warning skips message args when condition passes",
@@ -861,7 +910,9 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
   {"file override beats component override", fileOverrideBeatsComponentOverride},
   {"assert failure exits with raw failure code",
    assertFailureExitsWithRawFailureCode},
-  {"assert failure uses raw exit path", assertFailureUsesRawExitPath},
+  {"assert failure honors DMTCP_FAIL_RC", assertFailureHonorsFailRc},
+  {"assert failure honors DMTCP_ABORT_ON_FAILURE",
+   assertFailureHonorsAbortOnFailure},
 };
 
 extern const size_t utilAssertTestCount =
