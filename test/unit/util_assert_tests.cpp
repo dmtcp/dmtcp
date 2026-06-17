@@ -9,6 +9,7 @@
 #include <cstring>
 #include <csignal>
 #include <cstdio>
+#include <pthread.h>
 #include <string>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -21,14 +22,21 @@
 
 namespace {
 
+constexpr int kHookBufferCount = 128;
+constexpr int kThreadLogEntries = 4;
+
 int hookCallCount = 0;
 int hookFd = -1;
-int hookFds[4];
+int hookFds[kHookBufferCount];
 char hookBuffer[128];
-char hookBuffers[4][256];
+char hookBuffers[kHookBufferCount][256];
 size_t hookLength = 0;
 bool hookTriggerNestedWarning = false;
 bool hookInNestedWarning = false;
+
+struct ThreadLogArgs {
+  int id;
+};
 
 void
 copyHookBuffer(int slot, const void *buf, size_t count)
@@ -103,11 +111,10 @@ incrementAndReturn(int *calls)
 extern "C" ssize_t
 dmtcp_assert_write(int fd, const void *buf, size_t count)
 {
-  int slot = hookCallCount;
-  if (slot >= static_cast<int>(sizeof(hookBuffers) / sizeof(hookBuffers[0]))) {
-    slot = static_cast<int>(sizeof(hookBuffers) / sizeof(hookBuffers[0])) - 1;
+  int slot = __atomic_fetch_add(&hookCallCount, 1, __ATOMIC_RELAXED);
+  if (slot >= kHookBufferCount) {
+    slot = kHookBufferCount - 1;
   }
-  hookCallCount++;
   hookFd = fd;
   hookFds[slot] = fd;
   hookLength = count;
@@ -128,6 +135,27 @@ dmtcp_assert_write(int fd, const void *buf, size_t count)
 }
 
 namespace {
+
+void *
+emitThreadLogs(void *data)
+{
+  ThreadLogArgs *args = static_cast<ThreadLogArgs *>(data);
+  for (int entry = 0; entry < kThreadLogEntries; ++entry) {
+    NOTE("thread log id={} entry={}", args->id, entry);
+  }
+  return nullptr;
+}
+
+bool
+hookBuffersContain(const char *needle)
+{
+  for (const char *buffer : hookBuffers) {
+    if (std::strstr(buffer, needle) != nullptr) {
+      return true;
+    }
+  }
+  return false;
+}
 
 void formatCopiesLiteralText()
 {
@@ -369,6 +397,36 @@ void warningReentryKeepsOuterLogStable()
                                "outer log") != nullptr);
   UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1],
                                "inner log") != nullptr);
+}
+
+void multipleThreadsCanWriteLogs()
+{
+  resetHook();
+  dmtcp::setLogLevel(dmtcp::LogLevel::Note);
+
+  constexpr int threadCount = 4;
+  pthread_t threads[threadCount];
+  ThreadLogArgs args[threadCount];
+
+  for (int id = 0; id < threadCount; ++id) {
+    args[id].id = id;
+    UNIT_ASSERT_EQ(pthread_create(&threads[id], nullptr,
+                                  emitThreadLogs, &args[id]),
+                   0);
+  }
+  for (pthread_t thread : threads) {
+    UNIT_ASSERT_EQ(pthread_join(thread, nullptr), 0);
+  }
+
+  UNIT_ASSERT_EQ(hookCallCount, threadCount * kThreadLogEntries);
+  for (int id = 0; id < threadCount; ++id) {
+    for (int entry = 0; entry < kThreadLogEntries; ++entry) {
+      char needle[64];
+      std::snprintf(needle, sizeof(needle),
+                    "thread log id=%d entry=%d", id, entry);
+      UNIT_ASSERT_TRUE(hookBuffersContain(needle));
+    }
+  }
 }
 
 void warningDoesNotEvaluateMessageArgsWhenConditionPasses()
@@ -866,6 +924,8 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    warningLogsAlsoUseLogFile},
   {"warning reentry keeps outer log stable",
    warningReentryKeepsOuterLogStable},
+  {"multiple threads can write logs",
+   multipleThreadsCanWriteLogs},
   {"warning skips message args when condition passes",
    warningDoesNotEvaluateMessageArgsWhenConditionPasses},
   {"warning skips message args when log level disabled",
