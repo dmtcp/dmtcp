@@ -2146,7 +2146,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         for name in [
             "dmtcp2", "dmtcp3", "dmtcp4", "alarm", "sched_test",
-            "coordinator-barrier", "gettid", "file1", "file3", "stat",
+            "coordinator-barrier", "logging-runtime", "logging-quiet",
+            "logging-overrides", "gettid", "file1", "file3", "stat",
             "mmap1", "mremap", "gettimeofday", "sigchild",
             "rlimit-restore", "poll", "environ", "realpath", "pthread1",
             "pthread2", "pthread4", "pthread5", "pthread6", "mutex1",

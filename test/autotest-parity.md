@@ -32,6 +32,7 @@ or executable-path checks enable them.
 | --- | --- |
 | Harness and command protocol | `command-json-bcheckpoint`, `command-json-kill`, `command-json-quit`, `coordinator-exit-on-last`, `coordinator-replacement-worker`, `coordinator-reject-restart-while-running` |
 | Core smoke and process state | `dmtcp1`, `dmtcp1-m32`, `dmtcp1-quiet`, `dmtcp1-trace`, `dmtcp2`, `dmtcp3`, `dmtcp4`, `dmtcp5`, `alarm`, `sched_test`, `coordinator-barrier`, `gettid`, `sigchild`, `rlimit-restore`, `rlimit-nofile`, `environ`, `realpath`, `forkexec`, `vfork1`, `vfork2`, `frisbee`, `checkpoint-header`, `selinux1`, `cma`, `waitpid`, `waitid-syscall` |
+| Logging | `logging-runtime`, `logging-quiet`, `logging-overrides` |
 | File, fd, and path behavior | `file1`, `file2`, `file3`, `stat`, `mmap1`, `mremap`, `poll`, `shared-fd1`, `shared-fd2`, `stale-fd`, `procfd1`, `epoll1`, `epoll2`, `gzip` |
 | Threads and synchronization | `pthread1`, `pthread2`, `pthread3`, `pthread4`, `pthread5`, `pthread6`, `pthread_atfork1`, `pthread_atfork2`, `mutex1`, `mutex2`, `mutex3`, `mutex4`, `timer1`, `clock`, `gettimeofday` |
 | IPC, sockets, and PTY smoke | `client-server`, `seqpacket`, `ssh1`, `shared-memory1`, `shared-memory2`, `shared-memory3`, `sysv-shm1`, `sysv-shm2`, `sysv-sem`, `sysv-msg`, `posix-mq1`, `posix-mq-close-untracked`, `pty1`, `pty2` |
@@ -64,6 +65,12 @@ or executable-path checks enable them.
 | `hellompich-n1`, `hellompich-n2`, `openmpi` | Configure-flag-gated and built-artifact-gated | MPI smoke tests require configure-discovered launchers and the built MPI test binary; `openmpi` keeps the old `[5, 6]` peer-count allowance. |
 | `java1` | Configure-flag-gated and required-file-gated | Requires both `HAS_JAVA`/`HAS_JAVAC` and the built `test/java1.class` artifact. |
 | `shared-memory3` | Ported, slow | This old-disabled test now passes two checkpoint/restart cycles on the current host. It keeps the old harness's `S=10*DEFAULT_S` checkpoint settle delay. |
+
+Logging-specific limits:
+
+- `logging-runtime`: `cycles=1`; validates trace/restart logs.
+- `logging-quiet`: `cycles=0`; validates quiet suppression.
+- `logging-overrides`: `cycles=0`; validates component overrides.
 
 ## Slow Timing Parity
 

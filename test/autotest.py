@@ -211,6 +211,7 @@ class TestSpec:
     private_env_dirs: Dict[str, str] = field(default_factory=dict)
     replace_worker_index: Optional[int] = None
     reject_restart_while_running: bool = False
+    post_run_validator: Optional[Callable[["TestContext"], None]] = None
 
     def peer_counts(self) -> List[int]:
         if isinstance(self.peers, int):
@@ -463,6 +464,8 @@ class TestContext:
                 self._restart()
                 self.harness.progress("rstr-passed")
         self._complete_test()
+        if self.spec.post_run_validator is not None:
+            self.spec.post_run_validator(self)
         if self.spec.cycles == 0 and not self.spec.reject_restart_while_running:
             self.harness.progress("run-passed")
 
@@ -1075,6 +1078,65 @@ class TestContext:
                 path.unlink()
 
 
+def read_required_artifact(context: TestContext, name: str) -> str:
+    path = context.work.path / name
+    if not path.exists():
+        raise HarnessFailure("validate", f"missing artifact: {path}")
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
+def require_text(text: str, needle: str, label: str):
+    if needle not in text:
+        raise HarnessFailure("validate",
+                             f"missing {needle!r} in {label}")
+
+
+def reject_text(text: str, needle: str, label: str):
+    if needle in text:
+        raise HarnessFailure("validate",
+                             f"unexpected {needle!r} in {label}")
+
+
+def require_text_count(text: str, needle: str, minimum: int, label: str):
+    count = text.count(needle)
+    if count < minimum:
+        raise HarnessFailure(
+            "validate",
+            f"expected at least {minimum} copies of {needle!r} in {label}; "
+            f"found {count}",
+        )
+
+
+def validate_trace_logging_restart(context: TestContext):
+    log = read_required_artifact(context, "runtime.log")
+    require_text(log, "TRACE", "runtime.log")
+    require_text(log, "starting checkpoint; incrementing generation",
+                 "runtime.log")
+    require_text(log, "Checkpoint complete; all workers running",
+                 "runtime.log")
+    require_text(log, "New dmtcp_restart process", "runtime.log")
+    require_text(log, "FIRST restart connection", "runtime.log")
+    require_text_count(log, "Worker resumed execution", 2, "runtime.log")
+
+    console = (
+        read_required_artifact(context, "worker-0.out") +
+        read_required_artifact(context, "restart-1.out")
+    )
+    require_text(console, "TRACE", "worker/restart console output")
+
+
+def validate_quiet_logging(context: TestContext):
+    log = read_required_artifact(context, "quiet.log")
+    for severity in ("TRACE", "NOTE", "WARNING"):
+        reject_text(log, severity, "quiet.log")
+
+
+def validate_log_overrides(context: TestContext):
+    log = read_required_artifact(context, "override.log")
+    require_text(log, "TRACE", "override.log")
+    require_text(log, "libdmtcp.so: Running program", "override.log")
+
+
 class TestRegistry:
     DISABLED_CATEGORY = "Disabled tests"
 
@@ -1111,6 +1173,9 @@ class TestRegistry:
         "coordinator-reject-restart-while-running":
             COORDINATOR_PROTOCOL_CATEGORY,
         "coordinator-barrier": COORDINATOR_PROTOCOL_CATEGORY,
+        "logging-runtime": "Logging",
+        "logging-quiet": "Logging",
+        "logging-overrides": "Logging",
         "sched_test": "Multi-process coordination",
         "dmtcp5": "Multi-process coordination",
         "shared-fd1": "Multi-process coordination",
@@ -1360,6 +1425,42 @@ class TestRegistry:
             TestSpec("dmtcp1-quiet", 1, ["./test/dmtcp1"],
                      env={"DMTCP_QUIET": "2"},
                      list_notes=["quiet logging"]),
+            TestSpec("logging-runtime", 1, ["./test/pthread2 8"],
+                     cycles=1,
+                     pre_checkpoint_delay=0.3,
+                     env={
+                         "DMTCP_LOG_FILE": "{workdir}/runtime.log",
+                         "DMTCP_LOG_LEVEL": "trace",
+                         "JALIB_STDERR_PATH": None,
+                     },
+                     post_run_validator=validate_trace_logging_restart,
+                     tags=["logging", "pthread"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["trace log validation"]),
+            TestSpec("logging-quiet", 1, ["./test/dmtcp1"],
+                     cycles=0,
+                     env={
+                         "DMTCP_LOG_FILE": "{workdir}/quiet.log",
+                         "DMTCP_QUIET": "2",
+                     },
+                     post_run_validator=validate_quiet_logging,
+                     tags=["logging"],
+                     requirements=["real-worker"],
+                     limits=["cycles=0"],
+                     list_notes=["quiet log validation"]),
+            TestSpec("logging-overrides", 1, ["./test/dmtcp1"],
+                     cycles=0,
+                     env={
+                         "DMTCP_LOG_FILE": "{workdir}/override.log",
+                         "DMTCP_LOG_LEVEL": "error",
+                         "DMTCP_LOG_OVERRIDES": "core=trace",
+                     },
+                     post_run_validator=validate_log_overrides,
+                     tags=["logging"],
+                     requirements=["real-worker"],
+                     limits=["cycles=0"],
+                     list_notes=["component log override"]),
             TestSpec("command-json-kill", 1, ["./test/dmtcp1"], cycles=0,
                      limits=["cycles=0"]),
             TestSpec("command-json-quit", 1, ["./test/dmtcp1"], cycles=0,
