@@ -115,7 +115,7 @@ ConnectionRewirer::checkForPendingIncoming(int restoreSockFd,
 
     (i->second)->restoreDupFds(fd);
 
-    TRACE("restoring incoming connection (id = {};)", id);
+    TRACE("Restored incoming socket connection: con_id={}", id.toString());
     conList->erase(i);
   }
 }
@@ -131,9 +131,13 @@ ConnectionRewirer::doReconnect()
     struct RemoteAddr &remoteAddr = _remoteInfo[id];
     int fd = con->getFds()[0];
     errno = 0;
-    ASSERT_NE(-1, _real_connect(fd, (sockaddr *)&remoteAddr.addr, remoteAddr.len),
-      "failed to restore connection: fd={} host={} pid={} time={} con_id={}",
-      fd, id.hostid(), id.pid(), id.time(), id.conId());
+    ASSERT_NE(-1,
+              _real_connect(fd,
+                            (sockaddr *)&remoteAddr.addr,
+                            remoteAddr.len),
+              "failed to restore connection: fd={} host={} pid={} time={} "
+              "con_id={}",
+              fd, id.hostid(), id.pid(), id.time(), id.conId());
 
     Util::writeAll(fd, &id, sizeof id);
 
@@ -211,7 +215,9 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     _ip4RestoreAddr.sin_port = htons(restoreSocket.port());
     _ip4RestoreAddrlen = sizeof(_ip4RestoreAddr);
 
-    TRACE("opened listen socket (restoreSocket.sockfd() = {};) (inet_ntoa(_ip4RestoreAddr.sin_addr) = {};) (ntohs(_ip4RestoreAddr.sin_port) = {};)", restoreSocket.sockfd(), inet_ntoa(_ip4RestoreAddr.sin_addr), ntohs(_ip4RestoreAddr.sin_port));
+    TRACE("Opened IPv4 restore listener: fd={} ip={} port={}",
+          restoreSocket.sockfd(), inet_ntoa(_ip4RestoreAddr.sin_addr),
+          ntohs(_ip4RestoreAddr.sin_port));
     markSocketNonBlocking(PROTECTED_RESTORE_IP4_SOCK_FD);
   }
 
@@ -239,7 +245,8 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
                  "listen failed for IPv6 restore socket: fd={}", ip6fd);
     Util::changeFd(ip6fd, PROTECTED_RESTORE_IP6_SOCK_FD);
 
-    TRACE("opened ip6 listen socket (PROTECTED_RESTORE_IP6_SOCK_FD = {};)", PROTECTED_RESTORE_IP6_SOCK_FD);
+    TRACE("Opened IPv6 restore listener: fd={}",
+          PROTECTED_RESTORE_IP6_SOCK_FD);
     markSocketNonBlocking(PROTECTED_RESTORE_IP6_SOCK_FD);
   }
 
@@ -265,7 +272,9 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
                  "listen failed for UDS restore socket: fd={}", udsfd);
     Util::changeFd(udsfd, PROTECTED_RESTORE_UDS_SOCK_FD);
 
-    TRACE("opened UDS listen socket (PROTECTED_RESTORE_UDS_SOCK_FD = {};) (&_udsRestoreAddr.sun_path[1] = {};)", PROTECTED_RESTORE_UDS_SOCK_FD, &_udsRestoreAddr.sun_path[1]);
+    TRACE("Opened UDS restore listener: fd={} path={}",
+          PROTECTED_RESTORE_UDS_SOCK_FD,
+          &_udsRestoreAddr.sun_path[1]);
     markSocketNonBlocking(PROTECTED_RESTORE_UDS_SOCK_FD);
 
     // Also open a seqpacket listener for AF_UNIX SOCK_SEQPACKET reconnections
@@ -293,7 +302,9 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
                  udsseqfd);
     Util::changeFd(udsseqfd, PROTECTED_RESTORE_UDS_SEQ_SOCK_FD);
 
-    TRACE("opened UDS SEQPACKET listen socket (PROTECTED_RESTORE_UDS_SEQ_SOCK_FD = {};) (&_udsSeqRestoreAddr.sun_path[1] = {};)", PROTECTED_RESTORE_UDS_SEQ_SOCK_FD, &_udsSeqRestoreAddr.sun_path[1]);
+    TRACE("Opened UDS SEQPACKET restore listener: fd={} path={}",
+          PROTECTED_RESTORE_UDS_SEQ_SOCK_FD,
+          &_udsSeqRestoreAddr.sun_path[1]);
     markSocketNonBlocking(PROTECTED_RESTORE_UDS_SEQ_SOCK_FD);
   }
 }
@@ -327,7 +338,7 @@ ConnectionRewirer::registerIncoming(const ConnectionIdentifier &local,
     ASSERT(false, "Unsupported incoming connection domain: domain={}", domain);
   }
 
-  TRACE("announcing pending incoming (local = {};)", local);
+  TRACE("Announcing pending incoming socket: con_id={}", local.toString());
 }
 
 void
@@ -335,7 +346,8 @@ ConnectionRewirer::registerOutgoing(const ConnectionIdentifier &remote,
                                     Connection *con)
 {
   _pendingOutgoing[remote] = con;
-  TRACE("announcing pending outgoing (remote = {};)", remote);
+  TRACE("Announcing pending outgoing socket: remote_con_id={}",
+        remote.toString());
 }
 
 void
@@ -364,12 +376,6 @@ ConnectionRewirer::registerNSData(void *addr,
     string addrStr = dmtcp::base64::encode((const char*) addr, addrLen);
     dmtcp::kvdb::set(PeerDiscoveryDbRestart, id.toString(), addrStr);
 
-    /*
-    sockaddr_in *sn = (sockaddr_in*) &_restoreAddr;
-    unsigned short port = htons(sn->sin_port);
-    char *ip = inet_ntoa(sn->sin_addr);
-    TRACE("Send NS information: (id = {};) (sn->sin_family = {};) (port = {};) (ip = {};)", id, sn->sin_family, port, ip);
-    */
   }
 
   // debugPrint();
@@ -403,12 +409,6 @@ ConnectionRewirer::sendQueries()
     remote.len = static_cast<socklen_t>(valBinary.size());
     memcpy(&remote.addr, valBinary.data(), remote.len);
 
-    /*
-    sockaddr_in *sn = (sockaddr_in*) &remote.addr;
-    unsigned short port = htons(sn->sin_port);
-    char *ip = inet_ntoa(sn->sin_addr);
-    TRACE("Send Queries. Get remote from coordinator: (id = {};) (sn->sin_family = {};) (port = {};) (ip = {};)", id, sn->sin_family, port, ip);
-    */
     _remoteInfo[id] = remote;
   }
 }
@@ -431,6 +431,6 @@ ConnectionRewirer::debugPrint() const
     o << i->first << " numFds=" << con->getFds().size()
       << " firstFd=" << con->getFds()[0] << '\n';
   }
-  NOTE("Pending connections (o.str() = {};)", o.str());
+  NOTE("Pending socket connections:\n{}", o.str());
 }
 #endif // if 0

@@ -154,10 +154,8 @@ tcsetpgrp(int fd, pid_t pgrp)
   WrapperLock wrapperLock;
   pid_t currPgrp = dmtcp_pid_virtual_to_real(pgrp);
 
-  // TRACE("Inside tcsetpgrp wrapper (fd = {};) (pgrp = {};) (currPgrp = {};)", fd, pgrp, currPgrp);
   int ret = _real_tcsetpgrp(fd, currPgrp);
 
-  // TRACE("tcsetpgrp return value (fd = {};) (pgrp = {};) (currPgrp = {};) (retval = {};)", fd, pgrp, currPgrp, retval);
   return ret;
 }
 
@@ -171,7 +169,7 @@ tcgetpgrp(int fd)
   WrapperLock wrapperLock;
   pid_t retval = dmtcp_pid_real_to_virtual(_real_tcgetpgrp(fd));
 
-  TRACE("tcgetpgrp return value (fd = {};) (retval = {};)", fd, retval);
+  TRACE("Translated tcgetpgrp result: fd={} pgrp={}", fd, retval);
 
   return retval;
 }
@@ -186,7 +184,7 @@ tcgetsid(int fd)
   WrapperLock wrapperLock;
   pid_t retval = dmtcp_pid_real_to_virtual(_real_tcgetsid(fd));
 
-  TRACE("tcgetsid return value (fd = {};) (retval = {};)", fd, retval);
+  TRACE("Translated tcgetsid result: fd={} sid={}", fd, retval);
 
   return retval;
 }

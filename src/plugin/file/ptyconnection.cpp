@@ -235,7 +235,9 @@ PtyConnection::PtyConnection(int fd,
       SharedData::createVirtualPtyName(path, buf, sizeof(buf));
     }
     _virtPtsName = buf;
-    TRACE("creating CTTY connection (_ptsName = {};) (_virtPtsName = {};)", _ptsName, _virtPtsName);
+    TRACE("Creating controlling-terminal connection: real_pts={} "
+          "virt_pts={}",
+          _ptsName, _virtPtsName);
 
     break;
 
@@ -258,7 +260,8 @@ PtyConnection::PtyConnection(int fd,
     // Generate new Unique buf
     SharedData::createVirtualPtyName(_ptsName.c_str(), buf, sizeof(buf));
     _virtPtsName = buf;
-    TRACE("creating ptmx connection (_ptsName = {};) (_virtPtsName = {};)", _ptsName, _virtPtsName);
+    TRACE("Creating PTY master connection: real_pts={} virt_pts={}",
+          _ptsName, _virtPtsName);
     break;
 
   case PTY_SLAVE:
@@ -266,7 +269,8 @@ PtyConnection::PtyConnection(int fd,
     SharedData::getVirtPtyName(path, buf, sizeof(buf));
     _virtPtsName = buf;
     ASSERT(strlen(buf) != 0, "missing virtual PTY name: path={}", path);
-    TRACE("creating pts connection (_ptsName = {};) (_virtPtsName = {};)", _ptsName, _virtPtsName);
+    TRACE("Creating PTY slave connection: real_pts={} virt_pts={}",
+          _ptsName, _virtPtsName);
     break;
 
   case PTY_BSD_MASTER:
@@ -309,7 +313,8 @@ PtyConnection::drain()
     // _fds[0] is master fd
     numRead = ptmxReadAll(_fds[0], buf, maxCount);
     _ptmxIsPacketMode = ptmxTestPacketMode(_fds[0]);
-    TRACE("_fds[0] is master(/dev/ptmx) (_fds[0] = {};) (_ptmxIsPacketMode = {};)", _fds[0], _ptmxIsPacketMode);
+    TRACE("Drained PTY master before checkpoint: fd={} packet_mode={}",
+          _fds[0], _ptmxIsPacketMode);
     numWritten = ptmxWriteAll(_fds[0], buf, _ptmxIsPacketMode);
     ASSERT(numRead == numWritten,
            "PTY drain/read-back mismatch: read={} written={}", numRead,
@@ -353,7 +358,8 @@ PtyConnection::refill(bool isRestart)
     ASSERT_NE(-1, tempfd, "Error Opening PTS: virt={} pts={}",
                         _virtPtsName, _ptsName);
 
-    TRACE("Restoring PTS real (_ptsName = {};) (_virtPtsName = {};) (_fds[0] = {};)", _ptsName, _virtPtsName, _fds[0]);
+    TRACE("Restoring PTY slave: real_pts={} virt_pts={} fd={}",
+          _ptsName, _virtPtsName, _fds[0]);
     restoreDupFds(tempfd);
   }
 
@@ -367,7 +373,7 @@ PtyConnection::refill(bool isRestart)
     ASSERT_NE(-1, tempfd,
                         "Error opening controlling terminal /dev/tty");
 
-    TRACE("Restoring /dev/tty for the process (_fds[0] = {};)", _fds[0]);
+    TRACE("Restoring controlling terminal /dev/tty: fd={}", _fds[0]);
     _ptsName = _virtPtsName = "/dev/tty";
     restoreDupFds(tempfd);
   }
@@ -388,7 +394,8 @@ PtyConnection::postRestart()
     case PTY_INVALID:
 
       // tempfd = _real_open("/dev/null", O_RDWR);
-      TRACE("Restoring invalid PTY. (id() = {};)", id());
+      TRACE("Skipping invalid PTY during restart: con_id={}",
+            id().toString());
       return;
 
     case PTY_CTTY:
@@ -425,7 +432,8 @@ PtyConnection::postRestart()
         if (_type == PTY_CTTY) {
           TRACE("Unable to restore controlling terminal attached with the "
                  "parent process.\n"
-                 "Replacing it with current STDIN (stdinDeviceName = {};)", stdinDeviceName);
+                 "Replacing it with current STDIN: stdin={}",
+                 stdinDeviceName);
         } else {
           WARN(false,
                   "Unable to restore controlling terminal attached with the "
@@ -446,7 +454,8 @@ PtyConnection::postRestart()
         }
       }
 
-      TRACE("Restoring parent CTTY for the process (controllingTty = {};) (_fds[0] = {};)", controllingTty, _fds[0]);
+      TRACE("Restoring parent controlling terminal: tty={} fd={}",
+            controllingTty, _fds[0]);
 
       _ptsName = controllingTty;
       SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
@@ -476,12 +485,14 @@ PtyConnection::postRestart()
         ioctl(_fds[0], TIOCPKT, &packetMode);     /* Restore old packet mode */
       }
 
-      TRACE("Restoring /dev/ptmx (_fds[0] = {};) (_ptsName = {};) (_virtPtsName = {};)", _fds[0], _ptsName, _virtPtsName);
+      TRACE("Restoring PTY master /dev/ptmx: fd={} real_pts={} virt_pts={}",
+            _fds[0], _ptsName, _virtPtsName);
       break;
     }
     case PTY_BSD_MASTER:
     {
-      TRACE("Restoring BSD Master Pty (_masterName = {};) (_fds[0] = {};)", _masterName, _fds[0]);
+      TRACE("Restoring BSD PTY master: master={} fd={}",
+            _masterName, _fds[0]);
 
       // string slaveDeviceName =
       // _masterName.replace(0, strlen("/dev/pty"), "/dev/tty");
@@ -520,5 +531,6 @@ PtyConnection::serializeSubClass(jalib::JBinarySerializer &o)
   JSERIALIZE_ASSERT_POINT("PtyConnection");
   o&_ptsName&_virtPtsName&_masterName &_type;
   o&_flags&_mode &_preExistingCTTY;
-  TRACE("Serializing PtyConn. (_ptsName = {};) (_virtPtsName = {};)", _ptsName, _virtPtsName);
+  TRACE("Serializing PTY connection: real_pts={} virt_pts={}",
+        _ptsName, _virtPtsName);
 }

@@ -150,7 +150,8 @@ SocketConnList::drain()
     const ConnectionIdentifier &id = it->first;
     TcpConnection *con =
       (TcpConnection *)SocketConnList::instance().getConnection(id);
-    TRACE("recreating disconnected socket (id = {};)", id);
+    TRACE("Recreating disconnected socket as dead socket: con_id={}",
+          id.toString());
 
     // reading from the socket, and taking the error, resulted in an
     // implicit close().
@@ -270,7 +271,8 @@ SocketConnList::scanForPreExisting()
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
-    TRACE("scanning pre-existing device (fd = {};) (device = {};)", fd, device);
+    TRACE("Scanning pre-existing socket descriptor: fd={} device={}",
+          fd, device);
     if (device ==
         jalib::Filesystem::GetControllingTerm()) {} else if (dmtcp_is_bq_file &&
                                                              dmtcp_is_bq_file(
@@ -278,7 +280,8 @@ SocketConnList::scanForPreExisting()
     {} else if (fd <=
                 2)
     {} else if (Util::strStartsWith(device.c_str(), "/")) {} else {
-      NOTE("found pre-existing socket... will not be restored (fd = {};) (device = {};)", fd, device);
+      NOTE("Pre-existing socket will not be restored: fd={} device={}",
+           fd, device);
       TcpConnection *con = new TcpConnection(0, 0, 0);
       con->markPreExisting();
       add(fd, con);

@@ -181,9 +181,10 @@ FileConnection::drain()
   if (_type == FILE_BATCH_QUEUE &&
       dmtcp_bq_should_ckpt_file &&
       dmtcp_bq_should_ckpt_file(_path.c_str(), &_rmtype)) {
-    TRACE("Pre-checkpoint Torque files (_fds.size() = {};)", _fds.size());
+    TRACE("Pre-checkpoint batch-queue file: path={} fd_count={}",
+          _path, _fds.size());
     for (unsigned int i = 0; i < _fds.size(); i++) {
-      TRACE("_fds[i]= (i = {};) (_fds[i] = {};)", i, _fds[i]);
+      TRACE("Batch-queue file descriptor: index={} fd={}", i, _fds[i]);
     }
     _ckpted_file = true;
     return;
@@ -250,7 +251,8 @@ FileConnection::preCkpt()
                           "saved={}",
                           _path, _savedFilePath);
 
-      TRACE("Saving checkpointed copy of the file (_path = {};) (_savedFilePath = {};)", _path, _savedFilePath);
+      TRACE("Saving checkpointed file copy: path={} saved={}",
+            _path, _savedFilePath);
       if (_fcntlFlags & O_WRONLY) {
         // If the file is opened() in write-only mode. Open it in readonly mode
         // to create the ckpt copy.
@@ -266,7 +268,8 @@ FileConnection::preCkpt()
       }
       _real_close(destFd);
     } else {
-      TRACE("Not checkpointing this file (_path = {};)", _path);
+      TRACE("Not checkpointing file; another process owns the copy: path={}",
+            _path);
       _ckpted_file = false;
     }
 
@@ -340,7 +343,9 @@ FileConnection::refill(bool isRestart)
                         _savedFilePath);
 
     if (_allow_overwrite) {
-      TRACE("Copying checkpointed file to original location (_savedFilePath = {};) (_path = {};)", _savedFilePath, _path);
+      TRACE("Copying checkpointed file to original location: saved={} "
+            "path={}",
+            _savedFilePath, _path);
       this->overwriteFileWithBackup(savedFd);
     } else {
       if (!areFilesEqual(_fds[0], savedFd, _st_size)) {
@@ -385,7 +390,9 @@ FileConnection::refill(bool isRestart)
           //
           // Plugins can use this API to preserve file contents at restart.
           if (!dmtcp_skip_truncate_file_at_restart(_path.c_str())) {
-            TRACE("Truncating file to ckpt-size (_path = {};) (_st_size = {};) (statbuf.st_size = {};)", _path, _st_size, statbuf.st_size);
+            TRACE("Truncating file to checkpointed size: path={} "
+                  "saved_size={} current_size={}",
+                  _path, _st_size, statbuf.st_size);
             ASSERT_NE(-1, truncate(_path.c_str(), _st_size),
                          "truncate failed: path={} size={}", _path, _st_size);
           } else {
@@ -425,16 +432,14 @@ FileConnection::refill(bool isRestart)
       stat(_path.c_str(), &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
     if (_offset <= statbuf.st_size && _offset <= _st_size) {
       ASSERT_EQ(static_cast<off_t>(_offset),
-                            lseek(_fds[0], _offset, SEEK_SET),
-                            "failed to restore file offset: path={} offset={}",
-                            _path, _offset);
-
-      // TRACE("lseek(_fds[0], _offset, SEEK_SET) (_fds[0] = {};) (_offset = {};)", _fds[0], _offset);
+                lseek(_fds[0], _offset, SEEK_SET),
+                "failed to restore file offset: path={} offset={}",
+                _path, _offset);
     } else if (_offset > statbuf.st_size || _offset > _st_size) {
       WARN(false,
-              "No lseek done: offset is larger than min of old and new size: "
-              "path={} offset={} saved_size={} current_size={}",
-              _path, _offset, _st_size, statbuf.st_size);
+           "No lseek done: offset is larger than min of old and new size: "
+           "path={} offset={} saved_size={} current_size={}",
+           _path, _offset, _st_size, statbuf.st_size);
     }
   }
   refreshPath();
@@ -467,9 +472,12 @@ FileConnection::refreshPath()
   if (_type == FILE_BATCH_QUEUE) {
     // get new file name
     string newpath = jalib::Filesystem::GetDeviceName(_fds[0]);
-    TRACE("This is Resource Manager file! (_fds[0] = {};) (newpath = {};) (_path = {};) (this = {};)", _fds[0], newpath, _path, this);
+    TRACE("Refreshing batch-queue file path: fd={} old_path={} new_path={} "
+          "connection={}",
+          _fds[0], _path, newpath, this);
     if (newpath != _path) {
-      TRACE("File Manager connection _path is changed => _path = newpath! (_path = {};) (newpath = {};)", _path, newpath);
+      TRACE("Batch-queue file path changed: old_path={} new_path={}",
+            _path, newpath);
       _path = newpath;
     }
     return;
@@ -494,7 +502,9 @@ FileConnection::refreshPath()
     string fullPath = cwd + "/" + _rel_path;
     if (jalib::Filesystem::FileExists(fullPath)) {
       _path = fullPath;
-      TRACE("Change _path based on relative path (oldPath = {};) (_path = {};) (_rel_path = {};)", oldPath, _path, _rel_path);
+      TRACE("Resolved file path from saved relative path: old_path={} "
+            "new_path={} relative_path={}",
+            oldPath, _path, _rel_path);
     }
   } else if (_type == FILE_PROCFS) {
     // No need to refresh path. PID plugin will take care of the translation.
@@ -515,7 +525,8 @@ FileConnection::postRestart()
   }
   _fileAlreadyExists = false;
 
-  TRACE("Restoring File Connection (id() = {};) (_path = {};)", id(), _path);
+  TRACE("Restoring file connection: con_id={} path={}",
+        id().toString(), _path);
   ASSERT(jalib::Filesystem::FileExists(_savedFilePath),
          "Unable to find checkpointed copy of file: saved={} path={}",
          _savedFilePath, _path);
@@ -525,7 +536,7 @@ FileConnection::postRestart()
                         "batch-queue restore hook is missing");
     tempfd = dmtcp_bq_restore_file(_path.c_str(), _savedFilePath.c_str(),
                                    _fcntlFlags, _rmtype);
-    TRACE("Restore Resource Manager File (_path = {};)", _path);
+    TRACE("Restored batch-queue file: path={}", _path);
   } else {
     refreshPath();
     ASSERT(FileConnList::createDirectoryTree(_path),
@@ -552,7 +563,9 @@ FileConnection::postRestart()
                           "Failed to open checkpointed copy of the file: "
                           "path={} saved={}",
                           _path, _savedFilePath);
-      TRACE("Copying saved checkpointed file to original location (_savedFilePath = {};) (_path = {};)", _savedFilePath, _path);
+      TRACE("Copying saved checkpointed file to original location: saved={} "
+            "path={}",
+            _savedFilePath, _path);
       writeFileFromFd(srcFd, fd);
       _real_close(srcFd);
       _real_close(fd);
@@ -598,7 +611,8 @@ FileConnection::openFile()
                       _fcntlFlags);
   ASSERT_NE(-1, fd, "open() failed: path={}", _path);
 
-  TRACE("open(_path.c_str(), _fcntlFlags) (fd = {};) (_path.c_str() = {};) (realPath = {};) (_fcntlFlags = {};)", fd, _path.c_str(), realPath, _fcntlFlags);
+  TRACE("Opened tracked file: fd={} path={} real_path={} flags={}",
+        fd, _path, realPath, _fcntlFlags);
   return fd;
 }
 
@@ -694,7 +708,10 @@ FileConnection::serializeSubClass(jalib::JBinarySerializer &o)
   JSERIALIZE_ASSERT_POINT("FileConnection");
   o&_path &_rel_path;
   o&_mode &_offset&_st_dev&_st_ino&_st_size&_ckpted_file &_rmtype;
-  TRACE("Serializing FileConn. (_path = {};) (_rel_path = {};) (dmtcp_get_ckpt_files_subdir() = {};) (_ckpted_file = {};) (_allow_overwrite = {};) (_fcntlFlags = {};)", _path, _rel_path, dmtcp_get_ckpt_files_subdir(), _ckpted_file, _allow_overwrite, _fcntlFlags);
+  TRACE("Serializing file connection: path={} relative_path={} "
+        "ckpt_files_dir={} checkpointed={} allow_overwrite={} flags={}",
+        _path, _rel_path, dmtcp_get_ckpt_files_subdir(), _ckpted_file,
+        _allow_overwrite, _fcntlFlags);
 }
 
 /*****************************************************************************
@@ -708,7 +725,7 @@ FifoConnection::drain()
   ASSERT(_fds.size() > 0, "FIFO connection has no fds during drain");
 
   stat(_path.c_str(), &st);
-  TRACE("Checkpoint fifo. (_fds[0] = {};)", _fds[0]);
+  TRACE("Checkpointing FIFO: fd={} path={}", _fds[0], _path);
   _mode = st.st_mode;
 
   int new_flags = (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR |
@@ -732,7 +749,8 @@ FifoConnection::drain()
     }
   }
   close(ckptfd);
-  TRACE("Checkpointing fifo:  end. (_fds[0] = {};) (_in_data.size() = {};)", _fds[0], _in_data.size());
+  TRACE("Finished checkpointing FIFO: fd={} buffered_bytes={}",
+        _fds[0], _in_data.size());
 }
 
 void
@@ -763,7 +781,7 @@ FifoConnection::refill(bool isRestart)
   }
   errno = 0;
   buf[j] = '\0';
-  TRACE("Buf internals. ((const char *)buf = {};)", (const char *)buf);
+  TRACE("Refilling FIFO tail: fd={} bytes={}", _fds[0], j);
   ASSERT_EQ(static_cast<ssize_t>(j),
                         Util::writeAll(ckptfd, buf, j),
                         "failed to refill FIFO tail: fd={}", _fds[0]);
@@ -772,7 +790,7 @@ FifoConnection::refill(bool isRestart)
 
   // unlock fifo
   flock(_fds[0], LOCK_UN);
-  TRACE("End checkpointing fifo. (_fds[0] = {};)", _fds[0]);
+  TRACE("Finished refilling FIFO after checkpoint: fd={}", _fds[0]);
 }
 
 void
@@ -786,7 +804,9 @@ FifoConnection::refreshPath()
     fullPath << cwd << "/" << _rel_path;
     if (jalib::Filesystem::FileExists(fullPath.str())) {
       _path = fullPath.str();
-      TRACE("Change _path based on relative path (oldPath = {};) (_path = {};)", oldPath, _path);
+      TRACE("Resolved FIFO path from saved relative path: old_path={} "
+            "new_path={}",
+            oldPath, _path);
     }
   }
 }
@@ -795,7 +815,8 @@ void
 FifoConnection::postRestart()
 {
   ASSERT(_fds.size() > 0, "FIFO connection has no fds during postRestart");
-  TRACE("Restoring Fifo Connection (id() = {};) (_path = {};)", id(), _path);
+  TRACE("Restoring FIFO connection: con_id={} path={}",
+        id().toString(), _path);
   refreshPath();
   int tempfd = openFile();
   restoreDupFds(tempfd);
@@ -808,16 +829,16 @@ FifoConnection::openFile()
   int fd;
 
   if (!jalib::Filesystem::FileExists(_path)) {
-    TRACE("Fifo file not present, creating new one (_path = {};)", _path);
+    TRACE("FIFO path missing after restart; recreating it: path={}", _path);
     dmtcp::string dir = jalib::Filesystem::DirName(_path);
-    TRACE("fifo dir: (dir = {};)", dir);
+    TRACE("Creating FIFO parent directory: dir={}", dir);
     jalib::Filesystem::mkdir_r(dir, 0755);
     mkfifo(_path.c_str(), _mode);
-    TRACE("mkfifo (_path.c_str() = {};) (errno = {};)", _path.c_str(), errno);
+    TRACE("Created FIFO path: path={} errno={}", _path, errno);
   }
 
   fd = _real_open(_path.c_str(), O_RDWR | O_NONBLOCK);
-  TRACE("Is opened (_path.c_str() = {};) (fd = {};)", _path.c_str(), fd);
+  TRACE("Opened FIFO after restart: path={} fd={}", _path, fd);
 
   ASSERT_NE(-1, fd, "failed to open FIFO after restart: path={}", _path);
   return fd;
@@ -828,7 +849,9 @@ FifoConnection::serializeSubClass(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("FifoConnection");
   o&_path&_rel_path&_savedRelativePath&_mode &_in_data;
-  TRACE("Serializing FifoConn. (_path = {};) (_rel_path = {};) (_savedRelativePath = {};)", _path, _rel_path, _savedRelativePath);
+  TRACE("Serializing FIFO connection: path={} relative_path={} "
+        "saved_relative_path={}",
+        _path, _rel_path, _savedRelativePath);
 }
 
 /*****************************************************************************
@@ -840,30 +863,31 @@ StdioConnection::postRestart()
   for (size_t i = 0; i < _fds.size(); ++i) {
     int fd = _fds[i];
     if (fd <= 2) {
-      TRACE("Skipping restore of STDIO, just inherit from parent (fd = {};)", fd);
+      TRACE("Skipping stdio restore; inheriting parent fd: fd={}",
+            fd);
       continue;
     }
     int oldFd = -1;
     switch (_type) {
     case STDIO_IN:
-      TRACE("Restoring STDIN (fd = {};)", fd);
+      TRACE("Restoring STDIN mapping: fd={}", fd);
       oldFd = 0;
       break;
     case STDIO_OUT:
-      TRACE("Restoring STDOUT (fd = {};)", fd);
+      TRACE("Restoring STDOUT mapping: fd={}", fd);
       oldFd = 1;
       break;
     case STDIO_ERR:
-      TRACE("Restoring STDERR (fd = {};)", fd);
+      TRACE("Restoring STDERR mapping: fd={}", fd);
       oldFd = 2;
       break;
     default:
-      ASSERT(false, "invalid stdio connection type: type={}", _type);
+      ASSERT(false, "Invalid stdio connection type: type={}", _type);
     }
     errno = 0;
     WARN_EQ(fd,
                            _real_dup2(oldFd, fd),
-                           "failed to restore stdio fd: old_fd={} fd={}",
+                           "Failed to restore stdio fd: old_fd={} fd={}",
                            oldFd, fd);
   }
 }
@@ -923,7 +947,7 @@ PosixMQConnection::drain()
 {
   ASSERT(_fds.size() > 0, "POSIX MQ connection has no fds during drain");
 
-  TRACE("Checkpoint Posix Message Queue. (_fds[0] = {};)", _fds[0]);
+  TRACE("Checkpointing POSIX message queue: fd={}", _fds[0]);
 
   struct stat statbuf;
   ASSERT_NE(-1, fstat(_fds[0], &statbuf),

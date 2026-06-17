@@ -251,7 +251,9 @@ shmget(key_t key, size_t size, int shmflg)
   if (realId != -1) {
     SysVShm::instance().on_shmget(realId, realKey, key, size, shmflg);
     virtId = REAL_TO_VIRTUAL_SHM_ID(realId);
-    TRACE("Creating new Shared memory segment (key = {};) (size = {};) (shmflg = {};) (realId = {};) (virtId = {};)", key, size, shmflg, realId, virtId);
+    TRACE("Created SysV shared-memory segment: key={} size={} flags={} "
+          "real_shmid={} virt_shmid={}",
+          key, size, shmflg, realId, virtId);
   }
   return virtId;
 }
@@ -305,7 +307,9 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
 
   if (ret != (void *)-1) {
     SysVShm::instance().on_shmat(shmid, shmaddr, shmflg, ret);
-    TRACE("Mapping Shared memory segment (shmid = {};) (realShmid = {};) (shmflg = {};) (ret = {};)", shmid, realShmid, shmflg, ret);
+    TRACE("Attached SysV shared-memory segment: virt_shmid={} "
+          "real_shmid={} flags={} addr={}",
+          shmid, realShmid, shmflg, ret);
   }
   return ret;
 }
@@ -332,7 +336,7 @@ shmdt(const void *shmaddr)
   int ret = _real_shmdt(shmaddr);
   if (ret != -1) {
     SysVShm::instance().on_shmdt(shmaddr);
-    TRACE("Unmapping Shared memory segment (shmaddr = {};)", shmaddr);
+    TRACE("Detached SysV shared-memory segment: addr={}", shmaddr);
   }
   inside_shmdt = false;
   return ret;
@@ -419,7 +423,8 @@ semget(key_t key, int nsems, int semflg)
   if (realId != -1) {
     SysVSem::instance().on_semget(realId, key, nsems, semflg);
     virtId = REAL_TO_VIRTUAL_SEM_ID(realId);
-    TRACE("Creating new SysV Semaphore (key = {};) (nsems = {};) (semflg = {};)", key, nsems, semflg);
+    TRACE("Created SysV semaphore set: key={} sem_count={} flags={}",
+          key, nsems, semflg);
   }
   return virtId;
 }
@@ -567,7 +572,8 @@ msgget(key_t key, int msgflg)
   if (realId != -1) {
     SysVMsq::instance().on_msgget(realId, key, msgflg);
     virtId = REAL_TO_VIRTUAL_MSQ_ID(realId);
-    TRACE("Creating new SysV Msg Queue (key = {};) (msgflg = {};)", key, msgflg);
+    TRACE("Created SysV message queue: key={} flags={}",
+          key, msgflg);
   }
   return virtId;
 }
@@ -609,7 +615,7 @@ msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
 
     nanosleep(&ts_100ms, NULL);
   }
-  ASSERT(false, "Not Reached");
+  ASSERT(false, "unreachable after msgsnd retry loop");
   return -1;
 }
 
@@ -650,7 +656,7 @@ msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
 
     nanosleep(&ts_100ms, NULL);
   }
-  ASSERT(false, "Not Reached");
+  ASSERT(false, "unreachable after msgrcv retry loop");
   return -1;
 }
 

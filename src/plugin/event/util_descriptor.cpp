@@ -69,21 +69,21 @@ Util::Descriptor::Descriptor()
     descriptor_counter = 0;
     is_initialized = true;
 
-    TRACE(" initializing the Descriptor class object");
+    TRACE("Initializing descriptor store");
 
     // allocate memory for MAX_DESCRIPTORS that would be stored
     for (int i = 0; i < MAX_DESCRIPTORS; i++) {
       // TODO: Is this a potential memory leak? Should this class be a proper singleton instead?
       void *mem_ptr = JALLOC_MALLOC(sizeof(descriptor_types_u));
       if (MAP_FAILED == mem_ptr) {
-        TRACE("memory allocation failed!");
+        TRACE("Failed to allocate descriptor storage");
         break;
       } else {
         descrip_types_p[i] = (descriptor_types_u *)mem_ptr;
       }
     }
   } else {
-    TRACE(" object has been initialized before");
+    TRACE("Descriptor store is already initialized");
   }
 }
 
@@ -99,7 +99,7 @@ Util::Descriptor::Descriptor()
 Util::Descriptor::~Descriptor()
 {
   if (true == is_initialized) {
-    TRACE("Destructor being called");
+    TRACE("Destroying descriptor store");
   }
 }
 
@@ -117,12 +117,13 @@ Util::Descriptor::add_descriptor(descriptor_types_u *descriptor)
 {
   ASSERT_NOT_NULL(descriptor);
   if (descriptor_counter < MAX_DESCRIPTORS) {
-    TRACE("Adding new descriptor (descriptor_counter = {};) (descrip_types_p[descriptor_counter] = {};)", descriptor_counter, descrip_types_p[descriptor_counter]);
+    TRACE("Adding saved descriptor: index={} storage={}",
+          descriptor_counter, descrip_types_p[descriptor_counter]);
     memcpy(descrip_types_p[descriptor_counter],
            descriptor, sizeof(descriptor_types_u));
     descriptor_counter++;
   } else {
-    TRACE("No more memory to store additional descriptors");
+    TRACE("Descriptor store is full: max_descriptors={}", MAX_DESCRIPTORS);
   }
 }
 
@@ -165,7 +166,7 @@ Util::Descriptor::remove_descriptor(descriptor_type_e type, void *descriptor)
   }
   default:
   {
-    TRACE("Unknown descriptor type (type = {};)", type);
+    TRACE("Unknown descriptor type: type={}", type);
     break;
   }
   }
@@ -193,12 +194,13 @@ Util::Descriptor::get_descriptor(unsigned int index,
   bool ret_val = false;
 
   ASSERT_NOT_NULL(descriptor);
-  TRACE("get descriptor (index = {};) (type = {};)", index, type);
+  TRACE("Looking up saved descriptor: index={} type={}", index, type);
   if ((descrip_types_p[index])->add_watch.type == type) {
     memcpy(descriptor, descrip_types_p[index], sizeof(descriptor_types_u));
     ret_val = true;
   } else {
-    TRACE("descriptor type is different from type saved (type = {};) ((descrip_types_p[index])->add_watch.type = {};)", type, (descrip_types_p[index])->add_watch.type);
+    TRACE("Saved descriptor type mismatch: requested_type={} saved_type={}",
+          type, (descrip_types_p[index])->add_watch.type);
   }
 
   return ret_val;
@@ -239,9 +241,11 @@ Util::Descriptor::remove_timer_descriptor(timer_t timer_id)
 
   for (i = 0; i < MAX_DESCRIPTORS; i++) {
     if ((descrip_types_p[i])->create_timer.type == TIMER_CREATE_DECRIPTOR) {
-      TRACE("find the saved timerid that corresponds to the one passed in");
+      TRACE("Checking saved timer descriptor: index={} timer_id={}",
+            i, timer_id);
       if ((descrip_types_p[i])->create_timer.timerid == timer_id) {
-        TRACE("timer id found...now delete it!");
+        TRACE("Removing saved timer descriptor: index={} timer_id={}",
+              i, timer_id);
         memset(descrip_types_p[i], 0, sizeof(descriptor_types_u));
         (descrip_types_p[i])->create_timer.type = UNUSED_DESCRIPTOR;
 
@@ -272,12 +276,13 @@ Util::Descriptor::remove_inotify_watch_descriptor(int watch_descriptor)
 
   for (i = 0; i < MAX_DESCRIPTORS; i++) {
     if ((descrip_types_p[i])->add_watch.type == INOTIFY_ADD_WATCH_DESCRIPTOR) {
-      TRACE("find the saved watch descriptor that corresponds to the one "
-             "passed in");
+      TRACE("Checking saved inotify watch descriptor: index={} wd={}",
+            i, watch_descriptor);
 
       if ((descrip_types_p[i])->add_watch.watch_descriptor ==
           watch_descriptor) {
-        TRACE("watch descriptor found...now delete it! (watch_descriptor = {};)", watch_descriptor);
+        TRACE("Removing saved inotify watch descriptor: index={} wd={}",
+              i, watch_descriptor);
         memset((descrip_types_p[i]), 0, sizeof(descriptor_types_u));
         (descrip_types_p[i])->add_watch.type = UNUSED_DESCRIPTOR;
 

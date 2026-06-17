@@ -136,7 +136,7 @@ TimerList::removeStaleClockIds()
     }
   }
   for (size_t i = 0; i < staleClockIds.size(); i++) {
-    TRACE("Removing stale clock (staleClockIds[i] = {};)", staleClockIds[i]);
+    TRACE("Removing stale process CPU clock: clock_id={}", staleClockIds[i]);
     _clockPidList.erase(staleClockIds[i]);
   }
   staleClockIds.clear();
@@ -153,7 +153,7 @@ TimerList::removeStaleClockIds()
     }
   }
   for (size_t i = 0; i < staleClockIds.size(); i++) {
-    NOTE("Removing stale clock (staleClockIds[i] = {};)", staleClockIds[i]);
+    NOTE("Removing stale pthread CPU clock: clock_id={}", staleClockIds[i]);
     _clockPthreadList.erase(staleClockIds[i]);
   }
 }
@@ -246,8 +246,7 @@ TimerList::postRestart()
                                  "restoring timer: virt_id={} real_id={} "
                                  "flags={}",
                                  virtId, realId, tinfo.flags);
-      TRACE("Restoring timer (realId = {};) (virtId = {};)",
-            realId, virtId);
+      TRACE("Restored POSIX timer: virt_id={} real_id={}", virtId, realId);
     }
   }
 }

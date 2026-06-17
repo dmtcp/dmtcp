@@ -312,7 +312,7 @@ openSharedFile(string const& name, int flags)
 
   dmtcp::string dir = jalib::Filesystem::DirName(name);
 
-  TRACE("shared file dir: (dir = {};)", dir);
+  TRACE("Creating shared PID-map directory: dir={}", dir);
   jalib::Filesystem::mkdir_r(dir, 0755);
 
   if ((fd = open(name.c_str(), O_EXCL | O_CREAT | O_TRUNC | flags, 0600)) >=
@@ -357,7 +357,7 @@ pidVirt_PostRestart()
     << std::hex << dmtcp_get_coordinator_timestamp();
 
   // Open and create pidMapFile if it doesn't exist.
-  TRACE("Open dmtcpPidMapFile (o.str() = {};)", o.str());
+  TRACE("Opening DMTCP PID-map file: path={}", o.str());
   pidMapFile = o.str();
   int fd = openSharedFile(pidMapFile, O_RDWR);
   ASSERT_NE(-1, fd, "failed to open PID map file: path={}",

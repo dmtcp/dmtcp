@@ -400,7 +400,7 @@ checkpointhread(void *dummy)
                ckptThread->tid);
 #endif  // ifdef SETJMP
   save_sp(&ckptThread->saved_sp);
-  TRACE("after sigsetjmp/getcontext: tid={} saved_sp={}",
+  TRACE("Saved checkpoint-thread restart context: tid={} saved_sp={}",
         curThread->tid, curThread->saved_sp);
 
   if (originalstartup) {
@@ -648,7 +648,8 @@ stopthisthread(int signum)
 #endif  // ifdef SETJMP
     save_sp(&curThread->saved_sp);
 
-    TRACE("Thread after sigsetjmp/getcontext: tid={} saved_sp={} return={}",
+    TRACE("Saved user-thread checkpoint context: tid={} saved_sp={} "
+          "return_address={}",
           curThread->tid, curThread->saved_sp, __builtin_return_address(0));
 
     if (!restoreInProgress) {
@@ -658,8 +659,9 @@ stopthisthread(int signum)
 
       /* Tell the checkpoint thread that we're all saved away */
       ASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG),
-             "failed to mark thread suspended: tid={} from={} to={}",
-             curThread->tid, ST_SUSPINPROG, ST_SUSPENDED);
+             "Failed to mark thread (tid:{}) from SUSPEND_IN_PROGRESS to "
+             "SUSPENDED",
+             curThread->tid);
       sem_post(&semNotifyCkptThread);
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
@@ -677,7 +679,9 @@ stopthisthread(int signum)
       ASSERT_LOCK_SUCCESS(DmtcpRWLockRdLock(&threadResumeLock));
 
       ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
-             "failed to mark thread running after checkpoint");
+             "Failed to mark thread (tid:{}) from SUSPENDED to RUNNING "
+             "after checkpoint",
+             curThread->tid);
 
       ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
     } else {
@@ -702,13 +706,15 @@ stopthisthread(int signum)
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
       ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
-             "failed to mark restored thread running");
+             "Failed to mark restored thread (tid:{}) from SUSPENDED to "
+             "RUNNING",
+             curThread->tid);
 
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
       ThreadList::waitForAllRestored(curThread);
     }
 
-    TRACE("User thread returning to user code: tid={} return={}",
+    TRACE("User thread returning to user code: tid={} return_address={}",
           curThread->tid, __builtin_return_address(0));
   }
 }
@@ -836,7 +842,8 @@ ThreadList::postRestartWork()
 
     ASSERT_ERRNO(tid > 0, "error recreating thread: tid={} result={}",
                  thread->tid, tid);
-    TRACE("Thread recreated: virtualTid={} realTid={}", thread->tid, tid);
+  TRACE("Recreated thread after restart: virtual_tid={} real_tid={}",
+          thread->tid, tid);
   }
 
   restarthread(motherofall);

@@ -6,6 +6,13 @@
 for X in localhost `cat < hosts`
 do
   echo "Clearing $X..."
-  ssh "$X" 'rm -f /tmp/dmtcpConTable.* /tmp/mpd2.* /tmp/dmtcp-*/*.log /dev/shm/ckpt*mtcp ~/san/ckpt*mtcp /tmp/ckpt*mtcp /tmp/pts*'
+  ssh "$X" 'rm -f \
+    /tmp/dmtcpConTable.* \
+    /tmp/mpd2.* \
+    /tmp/dmtcp-*/*.log \
+    /dev/shm/ckpt*mtcp \
+    ~/san/ckpt*mtcp \
+    /tmp/ckpt*mtcp \
+    /tmp/pts*'
 done
 wait

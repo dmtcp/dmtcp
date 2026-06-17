@@ -729,16 +729,17 @@ Util::getTimestampStr()
 void
 Util::replace(char *str, const char *match, const char *replace)
 {
-  // find first occurance of match in src and replace it with replace and copy it into str.
+  ASSERT(strlen(match) > 0, "empty match string in Util::replace");
   char *pos = strstr(str, match);
   if (pos == NULL) {
     return;
   }
 
-  char buffer[4096];
-  strcpy(buffer, pos);
-  strcpy(pos, replace);
-  strcat(str, buffer);
+  const size_t matchLen = strlen(match);
+  const size_t replaceLen = strlen(replace);
+  char *suffix = pos + matchLen;
+  memmove(pos + replaceLen, suffix, strlen(suffix) + 1);
+  memcpy(pos, replace, replaceLen);
 }
 
 string

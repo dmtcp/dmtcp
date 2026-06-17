@@ -175,7 +175,7 @@ signalfd(int fd, const sigset_t *mask, int flags)
   WrapperLock wrapperLock;
   int ret = _real_signalfd(fd, mask, flags);
   if (ret != -1) {
-    TRACE("signalfd created (fd = {};) (flags = {};)", fd, flags);
+    TRACE("Created signalfd: fd={} flags={}", ret, flags);
     EventConnList::instance().add(ret, new SignalFdConnection(fd, mask, flags));
   }
   return ret;
@@ -193,7 +193,8 @@ eventfd(EVENTFD_VAL_TYPE initval, int flags)
   WrapperLock wrapperLock;
   int ret = _real_eventfd(initval, flags);
   if (ret != -1) {
-    TRACE("eventfd created (ret = {};) (initval = {};) (flags = {};)", ret, initval, flags);
+    TRACE("Created eventfd: fd={} initval={} flags={}",
+          ret, initval, flags);
     EventConnList::instance().add(ret, new EventFdConnection(initval, flags));
   }
   return ret;
@@ -211,7 +212,7 @@ epoll_create(int size)
   WrapperLock wrapperLock;
   int ret = _real_epoll_create(size);
   if (ret != -1) {
-    TRACE("epoll fd created (ret = {};) (size = {};)", ret, size);
+    TRACE("Created epoll fd: fd={} size={}", ret, size);
     EventConnList::instance().add(ret, new EpollConnection(size, 0));
   }
   return ret;
@@ -228,7 +229,7 @@ epoll_create1(int flags)
   WrapperLock wrapperLock;
   int ret = _real_epoll_create1(flags);
   if (ret != -1) {
-    TRACE("epoll fd created1 (ret = {};) (flags = {};)", ret, flags);
+    TRACE("Created epoll fd: fd={} flags={}", ret, flags);
     EventConnList::instance().add(ret, new EpollConnection(0, flags));
   }
   return ret;
@@ -245,7 +246,6 @@ epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
   WrapperLock wrapperLock;
   int ret = _real_epoll_ctl(epfd, op, fd, event);
   if (ret != -1) {
-    // TRACE("epoll fd CTL (ret = {};) (epfd = {};) (fd = {};) (op = {};)", ret, epfd, fd, op);
     EpollConnection *con =
       (EpollConnection *)EventConnList::instance().getConnection(epfd);
     con->onCTL(op, fd, event);
@@ -337,10 +337,10 @@ inotify_init()
   int fd;
 
   WrapperLock wrapperLock;
-  TRACE("Starting to create an inotify fd.");
+  TRACE("Creating inotify fd");
   fd = _real_inotify_init();
   if (fd != -1) {
-    TRACE("inotify fd created (fd = {};)", fd);
+    TRACE("Created inotify fd: fd={}", fd);
 
     // create the inotify object
     Connection *con = new InotifyConnection(0);
@@ -367,7 +367,7 @@ inotify_init1(int flags)
   WrapperLock wrapperLock;
   int ret = _real_inotify_init1(flags);
   if (ret != -1) {
-    TRACE("inotify1 fd created (ret = {};) (flags = {};)", ret, flags);
+    TRACE("Created inotify fd: fd={} flags={}", ret, flags);
     Connection *con = new InotifyConnection(flags);
     EventConnList::instance().add(ret, con);
   }
@@ -429,7 +429,8 @@ inotify_rm_watch(int fd, int wd)
   WrapperLock wrapperLock;
   int ret = _real_inotify_rm_watch(fd, wd);
   if (ret != -1) {
-    TRACE("remove inotify mapping from dmtcp (ret = {};) (fd = {};) (wd = {};)", ret, fd, wd);
+    TRACE("Removing inotify watch from DMTCP state: fd={} wd={} ret={}",
+          fd, wd, ret);
     InotifyConnection *inotify_con =
       (InotifyConnection *)EventConnList::instance().getConnection(fd);
 

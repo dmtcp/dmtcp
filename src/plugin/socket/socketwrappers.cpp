@@ -63,7 +63,8 @@ socket(int domain, int type, int protocol)
   int ret = _real_socket(domain, type, protocol);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     Connection *con;
-    TRACE("socket created (ret = {};) (domain = {};) (type = {};) (protocol = {};)", ret, domain, type, protocol);
+    TRACE("Created socket: fd={} domain={} type={} protocol={}",
+          ret, domain, type, protocol);
     if ((type & 0xff) == SOCK_RAW) {
       ASSERT(domain == AF_NETLINK,
              "only Netlink raw sockets supported: domain={} type={}",
@@ -96,7 +97,7 @@ connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen)
       dynamic_cast<SocketConnection *>(SocketConnList::instance().getConnection(
                                          sockfd));
     if (con == NULL) {
-      TRACE("Connect operation on unsupported socket type.");
+      TRACE("Called connect() on untracked socket type: fd={}", sockfd);
     } else {
       con->onConnect(serv_addr, addrlen, (ret == -1 && errno == EINPROGRESS));
     }
@@ -120,7 +121,7 @@ bind(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen)
       dynamic_cast<SocketConnection *>(SocketConnList::instance().getConnection(
                                          sockfd));
     if (con == NULL) {
-      TRACE("bind operation on unsupported socket type.");
+      TRACE("Called bind() on untracked socket type: fd={}", sockfd);
     } else {
       con->onBind((struct sockaddr *)my_addr, addrlen);
     }
@@ -142,7 +143,7 @@ listen(int sockfd, int backlog)
       dynamic_cast<SocketConnection *>(SocketConnList::instance().getConnection(
                                          sockfd));
     if (con == NULL) {
-      TRACE("listen operation on unsupported socket type.");
+      TRACE("Called listen() on untracked socket type: fd={}", sockfd);
     } else {
       con->onListen(backlog);
     }
@@ -159,7 +160,7 @@ process_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen)
                       sockfd);
   Connection *parent = SocketConnList::instance().getConnection(sockfd);
   if (parent == NULL) {
-    TRACE("unable to get the connection.");
+    TRACE("Called accept() on untracked listening socket: fd={}", sockfd);
     return;
   }
 
@@ -176,7 +177,9 @@ process_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen)
   }
 
   if (con == NULL) {
-    TRACE("accept operation on unsupported socket type.");
+    TRACE("Call to accept() returned unsupported socket type: listen_fd={} "
+          "fd={}",
+          sockfd, ret);
     return;
   } else {
     SocketConnList::instance().add(ret, dynamic_cast<Connection *>(con));
@@ -261,12 +264,13 @@ setsockopt(int sockfd,
   int ret = _real_setsockopt(sockfd, level, optname, optval, optlen);
 
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
-    TRACE("setsockopt (ret = {};) (sockfd = {};) (optname = {};)", ret, sockfd, optname);
+    TRACE("Recording socket option: fd={} level={} option={} size={}",
+          sockfd, level, optname, optlen);
     SocketConnection *con =
       dynamic_cast<SocketConnection *>(SocketConnList::instance().getConnection(
                                          sockfd));
     if (con == NULL) {
-      TRACE("setsockopt operation on unsupported socket type.");
+      TRACE("Called setsockopt() on untracked socket type: fd={}", sockfd);
       return ret;
     } else {
       con->addSetsockopt(level, optname, optval, optlen);
@@ -304,7 +308,8 @@ socketpair(int d, int type, int protocol, int sv[2])
   ASSERT_NOT_NULL(sv);
   int rv = _real_socketpair(d, type, protocol, sv);
   if (rv != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
-    TRACE("socketpair() (sv[0] = {};) (sv[1] = {};)", sv[0], sv[1]);
+    TRACE("Created socketpair: fd0={} fd1={} domain={} type={} protocol={}",
+          sv[0], sv[1], d, type, protocol);
 
     TcpConnection *a, *b;
 

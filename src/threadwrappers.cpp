@@ -119,14 +119,14 @@ pthread_create(pthread_t *pth,
             newThread->tid);
 
   ASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING),
-         "failed to mark thread creation in progress: tid={} from={} to={}",
-         thread->tid, ST_RUNNING, ST_THREAD_CREATE);
+         "Failed to mark thread (tid:{}) from RUNNING to THREAD_CREATE",
+         thread->tid);
 
   int retval = _real_pthread_create(pth, attr, thread_start, newThread);
 
   ASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE),
-         "failed to mark thread creation complete: tid={} from={} to={}",
-         thread->tid, ST_THREAD_CREATE, ST_RUNNING);
+         "Failed to mark thread (tid:{}) from THREAD_CREATE to RUNNING",
+         thread->tid);
 
   if (retval == 0) {
     ProcessInfo::instance().clearPthreadJoinState(*pth);
@@ -175,7 +175,7 @@ __clone(int (*fn)(void *arg),
   }
 
   ASSERT(false,
-         "thread creation with clone syscall is not supported: flags={}",
+         "Thread creation with clone syscall is not supported: flags={}",
          flags);
 
   return 0;
@@ -190,7 +190,7 @@ clone3(struct clone_args *cl_args, size_t size)
   }
 
   ASSERT(false,
-         "thread creation with clone3 syscall is not supported: size={}",
+         "Thread creation with clone3 syscall is not supported: size={}",
          size);
 
   return 0;
@@ -246,7 +246,7 @@ pthread_join(pthread_t thread, void **retval)
   while (1) {
     WrapperLock wrapperLock;
     ASSERT_NE(-1, clock_gettime(CLOCK_REALTIME, &ts),
-                               "reading CLOCK_REALTIME before pthread_join");
+              "reading CLOCK_REALTIME before pthread_join");
     TIMESPEC_ADD(&ts, &ts_100ms, &ts);
     ret = _real_pthread_timedjoin_np(thread, retval, &ts);
     if (ret != ETIMEDOUT) {
@@ -295,8 +295,8 @@ pthread_timedjoin_np(pthread_t thread,
   while (1) {
     WrapperLock wrapperLock;
     ASSERT_NE(-1,
-      clock_gettime(CLOCK_REALTIME, &ts),
-      "reading CLOCK_REALTIME before pthread_timedjoin_np");
+              clock_gettime(CLOCK_REALTIME, &ts),
+              "reading CLOCK_REALTIME before pthread_timedjoin_np");
     if (TIMESPEC_CMP(&ts, abstime, <)) {
       TIMESPEC_ADD(&ts, &ts_100ms, &ts);
       ret = _real_pthread_timedjoin_np(thread, retval, &ts);

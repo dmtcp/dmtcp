@@ -194,14 +194,14 @@ SharedData::initialize(const char *tmpDir,
     // the end of the file. So we must truncate the file to the correct size
     // in both the if and else branch, above.
     ASSERT_NE(-1, truncate(o.str().c_str(), size),
-                 "failed to size shared-data file: path={} size={}", o.str(),
-                 size);
+              "failed to size shared-data file: path={} size={}", o.str(),
+              size);
     ASSERT_NE(-1, fd, "failed to open shared-data file: path={}",
-                        o.str());
+              o.str());
     ASSERT_EQ(PROTECTED_SHM_FD,
-                          _real_dup2(fd, PROTECTED_SHM_FD),
-                          "failed to move shared-data fd: fd={} protected_fd={}",
-                          fd, PROTECTED_SHM_FD);
+              _real_dup2(fd, PROTECTED_SHM_FD),
+              "failed to move shared-data fd: fd={} protected_fd={}",
+              fd, PROTECTED_SHM_FD);
     if (fd != PROTECTED_SHM_FD) {
       _real_close(fd);
     }

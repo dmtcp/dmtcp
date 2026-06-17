@@ -213,7 +213,7 @@ ConnectionList::deleteStaleConnections()
           << "\t->\t" << c->id() << "\n";
     }
     out << "==================================================\n";
-    TRACE("Deleting Stale Connections (out.str() = {};)", out.str());
+    TRACE("Deleting stale connections:\n{}", out.str());
   }
 
   // delete all the stale connections
@@ -307,8 +307,7 @@ ConnectionList::list()
     o << "\t" << i->first << "\t" << c->str();
     o << "\n";
   }
-  TRACE("ConnectionList (dmtcp_get_uniquepid_str() = {};) "
-        "(o.str() = {};)",
+  TRACE("Connection list: unique_pid={} entries=\n{}",
         dmtcp_get_uniquepid_str(), o.str());
 }
 
@@ -581,19 +580,18 @@ ConnectionList::registerIncomingCons()
   sock.changeFd(protected_fd);
   fdReceiveAddr.sun_family = AF_UNIX;
   ASSERT_NE(-1,
-    _real_bind(protected_fd,
-               (struct sockaddr *)&fdReceiveAddr,
-               sizeof(fdReceiveAddr.sun_family)),
-    "bind failed for fd-receive socket: protected_fd={}",
-    protected_fd);
+            _real_bind(protected_fd,
+                       (struct sockaddr *)&fdReceiveAddr,
+                       sizeof(fdReceiveAddr.sun_family)),
+            "bind failed for fd-receive socket: protected_fd={}",
+            protected_fd);
 
   fdReceiveAddrLen = sizeof(fdReceiveAddr);
   ASSERT_NE(-1, getsockname(protected_fd,
-                                         (struct sockaddr *)&fdReceiveAddr,
-                                         &fdReceiveAddrLen),
-                             "getsockname failed for fd-receive socket: "
-                             "protected_fd={}",
-                             protected_fd);
+                            (struct sockaddr *)&fdReceiveAddr,
+                            &fdReceiveAddrLen),
+             "getsockname failed for fd-receive socket: protected_fd={}",
+             protected_fd);
 
 
   vector<const char *>incomingCons;
@@ -610,7 +608,7 @@ ConnectionList::registerIncomingCons()
       out << "\n\t" << con->str() << i->first;
     }
   }
-  TRACE("Incoming/Outgoing Cons (in.str() = {};) (out.str() = {};)",
+  TRACE("Incoming/outgoing connections: incoming={} outgoing={}",
         in.str(), out.str());
   numIncomingCons = incomingCons.size();
   if (numIncomingCons > 0) {
@@ -650,15 +648,16 @@ ConnectionList::sendReceiveMissingFds()
     }
 
     ASSERT_NE(-1, _real_poll(&socketFd, 1, -1),
-                               "poll failed for missing fd exchange: fd={}",
-                               restoreFd);
+              "poll failed for missing fd exchange: fd={}",
+              restoreFd);
 
     if (numOutgoingCons > 0 && (socketFd.revents & POLLOUT)) {
       size_t idx = outgoingCons.back();
       outgoingCons.pop_back();
       ConnectionIdentifier *id = (ConnectionIdentifier *)maps[idx].id;
       Connection *con = getConnection(*id);
-      TRACE("Sending Missing Con (*id = {};)", *id);
+      TRACE("Sending missing connection fd during restart: con_id={}",
+            id->toString());
       ASSERT_ERRNO(Util::sendFd(restoreFd, con->getFds()[0], id, sizeof(*id),
                                 maps[idx].addr, maps[idx].len) != -1,
                    "sendFd failed for missing connection: restore_fd={} "
@@ -672,11 +671,11 @@ ConnectionList::sendReceiveMissingFds()
       ConnectionIdentifier id;
       int fd = Util::receiveFd(restoreFd, &id, sizeof(id));
       ASSERT_NE(-1, fd,
-                          "receiveFd failed for missing connection: "
-                          "restore_fd={}",
-                          restoreFd);
+                "receiveFd failed for missing connection: restore_fd={}",
+                restoreFd);
       Connection *con = getConnection(id);
-      TRACE("Received Missing Con (id = {};)", id);
+      TRACE("Received missing connection fd during restart: con_id={}",
+            id.toString());
       ASSERT_NOT_NULL(con,
                           "received unknown missing connection: host_id={} "
                           "pid={} time={} con_id={}",

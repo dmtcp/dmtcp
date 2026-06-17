@@ -63,11 +63,13 @@ EpollConnection::refill(bool isRestart)
     typedef map<int, struct epoll_event>::iterator fdEventIterator;
     fdEventIterator fevt = _fdToEvent.begin();
     for (; fevt != _fdToEvent.end(); fevt++) {
-      TRACE("restore sfd options (fevt->first = {};)", fevt->first);
+      TRACE("Restoring epoll watch during restart: epfd={} watched_fd={}",
+            _fds[0], fevt->first);
       WARN_NE(-1,
         _real_epoll_ctl(_fds[0], EPOLL_CTL_ADD, fevt->first,
                         &(fevt->second)),
-        "Error in restoring epoll options: epfd={}", _fds[0]);
+        "Failed to restore epoll watch: epfd={} watched_fd={}",
+        _fds[0], fevt->first);
     }
   }
 }
@@ -76,7 +78,8 @@ void
 EpollConnection::postRestart()
 {
   ASSERT(_fds.size() > 0, "epoll connection has no fds during postRestart");
-  TRACE("Recreating epoll connection (_fds[0] = {};) (id() = {};)", _fds[0], id());
+  TRACE("Recreating epoll connection after restart: fd={} con_id={}",
+        _fds[0], id().toString());
   int tempfd;
   if (_size != 0) {
     tempfd = _real_epoll_create(_size);
@@ -132,7 +135,7 @@ void
 EventFdConnection::drain()
 {
   ASSERT(_fds.size() > 0, "eventfd connection has no fds during drain");
-  TRACE("Checkpoint eventfd. (_fds[0] = {};)", _fds[0]);
+  TRACE("Checkpointing eventfd: fd={}", _fds[0]);
 
   int new_flags = (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR |
     O_NONBLOCK;
@@ -147,7 +150,7 @@ EventFdConnection::drain()
   // Read whatever is there on top of _fds[0]
   ssize_t size = read(_fds[0], &u, sizeof(uint64_t));
   if (-1 != size) {
-    TRACE("Read value u:  (_fds[0] = {};) (u = {};)", _fds[0], u);
+    TRACE("Drained eventfd counter: fd={} value={}", _fds[0], u);
 
     // EFD_SEMAPHORE flag not specified,
     // the counter value would have been reset to 0 upon read
@@ -164,26 +167,30 @@ EventFdConnection::drain()
       _initval = counter;
     }
   } else {
-    TRACE("Nothing to be read from eventfd. (_fds[0] = {};) (errno = {};) (strerror(errno) = {};)", _fds[0], errno, strerror(errno));
+    TRACE("Eventfd had no counter value to drain: fd={} errno={} error={}",
+          _fds[0], errno, strerror(errno));
     _initval = 0;
   }
-  TRACE("Checkpointing eventfd:  end. (_fds[0] = {};) (_initval = {};)", _fds[0], _initval);
+  TRACE("Finished checkpointing eventfd: fd={} restored_initval={}",
+        _fds[0], _initval);
 }
 
 void
 EventFdConnection::refill(bool isRestart)
 {
-  TRACE("Begin refill eventfd. (_fds[0] = {};)", _fds[0]);
   ASSERT(_fds.size() > 0, "eventfd connection has no fds during refill");
+  TRACE("Refilling eventfd state: fd={} is_restart={}", _fds[0], isRestart);
   if (!isRestart) {
     uint64_t u = (unsigned long long)_initval;
-    TRACE("Writing (u = {};)", u);
+    TRACE("Writing eventfd counter during refill: fd={} value={}",
+          _fds[0], u);
     WARN_EQ(static_cast<ssize_t>(sizeof(uint64_t)),
                            write(_fds[0], &u, sizeof(uint64_t)),
                            "Write to eventfd failed during refill: fd={}",
                            _fds[0]);
   }
-  TRACE("End refill eventfd. (_fds[0] = {};)", _fds[0]);
+  TRACE("Finished refilling eventfd state: fd={} is_restart={}",
+        _fds[0], isRestart);
 }
 
 void
@@ -192,7 +199,8 @@ EventFdConnection::postRestart()
   ASSERT(_fds.size() > 0,
          "eventfd connection has no fds during postRestart");
 
-  TRACE("Restoring EventFd Connection (id() = {};)", id());
+  TRACE("Recreating eventfd connection after restart: con_id={}",
+        id().toString());
   errno = 0;
   int tempfd = _real_eventfd(_initval, _flags);
   ASSERT_NE(-1, tempfd,
@@ -206,7 +214,7 @@ EventFdConnection::serializeSubClass(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("EventFdConnection");
   o & _initval & _flags;
-  TRACE("Serializing EvenFdConn.");
+  TRACE("Serializing eventfd connection");
 }
 #endif // ifdef HAVE_SYS_EVENTFD_H
 
@@ -219,7 +227,7 @@ SignalFdConnection::drain()
 {
   ASSERT(_fds.size() > 0, "signalfd connection has no fds during drain");
 
-  TRACE("Checkpoint signalfd. (_fds[0] = {};)", _fds[0]);
+  TRACE("Checkpointing signalfd: fd={}", _fds[0]);
 
   int new_flags =
     (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR | O_NONBLOCK;
@@ -232,7 +240,8 @@ SignalFdConnection::drain()
   // Read whatever is there on top of signalfd
   ssize_t size = read(_fds[0], &_fdsi, sizeof(struct signalfd_siginfo));
   if (size <= 0) {
-    TRACE("Nothing to be read from signalfd. (_fds[0] = {};) (errno = {};)", _fds[0], errno);
+    TRACE("Signalfd had no pending signal to drain: fd={} errno={}",
+          _fds[0], errno);
     memset(&_fdsi, 0, sizeof(_fdsi));
   }
 }
@@ -240,13 +249,14 @@ SignalFdConnection::drain()
 void
 SignalFdConnection::refill(bool isRestart)
 {
-  TRACE("Begin refill signalfd. (_fds[0] = {};)", _fds[0]);
   ASSERT(_fds.size() > 0, "signalfd connection has no fds during refill");
+  TRACE("Refilling signalfd state: fd={} is_restart={}", _fds[0], isRestart);
 
   // raise the signals
-  TRACE("Raising the signal... (_fdsi.ssi_signo = {};)", _fdsi.ssi_signo);
+  TRACE("Re-raising signal for signalfd refill: signo={}", _fdsi.ssi_signo);
   raise(_fdsi.ssi_signo);
-  TRACE("End refill signalfd. (_fds[0] = {};)", _fds[0]);
+  TRACE("Finished refilling signalfd state: fd={} is_restart={}",
+        _fds[0], isRestart);
 }
 
 void
@@ -255,7 +265,8 @@ SignalFdConnection::postRestart()
   ASSERT(_fds.size() > 0,
          "signalfd connection has no fds during postRestart");
 
-  TRACE("Restoring SignalFd Connection (id() = {};)", id());
+  TRACE("Recreating signalfd connection after restart: con_id={}",
+        id().toString());
   errno = 0;
   int tempfd = _real_signalfd(-1, &_mask, _flags);
   ASSERT_NE(-1, tempfd, "failed to recreate signalfd: flags={}",
@@ -268,7 +279,7 @@ SignalFdConnection::serializeSubClass(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("SignalFdConnection");
   o & _flags & _mask & _fdsi;
-  TRACE("Serializing SignalFdConn.");
+  TRACE("Serializing signalfd connection");
 }
 #endif // ifdef HAVE_SYS_SIGNALFD_H
 
@@ -295,7 +306,8 @@ InotifyConnection::refill(bool isRestart)
     // get the number of watch descriptors stored in dmtcp
     num_of_descriptors = descriptor.count_descriptors();
 
-    TRACE("inotify restoreOptions (_fds[0] = {};) (id() = {};) (num_of_descriptors = {};)", _fds[0], id(), num_of_descriptors);
+    TRACE("Restoring inotify watches: fd={} con_id={} watch_count={}",
+          _fds[0], id().toString(), num_of_descriptors);
 
     for (int i = 0; i < num_of_descriptors; i++) {
       if (true == descriptor.get_descriptor(i, INOTIFY_ADD_WATCH_DESCRIPTOR,
@@ -312,7 +324,12 @@ InotifyConnection::refill(bool isRestart)
                                "failed to restore inotify watch descriptor: "
                                "new_wd={} old_wd={}",
                                new_wd, old_wd);
-        TRACE("restore watch descriptors (old_wd = {};) (new_wd = {};) (watch_descriptor.add_watch.file_descriptor = {};) (watch_descriptor.add_watch.pathname = {};) (watch_descriptor.add_watch.mask = {};)", old_wd, new_wd, watch_descriptor.add_watch.file_descriptor, watch_descriptor.add_watch.pathname, watch_descriptor.add_watch.mask);
+        TRACE("Restored inotify watch: old_wd={} new_wd={} fd={} "
+              "path={} mask={}",
+              old_wd, new_wd,
+              watch_descriptor.add_watch.file_descriptor,
+              watch_descriptor.add_watch.pathname,
+              watch_descriptor.add_watch.mask);
       }
     }
   }
@@ -343,7 +360,7 @@ InotifyConnection::serializeSubClass(jalib::JBinarySerializer &o)
 InotifyConnection&
 InotifyConnection::asInotify()
 {
-  TRACE("Return the connection as Inotify connection");
+  TRACE("Using connection as inotify connection");
   return *this;
 }
 
@@ -353,25 +370,29 @@ InotifyConnection::add_watch_descriptors(int wd,
                                          const char *pathname,
                                          uint32_t mask)
 {
-  int string_len;
-
-  TRACE("save inotify watch descriptor within dmtcp (wd = {};) (fd = {};) (pathname = {};) (mask = {};)", wd, fd, pathname, mask);
   ASSERT_NOT_NULL(pathname, "pathname is NULL");
+  TRACE("Saving inotify watch descriptor: wd={} fd={} path={} mask={}",
+        wd, fd, pathname, mask);
   Util::Descriptor descriptor;
   descriptor_types_u watch_descriptor;
 
   // set watch_descriptor to zeros
   memset(&watch_descriptor, 0, sizeof(watch_descriptor));
 
-  // get the string length
-  string_len = strlen(pathname);
+  const size_t string_len = strlen(pathname);
+  const size_t pathname_capacity =
+    sizeof(watch_descriptor.add_watch.pathname);
+  ASSERT(string_len < pathname_capacity,
+         "inotify pathname too long: len={} max={} path={}",
+         string_len, pathname_capacity - 1, pathname);
 
   // fill up the structure
   watch_descriptor.add_watch.file_descriptor = fd;
   watch_descriptor.add_watch.mask = mask;
   watch_descriptor.add_watch.watch_descriptor = wd;
   watch_descriptor.add_watch.type = INOTIFY_ADD_WATCH_DESCRIPTOR;
-  strncpy(watch_descriptor.add_watch.pathname, pathname, string_len);
+  memcpy(watch_descriptor.add_watch.pathname, pathname, string_len);
+  watch_descriptor.add_watch.pathname[string_len] = '\0';
 
   // save the watch descriptor structure
   descriptor.add_descriptor(&watch_descriptor);
