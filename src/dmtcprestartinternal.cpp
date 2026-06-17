@@ -163,7 +163,9 @@ checkVdsoOffsetMismatch(DmtcpCkptHeader *ckptHdr)
   uint64_t time_offset =
     dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_time");
 
-  ASSERT_EQ(ckptHdr->clock_gettime_offset, clock_gettime_offset);
+  ASSERT(ckptHdr->clock_gettime_offset == clock_gettime_offset,
+         "{} checkpoint offset={}, current offset={}",
+         error, ckptHdr->clock_gettime_offset, clock_gettime_offset);
   ASSERT(ckptHdr->getcpu_offset == getcpu_offset,
          "{} checkpoint offset={}, current offset={}",
          error, ckptHdr->getcpu_offset, getcpu_offset);

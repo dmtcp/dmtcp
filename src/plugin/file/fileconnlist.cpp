@@ -421,7 +421,8 @@ FileConnList::prepareShmList()
 
       if (jalib::Filesystem::FileExists(area.name)) {
         if (_real_access(area.name, W_OK) == 0) {
-          TRACE("Will checkpoint shared memory area (area.name = {};)", area.name);
+          TRACE("Will checkpoint shared memory backing file: path={}",
+                area.name);
           int flags = Util::memProtToOpenFlags(area.prot);
           int fd = _real_open(area.name, flags, 0);
           ASSERT_NE(-1, fd,
@@ -451,7 +452,8 @@ FileConnList::prepareShmList()
                        "failed to protect shared memory area: addr={} size={}",
                        area.addr, area.size);
         } else {
-          TRACE("Will not checkpoint shared memory area (area.name = {};)", area.name);
+          TRACE("Will not checkpoint read-only shared memory area: path={}",
+                area.name);
         }
       } else {
         // TODO: Shared memory areas with unlinked backing files.
@@ -465,7 +467,9 @@ FileConnList::prepareShmList()
                   "path={}",
                   area.name);
         } else {
-          TRACE("Will recreate shm file on restart. (area.name = {};)", area.name);
+          TRACE("Will recreate unlinked shared memory file on restart: "
+                "path={}",
+                area.name);
 
           // Remove the DELETED suffix.
           area.name[strlen(area.name) - strlen(DELETED_FILE_SUFFIX)] = '\0';
@@ -500,7 +504,9 @@ FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
   // The file is a virtual file.  It is not really unlinked, and the memory
   // segment was originally backed by this solely to force the use of hugepages.
   if (strstr(area.name, "/libhugetlbfs.tmp")) {
-    TRACE("Unlinked huge page region detected (area.name = {};) ((void *)area.addr = {};)", area.name, (void *)area.addr);
+    TRACE("Recreating unlinked hugepage shared memory file: path={} "
+          "addr={}",
+          area.name, (void *)area.addr);
 
     int fd = _real_openat(AT_FDCWD, area.name, O_RDWR|O_CREAT|O_EXCL, 0600);
     ASSERT_NE(-1, fd,
@@ -584,7 +590,8 @@ FileConnList::restoreShmArea(const ProcMapsArea &area, int fd)
                       "failed to open shm file before restore: path={}",
                       area.name);
 
-  TRACE("Restoring shared memory area (area.name = {};) ((void *)area.addr = {};)", area.name, (void *)area.addr);
+  TRACE("Restoring shared memory area: path={} addr={}",
+        area.name, (void *)area.addr);
   void *addr = mmap(area.addr, area.size, area.prot,
                     MAP_FIXED | area.flags, fd, area.offset);
   ASSERT_ERRNO(addr != MAP_FAILED,
@@ -601,7 +608,8 @@ FileConnList::remapShmMaps()
     ProcMapsArea *area = &shmAreas[i];
     FileConnection *fileCon = shmAreaConn[i];
     int fd = fileCon->getFds()[0];
-    TRACE("Restoring shared memory area (area->name = {};) ((void *)area->addr = {};)", area->name, (void *)area->addr);
+    TRACE("Remapping shared memory area: path={} addr={}",
+          area->name, (void *)area->addr);
     void *addr = mmap(area->addr, area->size, area->prot,
                       MAP_FIXED | area->flags, fd, area->offset);
     ASSERT_ERRNO(addr != MAP_FAILED,
@@ -636,7 +644,8 @@ FileConnList::scanForPreExisting()
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
-    TRACE("scanning pre-existing device (fd = {};) (device = {};)", fd, device);
+    TRACE("Scanning pre-existing file descriptor: fd={} device={}",
+          fd, device);
 
     if (dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
       if (isRegularFile) {
@@ -672,7 +681,8 @@ FileConnList::scanForPreExisting()
         continue;
       }
     } else {
-      TRACE("Ignoring pre-existing fd (device = {};)", device);
+      TRACE("Ignoring pre-existing file descriptor: fd={} device={}",
+            fd, device);
     }
   }
 }

@@ -703,7 +703,7 @@ DmtcpCoordinator::onData(CoordClient *client)
   switch (msg.type) {
   case DMT_WORKER_RESUMING:
   {
-    TRACE("Worker resuming execution: from={} previousState={} state={}",
+    TRACE("Worker resumed execution: worker={} previous_state={} state={}",
           msg.from, prevClientState, msg.state);
 
     client->setBarrier("");
@@ -728,7 +728,7 @@ DmtcpCoordinator::onData(CoordClient *client)
   case DMT_BARRIER:
   {
     string barrier = msg.barrier;
-    TRACE("got DMT_BARRIER message: from={} previousState={} state={} "
+    TRACE("Worker reached barrier: worker={} previous_state={} state={} "
           "barrier={}",
           msg.from, prevClientState, msg.state, barrier);
 
@@ -784,8 +784,8 @@ DmtcpCoordinator::onData(CoordClient *client)
 
   case DMT_UPDATE_PROCESS_INFO_AFTER_FORK:
   {
-    NOTE("Updating process Information after fork: hostname={} progname={} "
-         "from={} identity={}",
+    NOTE("Updating worker identity after fork: hostname={} progname={} "
+         "new_identity={} old_identity={}",
          client->hostname(), client->progname(), msg.from,
          client->identity());
     client->identity(msg.from);
@@ -795,8 +795,8 @@ DmtcpCoordinator::onData(CoordClient *client)
   case DMT_UPDATE_PROCESS_INFO_AFTER_INIT_OR_EXEC:
   {
     string progname = extraData;
-    NOTE("Updating process Information after exec: progname={} from={} "
-         "identity={}",
+    NOTE("Updating worker identity after exec: progname={} new_identity={} "
+         "old_identity={}",
          progname, msg.from, client->identity());
     client->setState(msg.state);
     client->progname(progname);
@@ -1047,7 +1047,7 @@ DmtcpCoordinator::onConnect()
     return;
   }
 
-  NOTE("worker connected: from={} progname={}",
+  NOTE("Worker connected: identity={} progname={}",
        hello_remote.from, client->progname());
 
   clients.push_back(client);
@@ -1274,8 +1274,8 @@ DmtcpCoordinator::validateNewWorkerProcess(
   } else if (s.numPeers > 0 && s.minimumState != WorkerState::RUNNING &&
              s.minimumState != WorkerState::UNKNOWN) {
     // If some of the processes are not in RUNNING state
-    NOTE("Current computation not in RUNNING state. Refusing to accept new "
-         "connections: compId={} from={} numPeers={} minimumState={}",
+    NOTE("Current computation is not RUNNING; refusing new connection: "
+         "comp_id={} identity={} num_peers={} minimum_state={}",
          compId, hello_remote.from, s.numPeers, s.minimumState);
     hello_local.type = DMT_REJECT_NOT_RUNNING;
     remote << hello_local;
@@ -1307,7 +1307,7 @@ DmtcpCoordinator::validateNewWorkerProcess(
             compId);
       recordEvent("Initializing-Computation");
     } else {
-      TRACE("New process connected: from={} virtualPid={}",
+      TRACE("New worker joined computation: identity={} virtual_pid={}",
             hello_remote.from, client->virtualPid());
     }
     hello_local.compGroup = compId;
@@ -1555,7 +1555,7 @@ calcLocalAddr()
     }
 
     WARN(success,
-         "failed to find coordinator IP address; DMTCP may fail: hostname={}",
+         "Failed to find coordinator IP address; DMTCP may fail: hostname={}",
          hostname);
   } else {
     if (error == EAI_SYSTEM) {
@@ -1699,7 +1699,8 @@ DmtcpCoordinator::eventLoop()
           if (!stdinClosed) {
             int rc = epoll_ctl(epollFd, EPOLL_CTL_DEL, STDIN_FILENO, &ev);
             ASSERT_ERRNO(rc != -1 || errno == ENOENT,
-                         "epoll_ctl delete stdin after hangup failed");
+                         "epoll_ctl: after hangup, EPOLL_CTL_DEL failed "
+                         "to delete stdin");
             close(STDIN_FD);
             stdinClosed = true;
           }

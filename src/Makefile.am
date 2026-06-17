@@ -187,21 +187,37 @@ libnohijack_a_SOURCES = dmtcpnohijackstubs.cpp			\
 #
 # Built-in plugin libraries.
 #
-plugin/alloc/%.o plugin/alloc/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"alloc\"
-plugin/dl/%.o plugin/dl/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"dl\"
-plugin/event/%.o plugin/event/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"event\"
+plugin/alloc/%.o plugin/alloc/%.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"alloc\"
+plugin/dl/%.o plugin/dl/%.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"dl\"
+plugin/event/%.o plugin/event/%.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"event\"
 # Shared connection bookkeeping is used by file, pty, socket, and event plugins.
-plugin/connection%.o plugin/connection%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"connection\"
-plugin/file/file%.o plugin/file/file%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"file\"
-plugin/file/openwrappers.o plugin/file/openwrappers.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"file\"
-plugin/file/posixipcwrappers.o plugin/file/posixipcwrappers.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"file\"
-plugin/file/pty%.o plugin/file/pty%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"pty\"
-plugin/socket/%.o plugin/socket/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"socket\"
-plugin/ssh/%.o plugin/ssh/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"ssh\"
-plugin/svipc/%.o plugin/svipc/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"svipc\"
-plugin/timer/%.o plugin/timer/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"timer\"
-plugin/pid/%.o plugin/pid/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"pid\"
-plugin/unique-ckpt/%.o plugin/unique-ckpt/%.obj: AM_CPPFLAGS += -DDMTCP_LOG_COMPONENT_DEFAULT=\"unique-ckpt\"
+plugin/connection%.o plugin/connection%.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"connection\"
+plugin/file/file%.o plugin/file/file%.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"file\"
+plugin/file/openwrappers.o plugin/file/openwrappers.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"file\"
+plugin/file/posixipcwrappers.o: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"file\"
+plugin/file/posixipcwrappers.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"file\"
+plugin/file/pty%.o plugin/file/pty%.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"pty\"
+plugin/socket/%.o plugin/socket/%.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"socket\"
+plugin/ssh/%.o plugin/ssh/%.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"ssh\"
+plugin/svipc/%.o plugin/svipc/%.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"svipc\"
+plugin/timer/%.o plugin/timer/%.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"timer\"
+plugin/pid/%.o plugin/pid/%.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"pid\"
+plugin/unique-ckpt/%.o plugin/unique-ckpt/%.obj: AM_CPPFLAGS += \
+  -DDMTCP_LOG_COMPONENT_DEFAULT=\"unique-ckpt\"
 
 libssh_a_SOURCES =							\
 	plugin/ssh/util_ssh.cpp					\

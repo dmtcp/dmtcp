@@ -755,15 +755,6 @@ connectToCoordOnStartup(CoordinatorMode mode,
   pid_t ppid = getppid();
   Util::setVirtualPidEnvVar(hello_remote.virtualPid, getpid(), ppid, ppid);
 
-  ASSERT_NOT_NULL(compId,
-                      "connectToCoordOnStartup compId output pointer became "
-                      "null");
-  ASSERT_NOT_NULL(localIP,
-                      "connectToCoordOnStartup localIP output pointer became "
-                      "null");
-  ASSERT_NOT_NULL(coordInfo,
-                      "connectToCoordOnStartup coordInfo output pointer "
-                      "became null");
   *compId = hello_remote.compGroup.upid();
   coordInfo->id = hello_remote.from.upid();
   coordInfo->timeStamp = hello_remote.coordTimeStamp;

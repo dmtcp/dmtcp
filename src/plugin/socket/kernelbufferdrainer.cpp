@@ -182,7 +182,8 @@ KernelBufferDrainer::onDisconnect(jalib::JReaderInterface *sock)
   if (fd < 0) {
     return;
   }
-  TRACE("found disconnected socket... marking it dead (fd = {};) (_reverseLookup[fd] = {};) (errno = {};)", fd, _reverseLookup[fd], errno);
+  TRACE("Marking disconnected socket dead: fd={} con_id={} errno={}",
+        fd, _reverseLookup[fd].toString(), errno);
   _disconnectedSockets[_reverseLookup[fd]] = _drainedData[fd];
 
   // _drainedData is used to refill socket buffers. Remove the disconnected
@@ -210,7 +211,8 @@ KernelBufferDrainer::onTimeoutInterval()
                    sizeof(theMagicDrainCookie)) == 0) {
           // Remove cookie frame and mark drained
           frames.pop_back();
-          TRACE("seqpacket drain complete (fd = {};) (frames.size() = {};) ((_dataSockets.size()) = {};)", fd, frames.size(), (_dataSockets.size()));
+          TRACE("Completed SEQPACKET drain: fd={} frames={} sockets={}",
+                fd, frames.size(), (_dataSockets.size()));
           _dataSockets[i]->socket() = -1; // poison socket
           continue;
         }
@@ -223,7 +225,8 @@ KernelBufferDrainer::onTimeoutInterval()
                     theMagicDrainCookie,
                     sizeof(theMagicDrainCookie)) == 0) {
         buffer.resize(buffer.size() - sizeof(theMagicDrainCookie));
-        TRACE("buffer drain complete (fd = {};) (buffer.size() = {};) ((_dataSockets.size()) = {};)", fd, buffer.size(), (_dataSockets.size()));
+        TRACE("Completed stream socket drain: fd={} bytes={} sockets={}",
+              fd, buffer.size(), (_dataSockets.size()));
         _dataSockets[i]->socket() = -1; // poison socket
       } else {
         ++count;
@@ -268,7 +271,7 @@ KernelBufferDrainer::onTimeoutInterval()
                             "socketpair() returned invalid second fd: fd0={}",
                             sp[0]);
         _real_close(sp[1]);
-        TRACE("created dead socket (sp[0] = {};)", sp[0]);
+        TRACE("Created dead socket placeholder: fd={}", sp[0]);
         _real_dup2(sp[0], _dataSockets[i]->socket().sockfd());
 #endif // ifdef CERN_CMS
       }
@@ -279,7 +282,6 @@ KernelBufferDrainer::onTimeoutInterval()
 void
 KernelBufferDrainer::beginDrainOf(int fd, const ConnectionIdentifier &id, int baseType)
 {
-  // TRACE("will drain socket (fd = {};)", fd);
   _drainedData[fd]; // create buffer
   _drainedFrames[fd]; // create frames list (possibly unused)
   // this is the simple way:  jalib::JSocket(fd) << theMagicDrainCookie;
@@ -301,7 +303,8 @@ KernelBufferDrainer::beginDrainOf(int fd, const ConnectionIdentifier &id, int ba
 void
 KernelBufferDrainer::refillAllSockets()
 {
-  TRACE("refilling socket buffers (_drainedData.size() = {};)", _drainedData.size());
+  TRACE("Refilling socket buffers after checkpoint: socket_count={}",
+        _drainedData.size());
 
   // write all buffers out (stream sockets only)
   map<int, vector<char> >::iterator i;
@@ -322,7 +325,8 @@ KernelBufferDrainer::refillAllSockets()
     msg.extraBytes = size;
     jalib::JSocket sock(fd);
     if (size > 0) {
-      TRACE("requesting repeat buffer... (sock.sockfd() = {};) (size = {};)", sock.sockfd(), size);
+      TRACE("Requesting peer socket-buffer refill: fd={} bytes={}",
+            sock.sockfd(), size);
     }
     sock << msg;
     if (size > 0) {
@@ -346,7 +350,7 @@ KernelBufferDrainer::refillAllSockets()
 
     msg.assertValid(ConnMsg::REFILL);
     int size = msg.extraBytes;
-    TRACE("repeating buffer back to peer (size = {};)", size);
+    TRACE("Echoing peer socket-buffer refill: bytes={}", size);
     if (size > 0) {
       // echo it back...
       vector<char> tmp(size);

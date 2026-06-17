@@ -9,6 +9,7 @@
 #include <cstring>
 #include <cerrno>
 #include <cstdlib>
+#include <source_location>
 #include <string_view>
 #include <system_error>
 #include <type_traits>
@@ -17,13 +18,11 @@
 
 #include "dmtcp.h"
 
-extern "C" ssize_t dmtcp_assert_write(int fd, const void *buf, size_t count);
-
 namespace dmtcp {
 
 inline constexpr int kAssertFailureExitCode = 99;
 inline constexpr int kLogFd = STDERR_FILENO;
-inline constexpr size_t kAssertBufferSize = 4096;
+inline constexpr size_t kLogBufferSize = 4096;
 inline constexpr std::string_view kLogTruncatedMarker = " [truncated]\n";
 
 /*
@@ -73,15 +72,14 @@ void initializeLogConsole(const char *stderrPath);
 bool setLogFile(const char *path);
 void closeLogConsole();
 
-class AssertBuffer;
-
+/*
+ * Helper macros such as ASSERT_EQ build a standard failure message and then
+ * optionally append user-provided detail.  This wrapper lets that optional
+ * detail travel through the formatter as one argument while preserving lazy
+ * evaluation: detail arguments are evaluated only inside the failing log path.
+ */
 template <typename... Args>
-inline void formatTo(AssertBuffer& buffer,
-                     std::string_view fmt,
-                     const Args&... args);
-
-template <typename... Args>
-struct FormatDetail {
+struct DeferredLogDetail {
   std::string_view fmt;
   std::tuple<const Args&...> args;
 };
@@ -133,88 +131,6 @@ class AssertBuffer {
                             : std::string_view(value));
   }
 
-  void append(char *value)
-  {
-    append(static_cast<const char *>(value));
-  }
-
-  void append(bool value)
-  {
-    append(value ? "true" : "false");
-  }
-
-  void append(char value)
-  {
-    append(std::string_view(&value, 1));
-  }
-
-  void append(std::nullptr_t)
-  {
-    append("(null)");
-  }
-
-  template <typename... Args>
-  void append(const FormatDetail<Args...>& detail)
-  {
-    std::apply([&](const auto&... args) {
-      formatTo(*this, detail.fmt, args...);
-    }, detail.args);
-  }
-
-  template <typename T>
-    requires requires(const T& value, AssertBuffer& buffer) {
-      value.appendTo(buffer);
-    }
-  void append(const T& value)
-  {
-    value.appendTo(*this);
-  }
-
-  template <std::integral T>
-    requires (!std::same_as<std::remove_cv_t<T>, bool> &&
-              !std::same_as<std::remove_cv_t<T>, char>)
-  void append(T value)
-  {
-    appendInteger(value);
-  }
-
-  template <std::integral T>
-  void appendHex(T value)
-  {
-    appendInteger(value, 16);
-  }
-
-  template <typename T>
-    requires std::is_enum_v<std::remove_cvref_t<T>>
-  void append(T value)
-  {
-    using Underlying = std::underlying_type_t<std::remove_cvref_t<T>>;
-    append(static_cast<Underlying>(value));
-  }
-
-  template <typename T>
-    requires (std::is_pointer_v<T> &&
-              !std::is_convertible_v<T, const char *>)
-  void append(T value)
-  {
-    if (value == nullptr) {
-      append("(null)");
-      return;
-    }
-
-    append("0x");
-    appendHex(reinterpret_cast<uintptr_t>(value));
-  }
-
-  void append(const DmtcpUniqueProcessId& value)
-  {
-    appendHex(value._hostid);
-    append("-");
-    appendInteger(value._pid);
-    append("-");
-    appendHex(value._time);
-  }
-
   const char *c_str() const
   {
     return availableStorage_ == 0 ? "" : data_;
@@ -224,18 +140,6 @@ class AssertBuffer {
   bool truncated() const { return truncated_; }
 
  private:
-  template <std::integral T>
-  void appendInteger(T value, int base = 10)
-  {
-    char tmp[64];
-    auto result = std::to_chars(tmp, tmp + sizeof(tmp), value, base);
-    if (result.ec != std::errc()) {
-      append("<format-error>");
-      return;
-    }
-    append(std::string_view(tmp, result.ptr - tmp));
-  }
-
   char *data_;
   size_t availableStorage_;
   size_t size_;
@@ -310,126 +214,10 @@ errnoName(int savedErrno)
 }
 
 template <typename... Args>
-inline FormatDetail<Args...>
-formatDetail(std::string_view fmt, const Args&... args)
+inline DeferredLogDetail<Args...>
+logDetail(std::string_view fmt, const Args&... args)
 {
   return {fmt, std::tuple<const Args&...>(args...)};
-}
-
-inline void
-formatImpl(AssertBuffer& buffer, std::string_view fmt)
-{
-  size_t literalStart = 0;
-  for (size_t i = 0; i < fmt.size(); ++i) {
-    if (fmt[i] == '{' && i + 1 < fmt.size() && fmt[i + 1] == '{') {
-      buffer.append(fmt.substr(literalStart, i - literalStart));
-      buffer.append("{");
-      ++i;
-      literalStart = i + 1;
-    } else if (fmt[i] == '}' && i + 1 < fmt.size() && fmt[i + 1] == '}') {
-      buffer.append(fmt.substr(literalStart, i - literalStart));
-      buffer.append("}");
-      ++i;
-      literalStart = i + 1;
-    } else if (fmt[i] == '{' && i + 1 < fmt.size() && fmt[i + 1] == '}') {
-      buffer.append(fmt.substr(literalStart, i - literalStart));
-      buffer.append("[missing-format-arg]");
-      ++i;
-      literalStart = i + 1;
-    }
-  }
-  buffer.append(fmt.substr(literalStart));
-}
-
-inline void
-appendUnusedFormatArgs(AssertBuffer& buffer, size_t count)
-{
-  buffer.append(" [unused-format-args=");
-  buffer.append(count);
-  buffer.append("]");
-}
-
-template <typename First, typename... Rest>
-inline void
-formatImpl(AssertBuffer& buffer,
-           std::string_view fmt,
-           const First& first,
-           const Rest&... rest)
-{
-  size_t literalStart = 0;
-  for (size_t i = 0; i < fmt.size(); ++i) {
-    if (fmt[i] == '{' && i + 1 < fmt.size() && fmt[i + 1] == '{') {
-      buffer.append(fmt.substr(literalStart, i - literalStart));
-      buffer.append("{");
-      ++i;
-      literalStart = i + 1;
-    } else if (fmt[i] == '}' && i + 1 < fmt.size() && fmt[i + 1] == '}') {
-      buffer.append(fmt.substr(literalStart, i - literalStart));
-      buffer.append("}");
-      ++i;
-      literalStart = i + 1;
-    } else if (fmt[i] == '{' && i + 1 < fmt.size() && fmt[i + 1] == '}') {
-      buffer.append(fmt.substr(literalStart, i - literalStart));
-      buffer.append(first);
-      formatImpl(buffer, fmt.substr(i + 2), rest...);
-      return;
-    }
-  }
-  buffer.append(fmt.substr(literalStart));
-  appendUnusedFormatArgs(buffer, sizeof...(Rest) + 1);
-}
-
-template <typename... Args>
-inline void
-formatTo(AssertBuffer& buffer, std::string_view fmt, const Args&... args)
-{
-  formatImpl(buffer, fmt, args...);
-}
-
-inline void
-appendErrno(AssertBuffer& buffer, int savedErrno)
-{
-  buffer.append(": errno=");
-  buffer.append(savedErrno);
-  buffer.append(" (");
-  buffer.append(errnoName(savedErrno));
-  buffer.append(")");
-}
-
-inline void
-appendLogPrefix(AssertBuffer& buffer,
-                LogLevel level,
-                const char *expr,
-                const char *file,
-                int line)
-{
-  buffer.append(logLevelName(level));
-  buffer.append(" at ");
-  buffer.append(file == nullptr ? "<unknown>" : file);
-  buffer.append(":");
-  buffer.append(line);
-  buffer.append(": ");
-  buffer.append(expr == nullptr ? "<none>" : expr);
-}
-
-template <typename... Args>
-inline void
-appendLogMessage(AssertBuffer& buffer,
-                 std::string_view fmt,
-                 const Args&... args)
-{
-  if (!fmt.empty()) {
-    buffer.append(": ");
-    formatTo(buffer, fmt, args...);
-  }
-}
-
-inline void
-finishLogMessage(AssertBuffer& buffer)
-{
-  if (!buffer.truncated()) {
-    buffer.append("\n");
-  }
 }
 
 inline void writeAllNoAlloc(int fd, const char *data, size_t length);
@@ -443,43 +231,11 @@ exitAfterAssertFailure()
   _exit(DMTCP_FAIL_RC);
 }
 
-template <typename... Args>
-inline void
-formatLogMessage(AssertBuffer& buffer,
-                 LogLevel level,
-                 const char *expr,
-                 const char *file,
-                 int line,
-                 std::string_view fmt,
-                 const Args&... args)
-{
-  appendLogPrefix(buffer, level, expr, file, line);
-  appendLogMessage(buffer, fmt, args...);
-  finishLogMessage(buffer);
-}
-
-template <typename... Args>
-inline void
-formatLogMessageWithErrno(AssertBuffer& buffer,
-                          LogLevel level,
-                          const char *expr,
-                          const char *file,
-                          int line,
-                          int savedErrno,
-                          std::string_view fmt,
-                          const Args&... args)
-{
-  appendLogPrefix(buffer, level, expr, file, line);
-  appendLogMessage(buffer, fmt, args...);
-  appendErrno(buffer, savedErrno);
-  finishLogMessage(buffer);
-}
-
 inline void
 writeAllNoAlloc(int fd, const char *data, size_t length)
 {
   while (length > 0) {
-    ssize_t written = dmtcp_assert_write(fd, data, length);
+    ssize_t written = write(fd, data, length);
     if (written == -1 && errno == EINTR) {
       continue;
     }
@@ -491,26 +247,252 @@ writeAllNoAlloc(int fd, const char *data, size_t length)
   }
 }
 
+class LogMessage {
+ public:
+  LogMessage(LogLevel level,
+             std::source_location location,
+             const char *expr,
+             int savedErrno,
+             bool includeErrno)
+    : buffer_(storage_, sizeof(storage_)),
+      level_(level),
+      location_(location),
+      expr_(expr),
+      savedErrno_(savedErrno),
+      includeErrno_(includeErrno)
+  {
+  }
+
+  template <typename... Args>
+  void format(std::string_view fmt, const Args&... args)
+  {
+    appendPrefix();
+    appendUserMessage(fmt, args...);
+    if (includeErrno_) {
+      appendErrno();
+    }
+    finish();
+  }
+
+  const char *c_str() const { return buffer_.c_str(); }
+  size_t size() const { return buffer_.size(); }
+  bool truncated() const { return buffer_.truncated(); }
+
+ private:
+  void appendPrefix()
+  {
+    buffer_.append(logLevelName(level_));
+    buffer_.append(" at ");
+    buffer_.append(location_.file_name() == nullptr ? "<unknown>"
+                                                    : location_.file_name());
+    buffer_.append(":");
+    appendValue(location_.line());
+    buffer_.append(": ");
+    buffer_.append(expr_ == nullptr ? "<none>" : expr_);
+  }
+
+  template <typename... Args>
+  void appendUserMessage(std::string_view fmt, const Args&... args)
+  {
+    if (!fmt.empty()) {
+      buffer_.append(": ");
+      formatText(fmt, args...);
+    }
+  }
+
+  void appendErrno()
+  {
+    buffer_.append(": errno=");
+    appendValue(savedErrno_);
+    buffer_.append(" (");
+    buffer_.append(errnoName(savedErrno_));
+    buffer_.append(")");
+  }
+
+  void formatText(std::string_view fmt)
+  {
+    size_t literalStart = 0;
+    for (size_t i = 0; i < fmt.size(); ++i) {
+      if (fmt[i] == '{' && i + 1 < fmt.size() && fmt[i + 1] == '{') {
+        buffer_.append(fmt.substr(literalStart, i - literalStart));
+        buffer_.append("{");
+        ++i;
+        literalStart = i + 1;
+      } else if (fmt[i] == '}' && i + 1 < fmt.size() && fmt[i + 1] == '}') {
+        buffer_.append(fmt.substr(literalStart, i - literalStart));
+        buffer_.append("}");
+        ++i;
+        literalStart = i + 1;
+      } else if (fmt[i] == '{' && i + 1 < fmt.size() && fmt[i + 1] == '}') {
+        buffer_.append(fmt.substr(literalStart, i - literalStart));
+        buffer_.append("[missing-format-arg]");
+        ++i;
+        literalStart = i + 1;
+      }
+    }
+    buffer_.append(fmt.substr(literalStart));
+  }
+
+  template <typename First, typename... Rest>
+  void formatText(std::string_view fmt,
+                  const First& first,
+                  const Rest&... rest)
+  {
+    size_t literalStart = 0;
+    for (size_t i = 0; i < fmt.size(); ++i) {
+      if (fmt[i] == '{' && i + 1 < fmt.size() && fmt[i + 1] == '{') {
+        buffer_.append(fmt.substr(literalStart, i - literalStart));
+        buffer_.append("{");
+        ++i;
+        literalStart = i + 1;
+      } else if (fmt[i] == '}' && i + 1 < fmt.size() && fmt[i + 1] == '}') {
+        buffer_.append(fmt.substr(literalStart, i - literalStart));
+        buffer_.append("}");
+        ++i;
+        literalStart = i + 1;
+      } else if (fmt[i] == '{' && i + 1 < fmt.size() && fmt[i + 1] == '}') {
+        buffer_.append(fmt.substr(literalStart, i - literalStart));
+        appendValue(first);
+        formatText(fmt.substr(i + 2), rest...);
+        return;
+      }
+    }
+    buffer_.append(fmt.substr(literalStart));
+    appendUnusedFormatArgs(sizeof...(Rest) + 1);
+  }
+
+  void appendValue(std::string_view value)
+  {
+    buffer_.append(value);
+  }
+
+  void appendValue(const char *value)
+  {
+    buffer_.append(value == nullptr ? std::string_view("(null)")
+                                    : std::string_view(value));
+  }
+
+  void appendValue(char *value)
+  {
+    appendValue(static_cast<const char *>(value));
+  }
+
+  void appendValue(bool value)
+  {
+    buffer_.append(value ? "true" : "false");
+  }
+
+  void appendValue(char value)
+  {
+    buffer_.append(std::string_view(&value, 1));
+  }
+
+  void appendValue(std::nullptr_t)
+  {
+    buffer_.append("(null)");
+  }
+
+  template <typename... Args>
+  void appendValue(const DeferredLogDetail<Args...>& detail)
+  {
+    std::apply([&](const auto&... args) {
+      formatText(detail.fmt, args...);
+    }, detail.args);
+  }
+
+  template <std::integral T>
+    requires (!std::same_as<std::remove_cv_t<T>, bool> &&
+              !std::same_as<std::remove_cv_t<T>, char>)
+  void appendValue(T value)
+  {
+    appendInteger(value);
+  }
+
+  template <typename T>
+    requires std::is_enum_v<std::remove_cvref_t<T>>
+  void appendValue(T value)
+  {
+    using Underlying = std::underlying_type_t<std::remove_cvref_t<T>>;
+    appendValue(static_cast<Underlying>(value));
+  }
+
+  template <typename T>
+    requires (std::is_pointer_v<T> &&
+              !std::is_convertible_v<T, const char *>)
+  void appendValue(T value)
+  {
+    if (value == nullptr) {
+      buffer_.append("(null)");
+      return;
+    }
+
+    buffer_.append("0x");
+    appendHex(reinterpret_cast<uintptr_t>(value));
+  }
+
+  void appendValue(const DmtcpUniqueProcessId& value)
+  {
+    appendHex(value._hostid);
+    buffer_.append("-");
+    appendInteger(value._pid);
+    buffer_.append("-");
+    appendHex(value._time);
+  }
+
+  template <std::integral T>
+  void appendHex(T value)
+  {
+    appendInteger(value, 16);
+  }
+
+  template <std::integral T>
+  void appendInteger(T value, int base = 10)
+  {
+    char tmp[64];
+    auto result = std::to_chars(tmp, tmp + sizeof(tmp), value, base);
+    if (result.ec != std::errc()) {
+      buffer_.append("<format-error>");
+      return;
+    }
+    buffer_.append(std::string_view(tmp, result.ptr - tmp));
+  }
+
+  void appendUnusedFormatArgs(size_t count)
+  {
+    buffer_.append(" [unused-format-args=");
+    appendValue(count);
+    buffer_.append("]");
+  }
+
+  void finish()
+  {
+    if (!buffer_.truncated()) {
+      buffer_.append("\n");
+    }
+  }
+
+  char storage_[kLogBufferSize];
+  AssertBuffer buffer_;
+  LogLevel level_;
+  std::source_location location_;
+  const char *expr_;
+  int savedErrno_;
+  bool includeErrno_;
+};
+
 template <typename... Args>
 inline void
 logMessage(LogLevel level,
+           std::source_location location,
            const char *expr,
-           const char *file,
-           int line,
            int savedErrno,
            bool includeErrno,
            std::string_view fmt,
            const Args&... args)
 {
-  char storage[kAssertBufferSize];
-  AssertBuffer buffer(storage, sizeof(storage));
-  if (includeErrno) {
-    formatLogMessageWithErrno(buffer, level, expr, file, line, savedErrno,
-                              fmt, args...);
-  } else {
-    formatLogMessage(buffer, level, expr, file, line, fmt, args...);
-  }
-  emitLogMessage(buffer.c_str(), buffer.size());
+  LogMessage message(level, location, expr, savedErrno, includeErrno);
+  message.format(fmt, args...);
+  emitLogMessage(message.c_str(), message.size());
 }
 
 } // namespace dmtcp
@@ -525,68 +507,48 @@ logMessage(LogLevel level,
 #define DMTCP_LOG_COMPONENT DMTCP_LOG_COMPONENT_DEFAULT
 #endif
 
-#define TRACE(fmt, ...)                                                  \
+#define DMTCP_LOG_WRITE(level, expr, includeErrno, fmt, ...)              \
   do {                                                                   \
-    if (::dmtcp::logEnabled(::dmtcp::LogLevel::Trace,                    \
-                            DMTCP_LOG_COMPONENT, __FILE__)) {            \
-      int dmtcpAssertSavedErrno = errno;                                  \
-      ::dmtcp::logMessage(::dmtcp::LogLevel::Trace,                      \
-                          nullptr, __FILE__, __LINE__,                   \
-                          dmtcpAssertSavedErrno, false, fmt              \
+    const int dmtcpAssertSavedErrno = errno;                              \
+    const auto dmtcpLogLocation = std::source_location::current();        \
+    if (::dmtcp::logEnabled(level, DMTCP_LOG_COMPONENT,                   \
+                            dmtcpLogLocation.file_name())) {             \
+      ::dmtcp::logMessage(level, dmtcpLogLocation, expr,                  \
+                          dmtcpAssertSavedErrno, includeErrno, fmt       \
                           __VA_OPT__(,) __VA_ARGS__);                    \
-      errno = dmtcpAssertSavedErrno;                                      \
     }                                                                    \
+    errno = dmtcpAssertSavedErrno;                                        \
   } while (0)
 
+#define TRACE(fmt, ...)                                                  \
+  DMTCP_LOG_WRITE(::dmtcp::LogLevel::Trace, nullptr, false, fmt          \
+                  __VA_OPT__(,) __VA_ARGS__)
+
 #define NOTE(fmt, ...)                                                   \
-  do {                                                                   \
-    if (::dmtcp::logEnabled(::dmtcp::LogLevel::Note,                     \
-                            DMTCP_LOG_COMPONENT, __FILE__)) {            \
-      int dmtcpAssertSavedErrno = errno;                                  \
-      ::dmtcp::logMessage(::dmtcp::LogLevel::Note,                       \
-                          nullptr, __FILE__, __LINE__,                   \
-                          dmtcpAssertSavedErrno, false, fmt              \
-                          __VA_OPT__(,) __VA_ARGS__);                    \
-      errno = dmtcpAssertSavedErrno;                                      \
-    }                                                                    \
-  } while (0)
+  DMTCP_LOG_WRITE(::dmtcp::LogLevel::Note, nullptr, false, fmt           \
+                  __VA_OPT__(,) __VA_ARGS__)
 
 #define WARN(condition, fmt, ...)                                         \
   do {                                                                   \
-    if (!(condition) &&                                                   \
-        ::dmtcp::logEnabled(::dmtcp::LogLevel::Warn,                     \
-                            DMTCP_LOG_COMPONENT, __FILE__)) {            \
-      int dmtcpAssertSavedErrno = errno;                                  \
-      ::dmtcp::logMessage(::dmtcp::LogLevel::Warn,                       \
-                          #condition, __FILE__, __LINE__,                \
-                          dmtcpAssertSavedErrno, false, fmt              \
-                          __VA_OPT__(,) __VA_ARGS__);                    \
-      errno = dmtcpAssertSavedErrno;                                      \
+    if (!(condition)) {                                                   \
+      DMTCP_LOG_WRITE(::dmtcp::LogLevel::Warn, #condition, false, fmt    \
+                      __VA_OPT__(,) __VA_ARGS__);                        \
     }                                                                    \
   } while (0)
 
 #define WARN_ERRNO(condition, fmt, ...)                                   \
   do {                                                                   \
-    if (!(condition) &&                                                   \
-        ::dmtcp::logEnabled(::dmtcp::LogLevel::Warn,                     \
-                            DMTCP_LOG_COMPONENT, __FILE__)) {            \
-      int dmtcpAssertSavedErrno = errno;                                  \
-      ::dmtcp::logMessage(::dmtcp::LogLevel::Warn,                       \
-                          #condition, __FILE__, __LINE__,                \
-                          dmtcpAssertSavedErrno, true, fmt               \
-                          __VA_OPT__(,) __VA_ARGS__);                    \
-      errno = dmtcpAssertSavedErrno;                                      \
+    if (!(condition)) {                                                   \
+      DMTCP_LOG_WRITE(::dmtcp::LogLevel::Warn, #condition, true, fmt     \
+                      __VA_OPT__(,) __VA_ARGS__);                        \
     }                                                                    \
   } while (0)
 
 #define ASSERT(condition, fmt, ...)                                       \
   do {                                                                   \
     if (!(condition)) {                                                   \
-      int dmtcpAssertSavedErrno = errno;                                  \
-      ::dmtcp::logMessage(::dmtcp::LogLevel::Error,                      \
-                          #condition, __FILE__, __LINE__,                \
-                          dmtcpAssertSavedErrno, false, fmt              \
-                          __VA_OPT__(,) __VA_ARGS__);                    \
+      DMTCP_LOG_WRITE(::dmtcp::LogLevel::Error, #condition, false, fmt   \
+                      __VA_OPT__(,) __VA_ARGS__);                        \
       ::dmtcp::exitAfterAssertFailure();                                  \
     }                                                                    \
   } while (0)
@@ -594,12 +556,8 @@ logMessage(LogLevel level,
 #define ASSERT_ERRNO(condition, fmt, ...)                                 \
   do {                                                                   \
     if (!(condition)) {                                                   \
-      int dmtcpAssertSavedErrno = errno;                                  \
-      ::dmtcp::logMessage(::dmtcp::LogLevel::Error,                      \
-                          #condition, __FILE__, __LINE__,                \
-                          dmtcpAssertSavedErrno, true, fmt               \
-                          __VA_OPT__(,) __VA_ARGS__);                    \
-      errno = dmtcpAssertSavedErrno;                                      \
+      DMTCP_LOG_WRITE(::dmtcp::LogLevel::Error, #condition, true, fmt    \
+                      __VA_OPT__(,) __VA_ARGS__);                        \
       ::dmtcp::exitAfterAssertFailure();                                  \
     }                                                                    \
   } while (0)
@@ -607,22 +565,22 @@ logMessage(LogLevel level,
 #define ASSERT_FALSE(condition, ...)                                      \
   ASSERT(!(condition), "expected false: {}"                              \
          __VA_OPT__("; {}"), #condition                                  \
-         __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)))
+         __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)))
 
 #define ASSERT_TRUE(condition, ...)                                       \
   ASSERT((condition), "expected true: {}"                                \
          __VA_OPT__("; {}"), #condition                                  \
-         __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)))
+         __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)))
 
 #define WARN_FALSE(condition, ...)                                        \
   WARN(!(condition), "expected false: {}"                                \
        __VA_OPT__("; {}"), #condition                                    \
-       __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)))
+       __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)))
 
 #define WARN_TRUE(condition, ...)                                         \
   WARN((condition), "expected true: {}"                                  \
        __VA_OPT__("; {}"), #condition                                    \
-       __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)))
+       __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)))
 
 #define ASSERT_NULL(value, ...)                                           \
   do {                                                                    \
@@ -630,7 +588,7 @@ logMessage(LogLevel level,
     ASSERT(dmtcpAssertValue == nullptr,                                    \
            "expected null: {}, got {}" __VA_OPT__("; {}"),               \
            #value, dmtcpAssertValue                                       \
-           __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));             \
+           __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));             \
   } while (0)
 
 #define ASSERT_NOT_NULL(value, ...)                                       \
@@ -640,7 +598,7 @@ logMessage(LogLevel level,
            "expected non-null: {}, got {}"                                \
            __VA_OPT__("; {}"),                                            \
            #value, dmtcpAssertValue                                       \
-           __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));             \
+           __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));             \
   } while (0)
 
 #define WARN_NULL(value, ...)                                             \
@@ -649,7 +607,7 @@ logMessage(LogLevel level,
     WARN(dmtcpAssertValue == nullptr,                                      \
          "expected null: {}, got {}" __VA_OPT__("; {}"),                 \
          #value, dmtcpAssertValue                                         \
-         __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));               \
+         __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));               \
   } while (0)
 
 #define WARN_NOT_NULL(value, ...)                                         \
@@ -658,7 +616,7 @@ logMessage(LogLevel level,
     WARN(dmtcpAssertValue != nullptr,                                      \
          "expected non-null: {}, got {}" __VA_OPT__("; {}"),             \
          #value, dmtcpAssertValue                                         \
-         __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));               \
+         __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));               \
   } while (0)
 
 #define ASSERT_EQ(expected, actual, ...)                                  \
@@ -669,7 +627,7 @@ logMessage(LogLevel level,
            "expected {} == {}, got {} and {}"                             \
            __VA_OPT__("; {}"),                                            \
            #expected, #actual, dmtcpAssertExpected, dmtcpAssertActual      \
-           __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));             \
+           __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));             \
   } while (0)
 
 #define WARN_EQ(expected, actual, ...)                                    \
@@ -680,7 +638,7 @@ logMessage(LogLevel level,
          "expected {} == {}, got {} and {}"                               \
          __VA_OPT__("; {}"),                                              \
          #expected, #actual, dmtcpAssertExpected, dmtcpAssertActual        \
-         __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));               \
+         __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));               \
   } while (0)
 
 #define ASSERT_NE(expected, actual, ...)                                  \
@@ -691,7 +649,7 @@ logMessage(LogLevel level,
            "expected {} != {}, got {} and {}"                             \
            __VA_OPT__("; {}"),                                            \
            #expected, #actual, dmtcpAssertExpected, dmtcpAssertActual      \
-           __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));             \
+           __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));             \
   } while (0)
 
 #define WARN_NE(expected, actual, ...)                                    \
@@ -702,7 +660,7 @@ logMessage(LogLevel level,
          "expected {} != {}, got {} and {}"                               \
          __VA_OPT__("; {}"),                                              \
          #expected, #actual, dmtcpAssertExpected, dmtcpAssertActual        \
-         __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));               \
+         __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));               \
   } while (0)
 
 #define ASSERT_GT(lhs, rhs, ...)                                          \
@@ -713,7 +671,7 @@ logMessage(LogLevel level,
            "expected {} > {}, got {} and {}"                              \
            __VA_OPT__("; {}"),                                            \
            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs                     \
-           __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));             \
+           __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));             \
   } while (0)
 
 #define WARN_GT(lhs, rhs, ...)                                            \
@@ -724,7 +682,7 @@ logMessage(LogLevel level,
          "expected {} > {}, got {} and {}"                                \
          __VA_OPT__("; {}"),                                              \
          #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs                       \
-         __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));               \
+         __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));               \
   } while (0)
 
 #define ASSERT_LT(lhs, rhs, ...)                                          \
@@ -735,7 +693,7 @@ logMessage(LogLevel level,
            "expected {} < {}, got {} and {}"                              \
            __VA_OPT__("; {}"),                                            \
            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs                     \
-           __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));             \
+           __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));             \
   } while (0)
 
 #define WARN_LT(lhs, rhs, ...)                                            \
@@ -746,7 +704,7 @@ logMessage(LogLevel level,
          "expected {} < {}, got {} and {}"                                \
          __VA_OPT__("; {}"),                                              \
          #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs                       \
-         __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));               \
+         __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));               \
   } while (0)
 
 #define ASSERT_GE(lhs, rhs, ...)                                          \
@@ -757,7 +715,7 @@ logMessage(LogLevel level,
            "expected {} >= {}, got {} and {}"                             \
            __VA_OPT__("; {}"),                                            \
            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs                     \
-           __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));             \
+           __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));             \
   } while (0)
 
 #define WARN_GE(lhs, rhs, ...)                                            \
@@ -768,7 +726,7 @@ logMessage(LogLevel level,
          "expected {} >= {}, got {} and {}"                               \
          __VA_OPT__("; {}"),                                              \
          #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs                       \
-         __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));               \
+         __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));               \
   } while (0)
 
 #define ASSERT_LE(lhs, rhs, ...)                                          \
@@ -779,7 +737,7 @@ logMessage(LogLevel level,
            "expected {} <= {}, got {} and {}"                             \
            __VA_OPT__("; {}"),                                            \
            #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs                     \
-           __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));             \
+           __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));             \
   } while (0)
 
 #define WARN_LE(lhs, rhs, ...)                                            \
@@ -790,7 +748,7 @@ logMessage(LogLevel level,
          "expected {} <= {}, got {} and {}"                               \
          __VA_OPT__("; {}"),                                              \
          #lhs, #rhs, dmtcpAssertLhs, dmtcpAssertRhs                       \
-         __VA_OPT__(, ::dmtcp::formatDetail(__VA_ARGS__)));               \
+         __VA_OPT__(, ::dmtcp::logDetail(__VA_ARGS__)));               \
   } while (0)
 
 #define ASSERT_LOCK_SUCCESS(expression, ...) \

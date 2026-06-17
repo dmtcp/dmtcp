@@ -23,7 +23,6 @@ SSHDrainer::onData(jalib::JReaderInterface *sock)
   int startIdx = buffer.size() - sock->bytesRead();
   memcpy(&buffer[startIdx], sock->buffer(), sock->bytesRead());
 
-  // TRACE("got buffer chunk (sock->bytesRead() = {};)", sock->bytesRead());
   sock->reset();
 }
 
@@ -31,6 +30,7 @@ void
 SSHDrainer::onDisconnect(jalib::JReaderInterface *sock)
 {
   int fd;
+  int savedErrno = errno;
 
   errno = 0;
   fd = sock->socket().sockfd();
@@ -39,7 +39,8 @@ SSHDrainer::onDisconnect(jalib::JReaderInterface *sock)
   if (fd < 0) {
     return;
   }
-  NOTE("found disconnected socket... marking it dead (fd = {};) (strerror(errno) = {};)", fd, strerror(errno));
+  NOTE("Marking disconnected SSH socket dead: fd={} error={}",
+       fd, strerror(savedErrno));
   _drainedData.erase(fd);
   ASSERT(false, "SSHDrainer::onDisconnect is not implemented");
 }
@@ -59,7 +60,9 @@ SSHDrainer::onTimeoutInterval()
                   theMagicDrainCookie,
                   sizeof(theMagicDrainCookie)) == 0) {
       buffer.resize(buffer.size() - sizeof(theMagicDrainCookie));
-      TRACE("buffer drain complete (_dataSockets[i]->socket().sockfd() = {};) (buffer.size() = {};) ((_dataSockets.size()) = {};)", _dataSockets[i]->socket().sockfd(), buffer.size(), (_dataSockets.size()));
+      TRACE("Buffer drain complete: fd={} bytes={} sockets={}",
+            _dataSockets[i]->socket().sockfd(), buffer.size(),
+            (_dataSockets.size()));
       _dataSockets[i]->socket() = -1; // poison socket
     } else {
       ++count;
@@ -78,10 +81,10 @@ SSHDrainer::onTimeoutInterval()
       for (size_t i = 0; i < _dataSockets.size(); ++i) {
         vector<char> &buffer = _drainedData[_dataSockets[i]->socket().sockfd()];
         WARN(false,
-                "Still draining socket; perhaps remote host is not running "
-                "under DMTCP: fd={} bytes={} interval_ms={}",
-                _dataSockets[i]->socket().sockfd(), buffer.size(),
-                WARN_INTERVAL_MS);
+             "Still draining socket; perhaps remote host is not running "
+             "under DMTCP: fd={} bytes={} interval_ms={}",
+             _dataSockets[i]->socket().sockfd(), buffer.size(),
+             WARN_INTERVAL_MS);
       }
     }
   }
@@ -105,7 +108,7 @@ SSHDrainer::beginDrainOf(int fd, int refillFd)
 void
 SSHDrainer::refill()
 {
-  TRACE("refilling socket buffers (_drainedData.size() = {};)", _drainedData.size());
+  TRACE("Refilling socket buffers: count={}", _drainedData.size());
 
   // write all buffers out
   map<int, vector<char> >::iterator i;

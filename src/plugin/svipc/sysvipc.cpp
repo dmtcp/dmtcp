@@ -514,7 +514,9 @@ SysVShm::on_shmget(int shmid, key_t realKey, key_t key, size_t size, int shmflg)
     ASSERT(!_map.contains(virtId),
            "SysV shm map already has virtual id: shmid={} virt_id={}",
            shmid, virtId);
-    TRACE("Shmid not found in table. Creating new entry (shmid = {};) (virtId = {};)", shmid, virtId);
+    TRACE("Tracking SysV shared-memory segment: real_shmid={} "
+          "virt_shmid={}",
+          shmid, virtId);
     updateMapping(virtId, shmid);
     updateKeyMapping(key, realKey);
     _map[virtId] = new ShmSegment(virtId, shmid, key, size, shmflg);
@@ -588,7 +590,8 @@ SysVSem::on_semget(int realSemId, key_t key, int nsems, int semflg)
 {
   _do_lock_tbl();
   if (!_virtIdTable.realIdExists(realSemId)) {
-    TRACE("Semid not found in table. Creating new entry (realSemId = {};)", realSemId);
+    TRACE("Tracking SysV semaphore set: real_semid={}",
+          realSemId);
     int virtId = getNewVirtualId();
     ASSERT(!_map.contains(virtId),
            "SysV sem map already has virtual id: semid={}", virtId);
@@ -639,7 +642,7 @@ SysVMsq::on_msgget(int msqid, key_t key, int msgflg)
 {
   _do_lock_tbl();
   if (!_virtIdTable.realIdExists(msqid)) {
-    TRACE("Msqid not found in table. Creating new entry (msqid = {};)", msqid);
+    TRACE("Tracking SysV message queue: real_msqid={}", msqid);
     int virtId = getNewVirtualId();
     ASSERT(!_map.contains(virtId),
            "SysV msg map already has virtual id: msqid={} virt_id={}",
@@ -724,7 +727,9 @@ ShmSegment::ShmSegment(int shmid,
     _size = shminfo.shm_segsz;
     _flags = shminfo.shm_perm.mode;
   }
-  TRACE("New Shm Segment (_key = {};) (_size = {};) (_flags = {};) (_id = {};) (_isCkptLeader = {};)", _key, _size, _flags, _id, _isCkptLeader);
+  TRACE("Created SysV shared-memory object: key={} size={} flags={} "
+        "virt_shmid={} checkpoint_leader={}",
+        _key, _size, _flags, _id, _isCkptLeader);
 }
 
 void
@@ -793,7 +798,8 @@ ShmSegment::leaderElection()
   while (i != _shmaddrToFlag.end()) {
     if (_real_shmdt(i->first) == -1) {
       // The application might have munmap'd an area; let's stop tracking it.
-      NOTE("No SHM segment attached at shmaddr; removing it from list. (_id = {};) (i->first = {};)", _id, i->first);
+      NOTE("Dropping detached SysV shared-memory mapping: shmid={} addr={}",
+           _id, i->first);
       i = _shmaddrToFlag.erase(i);
       continue;
     }
@@ -863,7 +869,9 @@ ShmSegment::preCheckpoint()
   }
 
   for (; i != _shmaddrToFlag.end(); ++i) {
-    TRACE("Unmapping shared memory segment (_id = {};) (i->first = {};)", _id, i->first);
+    TRACE("Detaching duplicate SysV shared-memory mapping before checkpoint: "
+          "shmid={} addr={}",
+          _id, i->first);
     ASSERT_NE(-1,
       _real_shmdt(i->first),
       "failed to detach SysV shm before checkpoint: shmid={} shmaddr={}",
@@ -920,14 +928,18 @@ ShmSegment::postRestart()
                  "shmid={} real_shmid={} shmaddr={} flags={} pid={}",
                  _id, _realId, i->first, i->second, getpid());
   }
-  TRACE("Remapping shared memory segment to original address (_id = {};) (_realId = {};)", _id, _realId);
+  TRACE("Remapped SysV shared-memory segment after restart: shmid={} "
+        "real_shmid={}",
+        _id, _realId);
   // Mark the segment as deleted if it was marked deleted at checkpoint.
   if (_mode & SHM_DEST) {
     ASSERT_NE(-1,
       _real_shmctl(_realId, IPC_RMID, NULL),
       "failed to mark restored SysV shm deleted: shmid={} real_shmid={}",
       _id, _realId);
-    TRACE("Marked shared memory segment as deleted. (_id = {};) (_realId = {};)", _id, _realId);
+    TRACE("Marked restored SysV shared-memory segment deleted: shmid={} "
+          "real_shmid={}",
+          _id, _realId);
   }
 }
 
@@ -960,7 +972,8 @@ ShmSegment::preResume()
       "shmid={} shmaddr={} size={}",
       _id, i->first, _size);
 
-    TRACE("Remapping shared memory segment (_realId = {};)", _realId);
+    TRACE("Remapping SysV shared-memory segment before resume: real_shmid={}",
+          _realId);
     ASSERT_ERRNO(_real_shmat(_realId, i->first, i->second) != (void *)-1,
                  "failed to remap SysV shm before resume: "
                  "shmid={} real_shmid={} shmaddr={} flags={} pid={}",
@@ -996,7 +1009,9 @@ Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg)
   _semval.assign(_nsems, 0);
   _semadj.assign(_nsems, 0);
 
-  TRACE("New Semaphore (_key = {};) (_nsems = {};) (_flags = {};) (_id = {};) (_isCkptLeader = {};)", _key, _nsems, _flags, _id, _isCkptLeader);
+  TRACE("Created SysV semaphore object: key={} sem_count={} flags={} "
+        "virt_semid={} checkpoint_leader={}",
+        _key, _nsems, _flags, _id, _isCkptLeader);
 }
 
 void
@@ -1145,7 +1160,8 @@ MsgQueue::MsgQueue(int msqid, int realMsqid, key_t key, int msgflg)
     _key = buf.msg_perm.__key;
     _flags = buf.msg_perm.mode;
   }
-  TRACE("New MsgQueue Created (_key = {};) (_flags = {};) (_id = {};)", _key, _flags, _id);
+  TRACE("Created SysV message-queue object: key={} flags={} virt_msqid={}",
+        _key, _flags, _id);
 }
 
 bool

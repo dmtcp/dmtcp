@@ -79,8 +79,8 @@ timer_create(clockid_t clockid, struct sigevent *sevp, timer_t *timerid)
   }
   if (ret != -1 && timerid != NULL) {
     virtId = TimerList::instance().on_timer_create(realId, clockid, sevIn);
-    TRACE("Creating new timer (clockid = {};) (realClockId = {};) "
-          "(realId = {};) (virtId = {};)",
+    TRACE("Created POSIX timer: clock_id={} real_clock_id={} real_id={} "
+          "virt_id={}",
           clockid, realClockId, realId, virtId);
     *timerid = virtId;
   }
@@ -99,7 +99,7 @@ timer_delete(timer_t timerid)
   int ret = _real_timer_delete(realId);
   if (ret != -1) {
     TimerList::instance().on_timer_delete(timerid);
-    TRACE("Deleted timer (timerid = {};)", timerid);
+    TRACE("Deleted POSIX timer: timer_id={}", timerid);
   }
   return ret;
 }

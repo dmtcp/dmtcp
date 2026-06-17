@@ -71,7 +71,7 @@ ProcSelfMaps::ProcSelfMaps()
   size_t size = numBytes + 4096; // Add a one page buffer.
   data = (char *)JALLOC_HELPER_MALLOC(size);
   ASSERT_NE(-1, lseek(fd, 0, SEEK_SET),
-               "failed to rewind /proc/self/maps");
+            "failed to rewind /proc/self/maps");
 
   numBytes = Util::readAll(fd, data, size);
   ASSERT(numBytes > 0 && numBytes < size,
@@ -297,6 +297,6 @@ ProcSelfMaps::getStackInfo(ProcMapsArea *area)
     }
   }
   ASSERT(false, "failed to find stack segment in /proc/self/maps holding "
-                "current call frame: call_frame={}",
+                "current call frame: call frame={}",
          stackFrameAddr);
 }

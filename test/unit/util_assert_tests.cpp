@@ -1,16 +1,19 @@
 #define DMTCP_TEST_NO_SHORT_ASSERT_MACROS
 #include "unit_test.h"
 
-#include "protectedfds.h"
 #include "util_assert.h"
 
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <csignal>
+#include <fcntl.h>
 #include <cstdio>
 #include <pthread.h>
+#include <source_location>
 #include <string>
+#include <string_view>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -22,53 +25,73 @@
 
 namespace {
 
-constexpr int kHookBufferCount = 128;
 constexpr int kThreadLogEntries = 4;
+constexpr const char *kFormatTestExpr = "format_test_expr";
 
-int hookCallCount = 0;
-int hookFd = -1;
-int hookFds[kHookBufferCount];
-char hookBuffer[128];
-char hookBuffers[kHookBufferCount][256];
-size_t hookLength = 0;
-bool hookTriggerNestedWarning = false;
-bool hookInNestedWarning = false;
+char logCapturePath[128];
+int logCaptureSerial = 0;
 
 struct ThreadLogArgs {
   int id;
 };
 
 void
-copyHookBuffer(int slot, const void *buf, size_t count)
+makeTempPath(char *path, size_t capacity, const char *suffix)
 {
-  size_t copyLength = count;
-  if (copyLength >= sizeof(hookBuffers[slot])) {
-    copyLength = sizeof(hookBuffers[slot]) - 1;
-  }
-  std::memcpy(hookBuffers[slot], buf, copyLength);
-  hookBuffers[slot][copyLength] = '\0';
+  std::snprintf(path, capacity,
+                "/tmp/dmtcp-util-assert-test-%ld-%d-%s.log",
+                static_cast<long>(getpid()), ++logCaptureSerial, suffix);
 }
 
 void
-resetHook()
+resetLogCapture()
 {
   dmtcp::setLogLevel(dmtcp::LogLevel::Note);
   dmtcp::setLogOverrides("");
-  dmtcp::closeLogConsole();
-  dmtcp::initializeLogConsole(nullptr);
   dmtcp::setLogFile(nullptr);
-  hookCallCount = 0;
-  hookFd = -1;
-  hookBuffer[0] = '\0';
-  hookLength = 0;
-  hookTriggerNestedWarning = false;
-  hookInNestedWarning = false;
-  for (char *buffer : hookBuffers) {
-    buffer[0] = '\0';
+  dmtcp::closeLogConsole();
+  if (logCapturePath[0] != '\0') {
+    unlink(logCapturePath);
   }
-  for (int& fd : hookFds) {
-    fd = -1;
+  makeTempPath(logCapturePath, sizeof(logCapturePath), "console");
+  unlink(logCapturePath);
+  dmtcp::initializeLogConsole(logCapturePath);
+}
+
+std::string
+readFile(const char *path)
+{
+  FILE *file = std::fopen(path, "rb");
+  if (file == nullptr) {
+    return "";
   }
+
+  std::string contents;
+  char buffer[256];
+  size_t bytesRead = 0;
+  while ((bytesRead = std::fread(buffer, 1, sizeof(buffer), file)) > 0) {
+    contents.append(buffer, bytesRead);
+  }
+  std::fclose(file);
+  return contents;
+}
+
+std::string
+readLogCapture()
+{
+  return readFile(logCapturePath);
+}
+
+size_t
+countOccurrences(std::string_view text, std::string_view needle)
+{
+  size_t count = 0;
+  size_t offset = 0;
+  while ((offset = text.find(needle, offset)) != std::string_view::npos) {
+    ++count;
+    offset += needle.size();
+  }
+  return count;
 }
 
 int
@@ -106,36 +129,6 @@ incrementAndReturn(int *calls)
   return *calls;
 }
 
-} // namespace
-
-extern "C" ssize_t
-dmtcp_assert_write(int fd, const void *buf, size_t count)
-{
-  int slot = __atomic_fetch_add(&hookCallCount, 1, __ATOMIC_RELAXED);
-  if (slot >= kHookBufferCount) {
-    slot = kHookBufferCount - 1;
-  }
-  hookFd = fd;
-  hookFds[slot] = fd;
-  hookLength = count;
-  if (hookTriggerNestedWarning && !hookInNestedWarning) {
-    hookInNestedWarning = true;
-    WARN(false, "inner log");
-    hookInNestedWarning = false;
-  }
-
-  copyHookBuffer(slot, buf, count);
-  size_t copyLength = count;
-  if (copyLength >= sizeof(hookBuffer)) {
-    copyLength = sizeof(hookBuffer) - 1;
-  }
-  std::memcpy(hookBuffer, buf, copyLength);
-  hookBuffer[copyLength] = '\0';
-  return static_cast<ssize_t>(count);
-}
-
-namespace {
-
 void *
 emitThreadLogs(void *data)
 {
@@ -146,38 +139,46 @@ emitThreadLogs(void *data)
   return nullptr;
 }
 
-bool
-hookBuffersContain(const char *needle)
+template <typename... Args>
+std::string
+formatPayloadForTest(std::string_view fmt, const Args&... args)
 {
-  for (const char *buffer : hookBuffers) {
-    if (std::strstr(buffer, needle) != nullptr) {
-      return true;
-    }
+  const auto location = std::source_location::current();
+  dmtcp::LogMessage message(dmtcp::LogLevel::Warn,
+                            location,
+                            kFormatTestExpr,
+                            0,
+                            false);
+  message.format(fmt, args...);
+
+  std::string marker = std::string(": ") + kFormatTestExpr + ": ";
+  const char *payload = std::strstr(message.c_str(), marker.c_str());
+  UNIT_ASSERT_TRUE(payload != nullptr);
+  payload += marker.size();
+
+  std::string result(payload);
+  if (!result.empty() && result.back() == '\n') {
+    result.pop_back();
   }
-  return false;
+  return result;
 }
 
 void formatCopiesLiteralText()
 {
-  char storage[64];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
+  std::string text = formatPayloadForTest("plain text");
 
-  dmtcp::formatTo(buffer, "plain text");
-
-  UNIT_ASSERT_EQ(std::strcmp(buffer.c_str(), "plain text"), 0);
-  UNIT_ASSERT_TRUE(!buffer.truncated());
+  UNIT_ASSERT_EQ(std::strcmp(text.c_str(), "plain text"), 0);
 }
 
 void formatSubstitutesBasicValues()
 {
-  char storage[128];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
+  std::string text = formatPayloadForTest("fd={} path={} ok={}",
+                                          7,
+                                          "/tmp/demo",
+                                          true);
 
-  dmtcp::formatTo(buffer, "fd={} path={} ok={}", 7, "/tmp/demo", true);
-
-  UNIT_ASSERT_EQ(std::strcmp(buffer.c_str(), "fd=7 path=/tmp/demo ok=true"),
+  UNIT_ASSERT_EQ(std::strcmp(text.c_str(), "fd=7 path=/tmp/demo ok=true"),
                  0);
-  UNIT_ASSERT_TRUE(!buffer.truncated());
 }
 
 enum FormatTestEnum {
@@ -186,222 +187,198 @@ enum FormatTestEnum {
 
 void formatSupportsEnumValues()
 {
-  char storage[64];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
+  std::string text = formatPayloadForTest("type={}", kFormatTestEnumValue);
 
-  dmtcp::formatTo(buffer, "type={}", kFormatTestEnumValue);
-
-  UNIT_ASSERT_EQ(std::strcmp(buffer.c_str(), "type=42"), 0);
+  UNIT_ASSERT_EQ(std::strcmp(text.c_str(), "type=42"), 0);
 }
 
 void formatSupportsStdStringValues()
 {
-  char storage[128];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
   std::string path = "/tmp/dmtcp";
 
-  dmtcp::formatTo(buffer, "path={}", path);
+  std::string text = formatPayloadForTest("path={}", path);
 
-  UNIT_ASSERT_EQ(std::strcmp(buffer.c_str(), "path=/tmp/dmtcp"), 0);
-  UNIT_ASSERT_TRUE(!buffer.truncated());
+  UNIT_ASSERT_EQ(std::strcmp(text.c_str(), "path=/tmp/dmtcp"), 0);
 }
 
 void formatHonorsEscapedBraces()
 {
-  char storage[64];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
+  std::string text = formatPayloadForTest("{{value}}={}", 12);
 
-  dmtcp::formatTo(buffer, "{{value}}={}", 12);
-
-  UNIT_ASSERT_EQ(std::strcmp(buffer.c_str(), "{value}=12"), 0);
+  UNIT_ASSERT_EQ(std::strcmp(text.c_str(), "{value}=12"), 0);
 }
 
 void formatSupportsPointerHexValues()
 {
-  char storage[128];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
   int value = 0;
 
-  dmtcp::formatTo(buffer, "ptr={}", &value);
+  std::string text = formatPayloadForTest("ptr={}", &value);
 
-  UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "ptr=0x") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "(null)") == nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(text.c_str(), "ptr=0x") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(text.c_str(), "(null)") == nullptr);
 }
 
 void formatLeavesUnsupportedSpecsLiteralAndReportsUnusedArgs()
 {
-  char storage[128];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
+  std::string text = formatPayloadForTest("plain={:x} padded={:08x}",
+                                          255,
+                                          10);
 
-  dmtcp::formatTo(buffer, "plain={:x} padded={:08x}", 255, 10);
-
-  UNIT_ASSERT_EQ(std::strcmp(buffer.c_str(),
+  UNIT_ASSERT_EQ(std::strcmp(text.c_str(),
                              "plain={:x} padded={:08x} "
                              "[unused-format-args=2]"), 0);
 }
 
 void formatLeavesInvalidSpecLiteral()
 {
-  char storage[128];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
+  std::string text = formatPayloadForTest("bad={:q} value={}", 9);
 
-  dmtcp::formatTo(buffer, "bad={:q} value={}", 9);
-
-  UNIT_ASSERT_EQ(std::strcmp(buffer.c_str(), "bad={:q} value=9"), 0);
+  UNIT_ASSERT_EQ(std::strcmp(text.c_str(), "bad={:q} value=9"), 0);
 }
 
 void formatReportsUnusedArguments()
 {
-  char storage[128];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
+  std::string text = formatPayloadForTest("value={}", 7, "dropped", 3);
 
-  dmtcp::formatTo(buffer, "value={}", 7, "dropped", 3);
-
-  UNIT_ASSERT_EQ(std::strcmp(buffer.c_str(),
+  UNIT_ASSERT_EQ(std::strcmp(text.c_str(),
                              "value=7 [unused-format-args=2]"), 0);
 }
 
 void formatReportsMissingArguments()
 {
-  char storage[128];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
+  std::string text = formatPayloadForTest("first={} second={}", 7);
 
-  dmtcp::formatTo(buffer, "first={} second={}", 7);
-
-  UNIT_ASSERT_EQ(std::strcmp(buffer.c_str(),
+  UNIT_ASSERT_EQ(std::strcmp(text.c_str(),
                              "first=7 second=[missing-format-arg]"), 0);
 }
 
 void formatTruncatesWithTerminator()
 {
-  char storage[32];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
+  const auto location = std::source_location::current();
+  dmtcp::LogMessage message(dmtcp::LogLevel::Warn,
+                            location,
+                            kFormatTestExpr,
+                            0,
+                            false);
+  std::string payload(5000, 'x');
 
-  dmtcp::formatTo(buffer, "abcdefghijklmnopqrstuvwxyz");
+  message.format("{}", payload);
 
-  UNIT_ASSERT_EQ(std::strcmp(buffer.c_str(),
-                             "abcdefghijklmnopqr [truncated]\n"), 0);
-  UNIT_ASSERT_TRUE(buffer.truncated());
+  UNIT_ASSERT_TRUE(message.truncated());
+  UNIT_ASSERT_TRUE(message.c_str()[message.size()] == '\0');
+  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), " [truncated]\n") !=
+                   nullptr);
 }
 
 void logIncludesLocationAndMessage()
 {
-  char storage[256];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
+  const auto location = std::source_location::current();
+  dmtcp::LogMessage message(dmtcp::LogLevel::Warn,
+                            location,
+                            "x > 0",
+                            0,
+                            false);
 
-  dmtcp::formatLogMessage(buffer,
-                          dmtcp::LogLevel::Warn,
-                          "x > 0",
-                          "file.cpp",
-                          42,
-                          "fd={}",
-                          9);
+  message.format("fd={}", 9);
 
-  UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "WARNING") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "file.cpp:42") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "x > 0") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "fd=9") != nullptr);
+  char expectedLocation[32];
+  std::snprintf(expectedLocation, sizeof(expectedLocation), ":%u:",
+                static_cast<unsigned>(location.line()));
+
+  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "WARNING") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "util_assert_tests.cpp") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), expectedLocation) != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "x > 0") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "fd=9") != nullptr);
 }
 
 void logIncludesErrno()
 {
-  char storage[256];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
+  const auto location = std::source_location::current();
+  dmtcp::LogMessage message(dmtcp::LogLevel::Warn,
+                            location,
+                            "fd >= 0",
+                            EACCES,
+                            true);
 
-  dmtcp::formatLogMessageWithErrno(buffer,
-                                   dmtcp::LogLevel::Warn,
-                                   "fd >= 0",
-                                   "file.cpp",
-                                   42,
-                                   EACCES,
-                                   "path={}",
-                                   "/tmp/demo");
+  message.format("path={}", "/tmp/demo");
 
-  UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "WARNING") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "fd >= 0") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "path=/tmp/demo") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "errno=13") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), "EACCES") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "WARNING") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "fd >= 0") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "path=/tmp/demo") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "errno=13") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "EACCES") != nullptr);
 }
 
 void logTruncationIncludesMarker()
 {
-  char storage[64];
-  dmtcp::AssertBuffer buffer(storage, sizeof(storage));
+  const auto location = std::source_location::current();
+  dmtcp::LogMessage message(dmtcp::LogLevel::Warn,
+                            location,
+                            "x > 0",
+                            0,
+                            false);
+  std::string payload(5000, 'x');
 
-  dmtcp::formatLogMessage(buffer,
-                          dmtcp::LogLevel::Warn,
-                          "x > 0",
-                          "file.cpp",
-                          42,
-                          "payload={}",
-                          "abcdefghijklmnopqrstuvwxyz0123456789"
-                          "abcdefghijklmnopqrstuvwxyz0123456789");
+  message.format("payload={}", payload);
 
-  UNIT_ASSERT_TRUE(buffer.truncated());
-  UNIT_ASSERT_TRUE(std::strstr(buffer.c_str(), " [truncated]\n") != nullptr);
+  UNIT_ASSERT_TRUE(message.truncated());
+  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), " [truncated]\n") != nullptr);
 }
 
-void writeAllUsesAssertWriteHook()
+void writeAllNoAllocWritesToFd()
 {
-  resetHook();
+  char path[128];
+  makeTempPath(path, sizeof(path), "write-all");
+  unlink(path);
+  int fd = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+  UNIT_ASSERT_TRUE(fd != -1);
 
-  dmtcp::writeAllNoAlloc(77, "hooked", 6);
+  dmtcp::writeAllNoAlloc(fd, "hooked", 6);
+  close(fd);
 
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_EQ(hookFd, 77);
-  UNIT_ASSERT_EQ(hookLength, static_cast<size_t>(6));
-  UNIT_ASSERT_EQ(std::strcmp(hookBuffer, "hooked"), 0);
+  std::string log = readFile(path);
+  unlink(path);
+
+  UNIT_ASSERT_EQ(std::strcmp(log.c_str(), "hooked"), 0);
 }
 
-void warningLogsUseAuthoritativeStderrFd()
+void warningLogsUseConfiguredConsole()
 {
-  resetHook();
+  resetLogCapture();
 
   WARN(false, "stderr destination");
 
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_EQ(hookFd, PROTECTED_STDERR_FD);
+  std::string log = readLogCapture();
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "stderr destination") != nullptr);
 }
 
 void warningLogsAlsoUseLogFile()
 {
-  resetHook();
+  resetLogCapture();
 
   char path[128];
-  std::snprintf(path, sizeof(path), "/tmp/dmtcp-util-assert-test-%ld.log",
-                static_cast<long>(getpid()));
+  makeTempPath(path, sizeof(path), "extra-log");
   unlink(path);
 
   UNIT_ASSERT_TRUE(dmtcp::setLogFile(path));
   WARN(false, "log destination");
   dmtcp::setLogFile(nullptr);
+
+  std::string consoleLog = readLogCapture();
+  std::string fileLog = readFile(path);
   unlink(path);
 
-  UNIT_ASSERT_EQ(hookCallCount, 2);
-  UNIT_ASSERT_EQ(hookFds[0], PROTECTED_STDERR_FD);
-  UNIT_ASSERT_TRUE(hookFds[1] != PROTECTED_STDERR_FD);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "log destination") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1], "log destination") != nullptr);
-}
-
-void warningReentryKeepsOuterLogStable()
-{
-  resetHook();
-  hookTriggerNestedWarning = true;
-
-  WARN(false, "outer log");
-
-  UNIT_ASSERT_EQ(hookCallCount, 2);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
-                               "outer log") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1],
-                               "inner log") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(consoleLog.c_str(),
+                               "log destination") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(fileLog.c_str(), "log destination") !=
+                   nullptr);
 }
 
 void multipleThreadsCanWriteLogs()
 {
-  resetHook();
+  resetLogCapture();
   dmtcp::setLogLevel(dmtcp::LogLevel::Note);
 
   constexpr int threadCount = 4;
@@ -418,57 +395,60 @@ void multipleThreadsCanWriteLogs()
     UNIT_ASSERT_EQ(pthread_join(thread, nullptr), 0);
   }
 
-  UNIT_ASSERT_EQ(hookCallCount, threadCount * kThreadLogEntries);
+  std::string log = readLogCapture();
+  UNIT_ASSERT_EQ(countOccurrences(log, "thread log id="),
+                 static_cast<size_t>(threadCount * kThreadLogEntries));
   for (int id = 0; id < threadCount; ++id) {
     for (int entry = 0; entry < kThreadLogEntries; ++entry) {
       char needle[64];
       std::snprintf(needle, sizeof(needle),
                     "thread log id=%d entry=%d", id, entry);
-      UNIT_ASSERT_TRUE(hookBuffersContain(needle));
+      UNIT_ASSERT_TRUE(std::strstr(log.c_str(), needle) != nullptr);
     }
   }
 }
 
 void warningDoesNotEvaluateMessageArgsWhenConditionPasses()
 {
-  resetHook();
+  resetLogCapture();
   int calls = 0;
 
   WARN(true, "arg={}", ++calls);
 
   UNIT_ASSERT_EQ(calls, 0);
-  UNIT_ASSERT_EQ(hookCallCount, 0);
+  UNIT_ASSERT_TRUE(readLogCapture().empty());
 }
 
 void warningDoesNotEvaluateMessageArgsWhenLogLevelDisabled()
 {
-  resetHook();
+  resetLogCapture();
   int calls = 0;
   dmtcp::setLogLevel(dmtcp::LogLevel::Error);
 
   WARN(false, "arg={}", incrementAndReturn(&calls));
 
   UNIT_ASSERT_EQ(calls, 0);
-  UNIT_ASSERT_EQ(hookCallCount, 0);
+  UNIT_ASSERT_TRUE(readLogCapture().empty());
 }
 
 void warningErrnoUsesSavedErrnoAcrossMessageArgs()
 {
-  resetHook();
+  resetLogCapture();
   errno = EACCES;
 
   WARN_ERRNO(false, "arg={}", setErrnoAndReturn(7, ENOENT));
 
   UNIT_ASSERT_EQ(errno, EACCES);
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "arg=7") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "errno=13") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "EACCES") != nullptr);
+  std::string log = readLogCapture();
+  UNIT_ASSERT_EQ(countOccurrences(log, "WARNING"), static_cast<size_t>(1));
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "arg=7") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "errno=13") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "EACCES") != nullptr);
 }
 
 void convenienceAssertMacrosPassWithoutWriting()
 {
-  resetHook();
+  resetLogCapture();
   int value = 2;
   int larger = 3;
   int *ptr = &value;
@@ -497,12 +477,12 @@ void convenienceAssertMacrosPassWithoutWriting()
   ASSERT_NULL(nullPtr);
   ASSERT_NULL(nullPtr, "null context={}", "ok");
 
-  UNIT_ASSERT_EQ(hookCallCount, 0);
+  UNIT_ASSERT_TRUE(readLogCapture().empty());
 }
 
 void convenienceAssertMacrosEvaluateOperandsOnce()
 {
-  resetHook();
+  resetLogCapture();
   int lhs = 0;
   int rhs = 1;
   int value = 2;
@@ -524,12 +504,12 @@ void convenienceAssertMacrosEvaluateOperandsOnce()
   UNIT_ASSERT_EQ(ptrCalls, 1);
   UNIT_ASSERT_EQ(nullCalls, 2);
   UNIT_ASSERT_EQ(successCalls, 5);
-  UNIT_ASSERT_EQ(hookCallCount, 0);
+  UNIT_ASSERT_TRUE(readLogCapture().empty());
 }
 
 void convenienceAssertMessageMacrosEvaluateOperandsOnce()
 {
-  resetHook();
+  resetLogCapture();
   int lhs = 0;
   int rhs = 1;
 
@@ -537,12 +517,12 @@ void convenienceAssertMessageMacrosEvaluateOperandsOnce()
   ASSERT_GE(lhs, rhs, "lhs should catch rhs");
 
   UNIT_ASSERT_EQ(lhs, 1);
-  UNIT_ASSERT_EQ(hookCallCount, 0);
+  UNIT_ASSERT_TRUE(readLogCapture().empty());
 }
 
 void convenienceWarningMacrosPassWithoutWriting()
 {
-  resetHook();
+  resetLogCapture();
   int value = 2;
   int larger = 3;
   int *ptr = &value;
@@ -561,12 +541,12 @@ void convenienceWarningMacrosPassWithoutWriting()
   WARN_NULL(nullPtr);
   WARN_NULL(nullPtr, "null context={}", "ok");
 
-  UNIT_ASSERT_EQ(hookCallCount, 0);
+  UNIT_ASSERT_TRUE(readLogCapture().empty());
 }
 
 void convenienceWarningMacrosEvaluateOperandsOnce()
 {
-  resetHook();
+  resetLogCapture();
   int lhs = 0;
   int rhs = 1;
   int value = 2;
@@ -582,12 +562,12 @@ void convenienceWarningMacrosEvaluateOperandsOnce()
   UNIT_ASSERT_EQ(lhs, 1);
   UNIT_ASSERT_EQ(calls, 2);
   UNIT_ASSERT_EQ(nullCalls, 2);
-  UNIT_ASSERT_EQ(hookCallCount, 0);
+  UNIT_ASSERT_TRUE(readLogCapture().empty());
 }
 
 void convenienceWarningMessageMacrosReportFailuresAndContinue()
 {
-  resetHook();
+  resetLogCapture();
   int value = 3;
   int *ptr = &value;
   int *nullPtr = nullptr;
@@ -597,128 +577,135 @@ void convenienceWarningMessageMacrosReportFailuresAndContinue()
   WARN_NULL(ptr, "context={}", "warning-null");
   WARN_NOT_NULL(nullPtr, "context={}", "warning-not-null");
 
-  UNIT_ASSERT_EQ(hookCallCount, 4);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  std::string log = readLogCapture();
+  UNIT_ASSERT_EQ(countOccurrences(log, "WARNING"), static_cast<size_t>(4));
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "expected 2 == value, got 2 and 3") !=
                    nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "context=warning-eq") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "expected 2 > value, got 2 and 3") !=
                    nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "context=warning-gt") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[2],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "expected null: ptr, got") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[2],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "context=warning-null") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[3],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "expected non-null: nullPtr, got (null)") !=
                    nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[3],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "context=warning-not-null") != nullptr);
 }
 
 void convenienceWarningMacrosReportFailuresAndContinue()
 {
-  resetHook();
+  resetLogCapture();
   int value = 3;
   int *ptr = &value;
 
   WARN_EQ(2, value);
   WARN_NULL(ptr);
 
-  UNIT_ASSERT_EQ(hookCallCount, 2);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  std::string log = readLogCapture();
+  UNIT_ASSERT_EQ(countOccurrences(log, "WARNING"), static_cast<size_t>(2));
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "expected 2 == value, got 2 and 3") !=
                    nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[1],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "expected null: ptr") != nullptr);
 }
 
 void warningLockSuccessReportsExpressionAndReturnValue()
 {
-  resetHook();
+  resetLogCapture();
 
   WARN_LOCK_SUCCESS(setErrnoAndReturn(EINVAL, EIO));
 
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  std::string log = readLogCapture();
+  UNIT_ASSERT_EQ(countOccurrences(log, "WARNING"), static_cast<size_t>(1));
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "expected 0 == setErrnoAndReturn(") !=
                    nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "got 0 and 22") !=
                    nullptr);
 }
 
 void warningPthreadSuccessReportsExpressionAndReturnValue()
 {
-  resetHook();
+  resetLogCapture();
 
   WARN_PTHREAD_SUCCESS(setErrnoAndReturn(EAGAIN, EIO));
 
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  std::string log = readLogCapture();
+  UNIT_ASSERT_EQ(countOccurrences(log, "WARNING"), static_cast<size_t>(1));
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "expected 0 == setErrnoAndReturn(") !=
                    nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "got 0 and 11") !=
                    nullptr);
 }
 
 void warningZeroReturnReportsExpressionAndReturnValue()
 {
-  resetHook();
+  resetLogCapture();
 
   WARN_ZERO(setErrnoAndReturn(EINVAL, EIO));
 
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  std::string log = readLogCapture();
+  UNIT_ASSERT_EQ(countOccurrences(log, "WARNING"), static_cast<size_t>(1));
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "expected 0 == setErrnoAndReturn(") !=
                    nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "got 0 and 22") !=
                    nullptr);
 }
 
 void warningZeroReturnMessageReportsExtraContext()
 {
-  resetHook();
+  resetLogCapture();
 
   WARN_ZERO(setErrnoAndReturn(EINVAL, EIO),
             "fd={} path={}",
             9,
             "/dev/ptmx");
 
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  std::string log = readLogCapture();
+  UNIT_ASSERT_EQ(countOccurrences(log, "WARNING"), static_cast<size_t>(1));
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "expected 0 == setErrnoAndReturn(") !=
                    nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "got 0 and 22") !=
                    nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "fd=9 path=/dev/ptmx") !=
                    nullptr);
 }
 
 void warningPthreadSuccessMessageReportsExtraContext()
 {
-  resetHook();
+  resetLogCapture();
 
   WARN_PTHREAD_SUCCESS(setErrnoAndReturn(EINVAL, EIO),
                        "tid={} signal={}",
                        123,
                        9);
 
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  std::string log = readLogCapture();
+  UNIT_ASSERT_EQ(countOccurrences(log, "WARNING"), static_cast<size_t>(1));
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "expected 0 == setErrnoAndReturn(") !=
                    nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "got 0 and 22") !=
                    nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0],
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(),
                                "tid=123 signal=9") !=
                    nullptr);
 }
@@ -731,6 +718,17 @@ void logLevelOrderingMatchesRuntimePolicy()
                    static_cast<int>(dmtcp::LogLevel::Note));
   UNIT_ASSERT_TRUE(static_cast<int>(dmtcp::LogLevel::Note) <
                    static_cast<int>(dmtcp::LogLevel::Trace));
+}
+
+void errorLogLevelIsAlwaysEnabled()
+{
+  resetLogCapture();
+  dmtcp::setLogLevel(dmtcp::LogLevel::Error);
+  UNIT_ASSERT_TRUE(dmtcp::setLogOverrides("pid=error"));
+
+  UNIT_ASSERT_TRUE(dmtcp::logEnabled(dmtcp::LogLevel::Error,
+                                     "socket",
+                                     "src/plugin/socket/socketwrappers.cpp"));
 }
 
 void parseLogLevelAcceptsNamesAndNumbers()
@@ -751,72 +749,82 @@ void parseLogLevelAcceptsNamesAndNumbers()
 
 void noteRespectsLogLevelAndPreservesErrno()
 {
-  resetHook();
+  resetLogCapture();
   dmtcp::setLogLevel(dmtcp::LogLevel::Note);
   errno = EACCES;
 
+  const int logLine = __LINE__ + 1;
   NOTE("note value={}", 17);
 
+  char expectedLocation[32];
+  std::snprintf(expectedLocation, sizeof(expectedLocation), ":%d:", logLine);
+
   UNIT_ASSERT_EQ(errno, EACCES);
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "NOTE") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "note value=17") != nullptr);
+  std::string log = readLogCapture();
+  UNIT_ASSERT_EQ(countOccurrences(log, "NOTE"), static_cast<size_t>(1));
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "NOTE") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "util_assert_tests.cpp") !=
+                   nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), expectedLocation) != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "note value=17") != nullptr);
 }
 
 void noteDoesNotEvaluateArgsWhenDisabled()
 {
-  resetHook();
+  resetLogCapture();
   int calls = 0;
   dmtcp::setLogLevel(dmtcp::LogLevel::Warn);
 
   NOTE("calls={}", incrementAndReturn(&calls));
 
   UNIT_ASSERT_EQ(calls, 0);
-  UNIT_ASSERT_EQ(hookCallCount, 0);
+  UNIT_ASSERT_TRUE(readLogCapture().empty());
 }
 
 void traceDoesNotEvaluateArgsWhenDisabled()
 {
-  resetHook();
+  resetLogCapture();
   int calls = 0;
   dmtcp::setLogLevel(dmtcp::LogLevel::Note);
 
   TRACE("calls={}", incrementAndReturn(&calls));
 
   UNIT_ASSERT_EQ(calls, 0);
-  UNIT_ASSERT_EQ(hookCallCount, 0);
+  UNIT_ASSERT_TRUE(readLogCapture().empty());
 }
 
 void traceLogsWhenEnabled()
 {
-  resetHook();
+  resetLogCapture();
   int calls = 0;
   dmtcp::setLogLevel(dmtcp::LogLevel::Trace);
 
   TRACE("trace calls={}", incrementAndReturn(&calls));
 
   UNIT_ASSERT_EQ(calls, 1);
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "TRACE") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "trace calls=1") != nullptr);
+  std::string log = readLogCapture();
+  UNIT_ASSERT_EQ(countOccurrences(log, "TRACE"), static_cast<size_t>(1));
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "TRACE") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "trace calls=1") != nullptr);
 }
 
 void traceSupportsFormattedValues()
 {
-  resetHook();
+  resetLogCapture();
   int fd = 7;
   dmtcp::setLogLevel(dmtcp::LogLevel::Trace);
 
   TRACE("formatted trace fd={}", fd);
 
-  UNIT_ASSERT_EQ(hookCallCount, 1);
-  UNIT_ASSERT_TRUE(std::strstr(hookBuffers[0], "formatted trace fd=7") !=
+  std::string log = readLogCapture();
+  UNIT_ASSERT_EQ(countOccurrences(log, "TRACE"), static_cast<size_t>(1));
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "formatted trace fd=7") !=
                    nullptr);
 }
 
 void componentOverrideEnablesTraceForMatchingComponent()
 {
-  resetHook();
+  resetLogCapture();
   dmtcp::setLogLevel(dmtcp::LogLevel::Warn);
   UNIT_ASSERT_TRUE(dmtcp::setLogOverrides("pid=trace;socket=error"));
 
@@ -830,7 +838,7 @@ void componentOverrideEnablesTraceForMatchingComponent()
 
 void fileOverrideBeatsComponentOverride()
 {
-  resetHook();
+  resetLogCapture();
   dmtcp::setLogLevel(dmtcp::LogLevel::Warn);
   UNIT_ASSERT_TRUE(dmtcp::setLogOverrides(
     "pid=error;file:src/plugin/pid/pid.cpp=trace"));
@@ -917,13 +925,11 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
   {"log formatter includes errno", logIncludesErrno},
   {"log truncation includes marker",
    logTruncationIncludesMarker},
-  {"log writer uses assert write hook", writeAllUsesAssertWriteHook},
-  {"warning logs use authoritative stderr fd",
-   warningLogsUseAuthoritativeStderrFd},
+  {"log writer writes to fd", writeAllNoAllocWritesToFd},
+  {"warning logs use configured console",
+   warningLogsUseConfiguredConsole},
   {"warning logs also use log file",
    warningLogsAlsoUseLogFile},
-  {"warning reentry keeps outer log stable",
-   warningReentryKeepsOuterLogStable},
   {"multiple threads can write logs",
    multipleThreadsCanWriteLogs},
   {"warning skips message args when condition passes",
@@ -958,6 +964,8 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    warningPthreadSuccessMessageReportsExtraContext},
   {"LogLevel ordering matches runtime policy",
    logLevelOrderingMatchesRuntimePolicy},
+  {"Error log level is always enabled",
+   errorLogLevelIsAlwaysEnabled},
   {"parseLogLevel accepts names and numbers",
    parseLogLevelAcceptsNamesAndNumbers},
   {"NOTE respects log level and preserves errno",
@@ -968,7 +976,8 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
   {"TRACE supports formatted values", traceSupportsFormattedValues},
   {"component override enables trace for matching component",
    componentOverrideEnablesTraceForMatchingComponent},
-  {"file override beats component override", fileOverrideBeatsComponentOverride},
+  {"file override beats component override",
+   fileOverrideBeatsComponentOverride},
   {"assert failure exits with raw failure code",
    assertFailureExitsWithRawFailureCode},
   {"assert failure honors DMTCP_FAIL_RC", assertFailureHonorsFailRc},

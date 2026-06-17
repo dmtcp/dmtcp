@@ -54,7 +54,7 @@ class StdioConnection : public Connection
 
     StdioConnection(int fd) : Connection(STDIO_IN + fd)
     {
-      TRACE("creating stdio connection: fd={} id={}", fd, id());
+      TRACE("creating stdio connection: fd={} id={}", fd, id().toString());
       ASSERT(jalib::Between(0, fd, 2),
              "invalid fd for StdioConnection: fd={}", fd);
     }

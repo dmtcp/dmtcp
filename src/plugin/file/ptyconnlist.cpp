@@ -221,7 +221,8 @@ PtyConnList::scanForPreExisting()
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
-    TRACE("scanning pre-existing device (fd = {};) (device = {};)", fd, device);
+    TRACE("Scanning pre-existing PTY descriptor: fd={} device={}",
+          fd, device);
     if (device == ctty || device == parentCtty) {
       // Search if this is duplicate connection
       iterator conit;

@@ -1106,7 +1106,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertTrue(screen_dir.is_dir())
             self.assertEqual(screen_dir.stat().st_mode & 0o777, 0o700)
 
-    def test_make_env_expands_workname_for_private_environment_directories(self):
+    def test_make_env_expands_workname_for_private_env_dirs(self):
         with tempfile.TemporaryDirectory() as tmp, \
              tempfile.TemporaryDirectory() as private_tmp:
             tmp_path = pathlib.Path(tmp) / "dmtcp-screen-test"

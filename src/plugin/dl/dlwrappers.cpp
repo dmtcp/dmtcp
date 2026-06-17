@@ -52,7 +52,48 @@ dmtcp_dl_enabled()
 }
 
 static void
-getRpathRunPath(void *caller, char *rpathStr, char *runpathStr)
+assertDynamicPathFits(char *path,
+                      size_t pathSize,
+                      const char *token,
+                      const char *dirname,
+                      const char *label)
+{
+  if (strstr(path, token) == NULL) {
+    return;
+  }
+
+  const size_t expandedSize =
+    strlen(path) - strlen(token) + strlen(dirname);
+  ASSERT(expandedSize < pathSize,
+         "{} entry too long after {} expansion: len={} max={}",
+         label, token, expandedSize, pathSize - 1);
+}
+
+static void
+copyDynamicPath(char *dst,
+                size_t dstSize,
+                const char *path,
+                const char *dirname,
+                const char *label)
+{
+  const size_t pathSize = strnlen(path, dstSize);
+  ASSERT(pathSize < dstSize,
+         "{} entry too long: len={} max={}",
+         label, pathSize, dstSize - 1);
+
+  snprintf(dst, dstSize, "%s", path);
+  assertDynamicPathFits(dst, dstSize, "$ORIGIN", dirname, label);
+  Util::replace(dst, "$ORIGIN", dirname);
+  assertDynamicPathFits(dst, dstSize, "${ORIGIN}", dirname, label);
+  Util::replace(dst, "${ORIGIN}", dirname);
+}
+
+static void
+getRpathRunPath(void *caller,
+                char *rpathStr,
+                size_t rpathSize,
+                char *runpathStr,
+                size_t runpathSize)
 {
   Dl_info info;
   struct link_map *map;
@@ -86,9 +127,8 @@ getRpathRunPath(void *caller, char *rpathStr, char *runpathStr)
   ASSERT_NOT_NULL(strtab);
 
   if (rpath != NULL) {
-    strcpy(rpathStr, strtab + rpath->d_un.d_val);
-    Util::replace(rpathStr, "$ORIGIN", dirname);
-    Util::replace(rpathStr, "${ORIGIN}", dirname);
+    copyDynamicPath(rpathStr, rpathSize, strtab + rpath->d_un.d_val,
+                    dirname, "rpath");
 
     ASSERT_NULL(strstr(rpathStr, "$LIB"), "rpath={}", rpathStr);
     ASSERT_NULL(strstr(rpathStr, "${LIB}"), "rpath={}", rpathStr);
@@ -97,9 +137,8 @@ getRpathRunPath(void *caller, char *rpathStr, char *runpathStr)
   }
 
   if (runpath != NULL) {
-    strcpy(runpathStr, strtab + runpath->d_un.d_val);
-    Util::replace(runpathStr, "$ORIGIN", dirname);
-    Util::replace(runpathStr, "${ORIGIN}", dirname);
+    copyDynamicPath(runpathStr, runpathSize, strtab + runpath->d_un.d_val,
+                    dirname, "runpath");
 
     ASSERT_NULL(strstr(runpathStr, "$LIB"), "runpath={}", runpathStr);
     ASSERT_NULL(strstr(runpathStr, "${LIB}"), "runpath={}", runpathStr);
@@ -143,7 +182,7 @@ dmtcp_dlopen_with_search_policy(const char *filename, int flags, void *caller)
   char runpath[4096];
   void *ret = NULL;
 
-  getRpathRunPath(caller, rpath, runpath);
+  getRpathRunPath(caller, rpath, sizeof(rpath), runpath, sizeof(runpath));
 
   if (strlen(rpath) != 0) {
     ret = dlopen_try_paths(filename, flags, rpath);

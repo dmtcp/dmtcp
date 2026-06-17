@@ -309,7 +309,9 @@ createNewDmtcpSshdProcess()
     dup2(out[1], STDOUT_FILENO);
     dup2(err[1], STDERR_FILENO);
 
-    TRACE("Launching  (argv[0] = {};) (argv[1] = {};) (argv[2] = {};) (argv[3] = {};) (argv[4] = {};) (argv[5] = {};)", argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]);
+    TRACE("Launching SSH helper: argv0={} argv1={} argv2={} argv3={} "
+          "argv4={} argv5={}",
+          argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]);
     execvp(argv[0], argv);
     ASSERT_ERRNO(false, "execvp failed for ssh child: path={}", argv[0]);
   }
@@ -388,10 +390,12 @@ prepareForExec(DmtcpEventData_t *data)
 
   if (nargs < 3) {
     if (!isRshProcess) {
-    NOTE("ssh with less than 3 args (argv[0] = {};) (argv[1] = {};)", argv[0], argv[1]);
-    return;
+      NOTE("SSH command has too few arguments to rewrite: argv0={} argv1={}",
+           argv[0], argv[1]);
+      return;
     } else if (nargs < 2) {
-        NOTE("rsh with less than 2 args (argv[0] = {};)", argv[0]);
+        NOTE("RSH command has too few arguments to rewrite: argv0={}",
+             argv[0]);
         return;
       }
   }
@@ -477,7 +481,7 @@ prepareForExec(DmtcpEventData_t *data)
     }
   }
 
-  TRACE("Prefix (prefix = {};)", prefix);
+  TRACE("Computed SSH command prefix: prefix={}", prefix);
 
   // process command
   size_t semipos, pos;
@@ -560,9 +564,9 @@ prepareForExec(DmtcpEventData_t *data)
   JALLOC_FREE(new_argv);
 
   if (isRshProcess) {
-    NOTE("New rsh command (newCommand = {};)", newCommand);
+    NOTE("Rewrote RSH command: command={}", newCommand);
   } else {
-    NOTE("New ssh command (newCommand = {};)", newCommand);
+    NOTE("Rewrote SSH command: command={}", newCommand);
   }
 }
 
@@ -638,7 +642,7 @@ updateCoordHost()
                           0,
                           0);
       if (error != 0) {
-        TRACE("getnameinfo() failed. (gai_strerror(error) = {};)", gai_strerror(error));
+        TRACE("Error in getnameinfo: error={}", gai_strerror(error));
         continue;
       } else {
         ASSERT(sizeof localhostIPAddr == sizeof s->sin_addr,
@@ -668,13 +672,13 @@ updateCoordHost()
     }
 
     WARN(success,
-            "Failed to find coordinator IP address. DMTCP may fail: host={}",
-            hostname);
+         "Failed to find coordinator IP address; DMTCP may fail: hostname={}",
+         hostname);
   } else {
     if (error == EAI_SYSTEM) {
       perror("getaddrinfo");
     } else {
-      TRACE("Error in getaddrinfo (gai_strerror(error) = {};)", gai_strerror(error));
+      TRACE("Error in getaddrinfo: error={}", gai_strerror(error));
     }
     inet_aton("127.0.0.1", &localhostIPAddr);
   }

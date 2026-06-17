@@ -75,7 +75,7 @@ _makeDeadSocket(const char *refillData = NULL, ssize_t len = -1)
   }
   _real_close(sp[1]);
   if (really_verbose) {
-    TRACE("Created dead socket. (sp[0] = {};)", sp[0]);
+    TRACE("Created dead socket placeholder: fd={}", sp[0]);
   }
   return sp[0];
 }
@@ -264,7 +264,9 @@ TcpConnection::TcpConnection(int domain, int type, int protocol)
                 domain, type, protocol, bt);
       }
     }
-    TRACE("Creating TcpConnection. (id() = {};) (domain = {};) (type = {};) (protocol = {};)", id(), domain, type, protocol);
+    TRACE("Tracking TCP socket connection: con_id={} domain={} type={} "
+          "protocol={}",
+          id().toString(), domain, type, protocol);
   }
   memset(&_bindAddr, 0, sizeof _bindAddr);
 }
@@ -320,16 +322,18 @@ TcpConnection::isBlacklistedTcp(const sockaddr *saddr, socklen_t len)
                                      -1 };
 #ifdef STAMPEDE_MPISPAWN_FIX
     int mpispawnPort = getMPISpawnPortNum("PMI_PORT");
-    TRACE("PMI_PORT port (mpispawnPort = {};) (ntohs(addr->sin_port) = {};)", mpispawnPort, ntohs(addr->sin_port));
+    TRACE("Checking PMI socket blacklist: pmi_port={} remote_port={}",
+          mpispawnPort, ntohs(addr->sin_port));
     ASSERT(mpispawnPort != 0, "PMI_PORT not found");
     if (ntohs(addr->sin_port) == mpispawnPort) {
-      TRACE("PMI_PORT port found (mpispawnPort = {};)", mpispawnPort);
+      TRACE("Blacklisting PMI socket: pmi_port={}", mpispawnPort);
       return true;
     }
 #endif // ifdef STAMPEDE_MPISPAWN_FIX
     for (size_t i = 0; blacklistedRemotePorts[i] != -1; i++) {
       if (ntohs(addr->sin_port) == blacklistedRemotePorts[i]) {
-        TRACE("LDAP port found (ntohs(addr->sin_port) = {};) (blacklistedRemotePorts[0] = {};) (blacklistedRemotePorts[1] = {};)", ntohs(addr->sin_port), blacklistedRemotePorts[0], blacklistedRemotePorts[1]);
+        TRACE("Blacklisting external service socket: remote_port={}",
+              ntohs(addr->sin_port));
         return true;
       }
     }
@@ -339,7 +343,8 @@ TcpConnection::isBlacklistedTcp(const sockaddr *saddr, socklen_t len)
     for (size_t i = 0; blacklist[i] != ""; i++) {
       if (Util::strStartsWith(uaddr->sun_path, blacklist[i].c_str()) ||
           Util::strStartsWith(&uaddr->sun_path[1], blacklist[i].c_str())) {
-        TRACE("Blacklisted socket address (uaddr->sun_path = {};)", uaddr->sun_path);
+        TRACE("Blacklisting UNIX socket address: path={}",
+              uaddr->sun_path);
         return true;
       }
     }
@@ -354,7 +359,8 @@ void
 TcpConnection::onBind(const struct sockaddr *addr, socklen_t len)
 {
   if (really_verbose) {
-    TRACE("Binding. (id() = {};) (len = {};)", id(), len);
+    TRACE("Recording socket bind: con_id={} addrlen={}",
+          id().toString(), len);
   }
 
   if (_sockDomain == AF_UNIX && addr != NULL) {
@@ -391,7 +397,8 @@ TcpConnection::onListen(int backlog)
   }
 
   if (really_verbose) {
-    TRACE("Listening. (id() = {};) (backlog = {};)", id(), backlog);
+    TRACE("Recording listening socket: con_id={} backlog={}",
+          id().toString(), backlog);
   }
   ASSERT(_type == TCP_BIND,
          "Listening on a non-bind()ed socket: type={} con_id={}", _type,
@@ -407,7 +414,7 @@ TcpConnection::onConnect(const struct sockaddr *addr,
                          bool connectInProgress)
 {
   if (really_verbose) {
-    TRACE("Connecting. (id() = {};)", id());
+    TRACE("Recording socket connect: con_id={}", id().toString());
   }
   WARN(_type == TCP_CREATED || _type == TCP_BIND,
           "Connecting with an in-use socket: type={} con_id={}", _type,
@@ -435,7 +442,9 @@ TcpConnection::TcpConnection(const TcpConnection &parent,
                      remote)
 {
   if (really_verbose) {
-    TRACE("Accepting. (id() = {};) (parent.id() = {};) (remote = {};)", id(), parent.id(), remote);
+    TRACE("Recording accepted socket: con_id={} parent_con_id={} "
+          "remote_con_id={}",
+          id().toString(), parent.id().toString(), remote.toString());
   }
 
   memset(&_bindAddr, 0, sizeof _bindAddr);
@@ -557,9 +566,10 @@ TcpConnection::recvPeerInformation()
 void
 TcpConnection::onError()
 {
-  TRACE("Error. (id() = {};)", id());
+  TRACE("Marking TCP connection as errored: con_id={}", id().toString());
   _type = TCP_ERROR;
-  TRACE("Creating dead socket. (_fds[0] = {};) (_fds.size() = {};)", _fds[0], _fds.size());
+  TRACE("Replacing errored TCP connection with dead socket: fd={} fd_count={}",
+        _fds[0], _fds.size());
   const vector<char> &buffer =
     KernelBufferDrainer::instance().getDrainedData(_id);
   restoreDupFds(_makeDeadSocket(&buffer[0], buffer.size()));
@@ -573,7 +583,9 @@ TcpConnection::drain()
 
   if ((_fcntlFlags & O_ASYNC) != 0) {
     if (really_verbose) {
-      TRACE("Removing O_ASYNC flag during checkpoint. (_fds[0] = {};) (id() = {};)", _fds[0], id());
+      TRACE("Removing O_ASYNC before checkpointing TCP socket: fd={} "
+            "con_id={}",
+            _fds[0], id().toString());
     }
     errno = 0;
     ASSERT_NE(-1,
@@ -593,13 +605,30 @@ TcpConnection::drain()
     retval = _real_poll(&socketFd, 1, 60 * 1000);
 
     if (retval == -1) {
-      TRACE("poll() failed (strerror(errno) = {};)", strerror(errno));
+      TRACE("Poll failed while waiting for connect(): error={}",
+            strerror(errno));
     } else if (socketFd.revents & POLLOUT) {
       int val = -1;
       socklen_t sz = sizeof(val);
-      getsockopt(_fds[0], SOL_SOCKET, SO_ERROR, &val, &sz);
-      TRACE("Connect-in-progress socket is now writable. (_fds[0] = {};)", _fds[0]);
-      _type = TCP_CONNECT;
+      int ret = getsockopt(_fds[0], SOL_SOCKET, SO_ERROR, &val, &sz);
+      if (ret == 0 && val == 0) {
+        TRACE("Connect-in-progress socket is writable: fd={}",
+              _fds[0]);
+        _type = TCP_CONNECT;
+      } else {
+        if (ret == -1) {
+          WARN_ERRNO(false,
+                     "getsockopt(SO_ERROR) failed after connect() "
+                     "readiness: fd={}",
+                     _fds[0]);
+        } else {
+          WARN(false,
+               "connect() completion failed; marking socket external: "
+               "fd={} so_error={} error={}",
+               _fds[0], val, strerror(val));
+        }
+        _type = TCP_EXTERNAL_CONNECT;
+      }
     } else {
       WARN(false,
               "connect() returned EINPROGRESS and socket is still not "
@@ -617,7 +646,9 @@ TcpConnection::drain()
   // might be some stale data on it.
   case TCP_CONNECT:
   case TCP_ACCEPT:
-    TRACE("Will drain socket (_hasLock = {};) (_fds[0] = {};) (_id = {};) (_remotePeerId = {};)", _hasLock, _fds[0], _id, _remotePeerId);
+    TRACE("Draining TCP socket before checkpoint: has_lock={} fd={} "
+          "con_id={} remote_con_id={}",
+          _hasLock, _fds[0], _id.toString(), _remotePeerId.toString());
     KernelBufferDrainer::instance().beginDrainOf(_fds[0], _id, baseType());
     break;
   case TCP_LISTEN:
@@ -630,7 +661,8 @@ TcpConnection::drain()
             _fds[0]);
     break;
   case TCP_EXTERNAL_CONNECT:
-    TRACE("Socket to External Process, won't be drained (_fds[0] = {};)", _fds[0]);
+    TRACE("Skipping drain for external TCP socket: fd={}",
+          _fds[0]);
     break;
   }
 }
@@ -641,11 +673,13 @@ TcpConnection::doSendHandshakes(const ConnectionIdentifier &coordId)
   switch (_type) {
   case TCP_CONNECT:
   case TCP_ACCEPT:
-    TRACE("Sending handshake ... (id() = {};) (_fds[0] = {};)", id(), _fds[0]);
+    TRACE("Sending TCP restore handshake: con_id={} fd={}",
+          id().toString(), _fds[0]);
     sendHandshake(_fds[0], coordId);
     break;
   case TCP_EXTERNAL_CONNECT:
-    TRACE("Socket to External Process, skipping handshake send (_fds[0] = {};)", _fds[0]);
+    TRACE("Skipping handshake send for external TCP socket: fd={}",
+          _fds[0]);
     break;
   }
 }
@@ -657,10 +691,12 @@ TcpConnection::doRecvHandshakes(const ConnectionIdentifier &coordId)
   case TCP_CONNECT:
   case TCP_ACCEPT:
     recvHandshake(_fds[0], coordId);
-    TRACE("Received handshake. (id() = {};) (_remotePeerId = {};) (_fds[0] = {};)", id(), _remotePeerId, _fds[0]);
+    TRACE("Received TCP restore handshake: con_id={} remote_con_id={} fd={}",
+          id().toString(), _remotePeerId.toString(), _fds[0]);
     break;
   case TCP_EXTERNAL_CONNECT:
-    TRACE("Socket to External Process, skipping handshake recv (_fds[0] = {};)", _fds[0]);
+    TRACE("Skipping handshake receive for external TCP socket: fd={}",
+          _fds[0]);
     break;
   }
 }
@@ -669,7 +705,8 @@ void
 TcpConnection::refill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
-    TRACE("Re-adding O_ASYNC flag. (_fds[0] = {};) (id() = {};)", _fds[0], id());
+    TRACE("Restoring O_ASYNC after checkpointing TCP socket: fd={} con_id={}",
+          _fds[0], id().toString());
     restoreSocketOptions(_fds);
   } else if (isRestart && _sockDomain != AF_INET6 &&
              _type != TCP_EXTERNAL_CONNECT) {
@@ -687,7 +724,8 @@ TcpConnection::postRestart()
   case TCP_PREEXISTING:
   case TCP_INVALID:
   case TCP_EXTERNAL_CONNECT:
-    TRACE("Creating dead socket. (_fds[0] = {};) (_fds.size() = {};)", _fds[0], _fds.size());
+    TRACE("Restoring TCP connection as dead socket: fd={} fd_count={}",
+          _fds[0], _fds.size());
     restoreDupFds(_makeDeadSocket());
     break;
 
@@ -723,7 +761,8 @@ TcpConnection::postRestart()
     }
 
     if (really_verbose) {
-      TRACE("Restoring socket. (id() = {};) (_fds[0] = {};)", id(), _fds[0]);
+      TRACE("Recreating TCP socket after restart: con_id={} fd={}",
+            id().toString(), _fds[0]);
     }
 
     fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
@@ -741,7 +780,8 @@ TcpConnection::postRestart()
         _bindAddrlen > sizeof(_bindAddr.ss_family)) {
       struct sockaddr_un *uaddr = (sockaddr_un *)&_bindAddr;
       if (uaddr->sun_path[0] != '\0') {
-        TRACE("Unlinking stale unix domain socket. (uaddr->sun_path = {};)", uaddr->sun_path);
+        TRACE("Unlinking stale UNIX socket before bind: path={}",
+              uaddr->sun_path);
         WARN_NE(-1, unlink(uaddr->sun_path),
                       "failed to unlink stale UNIX socket: path={}",
                       uaddr->sun_path);
@@ -762,7 +802,7 @@ TcpConnection::postRestart()
      */
 
     if (_sockDomain == AF_INET6) {
-      TRACE("Restoring some socket options before binding.");
+      TRACE("Restoring IPv6 socket options before bind: fd={}", _fds[0]);
       typedef map<int64_t,
                   map<int64_t, vector<char> > >::iterator levelIterator;
       typedef map<int64_t, vector<char> >::iterator optionIterator;
@@ -792,7 +832,8 @@ TcpConnection::postRestart()
     }
 
     if (really_verbose) {
-      TRACE("Binding socket. (id() = {};)", id());
+      TRACE("Binding recreated TCP socket: con_id={} fd={}",
+            id().toString(), _fds[0]);
     }
     errno = 0;
     WARN_NE(-1, _real_bind(_fds[0],
@@ -805,7 +846,8 @@ TcpConnection::postRestart()
     }
 
     if (really_verbose) {
-      TRACE("Listening socket. (id() = {};)", id());
+      TRACE("Listening on recreated TCP socket: con_id={} fd={}",
+            id().toString(), _fds[0]);
     }
     errno = 0;
     WARN_NE(-1, _real_listen(_fds[0], _listenBacklog),
@@ -823,7 +865,9 @@ TcpConnection::postRestart()
            "perhaps handshake went wrong: con_id={} fd={}",
            id().conId(), _fds[0]);
 
-    TRACE("registerIncoming (id() = {};) (_remotePeerId = {};) (_fds[0] = {};)", id(), _remotePeerId, _fds[0]);
+    TRACE("Registering incoming TCP reconnect: con_id={} remote_con_id={} "
+          "fd={}",
+          id().toString(), _remotePeerId.toString(), _fds[0]);
     ConnectionRewirer::instance().registerIncoming(id(), this, _sockDomain);
     break;
 
@@ -846,7 +890,9 @@ TcpConnection::postRestart()
                     "con_id={} addrlen={}",
                     _fds[0], id().conId(), _bindAddrlen);
     }
-    TRACE("registerOutgoing (id() = {};) (_remotePeerId = {};) (_fds[0] = {};)", id(), _remotePeerId, _fds[0]);
+    TRACE("Registering outgoing TCP reconnect: con_id={} remote_con_id={} "
+          "fd={}",
+          id().toString(), _remotePeerId.toString(), _fds[0]);
     ConnectionRewirer::instance().registerOutgoing(_remotePeerId, this);
     break;
 
@@ -910,11 +956,13 @@ RawSocketConnection::RawSocketConnection(int domain, int type, int protocol)
   : Connection(RAW_CREATED)
   , SocketConnection(domain, type, protocol)
 {
-  ASSERT(type == -1 || (type & SOCK_RAW),
+  ASSERT(type == -1 || baseType() == SOCK_RAW,
          "raw socket connection created with non-raw type: type={}", type);
   ASSERT(domain == -1 || domain == AF_NETLINK,
          "Only Netlink raw socket supported: domain={}", domain);
-  TRACE("Creating Raw socket. (id() = {};) (domain = {};) (type = {};) (protocol = {};)", id(), domain, type, protocol);
+  TRACE("Tracking raw socket connection: con_id={} domain={} type={} "
+        "protocol={}",
+        id().toString(), domain, type, protocol);
 }
 
 void
@@ -926,7 +974,9 @@ RawSocketConnection::drain()
 
   if ((_fcntlFlags & O_ASYNC) != 0) {
     if (really_verbose) {
-      TRACE("Removing O_ASYNC flag during checkpoint. (_fds[0] = {};) (id() = {};)", _fds[0], id());
+      TRACE("Removing O_ASYNC before checkpointing raw socket: fd={} "
+            "con_id={}",
+            _fds[0], id().toString());
     }
     errno = 0;
     ASSERT_NE(-1,
@@ -940,7 +990,8 @@ void
 RawSocketConnection::refill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
-    TRACE("Re-adding O_ASYNC flag. (_fds[0] = {};) (id() = {};)", _fds[0], id());
+    TRACE("Restoring O_ASYNC after checkpointing raw socket: fd={} con_id={}",
+          _fds[0], id().toString());
     restoreSocketOptions(_fds);
   } else if (isRestart) {
     restoreSocketOptions(_fds);
@@ -954,7 +1005,8 @@ RawSocketConnection::postRestart()
          "raw socket connection has no fds during postRestart");
 
   if (really_verbose) {
-    TRACE("Restoring socket. (id() = {};) (_fds[0] = {};)", id(), _fds[0]);
+    TRACE("Recreating raw socket after restart: con_id={} fd={}",
+          id().toString(), _fds[0]);
   }
 
   switch (_type) {
@@ -974,7 +1026,7 @@ RawSocketConnection::postRestart()
     }
 
     if (_sockDomain == AF_NETLINK) {
-      TRACE("Restoring some socket options before binding.");
+      TRACE("Restoring raw socket options before bind: fd={}", _fds[0]);
       typedef map<int64_t,
                   map<int64_t, vector<char> > >::iterator levelIterator;
       typedef map<int64_t, vector<char> >::iterator optionIterator;
@@ -1037,7 +1089,8 @@ RawSocketConnection::serializeSubClass(jalib::JBinarySerializer &o)
 void
 RawSocketConnection::onBind(const struct sockaddr *addr, socklen_t len)
 {
-  TRACE("bind on raw socket (_fds[0] = {};) (this->conType() = {};) (this->id() = {};)", _fds[0], this->conType(), this->id());
+  TRACE("Recording raw socket bind: fd={} con_type={} con_id={}",
+        _fds[0], this->conType(), this->id().toString());
   if (addr != NULL) {
     ASSERT(len <= sizeof _bindAddr,
            "raw socket bind address is too large: len={} max={}", len,
@@ -1051,7 +1104,9 @@ RawSocketConnection::onBind(const struct sockaddr *addr, socklen_t len)
 void
 RawSocketConnection::onListen(int backlog)
 {
-  TRACE("listen on raw socket (_fds[0] = {};) (this->conType() = {};) (this->id() = {};) (backlog = {};)", _fds[0], this->conType(), this->id(), backlog);
+  TRACE("Recording raw socket listen: fd={} con_type={} con_id={} "
+        "backlog={}",
+        _fds[0], this->conType(), this->id().toString(), backlog);
   _listenBacklog = backlog;
   _type = RAW_LISTEN;
 }
@@ -1065,7 +1120,9 @@ RawSocketConnection::RawSocketConnection(const RawSocketConnection &parent,
                      remote)
 {
   if (really_verbose) {
-    TRACE("Accepting. (id() = {};) (parent.id() = {};) (remote = {};)", id(), parent.id(), remote);
+    TRACE("Recording raw accepted socket: con_id={} parent_con_id={} "
+          "remote_con_id={}",
+          id().toString(), parent.id().toString(), remote.toString());
   }
 
   WARN(false,
