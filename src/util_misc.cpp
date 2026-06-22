@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <linux/fs.h>  // for PAGEMAP_SCAN ioctl (Linux 6.7+)
@@ -212,7 +213,11 @@ Util::writeAll(int fd, const void *buf, size_t count)
   size_t num_written = 0;
 
   do {
-    ssize_t rc = write(fd, ptr + num_written, count - num_written);
+    // Raw write(2) syscall, not the libc wrapper: TSAN intercepts write() and
+    // inspects the buffer, which may be TSAN's own shadow/meta mapping,
+    // triggering a spurious use-after-free report.
+    ssize_t rc =
+      syscall(SYS_write, fd, ptr + num_written, count - num_written);
     if (rc == -1) {
       if (errno == EINTR || errno == EAGAIN) {
         continue;
@@ -243,7 +248,10 @@ Util::readAll(int fd, void *buf, size_t count)
   size_t num_read = 0;
 
   for (num_read = 0; num_read < count;) {
-    rc = read(fd, ptr + num_read, count - num_read);
+    // Raw read(2) syscall, not the libc wrapper: see writeAll() above -- TSAN
+    // intercepts read() and inspects the destination buffer, which at restart
+    // time may overlap TSAN's own mappings and trip a spurious report.
+    rc = syscall(SYS_read, fd, ptr + num_read, count - num_read);
     if (rc == -1) {
       if (errno == EINTR || errno == EAGAIN) {
         continue;
@@ -705,8 +713,9 @@ Util::scanOccupiedRangeBatch(uintptr_t start, uintptr_t end,
     size_t pages_to_read = (pages_remaining < PAGEMAP_BATCH_SIZE)
                            ? pages_remaining : PAGEMAP_BATCH_SIZE;
     off_t offset = (off_t)(current_addr / page_size) * sizeof(uint64_t);
-    ssize_t bytes_read =
-      pread(fd, entries, pages_to_read * sizeof(uint64_t), offset);
+    // Raw pread64(2) syscall, not the libc wrapper: see writeAll() above.
+    ssize_t bytes_read = syscall(SYS_pread64, fd, entries,
+                                  pages_to_read * sizeof(uint64_t), offset);
     if (bytes_read <= 0) {
       break;
     }
