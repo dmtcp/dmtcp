@@ -107,7 +107,6 @@ static InternalPluginEntry internalPlugins[] = {
   { &dlPlugin, false }
 };
 
-static bool internalPluginStateInitialized = false;
 static bool disableAllInternalPlugins = false;
 
 static size_t
@@ -130,12 +129,8 @@ internalPluginEnvName(const char *pluginName,
 }
 
 static void
-initializeInternalPluginState()
+initializeInternalPluginStateOnce()
 {
-  if (internalPluginStateInitialized) {
-    return;
-  }
-
   disableAllInternalPlugins =
     Util::readBooleanEnv(ENV_VAR_DISABLE_ALL_PLUGINS, false);
 
@@ -158,7 +153,33 @@ initializeInternalPluginState()
                                                  envName, sizeof(envName)),
                            true);
   }
-  internalPluginStateInitialized = true;
+}
+
+static void
+initializeInternalPluginState()
+{
+  // Can run during TSAN's own constructor (e.g. malloc() from the alloc
+  // plugin, before TSAN's shadow state exists) -- pthread_once() would
+  // segfault there, since TSAN intercepts it too. Guard instead with a
+  // constant-initialized atomic state machine: compiler intrinsics, not
+  // intercepted, and no C++ guard variable either. Racing threads must not
+  // both run initializeInternalPluginStateOnce() (a data race even though
+  // they'd compute identical results). So a CAS elects exactly one; others
+  // spin on a plain atomic load (not sched_yield()/usleep(), also
+  // intercepted this early).
+  static int state = 0;  // 0 = uninit, 1 = initializing, 2 = done
+  int expected = 0;
+  if (__atomic_compare_exchange_n(&state, &expected, 1, false,
+                                  __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+    initializeInternalPluginStateOnce();
+    __atomic_store_n(&state, 2, __ATOMIC_RELEASE);
+    return;
+  }
+  while (__atomic_load_n(&state, __ATOMIC_ACQUIRE) != 2) {
+    // Busy-wait: the window is only the few env-var reads above, and this
+    // path runs during early process init before TSAN itself is ready. So a
+    // plain spin (no libc call) is deliberate here.
+  }
 }
 
 static InternalPluginEntry *
