@@ -842,6 +842,11 @@ runTest("dmtcp3",        1, ["./test/dmtcp3"])
 
 runTest("dmtcp4",        1, ["./test/dmtcp4"])
 
+runTest("zeroapges",        1, ["./test/zeropages"])
+os.environ["DMTCP_DISABLE_PAGEMAP_SCAN"] = "1"
+runTest("zeropages-pread",  1, ["./test/zeropages"])
+del os.environ["DMTCP_DISABLE_PAGEMAP_SCAN"]
+
 runTest("alarm",        1, ["./test/alarm"])
 
 runTest("sched_test",    2, ["./test/sched_test"])
