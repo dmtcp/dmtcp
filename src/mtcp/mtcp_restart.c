@@ -77,6 +77,18 @@ static void mmapfile(RestoreInfo *rinfo, int fd, void *buf, size_t size,
  */
 #define STACKSIZE 4 * 1024 * 1024
 
+// A restored anonymous region gets MAP_NORESERVE only if its size is at
+// least this many bytes (see read_one_memory_area()).  TSAN's and Java's
+// shadow/meta mappings run into the multiple-terabytes range; ordinary
+// anonymous regions (heap, stack, etc.) are far below this threshold.  The
+// threshold is much smaller on 32-bit targets, whose entire user address
+// space is only a few GiB.
+#if defined(__i386__) || defined(__arm__)
+# define MAP_NORESERVE_SIZE_THRESHOLD (10ULL * 1024 * 1024)  // 10 MiB
+#else
+# define MAP_NORESERVE_SIZE_THRESHOLD (1ULL * 1024 * 1024 * 1024)  // 1 GiB
+#endif
+
 static RestoreInfo rinfo;
 
 /* Internal routines */
@@ -925,7 +937,16 @@ read_one_memory_area(RestoreInfo *rinfo, int fd, VA endOfStack)
     if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
       // MMAP only if it's not a child header.
       imagefd = -1;
-      if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
+      // Skip reopening the backing file for a region already converted to
+      // MAP_ANONYMOUS above (originally MAP_SHARED): area.name may still be
+      // a real, still-existing path (only area.flags was rewritten), and
+      // reopening it here would leave imagefd >= 0 for a region we've
+      // already decided is anonymous. area.name itself must stay intact:
+      // the mmapFileSize-based partial-read decision below also keys off
+      // area.name[0] == '/', and clearing it would desync the checkpoint
+      // file stream for regions with a small mmapFileSize.
+      if (area.name[0] == '/' && !(area.flags & MAP_ANONYMOUS)) {
+        /* If not null string, not [stack] or [vdso] */
         imagefd = mtcp_sys_open(area.name, O_RDONLY, 0);
         if (imagefd >= 0) {
           /* If the current file size is smaller than the original, we map the region
@@ -967,10 +988,35 @@ read_one_memory_area(RestoreInfo *rinfo, int fd, VA endOfStack)
       * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
       * mtcp_safemmap here to check for address conflicts.
       */
+      int mmapFlags = area.flags;
+      if (area.flags & MAP_ANONYMOUS) {
+        /* Programs/tools like Java and ThreadSanitizer reserve enormous
+         * sparse regions (their shadow/meta mappings can span multiple
+         * terabytes) with MAP_ANONYMOUS|MAP_NORESERVE.  Such a
+         * zero-initialized region is sometimes called anonymous pages (or
+         * non-resident, or unallocated).  The _only_ reason to add
+         * MAP_NORESERVE is to overcome any limits on memory overcommit
+         * (e.g., Committed_AS) by the kernel.  But they will still be
+         * anonymous (non-resident) pages in both cases.  (See
+         * /proc/meminfo, with CommitLimit and Committed_AS fields.)
+         * Only add MAP_NORESERVE if the region is large enough to
+         * plausibly threaten the overcommit limit on its own (e.g., TSAN's
+         * or Java's multi-terabyte shadow/meta mappings); ordinary
+         * anonymous regions keep the kernel's normal overcommit accounting.
+         * FIXME: We could have read /proc/self/smaps to test if the nr
+         * (noreserve) attribute is listed under VmFlags.  If so, we would
+         * set an additional area.flags for it, and use MAP_NORESERVE here
+         * only if nr was seen.
+         */
+        if ((uint64_t) area.size >= MAP_NORESERVE_SIZE_THRESHOLD) {
+          mmapFlags |= MAP_NORESERVE;
+        }
+        MTCP_ASSERT(imagefd == -1);  // anonymous memory region
+      }
       mmappedat =
         mmap_fixed_noreplace(rinfo, area.addr, area.size,
                             area.prot | PROT_WRITE,
-                            area.flags, imagefd, area.offset);
+                            mmapFlags, imagefd, area.offset);
 
       MTCP_ASSERT(mmappedat == area.addr);
 
