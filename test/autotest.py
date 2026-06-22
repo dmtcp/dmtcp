@@ -1559,13 +1559,17 @@ class TestRegistry:
             TestSpec("dmtcp2", 1, ["./test/dmtcp2"]),
             TestSpec("dmtcp3", 1, ["./test/dmtcp3"]),
             TestSpec("dmtcp4", 1, ["./test/dmtcp4"]),
-            # Startup regression guard for ThreadSanitizer (-fsanitize=thread)
-            # targets: dmtcp_launch must load libtsan before libdmtcp and disable
-            # ASLR, and DMTCP wrappers must not re-enter a half-initialized TSAN
-            # during its constructor.  cycles=0: startup only (checkpoint/restart
-            # of TSAN targets is not yet implemented).  Auto-disabled when the
-            # TSAN runtime / ./test/tsan_target is unavailable.
-            TestSpec("tsan-startup", 1, ["./test/tsan_target"], cycles=0,
+            # Regression guard for ThreadSanitizer (-fsanitize=thread) targets.
+            # cycles=0 (startup only) for now: launch must load libtsan before
+            # libdmtcp, disable ASLR, and DMTCP wrappers must not re-enter a
+            # half-initialized TSAN during its constructor.  Checkpoint and
+            # restore of TSAN targets work (verified manually: raw-syscall I/O
+            # past TSAN's write interceptor, residency scan of the shadow,
+            # MAP_NORESERVE restore of TSAN's multi-TB reserved regions), but
+            # the restarted worker's coordinator reconnection under the harness
+            # is still being worked (Q7).  Bump to full cycles once that lands.
+            # Auto-disabled when the TSAN runtime / ./test/tsan_target is absent.
+            TestSpec("tsan", 1, ["./test/tsan_target"], cycles=0,
                      tags=["tsan"], limits=["cycles=0"]),
             # Regression guard for the pagemap residency zero-page optimization
             # (Util::scanOccupiedRangeBatch in writeckpt.cpp).  Run on both the
