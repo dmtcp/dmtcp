@@ -203,6 +203,8 @@ extern int mtcp_sys_errno;
 // # include "sysdep-aarch64.h"
 # elif defined(__riscv)
 #  include "sysdep/sysdep-riscv.h"
+# elif defined(__powerpc64__) || defined(__ppc64__)
+#  include "sysdep/sysdep-ppc64.h"
 # else // ifdef __i386__
 #  error "Missing sysdep.h file for this architecture."
 # endif /* end __arm__ */
@@ -318,10 +320,10 @@ struct linux_dirent {
                               flags,                           \
                               fd,                              \
                               offset / 4096)
-# elif defined(__aarch64__) || defined(__riscv)
+# elif defined(__aarch64__) || defined(__riscv) || defined(__powerpc64__) || defined(__ppc64__)
 #  define mtcp_sys_mmap(args ...) (void *)mtcp_inline_syscall(mmap, 6, args)
 # else // if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
-#  error "getrlimit kernel call not implemented in this architecture"
+#  error "mmap kernel call not implemented in this architecture"
 # endif // if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
 # define mtcp_sys_mremap(args ...)                                        \
                                       (void *)mtcp_inline_syscall(mremap, \
@@ -352,7 +354,7 @@ struct linux_dirent {
 # define mtcp_sys_process_vm_readv(args ...)                                 \
                                     mtcp_inline_syscall(process_vm_readv, 6, \
                                                         args)
-# if defined(__aarch64__) || defined(__riscv)
+# if defined(__aarch64__) || defined(__riscv) || defined(__powerpc64__) || defined(__ppc64__)
 
 // As of glibc-2.18, readlink() has been replaced by readlinkat()
 // glibc includes checks for old call, except in aarch64
@@ -370,7 +372,7 @@ struct linux_dirent {
 
 /* EABI ARM exclusively uses newer ugetrlimit kernel API, and not getrlimit */
 #  define mtcp_sys_getrlimit(args ...) mtcp_inline_syscall(ugetrlimit, 2, args)
-# elif defined(__aarch64__) || defined(__riscv)
+# elif defined(__aarch64__) || defined(__riscv) || defined(__powerpc64__) || defined(__ppc64__)
 #  define mtcp_sys_getrlimit(args ...) mtcp_inline_syscall(getrlimit, 2, args)
 # else // if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
 #  error "getrlimit kernel call not implemented in this architecture"
@@ -514,6 +516,8 @@ static unsigned int myinfo_gs;
 #  define CLEAN_FOR_64_BIT_HELPER(args ...) # args
 # elif __i386__
 #  define CLEAN_FOR_64_BIT(args ...)        # args
+# elif defined(__powerpc64__) || defined(__ppc64__)
+#  define CLEAN_FOR_64_BIT(args ...)        # args
 # else // ifdef __x86_64__
 #  define CLEAN_FOR_64_BIT(args ...)        "CLEAN_FOR_64_BIT_undefined"
 # endif // ifdef __x86_64__
@@ -542,6 +546,8 @@ mtcp_abort(void)
   asm volatile ("mov x0, #0 ; str x0, [X0]");
 # elif defined(__riscv__)
   asm volatile ("add x0, #0;  str x0, [X0]");
+# elif defined(__powerpc64__) || defined(__ppc64__)
+  asm volatile ("li 0, 0 ; stw 0, 0(0)");
 # endif // if defined(__i386__) || defined(__x86_64__)
   for (;;) { /* Without this, gcc emits warning:  `noreturn' fnc does return */
   }
