@@ -45,7 +45,7 @@
 #include "kernelbufferdrainer.h"
 #include "socketconnection.h"
 #include "socketwrappers.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 #ifdef REALLY_VERBOSE_CONNECTION_CPP
 static bool really_verbose = true;

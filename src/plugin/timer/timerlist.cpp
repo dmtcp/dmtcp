@@ -25,7 +25,7 @@
 #include "dmtcp.h"
 #include "plugin/pid/pidhelpers.h"
 #include "timerwrappers.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 

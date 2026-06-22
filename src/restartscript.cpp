@@ -35,7 +35,7 @@
 #include "constants.h"
 
 #include "jfilesystem.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 namespace dmtcp
 {

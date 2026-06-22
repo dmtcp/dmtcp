@@ -27,7 +27,7 @@
 #include <string>
 
 #include "dmtcpalloc.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 namespace jalib
 {

@@ -38,7 +38,7 @@
 # include "jfilesystem.h"
 
 # include "connection.h"
-# include "util_assert.h"
+# include "dmtcp_assert.h"
 
 namespace dmtcp
 {

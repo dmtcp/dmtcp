@@ -33,7 +33,7 @@
 #include <unistd.h>
 #include "connection.h"
 #include "connectionlist.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 #ifdef HAVE_SYS_INOTIFY_H
 #include <sys/inotify.h>

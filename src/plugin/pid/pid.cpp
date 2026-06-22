@@ -41,7 +41,7 @@
 #include "protectedfds.h"
 #include "shareddata.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "virtualpidtable.h"
 
 static char PROC_PREFIX[] = "/proc/";

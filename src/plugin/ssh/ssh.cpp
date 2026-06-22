@@ -13,7 +13,7 @@
 #include "sshdrainer.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "util_ipc.h"
 
 using namespace dmtcp;

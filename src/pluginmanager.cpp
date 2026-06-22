@@ -12,7 +12,7 @@
 #include "dmtcpalloc.h"
 #include "plugininfo.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 static dmtcp::PluginManager *pluginManager = NULL;
 

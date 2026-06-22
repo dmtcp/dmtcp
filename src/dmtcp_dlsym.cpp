@@ -69,7 +69,7 @@
 
 #include "dmtcp.h"
 #include "config.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 // ***** NOTE:  link.h invokes elf.h, which:
 // *****        expands ElfW(Word)  to  Elf64_Word; and then defines:

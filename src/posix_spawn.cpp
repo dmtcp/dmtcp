@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "dmtcp.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "syscallwrappers.h"
 
 #define SPAWN_ERROR 127

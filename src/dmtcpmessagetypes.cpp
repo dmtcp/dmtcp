@@ -21,7 +21,7 @@
 
 #include "dmtcpmessagetypes.h"
 #include "json.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "workerstate.h"
 
 #include <cstring>

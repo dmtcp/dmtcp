@@ -34,7 +34,7 @@
 
 #include "jalib.h"
 #define DMTCP_LOG_COMPONENT "jalib"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include <fstream>
 
 static JalibFuncPtrs jalibFuncPtrs;

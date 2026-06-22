@@ -24,7 +24,7 @@
 
 #include "dmtcpalloc.h"
 #include "jalloc.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 #include <stdint.h>
 #include <string>

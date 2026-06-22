@@ -37,7 +37,7 @@
 #include "threadlist.h"
 #include "threadsync.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 
@@ -162,7 +162,7 @@ prepareLogAndProcessdDataFromSerialFile()
     // Brand new process (was never under ckpt-control),
 
     // Initialize the log file
-    Util::initializeLogFile(SharedData::getTmpDir());
+    initializeLogFile(SharedData::getTmpDir());
 
     TRACE("Root of processes tree");
     ProcessInfo::instance().isRootOfProcessTree = 1;

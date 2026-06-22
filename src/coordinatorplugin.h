@@ -27,7 +27,7 @@
 #include "dmtcpalloc.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcp_coordinator.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 namespace dmtcp
 {

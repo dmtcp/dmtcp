@@ -4,7 +4,7 @@
 #include "dmtcpmessagetypes.h"
 #include "coordinatorapi.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "jconvert.h"
 #include "kvdb.h"
 #include "threadinfo.h"

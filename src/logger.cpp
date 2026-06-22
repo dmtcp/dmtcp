@@ -1,13 +1,18 @@
-#include "util_assert.h"
+#include "logger.h"
 
-#include <atomic>
-#include <fcntl.h>
+#include <cerrno>
+#include <cstdlib>
 #include <cstring>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "constants.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
+#include "uniquepid.h"
+#include "util.h"
+#include "dmtcp_assert.h"
 
 namespace dmtcp {
 namespace {
@@ -20,6 +25,22 @@ struct LogOverride {
   char key[kMaxLogOverrideKey];
   LogLevel level;
 };
+
+void
+writeAllNoAlloc(int fd, const char *data, size_t length)
+{
+  while (length > 0) {
+    ssize_t written = write(fd, data, length);
+    if (written == -1 && errno == EINTR) {
+      continue;
+    }
+    if (written <= 0) {
+      return;
+    }
+    data += written;
+    length -= written;
+  }
+}
 
 std::string_view
 trim(std::string_view text)
@@ -39,16 +60,18 @@ trim(std::string_view text)
 
 class LoggerState {
  public:
+  constexpr LoggerState() = default;
+
   void setLevel(LogLevel level)
   {
-    logLevel_.store(static_cast<int>(level), std::memory_order_relaxed);
+    logLevel_ = level;
   }
 
   bool setOverrides(std::string_view overrides)
   {
     overrides = trim(overrides);
     if (overrides.empty()) {
-      overrideCount_.store(0, std::memory_order_relaxed);
+      overrideCount_ = 0;
       return true;
     }
 
@@ -76,7 +99,7 @@ class LoggerState {
     for (int i = 0; i < parsedCount; ++i) {
       overrides_[i] = parsed[i];
     }
-    overrideCount_.store(parsedCount, std::memory_order_relaxed);
+    overrideCount_ = parsedCount;
     return true;
   }
 
@@ -88,9 +111,8 @@ class LoggerState {
       return true;
     }
 
-    LogLevel effectiveLevel =
-      static_cast<LogLevel>(logLevel_.load(std::memory_order_relaxed));
-    if (overrideCount_.load(std::memory_order_relaxed) > 0) {
+    LogLevel effectiveLevel = logLevel_;
+    if (overrideCount_ > 0) {
       LogLevel overrideLevel;
       if (!file.empty() && findFileOverride(file, &overrideLevel)) {
         effectiveLevel = overrideLevel;
@@ -217,7 +239,7 @@ class LoggerState {
 
   bool findFileOverride(std::string_view file, LogLevel *level) const
   {
-    const int count = overrideCount_.load(std::memory_order_relaxed);
+    const int count = overrideCount_;
     for (int i = count - 1; i >= 0; --i) {
       const LogOverride& override = overrides_[i];
       if (override.isFile && file.ends_with(override.key)) {
@@ -231,7 +253,7 @@ class LoggerState {
   bool findComponentOverride(std::string_view component,
                              LogLevel *level) const
   {
-    const int count = overrideCount_.load(std::memory_order_relaxed);
+    const int count = overrideCount_;
     for (int i = count - 1; i >= 0; --i) {
       const LogOverride& override = overrides_[i];
       if (!override.isFile && component == override.key) {
@@ -242,17 +264,17 @@ class LoggerState {
     return false;
   }
 
-  std::atomic<int> logLevel_{static_cast<int>(LogLevel::Note)};
-  std::atomic<int> overrideCount_{0};
+  LogLevel logLevel_{LogLevel::Note};
+  int overrideCount_{0};
   // Log override and log fd state is configured during single-threaded
   // process initialization. Runtime logging reads it without synchronization.
   // Revisit this invariant before adding runtime log reconfiguration.
-  LogOverride overrides_[kMaxLogOverrides];
+  LogOverride overrides_[kMaxLogOverrides]{};
   int consoleFd_{kLogFd};
   int fileFd_{-1};
 };
 
-LoggerState gLogger;
+constinit LoggerState gLogger;
 
 } // namespace
 
@@ -313,6 +335,63 @@ bool
 setLogFile(const char *path)
 {
   return gLogger.setFile(path);
+}
+
+void
+initializeLogFile(const char *tmpDir, const char *prefix)
+{
+  initializeLogConsole(getenv(ENV_VAR_STDERR_PATH));
+
+  const char *logFile = getenv(ENV_VAR_LOG_FILE);
+  if (logFile != nullptr) {
+    if (!setLogFile(logFile)) {
+      WARN(false, "Failed to open log file: path={}", logFile);
+    }
+  } else {
+    ostringstream o;
+    o << tmpDir << "/" << prefix
+      << "." << Util::getTimestampStr()
+      << "." << UniquePid::ThisProcess()
+      << ".log";
+    const string path = o.str();
+    if (!setLogFile(path.c_str())) {
+      WARN(false, "Failed to open log file: path={}", path.c_str());
+    }
+  }
+
+  int quietCount = 0;
+  if (getenv(ENV_VAR_QUIET)) {
+    quietCount = *getenv(ENV_VAR_QUIET) - '0';
+  }
+
+#ifdef QUIET
+  quietCount = 2;
+#endif // ifdef QUIET
+
+  LogLevel logLevel = LogLevel::Note;
+  if (quietCount >= 2) {
+    logLevel = LogLevel::Error;
+  } else if (quietCount == 1) {
+    logLevel = LogLevel::Warn;
+  }
+  if (const char *envLogLevel = getenv(ENV_VAR_LOG_LEVEL)) {
+    LogLevel parsedLogLevel;
+    if (parseLogLevel(envLogLevel, &parsedLogLevel)) {
+      logLevel = parsedLogLevel;
+    }
+  }
+  setLogLevel(logLevel);
+
+  if (const char *envLogOverrides = getenv(ENV_VAR_LOG_OVERRIDES)) {
+    if (!setLogOverrides(envLogOverrides)) {
+      WARN(false, "Invalid log override configuration, ignoring: {}={}",
+           ENV_VAR_LOG_OVERRIDES, envLogOverrides);
+      setLogOverrides("");
+    }
+  } else {
+    setLogOverrides("");
+  }
+  unsetenv(ENV_VAR_STDERR_PATH);
 }
 
 void

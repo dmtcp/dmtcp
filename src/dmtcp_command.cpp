@@ -26,7 +26,7 @@
 #include "coordinatorapi.h"
 #include "json.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 #define BINARY_NAME "dmtcp_command"
 
@@ -154,7 +154,7 @@ main(int argc, char **argv)
   initializeJalib();
 
   // No need to initialize the log file.
-  // Util::initializeLogFile();
+  // initializeLogFile();
 
   // process args
   shift;

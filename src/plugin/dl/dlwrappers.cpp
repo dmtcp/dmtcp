@@ -35,7 +35,7 @@
 #include "jfilesystem.h"
 #include "pluginmanager.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "wrapperlock.h"
 
 #define _real_dlopen  NEXT_FNC(dlopen)

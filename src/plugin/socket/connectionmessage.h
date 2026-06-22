@@ -28,7 +28,7 @@
 #include "connectionidentifier.h"
 #include "dmtcpalloc.h"
 #include <string.h>
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 # define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
 

@@ -28,7 +28,7 @@
 #include "connection.h"
 #include "dmtcpalloc.h"
 #include "protectedfds.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 namespace dmtcp
 {

@@ -21,7 +21,7 @@
 
 #include "connectionidentifier.h"
 #include "dmtcp.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 

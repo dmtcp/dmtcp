@@ -33,7 +33,7 @@
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 #define MAX_VIRTUAL_ID 999
 

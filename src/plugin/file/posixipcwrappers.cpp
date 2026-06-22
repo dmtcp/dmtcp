@@ -29,7 +29,7 @@
 #include "fileconnection.h"
 #include "fileconnlist.h"
 #include "filewrappers.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "wrapperlock.h"
 
 using namespace dmtcp;

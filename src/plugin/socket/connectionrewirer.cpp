@@ -35,7 +35,7 @@
 #include "connectionrewirer.h"
 #include "socketconnection.h"
 #include "socketwrappers.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 constexpr char const *PeerDiscoveryDbRestart = "/plugin/socket/rst";

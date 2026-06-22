@@ -38,7 +38,7 @@
 #include "socketconnection.h"
 #include "socketconnlist.h"
 #include "socketwrappers.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "wrapperlock.h"
 
 using namespace dmtcp;

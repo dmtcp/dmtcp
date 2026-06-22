@@ -40,7 +40,7 @@
 #include "jalib.h"
 #define DMTCP_LOG_COMPONENT "jalib"
 #include "jsocket.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 const jalib::JSockAddr jalib::JSockAddr::ANY(NULL);
 

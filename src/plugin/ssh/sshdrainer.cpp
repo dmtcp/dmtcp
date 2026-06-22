@@ -1,6 +1,6 @@
 #include "sshdrainer.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 #define SOCKET_DRAIN_MAGIC_COOKIE_STR "[dmtcp{v0<DRAIN!"
 

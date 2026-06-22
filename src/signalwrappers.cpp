@@ -25,7 +25,7 @@
 
 #include "dmtcpworker.h"
 #include "syscallwrappers.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 #ifndef EXTERNC
 # define EXTERNC extern "C"

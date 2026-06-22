@@ -37,7 +37,7 @@
 #include "procselfmaps.h"
 #include "shareddata.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 /* Shared memory regions for Direct Rendering Infrastructure */
 #define DEV_DRI_SHMEM        "/dev/dri/card"
