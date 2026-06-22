@@ -1594,6 +1594,12 @@ class TestRegistry:
             TestSpec("tsan-clang", 1, ["./test/tsan_target_clang"], cycles=0,
                      library_paths=[clang_rtdir] if clang_rtdir else [],
                      tags=["tsan", "clang"], limits=["cycles=0"]),
+            # clang STATIC default: TSAN runtime linked into the exe, detected by
+            # dmtcp_launch via the "__tsan_init" symbol in .dynstr (no DT_NEEDED,
+            # no prepend, no LD_LIBRARY_PATH; dmtcp_launch still disables ASLR).
+            TestSpec("tsan-clang-static", 1,
+                     ["./test/tsan_target_clang_static"], cycles=0,
+                     tags=["tsan", "clang"], limits=["cycles=0"]),
             # Regression guard for the pagemap residency zero-page optimization
             # (Util::scanOccupiedRangeBatch in writeckpt.cpp).  Run on both the
             # ioctl(PAGEMAP_SCAN) fast path and the portable pread() fallback.

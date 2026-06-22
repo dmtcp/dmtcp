@@ -278,6 +278,17 @@ else
 	@echo "#tsan_target_clang: skipping (no clang -shared-libsan TSAN runtime)"
 endif
 
+# clang STATIC default: the TSAN runtime is linked into the executable (no
+# DT_NEEDED), and dmtcp_launch detects it by the "__tsan_init" symbol in
+# .dynstr.  No LD_LIBRARY_PATH needed (runtime is in the exe).
+CLANG_TSAN_A := $(wildcard $(CLANG_RTDIR)/libclang_rt.tsan*.a)
+tsan_target_clang_static: tsan_target.c
+ifneq ($(CLANG_TSAN_A),)
+	-clang -fsanitize=thread -g -O0 -pthread -o $@ $<
+else
+	@echo "#tsan_target_clang_static: skipping (no clang static TSAN runtime)"
+endif
+
 dmtcp5: dmtcp5.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
