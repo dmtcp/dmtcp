@@ -27,15 +27,22 @@
 
 using namespace dmtcp;
 
-static int allocPluginEnabled = -1;
-
 EXTERNC int
 dmtcp_alloc_enabled()
 {
-  if (allocPluginEnabled == -1) {
-    allocPluginEnabled = internalPluginEnabled(INTERNAL_PLUGIN_ALLOC) ? 1 : 0;
+  // A function-local `static` initializer needs a C++ guard
+  // (__cxa_guard_acquire/release), which TSAN intercepts -- and this wrapper
+  // can run during TSAN's own constructor, before TSAN's shadow state exists.
+  // Use a constant-initialized atomic flag instead: no C++ guard, and the
+  // atomic ops aren't intercepted.  internalPluginEnabled() is idempotent, so
+  // a benign double-init under contention is harmless.
+  static int enabled = -1;  // -1 = not yet computed
+  int value = __atomic_load_n(&enabled, __ATOMIC_ACQUIRE);
+  if (value < 0) {
+    value = internalPluginEnabled(INTERNAL_PLUGIN_ALLOC) ? 1 : 0;
+    __atomic_store_n(&enabled, value, __ATOMIC_RELEASE);
   }
-  return allocPluginEnabled;
+  return value;
 }
 
 extern "C" void *calloc(size_t nmemb, size_t size)
