@@ -1574,6 +1574,12 @@ class TestRegistry:
             TestSpec("dmtcp2", 1, ["./test/dmtcp2"]),
             TestSpec("dmtcp3", 1, ["./test/dmtcp3"]),
             TestSpec("dmtcp4", 1, ["./test/dmtcp4"]),
+            # Regression guard for the pagemap residency zero-page optimization
+            # (Util::scanOccupiedRangeBatch in writeckpt.cpp).  Run on both the
+            # ioctl(PAGEMAP_SCAN) fast path and the portable pread() fallback.
+            TestSpec("zeropages", 1, ["./test/zeropages"]),
+            TestSpec("zeropages-pread", 1, ["./test/zeropages"],
+                     env={"DMTCP_DISABLE_PAGEMAP_SCAN": "1"}),
             TestSpec("alarm", 1, ["./test/alarm"]),
             TestSpec("sched_test", 2, ["./test/sched_test"]),
             TestSpec("coordinator-barrier", 2, ["./test/sched_test"],
