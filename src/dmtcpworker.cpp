@@ -132,7 +132,12 @@ DmtcpWorker::determineCkptSignal()
 {
   int sig = CKPT_SIGNAL;
   char *endp = NULL;
-  static const char *tmp = getenv(ENV_VAR_SIGCKPT);
+  // Not 'static': a function-local static needs a C++ guard (__cxa_guard_*),
+  // which ThreadSanitizer intercepts.  If this runs from a DMTCP wrapper during
+  // TSAN's own constructor (e.g. TSAN installing signal handlers via sigaction),
+  // the guard re-enters a not-yet-initialized TSAN and crashes.  getenv is cheap
+  // and this result is already cached one level up (bannedSignalNumber).
+  const char *tmp = getenv(ENV_VAR_SIGCKPT);
 
   if (tmp != NULL) {
     sig = strtol(tmp, &endp, 0);
