@@ -1040,6 +1040,24 @@ setLDPreloadLibs(bool is32bitElf, const char *targetPath)
 #if defined(__x86_64__) || defined(__aarch64__)
     preloadLibs32 = tsanLib + ":" + preloadLibs32;
 #endif // if defined(__x86_64__) || defined(__aarch64__)
+
+    // TSAN requires a deterministic address space: under ASLR it intermittently
+    // aborts with "ThreadSanitizer: unexpected memory mapping".  DMTCP restart
+    // also needs stable addresses.  The personality is inherited across the
+    // exec of the target, so set it here for any TSAN-instrumented program.
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
+    // Read-modify-write so we only add ADDR_NO_RANDOMIZE and preserve any
+    // inherited personality bits (e.g. READ_IMPLIES_EXEC), as setarch -R and
+    // Util::adjustRlimitStack do.  personality(0xffffffffUL) queries without
+    // changing.
+    int persona = personality(0xffffffffUL);
+    if (persona == -1 ||
+        personality((unsigned long)persona | ADDR_NO_RANDOMIZE) == -1) {
+      JWARNING(false) (JASSERT_ERRNO)
+        .Text("Could not disable ASLR for TSAN target; "
+              "run under `setarch -R` if TSAN aborts on startup.");
+    }
+#endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
   }
 
   if (enableKernelLoader) {
