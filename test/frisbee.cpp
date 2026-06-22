@@ -29,7 +29,7 @@ main(int argc, char **argv)
   int listenSock = socket(AF_INET, SOCK_STREAM, 0);
   int connectSock = socket(AF_INET, SOCK_STREAM, 0);
   int acceptSock = -1;
-  assert(listenSock > 0 && connectSock > 0);
+  assert(listenSock >= 0 && connectSock >= 0);
 
   int listenPort = atoi(argv[1]);
   hostent *connectHost = gethostbyname(argv[2]);
@@ -96,7 +96,7 @@ main(int argc, char **argv)
 void
 doAccept(int &acceptSock, int listenSock)
 {
-  assert((acceptSock = accept(listenSock, NULL, NULL)) > 0);
+  assert((acceptSock = accept(listenSock, NULL, NULL)) >= 0);
 }
 
 void

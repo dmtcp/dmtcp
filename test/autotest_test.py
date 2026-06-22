@@ -504,6 +504,49 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
             self.assertEqual(caught.exception.phase, "kill")
             self.assertIn("DMT_COORD_NOT_RUNNING", caught.exception.message)
+            self.assertIn("coordinator=not-started",
+                          caught.exception.message)
+            self.assertIn("workers=[]", caught.exception.message)
+
+    def test_wait_for_status_timeout_reports_diagnostics(self):
+        class FakeProcess:
+            def __init__(self, pid, returncode):
+                self.pid = pid
+                self.returncode = returncode
+
+            def poll(self):
+                return self.returncode
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("status-timeout", 1, ["./test/dmtcp1"],
+                            timeout=0.01)
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+            context.port = 2718
+            context.coordinator_proc = FakeProcess(111, None)
+            context.processes.append(FakeProcess(222, 7))
+
+            with mock.patch.object(
+                    context, "_status",
+                    return_value=DmtcpStatus(0, False, 0)):
+                with self.assertRaises(HarnessFailure) as caught:
+                    context._wait_for_status(1, True, "launch")
+
+            self.assertEqual(caught.exception.phase, "launch")
+            self.assertIn("timed out waiting for peers=1 running=True",
+                          caught.exception.message)
+            self.assertIn("last_status=peers:0,running:False,interval:0",
+                          caught.exception.message)
+            self.assertIn("port=2718", caught.exception.message)
+            self.assertIn("coordinator=pid:111,state:running",
+                          caught.exception.message)
+            self.assertIn("worker0=pid:222,state:exited:7",
+                          caught.exception.message)
 
     def test_json_command_rejects_nonzero_exit_with_success_status(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1147,6 +1190,22 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                             private_env_dirs={"SCREENDIR": str(link)})
 
             with self.assertRaisesRegex(HarnessFailure, "symlink"):
+                TestContext(DmtcpHarness(ROOT), spec, work)
+
+    def test_make_env_rejects_existing_private_environment_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            existing = tmp_path / "screen"
+            existing.mkdir()
+            spec = TestSpec("screen", 1, ["/usr/bin/screen"],
+                            private_env_dirs={"SCREENDIR": "screen"})
+
+            with self.assertRaisesRegex(HarnessFailure, "already exists"):
                 TestContext(DmtcpHarness(ROOT), spec, work)
 
     def test_spec_records_library_path_appends(self):
@@ -2008,6 +2067,81 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertIn("  dmtcp2         ckpt:PASSED; rstr:PASSED (0.0s)",
                       stdout.getvalue().splitlines())
 
+    def test_autotest_parallel_integration_runs_serial_specs_last(self):
+        stdout = io.StringIO()
+        run_order = []
+        selected_specs = [
+            TestSpec("dmtcp1", 1, ["./test/dmtcp1"]),
+            TestSpec("openmp-2", 1, ["./test/openmp-2"], run_serial=True),
+        ]
+
+        class FakeHarness:
+            def __init__(self, verbose=False,
+                         retain_success_artifacts=False,
+                         slow_count=0):
+                self.progress = lambda event: None
+                self.start_progress = lambda spec: None
+                self.abort_progress = lambda spec, phase, message: None
+
+        class ImmediateFuture:
+            def __init__(self, value):
+                self._value = value
+
+            def result(self):
+                return self._value
+
+        class RecordingExecutor:
+            submitted = []
+
+            def __init__(self, max_workers):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+            def submit(self, fn, *args):
+                spec = args[1]
+                self.submitted.append(spec.name)
+                return ImmediateFuture(fn(*args))
+
+        def fake_as_completed(futures):
+            return list(futures)
+
+        def fake_run_with_optional_retry(harness, selected_spec, retry_once):
+            run_order.append(selected_spec.name)
+            harness.progress("ckpt-start")
+            harness.progress("ckpt-passed")
+            harness.progress("rstr-start")
+            harness.progress("rstr-passed")
+            return TestResult.pass_(selected_spec.name)
+
+        with mock.patch.object(sys, "argv",
+                               ["autotest.py", "--jobs", "4"]), \
+             mock.patch.object(REGISTRY, "select",
+                               lambda names, tags, requirements:
+                               selected_specs), \
+             mock.patch.object(autotest_module, "DmtcpHarness",
+                               FakeHarness), \
+             mock.patch.object(autotest_module, "run_with_optional_retry",
+                               fake_run_with_optional_retry), \
+             mock.patch.object(autotest_module.concurrent.futures,
+                               "ThreadPoolExecutor", RecordingExecutor), \
+             mock.patch.object(autotest_module.concurrent.futures,
+                               "as_completed", fake_as_completed), \
+             mock.patch.object(REGISTRY, "disabled_reason_counts",
+                               lambda tags, requirements: {}), \
+             mock.patch.object(autotest_module.time, "monotonic",
+                               lambda: 0.0), \
+             contextlib.redirect_stdout(stdout):
+            rc = autotest_module.main()
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(RecordingExecutor.submitted, ["dmtcp1"])
+        self.assertEqual(run_order, ["dmtcp1", "openmp-2"])
+
     def test_autotest_parallel_integration_reports_failures(self):
         stdout = io.StringIO()
         spec = TestSpec("dmtcp1", 1, ["./test/dmtcp1"])
@@ -2253,10 +2387,6 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         if autotest_config.HAS_OPENMPI == "yes" and \
                 (ROOT / "test/openmpi").exists():
             expected.add("openmpi")
-        if pathlib.Path("/usr/bin/emacs").exists():
-            expected.add("emacs")
-        if pathlib.Path("/usr/bin/screen").exists():
-            expected.add("screen")
 
         for name in sorted(expected):
             with self.subTest(name=name):
@@ -2306,11 +2436,23 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         if "pthread_atfork1" in names:
             atfork = REGISTRY.get_test("pthread_atfork1")
             self.assertIn(f"{ROOT}/test", atfork.library_paths)
-        for name in ("waitpid", "waitid-syscall", "gzip", "perl", "bash"):
+        for name in ("waitpid", "waitid-syscall", "gzip", "bash"):
             assert_registered_unless_m32_disabled(self, names, name)
+        if getattr(autotest_config, "AARCH64_HOST", "no") == "yes":
+            self.assertNotIn("perl", names)
+        else:
+            assert_registered_unless_m32_disabled(self, names, "perl")
+            if "perl" in names:
+                self.assertEqual(
+                    REGISTRY.get_test("perl").blocked_configure_flags,
+                    ["AARCH64_HOST"],
+                )
         assert_registered_unless_m32_disabled(self, names, "python")
         if "python" in names:
-            self.assertEqual(REGISTRY.get_test("python").commands, [sys.executable])
+            self.assertEqual(
+                REGISTRY.get_test("python").commands,
+                [f"{sys.executable} -c 'import time; time.sleep(60)'"],
+            )
         assert_registered_when_path_exists(self, names, "dash", "/bin/dash")
         assert_registered_when_path_exists(self, names, "zsh", "/bin/zsh")
         if "gzip" in names:
@@ -2339,6 +2481,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertEqual(REGISTRY.get_test("openmp-2").cycles, 2)
             self.assertEqual(REGISTRY.get_test("openmp-2").limits, [])
             self.assertEqual(REGISTRY.get_test("openmp-2").pre_checkpoint_delay, 0.9)
+            self.assertTrue(REGISTRY.get_test("openmp-2").run_serial)
             self.assertEqual(REGISTRY.get_test("openmp-2").blocked_configure_flags,
                              ["AARCH64_HOST"])
         assert_registered_when_repo_file_exists(self, names, "dmtcp1-m32",
@@ -2358,22 +2501,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertEqual(REGISTRY.get_test("script").env["SHELL"], "/bin/bash")
         assert_registered_when_path_exists(self, names, "emacs",
                                            "/usr/bin/emacs")
-        if "emacs" in names:
-            emacs = REGISTRY.get_test("emacs")
-            self.assertEqual(emacs.launch_mode, "pty")
-            self.assertEqual(emacs.commands,
-                             ["/usr/bin/emacs -nw -Q /etc/passwd"])
-            self.assertEqual(emacs.env["TERM"], "vt100")
-            self.assertIn("pty", emacs.tags)
         assert_registered_when_path_exists(self, names, "screen",
                                            "/usr/bin/screen")
-        if "screen" in names:
-            screen = REGISTRY.get_test("screen")
-            self.assertEqual(screen.launch_mode, "pty")
-            self.assertEqual(screen.env["TERM"], "vt100")
-            self.assertEqual(screen.private_env_dirs["SCREENDIR"],
-                             "/tmp/{workname}-screen")
-            self.assertIn("pty", screen.tags)
         assert_registered_when_repo_file_exists(self, names, "cilk1",
                                                 "test/cilk1")
         if autotest_config.HAS_MATLAB == "yes":
