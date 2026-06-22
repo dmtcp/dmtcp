@@ -1559,6 +1559,14 @@ class TestRegistry:
             TestSpec("dmtcp2", 1, ["./test/dmtcp2"]),
             TestSpec("dmtcp3", 1, ["./test/dmtcp3"]),
             TestSpec("dmtcp4", 1, ["./test/dmtcp4"]),
+            # Startup regression guard for ThreadSanitizer (-fsanitize=thread)
+            # targets: dmtcp_launch must load libtsan before libdmtcp and disable
+            # ASLR, and DMTCP wrappers must not re-enter a half-initialized TSAN
+            # during its constructor.  cycles=0: startup only (checkpoint/restart
+            # of TSAN targets is not yet implemented).  Auto-disabled when the
+            # TSAN runtime / ./test/tsan_target is unavailable.
+            TestSpec("tsan-startup", 1, ["./test/tsan_target"], cycles=0,
+                     tags=["tsan"], limits=["cycles=0"]),
             # Regression guard for the pagemap residency zero-page optimization
             # (Util::scanOccupiedRangeBatch in writeckpt.cpp).  Run on both the
             # ioctl(PAGEMAP_SCAN) fast path and the portable pread() fallback.
