@@ -2059,7 +2059,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                ["autotest.py", "--retain-success-artifacts",
                                 "retain-success"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements: [spec]), \
+                               lambda names, tags, requirements,
+                               exclude_tags=None: [spec]), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
              mock.patch.object(autotest_module, "run_with_optional_retry",
@@ -2116,7 +2117,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         with mock.patch.object(sys, "argv", ["autotest.py"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements:
+                               lambda names, tags, requirements,
+                               exclude_tags=None:
                                selected_specs), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
@@ -2183,7 +2185,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         with mock.patch.object(sys, "argv",
                                ["autotest.py", "--color", "always"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements: [spec]), \
+                               lambda names, tags, requirements,
+                               exclude_tags=None: [spec]), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
              mock.patch.object(autotest_module, "run_with_optional_retry",
@@ -2260,7 +2263,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                ["autotest.py", "--suite", "all",
                                 "dmtcp1"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements:
+                               lambda names, tags, requirements,
+                               exclude_tags=None:
                                selected_specs), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
@@ -2327,7 +2331,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                ["autotest.py", "--slow", "--slow",
                                 "slow"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements: [spec]), \
+                               lambda names, tags, requirements,
+                               exclude_tags=None: [spec]), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
              mock.patch.object(autotest_module, "run_with_optional_retry",
@@ -2408,7 +2413,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         with mock.patch.object(sys, "argv",
                                ["autotest.py", "--jobs", "4"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements:
+                               lambda names, tags, requirements,
+                               exclude_tags=None:
                                selected_specs), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
@@ -2488,7 +2494,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         with mock.patch.object(sys, "argv",
                                ["autotest.py", "--jobs", "4"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements:
+                               lambda names, tags, requirements,
+                               exclude_tags=None:
                                selected_specs), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
@@ -2552,7 +2559,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                ["autotest.py", "--jobs", "4",
                                 "--color", "always"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements: [spec]), \
+                               lambda names, tags, requirements,
+                               exclude_tags=None: [spec]), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
              mock.patch.object(autotest_module, "run_with_optional_retry",

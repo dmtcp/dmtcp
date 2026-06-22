@@ -1798,6 +1798,8 @@ class TestRegistry:
             reason = cls._address_space_reason()
             if reason:
                 reasons.append(reason)
+        if test.name == "tsan-clang" and not test.library_paths:
+            reasons.append("missing clang TSAN runtime dir")
         for command in test.commands:
             reasons.extend(cls._command_executable_reasons(command))
         for path in test.required_files:
@@ -1808,8 +1810,10 @@ class TestRegistry:
 
     @classmethod
     def _address_space_reason(cls) -> Optional[str]:
-        # Trial-run instead of duplicating mmap-noreserve.c's REGION_BYTES:
-        # it prints READY on success, or fails fast via perror("mmap").
+        # Gate for every needs_max_address_space test (mmap-noreserve and the
+        # tsan tests): raise RLIMIT_AS soft to hard, then trial-run
+        # mmap-noreserve, whose huge MAP_NORESERVE region stands in for TSAN's
+        # ~125 TiB reservation.  It prints READY on success.
         binary = ROOT / "test" / "mmap-noreserve"
         if not binary.exists():
             return None  # _command_executable_reasons() will report this
@@ -1859,10 +1863,30 @@ class TestRegistry:
             for test in tests
         ]
 
+    @staticmethod
+    def _clang_runtime_dir() -> str:
+        # clang's -shared-libsan TSAN runtime lives in a non-standard dir
+        # with no RPATH, so the tsan-clang test needs LD_LIBRARY_PATH
+        # pointing at it.
+        try:
+            out = subprocess.run(["clang", "-print-runtime-dir"],
+                                 capture_output=True, text=True, timeout=10)
+            return out.stdout.strip() if out.returncode == 0 else ""
+        # Probe only: any failure here just disables the tsan-clang test
+        # (returns ""); it must never crash the suite.
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            # clang not in PATH, probe timed out, or another OS-level error.
+            return ""
+        except Exception as e:
+            print("DMTCP: autotest: internal error: unexpected exception: "
+                  f"{e!r}", file=sys.stderr)
+            return ""
+
     def _build_tests(self) -> List[TestSpec]:
         frisbee_p1, frisbee_p2, frisbee_p3 = [
             str(port) for port in sample(range(2000, 10000), 3)
         ]
+        clang_rtdir = self._clang_runtime_dir()
 
         tests = [
             TestSpec("dmtcp1", 1, ["./test/dmtcp1"]),
@@ -1943,6 +1967,30 @@ class TestRegistry:
             TestSpec("dmtcp2", 1, ["./test/dmtcp2"]),
             TestSpec("dmtcp3", 1, ["./test/dmtcp3"]),
             TestSpec("dmtcp4", 1, ["./test/dmtcp4"]),
+            # Regression guard for ThreadSanitizer (-fsanitize=thread) targets,
+            # exercising full (default cycles=2) checkpoint/restart.
+            # Auto-disabled when the TSAN runtime / ./test/tsan_target is
+            # absent.
+            TestSpec("tsan-gcc", 1, ["./test/tsan_target"],
+                     needs_max_address_space=True,
+                     tags=["tsan"]),
+            # Same guard built with clang -fsanitize=thread -shared-libsan.
+            # LD_LIBRARY_PATH points at clang's runtime dir because its shared
+            # TSAN runtime has no RPATH (a clang fact, not DMTCP-specific).
+            # Auto-disabled when clang / its shared TSAN runtime is absent
+            # (then ./test/tsan_target_clang is not built).
+            TestSpec("tsan-clang", 1, ["./test/tsan_target_clang"],
+                     library_paths=[clang_rtdir] if clang_rtdir else [],
+                     needs_max_address_space=True,
+                     tags=["tsan", "clang"]),
+            # clang STATIC default: TSAN runtime linked into the exe, detected
+            # by dmtcp_launch via the "__tsan_init" symbol in .dynstr (no
+            # DT_NEEDED, no prepend, no LD_LIBRARY_PATH; dmtcp_launch still
+            # disables ASLR).
+            TestSpec("tsan-clang-static", 1,
+                     ["./test/tsan_target_clang_static"],
+                     needs_max_address_space=True,
+                     tags=["tsan", "clang"]),
             # Regression guard for the pagemap residency zero-page optimization
             # (Util::scanOccupiedRangeBatch in writeckpt.cpp).  Run on both the
             # ioctl(PAGEMAP_SCAN) fast path and the portable pread() fallback.
@@ -2513,23 +2561,29 @@ class TestRegistry:
     def _has_all(values, required) -> bool:
         return all(value in values for value in required)
 
-    def select(self, names=None, tags=None,
-               requirements=None) -> List[TestSpec]:
+    @staticmethod
+    def _has_any(values, excluded) -> bool:
+        return any(value in values for value in excluded)
+
+    def select(self, names=None, tags=None, requirements=None,
+               exclude_tags=None) -> List[TestSpec]:
         if names:
             tests = [self.get_test(name) for name in names]
         else:
             tests = list(self._tests)
         tags = tags or []
         requirements = requirements or []
+        exclude_tags = exclude_tags or []
         return [
             test for test in tests
             if self._has_all(test.tags, tags) and
-            self._has_all(test.requirements, requirements)
+            self._has_all(test.requirements, requirements) and
+            not self._has_any(test.tags, exclude_tags)
         ]
 
     def select_for_listing(
-            self, names=None, tags=None,
-            requirements=None) -> List[TestSpec]:
+            self, names=None, tags=None, requirements=None,
+            exclude_tags=None) -> List[TestSpec]:
         all_tests = list(self._tests) + list(self._disabled_tests)
         if names:
             by_name = {test.name: test for test in all_tests}
@@ -2538,10 +2592,12 @@ class TestRegistry:
             tests = all_tests
         tags = tags or []
         requirements = requirements or []
+        exclude_tags = exclude_tags or []
         return [
             test for test in tests
             if self._has_all(test.tags, tags) and
-            self._has_all(test.requirements, requirements)
+            self._has_all(test.requirements, requirements) and
+            not self._has_any(test.tags, exclude_tags)
         ]
 
     def disabled_reason_counts(
@@ -2624,6 +2680,9 @@ def parse_args():
                              "successful tests")
     parser.add_argument("--tag", action="append", default=[],
                         help="run or list tests with this metadata tag")
+    parser.add_argument("--exclude-tag", action="append", default=[],
+                        help="do not run or list tests with this metadata "
+                             "tag, even if they otherwise match")
     parser.add_argument("--requires", action="append", default=[],
                         help="run or list tests with this requirement marker")
     parser.add_argument("--suite", action="append",
@@ -3354,7 +3413,7 @@ def main():
     try:
         if args.list:
             selected = REGISTRY.select_for_listing(
-                args.tests, args.tag, args.requires)
+                args.tests, args.tag, args.requires, args.exclude_tag)
             if not selected:
                 print("No tests selected", file=sys.stderr)
                 return 2
@@ -3362,7 +3421,8 @@ def main():
 
         selected = []
         if "integration" in suites:
-            selected = REGISTRY.select(args.tests, args.tag, args.requires)
+            selected = REGISTRY.select(
+                args.tests, args.tag, args.requires, args.exclude_tag)
         elif args.tests:
             print("Test names can only select integration tests",
                   file=sys.stderr)
