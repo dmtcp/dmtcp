@@ -22,7 +22,12 @@
 #include <sys/resource.h>
 #include <linux/version.h>
 #include <errno.h>
+#include <elf.h>
+#include <fcntl.h>
+#include <string.h>
 #include <string_view>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 # include <sys/personality.h>
@@ -53,7 +58,7 @@ static bool testSetuid(const char *filename);
 static void testStaticallyLinked(const char *filename);
 static bool testScreen(const char **argv, const char ***newArgv);
 static void testFsGsBase();
-static void setLDPreloadLibs(bool is32bitElf);
+static void setLDPreloadLibs(bool is32bitElf, const char *targetPath);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -648,7 +653,7 @@ main(int argc, const char **argv)
   // from DmtcpWorker constructor, to distinguish the two cases.
   Util::adjustRlimitStack();
 
-  setLDPreloadLibs(is32bitElf);
+  setLDPreloadLibs(is32bitElf, argv[0]);
 
   // run the user program
   const char **newArgv = NULL;
@@ -839,8 +844,124 @@ syncPluginEnvWithLauncherState(const char *envName, bool *enabled)
   }
 }
 
+// Scan an ELF file's DT_NEEDED entries for a shared library whose soname
+// contains `needle`, returning that soname (e.g. "libtsan.so.2") or "".
+// Templated over the 32-/64-bit ELF structs so both classes share one body.
+template <typename Ehdr, typename Phdr, typename Dyn>
+static string
+elfNeededMatching(const char *base, size_t size, const char *needle)
+{
+  const Ehdr *eh = (const Ehdr *)base;
+  if (eh->e_phoff == 0 || eh->e_phoff + eh->e_phnum * sizeof(Phdr) > size) {
+    return "";
+  }
+  const Phdr *ph = (const Phdr *)(base + eh->e_phoff);
+
+  // Locate PT_DYNAMIC and remember PT_LOAD segments to map vaddr -> file off.
+  const Phdr *dyn = NULL;
+  const Phdr *loads[64];
+  int nloads = 0;
+  for (int i = 0; i < eh->e_phnum; i++) {
+    if (ph[i].p_type == PT_DYNAMIC) {
+      dyn = &ph[i];
+    } else if (ph[i].p_type == PT_LOAD && nloads < 64) {
+      loads[nloads++] = &ph[i];
+    }
+  }
+  if (dyn == NULL || dyn->p_offset + dyn->p_filesz > size) {
+    return "";
+  }
+
+  // First pass: find DT_STRTAB (a vaddr); translate it to a file offset.
+  const Dyn *d = (const Dyn *)(base + dyn->p_offset);
+  size_t ndyn = dyn->p_filesz / sizeof(Dyn);
+  uint64_t strtabVaddr = 0;
+  for (size_t i = 0; i < ndyn && d[i].d_tag != DT_NULL; i++) {
+    if (d[i].d_tag == DT_STRTAB) {
+      strtabVaddr = d[i].d_un.d_ptr;
+    }
+  }
+  if (strtabVaddr == 0) {
+    return "";
+  }
+  size_t strtabOff = 0;
+  bool found = false;
+  for (int i = 0; i < nloads; i++) {
+    if (strtabVaddr >= loads[i]->p_vaddr &&
+        strtabVaddr < loads[i]->p_vaddr + loads[i]->p_filesz) {
+      strtabOff = loads[i]->p_offset + (strtabVaddr - loads[i]->p_vaddr);
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    return "";
+  }
+
+  // Second pass: check each DT_NEEDED soname for `needle`.
+  for (size_t i = 0; i < ndyn && d[i].d_tag != DT_NULL; i++) {
+    if (d[i].d_tag != DT_NEEDED) {
+      continue;
+    }
+    size_t nameOff = strtabOff + d[i].d_un.d_val;
+    if (nameOff >= size) {
+      continue;
+    }
+    const char *name = base + nameOff;
+    size_t maxlen = size - nameOff;
+    if (strnlen(name, maxlen) < maxlen && strstr(name, needle) != NULL) {
+      return string(name);
+    }
+  }
+  return "";
+}
+
+// If the target binary depends on a ThreadSanitizer runtime (gcc libtsan.so* or
+// clang libclang_rt.tsan*.so), return its soname so dmtcp_launch can prepend it
+// to LD_PRELOAD ahead of libdmtcp.  TSAN must interpose first: that way
+// DMTCP's _real_* (RTLD_NEXT) resolve to libc rather than to TSAN's
+// interceptors.  Returns "" if no TSAN runtime is found.
+static string
+detectTsanRuntime(const char *path)
+{
+  char full[PATH_MAX];
+  Util::expandPathname(path, full, sizeof(full));
+  int fd = open(full, O_RDONLY);
+  if (fd < 0) {
+    return "";
+  }
+  struct stat st;
+  if (fstat(fd, &st) != 0 || (size_t)st.st_size < sizeof(Elf64_Ehdr)) {
+    close(fd);
+    return "";
+  }
+  size_t size = st.st_size;
+  void *map = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+  close(fd);
+  if (map == MAP_FAILED) {
+    return "";
+  }
+
+  const char *base = (const char *)map;
+  string result;
+  if (memcmp(base, ELFMAG, SELFMAG) == 0) {
+    static const char *const needles[] = { "libtsan.so", "libclang_rt.tsan" };
+    for (size_t n = 0; n < 2 && result.empty(); n++) {
+      if (base[EI_CLASS] == ELFCLASS64) {
+        result = elfNeededMatching<Elf64_Ehdr, Elf64_Phdr, Elf64_Dyn>(
+          base, size, needles[n]);
+      } else if (base[EI_CLASS] == ELFCLASS32) {
+        result = elfNeededMatching<Elf32_Ehdr, Elf32_Phdr, Elf32_Dyn>(
+          base, size, needles[n]);
+      }
+    }
+  }
+  munmap(map, size);
+  return result;
+}
+
 static void
-setLDPreloadLibs(bool is32bitElf)
+setLDPreloadLibs(bool is32bitElf, const char *targetPath)
 {
   // preloadLibs are to set LD_PRELOAD:
   // LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
@@ -903,6 +1024,21 @@ setLDPreloadLibs(bool is32bitElf)
     preloadLibs = preloadLibs + ":" + getenv("LD_PRELOAD");
 #if defined(__x86_64__) || defined(__aarch64__)
     preloadLibs32 = preloadLibs32 + ":" + getenv("LD_PRELOAD");
+#endif // if defined(__x86_64__) || defined(__aarch64__)
+  }
+
+  // A ThreadSanitizer-instrumented target needs its TSAN runtime to interpose
+  // BEFORE libdmtcp, so that DMTCP's _real_* (RTLD_NEXT) resolve past TSAN to
+  // libc.  dmtcp_launch otherwise forces its own libs first, so prepend the
+  // target's TSAN runtime soname (the loader resolves the right arch).  Not
+  // added to ENV_VAR_HIJACK_LIBS: libtsan is the target's own dependency, not
+  // a DMTCP lib to be stripped by restoreUserLDPRELOAD().
+  string tsanLib = detectTsanRuntime(targetPath);
+  if (!tsanLib.empty()) {
+    JTRACE("TSAN runtime detected; prepending to LD_PRELOAD") (tsanLib);
+    preloadLibs = tsanLib + ":" + preloadLibs;
+#if defined(__x86_64__) || defined(__aarch64__)
+    preloadLibs32 = tsanLib + ":" + preloadLibs32;
 #endif // if defined(__x86_64__) || defined(__aarch64__)
   }
 
