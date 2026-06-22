@@ -39,6 +39,7 @@ or executable-path checks enable them.
 | Plugins and events | `dlopen1`, `dlopen2`, `syscall-tester`, `checkpoint-open-files-env`, `presuspend`, `plugin-sleep2`, `plugin-example-db`, `plugin-init`, `plugin-init-env`, `modify-env`, `pathvirt`, `poll-disable-event-plugin`, `poll-disable-event-plugin-env`, `popen1`, `restartdir`, `nocheckpoint` |
 | Shells, terminal apps, and language/runtime smoke | `perl`, `python`, `bash`, `dash`, `zsh`, `readline`, `tcsh`, `script`, `vim`, `emacs`, `screen`, `java1`, `cilk1`, `matlab-nodisplay`, `openmp-1`, `openmp-2` |
 | MPI smoke | `hellompich-n1`, `hellompich-n2`, `openmpi` |
+| Sanitizers | `tsan-gcc`, `tsan-clang`, `tsan-clang-static` |
 
 ## Ported With Explicit Limits
 
