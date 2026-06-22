@@ -254,15 +254,16 @@ dmtcp3: dmtcp3.c
 dmtcp4: dmtcp4.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
-# ThreadSanitizer startup-regression target.  Built with -fsanitize=thread only
-# when the compiler ships a TSAN runtime; otherwise skipped, and autotest.py
-# auto-disables the tsan-startup test for the missing binary.
-TSAN_RUNTIME := $(shell $(CC) -print-file-name=libtsan.so 2>/dev/null)
+# ThreadSanitizer startup-regression target for the gcc dynamic libtsan.so.
+# Pinned to gcc (not $(CC)) so this case is covered even when DMTCP is built
+# with another compiler; built only when gcc ships libtsan.so, otherwise skipped
+# and autotest.py auto-disables the tsan test for the missing binary.
+GCC_TSAN_RUNTIME := $(shell command -v gcc >/dev/null 2>&1 && gcc -print-file-name=libtsan.so 2>/dev/null)
 tsan_target: tsan_target.c
-ifneq ($(filter /%,$(TSAN_RUNTIME)),)
-	-$(CC) -fsanitize=thread -g -O0 -pthread -o $@ $<
+ifneq ($(filter /%,$(GCC_TSAN_RUNTIME)),)
+	-gcc -fsanitize=thread -g -O0 -pthread -o $@ $<
 else
-	@echo "#tsan_target: skipping (no TSAN runtime in $(CC))"
+	@echo "#tsan_target: skipping (no gcc libtsan.so)"
 endif
 
 # clang variant: clang's -fsanitize=thread defaults to a STATIC runtime, so use
