@@ -211,6 +211,7 @@ class TestSpec:
     private_env_dirs: Dict[str, str] = field(default_factory=dict)
     replace_worker_index: Optional[int] = None
     reject_restart_while_running: bool = False
+    run_serial: bool = False
     post_run_validator: Optional[Callable[["TestContext"], None]] = None
 
     def peer_counts(self) -> List[int]:
@@ -517,19 +518,15 @@ class TestContext:
                     "setup",
                     f"private env path is a symlink: {env_dir}",
                 )
-            env_dir_existed = env_dir.exists()
-            if env_dir_existed:
-                if not env_dir.is_dir():
-                    raise HarnessFailure(
-                        "setup",
-                        f"private env path is not a directory: {env_dir}",
-                    )
-            else:
-                env_dir.mkdir(parents=True, exist_ok=False)
+            if env_dir.exists():
+                raise HarnessFailure(
+                    "setup",
+                    f"private env path already exists: {env_dir}",
+                )
+            env_dir.mkdir(parents=True, exist_ok=False)
             env_dir.chmod(0o700)
             self.private_env_paths.append(env_dir)
-            if not env_dir_existed:
-                self._created_private_env_paths.append(env_dir)
+            self._created_private_env_paths.append(env_dir)
             env[name] = str(env_dir)
         for path in self.spec.library_paths:
             if env.get("LD_LIBRARY_PATH"):
@@ -990,8 +987,10 @@ class TestContext:
                 out.write("\n")
             raise HarnessFailure(
                 phase,
-                f"dmtcp_command --json {command} timed out after "
-                f"{self.spec.timeout} seconds",
+                self._with_diagnostics(
+                    f"dmtcp_command --json {command} timed out after "
+                    f"{self.spec.timeout} seconds"
+                ),
             )
         with transcript.open("a", encoding="utf-8") as out:
             out.write(f"$ dmtcp_command --json {command}\n")
@@ -1014,12 +1013,15 @@ class TestContext:
         if result.returncode != 0 and success and not allow_error:
             raise HarnessFailure(
                 phase,
-                f"dmtcp_command --json {command} exited with "
-                f"exit code {result.returncode} despite DMT_COORD_SUCCESS",
+                self._with_diagnostics(
+                    f"dmtcp_command --json {command} exited with "
+                    f"exit code {result.returncode} despite "
+                    "DMT_COORD_SUCCESS"
+                ),
             )
         if (result.returncode != 0 or not success) and not allow_error:
             message = payload.get("command_status", result.stderr)
-            raise HarnessFailure(phase, str(message))
+            raise HarnessFailure(phase, self._with_diagnostics(str(message)))
         return payload
 
     def _assert_status(self, peers: Union[int, List[int]], running: bool,
@@ -1029,20 +1031,40 @@ class TestContext:
         if status.num_peers not in peer_counts or status.running != running:
             raise HarnessFailure(
                 phase,
-                f"expected peers={peers} running={running}; "
-                f"got peers={status.num_peers} running={status.running}",
+                self._with_diagnostics(
+                    f"expected peers={peers} running={running}; "
+                    f"got peers={status.num_peers} running={status.running}",
+                    last_status=status,
+                ),
             )
 
     def _wait_for_status(self, peers: Union[int, List[int]], running: bool,
                          phase: str):
         peer_counts = [peers] if isinstance(peers, int) else peers
+        last_status = None
+        deadline = time.time() + self.spec.timeout
+        while time.time() < deadline:
+            try:
+                status = self._status()
+            except HarnessFailure as error:
+                raise HarnessFailure(
+                    phase,
+                    self._with_diagnostics(
+                        f"status command failed: {error.message}"
+                    ),
+                ) from error
+            last_status = status
+            if status.num_peers in peer_counts and status.running == running:
+                return
+            time.sleep(0.1)
 
-        def matches_status() -> bool:
-            status = self._status()
-            return status.num_peers in peer_counts and status.running == running
-
-        self._wait_for(matches_status, phase,
-                       f"timed out waiting for peers={peers} running={running}")
+        raise HarnessFailure(
+            phase,
+            self._with_diagnostics(
+                f"timed out waiting for peers={peers} running={running}",
+                last_status=last_status,
+            ),
+        )
 
     def _wait_for_worker_exit(self, phase: str):
         def workers_stopped() -> bool:
@@ -1065,7 +1087,48 @@ class TestContext:
             if predicate():
                 return
             time.sleep(0.1)
-        raise HarnessFailure(phase, message)
+        raise HarnessFailure(phase, self._with_diagnostics(message))
+
+    def _with_diagnostics(
+            self, message: str,
+            last_status: Optional[DmtcpStatus] = None) -> str:
+        diagnostics = self._failure_diagnostics(last_status)
+        if not diagnostics:
+            return message
+        return f"{message}; {diagnostics}"
+
+    def _failure_diagnostics(
+            self,
+            last_status: Optional[DmtcpStatus] = None) -> str:
+        fields = []
+        if last_status is not None:
+            fields.append(
+                f"last_status=peers:{last_status.num_peers},"
+                f"running:{last_status.running},"
+                f"interval:{last_status.checkpoint_interval}"
+            )
+        if self.port is not None:
+            fields.append(f"port={self.port}")
+        fields.append(self._process_summary("coordinator",
+                                            self.coordinator_proc))
+        if self.processes:
+            workers = [
+                self._process_summary("worker", proc, index)
+                for index, proc in enumerate(self.processes)
+            ]
+            fields.append(f"workers=[{', '.join(workers)}]")
+        else:
+            fields.append("workers=[]")
+        return "; ".join(fields)
+
+    @staticmethod
+    def _process_summary(role: str, proc, index: Optional[int] = None) -> str:
+        if proc is None:
+            return f"{role}=not-started"
+        returncode = proc.poll()
+        state = "running" if returncode is None else f"exited:{returncode}"
+        label = role if index is None else f"{role}{index}"
+        return f"{label}=pid:{proc.pid},state:{state}"
 
     def _checkpoint_images(self) -> List[pathlib.Path]:
         return sorted(self.work.ckpt_dir.glob("ckpt_*.dmtcp"))
@@ -1644,9 +1707,11 @@ class TestRegistry:
             TestSpec("gzip", 1, ["./test/dmtcp1"],
                      env={"DMTCP_GZIP": "1"}),
             TestSpec("readline", 1, ["./test/readline"]),
-            TestSpec("perl", 1, ["/usr/bin/perl"],
-                     post_launch_delay=2.0),
-            TestSpec("python", 1, [sys.executable],
+            TestSpec("perl", 1, ["/usr/bin/perl -e 'while (1) { sleep 1 }'"],
+                     post_launch_delay=2.0,
+                     blocked_configure_flags=["AARCH64_HOST"]),
+            TestSpec("python", 1,
+                     [f"{sys.executable} -c 'import time; time.sleep(60)'"],
                      post_launch_delay=2.0),
             TestSpec("bash", 2,
                      ["/bin/bash --norc -c 'ls; sleep 30; ls'"],
@@ -1700,7 +1765,12 @@ class TestRegistry:
                 "screen", 3,
                 ["/usr/bin/screen -c /dev/null -s /bin/sh"],
                 env={"TERM": "vt100"},
-                private_env_dirs={"SCREENDIR": "/tmp/{workname}-screen"},
+                # screen creates a Unix socket under SCREENDIR. Keep the
+                # path short enough for sockaddr_un even in nested worktrees.
+                private_env_dirs={
+                    "SCREENDIR":
+                    f"{tempfile.gettempdir()}/{{workname}}-screen",
+                },
                 pre_checkpoint_delay=0.9,
                 launch_mode="pty",
                 tags=["slow", "pty"],
@@ -1740,7 +1810,8 @@ class TestRegistry:
             TestSpec("openmp-2", 1, ["./test/openmp-2"],
                      pre_checkpoint_delay=0.9,
                      blocked_configure_flags=["AARCH64_HOST"],
-                     tags=["slow"]),
+                     tags=["slow"],
+                     run_serial=True),
         ])
 
         return tests
@@ -1904,6 +1975,7 @@ LIST_CATEGORY_ORDER = (
     "Language runtimes",
     "Parallel runtimes",
     "Build variants",
+    "Logging",
     TestRegistry.DISABLED_CATEGORY,
 )
 
@@ -2432,11 +2504,13 @@ def run_integration_specs_parallel(args, tests: List[TestSpec],
                                    ) -> Tuple[int, int, List[FailureRecord]]:
     passed = 0
     failures = []
+    parallel_tests = [spec for spec in tests if not spec.run_serial]
+    serial_tests = [spec for spec in tests if spec.run_serial]
     with concurrent.futures.ThreadPoolExecutor(
             max_workers=args.jobs) as executor:
         futures = {
             executor.submit(run_integration_spec_record, args, spec): spec
-            for spec in tests
+            for spec in parallel_tests
         }
         for future in concurrent.futures.as_completed(futures):
             spec = futures[future]
@@ -2456,6 +2530,14 @@ def run_integration_specs_parallel(args, tests: List[TestSpec],
                 failures.append(failure_records_from_result(
                     record.spec, record.result))
             print_integration_record(record, name_width)
+    for spec in serial_tests:
+        record = run_integration_spec_record(args, spec)
+        if record.result.passed:
+            passed += 1
+        else:
+            failures.append(failure_records_from_result(
+                record.spec, record.result))
+        print_integration_record(record, name_width)
     return passed, len(tests), failures
 
 

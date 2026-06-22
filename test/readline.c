@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -18,6 +19,10 @@ main()
   while (1) {
     free(input);
     input = readline(prompt);
+    if (input == NULL) {
+      sleep(1);
+      continue;
+    }
     add_history(input);
     if ((0 == strcmp(input, "exit")) | (0 == strcmp(input, "quit"))) {
       return 0;
