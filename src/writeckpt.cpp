@@ -68,7 +68,8 @@ vector<ProcMapsArea> *nscdAreas = NULL;
 
 // static void sync_shared_mem(void);
 static void writememoryarea(int fd, Area area);
-static void mtcp_write_anonymous_pages(int fd, Area area);
+static void mtcp_write_anonymous_pages(int fd, Area area,
+                                       bool residencyScanSafe);
 
 static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
 
@@ -270,8 +271,19 @@ mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
 }
 
 static void
-mtcp_write_anonymous_pages(int fd, Area area)
+mtcp_write_anonymous_pages(int fd, Area area, bool residencyScanSafe)
 {
+  // The region is checkpointed as alternating zero / non-zero runs so that
+  // unallocated and zero pages cost no image space and need not be faulted in:
+  //   - zero runs are found by page residency (Util::scanOccupiedRangeBatch,
+  //     via PAGEMAP_SCAN/pagemap) for anonymous memory, or by reading contents
+  //     (mtcp_get_next_page_range -> Util::areZeroPages) for deleted-file maps;
+  //   - a zero run is saved as a DMTCP_ZERO_PAGE header with no data, then
+  //     dropped from RSS with madvise(MADV_DONTNEED); non-zero runs save bytes.
+  // On restart the parent header re-mmaps the whole region as fresh anonymous
+  // memory (zero-fill-on-demand: zero runs are left unallocated, not physically
+  // zeroed) and only the non-zero child runs are read back in.
+
   // Force DMTCP_ZERO_PAGE_PARENT_ENTRY.
   // Each consecutive zero/non-zero chunk will have a separate header.
   // On restart, we mmap the region using the parent header, but restore
@@ -280,6 +292,16 @@ mtcp_write_anonymous_pages(int fd, Area area)
   writeAreaHeader(fd, &area);
   area.properties ^= DMTCP_ZERO_PAGE_PARENT_HEADER;
 
+  // Util::scanOccupiedRangeBatch() detects zero pages from /proc/self/pagemap
+  // residency instead of reading their contents, so it never faults in absent
+  // pages.  But it classifies an absent page as zero, which is only valid for
+  // genuinely private anonymous memory.  For shared memory (incl. SysV shm,
+  // which the caller reclassifies as MAP_PRIVATE|MAP_ANONYMOUS) or a deleted-
+  // but-still-mapped file, an absent page can still hold data, so those use the
+  // content scan.  The caller decides this (before any reclassification) and
+  // passes it in as residencyScanSafe.
+  bool useResidencyScan = residencyScanSafe;
+
   while (area.size > 0) {
     size_t size;
     int is_zero;
@@ -287,6 +309,18 @@ mtcp_write_anonymous_pages(int fd, Area area)
     if (dmtcp_infiniband_enabled && dmtcp_infiniband_enabled()) {
       size = area.size;
       is_zero = 0;
+    } else if (useResidencyScan) {
+      uintptr_t scanned = 0;
+      is_zero = Util::scanOccupiedRangeBatch(
+        (uintptr_t)a.addr, (uintptr_t)a.addr + area.size, &scanned);
+      size = scanned;
+      if (size == 0) {
+        // Defensive: the scan should never report zero progress, but if it
+        // somehow does, treat the remaining area as occupied so the loop below
+        // (area.size -= size) advances instead of spinning forever.
+        size = area.size;
+        is_zero = 0;
+      }
     } else {
       mtcp_get_next_page_range(&a, &size, &is_zero);
     }
@@ -296,6 +330,11 @@ mtcp_write_anonymous_pages(int fd, Area area)
     a.size = size;
     a.endAddr = a.addr + a.size;
 
+    // TODO: Each run writes a full sizeof(Area)==4KB header (no page data for
+    // zero runs).  Residency scanning yields page-granular runs, so a sparsely-
+    // written region can emit many 4KB headers.  A future compact format (e.g.
+    // one parent header + a per-page zero/non-zero bitmap or run-length list)
+    // could decouple per-run cost from sizeof(Area).
     writeAreaHeader(fd, &a);
 
     if (!is_zero) {
@@ -319,6 +358,16 @@ writememoryarea(int fd, Area area)
   // result in a change of memory layout. For example, a call to JALLOC_NEW
   // will invoke mmap if the JAlloc arena is full. Similarly, for STL objects
   // such as vector and string.
+
+  // Residency-based zero detection ("an absent page reads as zero") is valid
+  // only for genuinely PRIVATE ANONYMOUS memory.  Capture this BEFORE the
+  // reclassification below rewrites shared regions (SysV shm, /dev/zero) as
+  // MAP_PRIVATE | MAP_ANONYMOUS: for shared memory a page that is absent from
+  // THIS process can still hold data written via another attachment, so such
+  // regions must use the content scan.
+  bool residencyScanSafe = (area.name[0] == '\0') &&
+                           (area.flags & MAP_PRIVATE) &&
+                           !(area.flags & MAP_SHARED);
 
   if ((uint64_t)area.addr == ProcessInfo::instance().restoreBuf.startAddr) {
     return;
@@ -504,10 +553,11 @@ writememoryarea(int fd, Area area)
 
   if ((area.flags & MAP_ANONYMOUS) != 0) {
     // Handle anonymous pages.
-    mtcp_write_anonymous_pages(fd, area);
+    mtcp_write_anonymous_pages(fd, area, residencyScanSafe);
   } else if (!jalib::Filesystem::FileExists(area.name)) {
-    // Handle non-existing files
-    mtcp_write_anonymous_pages(fd, area);
+    // Handle non-existing files (deleted file: not residency-safe, so the
+    // content scan runs regardless of residencyScanSafe).
+    mtcp_write_anonymous_pages(fd, area, residencyScanSafe);
   } else {
     ASSERT(strlen(area.name) > 0,
            "checkpoint file-backed area has an empty path: addr={} size={}",
