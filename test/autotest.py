@@ -1475,10 +1475,25 @@ class TestRegistry:
             for test in tests
         ]
 
+    @staticmethod
+    def _clang_runtime_dir() -> str:
+        # clang's -shared-libsan TSAN runtime lives in a non-standard dir with no
+        # RPATH, so the tsan-clang test needs LD_LIBRARY_PATH pointing at it.
+        try:
+            out = subprocess.run(["clang", "-print-runtime-dir"],
+                                 capture_output=True, text=True, timeout=10)
+            return out.stdout.strip() if out.returncode == 0 else ""
+        # Probe only: any failure here just disables the tsan-clang test
+        # (returns ""); it must never crash the suite.  Intentionally broad --
+        # covers clang-not-found, timeout, OS errors, and decode errors.
+        except Exception:
+            return ""
+
     def _build_tests(self) -> List[TestSpec]:
         frisbee_p1, frisbee_p2, frisbee_p3 = [
             str(port) for port in sample(range(2000, 10000), 3)
         ]
+        clang_rtdir = self._clang_runtime_dir()
 
         tests = [
             TestSpec("dmtcp1", 1, ["./test/dmtcp1"]),
@@ -1571,6 +1586,14 @@ class TestRegistry:
             # Auto-disabled when the TSAN runtime / ./test/tsan_target is absent.
             TestSpec("tsan", 1, ["./test/tsan_target"], cycles=0,
                      tags=["tsan"], limits=["cycles=0"]),
+            # Same guard built with clang -fsanitize=thread -shared-libsan.
+            # LD_LIBRARY_PATH points at clang's runtime dir because its shared
+            # TSAN runtime has no RPATH (a clang fact, not DMTCP-specific).
+            # Auto-disabled when clang / its shared TSAN runtime is absent
+            # (then ./test/tsan_target_clang is not built).
+            TestSpec("tsan-clang", 1, ["./test/tsan_target_clang"], cycles=0,
+                     library_paths=[clang_rtdir] if clang_rtdir else [],
+                     tags=["tsan", "clang"], limits=["cycles=0"]),
             # Regression guard for the pagemap residency zero-page optimization
             # (Util::scanOccupiedRangeBatch in writeckpt.cpp).  Run on both the
             # ioctl(PAGEMAP_SCAN) fast path and the portable pread() fallback.

@@ -265,6 +265,19 @@ else
 	@echo "#tsan_target: skipping (no TSAN runtime in $(CC))"
 endif
 
+# clang variant: clang's -fsanitize=thread defaults to a STATIC runtime, so use
+# -shared-libsan to get the dynamic libclang_rt.tsan*.so that DMTCP's DT_NEEDED
+# detection keys on.  Built only when clang ships a shared TSAN runtime; the
+# tsan-clang test then runs it with LD_LIBRARY_PATH set to that runtime dir.
+CLANG_RTDIR := $(shell command -v clang >/dev/null 2>&1 && clang -print-runtime-dir 2>/dev/null)
+CLANG_TSAN_SO := $(wildcard $(CLANG_RTDIR)/libclang_rt.tsan*.so)
+tsan_target_clang: tsan_target.c
+ifneq ($(CLANG_TSAN_SO),)
+	-clang -fsanitize=thread -shared-libsan -g -O0 -pthread -o $@ $<
+else
+	@echo "#tsan_target_clang: skipping (no clang -shared-libsan TSAN runtime)"
+endif
+
 dmtcp5: dmtcp5.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
