@@ -28,7 +28,7 @@
 #include "tokenize.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jsocket.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 

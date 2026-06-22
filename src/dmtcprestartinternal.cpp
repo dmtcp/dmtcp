@@ -40,7 +40,7 @@
 #include "shareddata.h"
 #include "uniquepid.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 
@@ -220,7 +220,7 @@ RestoreTarget::initialize()
    */
   SharedData::initialize(tmpDir.c_str(), &compId, &coordInfo, &localIPAddr);
 
-  Util::initializeLogFile(SharedData::getTmpDir());
+  initializeLogFile(SharedData::getTmpDir());
 
   if (ckptdir_arg.empty()) {
     // Create the ckpt-dir fd so that the restarted process can know about
@@ -832,7 +832,7 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
   tmpDir = Util::calcTmpDir(tmpdir_arg);
 
   // Initialize logs now, rather than during restart.
-  Util::initializeLogFile(tmpDir.c_str(), binaryName.c_str());
+  initializeLogFile(tmpDir.c_str(), binaryName.c_str());
 
   if ((getenv(ENV_VAR_NAME_PORT) == NULL ||
        getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&

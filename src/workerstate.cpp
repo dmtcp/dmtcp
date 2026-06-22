@@ -1,7 +1,7 @@
 #include "workerstate.h"
 #include "dmtcpalloc.h"
 
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 namespace dmtcp
 {

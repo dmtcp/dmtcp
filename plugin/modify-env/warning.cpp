@@ -1,5 +1,5 @@
 #define DMTCP_LOG_COMPONENT "modify-env"
-#include "../../src/util_assert.h"
+#include "../../src/dmtcp_assert.h"
 
 extern "C"
 void

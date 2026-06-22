@@ -29,7 +29,7 @@
 #include "timerwrappers.h"
 
 #include "jalloc.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 // As defined in libc.
 #define SIGCANCEL SIGRTMIN

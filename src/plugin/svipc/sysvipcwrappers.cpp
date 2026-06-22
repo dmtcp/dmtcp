@@ -36,7 +36,7 @@
 #include "plugin/pid/pidhelpers.h"
 #include "sysvipc.h"
 #include "sysvipcwrappers.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "wrapperlock.h"
 
 using namespace dmtcp;

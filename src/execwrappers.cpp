@@ -37,7 +37,7 @@
 #include "threadsync.h"
 #include "uniquepid.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 #define INITIAL_ARGV_MAX 128
 #define MAX_EXTRA_ARGS 32
@@ -286,7 +286,7 @@ vfork()
   } else if (vforkPid == 0) { /* child process */
     PluginManager::eventHook(DMTCP_EVENT_VFORK_CHILD, NULL);
 
-    Util::initializeLogFile(SharedData::getTmpDir());
+    initializeLogFile(SharedData::getTmpDir());
 
     WorkerState::setCurrentState(WorkerState::RUNNING);
 

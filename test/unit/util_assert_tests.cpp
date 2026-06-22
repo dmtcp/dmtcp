@@ -1,7 +1,7 @@
 #define DMTCP_TEST_NO_SHORT_ASSERT_MACROS
 #include "unit_test.h"
 
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 #include <cerrno>
 #include <cstdlib>
@@ -141,18 +141,34 @@ emitThreadLogs(void *data)
 
 template <typename... Args>
 std::string
+logMessageForTest(dmtcp::LogLevel level,
+                  std::source_location location,
+                  const char *expr,
+                  int savedErrno,
+                  bool includeErrno,
+                  std::string_view fmt,
+                  const Args&... args)
+{
+  resetLogCapture();
+  dmtcp::Logger::logMessage(level, location, expr, savedErrno,
+                            includeErrno, fmt, args...);
+  return readLogCapture();
+}
+
+template <typename... Args>
+std::string
 formatPayloadForTest(std::string_view fmt, const Args&... args)
 {
-  const auto location = std::source_location::current();
-  dmtcp::LogMessage message(dmtcp::LogLevel::Warn,
-                            location,
-                            kFormatTestExpr,
-                            0,
-                            false);
-  message.format(fmt, args...);
+  std::string log = logMessageForTest(dmtcp::LogLevel::Warn,
+                                      std::source_location::current(),
+                                      kFormatTestExpr,
+                                      0,
+                                      false,
+                                      fmt,
+                                      args...);
 
   std::string marker = std::string(": ") + kFormatTestExpr + ": ";
-  const char *payload = std::strstr(message.c_str(), marker.c_str());
+  const char *payload = std::strstr(log.c_str(), marker.c_str());
   UNIT_ASSERT_TRUE(payload != nullptr);
   payload += marker.size();
 
@@ -252,96 +268,76 @@ void formatReportsMissingArguments()
                              "first=7 second=[missing-format-arg]"), 0);
 }
 
-void formatTruncatesWithTerminator()
+void formatTruncatesWithMarker()
 {
-  const auto location = std::source_location::current();
-  dmtcp::LogMessage message(dmtcp::LogLevel::Warn,
-                            location,
-                            kFormatTestExpr,
-                            0,
-                            false);
   std::string payload(5000, 'x');
 
-  message.format("{}", payload);
+  std::string log = logMessageForTest(dmtcp::LogLevel::Warn,
+                                      std::source_location::current(),
+                                      kFormatTestExpr,
+                                      0,
+                                      false,
+                                      "{}",
+                                      payload);
 
-  UNIT_ASSERT_TRUE(message.truncated());
-  UNIT_ASSERT_TRUE(message.c_str()[message.size()] == '\0');
-  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), " [truncated]\n") !=
+  UNIT_ASSERT_TRUE(log.size() <= dmtcp::kLogBufferSize);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), " [truncated]\n") !=
                    nullptr);
 }
 
 void logIncludesLocationAndMessage()
 {
   const auto location = std::source_location::current();
-  dmtcp::LogMessage message(dmtcp::LogLevel::Warn,
-                            location,
-                            "x > 0",
-                            0,
-                            false);
-
-  message.format("fd={}", 9);
+  std::string log = logMessageForTest(dmtcp::LogLevel::Warn,
+                                      location,
+                                      "x > 0",
+                                      0,
+                                      false,
+                                      "fd={}",
+                                      9);
 
   char expectedLocation[32];
   std::snprintf(expectedLocation, sizeof(expectedLocation), ":%u:",
                 static_cast<unsigned>(location.line()));
 
-  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "WARNING") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "util_assert_tests.cpp") !=
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "WARNING") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "util_assert_tests.cpp") !=
                    nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), expectedLocation) != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "x > 0") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "fd=9") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), expectedLocation) != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "x > 0") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "fd=9") != nullptr);
 }
 
 void logIncludesErrno()
 {
   const auto location = std::source_location::current();
-  dmtcp::LogMessage message(dmtcp::LogLevel::Warn,
-                            location,
-                            "fd >= 0",
-                            EACCES,
-                            true);
+  std::string log = logMessageForTest(dmtcp::LogLevel::Warn,
+                                      location,
+                                      "fd >= 0",
+                                      EACCES,
+                                      true,
+                                      "path={}",
+                                      "/tmp/demo");
 
-  message.format("path={}", "/tmp/demo");
-
-  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "WARNING") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "fd >= 0") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "path=/tmp/demo") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "errno=13") != nullptr);
-  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), "EACCES") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "WARNING") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "fd >= 0") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "path=/tmp/demo") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "errno=13") != nullptr);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), "EACCES") != nullptr);
 }
 
 void logTruncationIncludesMarker()
 {
-  const auto location = std::source_location::current();
-  dmtcp::LogMessage message(dmtcp::LogLevel::Warn,
-                            location,
-                            "x > 0",
-                            0,
-                            false);
   std::string payload(5000, 'x');
+  std::string log = logMessageForTest(dmtcp::LogLevel::Warn,
+                                      std::source_location::current(),
+                                      "x > 0",
+                                      0,
+                                      false,
+                                      "payload={}",
+                                      payload);
 
-  message.format("payload={}", payload);
-
-  UNIT_ASSERT_TRUE(message.truncated());
-  UNIT_ASSERT_TRUE(std::strstr(message.c_str(), " [truncated]\n") != nullptr);
-}
-
-void writeAllNoAllocWritesToFd()
-{
-  char path[128];
-  makeTempPath(path, sizeof(path), "write-all");
-  unlink(path);
-  int fd = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
-  UNIT_ASSERT_TRUE(fd != -1);
-
-  dmtcp::writeAllNoAlloc(fd, "hooked", 6);
-  close(fd);
-
-  std::string log = readFile(path);
-  unlink(path);
-
-  UNIT_ASSERT_EQ(std::strcmp(log.c_str(), "hooked"), 0);
+  UNIT_ASSERT_TRUE(std::strstr(log.c_str(), " [truncated]\n") != nullptr);
 }
 
 void warningLogsUseConfiguredConsole()
@@ -919,13 +915,12 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
    formatLeavesInvalidSpecLiteral},
   {"fixed formatter reports unused arguments", formatReportsUnusedArguments},
   {"fixed formatter reports missing arguments", formatReportsMissingArguments},
-  {"fixed formatter truncates with terminator", formatTruncatesWithTerminator},
+  {"fixed formatter truncates with marker", formatTruncatesWithMarker},
   {"log formatter includes location and message",
    logIncludesLocationAndMessage},
   {"log formatter includes errno", logIncludesErrno},
   {"log truncation includes marker",
    logTruncationIncludesMarker},
-  {"log writer writes to fd", writeAllNoAllocWritesToFd},
   {"warning logs use configured console",
    warningLogsUseConfiguredConsole},
   {"warning logs also use log file",

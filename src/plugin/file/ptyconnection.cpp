@@ -34,7 +34,7 @@
 #include "filewrappers.h"
 #include "ptyconnection.h"
 #include "ptywrappers.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 

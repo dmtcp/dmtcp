@@ -24,7 +24,7 @@
 #include "dmtcp.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 using std::map;

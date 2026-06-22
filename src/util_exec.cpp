@@ -32,7 +32,7 @@
 #include "shareddata.h"
 #include "syscallwrappers.h"
 #include "uniquepid.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 

@@ -7,7 +7,7 @@
 #endif  // ifdef HAS_PR_SET_PTRACER
 #include "config.h"
 #include "dmtcp.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 /*************************************************************************
  *

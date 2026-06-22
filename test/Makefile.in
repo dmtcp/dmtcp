@@ -133,7 +133,7 @@ unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 		$(srcdir)/unit/unit_test.h \
 		$(DMTCP_INCLUDE)/dmtcp.h \
 		$(DMTCP_INCLUDE)/virtualidtable.h \
-		$(top_srcdir)/src/util_assert.h \
+		$(top_srcdir)/src/dmtcp_assert.h \
 		$(top_builddir)/src/libdmtcpinternal.a \
 		$(top_builddir)/src/libjalib.a \
 		$(top_builddir)/src/libnohijack.a

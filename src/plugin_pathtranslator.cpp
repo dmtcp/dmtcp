@@ -31,7 +31,7 @@
 #include "dmtcpalloc.h"
 #include "jserialize.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 // Semicolon delimited list of path mappings of the form
 // "/path/a:/path/a_new:/path/b:/path/b_new:/path/b/c:/path/c_new"

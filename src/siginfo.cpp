@@ -7,7 +7,7 @@
 #include "dmtcp.h"
 #include "syscallwrappers.h"
 #include "threadlist.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 

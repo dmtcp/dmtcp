@@ -24,7 +24,7 @@
 #include "config.h"
 #include "dmtcp.h"
 
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 namespace dmtcp
 {

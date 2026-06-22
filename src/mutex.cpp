@@ -1,7 +1,7 @@
 #include "dmtcp.h"
 #include "futex.h"
 #include "syscallwrappers.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 typedef uint32_t mutex_owner_t; // See 'include/dmtcp.h' for why 'uint32_t'
 

@@ -23,7 +23,7 @@
 #include <string>
 #include "dmtcpalloc.h"
 #include "syscallwrappers.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 namespace dmtcp
 {

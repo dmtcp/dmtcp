@@ -34,7 +34,7 @@
 #include "syscallwrappers.h"
 #include "uniquepid.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 namespace dmtcp
 {
@@ -465,7 +465,7 @@ void
 ProcessInfo::resetOnFork()
 {
   // Initialize the log file
-  Util::initializeLogFile(SharedData::getTmpDir());
+  initializeLogFile(SharedData::getTmpDir());
 
   DmtcpMutexInit(&tblLock, DMTCP_MUTEX_NORMAL);
   ppid = pid;

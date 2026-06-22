@@ -27,16 +27,12 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#include <iomanip>
-
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jsocket.h"
-#include "constants.h"
 #include "coordinatorapi.h"  // for COORD_JOIN, COORD_NEW, COORD_ANY
 #include "protectedfds.h"
-#include "uniquepid.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 
@@ -124,70 +120,4 @@ Util::calcTmpDir(const char *tmpdirenv)
     tmpDir);
 
   return tmpDir;
-}
-
-void
-Util::setLogFile(const char *path)
-{
-  if (!::dmtcp::setLogFile(path)) {
-    WARN(false, "failed to open log file: path={}", path);
-  }
-}
-
-void
-Util::closeLogStderr()
-{
-  ::dmtcp::closeLogConsole();
-}
-
-void
-Util::initializeLogFile(const char *tmpDir, const char *prefix)
-{
-  ::dmtcp::initializeLogConsole(getenv(ENV_VAR_STDERR_PATH));
-
-  const char *logFile = getenv(ENV_VAR_LOG_FILE);
-  if (logFile != NULL) {
-    setLogFile(logFile);
-  } else {
-    ostringstream o;
-    o << tmpDir << "/" << prefix
-      << "." << Util::getTimestampStr()
-      << "." << UniquePid::ThisProcess()
-      << ".log";
-    setLogFile(o.str().c_str());
-  }
-
-  int quietCount = 0;
-  if (getenv(ENV_VAR_QUIET)) {
-    quietCount = *getenv(ENV_VAR_QUIET) - '0';
-  }
-
-#ifdef QUIET
-  quietCount = 2;
-#endif // ifdef QUIET
-
-  LogLevel logLevel = LogLevel::Note;
-  if (quietCount >= 2) {
-    logLevel = LogLevel::Error;
-  } else if (quietCount == 1) {
-    logLevel = LogLevel::Warn;
-  }
-  if (const char *envLogLevel = getenv(ENV_VAR_LOG_LEVEL)) {
-    LogLevel parsedLogLevel;
-    if (parseLogLevel(envLogLevel, &parsedLogLevel)) {
-      logLevel = parsedLogLevel;
-    }
-  }
-  setLogLevel(logLevel);
-
-  if (const char *envLogOverrides = getenv(ENV_VAR_LOG_OVERRIDES)) {
-    if (!setLogOverrides(envLogOverrides)) {
-      WARN(false, "invalid log override configuration, ignoring: {}={}",
-           ENV_VAR_LOG_OVERRIDES, envLogOverrides);
-      setLogOverrides("");
-    }
-  } else {
-    setLogOverrides("");
-  }
-  unsetenv(ENV_VAR_STDERR_PATH);
 }

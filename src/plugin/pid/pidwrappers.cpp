@@ -30,7 +30,7 @@
 #include <string>
 #include <vector>
 
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "jconvert.h"
 #include "dmtcp.h"
 #include "pid.h"
@@ -590,8 +590,6 @@ LIB_PRIVATE
 int
 dmtcp_tkill(int tid, int sig)
 {
-  // Intentionally lock-free; see kill() for the self-signal longjmp hazard.
-
   int realTid = dmtcp_pid_virtual_to_real(tid);
 
   int retVal = _real_tkill(realTid, sig);
@@ -603,8 +601,6 @@ LIB_PRIVATE
 int
 dmtcp_tgkill(int tgid, int tid, int sig)
 {
-  // Intentionally lock-free; see kill() for the self-signal longjmp hazard.
-
   int realTgid = dmtcp_pid_virtual_to_real(tgid);
   int realTid = dmtcp_pid_virtual_to_real(tid);
 

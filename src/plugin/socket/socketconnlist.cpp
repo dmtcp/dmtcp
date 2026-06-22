@@ -8,7 +8,7 @@
 #include "socketconnection.h"
 #include "socketconnlist.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 

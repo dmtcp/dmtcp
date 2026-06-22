@@ -87,7 +87,7 @@
 #include "tokenize.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "coordinatorplugin.h"
 #undef min
 #undef max
@@ -1892,7 +1892,7 @@ main(int argc, char **argv)
   }
 
   flags.tmpDir = Util::calcTmpDir(flags.tmpDirArg.c_str());
-  Util::initializeLogFile(flags.tmpDir.c_str(), "dmtcp_coordinator");
+  initializeLogFile(flags.tmpDir.c_str(), "dmtcp_coordinator");
 
   TRACE("New DMTCP coordinator starting: process={}",
         UniquePid::ThisProcess());
@@ -1953,7 +1953,11 @@ main(int argc, char **argv)
                    "failed to redirect daemon stdin to /dev/null");
     } else {
       fd = open(flags.logFilename.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0644);
-      Util::setLogFile(flags.logFilename.c_str());
+      if (!setLogFile(flags.logFilename.c_str())) {
+        WARN(false,
+             "Failed to open coordinator log file: path={}",
+             flags.logFilename.c_str());
+      }
       int nullFd = open("/dev/null", O_RDWR);
       ASSERT_ERRNO(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO,
                    "failed to redirect daemon stdin to /dev/null");
@@ -1963,7 +1967,7 @@ main(int argc, char **argv)
                  "failed to redirect daemon stdout");
     ASSERT_ERRNO(dup2(fd, STDERR_FILENO) == STDERR_FILENO,
                  "failed to redirect daemon stderr");
-    Util::closeLogStderr();
+    closeLogConsole();
     if (fd > STDERR_FILENO) {
       close(fd);
     }

@@ -26,7 +26,7 @@
 #include <sys/uio.h>
 #endif
 #include <poll.h>
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "../jalib/jconvert.h"
 #include "constants.h"
 #include "dmtcpworker.h"

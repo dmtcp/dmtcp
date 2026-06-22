@@ -20,7 +20,7 @@
  ****************************************************************************/
 
 #include "uniquepid.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 #undef dmtcp_is_enabled
 #undef dmtcp_checkpoint

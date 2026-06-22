@@ -49,7 +49,7 @@
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 // aarch64 and riscv don't define SYS_pipe kernel call by default.
 #if defined(__aarch64__) || defined(__riscv)

@@ -36,7 +36,7 @@
 #include "pluginmanager.h"
 #include "threadsync.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "syscallwrappers.h"
 #include "plugin/file/fileconnection.h"
 

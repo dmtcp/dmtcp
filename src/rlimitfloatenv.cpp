@@ -3,7 +3,7 @@
 #include <sys/resource.h>
 #include "shareddata.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "config.h"
 #include "dmtcp.h"
 

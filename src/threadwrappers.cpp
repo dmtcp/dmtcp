@@ -33,7 +33,7 @@
 #include "threadsync.h"
 #include "uniquepid.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 

@@ -30,7 +30,7 @@
 #include "tls.h"
 #include "uniquepid.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.

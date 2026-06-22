@@ -41,7 +41,7 @@
 #include "syscallwrappers.h"
 #include "threadinfo.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 // sem_launch is used in threadlist.cpp
 // sem_launch_first_time will be set just before pthread_create(checkpointhread)

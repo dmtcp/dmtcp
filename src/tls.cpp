@@ -36,7 +36,7 @@
 #include "mtcp/mtcp_sys.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 #if defined(__x86_64__) || defined(__aarch64__)
 # define ELF_AUXV_T Elf64_auxv_t

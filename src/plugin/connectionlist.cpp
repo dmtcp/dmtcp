@@ -39,7 +39,7 @@
 
 #include "connection.h"
 #include "connectionlist.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "util_ipc.h"
 
 #define _real_socket NEXT_FNC(socket)

@@ -26,7 +26,7 @@
 #include "syscallwrappers.h"
 #include "threadinfo.h"
 #include "threadsync.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 #include "workerstate.h"
 
 using namespace dmtcp;

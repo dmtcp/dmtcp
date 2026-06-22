@@ -40,7 +40,7 @@
 #include "shareddata.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include "util_assert.h"
+#include "dmtcp_assert.h"
 
 #define BINARY_NAME "dmtcp_launch"
 
@@ -479,7 +479,7 @@ main(int argc, const char **argv)
 
   UniquePid::ThisProcess(true);
 
-  Util::initializeLogFile(tmpDir.c_str(), "dmtcp_launch");
+  initializeLogFile(tmpDir.c_str(), "dmtcp_launch");
 
   DmtcpUniqueProcessId compId;
   CoordinatorInfo coordInfo;
