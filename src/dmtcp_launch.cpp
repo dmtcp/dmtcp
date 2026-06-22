@@ -22,8 +22,13 @@
 #include <sys/resource.h>
 #include <linux/version.h>
 #include <errno.h>
+#include <elf.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <string_view>
 #include <stdlib.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 # include <sys/personality.h>
@@ -53,7 +58,7 @@ static bool testSetuid(const char *filename);
 static void testStaticallyLinked(const char *filename);
 static bool testScreen(const char **argv, const char ***newArgv);
 static void testFsGsBase();
-static void setLDPreloadLibs(bool is32bitElf);
+static void setLDPreloadLibs(bool is32bitElf, const char *targetPath);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -650,7 +655,7 @@ main(int argc, const char **argv)
   // from DmtcpWorker constructor, to distinguish the two cases.
   Util::adjustRlimitStack();
 
-  setLDPreloadLibs(is32bitElf);
+  setLDPreloadLibs(is32bitElf, argv[0]);
 
   // run the user program
   const char **newArgv = NULL;
@@ -802,8 +807,176 @@ syncPluginEnvWithLauncherState(const char *envName, bool *enabled)
   }
 }
 
+// Locate an ELF file's dynamic array and its .dynstr (DT_STRTAB) region.
+// Returns the Dyn array (and sets *ndyn), and sets *strOff/*strSz to the file
+// offset and size of .dynstr; returns NULL on any problem.  Templated over the
+// 32-/64-bit ELF structs so both classes share one body.
+template <typename Ehdr, typename Phdr, typename Dyn>
+static const Dyn *
+elfDynamic(const char *base, size_t size, size_t *ndyn,
+           size_t *strOff, size_t *strSz)
+{
+  *ndyn = 0; *strOff = 0; *strSz = 0;
+  const Ehdr *eh = (const Ehdr *)base;
+  // Use subtraction-based comparisons so a malformed ELF with huge
+  // file-controlled offsets cannot overflow the sum and bypass the bound.
+  if (eh->e_phoff == 0 || eh->e_phoff > size ||
+      eh->e_phnum > (size - eh->e_phoff) / sizeof(Phdr)) {
+    return NULL;
+  }
+  const Phdr *ph = (const Phdr *)(base + eh->e_phoff);
+
+  // Locate PT_DYNAMIC and remember PT_LOAD segments to map vaddr -> file off.
+  const Phdr *dyn = NULL;
+  const Phdr *loads[64];
+  int nloads = 0;
+  for (int i = 0; i < eh->e_phnum; i++) {
+    if (ph[i].p_type == PT_DYNAMIC) {
+      dyn = &ph[i];
+    } else if (ph[i].p_type == PT_LOAD && nloads < 64) {
+      loads[nloads++] = &ph[i];
+    }
+  }
+  if (dyn == NULL || dyn->p_offset > size ||
+      dyn->p_filesz > size - dyn->p_offset) {
+    return NULL;
+  }
+
+  const Dyn *d = (const Dyn *)(base + dyn->p_offset);
+  size_t n = dyn->p_filesz / sizeof(Dyn);
+  uint64_t strVaddr = 0;
+  size_t strSize = 0;
+  for (size_t i = 0; i < n && d[i].d_tag != DT_NULL; i++) {
+    if (d[i].d_tag == DT_STRTAB) {
+      strVaddr = d[i].d_un.d_ptr;
+    } else if (d[i].d_tag == DT_STRSZ) {
+      strSize = d[i].d_un.d_val;
+    }
+  }
+  if (strVaddr == 0) {
+    return NULL;
+  }
+  for (int i = 0; i < nloads; i++) {
+    if (strVaddr >= loads[i]->p_vaddr &&
+        strVaddr < loads[i]->p_vaddr + loads[i]->p_filesz) {
+      size_t off = loads[i]->p_offset + (strVaddr - loads[i]->p_vaddr);
+      if (off > size) {
+        return NULL;
+      }
+      *strOff = off;
+      *strSz = (strSize != 0 && strSize <= size - off) ? strSize : size - off;
+      *ndyn = n;
+      return d;
+    }
+  }
+  return NULL;
+}
+
+// Return the DT_NEEDED soname containing `needle` (e.g. "libtsan.so.2"), or "".
+template <typename Ehdr, typename Phdr, typename Dyn>
+static string
+elfNeededMatching(const char *base, size_t size, const char *needle)
+{
+  size_t ndyn, strOff, strSz;
+  const Dyn *d = elfDynamic<Ehdr, Phdr, Dyn>(base, size, &ndyn, &strOff, &strSz);
+  if (d == NULL) {
+    return "";
+  }
+  for (size_t i = 0; i < ndyn && d[i].d_tag != DT_NULL; i++) {
+    if (d[i].d_tag != DT_NEEDED) {
+      continue;
+    }
+    size_t nameOff = strOff + d[i].d_un.d_val;
+    if (nameOff >= size) {
+      continue;
+    }
+    const char *name = base + nameOff;
+    size_t maxlen = size - nameOff;
+    if (strnlen(name, maxlen) < maxlen && strstr(name, needle) != NULL) {
+      return string(name);
+    }
+  }
+  return "";
+}
+
+// Return true if the ELF's .dynstr contains `needle`.  Used to detect a
+// statically-linked TSAN runtime: clang's default -fsanitize=thread links the
+// runtime into the executable, which exports many "__tsan_*" symbols (in
+// .dynsym/.dynstr) but has no TSAN entry in DT_NEEDED.
+template <typename Ehdr, typename Phdr, typename Dyn>
+static bool
+elfDynstrContains(const char *base, size_t size, const char *needle)
+{
+  size_t ndyn, strOff, strSz;
+  if (elfDynamic<Ehdr, Phdr, Dyn>(base, size, &ndyn, &strOff, &strSz) == NULL) {
+    return false;
+  }
+  return std::string_view(base + strOff, strSz).find(needle) !=
+         std::string_view::npos;
+}
+
+// Inspect the target ELF for ThreadSanitizer.  Returns the soname of a *shared*
+// TSAN runtime in DT_NEEDED (gcc libtsan.so*, or clang -shared-libsan
+// libclang_rt.tsan*.so) so dmtcp_launch can prepend it to LD_PRELOAD ahead of
+// libdmtcp -- TSAN must interpose first so DMTCP's _real_* (RTLD_NEXT) resolve
+// to libc rather than TSAN's interceptors.  Returns "" if there is no shared
+// TSAN runtime.  Sets *isTsan true for ANY TSAN target, including a statically
+// linked runtime (clang default): the static runtime is already first in symbol
+// order (it is in the executable). So it needs no prepend, but it still
+// needs ASLR disabled.
+static string
+detectTsanRuntime(const char *path, bool *isTsan)
+{
+  *isTsan = false;
+  char full[PATH_MAX];
+  Util::expandPathname(path, full, sizeof(full));
+  int fd = open(full, O_RDONLY);
+  if (fd < 0) {
+    return "";
+  }
+  struct stat st;
+  if (fstat(fd, &st) != 0 || (size_t)st.st_size < sizeof(Elf64_Ehdr)) {
+    close(fd);
+    return "";
+  }
+  size_t size = st.st_size;
+  void *map = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+  close(fd);
+  if (map == MAP_FAILED) {
+    return "";
+  }
+
+  const char *base = (const char *)map;
+  string result;
+  if (memcmp(base, ELFMAG, SELFMAG) == 0) {
+    bool is64 = base[EI_CLASS] == ELFCLASS64;
+    bool is32 = base[EI_CLASS] == ELFCLASS32;
+    static const char *const needles[] = { "libtsan.so", "libclang_rt.tsan" };
+    for (size_t n = 0; n < 2 && result.empty(); n++) {
+      if (is64) {
+        result = elfNeededMatching<Elf64_Ehdr, Elf64_Phdr, Elf64_Dyn>(
+          base, size, needles[n]);
+      } else if (is32) {
+        result = elfNeededMatching<Elf32_Ehdr, Elf32_Phdr, Elf32_Dyn>(
+          base, size, needles[n]);
+      }
+    }
+    bool hasTsanSym = false;
+    if (is64) {
+      hasTsanSym = elfDynstrContains<Elf64_Ehdr, Elf64_Phdr, Elf64_Dyn>(
+        base, size, "__tsan_init");
+    } else if (is32) {
+      hasTsanSym = elfDynstrContains<Elf32_Ehdr, Elf32_Phdr, Elf32_Dyn>(
+        base, size, "__tsan_init");
+    }
+    *isTsan = !result.empty() || hasTsanSym;
+  }
+  munmap(map, size);
+  return result;
+}
+
 static void
-setLDPreloadLibs(bool is32bitElf)
+setLDPreloadLibs(bool is32bitElf, const char *targetPath)
 {
   // preloadLibs are to set LD_PRELOAD:
   // LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
@@ -867,6 +1040,45 @@ setLDPreloadLibs(bool is32bitElf)
 #if defined(__x86_64__) || defined(__aarch64__)
     preloadLibs32 = preloadLibs32 + ":" + getenv("LD_PRELOAD");
 #endif // if defined(__x86_64__) || defined(__aarch64__)
+  }
+
+  // A target using a *shared* TSAN runtime needs it to interpose BEFORE
+  // libdmtcp, so that DMTCP's _real_* (RTLD_NEXT) resolve past TSAN to libc.
+  // dmtcp_launch otherwise forces its own libs first. So prepend the target's
+  // TSAN runtime soname (the loader resolves the right arch).  Not added to
+  // ENV_VAR_HIJACK_LIBS: libtsan is the target's own dependency, not a DMTCP
+  // lib to be stripped by restoreUserLDPRELOAD().  A *statically* linked TSAN
+  // runtime (clang default) needs no prepend -- it is already first in symbol
+  // order (it is in the executable) -- but isTsan is still set so ASLR is
+  // disabled below.
+  bool isTsan = false;
+  string tsanLib = detectTsanRuntime(targetPath, &isTsan);
+  if (!tsanLib.empty()) {
+    TRACE("TSAN runtime detected; prepending to LD_PRELOAD: tsanLib={}",
+          tsanLib);
+    preloadLibs = tsanLib + ":" + preloadLibs;
+#if defined(__x86_64__) || defined(__aarch64__)
+    preloadLibs32 = tsanLib + ":" + preloadLibs32;
+#endif // if defined(__x86_64__) || defined(__aarch64__)
+  }
+  if (isTsan) {
+    // TSAN requires a deterministic address space: under ASLR it intermittently
+    // aborts with "ThreadSanitizer: unexpected memory mapping".  DMTCP restart
+    // also needs stable addresses.  The personality is inherited across the
+    // exec of the target. So set it here for any TSAN target (shared or static).
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
+    // NOTE:  gcc-14.0+ and clang 18.1+ automatically set personality and
+    //        re-execute.  But we will execvp() anyway.  So, no need for that.
+    // Read-modify-write so we only add ADDR_NO_RANDOMIZE and preserve any
+    // inherited personality bits (e.g. READ_IMPLIES_EXEC), as setarch -R and
+    // Util::adjustRlimitStack do.  personality(0xffffffffUL) queries without
+    // changing.
+    int persona = personality(0xffffffffUL);
+    WARN_ERRNO(persona != -1 &&
+               personality((unsigned long)persona | ADDR_NO_RANDOMIZE) != -1,
+               "Could not disable ASLR for TSAN target; "
+               "run under `setarch -R` if TSAN aborts on startup.");
+#endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
   }
 
   if (enableKernelLoader) {
