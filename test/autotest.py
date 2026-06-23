@@ -1609,13 +1609,17 @@ class TestRegistry:
             # multi-TB reserved regions, and a "called_from_lib:libdmtcp.so"
             # TSAN suppression so the post-restart checkpoint thread does not
             # hang in a TSAN interceptor running on stale per-thread state.
-            # cycles=1 (a single checkpoint/restart) for now: a second restart
-            # currently hangs, but the cause is a separate, exit-time issue --
-            # a TSAN worker killed gracefully by the coordinator ("--kill",
-            # which the harness uses between cycles) faults while TSAN tears
-            # down its ~125 TiB address space and gets stuck in do_exit, after
-            # which the next restart cannot reach RUNNING.  SIGKILL avoids it.
-            # Bump to full cycles once that exit path is handled.
+            # cycles=1 (one checkpoint/restart) is the supported TSAN scope.
+            # A second consecutive restart is a known limitation: the checkpoint
+            # thread is the only thread running while the image is written, and
+            # the TSAN trace events that its own (TSAN-intercepted) libc calls
+            # record during the write mutate its TSAN trace state -- which lives
+            # in memory being saved at that same moment.  The checkpoint can thus
+            # capture an inconsistent trace-part list (valid head, corrupt tail);
+            # on the next restart the restored checkpoint thread faults
+            # dereferencing it.  A clean fix must prevent that capture (no public
+            # TSAN API gates trace recording; forked-snapshot checkpointing would
+            # but is deferred).  Single checkpoint/restart is unaffected.
             # Auto-disabled when the TSAN runtime / ./test/tsan_target is absent.
             TestSpec("tsan", 1, ["./test/tsan_target"], cycles=1,
                      tags=["tsan"], limits=["cycles=1"]),
