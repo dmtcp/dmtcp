@@ -25,10 +25,11 @@ inline constexpr int kAssertFailureExitCode = 99;
 
 /*
  * Assertion helper guide:
- * - ASSERT(cond, "msg {}", arg) logs and exits; WARN(cond, ...) logs and
- *   continues.  NOTE(...) and TRACE(...) use the same formatter and are
- *   controlled by the runtime log level.  ASSERT_ERRNO/WARN_ERRNO add the
- *   errno value captured at the failing check.
+ * - ASSERT(cond, "msg {}", arg) logs and exits when cond is false;
+ *   WARN(cond, ...) logs and continues when cond is false.  NOTE(...) and
+ *   TRACE(...) use the same formatter and are controlled by the runtime log
+ *   level.  ASSERT_ERRNO/WARN_ERRNO add the errno value captured at the
+ *   failing check.
  * - Named helpers such as ASSERT_EQ(expected, actual),
  *   ASSERT_NOT_NULL(ptr), ASSERT_ZERO(expr), ASSERT_LOCK_SUCCESS(expr), and
  *   ASSERT_PTHREAD_SUCCESS(expr) evaluate their operands once and include the

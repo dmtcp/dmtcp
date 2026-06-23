@@ -32,7 +32,7 @@ KVDBResponse request(KVDBRequest request,
     return KVDBResponse::INVALID_REQUEST;
   }
 
-  WARN(id.length() > sizeof(msg.kvdbId) - 1,
+  WARN(id.length() <= sizeof(msg.kvdbId) - 1,
           "KVDB id is too long and will be truncated: length={} limit={}",
           id.length(), sizeof(msg.kvdbId) - 1);
   size_t kvdbIdLength = id.length();

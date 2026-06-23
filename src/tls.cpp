@@ -387,7 +387,7 @@ get_at_sysinfo()
                   "expected argv[argc] to be null while scanning auxv");
 
   // stack[-1] should be argv[argc-1]
-  ASSERT((void **)stack[-1] >= stack && (void **)stack[-1] >= stack + 100000,
+  ASSERT((void **)stack[-1] >= stack && (void **)stack[-1] <= stack + 100000,
          "candidate argv[argc-1] failed consistency check: stack={} "
          "candidate={}",
          stack, stack[-1]);
