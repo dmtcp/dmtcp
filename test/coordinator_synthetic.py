@@ -483,6 +483,21 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertIn("Status...", contents)
                 self.assertIn("Checkpoint Interval:", contents)
 
+    def test_stale_timeout_exits_idle_coordinator(self):
+        with CoordinatorFixture(
+                extra_args=["--stale-timeout", "1"]) as coordinator:
+            coordinator.process.wait(timeout=5)
+
+            self.assertEqual(coordinator.process.returncode, 1)
+
+    def test_negative_stale_timeout_keeps_idle_coordinator_running(self):
+        with CoordinatorFixture(
+                extra_args=["--stale-timeout", "-1"]) as coordinator:
+            with self.assertRaises(subprocess.TimeoutExpired):
+                coordinator.process.wait(timeout=1.5)
+
+            self.assertIsNone(coordinator.process.poll())
+
     def test_two_synthetic_workers_join_same_computation(self):
         with CoordinatorFixture() as coordinator:
             workers = [WorkerProcess(coordinator.port) for _ in range(2)]

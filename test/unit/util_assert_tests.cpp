@@ -898,6 +898,41 @@ void assertFailureHonorsAbortOnFailure()
   UNIT_ASSERT_EQ(WTERMSIG(status), SIGABRT);
 }
 
+void assertFailureHonorsSleepOnFailure()
+{
+  int readyPipe[2];
+  UNIT_ASSERT_EQ(pipe(readyPipe), 0);
+
+  pid_t child = fork();
+  UNIT_ASSERT_TRUE(child >= 0);
+
+  if (child == 0) {
+    close(readyPipe[0]);
+    unsetenv("DMTCP_ABORT_ON_FAILURE");
+    unsetenv("DMTCP_FAIL_RC");
+    setenv("DMTCP_SLEEP_ON_FAILURE", "1", 1);
+    if (write(readyPipe[1], "x", 1) != 1) {
+      _exit(127);
+    }
+    close(readyPipe[1]);
+    ASSERT(false, "fatal");
+  }
+
+  close(readyPipe[1]);
+  char byte = '\0';
+  UNIT_ASSERT_EQ(read(readyPipe[0], &byte, 1), 1);
+  close(readyPipe[0]);
+
+  usleep(200000);
+  int status = 0;
+  UNIT_ASSERT_EQ(waitpid(child, &status, WNOHANG), 0);
+
+  UNIT_ASSERT_EQ(kill(child, SIGTERM), 0);
+  UNIT_ASSERT_EQ(waitpid(child, &status, 0), child);
+  UNIT_ASSERT_TRUE(WIFSIGNALED(status));
+  UNIT_ASSERT_EQ(WTERMSIG(status), SIGTERM);
+}
+
 } // namespace
 
 extern const dmtcp_test::TestCase utilAssertTests[] = {
@@ -978,6 +1013,8 @@ extern const dmtcp_test::TestCase utilAssertTests[] = {
   {"assert failure honors DMTCP_FAIL_RC", assertFailureHonorsFailRc},
   {"assert failure honors DMTCP_ABORT_ON_FAILURE",
    assertFailureHonorsAbortOnFailure},
+  {"assert failure honors DMTCP_SLEEP_ON_FAILURE",
+   assertFailureHonorsSleepOnFailure},
 };
 
 extern const size_t utilAssertTestCount =
