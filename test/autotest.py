@@ -195,6 +195,7 @@ class TestSpec:
     env: Dict[str, Optional[str]] = field(default_factory=dict)
     library_paths: List[str] = field(default_factory=list)
     restart_uses_directory: bool = False
+    restart_args: List[str] = field(default_factory=list)
     validate_checkpoint_headers: bool = False
     expect_checkpoint_gzip: Optional[bool] = None
     checkpoint_dir_files: Dict[str, str] = field(default_factory=dict)
@@ -592,6 +593,9 @@ class TestContext:
     def _expand_command(self, command: str) -> str:
         return command.replace("{workdir}", shlex.quote(str(self.work.path)))
 
+    def _expand_arg(self, arg: str) -> str:
+        return arg.replace("{workdir}", str(self.work.path))
+
     def _launch_process(self, index: int, command: str, phase: str):
         command = self._expand_command(command)
         command_argv = shlex.split(command)
@@ -822,6 +826,8 @@ class TestContext:
         self._record_checkpoint_images("restart", images)
         index = len(self.processes)
         restart_args = [str(self.harness.restart), "--quiet"]
+        restart_args.extend(
+            self._expand_arg(arg) for arg in self.spec.restart_args)
         if self.spec.restart_pause_level is not None:
             restart_args.extend([
                 "--debug-restart-pause",
@@ -1334,6 +1340,11 @@ def validate_tmpdir_is_private(context: TestContext):
         raise HarnessFailure("validate", f"tmpdir escaped workdir: {tmpdir}")
 
 
+def validate_restart_tmpdir(context: TestContext):
+    wait_for_success_artifact(context, "DMTCP_RESTART_TMPDIR_SUCCESS_FILE",
+                              "restart-tmpdir")
+
+
 def wait_for_success_artifact(context: TestContext, env_name: str,
                               phase: str):
     path = pathlib.Path(context.env[env_name])
@@ -1453,6 +1464,8 @@ class TestRegistry:
         "nocheckpoint": "Checkpoint mechanics",
         "checkpoint-header": "Checkpoint mechanics",
         "restart-debug-pause": "Checkpoint mechanics",
+        "restart-no-strict-checking": "Checkpoint mechanics",
+        "restart-tmpdir-flag": "Checkpoint mechanics",
         "ckptdir-flag": "Checkpoint mechanics",
         "ckpt-signal-flag": "Checkpoint mechanics",
         "gzip-flag": "Checkpoint mechanics",
@@ -1858,6 +1871,28 @@ class TestRegistry:
             TestSpec("pthread3", 1, ["./test/pthread2 80"]),
             TestSpec("restartdir", 1, ["./test/dmtcp1"],
                      restart_uses_directory=True),
+            TestSpec("restart-no-strict-checking", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     restart_args=["--no-strict-checking"],
+                     tags=["restart-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["restart --no-strict-checking"]),
+            TestSpec("restart-tmpdir-flag", 1,
+                     ["./test/restart-tmpdir"],
+                     cycles=1,
+                     restart_args=["--tmpdir", "{workdir}/restart-tmp"],
+                     env={
+                         "DMTCP_RESTART_TMPDIR_ROOT":
+                         "{workdir}/restart-tmp",
+                         "DMTCP_RESTART_TMPDIR_SUCCESS_FILE":
+                         "{workdir}/restart-tmpdir.success",
+                     },
+                     post_restart_validator=validate_restart_tmpdir,
+                     tags=["restart-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["restart --tmpdir"]),
             TestSpec("pty1", 2, ["./test/pty1"]),
             TestSpec("pty2", 2, ["./test/pty2"]),
             TestSpec("vfork1", [1, 2, 3, 4], ["./test/vfork1 'ls | wc'"]),

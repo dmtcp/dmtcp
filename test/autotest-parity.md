@@ -31,7 +31,7 @@ or executable-path checks enable them.
 | Group | Ported tests |
 | --- | --- |
 | Harness and command protocol | `command-json-bcheckpoint`, `command-json-kill`, `command-json-quit`, `coordinator-exit-on-last`, `coordinator-replacement-worker`, `coordinator-reject-restart-while-running` |
-| Core smoke and process state | `dmtcp1`, `dmtcp1-m32`, `dmtcp1-quiet`, `dmtcp1-trace`, `dmtcp2`, `dmtcp3`, `dmtcp4`, `dmtcp5`, `alarm`, `sched_test`, `coordinator-barrier`, `gettid`, `sigchild`, `rlimit-restore`, `rlimit-nofile`, `environ`, `realpath`, `forkexec`, `vfork1`, `vfork2`, `frisbee`, `checkpoint-header`, `restart-debug-pause`, `ckptdir-flag`, `ckpt-signal-flag`, `gzip-flag`, `no-gzip-flag`, `tmpdir-env`, `unique-ckpt-env`, `unique-ckpt-flag`, `selinux1`, `cma`, `waitpid`, `waitid-syscall` |
+| Core smoke and process state | `dmtcp1`, `dmtcp1-m32`, `dmtcp1-quiet`, `dmtcp1-trace`, `dmtcp2`, `dmtcp3`, `dmtcp4`, `dmtcp5`, `alarm`, `sched_test`, `coordinator-barrier`, `gettid`, `sigchild`, `rlimit-restore`, `rlimit-nofile`, `environ`, `realpath`, `forkexec`, `vfork1`, `vfork2`, `frisbee`, `checkpoint-header`, `restart-debug-pause`, `restart-no-strict-checking`, `restart-tmpdir-flag`, `ckptdir-flag`, `ckpt-signal-flag`, `gzip-flag`, `no-gzip-flag`, `tmpdir-env`, `unique-ckpt-env`, `unique-ckpt-flag`, `selinux1`, `cma`, `waitpid`, `waitid-syscall` |
 | Logging | `logging-runtime`, `logging-quiet`, `logging-overrides` |
 | File, fd, and path behavior | `file1`, `file2`, `file3`, `stat`, `mmap1`, `mremap`, `poll`, `shared-fd1`, `shared-fd2`, `stale-fd`, `procfd1`, `epoll1`, `epoll2`, `gzip` |
 | Threads and synchronization | `pthread1`, `pthread2`, `pthread3`, `pthread4`, `pthread5`, `pthread6`, `pthread_atfork1`, `pthread_atfork2`, `mutex1`, `mutex2`, `mutex3`, `mutex4`, `timer1`, `clock`, `gettimeofday` |
@@ -52,6 +52,8 @@ or executable-path checks enable them.
 | `coordinator-barrier` | Ported with `cycles=1` | This is a focused real-worker cross-check for normal two-worker coordinator barrier release. |
 | `checkpoint-header` | Ported with `cycles=1` | This validates the fixed bootstrap records in an uncompressed checkpoint image without adding a second restart cycle. |
 | `restart-debug-pause` | Ported with `cycles=1` | This validates that `dmtcp_restart --debug-restart-pause 1` pauses before the restarted worker rejoins the coordinator. The harness kills the paused restart after the bounded check so the suite cannot hang. |
+| `restart-no-strict-checking` | Ported with `cycles=1` | This validates that `dmtcp_restart --no-strict-checking` is accepted during a normal restart flow. |
+| `restart-tmpdir-flag` | Ported with `cycles=1` | This validates that `dmtcp_restart --tmpdir` changes the restarted worker's DMTCP tmpdir root. |
 | `ckptdir-flag` | Ported with `cycles=1` | This validates that launcher `--ckptdir` writes checkpoint images outside the default per-test checkpoint directory and that restart can consume them. |
 | `ckpt-signal-flag` | Ported with `cycles=1` | This validates that launcher `--ckpt-signal` works for a normal checkpoint/restart cycle. |
 | `gzip-flag` | Ported with `cycles=1`, disabled on AArch64 | This validates that explicit launcher `--gzip` creates a gzip checkpoint image where the platform supports gzip checkpoints. AArch64 is blocked because `dmtcp_launch` forces gzip off there. |

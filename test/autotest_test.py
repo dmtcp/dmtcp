@@ -822,7 +822,12 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             work.port_file = tmp_path / "port"
             ckpt = work.ckpt_dir / "ckpt_test.dmtcp"
             ckpt.write_bytes(b"checkpoint")
-            spec = TestSpec("restart-transcript", 1, ["/bin/true"])
+            spec = TestSpec("restart-transcript", 1, ["/bin/true"],
+                            restart_args=[
+                                "--tmpdir",
+                                "{workdir}/restart-tmp",
+                                "--no-strict-checking",
+                            ])
             context = TestContext(DmtcpHarness(ROOT), spec, work)
 
             with mock.patch.object(autotest_module.subprocess, "Popen"), \
@@ -836,6 +841,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                 encoding="utf-8")
             self.assertIn("phase=restart-worker-0", transcript)
             self.assertIn("dmtcp_restart --quiet", transcript)
+            self.assertIn(f"--tmpdir {tmp_path}/restart-tmp", transcript)
+            self.assertIn("--no-strict-checking", transcript)
             self.assertIn(str(ckpt), transcript)
 
     def test_restart_debug_pause_records_command_and_kills_restart(self):
@@ -1402,6 +1409,13 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                         restart_uses_directory=True)
 
         self.assertTrue(spec.restart_uses_directory)
+
+    def test_spec_records_restart_args(self):
+        spec = TestSpec("restart-tmpdir-flag", 1, ["./test/restart-tmpdir"],
+                        restart_args=["--tmpdir", "{workdir}/restart-tmp"])
+
+        self.assertEqual(spec.restart_args,
+                         ["--tmpdir", "{workdir}/restart-tmp"])
 
     def test_spec_records_restart_pause_level(self):
         spec = TestSpec("restart-debug-pause", 1, ["./test/dmtcp1"],
@@ -2548,6 +2562,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "plugin-init", "popen1", "poll-disable-event-plugin", "pthread3",
             "restartdir", "pty1", "pty2", "vfork1", "vfork2", "frisbee",
             "nocheckpoint", "checkpoint-header", "restart-debug-pause",
+            "restart-no-strict-checking", "restart-tmpdir-flag",
             "ckptdir-flag", "ckpt-signal-flag", "no-gzip-flag",
             "tmpdir-env", "unique-ckpt-env", "unique-ckpt-flag",
             "modify-env", "pathvirt",
@@ -2591,6 +2606,16 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertIn("restart-debug", restart_pause.tags)
         self.assertIn("real-worker", restart_pause.requirements)
         self.assertIn("cycles=1", restart_pause.limits)
+        restart_no_strict = REGISTRY.get_test("restart-no-strict-checking")
+        self.assertEqual(restart_no_strict.restart_args,
+                         ["--no-strict-checking"])
+        self.assertIn("restart-options", restart_no_strict.tags)
+        restart_tmpdir = REGISTRY.get_test("restart-tmpdir-flag")
+        self.assertEqual(restart_tmpdir.restart_args,
+                         ["--tmpdir", "{workdir}/restart-tmp"])
+        self.assertIn("DMTCP_RESTART_TMPDIR_ROOT", restart_tmpdir.env)
+        self.assertIsNotNone(restart_tmpdir.post_restart_validator)
+        self.assertIn("restart-options", restart_tmpdir.tags)
         ckptdir = REGISTRY.get_test("ckptdir-flag")
         self.assertIn("--ckptdir {workdir}/launch-ckpt",
                       ckptdir.commands[0])
