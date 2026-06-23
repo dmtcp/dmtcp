@@ -103,7 +103,6 @@ static InternalPluginEntry internalPlugins[] = {
   { &dlPlugin, false }
 };
 
-static pthread_once_t internalPluginInitOnce = PTHREAD_ONCE_INIT;
 static bool disableAllInternalPlugins = false;
 
 static size_t
@@ -155,8 +154,30 @@ initializeInternalPluginStateOnce()
 static void
 initializeInternalPluginState()
 {
-  ASSERT_PTHREAD_SUCCESS(pthread_once(&internalPluginInitOnce,
-                                      initializeInternalPluginStateOnce));
+  // This runs from the alloc plugin's malloc() wrapper (via dmtcp_alloc_enabled
+  // -> internalPluginEnabled), which can fire DURING ThreadSanitizer's own
+  // constructor: while TSAN installs its interceptors it may call malloc (e.g.
+  // when a dlsym for an intercepted symbol fails and glibc formats the error).
+  //
+  // We used to guard this one-time init with pthread_once(), but pthread_once
+  // is a TSAN-intercepted synchronization primitive.  Called that early, TSAN's
+  // interceptor dereferences its MetaMap/shadow -- which is not yet initialized
+  // while TSAN is still in its own constructor -- and segfaults (observed on
+  // Rocky 9 / libtsan.so.0, in __tsan::MetaMap::GetAndLock).
+  //
+  // So we guard with a plain constant-initialized atomic flag instead: a
+  // compiler intrinsic, not a function call, so TSAN cannot intercept it (and
+  // a constant initializer means no C++ function-local static guard either).
+  // initializeInternalPluginStateOnce() only reads env vars and sets flags, so
+  // it is idempotent: if two threads race here they compute identical results,
+  // and the release/acquire ordering makes a reader observe the completed
+  // writes once the flag is set.
+  static int initialized = 0;
+  if (__atomic_load_n(&initialized, __ATOMIC_ACQUIRE)) {
+    return;
+  }
+  initializeInternalPluginStateOnce();
+  __atomic_store_n(&initialized, 1, __ATOMIC_RELEASE);
 }
 
 static InternalPluginEntry *
