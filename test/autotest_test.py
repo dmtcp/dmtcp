@@ -1459,6 +1459,34 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                 "nested\n",
             )
 
+    def test_post_checkpoint_files_are_written(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec(
+                "allow-file-overwrite", 1, ["./test/allow-file-overwrite"],
+                post_checkpoint_files={
+                    "open-file.txt": "VAR={workdir}\n",
+                    "nested/file.txt": "nested\n",
+                },
+            )
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            context._write_post_checkpoint_files()
+
+            self.assertEqual(
+                (work.path / "open-file.txt").read_text(encoding="utf-8"),
+                f"VAR={tmp_path}\n",
+            )
+            self.assertEqual(
+                (work.path / "nested/file.txt").read_text(encoding="utf-8"),
+                "nested\n",
+            )
+
     def test_checkpoint_dir_files_reject_escape_paths(self):
         absolute_bad_path = str(pathlib.Path(tempfile.gettempdir()) / "bad")
         for bad_path in ("../bad", absolute_bad_path):
@@ -1478,6 +1506,28 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                             HarnessFailure,
                             "invalid checkpoint file path"):
                         context._write_checkpoint_dir_files()
+
+    def test_post_checkpoint_files_reject_escape_paths(self):
+        absolute_bad_path = str(pathlib.Path(tempfile.gettempdir()) / "bad")
+        for bad_path in ("../bad", absolute_bad_path):
+            with self.subTest(path=bad_path):
+                with tempfile.TemporaryDirectory() as tmp:
+                    tmp_path = pathlib.Path(tmp)
+                    work = mock.Mock()
+                    work.path = tmp_path
+                    work.ckpt_dir = tmp_path / "ckpt"
+                    work.ckpt_dir.mkdir()
+                    work.port_file = tmp_path / "port"
+                    spec = TestSpec(
+                        "bad-file", 1, ["./test/dmtcp1"],
+                        post_checkpoint_files={bad_path: "bad"},
+                    )
+                    context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+                    with self.assertRaisesRegex(
+                            HarnessFailure,
+                            "invalid post-checkpoint file path"):
+                        context._write_post_checkpoint_files()
 
     def test_spec_records_post_restart_validator(self):
         def validator(context):
@@ -2566,7 +2616,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "nocheckpoint", "checkpoint-header", "restart-debug-pause",
             "restart-no-strict-checking", "restart-tmpdir-flag",
             "ckptdir-flag", "ckpt-signal-flag", "no-gzip-flag",
-            "tmpdir-env", "unique-ckpt-env", "unique-ckpt-flag",
+            "allow-file-overwrite", "tmpdir-env", "unique-ckpt-env",
+            "unique-ckpt-flag",
             "modify-env", "pathvirt",
             "coordinator-exit-on-last", "command-json-bcheckpoint",
             "coordinator-reject-restart-while-running",
@@ -2625,6 +2676,13 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         no_gzip = REGISTRY.get_test("no-gzip-flag")
         self.assertIn("--no-gzip", no_gzip.commands[0])
         self.assertFalse(no_gzip.expect_checkpoint_gzip)
+        allow_overwrite = REGISTRY.get_test("allow-file-overwrite")
+        self.assertIn("--allow-file-overwrite",
+                      allow_overwrite.commands[0])
+        self.assertIn("open-file.txt",
+                      allow_overwrite.post_checkpoint_files)
+        self.assertIsNotNone(allow_overwrite.post_restart_validator)
+        self.assertIn("cycles=1", allow_overwrite.limits)
         unique_env = REGISTRY.get_test("unique-ckpt-env")
         self.assertEqual(unique_env.env["DMTCP_UNIQUE_CKPT_PLUGIN"], "1")
         unique_flag = REGISTRY.get_test("unique-ckpt-flag")

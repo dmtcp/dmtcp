@@ -199,6 +199,7 @@ class TestSpec:
     validate_checkpoint_headers: bool = False
     expect_checkpoint_gzip: Optional[bool] = None
     checkpoint_dir_files: Dict[str, str] = field(default_factory=dict)
+    post_checkpoint_files: Dict[str, str] = field(default_factory=dict)
     completion_command: str = "--kill"
     coordinator_args: List[str] = field(default_factory=list)
     category: str = "Single-process programs"
@@ -731,6 +732,7 @@ class TestContext:
         images = self._checkpoint_images()
         self._record_checkpoint_images("checkpoint", images)
         self._validate_checkpoint_images(images)
+        self._write_post_checkpoint_files()
         if self.spec.checkpoint_kills_workers():
             self._wait_for_status(0, False, "checkpoint")
         else:
@@ -1229,6 +1231,21 @@ class TestContext:
                 encoding="utf-8",
             )
 
+    def _write_post_checkpoint_files(self):
+        for relative_path, contents in self.spec.post_checkpoint_files.items():
+            path = pathlib.Path(relative_path)
+            if path.is_absolute() or ".." in path.parts:
+                raise HarnessFailure(
+                    "setup",
+                    f"invalid post-checkpoint file path: {relative_path}",
+                )
+            output_path = self.work.path / path
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                contents.replace("{workdir}", str(self.work.path)),
+                encoding="utf-8",
+            )
+
     def _clear_checkpoint_dir(self):
         for path in self.work.ckpt_dir.iterdir():
             if path.is_dir():
@@ -1371,6 +1388,12 @@ def validate_modify_env_restart(context: TestContext):
 def validate_pathvirt_restart(context: TestContext):
     wait_for_success_artifact(context, "DMTCP_PATHVIRT_SUCCESS_FILE",
                               "pathvirt")
+
+
+def validate_allow_file_overwrite_restart(context: TestContext):
+    wait_for_success_artifact(context,
+                              "DMTCP_ALLOW_FILE_OVERWRITE_SUCCESS_FILE",
+                              "allow-file-overwrite")
 
 
 class TestRegistry:
@@ -1955,6 +1978,27 @@ class TestRegistry:
                      requirements=["real-worker"],
                      limits=["cycles=1"],
                      list_notes=["launcher --no-gzip"]),
+            TestSpec("allow-file-overwrite", 1,
+                     [
+                         "--checkpoint-open-files --allow-file-overwrite "
+                         "./test/allow-file-overwrite"
+                     ],
+                     cycles=1,
+                     env={
+                         "DMTCP_ALLOW_FILE_OVERWRITE_PATH":
+                         "{workdir}/open-file.txt",
+                         "DMTCP_ALLOW_FILE_OVERWRITE_SUCCESS_FILE":
+                         "{workdir}/allow-file-overwrite.success",
+                     },
+                     post_checkpoint_files={
+                         "open-file.txt": "modified-after-checkpoint\n",
+                     },
+                     post_restart_validator=
+                     validate_allow_file_overwrite_restart,
+                     tags=["launcher-options"],
+                     requirements=["real-worker", "checkpoint-open-files"],
+                     limits=["cycles=1"],
+                     list_notes=["allow file overwrite"]),
             TestSpec("tmpdir-env", 1, ["./test/dmtcp1"],
                      cycles=1,
                      env={"DMTCP_TMPDIR": "{workdir}/tmp"},
