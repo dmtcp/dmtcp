@@ -48,6 +48,7 @@ or executable-path checks enable them.
 | `command-json-bcheckpoint` | Ported with `cycles=1` | This validates `dmtcp_command --json --bcheckpoint` against a live worker with one checkpoint/restart cycle. |
 | `command-json-kill`, `command-json-quit` | Ported with `cycles=0` | These validate `dmtcp_command --json` completion behavior against live workers without running checkpoint/restart cycles. |
 | `coordinator-exit-on-last` | Ported with `cycles=0` | This validates `--exit-on-last` against a real worker without adding a checkpoint/restart cycle. |
+| `tsan`, `tsan-clang`, `tsan-clang-static` | Startup-only (`cycles=0`) | These validate that a ThreadSanitizer-instrumented target (gcc `libtsan`, clang `-shared-libsan`, and clang's static runtime) launches and runs under DMTCP. Checkpoint/restart of TSAN targets is not yet implemented, so no cycle is run. |
 | `coordinator-replacement-worker` | Ported with `cycles=0` | This validates that a real replacement worker can join after one live worker disconnects, without adding a checkpoint/restart cycle. |
 | `coordinator-reject-restart-while-running` | Ported with `cycles=0` | This validates coordinator rejection of a restart worker while the original computation is still running. It creates a checkpoint image first, then attempts `dmtcp_restart` before killing the original worker. |
 | `coordinator-barrier` | Ported with `cycles=1` | This is a focused real-worker cross-check for normal two-worker coordinator barrier release. |
