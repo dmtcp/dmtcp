@@ -975,6 +975,67 @@ detectTsanRuntime(const char *path, bool *isTsan)
   return result;
 }
 
+// On restart, the checkpoint thread's TSAN state is stale (mtcp_restart
+// recreated it outside TSAN's own pthread_create interceptor). So TSAN's
+// interceptors hang on an internal lock the first time DMTCP's own
+// restart-time plumbing makes an ordinary libc call. DMTCP's plumbing isn't
+// the code under test anyway. So suppress TSAN interception for any call
+// from libdmtcp.so -- unlike __tsan_ignore_thread_* (misses synchronization
+// calls) or a no_sanitize attribute (no effect on TSAN's runtime
+// interceptors). See setTsanSuppressions() below for how.
+static void
+setTsanSuppressions(const string &tmpDir)
+{
+  // TSAN honors only a single suppressions file. So do not clobber one the
+  // user already provided; tell them how to add our rule instead.
+  const char *existing = getenv("TSAN_OPTIONS");
+  string opts = (existing != NULL) ? existing : "";
+  if (opts.find("suppressions=") != string::npos) {
+    WARN(false,
+         "TSAN_OPTIONS already sets 'suppressions='; DMTCP cannot add its own. "
+         "For checkpoint/restart of a TSAN target to work, add this line to "
+         "your suppressions file: called_from_lib:libdmtcp.so");
+    return;
+  }
+
+  string suppPath = tmpDir + "/tsan-suppressions.txt";
+  // Write to a per-pid temp then rename so a concurrent launcher's TSAN never
+  // reads a half-written file (rename is atomic; the content is identical).
+  string tmpPath = suppPath + "." + jalib::XToString(getpid());
+  static const char contents[] = "called_from_lib:libdmtcp.so\n";
+
+  int fd = open(tmpPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  bool ok = (fd != -1) &&
+            (write(fd, contents, sizeof(contents) - 1) ==
+             (ssize_t)(sizeof(contents) - 1));
+  if (fd != -1) {
+    close(fd);
+  }
+  if (ok) {
+    ok = (rename(tmpPath.c_str(), suppPath.c_str()) == 0);
+  }
+  if (!ok) {
+    WARN_ERRNO(false,
+               "Could not write TSAN suppressions file; checkpoint/restart of "
+               "a TSAN target may hang. path={}",
+               suppPath);
+    unlink(tmpPath.c_str());
+    return;
+  }
+
+  string newOpts = opts.empty() ? string() : opts + " ";
+  newOpts += "suppressions=" + suppPath;
+  setenv("TSAN_OPTIONS", newOpts.c_str(), 1);
+  TRACE("TSAN suppressions installed: TSAN_OPTIONS={}", getenv("TSAN_OPTIONS"));
+  TRACE("TSAN suppressions can hide real bugs in DMTCP itself, not just "
+        "benign internal synchronization. On restart, they are required: "
+        "without them, TSAN inspects the checkpoint thread's fiber/"
+        "ThreadState and finds it corrupted. If debugging a TSAN-related "
+        "checkpoint/restart issue, try temporarily pointing "
+        "TSAN_OPTIONS=suppressions= at an empty file to see what TSAN "
+        "reports with suppressions off.");
+}
+
 static void
 setLDPreloadLibs(bool is32bitElf, const char *targetPath)
 {
@@ -1079,6 +1140,11 @@ setLDPreloadLibs(bool is32bitElf, const char *targetPath)
                "Could not disable ASLR for TSAN target; "
                "run under `setarch -R` if TSAN aborts on startup.");
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
+
+    // Make TSAN ignore DMTCP's own libc calls so checkpoint/restart does not
+    // hang in a TSAN interceptor running on the (post-restart, stale-state)
+    // checkpoint thread.  See setTsanSuppressions() for the full rationale.
+    setTsanSuppressions(tmpDir);
   }
 
   if (enableKernelLoader) {
