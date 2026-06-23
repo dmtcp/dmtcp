@@ -1415,6 +1415,65 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         self.assertFalse(spec.expect_checkpoint_gzip)
 
+    def test_checkpoint_dir_files_are_written(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec(
+                "modify-env", 1, ["./test/modify-env1"],
+                checkpoint_dir_files={
+                    "dmtcp_env.txt": "VAR={workdir}\n",
+                    "nested/file.txt": "nested\n",
+                },
+            )
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            context._write_checkpoint_dir_files()
+
+            self.assertEqual(
+                (work.ckpt_dir / "dmtcp_env.txt").read_text(
+                    encoding="utf-8"),
+                f"VAR={tmp_path}\n",
+            )
+            self.assertEqual(
+                (work.ckpt_dir / "nested/file.txt").read_text(
+                    encoding="utf-8"),
+                "nested\n",
+            )
+
+    def test_checkpoint_dir_files_reject_escape_paths(self):
+        absolute_bad_path = str(pathlib.Path(tempfile.gettempdir()) / "bad")
+        for bad_path in ("../bad", absolute_bad_path):
+            with self.subTest(path=bad_path):
+                with tempfile.TemporaryDirectory() as tmp:
+                    tmp_path = pathlib.Path(tmp)
+                    work = mock.Mock()
+                    work.path = tmp_path
+                    work.ckpt_dir = tmp_path / "ckpt"
+                    work.ckpt_dir.mkdir()
+                    work.port_file = tmp_path / "port"
+                    spec = TestSpec("bad-file", 1, ["./test/dmtcp1"],
+                                    checkpoint_dir_files={bad_path: "bad"})
+                    context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+                    with self.assertRaisesRegex(
+                            HarnessFailure,
+                            "invalid checkpoint file path"):
+                        context._write_checkpoint_dir_files()
+
+    def test_spec_records_post_restart_validator(self):
+        def validator(context):
+            return None
+
+        spec = TestSpec("post-restart", 1, ["./test/dmtcp1"],
+                        post_restart_validator=validator)
+
+        self.assertIs(spec.post_restart_validator, validator)
+
     def test_spec_records_extra_coordinator_args(self):
         spec = TestSpec("exit-on-last", 1, ["./test/dmtcp1"],
                         coordinator_args=["--exit-on-last"])
@@ -2491,6 +2550,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "nocheckpoint", "checkpoint-header", "restart-debug-pause",
             "ckptdir-flag", "ckpt-signal-flag", "no-gzip-flag",
             "tmpdir-env", "unique-ckpt-env", "unique-ckpt-flag",
+            "modify-env", "pathvirt",
             "coordinator-exit-on-last", "command-json-bcheckpoint",
             "coordinator-reject-restart-while-running",
         ]:
@@ -2543,6 +2603,21 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         unique_flag = REGISTRY.get_test("unique-ckpt-flag")
         self.assertIn("--enable-unique-checkpoint-filenames",
                       unique_flag.commands[0])
+        modify_env = REGISTRY.get_test("modify-env")
+        self.assertIn("--modify-env ./test/modify-env1",
+                      modify_env.commands[0])
+        self.assertEqual(
+            modify_env.env["DMTCP_MODIFY_ENV_TARGET"],
+            "before-restart",
+        )
+        self.assertIn("dmtcp_env.txt", modify_env.checkpoint_dir_files)
+        self.assertIsNotNone(modify_env.post_restart_validator)
+        self.assertIn("cycles=1", modify_env.limits)
+        pathvirt = REGISTRY.get_test("pathvirt")
+        self.assertIn("--pathvirt ./test/pathvirt1", pathvirt.commands[0])
+        self.assertIn("DMTCP_PATH_MAPPING", pathvirt.env)
+        self.assertIsNotNone(pathvirt.post_restart_validator)
+        self.assertIn("cycles=1", pathvirt.limits)
         exit_on_last = REGISTRY.get_test("coordinator-exit-on-last")
         self.assertEqual(exit_on_last.cycles, 0)
         self.assertEqual(exit_on_last.coordinator_args, ["--exit-on-last"])

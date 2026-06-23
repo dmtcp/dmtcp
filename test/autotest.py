@@ -197,6 +197,7 @@ class TestSpec:
     restart_uses_directory: bool = False
     validate_checkpoint_headers: bool = False
     expect_checkpoint_gzip: Optional[bool] = None
+    checkpoint_dir_files: Dict[str, str] = field(default_factory=dict)
     completion_command: str = "--kill"
     coordinator_args: List[str] = field(default_factory=list)
     category: str = "Single-process programs"
@@ -213,6 +214,7 @@ class TestSpec:
     reject_restart_while_running: bool = False
     restart_pause_level: Optional[int] = None
     run_serial: bool = False
+    post_restart_validator: Optional[Callable[["TestContext"], None]] = None
     post_run_validator: Optional[Callable[["TestContext"], None]] = None
 
     def peer_counts(self) -> List[int]:
@@ -704,6 +706,7 @@ class TestContext:
             raise HarnessFailure("status", str(error)) from error
 
     def _checkpoint(self):
+        self._write_checkpoint_dir_files()
         if self.spec.pre_checkpoint_delay > 0.0:
             time.sleep(self.spec.pre_checkpoint_delay)
         payload = self._run_json_command(
@@ -842,6 +845,8 @@ class TestContext:
             self._wait_for_status(0, False, "restart-pause")
             return
         self._wait_for_status(self.spec.peer_counts(), True, "restart")
+        if self.spec.post_restart_validator is not None:
+            self.spec.post_restart_validator(self)
         self._clear_checkpoint_dir()
 
     def _assert_restart_paused(self, proc: subprocess.Popen):
@@ -1203,6 +1208,21 @@ class TestContext:
     def _checkpoint_images(self) -> List[pathlib.Path]:
         return sorted(self.work.path.glob("**/ckpt_*.dmtcp"))
 
+    def _write_checkpoint_dir_files(self):
+        for relative_path, contents in self.spec.checkpoint_dir_files.items():
+            path = pathlib.Path(relative_path)
+            if path.is_absolute() or ".." in path.parts:
+                raise HarnessFailure(
+                    "setup",
+                    f"invalid checkpoint file path: {relative_path}",
+                )
+            output_path = self.work.ckpt_dir / path
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                contents.replace("{workdir}", str(self.work.path)),
+                encoding="utf-8",
+            )
+
     def _clear_checkpoint_dir(self):
         for path in self.work.ckpt_dir.iterdir():
             if path.is_dir():
@@ -1314,6 +1334,34 @@ def validate_tmpdir_is_private(context: TestContext):
         raise HarnessFailure("validate", f"tmpdir escaped workdir: {tmpdir}")
 
 
+def wait_for_success_artifact(context: TestContext, env_name: str,
+                              phase: str):
+    path = pathlib.Path(context.env[env_name])
+
+    def success_marker_ready() -> bool:
+        try:
+            contents = path.read_text(encoding="utf-8")
+        except OSError:
+            return False
+        return "ok" in contents
+
+    context._wait_for(
+        success_marker_ready,
+        phase,
+        f"missing success artifact with ok marker: {path}",
+    )
+
+
+def validate_modify_env_restart(context: TestContext):
+    wait_for_success_artifact(context, "DMTCP_MODIFY_ENV_SUCCESS_FILE",
+                              "modify-env")
+
+
+def validate_pathvirt_restart(context: TestContext):
+    wait_for_success_artifact(context, "DMTCP_PATHVIRT_SUCCESS_FILE",
+                              "pathvirt")
+
+
 class TestRegistry:
     DISABLED_CATEGORY = "Disabled tests"
 
@@ -1398,6 +1446,8 @@ class TestRegistry:
         "plugin-sleep2": "Plugin behavior",
         "plugin-example-db": "Plugin behavior",
         "plugin-init": "Plugin behavior",
+        "modify-env": "Plugin behavior",
+        "pathvirt": "Plugin behavior",
         "poll-disable-event-plugin": "Plugin behavior",
         "syscall-tester": "Checkpoint mechanics",
         "nocheckpoint": "Checkpoint mechanics",
@@ -1765,6 +1815,43 @@ class TestRegistry:
                          f"--with-plugin {ROOT}/test/"
                          "libdmtcp_plugin-init.so ./test/dmtcp1"
                      ]),
+            TestSpec("modify-env", 1, ["--modify-env ./test/modify-env1"],
+                     cycles=1,
+                     env={
+                         "DMTCP_MODIFY_ENV_TARGET": "before-restart",
+                         "DMTCP_MODIFY_ENV_REMOVE": "remove-me",
+                         "DMTCP_MODIFY_ENV_SUCCESS_FILE":
+                         "{workdir}/modify-env.success",
+                     },
+                     checkpoint_dir_files={
+                         "dmtcp_env.txt":
+                         "DMTCP_MODIFY_ENV_TARGET=after-restart\n"
+                         "DMTCP_MODIFY_ENV_REMOVE\n",
+                     },
+                     post_restart_validator=validate_modify_env_restart,
+                     tags=["plugin"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["modify-env plugin"]),
+            TestSpec("pathvirt", 1, ["--pathvirt ./test/pathvirt1"],
+                     cycles=1,
+                     env={
+                         "DMTCP_PATH_MAPPING":
+                         "{workdir}/virtual:{workdir}/physical",
+                         "DMTCP_PATHVIRT_REAL_DIR":
+                         "{workdir}/physical",
+                         "DMTCP_PATHVIRT_REAL_FILE":
+                         "{workdir}/physical/pathvirt-data.txt",
+                         "DMTCP_PATHVIRT_VIRTUAL_FILE":
+                         "{workdir}/virtual/pathvirt-data.txt",
+                         "DMTCP_PATHVIRT_SUCCESS_FILE":
+                         "{workdir}/pathvirt.success",
+                     },
+                     post_restart_validator=validate_pathvirt_restart,
+                     tags=["plugin"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["pathvirt plugin"]),
             TestSpec("popen1", [1, 2], ["./test/popen1"]),
             TestSpec("poll-disable-event-plugin", 1,
                      ["--disable-event-plugin ./test/poll"]),

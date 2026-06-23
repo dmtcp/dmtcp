@@ -36,7 +36,7 @@ or executable-path checks enable them.
 | File, fd, and path behavior | `file1`, `file2`, `file3`, `stat`, `mmap1`, `mremap`, `poll`, `shared-fd1`, `shared-fd2`, `stale-fd`, `procfd1`, `epoll1`, `epoll2`, `gzip` |
 | Threads and synchronization | `pthread1`, `pthread2`, `pthread3`, `pthread4`, `pthread5`, `pthread6`, `pthread_atfork1`, `pthread_atfork2`, `mutex1`, `mutex2`, `mutex3`, `mutex4`, `timer1`, `clock`, `gettimeofday` |
 | IPC, sockets, and PTY smoke | `client-server`, `seqpacket`, `ssh1`, `shared-memory1`, `shared-memory2`, `shared-memory3`, `sysv-shm1`, `sysv-shm2`, `sysv-sem`, `sysv-msg`, `posix-mq1`, `posix-mq-close-untracked`, `pty1`, `pty2` |
-| Plugins and events | `dlopen1`, `dlopen2`, `syscall-tester`, `presuspend`, `plugin-sleep2`, `plugin-example-db`, `plugin-init`, `poll-disable-event-plugin`, `popen1`, `restartdir`, `nocheckpoint` |
+| Plugins and events | `dlopen1`, `dlopen2`, `syscall-tester`, `presuspend`, `plugin-sleep2`, `plugin-example-db`, `plugin-init`, `modify-env`, `pathvirt`, `poll-disable-event-plugin`, `popen1`, `restartdir`, `nocheckpoint` |
 | Shells, terminal apps, and language/runtime smoke | `perl`, `python`, `bash`, `dash`, `zsh`, `readline`, `tcsh`, `script`, `vim`, `emacs`, `screen`, `java1`, `cilk1`, `matlab-nodisplay`, `openmp-1`, `openmp-2` |
 | MPI smoke | `hellompich-n1`, `hellompich-n2`, `openmpi` |
 
@@ -59,6 +59,8 @@ or executable-path checks enable them.
 | `tmpdir-env` | Ported with `cycles=1` | This validates that `DMTCP_TMPDIR` can point at a private per-test directory. |
 | `unique-ckpt-env` | Ported with `cycles=1` | This validates that `DMTCP_UNIQUE_CKPT_PLUGIN=1` places checkpoint images in unique checkpoint subdirectories. |
 | `unique-ckpt-flag` | Ported with `cycles=1` | This validates that launcher `--enable-unique-checkpoint-filenames` places checkpoint images in unique checkpoint subdirectories. |
+| `modify-env` | Ported with `cycles=1` | This validates that launcher `--modify-env` applies `dmtcp_env.txt` changes from the checkpoint directory before user code resumes after restart. |
+| `pathvirt` | Ported with `cycles=1` | This validates that launcher `--pathvirt` applies `DMTCP_PATH_MAPPING` to file opens before and after restart. |
 | `dmtcp1-m32` | Built-artifact-gated | Authoritative only when the multilib build produces `test/dmtcp1-m32`. |
 | `readline`, `selinux1`, `cma`, `cilk1`, `pthread_atfork1`, `pthread_atfork2` | Built-artifact-gated | Configure and Makefile rules still decide whether these binaries can be built, but the Python registry now filters them by the resulting `test/<name>` artifact instead of duplicating those configure or architecture checks. |
 | `openmp-1`, `openmp-2` | Built-artifact-gated, slow | These use the default two checkpoint/restart cycles and keep the old harness's `S=3*DEFAULT_S` checkpoint settle delay because checkpointing too early can race active OpenMP startup work. |
