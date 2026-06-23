@@ -8,6 +8,7 @@ import json
 import os
 import pathlib
 import pty
+import resource
 import shlex
 import shutil
 import signal
@@ -1457,6 +1458,12 @@ class TestRegistry:
         )
         if reasons:
             return list(dict.fromkeys(reasons))
+        if "tsan" in test.tags:
+            tsan_reason = cls._tsan_address_space_reason()
+            if tsan_reason:
+                reasons.append(tsan_reason)
+        if test.name == "tsan-clang" and not test.library_paths:
+            reasons.append("missing clang TSAN runtime dir")
         for command in test.commands:
             reasons.extend(cls._command_executable_reasons(command))
         for path in test.required_files:
@@ -1488,6 +1495,25 @@ class TestRegistry:
         # covers clang-not-found, timeout, OS errors, and decode errors.
         except Exception:
             return ""
+
+    @staticmethod
+    def _tsan_address_space_reason() -> Optional[str]:
+        # ThreadSanitizer reserves ~125 TiB of virtual address space at init
+        # (its shadow/meta mappings + allocator).  Under a smaller RLIMIT_AS the
+        # reservation fails and TSAN aborts (SIGSEGV) before main -- e.g.
+        # `make check` runs the suite under `ulimit -v 33554432` (32 GiB) to cap
+        # mtcp_restart.  So the tsan-tagged tests can only run when RLIMIT_AS is
+        # effectively unlimited; auto-skip them otherwise (run them via
+        # `make check-tsan`, which omits the ulimit).
+        tsan_min_bytes = 1 << 47  # 128 TiB
+        try:
+            soft, _ = resource.getrlimit(resource.RLIMIT_AS)
+        except (ValueError, OSError):
+            return None
+        if soft == resource.RLIM_INFINITY or soft >= tsan_min_bytes:
+            return None
+        return ("needs an unlimited address space for TSAN "
+                f"(RLIMIT_AS capped at {soft // (1 << 30)} GiB)")
 
     def _build_tests(self) -> List[TestSpec]:
         frisbee_p1, frisbee_p2, frisbee_p3 = [
