@@ -1010,6 +1010,73 @@ detectTsanRuntime(const char *path, bool *isTsan)
   return result;
 }
 
+// ThreadSanitizer interposes libc calls (read/write, pthread synchronization,
+// etc.).  On the DMTCP restart path the checkpoint thread runs DMTCP's own
+// machinery -- reading the saved environment, the PID map, and the plugin
+// DMTCP_EVENT_RESTART handlers -- on a thread whose TSAN per-thread state is
+// stale: mtcp_restart recreated it outside TSAN's pthread_create interceptor
+// and its kernel TID changed, so TSAN's bookkeeping for it is never
+// re-established.  When TSAN's interceptors then fire on this thread they spin
+// on an internal lock and restart hangs (the worker reconnects but never
+// reaches RUNNING).  More fundamentally, DMTCP's plumbing is not the code under
+// test; TSAN should watch only the user application.  So tell TSAN to skip
+// interception for any call originating in libdmtcp.so via a "called_from_lib"
+// suppression.  This covers reads, writes, AND synchronization (unlike
+// __tsan_ignore_thread_*, which covers only memory accesses, leaving the
+// barrier/mutex calls in e.g. the PID plugin still hanging).  A compile-time
+// no_sanitize("thread") attribute is no substitute either: it only strips the
+// compiler-inserted instrumentation from a function body (and libdmtcp.so is
+// not built with -fsanitize=thread, so there is nothing to strip), and has no
+// effect on TSAN's runtime interceptors -- which are what fire here.  Only a
+// runtime suppression like this controls the interceptors.  TSAN loads
+// suppressions once at init, so setting this at launch keeps it in effect
+// across the whole run, including after checkpoint/restart.
+static void
+setTsanSuppressions(const string &tmpDir)
+{
+  // TSAN honors only a single suppressions file, so do not clobber one the
+  // user already provided; tell them how to add our rule instead.
+  const char *existing = getenv("TSAN_OPTIONS");
+  string opts = (existing != NULL) ? existing : "";
+  if (opts.find("suppressions=") != string::npos) {
+    WARN(false,
+         "TSAN_OPTIONS already sets 'suppressions='; DMTCP cannot add its own. "
+         "For checkpoint/restart of a TSAN target to work, add this line to "
+         "your suppressions file: called_from_lib:libdmtcp.so");
+    return;
+  }
+
+  string suppPath = tmpDir + "/tsan-suppressions.txt";
+  // Write to a per-pid temp then rename so a concurrent launcher's TSAN never
+  // reads a half-written file (rename is atomic; the content is identical).
+  string tmpPath = suppPath + "." + jalib::XToString(getpid());
+  static const char contents[] = "called_from_lib:libdmtcp.so\n";
+
+  int fd = open(tmpPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  bool ok = (fd != -1) &&
+            (write(fd, contents, sizeof(contents) - 1) ==
+             (ssize_t)(sizeof(contents) - 1));
+  if (fd != -1) {
+    close(fd);
+  }
+  if (ok) {
+    ok = (rename(tmpPath.c_str(), suppPath.c_str()) == 0);
+  }
+  if (!ok) {
+    WARN_ERRNO(false,
+               "Could not write TSAN suppressions file; checkpoint/restart of "
+               "a TSAN target may hang. path={}",
+               suppPath);
+    unlink(tmpPath.c_str());
+    return;
+  }
+
+  string newOpts = opts.empty() ? string() : opts + " ";
+  newOpts += "suppressions=" + suppPath;
+  setenv("TSAN_OPTIONS", newOpts.c_str(), 1);
+  TRACE("TSAN suppressions installed: TSAN_OPTIONS={}", getenv("TSAN_OPTIONS"));
+}
+
 static void
 setLDPreloadLibs(bool is32bitElf, const char *targetPath)
 {
@@ -1112,6 +1179,11 @@ setLDPreloadLibs(bool is32bitElf, const char *targetPath)
                "Could not disable ASLR for TSAN target; "
                "run under `setarch -R` if TSAN aborts on startup.");
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
+
+    // Make TSAN ignore DMTCP's own libc calls so checkpoint/restart does not
+    // hang in a TSAN interceptor running on the (post-restart, stale-state)
+    // checkpoint thread.  See setTsanSuppressions() for the full rationale.
+    setTsanSuppressions(tmpDir);
   }
 
   if (enableKernelLoader) {
