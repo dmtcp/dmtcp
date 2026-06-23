@@ -1600,32 +1600,39 @@ class TestRegistry:
             TestSpec("dmtcp2", 1, ["./test/dmtcp2"]),
             TestSpec("dmtcp3", 1, ["./test/dmtcp3"]),
             TestSpec("dmtcp4", 1, ["./test/dmtcp4"]),
-            # Regression guard for ThreadSanitizer (-fsanitize=thread) targets.
-            # cycles=0 (startup only) for now: launch must load libtsan before
-            # libdmtcp, disable ASLR, and DMTCP wrappers must not re-enter a
-            # half-initialized TSAN during its constructor.  Checkpoint and
-            # restore of TSAN targets work (verified manually: raw-syscall I/O
-            # past TSAN's write interceptor, residency scan of the shadow,
-            # MAP_NORESERVE restore of TSAN's multi-TB reserved regions), but
-            # the restarted worker's coordinator reconnection under the harness
-            # is still being worked (Q7).  Bump to full cycles once that lands.
+            # Regression guard for ThreadSanitizer (-fsanitize=thread) targets,
+            # exercising a full checkpoint/restart cycle.  Requirements handled
+            # by dmtcp_launch: load libtsan before libdmtcp, disable ASLR, keep
+            # DMTCP wrappers from re-entering a half-initialized TSAN during its
+            # constructor, raw-syscall checkpoint I/O past TSAN's interceptors,
+            # residency scan of the shadow, MAP_NORESERVE restore of TSAN's
+            # multi-TB reserved regions, and a "called_from_lib:libdmtcp.so"
+            # TSAN suppression so the post-restart checkpoint thread does not
+            # hang in a TSAN interceptor running on stale per-thread state.
+            # cycles=1 (a single checkpoint/restart) for now: a second restart
+            # currently hangs, but the cause is a separate, exit-time issue --
+            # a TSAN worker killed gracefully by the coordinator ("--kill",
+            # which the harness uses between cycles) faults while TSAN tears
+            # down its ~125 TiB address space and gets stuck in do_exit, after
+            # which the next restart cannot reach RUNNING.  SIGKILL avoids it.
+            # Bump to full cycles once that exit path is handled.
             # Auto-disabled when the TSAN runtime / ./test/tsan_target is absent.
-            TestSpec("tsan", 1, ["./test/tsan_target"], cycles=0,
-                     tags=["tsan"], limits=["cycles=0"]),
+            TestSpec("tsan", 1, ["./test/tsan_target"], cycles=1,
+                     tags=["tsan"], limits=["cycles=1"]),
             # Same guard built with clang -fsanitize=thread -shared-libsan.
             # LD_LIBRARY_PATH points at clang's runtime dir because its shared
             # TSAN runtime has no RPATH (a clang fact, not DMTCP-specific).
             # Auto-disabled when clang / its shared TSAN runtime is absent
             # (then ./test/tsan_target_clang is not built).
-            TestSpec("tsan-clang", 1, ["./test/tsan_target_clang"], cycles=0,
+            TestSpec("tsan-clang", 1, ["./test/tsan_target_clang"], cycles=1,
                      library_paths=[clang_rtdir] if clang_rtdir else [],
-                     tags=["tsan", "clang"], limits=["cycles=0"]),
+                     tags=["tsan", "clang"], limits=["cycles=1"]),
             # clang STATIC default: TSAN runtime linked into the exe, detected by
             # dmtcp_launch via the "__tsan_init" symbol in .dynstr (no DT_NEEDED,
             # no prepend, no LD_LIBRARY_PATH; dmtcp_launch still disables ASLR).
             TestSpec("tsan-clang-static", 1,
-                     ["./test/tsan_target_clang_static"], cycles=0,
-                     tags=["tsan", "clang"], limits=["cycles=0"]),
+                     ["./test/tsan_target_clang_static"], cycles=1,
+                     tags=["tsan", "clang"], limits=["cycles=1"]),
             # Regression guard for the pagemap residency zero-page optimization
             # (Util::scanOccupiedRangeBatch in writeckpt.cpp).  Run on both the
             # ioctl(PAGEMAP_SCAN) fast path and the portable pread() fallback.
