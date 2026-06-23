@@ -24,7 +24,6 @@
 #include <errno.h>
 #include <elf.h>
 #include <fcntl.h>
-#include <string.h>
 #include <string_view>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -1090,7 +1089,8 @@ setLDPreloadLibs(bool is32bitElf, const char *targetPath)
   bool isTsan = false;
   string tsanLib = detectTsanRuntime(targetPath, &isTsan);
   if (!tsanLib.empty()) {
-    JTRACE("TSAN runtime detected; prepending to LD_PRELOAD") (tsanLib);
+    TRACE("TSAN runtime detected; prepending to LD_PRELOAD: tsanLib={}",
+          tsanLib);
     preloadLibs = tsanLib + ":" + preloadLibs;
 #if defined(__x86_64__) || defined(__aarch64__)
     preloadLibs32 = tsanLib + ":" + preloadLibs32;
@@ -1107,12 +1107,10 @@ setLDPreloadLibs(bool is32bitElf, const char *targetPath)
     // Util::adjustRlimitStack do.  personality(0xffffffffUL) queries without
     // changing.
     int persona = personality(0xffffffffUL);
-    if (persona == -1 ||
-        personality((unsigned long)persona | ADDR_NO_RANDOMIZE) == -1) {
-      JWARNING(false) (JASSERT_ERRNO)
-        .Text("Could not disable ASLR for TSAN target; "
-              "run under `setarch -R` if TSAN aborts on startup.");
-    }
+    WARN_ERRNO(persona != -1 &&
+               personality((unsigned long)persona | ADDR_NO_RANDOMIZE) != -1,
+               "Could not disable ASLR for TSAN target; "
+               "run under `setarch -R` if TSAN aborts on startup.");
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
   }
 
