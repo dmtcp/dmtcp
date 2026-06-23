@@ -2194,6 +2194,12 @@ COMMAND_TESTS = (
         [sys.executable, "./autotest_test.py"],
     ),
     CommandTestSpec(
+        "dmtcp-cli",
+        "CLI option tests",
+        "harness",
+        [sys.executable, "./test_dmtcp_cli.py"],
+    ),
+    CommandTestSpec(
         "coordinator-synthetic",
         COORDINATOR_PROTOCOL_CATEGORY,
         "coordinator",
@@ -2210,6 +2216,7 @@ SUITE_ORDER = ("unit", "harness", "coordinator", "integration")
 COMMAND_CATEGORY_ORDER = (
     "Unit tests",
     "Harness tests",
+    "CLI option tests",
     COORDINATOR_PROTOCOL_CATEGORY,
 )
 COMMAND_INTEGRATION_CATEGORIES = frozenset({
