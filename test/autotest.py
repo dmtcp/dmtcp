@@ -1367,6 +1367,17 @@ def validate_restart_tmpdir(context: TestContext):
                               "restart-tmpdir")
 
 
+def validate_restart_ckptdir(context: TestContext):
+    restart_ckpt_dir = context.work.path / "restart-ckpt"
+    images = sorted(restart_ckpt_dir.glob("ckpt_*.dmtcp"))
+    if not images:
+        raise HarnessFailure(
+            "validate",
+            f"dmtcp_restart --ckptdir did not create a checkpoint image "
+            f"under {restart_ckpt_dir}",
+        )
+
+
 def wait_for_success_artifact(context: TestContext, env_name: str,
                               phase: str):
     path = pathlib.Path(context.env[env_name])
@@ -1501,6 +1512,7 @@ class TestRegistry:
         "checkpoint-header": "Checkpoint mechanics",
         "restart-debug-pause": "Checkpoint mechanics",
         "restart-no-strict-checking": "Checkpoint mechanics",
+        "restart-ckptdir-flag": "Checkpoint mechanics",
         "restart-tmpdir-flag": "Checkpoint mechanics",
         "ckptdir-flag": "Checkpoint mechanics",
         "ckpt-signal-flag": "Checkpoint mechanics",
@@ -1915,6 +1927,12 @@ class TestRegistry:
                      requirements=["real-worker"],
                      limits=["cycles=1"],
                      list_notes=["restart --no-strict-checking"]),
+            TestSpec("restart-ckptdir-flag", 1, ["./test/dmtcp1"],
+                     restart_args=["--ckptdir", "{workdir}/restart-ckpt"],
+                     post_run_validator=validate_restart_ckptdir,
+                     tags=["restart-options"],
+                     requirements=["real-worker"],
+                     list_notes=["restart --ckptdir"]),
             TestSpec("restart-tmpdir-flag", 1,
                      ["./test/restart-tmpdir"],
                      cycles=1,
