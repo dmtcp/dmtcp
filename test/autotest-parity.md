@@ -30,7 +30,7 @@ or executable-path checks enable them.
 
 | Group | Ported tests |
 | --- | --- |
-| Harness and command protocol | `command-json-bcheckpoint`, `command-json-kill`, `command-json-quit`, `coordinator-exit-on-last`, `coordinator-replacement-worker`, `coordinator-reject-restart-while-running` |
+| Harness and command protocol | `command-json-bcheckpoint`, `command-json-kill`, `command-json-quit`, `coordinator-exit-on-last`, `coordinator-replacement-worker`, `coordinator-reject-restart-while-running`, `join-coordinator-flag` |
 | Core smoke and process state | `dmtcp1`, `dmtcp1-m32`, `dmtcp1-quiet`, `dmtcp1-trace`, `dmtcp2`, `dmtcp3`, `dmtcp4`, `dmtcp5`, `alarm`, `sched_test`, `coordinator-barrier`, `gettid`, `sigchild`, `rlimit-restore`, `rlimit-nofile`, `environ`, `realpath`, `forkexec`, `vfork1`, `vfork2`, `frisbee`, `checkpoint-header`, `restart-debug-pause`, `restart-debug-pause-env`, `restart-no-strict-checking`, `restart-ckptdir-flag`, `restart-tmpdir-flag`, `ckptdir-flag`, `ckpt-signal-flag`, `checkpoint-dir-env`, `gzip-flag`, `no-gzip-flag`, `no-gzip-env`, `allow-file-overwrite`, `allow-file-overwrite-env`, `tmpdir-flag`, `tmpdir-env`, `checkpoint-interval-env`, `checkpoint-interval-flag`, `unique-ckpt-env`, `unique-ckpt-flag`, `selinux1`, `cma`, `waitpid`, `waitid-syscall` |
 | Logging | `logging-runtime`, `logging-quiet`, `logging-overrides` |
 | File, fd, and path behavior | `file1`, `file2`, `file3`, `stat`, `mmap1`, `mremap`, `zeropages`, `zeropages-pread`, `poll`, `shared-fd1`, `shared-fd2`, `stale-fd`, `procfd1`, `epoll1`, `epoll2`, `gzip` |
@@ -50,6 +50,7 @@ or executable-path checks enable them.
 | `coordinator-replacement-worker` | Ported with `cycles=0` | This validates that a real replacement worker can join after one live worker disconnects, without adding a checkpoint/restart cycle. |
 | `coordinator-reject-restart-while-running` | Ported with `cycles=0` | This validates coordinator rejection of a restart worker while the original computation is still running. It creates a checkpoint image first, then attempts `dmtcp_restart` before killing the original worker. |
 | `coordinator-barrier` | Ported with `cycles=1` | This is a focused real-worker cross-check for normal two-worker coordinator barrier release. |
+| `join-coordinator-flag` | Ported with `cycles=1` | This validates that launcher `--join-coordinator` joins the harness coordinator for a normal checkpoint/restart cycle. |
 | `checkpoint-open-files-env` | Ported with `cycles=1` | This validates the `DMTCP_CKPT_OPEN_FILES` equivalent of launcher `--checkpoint-open-files`. |
 | `checkpoint-header` | Ported with `cycles=1` | This validates the fixed bootstrap records in an uncompressed checkpoint image without adding a second restart cycle. |
 | `restart-debug-pause` | Ported with `cycles=1` | This validates that `dmtcp_restart --debug-restart-pause 1` pauses before the restarted worker rejoins the coordinator. The harness kills the paused restart after the bounded check so the suite cannot hang. |
