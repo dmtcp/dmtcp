@@ -215,6 +215,7 @@ class TestSpec:
     replace_worker_index: Optional[int] = None
     reject_restart_while_running: bool = False
     restart_pause_level: Optional[int] = None
+    expect_restart_pause: bool = False
     run_serial: bool = False
     post_restart_validator: Optional[Callable[["TestContext"], None]] = None
     post_run_validator: Optional[Callable[["TestContext"], None]] = None
@@ -847,7 +848,8 @@ class TestContext:
             f"restart-worker-{index}",
         )
         self.processes.append(proc)
-        if self.spec.restart_pause_level is not None:
+        if self.spec.restart_pause_level is not None or \
+                self.spec.expect_restart_pause:
             self._assert_restart_paused(proc)
             self._terminate_process_group(proc, f"restart-pause {proc.pid}")
             self._wait_for_status(0, False, "restart-pause")
@@ -1523,6 +1525,7 @@ class TestRegistry:
         "nocheckpoint": "Checkpoint mechanics",
         "checkpoint-header": "Checkpoint mechanics",
         "restart-debug-pause": "Checkpoint mechanics",
+        "restart-debug-pause-env": "Checkpoint mechanics",
         "restart-no-strict-checking": "Checkpoint mechanics",
         "restart-ckptdir-flag": "Checkpoint mechanics",
         "restart-tmpdir-flag": "Checkpoint mechanics",
@@ -2002,6 +2005,14 @@ class TestRegistry:
                      requirements=["real-worker"],
                      limits=["cycles=1"],
                      list_notes=["debug restart pause"]),
+            TestSpec("restart-debug-pause-env", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     env={"DMTCP_RESTART_PAUSE": "1"},
+                     expect_restart_pause=True,
+                     tags=["restart-debug", "runtime-env"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["DMTCP_RESTART_PAUSE=1"]),
             TestSpec("ckptdir-flag", 1,
                      ["--ckptdir {workdir}/launch-ckpt ./test/dmtcp1"],
                      cycles=1,
