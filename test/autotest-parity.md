@@ -51,6 +51,7 @@ or executable-path checks enable them.
 | `coordinator-reject-restart-while-running` | Ported with `cycles=0` | This validates coordinator rejection of a restart worker while the original computation is still running. It creates a checkpoint image first, then attempts `dmtcp_restart` before killing the original worker. |
 | `coordinator-barrier` | Ported with `cycles=1` | This is a focused real-worker cross-check for normal two-worker coordinator barrier release. |
 | `join-coordinator-flag` | Ported with `cycles=1` | This validates that launcher `--join-coordinator` joins the harness coordinator for a normal checkpoint/restart cycle. |
+| `checkpoint-open-files-alias` | Ported | This validates that launcher `--ckpt-open-files` behaves like `--checkpoint-open-files`. |
 | `checkpoint-open-files-env` | Ported with `cycles=1` | This validates the `DMTCP_CKPT_OPEN_FILES` equivalent of launcher `--checkpoint-open-files`. |
 | `checkpoint-header` | Ported with `cycles=1` | This validates the fixed bootstrap records in an uncompressed checkpoint image without adding a second restart cycle. |
 | `restart-debug-pause` | Ported with `cycles=1` | This validates that `dmtcp_restart --debug-restart-pause 1` pauses before the restarted worker rejoins the coordinator. The harness kills the paused restart after the bounded check so the suite cannot hang. |
