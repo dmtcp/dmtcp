@@ -2616,10 +2616,11 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "rlimit-nofile", "procfd1", "epoll1", "forkexec",
             "client-server", "seqpacket", "shared-memory1", "shared-memory2",
             "shared-memory3", "sysv-shm1", "sysv-shm2", "sysv-sem", "sysv-msg",
-            "syscall-tester", "checkpoint-open-files-env", "file2",
-            "presuspend", "plugin-sleep2", "plugin-init", "popen1",
-            "poll-disable-event-plugin", "pthread3", "restartdir", "pty1",
-            "pty2", "vfork1", "vfork2", "frisbee", "nocheckpoint",
+            "syscall-tester", "checkpoint-open-files-alias",
+            "checkpoint-open-files-env", "file2", "presuspend",
+            "plugin-sleep2", "plugin-init", "popen1",
+            "poll-disable-event-plugin", "pthread3", "restartdir",
+            "pty1", "pty2", "vfork1", "vfork2", "frisbee", "nocheckpoint",
             "checkpoint-header", "restart-debug-pause",
             "restart-debug-pause-env",
             "restart-no-strict-checking", "restart-no-strict-checking-env",
@@ -2643,6 +2644,14 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(syscall_tester.checkpoint_command, "--kcheckpoint")
         self.assertEqual(syscall_tester.commands,
                          ["--checkpoint-open-files ./test/syscall-tester"])
+        checkpoint_open_files_alias = REGISTRY.get_test(
+            "checkpoint-open-files-alias")
+        self.assertEqual(checkpoint_open_files_alias.checkpoint_command,
+                         "--kcheckpoint")
+        self.assertEqual(checkpoint_open_files_alias.commands,
+                         ["--ckpt-open-files ./test/syscall-tester"])
+        self.assertIn("checkpoint-open-files",
+                      checkpoint_open_files_alias.requirements)
         checkpoint_open_files_env = REGISTRY.get_test(
             "checkpoint-open-files-env")
         self.assertEqual(checkpoint_open_files_env.checkpoint_command,
