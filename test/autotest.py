@@ -1396,6 +1396,14 @@ def validate_allow_file_overwrite_restart(context: TestContext):
                               "allow-file-overwrite")
 
 
+def validate_auto_checkpoint_interval(context: TestContext):
+    if not context._checkpoint_images():
+        raise HarnessFailure(
+            "validate",
+            "DMTCP_CHECKPOINT_INTERVAL did not create a checkpoint image",
+        )
+
+
 class TestRegistry:
     DISABLED_CATEGORY = "Disabled tests"
 
@@ -2007,6 +2015,15 @@ class TestRegistry:
                      requirements=["real-worker"],
                      limits=["cycles=1"],
                      list_notes=["DMTCP_TMPDIR"]),
+            TestSpec("checkpoint-interval-env", 1, ["./test/dmtcp1"],
+                     cycles=0,
+                     post_launch_delay=4.0,
+                     env={"DMTCP_CHECKPOINT_INTERVAL": "1"},
+                     post_run_validator=validate_auto_checkpoint_interval,
+                     tags=["runtime-env"],
+                     requirements=["real-worker"],
+                     limits=["cycles=0"],
+                     list_notes=["DMTCP_CHECKPOINT_INTERVAL"]),
             TestSpec("unique-ckpt-env", 1, ["./test/dmtcp1"],
                      cycles=1,
                      env={"DMTCP_UNIQUE_CKPT_PLUGIN": "1"},
