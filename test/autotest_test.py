@@ -2627,7 +2627,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "checkpoint-dir-env", "no-gzip-flag", "no-gzip-env",
             "allow-file-overwrite", "allow-file-overwrite-env",
             "tmpdir-flag", "tmpdir-env", "checkpoint-interval-env",
-            "unique-ckpt-env",
+            "checkpoint-interval-flag", "unique-ckpt-env",
             "unique-ckpt-flag",
             "modify-env", "pathvirt",
             "coordinator-exit-on-last", "command-json-bcheckpoint",
@@ -2753,6 +2753,12 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(checkpoint_interval.cycles, 0)
         self.assertIn("cycles=0", checkpoint_interval.limits)
         self.assertIsNotNone(checkpoint_interval.post_run_validator)
+        checkpoint_interval_flag = REGISTRY.get_test(
+            "checkpoint-interval-flag")
+        self.assertIn("--interval 1", checkpoint_interval_flag.commands[0])
+        self.assertEqual(checkpoint_interval_flag.cycles, 0)
+        self.assertIn("cycles=0", checkpoint_interval_flag.limits)
+        self.assertIsNotNone(checkpoint_interval_flag.post_run_validator)
         unique_flag = REGISTRY.get_test("unique-ckpt-flag")
         self.assertIn("--enable-unique-checkpoint-filenames",
                       unique_flag.commands[0])
