@@ -476,6 +476,13 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
             finally:
                 worker.stop()
 
+    def test_interval_flag_sets_status_checkpoint_interval(self):
+        with CoordinatorFixture(extra_args=["--interval", "7"]) as coordinator:
+            status = self.coordinator_status(coordinator.port)
+
+            self.assertCommandSuccess(status)
+            self.assertEqual(status["checkpoint_interval"], 7)
+
     def test_status_file_is_written_at_startup(self):
         with tempfile.TemporaryDirectory(prefix="dmtcp-status-file-") as tmp:
             status_file = pathlib.Path(tmp) / "coordinator.status"
