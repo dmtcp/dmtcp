@@ -60,6 +60,7 @@ or executable-path checks enable them.
 | `ckpt-signal-flag` | Ported with `cycles=1` | This validates that launcher `--ckpt-signal` works for a normal checkpoint/restart cycle. |
 | `checkpoint-dir-env` | Ported with `cycles=1` | This validates that `DMTCP_CHECKPOINT_DIR` writes checkpoint images under the requested directory. |
 | `gzip-flag` | Ported with `cycles=1`, disabled on AArch64 | This validates that explicit launcher `--gzip` creates a gzip checkpoint image where the platform supports gzip checkpoints. AArch64 is blocked because `dmtcp_launch` forces gzip off there. |
+| `gzip` | Ported with `cycles=1`, disabled on AArch64 | This validates that `DMTCP_GZIP=1` creates a gzip checkpoint image where the platform supports gzip checkpoints. AArch64 is blocked because `dmtcp_launch` forces gzip off there. |
 | `no-gzip-flag` | Ported with `cycles=1` | This validates that explicit launcher `--no-gzip` creates a plain checkpoint image. |
 | `no-gzip-env` | Ported with `cycles=1` | This validates that `DMTCP_GZIP=0` creates a plain checkpoint image. |
 | `allow-file-overwrite` | Ported with `cycles=1` | This validates that launcher `--allow-file-overwrite` restores checkpointed open-file contents when the on-disk file changes before restart. |
