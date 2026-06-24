@@ -2869,8 +2869,12 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         if "pthread_atfork1" in names:
             atfork = REGISTRY.get_test("pthread_atfork1")
             self.assertIn(f"{ROOT}/test", atfork.library_paths)
-        for name in ("waitpid", "waitid-syscall", "gzip", "bash"):
+        for name in ("waitpid", "waitid-syscall", "bash"):
             assert_registered_unless_m32_disabled(self, names, name)
+        if getattr(autotest_config, "AARCH64_HOST", "no") == "yes":
+            self.assertNotIn("gzip", names)
+        else:
+            assert_registered_unless_m32_disabled(self, names, "gzip")
         if getattr(autotest_config, "AARCH64_HOST", "no") == "yes":
             self.assertNotIn("perl", names)
         else:
@@ -2891,6 +2895,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         if "gzip" in names:
             gzip = REGISTRY.get_test("gzip")
             self.assertEqual(gzip.env["DMTCP_GZIP"], "1")
+            self.assertTrue(gzip.expect_checkpoint_gzip)
+            self.assertEqual(gzip.blocked_configure_flags, ["AARCH64_HOST"])
         if autotest_config.HAS_JAVA == "yes" and \
                 autotest_config.HAS_JAVAC == "yes" and \
                 (ROOT / "test/java1.class").exists():
