@@ -2616,7 +2616,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "nocheckpoint", "checkpoint-header", "restart-debug-pause",
             "restart-no-strict-checking", "restart-tmpdir-flag",
             "ckptdir-flag", "ckpt-signal-flag", "no-gzip-flag",
-            "allow-file-overwrite", "tmpdir-env",
+            "allow-file-overwrite", "tmpdir-flag", "tmpdir-env",
             "checkpoint-interval-env", "unique-ckpt-env",
             "unique-ckpt-flag",
             "modify-env", "pathvirt",
@@ -2684,6 +2684,13 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                       allow_overwrite.post_checkpoint_files)
         self.assertIsNotNone(allow_overwrite.post_restart_validator)
         self.assertIn("cycles=1", allow_overwrite.limits)
+        tmpdir_flag = REGISTRY.get_test("tmpdir-flag")
+        self.assertIn("--tmpdir {workdir}/launch-tmp",
+                      tmpdir_flag.commands[0])
+        self.assertEqual(tmpdir_flag.cycles, 0)
+        self.assertIn("DMTCP_TMPDIR_TEST_ROOT", tmpdir_flag.env)
+        self.assertIsNotNone(tmpdir_flag.post_run_validator)
+        self.assertIn("cycles=0", tmpdir_flag.limits)
         unique_env = REGISTRY.get_test("unique-ckpt-env")
         self.assertEqual(unique_env.env["DMTCP_UNIQUE_CKPT_PLUGIN"], "1")
         checkpoint_interval = REGISTRY.get_test("checkpoint-interval-env")

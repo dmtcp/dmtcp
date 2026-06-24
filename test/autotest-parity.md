@@ -31,7 +31,7 @@ or executable-path checks enable them.
 | Group | Ported tests |
 | --- | --- |
 | Harness and command protocol | `command-json-bcheckpoint`, `command-json-kill`, `command-json-quit`, `coordinator-exit-on-last`, `coordinator-replacement-worker`, `coordinator-reject-restart-while-running` |
-| Core smoke and process state | `dmtcp1`, `dmtcp1-m32`, `dmtcp1-quiet`, `dmtcp1-trace`, `dmtcp2`, `dmtcp3`, `dmtcp4`, `dmtcp5`, `alarm`, `sched_test`, `coordinator-barrier`, `gettid`, `sigchild`, `rlimit-restore`, `rlimit-nofile`, `environ`, `realpath`, `forkexec`, `vfork1`, `vfork2`, `frisbee`, `checkpoint-header`, `restart-debug-pause`, `restart-no-strict-checking`, `restart-tmpdir-flag`, `ckptdir-flag`, `ckpt-signal-flag`, `gzip-flag`, `no-gzip-flag`, `allow-file-overwrite`, `tmpdir-env`, `checkpoint-interval-env`, `unique-ckpt-env`, `unique-ckpt-flag`, `selinux1`, `cma`, `waitpid`, `waitid-syscall` |
+| Core smoke and process state | `dmtcp1`, `dmtcp1-m32`, `dmtcp1-quiet`, `dmtcp1-trace`, `dmtcp2`, `dmtcp3`, `dmtcp4`, `dmtcp5`, `alarm`, `sched_test`, `coordinator-barrier`, `gettid`, `sigchild`, `rlimit-restore`, `rlimit-nofile`, `environ`, `realpath`, `forkexec`, `vfork1`, `vfork2`, `frisbee`, `checkpoint-header`, `restart-debug-pause`, `restart-no-strict-checking`, `restart-tmpdir-flag`, `ckptdir-flag`, `ckpt-signal-flag`, `gzip-flag`, `no-gzip-flag`, `allow-file-overwrite`, `tmpdir-flag`, `tmpdir-env`, `checkpoint-interval-env`, `unique-ckpt-env`, `unique-ckpt-flag`, `selinux1`, `cma`, `waitpid`, `waitid-syscall` |
 | Logging | `logging-runtime`, `logging-quiet`, `logging-overrides` |
 | File, fd, and path behavior | `file1`, `file2`, `file3`, `stat`, `mmap1`, `mremap`, `poll`, `shared-fd1`, `shared-fd2`, `stale-fd`, `procfd1`, `epoll1`, `epoll2`, `gzip` |
 | Threads and synchronization | `pthread1`, `pthread2`, `pthread3`, `pthread4`, `pthread5`, `pthread6`, `pthread_atfork1`, `pthread_atfork2`, `mutex1`, `mutex2`, `mutex3`, `mutex4`, `timer1`, `clock`, `gettimeofday` |
@@ -59,6 +59,7 @@ or executable-path checks enable them.
 | `gzip-flag` | Ported with `cycles=1`, disabled on AArch64 | This validates that explicit launcher `--gzip` creates a gzip checkpoint image where the platform supports gzip checkpoints. AArch64 is blocked because `dmtcp_launch` forces gzip off there. |
 | `no-gzip-flag` | Ported with `cycles=1` | This validates that explicit launcher `--no-gzip` creates a plain checkpoint image. |
 | `allow-file-overwrite` | Ported with `cycles=1` | This validates that launcher `--allow-file-overwrite` restores checkpointed open-file contents when the on-disk file changes before restart. |
+| `tmpdir-flag` | Ported with `cycles=0` | This validates that launcher `--tmpdir` changes DMTCP's runtime tmpdir root without adding a checkpoint/restart cycle. |
 | `tmpdir-env` | Ported with `cycles=1` | This validates that `DMTCP_TMPDIR` can point at a private per-test directory. |
 | `checkpoint-interval-env` | Ported with `cycles=0` | This validates that `DMTCP_CHECKPOINT_INTERVAL` creates an automatic checkpoint image without a manual checkpoint command. |
 | `unique-ckpt-env` | Ported with `cycles=1` | This validates that `DMTCP_UNIQUE_CKPT_PLUGIN=1` places checkpoint images in unique checkpoint subdirectories. |

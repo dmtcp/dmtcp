@@ -1357,6 +1357,11 @@ def validate_tmpdir_is_private(context: TestContext):
         raise HarnessFailure("validate", f"tmpdir escaped workdir: {tmpdir}")
 
 
+def validate_tmpdir_flag(context: TestContext):
+    wait_for_success_artifact(context, "DMTCP_TMPDIR_SUCCESS_FILE",
+                              "tmpdir-flag")
+
+
 def validate_restart_tmpdir(context: TestContext):
     wait_for_success_artifact(context, "DMTCP_RESTART_TMPDIR_SUCCESS_FILE",
                               "restart-tmpdir")
@@ -1501,6 +1506,7 @@ class TestRegistry:
         "ckpt-signal-flag": "Checkpoint mechanics",
         "gzip-flag": "Checkpoint mechanics",
         "no-gzip-flag": "Checkpoint mechanics",
+        "tmpdir-flag": "Checkpoint mechanics",
         "tmpdir-env": "Checkpoint mechanics",
         "unique-ckpt-env": "Checkpoint mechanics",
         "unique-ckpt-flag": "Checkpoint mechanics",
@@ -2015,6 +2021,21 @@ class TestRegistry:
                      requirements=["real-worker"],
                      limits=["cycles=1"],
                      list_notes=["DMTCP_TMPDIR"]),
+            TestSpec("tmpdir-flag", 1,
+                     ["--tmpdir {workdir}/launch-tmp ./test/tmpdir"],
+                     cycles=0,
+                     post_launch_delay=1.0,
+                     env={
+                         "DMTCP_TMPDIR_TEST_ROOT":
+                         "{workdir}/launch-tmp",
+                         "DMTCP_TMPDIR_SUCCESS_FILE":
+                         "{workdir}/tmpdir.success",
+                     },
+                     post_run_validator=validate_tmpdir_flag,
+                     tags=["launcher-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=0"],
+                     list_notes=["launcher --tmpdir"]),
             TestSpec("checkpoint-interval-env", 1, ["./test/dmtcp1"],
                      cycles=0,
                      post_launch_delay=4.0,
