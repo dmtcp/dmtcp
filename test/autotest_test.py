@@ -2626,7 +2626,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "restart-debug-pause-env",
             "restart-no-strict-checking", "restart-no-strict-checking-env",
             "restart-ckptdir-flag", "restart-tmpdir-flag",
-            "ckptdir-flag", "ckpt-signal-flag",
+            "ckptdir-flag", "ckpt-signal-flag", "ckpt-signal-env",
             "checkpoint-dir-env", "no-gzip-flag", "no-gzip-env",
             "allow-file-overwrite", "allow-file-overwrite-env",
             "tmpdir-flag", "tmpdir-env", "checkpoint-interval-env",
@@ -2730,6 +2730,10 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertIn("--ckptdir {workdir}/launch-ckpt",
                       ckptdir.commands[0])
         self.assertFalse(ckptdir.expect_checkpoint_gzip)
+        ckpt_signal_env = REGISTRY.get_test("ckpt-signal-env")
+        self.assertEqual(ckpt_signal_env.env["DMTCP_SIGCKPT"], "10")
+        self.assertIn("runtime-env", ckpt_signal_env.tags)
+        self.assertIn("cycles=1", ckpt_signal_env.limits)
         checkpoint_dir_env = REGISTRY.get_test("checkpoint-dir-env")
         self.assertEqual(
             checkpoint_dir_env.env["DMTCP_CHECKPOINT_DIR"],
