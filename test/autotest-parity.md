@@ -36,7 +36,7 @@ or executable-path checks enable them.
 | File, fd, and path behavior | `file1`, `file2`, `file3`, `stat`, `mmap1`, `mremap`, `poll`, `shared-fd1`, `shared-fd2`, `stale-fd`, `procfd1`, `epoll1`, `epoll2`, `gzip` |
 | Threads and synchronization | `pthread1`, `pthread2`, `pthread3`, `pthread4`, `pthread5`, `pthread6`, `pthread_atfork1`, `pthread_atfork2`, `mutex1`, `mutex2`, `mutex3`, `mutex4`, `timer1`, `clock`, `gettimeofday` |
 | IPC, sockets, and PTY smoke | `client-server`, `seqpacket`, `ssh1`, `shared-memory1`, `shared-memory2`, `shared-memory3`, `sysv-shm1`, `sysv-shm2`, `sysv-sem`, `sysv-msg`, `posix-mq1`, `posix-mq-close-untracked`, `pty1`, `pty2` |
-| Plugins and events | `dlopen1`, `dlopen2`, `syscall-tester`, `presuspend`, `plugin-sleep2`, `plugin-example-db`, `plugin-init`, `modify-env`, `pathvirt`, `poll-disable-event-plugin`, `popen1`, `restartdir`, `nocheckpoint` |
+| Plugins and events | `dlopen1`, `dlopen2`, `syscall-tester`, `checkpoint-open-files-env`, `presuspend`, `plugin-sleep2`, `plugin-example-db`, `plugin-init`, `modify-env`, `pathvirt`, `poll-disable-event-plugin`, `popen1`, `restartdir`, `nocheckpoint` |
 | Shells, terminal apps, and language/runtime smoke | `perl`, `python`, `bash`, `dash`, `zsh`, `readline`, `tcsh`, `script`, `vim`, `emacs`, `screen`, `java1`, `cilk1`, `matlab-nodisplay`, `openmp-1`, `openmp-2` |
 | MPI smoke | `hellompich-n1`, `hellompich-n2`, `openmpi` |
 
@@ -50,6 +50,7 @@ or executable-path checks enable them.
 | `coordinator-replacement-worker` | Ported with `cycles=0` | This validates that a real replacement worker can join after one live worker disconnects, without adding a checkpoint/restart cycle. |
 | `coordinator-reject-restart-while-running` | Ported with `cycles=0` | This validates coordinator rejection of a restart worker while the original computation is still running. It creates a checkpoint image first, then attempts `dmtcp_restart` before killing the original worker. |
 | `coordinator-barrier` | Ported with `cycles=1` | This is a focused real-worker cross-check for normal two-worker coordinator barrier release. |
+| `checkpoint-open-files-env` | Ported with `cycles=1` | This validates the `DMTCP_CKPT_OPEN_FILES` equivalent of launcher `--checkpoint-open-files`. |
 | `checkpoint-header` | Ported with `cycles=1` | This validates the fixed bootstrap records in an uncompressed checkpoint image without adding a second restart cycle. |
 | `restart-debug-pause` | Ported with `cycles=1` | This validates that `dmtcp_restart --debug-restart-pause 1` pauses before the restarted worker rejoins the coordinator. The harness kills the paused restart after the bounded check so the suite cannot hang. |
 | `restart-no-strict-checking` | Ported with `cycles=1` | This validates that `dmtcp_restart --no-strict-checking` is accepted during a normal restart flow. |

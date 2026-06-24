@@ -2610,10 +2610,11 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "rlimit-nofile", "procfd1", "epoll1", "forkexec",
             "client-server", "seqpacket", "shared-memory1", "shared-memory2",
             "shared-memory3", "sysv-shm1", "sysv-shm2", "sysv-sem", "sysv-msg",
-            "syscall-tester", "file2", "presuspend", "plugin-sleep2",
-            "plugin-init", "popen1", "poll-disable-event-plugin", "pthread3",
-            "restartdir", "pty1", "pty2", "vfork1", "vfork2", "frisbee",
-            "nocheckpoint", "checkpoint-header", "restart-debug-pause",
+            "syscall-tester", "checkpoint-open-files-env", "file2",
+            "presuspend", "plugin-sleep2", "plugin-init", "popen1",
+            "poll-disable-event-plugin", "pthread3", "restartdir", "pty1",
+            "pty2", "vfork1", "vfork2", "frisbee", "nocheckpoint",
+            "checkpoint-header", "restart-debug-pause",
             "restart-no-strict-checking", "restart-ckptdir-flag",
             "restart-tmpdir-flag", "ckptdir-flag", "ckpt-signal-flag",
             "checkpoint-dir-env", "no-gzip-flag", "allow-file-overwrite",
@@ -2632,6 +2633,16 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(syscall_tester.checkpoint_command, "--kcheckpoint")
         self.assertEqual(syscall_tester.commands,
                          ["--checkpoint-open-files ./test/syscall-tester"])
+        checkpoint_open_files_env = REGISTRY.get_test(
+            "checkpoint-open-files-env")
+        self.assertEqual(checkpoint_open_files_env.checkpoint_command,
+                         "--kcheckpoint")
+        self.assertEqual(checkpoint_open_files_env.commands,
+                         ["./test/syscall-tester"])
+        self.assertEqual(checkpoint_open_files_env.env["DMTCP_CKPT_OPEN_FILES"],
+                         "1")
+        self.assertIn("DMTCP_CKPT_OPEN_FILES",
+                      checkpoint_open_files_env.list_notes)
         coordinator_barrier = REGISTRY.get_test("coordinator-barrier")
         self.assertEqual(coordinator_barrier.category,
                          "Coordinator protocol tests")
