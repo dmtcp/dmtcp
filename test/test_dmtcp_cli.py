@@ -119,6 +119,8 @@ class DmtcpCliTest(unittest.TestCase):
                     str(BIN / "dmtcp_launch"),
                     "--quiet",
                     "--new-coordinator",
+                    "--coord-host",
+                    "localhost",
                     "--coord-port",
                     "0",
                     "--port-file",
@@ -141,6 +143,7 @@ class DmtcpCliTest(unittest.TestCase):
                 while time.time() < deadline:
                     result = run_tool(
                         "dmtcp_command", "--json",
+                        "--coord-host", "localhost",
                         "--coord-port", str(port),
                         "--status",
                     )
@@ -154,15 +157,16 @@ class DmtcpCliTest(unittest.TestCase):
                     self.fail(f"worker did not join coordinator: "
                               f"{last_status}")
 
+                self.assertEqual(last_status["coordinator_host"], "localhost")
                 self.assertEqual(last_status["coordinator_port"], port)
                 self.assertEqual(last_status["num_peers"], 1)
                 self.assertTrue(last_status["running"])
             finally:
                 if port is not None:
-                    run_tool("dmtcp_command", "--coord-port", str(port),
-                             "--kill")
-                    run_tool("dmtcp_command", "--coord-port", str(port),
-                             "--quit")
+                    run_tool("dmtcp_command", "--coord-host", "localhost",
+                             "--coord-port", str(port), "--kill")
+                    run_tool("dmtcp_command", "--coord-host", "localhost",
+                             "--coord-port", str(port), "--quit")
                 if proc.poll() is None:
                     try:
                         os.killpg(proc.pid, signal.SIGTERM)
