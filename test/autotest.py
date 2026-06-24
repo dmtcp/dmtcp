@@ -1551,6 +1551,7 @@ class TestRegistry:
         "plugin-sleep2": "Plugin behavior",
         "plugin-example-db": "Plugin behavior",
         "plugin-init": "Plugin behavior",
+        "plugin-init-env": "Plugin behavior",
         "modify-env": "Plugin behavior",
         "pathvirt": "Plugin behavior",
         "poll-disable-event-plugin": "Plugin behavior",
@@ -1963,6 +1964,13 @@ class TestRegistry:
                          f"--with-plugin {ROOT}/test/"
                          "libdmtcp_plugin-init.so ./test/dmtcp1"
                      ]),
+            TestSpec("plugin-init-env", 1, ["./test/dmtcp1"],
+                     env={
+                         "DMTCP_PLUGIN":
+                         f"{ROOT}/test/libdmtcp_plugin-init.so",
+                     },
+                     tags=["plugin", "runtime-env"],
+                     list_notes=["DMTCP_PLUGIN"]),
             TestSpec("modify-env", 1, ["--modify-env ./test/modify-env1"],
                      cycles=1,
                      env={
