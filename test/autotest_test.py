@@ -2625,7 +2625,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "checkpoint-header", "restart-debug-pause",
             "restart-debug-pause-env",
             "restart-no-strict-checking", "restart-no-strict-checking-env",
-            "restart-ckptdir-flag", "restart-tmpdir-flag",
+            "restart-ckptdir-flag", "restart-join-coordinator-flag",
+            "restart-tmpdir-flag",
             "ckptdir-flag", "ckpt-signal-flag", "ckpt-signal-env",
             "checkpoint-dir-env", "no-gzip-flag", "no-gzip-env",
             "allow-file-overwrite", "allow-file-overwrite-env",
@@ -2720,6 +2721,10 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(restart_ckptdir.cycles, 2)
         self.assertIsNotNone(restart_ckptdir.post_run_validator)
         self.assertIn("restart-options", restart_ckptdir.tags)
+        restart_join = REGISTRY.get_test("restart-join-coordinator-flag")
+        self.assertEqual(restart_join.restart_args, ["--join-coordinator"])
+        self.assertEqual(restart_join.cycles, 1)
+        self.assertIn("restart-options", restart_join.tags)
         restart_tmpdir = REGISTRY.get_test("restart-tmpdir-flag")
         self.assertEqual(restart_tmpdir.restart_args,
                          ["--tmpdir", "{workdir}/restart-tmp"])
