@@ -1531,6 +1531,7 @@ class TestRegistry:
         "checkpoint-dir-env": "Checkpoint mechanics",
         "gzip-flag": "Checkpoint mechanics",
         "no-gzip-flag": "Checkpoint mechanics",
+        "no-gzip-env": "Checkpoint mechanics",
         "allow-file-overwrite": "Checkpoint mechanics",
         "allow-file-overwrite-env": "Checkpoint mechanics",
         "tmpdir-flag": "Checkpoint mechanics",
@@ -2040,6 +2041,14 @@ class TestRegistry:
                      requirements=["real-worker"],
                      limits=["cycles=1"],
                      list_notes=["launcher --no-gzip"]),
+            TestSpec("no-gzip-env", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     env={"DMTCP_GZIP": "0"},
+                     expect_checkpoint_gzip=False,
+                     tags=["runtime-env"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["DMTCP_GZIP=0"]),
             TestSpec("allow-file-overwrite", 1,
                      [
                          "--checkpoint-open-files --allow-file-overwrite "

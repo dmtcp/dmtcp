@@ -2617,9 +2617,10 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "checkpoint-header", "restart-debug-pause",
             "restart-no-strict-checking", "restart-ckptdir-flag",
             "restart-tmpdir-flag", "ckptdir-flag", "ckpt-signal-flag",
-            "checkpoint-dir-env", "no-gzip-flag", "allow-file-overwrite",
-            "allow-file-overwrite-env", "tmpdir-flag", "tmpdir-env",
-            "checkpoint-interval-env", "unique-ckpt-env",
+            "checkpoint-dir-env", "no-gzip-flag", "no-gzip-env",
+            "allow-file-overwrite", "allow-file-overwrite-env",
+            "tmpdir-flag", "tmpdir-env", "checkpoint-interval-env",
+            "unique-ckpt-env",
             "unique-ckpt-flag",
             "modify-env", "pathvirt",
             "coordinator-exit-on-last", "command-json-bcheckpoint",
@@ -2702,6 +2703,10 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         no_gzip = REGISTRY.get_test("no-gzip-flag")
         self.assertIn("--no-gzip", no_gzip.commands[0])
         self.assertFalse(no_gzip.expect_checkpoint_gzip)
+        no_gzip_env = REGISTRY.get_test("no-gzip-env")
+        self.assertEqual(no_gzip_env.env["DMTCP_GZIP"], "0")
+        self.assertFalse(no_gzip_env.expect_checkpoint_gzip)
+        self.assertIn("cycles=1", no_gzip_env.limits)
         allow_overwrite = REGISTRY.get_test("allow-file-overwrite")
         self.assertIn("--allow-file-overwrite",
                       allow_overwrite.commands[0])
