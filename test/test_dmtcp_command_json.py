@@ -170,6 +170,22 @@ class DmtcpCommandJsonTest(unittest.TestCase):
         self.assertNotIn("type", payload)
         self.assertEqual(payload["command_status"], "DMT_COORD_SUCCESS")
 
+    def test_help_aliases_command_json_report_success(self):
+        for command in ("-h", "h", "?"):
+            with self.subTest(command=command):
+                result = self.run_command("--json", command)
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stderr, "")
+                payload = DmtcpCommandJson.parse(result.stdout)
+                self.assertEqual(payload["schema_version"], 1)
+                self.assertEqual(payload["command"], "DMT_HELP")
+                self.assertNotIn("phase", payload)
+                self.assertNotIn("ok", payload)
+                self.assertNotIn("type", payload)
+                self.assertEqual(payload["command_status"],
+                                 "DMT_COORD_SUCCESS")
+
     def test_version_command_json_reports_success(self):
         result = self.run_command("--json", "--version")
 
@@ -240,6 +256,20 @@ class DmtcpCommandJsonTest(unittest.TestCase):
         self.assertNotIn("ok", payload)
         self.assertNotIn("type", payload)
         self.assertEqual(payload["command_status"], "DMT_COORD_NOT_FOUND")
+
+    def test_missing_interval_value_json_reports_invalid_command(self):
+        result = self.run_command("--json", "--interval")
+
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stderr, "")
+        payload = DmtcpCommandJson.parse(result.stdout)
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["command"], "DMT_INVALID_COORDINATOR_COMMAND")
+        self.assertNotIn("phase", payload)
+        self.assertNotIn("ok", payload)
+        self.assertNotIn("type", payload)
+        self.assertEqual(payload["command_status"],
+                         "DMT_COORD_INVALID_COMMAND")
 
     def test_status_json_reports_reachable_coordinator_status(self):
         with CoordinatorFixture() as coordinator:
