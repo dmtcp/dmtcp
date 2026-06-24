@@ -137,6 +137,12 @@ class DmtcpCliTest(unittest.TestCase):
             ],
         )
 
+    def test_launch_version_reports_dmtcp_version(self):
+        result = run_tool("dmtcp_launch", "--version")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertRegex(result.stdout, r"dmtcp_launch \(DMTCP\) \d+\.\d+")
+
     def test_restart_version_reports_dmtcp_version(self):
         result = run_tool("dmtcp_restart", "--version")
 
