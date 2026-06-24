@@ -1378,6 +1378,17 @@ def validate_restart_ckptdir(context: TestContext):
         )
 
 
+def validate_checkpoint_dir_env(context: TestContext):
+    env_ckpt_dir = context.work.path / "env-ckpt"
+    images = sorted(env_ckpt_dir.glob("ckpt_*.dmtcp"))
+    if not images:
+        raise HarnessFailure(
+            "validate",
+            f"DMTCP_CHECKPOINT_DIR did not create a checkpoint image "
+            f"under {env_ckpt_dir}",
+        )
+
+
 def wait_for_success_artifact(context: TestContext, env_name: str,
                               phase: str):
     path = pathlib.Path(context.env[env_name])
@@ -1516,6 +1527,7 @@ class TestRegistry:
         "restart-tmpdir-flag": "Checkpoint mechanics",
         "ckptdir-flag": "Checkpoint mechanics",
         "ckpt-signal-flag": "Checkpoint mechanics",
+        "checkpoint-dir-env": "Checkpoint mechanics",
         "gzip-flag": "Checkpoint mechanics",
         "no-gzip-flag": "Checkpoint mechanics",
         "tmpdir-flag": "Checkpoint mechanics",
@@ -1995,6 +2007,14 @@ class TestRegistry:
                      requirements=["real-worker"],
                      limits=["cycles=1"],
                      list_notes=["launcher --ckpt-signal"]),
+            TestSpec("checkpoint-dir-env", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     env={"DMTCP_CHECKPOINT_DIR": "{workdir}/env-ckpt"},
+                     post_run_validator=validate_checkpoint_dir_env,
+                     tags=["runtime-env"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["DMTCP_CHECKPOINT_DIR"]),
             TestSpec("gzip-flag", 1, ["--gzip ./test/dmtcp1"],
                      cycles=1,
                      expect_checkpoint_gzip=True,

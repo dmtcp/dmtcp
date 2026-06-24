@@ -2616,8 +2616,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "nocheckpoint", "checkpoint-header", "restart-debug-pause",
             "restart-no-strict-checking", "restart-ckptdir-flag",
             "restart-tmpdir-flag", "ckptdir-flag", "ckpt-signal-flag",
-            "no-gzip-flag", "allow-file-overwrite", "tmpdir-flag",
-            "tmpdir-env",
+            "checkpoint-dir-env", "no-gzip-flag", "allow-file-overwrite",
+            "tmpdir-flag", "tmpdir-env",
             "checkpoint-interval-env", "unique-ckpt-env",
             "unique-ckpt-flag",
             "modify-env", "pathvirt",
@@ -2681,6 +2681,13 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertIn("--ckptdir {workdir}/launch-ckpt",
                       ckptdir.commands[0])
         self.assertFalse(ckptdir.expect_checkpoint_gzip)
+        checkpoint_dir_env = REGISTRY.get_test("checkpoint-dir-env")
+        self.assertEqual(
+            checkpoint_dir_env.env["DMTCP_CHECKPOINT_DIR"],
+            "{workdir}/env-ckpt",
+        )
+        self.assertIsNotNone(checkpoint_dir_env.post_run_validator)
+        self.assertIn("cycles=1", checkpoint_dir_env.limits)
         no_gzip = REGISTRY.get_test("no-gzip-flag")
         self.assertIn("--no-gzip", no_gzip.commands[0])
         self.assertFalse(no_gzip.expect_checkpoint_gzip)
