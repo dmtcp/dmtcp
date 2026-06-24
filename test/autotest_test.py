@@ -2622,8 +2622,9 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "pty2", "vfork1", "vfork2", "frisbee", "nocheckpoint",
             "checkpoint-header", "restart-debug-pause",
             "restart-debug-pause-env",
-            "restart-no-strict-checking", "restart-ckptdir-flag",
-            "restart-tmpdir-flag", "ckptdir-flag", "ckpt-signal-flag",
+            "restart-no-strict-checking", "restart-no-strict-checking-env",
+            "restart-ckptdir-flag", "restart-tmpdir-flag",
+            "ckptdir-flag", "ckpt-signal-flag",
             "checkpoint-dir-env", "no-gzip-flag", "no-gzip-env",
             "allow-file-overwrite", "allow-file-overwrite-env",
             "tmpdir-flag", "tmpdir-env", "checkpoint-interval-env",
@@ -2695,6 +2696,14 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(restart_no_strict.restart_args,
                          ["--no-strict-checking"])
         self.assertIn("restart-options", restart_no_strict.tags)
+        restart_no_strict_env = REGISTRY.get_test(
+            "restart-no-strict-checking-env")
+        self.assertEqual(
+            restart_no_strict_env.env["DMTCP_DISABLE_STRICT_CHECKING"],
+            "1",
+        )
+        self.assertIn("runtime-env", restart_no_strict_env.tags)
+        self.assertIn("cycles=1", restart_no_strict_env.limits)
         restart_ckptdir = REGISTRY.get_test("restart-ckptdir-flag")
         self.assertEqual(restart_ckptdir.restart_args,
                          ["--ckptdir", "{workdir}/restart-ckpt"])
