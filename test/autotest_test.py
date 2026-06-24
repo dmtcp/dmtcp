@@ -2618,7 +2618,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "shared-memory3", "sysv-shm1", "sysv-shm2", "sysv-sem", "sysv-msg",
             "syscall-tester", "checkpoint-open-files-alias",
             "checkpoint-open-files-env", "file2", "presuspend",
-            "plugin-sleep2", "plugin-init", "popen1",
+            "plugin-sleep2", "plugin-init", "plugin-init-env", "popen1",
             "poll-disable-event-plugin", "poll-disable-event-plugin-env",
             "pthread3", "restartdir", "pty1", "pty2", "vfork1", "vfork2",
             "frisbee", "nocheckpoint",
@@ -2801,6 +2801,10 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                       unique_disable.commands[0])
         self.assertEqual(unique_disable.env["DMTCP_UNIQUE_CKPT_PLUGIN"], "1")
         self.assertIsNotNone(unique_disable.post_run_validator)
+        plugin_init_env = REGISTRY.get_test("plugin-init-env")
+        self.assertIn("libdmtcp_plugin-init.so",
+                      plugin_init_env.env["DMTCP_PLUGIN"])
+        self.assertIn("runtime-env", plugin_init_env.tags)
         modify_env = REGISTRY.get_test("modify-env")
         self.assertIn("--modify-env ./test/modify-env1",
                       modify_env.commands[0])
