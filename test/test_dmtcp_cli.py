@@ -33,6 +33,17 @@ def assert_contains_all(testcase, text, needles):
         testcase.assertIn(needle, text)
 
 
+def wait_for_port_file(path):
+    deadline = time.time() + COMMAND_TIMEOUT
+    while time.time() < deadline:
+        if path.exists():
+            data = path.read_text(encoding="utf-8").strip()
+            if data:
+                return int(data)
+        time.sleep(0.05)
+    raise AssertionError(f"port file was not written: {path}")
+
+
 class DmtcpCliTest(unittest.TestCase):
     def test_launch_help_lists_common_runtime_flags(self):
         result = run_tool("dmtcp_launch", "--help")
@@ -120,15 +131,7 @@ class DmtcpCliTest(unittest.TestCase):
             )
             port = None
             try:
-                deadline = time.time() + COMMAND_TIMEOUT
-                while time.time() < deadline:
-                    if port_file.exists():
-                        data = port_file.read_text(encoding="utf-8").strip()
-                        if data:
-                            port = int(data)
-                            break
-                    time.sleep(0.05)
-                self.assertIsNotNone(port, "dmtcp_launch did not write port")
+                port = wait_for_port_file(port_file)
 
                 last_status = None
                 deadline = time.time() + COMMAND_TIMEOUT
@@ -167,6 +170,54 @@ class DmtcpCliTest(unittest.TestCase):
                     except subprocess.TimeoutExpired:
                         os.killpg(proc.pid, signal.SIGKILL)
                         proc.wait(timeout=5)
+
+    def test_coordinator_daemon_writes_log_file_from_env(self):
+        with tempfile.TemporaryDirectory(
+                prefix="dmtcp-coord-log-cli-", dir=str(ROOT)) as tmp:
+            tmp_path = pathlib.Path(tmp)
+            port_file = tmp_path / "coordinator.port"
+            log_file = tmp_path / "coordinator.log"
+            env = os.environ.copy()
+            env["DMTCP_COORD_LOG_FILENAME"] = str(log_file)
+
+            result = subprocess.run(
+                [
+                    str(BIN / "dmtcp_coordinator"),
+                    "--daemon",
+                    "--coord-port",
+                    "0",
+                    "--port-file",
+                    str(port_file),
+                ],
+                cwd=str(ROOT),
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=COMMAND_TIMEOUT,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+            port = wait_for_port_file(port_file)
+            try:
+                quit_result = run_tool("dmtcp_command", "--coord-port",
+                                       str(port), "--quit")
+                self.assertEqual(quit_result.returncode, 0,
+                                 quit_result.stderr)
+
+                deadline = time.time() + COMMAND_TIMEOUT
+                while time.time() < deadline:
+                    if log_file.exists():
+                        contents = log_file.read_text(encoding="utf-8",
+                                                      errors="replace")
+                        if "DMTCP coordinator exiting" in contents:
+                            break
+                    time.sleep(0.05)
+                else:
+                    self.fail("coordinator log did not record clean exit")
+            finally:
+                run_tool("dmtcp_command", "--coord-port", str(port), "--quit")
 
 
 if __name__ == "__main__":
