@@ -77,6 +77,28 @@ class DmtcpCliTest(unittest.TestCase):
             ],
         )
 
+    def test_launch_help_lists_builtin_plugin_toggles(self):
+        result = run_tool("dmtcp_launch", "--help")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        assert_contains_all(
+            self,
+            result.stdout,
+            [
+                "--disable-alloc-plugin",
+                "--disable-dl-plugin",
+                "--disable-ssh-plugin",
+                "--disable-event-plugin",
+                "--disable-file-plugin",
+                "--disable-pty-plugin",
+                "--disable-socket-plugin",
+                "--disable-svipc-plugin",
+                "--disable-timer-plugin",
+                "--disable-pid-plugin",
+                "--disable-all-plugins",
+            ],
+        )
+
     def test_restart_help_lists_common_runtime_flags(self):
         result = run_tool("dmtcp_restart", "--help")
 
