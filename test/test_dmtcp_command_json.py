@@ -237,6 +237,31 @@ class DmtcpCommandJsonTest(unittest.TestCase):
             self.assertIn("running", payload)
             self.assertIn("checkpoint_interval", payload)
 
+    def test_status_json_uses_coordinator_environment(self):
+        with CoordinatorFixture() as coordinator:
+            result = self.run_command(
+                "--json", "--status",
+                env={
+                    "DMTCP_COORD_HOST": "localhost",
+                    "DMTCP_COORD_PORT": str(coordinator.port),
+                },
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stderr, "")
+            payload = DmtcpCommandJson.parse(result.stdout)
+            self.assertEqual(payload["schema_version"], 1)
+            self.assertEqual(payload["command"], "DMT_STATUS")
+            self.assertNotIn("phase", payload)
+            self.assertNotIn("ok", payload)
+            self.assertNotIn("type", payload)
+            self.assertEqual(payload["command_status"], "DMT_COORD_SUCCESS")
+            self.assertEqual(payload["coordinator_host"], "localhost")
+            self.assertEqual(payload["coordinator_port"], coordinator.port)
+            self.assertIn("num_peers", payload)
+            self.assertIn("running", payload)
+            self.assertIn("checkpoint_interval", payload)
+
     def test_checkpoint_json_reports_not_running(self):
         with CoordinatorFixture() as coordinator:
             result = self.run_command("--json", "--coord-port",
