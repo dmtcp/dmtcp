@@ -331,6 +331,33 @@ class DmtcpCommandJsonTest(unittest.TestCase):
             self.assertNotIn("type", payload)
             self.assertEqual(payload["command_status"], "DMT_COORD_NOT_RUNNING")
 
+    def test_basic_command_aliases_report_typed_json_command(self):
+        cases = [
+            ("-s", "DMT_STATUS", 0, "DMT_COORD_SUCCESS"),
+            ("s", "DMT_STATUS", 0, "DMT_COORD_SUCCESS"),
+            ("-l", "DMT_LIST", 0, "DMT_COORD_SUCCESS"),
+            ("l", "DMT_LIST", 0, "DMT_COORD_SUCCESS"),
+            ("t", "DMT_LIST", 0, "DMT_COORD_SUCCESS"),
+            ("-c", "DMT_CHECKPOINT", 2, "DMT_COORD_NOT_RUNNING"),
+            ("c", "DMT_CHECKPOINT", 2, "DMT_COORD_NOT_RUNNING"),
+        ]
+        with CoordinatorFixture() as coordinator:
+            for command, expected_command, expected_rc, status in cases:
+                with self.subTest(command=command):
+                    result = self.run_command("--json", "--coord-port",
+                                              str(coordinator.port), command)
+
+                    self.assertEqual(result.returncode, expected_rc,
+                                     result.stdout)
+                    self.assertEqual(result.stderr, "")
+                    payload = DmtcpCommandJson.parse(result.stdout)
+                    self.assertEqual(payload["schema_version"], 1)
+                    self.assertEqual(payload["command"], expected_command)
+                    self.assertNotIn("phase", payload)
+                    self.assertNotIn("ok", payload)
+                    self.assertNotIn("type", payload)
+                    self.assertEqual(payload["command_status"], status)
+
     def test_checkpoint_aliases_report_typed_json_command(self):
         cases = [
             ("--bcheckpoint", "DMT_BLOCKING_CKPT"),
@@ -339,6 +366,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
             ("-kc", "DMT_KILL_AFTER_CKPT"),
             ("-ck", "DMT_KILL_AFTER_CKPT"),
             ("-K", "DMT_KILL_AFTER_CKPT"),
+            ("Kc", "DMT_KILL_AFTER_CKPT"),
         ]
         with CoordinatorFixture() as coordinator:
             for command, expected_command in cases:
@@ -356,6 +384,44 @@ class DmtcpCommandJsonTest(unittest.TestCase):
                     self.assertNotIn("type", payload)
                     self.assertEqual(payload["command_status"],
                                      "DMT_COORD_NOT_RUNNING")
+
+    def test_kill_aliases_report_typed_json_command(self):
+        cases = ["-k", "k"]
+        with CoordinatorFixture() as coordinator:
+            for command in cases:
+                with self.subTest(command=command):
+                    result = self.run_command("--json", "--coord-port",
+                                              str(coordinator.port), command)
+
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stderr, "")
+                    payload = DmtcpCommandJson.parse(result.stdout)
+                    self.assertEqual(payload["schema_version"], 1)
+                    self.assertEqual(payload["command"], "DMT_KILL")
+                    self.assertNotIn("phase", payload)
+                    self.assertNotIn("ok", payload)
+                    self.assertNotIn("type", payload)
+                    self.assertEqual(payload["command_status"],
+                                     "DMT_COORD_SUCCESS")
+
+    def test_quit_aliases_report_typed_json_command(self):
+        for command in ("-q", "q"):
+            with self.subTest(command=command):
+                with CoordinatorFixture() as coordinator:
+                    result = self.run_command("--json", "--coord-port",
+                                              str(coordinator.port), command)
+
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stderr, "")
+                    payload = DmtcpCommandJson.parse(result.stdout)
+                    self.assertEqual(payload["schema_version"], 1)
+                    self.assertEqual(payload["command"], "DMT_QUIT")
+                    self.assertNotIn("phase", payload)
+                    self.assertNotIn("ok", payload)
+                    self.assertNotIn("type", payload)
+                    self.assertEqual(payload["command_status"],
+                                     "DMT_COORD_SUCCESS")
+                    coordinator.process.wait(timeout=5)
 
     def test_kill_json_reports_success(self):
         with CoordinatorFixture() as coordinator:
