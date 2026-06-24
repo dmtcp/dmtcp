@@ -2673,6 +2673,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "modify-env", "pathvirt",
             "coordinator-exit-on-last", "command-json-bcheckpoint",
             "coordinator-reject-restart-while-running",
+            "join-coordinator-flag",
         ]:
             self.assertIn(name, names)
         if getattr(autotest_config, "AARCH64_HOST", "no") != "yes":
@@ -2701,6 +2702,11 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertIn("barrier", coordinator_barrier.tags)
         self.assertIn("real-worker", coordinator_barrier.requirements)
         self.assertIn("cycles=1", coordinator_barrier.limits)
+        join_coordinator = REGISTRY.get_test("join-coordinator-flag")
+        self.assertIn("--join-coordinator", join_coordinator.commands[0])
+        self.assertEqual(join_coordinator.cycles, 1)
+        self.assertIn("coordinator", join_coordinator.tags)
+        self.assertIn("cycles=1", join_coordinator.limits)
         restartdir = REGISTRY.get_test("restartdir")
         self.assertTrue(restartdir.restart_uses_directory)
         frisbee = REGISTRY.get_test("frisbee")
