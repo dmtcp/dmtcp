@@ -2619,8 +2619,9 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "syscall-tester", "checkpoint-open-files-alias",
             "checkpoint-open-files-env", "file2", "presuspend",
             "plugin-sleep2", "plugin-init", "popen1",
-            "poll-disable-event-plugin", "pthread3", "restartdir",
-            "pty1", "pty2", "vfork1", "vfork2", "frisbee", "nocheckpoint",
+            "poll-disable-event-plugin", "poll-disable-event-plugin-env",
+            "pthread3", "restartdir", "pty1", "pty2", "vfork1", "vfork2",
+            "frisbee", "nocheckpoint",
             "checkpoint-header", "restart-debug-pause",
             "restart-debug-pause-env",
             "restart-no-strict-checking", "restart-no-strict-checking-env",
@@ -2801,6 +2802,9 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertIn("DMTCP_PATH_MAPPING", pathvirt.env)
         self.assertIsNotNone(pathvirt.post_restart_validator)
         self.assertIn("cycles=1", pathvirt.limits)
+        poll_disable_env = REGISTRY.get_test("poll-disable-event-plugin-env")
+        self.assertEqual(poll_disable_env.env["DMTCP_EVENT_PLUGIN"], "0")
+        self.assertIn("runtime-env", poll_disable_env.tags)
         exit_on_last = REGISTRY.get_test("coordinator-exit-on-last")
         self.assertEqual(exit_on_last.cycles, 0)
         self.assertEqual(exit_on_last.coordinator_args, ["--exit-on-last"])
