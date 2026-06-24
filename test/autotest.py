@@ -1601,42 +1601,33 @@ class TestRegistry:
             TestSpec("dmtcp3", 1, ["./test/dmtcp3"]),
             TestSpec("dmtcp4", 1, ["./test/dmtcp4"]),
             # Regression guard for ThreadSanitizer (-fsanitize=thread) targets,
-            # exercising a full checkpoint/restart cycle.  Requirements handled
-            # by dmtcp_launch: load libtsan before libdmtcp, disable ASLR, keep
-            # DMTCP wrappers from re-entering a half-initialized TSAN during its
-            # constructor, raw-syscall checkpoint I/O past TSAN's interceptors,
-            # residency scan of the shadow, MAP_NORESERVE restore of TSAN's
-            # multi-TB reserved regions, and a "called_from_lib:libdmtcp.so"
-            # TSAN suppression so the post-restart checkpoint thread does not
-            # hang in a TSAN interceptor running on stale per-thread state.
-            # cycles=1 (one checkpoint/restart) is the supported TSAN scope.
-            # A second consecutive restart is a known limitation: the checkpoint
-            # thread is the only thread running while the image is written, and
-            # the TSAN trace events that its own (TSAN-intercepted) libc calls
-            # record during the write mutate its TSAN trace state -- which lives
-            # in memory being saved at that same moment.  The checkpoint can thus
-            # capture an inconsistent trace-part list (valid head, corrupt tail);
-            # on the next restart the restored checkpoint thread faults
-            # dereferencing it.  A clean fix must prevent that capture (no public
-            # TSAN API gates trace recording; forked-snapshot checkpointing would
-            # but is deferred).  Single checkpoint/restart is unaffected.
+            # exercising full (default cycles=2) checkpoint/restart.  Requirements
+            # handled by dmtcp_launch: load libtsan before libdmtcp, disable ASLR,
+            # keep DMTCP wrappers from re-entering a half-initialized TSAN during
+            # its constructor, raw-syscall checkpoint I/O past TSAN's
+            # interceptors, residency scan of the shadow, MAP_NORESERVE restore of
+            # TSAN's multi-TB reserved regions, a "called_from_lib:libdmtcp.so"
+            # TSAN suppression so the post-restart checkpoint thread does not hang
+            # in a TSAN interceptor, and -- so a SECOND consecutive restart works
+            # -- switching the checkpoint thread onto a fresh TSAN fiber after
+            # each restart (threadlist.cpp), since the image can otherwise capture
+            # the checkpoint thread's own trace torn mid-write.
             # Auto-disabled when the TSAN runtime / ./test/tsan_target is absent.
-            TestSpec("tsan", 1, ["./test/tsan_target"], cycles=1,
-                     tags=["tsan"], limits=["cycles=1"]),
+            TestSpec("tsan", 1, ["./test/tsan_target"], tags=["tsan"]),
             # Same guard built with clang -fsanitize=thread -shared-libsan.
             # LD_LIBRARY_PATH points at clang's runtime dir because its shared
             # TSAN runtime has no RPATH (a clang fact, not DMTCP-specific).
             # Auto-disabled when clang / its shared TSAN runtime is absent
             # (then ./test/tsan_target_clang is not built).
-            TestSpec("tsan-clang", 1, ["./test/tsan_target_clang"], cycles=1,
+            TestSpec("tsan-clang", 1, ["./test/tsan_target_clang"],
                      library_paths=[clang_rtdir] if clang_rtdir else [],
-                     tags=["tsan", "clang"], limits=["cycles=1"]),
+                     tags=["tsan", "clang"]),
             # clang STATIC default: TSAN runtime linked into the exe, detected by
             # dmtcp_launch via the "__tsan_init" symbol in .dynstr (no DT_NEEDED,
             # no prepend, no LD_LIBRARY_PATH; dmtcp_launch still disables ASLR).
             TestSpec("tsan-clang-static", 1,
-                     ["./test/tsan_target_clang_static"], cycles=1,
-                     tags=["tsan", "clang"], limits=["cycles=1"]),
+                     ["./test/tsan_target_clang_static"],
+                     tags=["tsan", "clang"]),
             # Regression guard for the pagemap residency zero-page optimization
             # (Util::scanOccupiedRangeBatch in writeckpt.cpp).  Run on both the
             # ioctl(PAGEMAP_SCAN) fast path and the portable pread() fallback.

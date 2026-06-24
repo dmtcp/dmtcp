@@ -76,6 +76,23 @@ extern sem_t sem_launch;  // allocated in coordinatorapi.cpp
 static sem_t semNotifyCkptThread;
 static sem_t semWaitForCkptThreadSignal;
 
+// ThreadSanitizer Fiber API (weak: resolves to the TSAN runtime only for TSAN
+// targets, NULL no-op otherwise).  A "fiber" is a separate TSAN ThreadState
+// (with its own event trace) that can be bound to the current OS thread.  On
+// restart we switch the checkpoint thread onto a fresh fiber to abandon a
+// possibly-torn restored trace (see checkpointhread()).
+extern "C" void *__tsan_create_fiber(unsigned flags) __attribute__((weak));
+extern "C" void __tsan_switch_to_fiber(void *fiber, unsigned flags)
+  __attribute__((weak));
+extern "C" void __tsan_destroy_fiber(void *fiber) __attribute__((weak));
+
+// The fresh fiber the checkpoint thread switched onto at its last restart.
+// Memory-backed so it survives across the next checkpoint/restart; on the next
+// restart it is the stale (possibly torn) fiber we abandon, and we free it
+// after switching away.  NULL means the thread is still on its native fiber
+// (no restart yet), which is never destroyed.
+static void *ckptCreatedFiber = NULL;
+
 static void *checkpointhread(void *dummy);
 static void stopthisthread(int sig);
 static int restarthread(void *threadv);
@@ -400,6 +417,25 @@ checkpointhread(void *dummy)
                ckptThread->tid);
 #endif  // ifdef SETJMP
   save_sp(&ckptThread->saved_sp);
+
+  // We reach here a second time only via setcontext() on restart (a live
+  // checkpoint/resume loops below and never re-runs this).  On restart the
+  // checkpoint thread's restored TSAN trace may be torn -- the image was
+  // written while this thread was mutating its own trace -- so its first traced
+  // call would fault dereferencing a dangling trace-part tail.  Switch to a
+  // FRESH TSAN fiber (empty trace) BEFORE any TSAN-intercepted (traced) call
+  // below, abandoning the possibly-torn trace.  Normal ckpt/resume is
+  // unaffected.  (Weak symbol: no-op for non-TSAN targets.)
+  if (!originalstartup && __tsan_switch_to_fiber != NULL) {
+    void *stale = ckptCreatedFiber;          // last lineage's fiber (now torn), or NULL
+    void *fresh = __tsan_create_fiber(0);
+    __tsan_switch_to_fiber(fresh, 0);        // abandon the torn trace
+    if (stale != NULL && __tsan_destroy_fiber != NULL) {
+      __tsan_destroy_fiber(stale);           // free it (now inactive)
+    }
+    ckptCreatedFiber = fresh;
+  }
+
   TRACE("Saved checkpoint-thread restart context: tid={} saved_sp={}",
         curThread->tid, curThread->saved_sp);
 
