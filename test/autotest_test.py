@@ -2617,7 +2617,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "restart-no-strict-checking", "restart-ckptdir-flag",
             "restart-tmpdir-flag", "ckptdir-flag", "ckpt-signal-flag",
             "checkpoint-dir-env", "no-gzip-flag", "allow-file-overwrite",
-            "tmpdir-flag", "tmpdir-env",
+            "allow-file-overwrite-env", "tmpdir-flag", "tmpdir-env",
             "checkpoint-interval-env", "unique-ckpt-env",
             "unique-ckpt-flag",
             "modify-env", "pathvirt",
@@ -2698,6 +2698,16 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                       allow_overwrite.post_checkpoint_files)
         self.assertIsNotNone(allow_overwrite.post_restart_validator)
         self.assertIn("cycles=1", allow_overwrite.limits)
+        allow_overwrite_env = REGISTRY.get_test("allow-file-overwrite-env")
+        self.assertEqual(
+            allow_overwrite_env.env[
+                "DMTCP_ALLOW_OVERWRITE_WITH_CKPTED_FILES"],
+            "1",
+        )
+        self.assertIn("open-file-env.txt",
+                      allow_overwrite_env.post_checkpoint_files)
+        self.assertIsNotNone(allow_overwrite_env.post_restart_validator)
+        self.assertIn("cycles=1", allow_overwrite_env.limits)
         tmpdir_flag = REGISTRY.get_test("tmpdir-flag")
         self.assertIn("--tmpdir {workdir}/launch-tmp",
                       tmpdir_flag.commands[0])

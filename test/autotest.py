@@ -1530,6 +1530,8 @@ class TestRegistry:
         "checkpoint-dir-env": "Checkpoint mechanics",
         "gzip-flag": "Checkpoint mechanics",
         "no-gzip-flag": "Checkpoint mechanics",
+        "allow-file-overwrite": "Checkpoint mechanics",
+        "allow-file-overwrite-env": "Checkpoint mechanics",
         "tmpdir-flag": "Checkpoint mechanics",
         "tmpdir-env": "Checkpoint mechanics",
         "unique-ckpt-env": "Checkpoint mechanics",
@@ -2051,6 +2053,25 @@ class TestRegistry:
                      requirements=["real-worker", "checkpoint-open-files"],
                      limits=["cycles=1"],
                      list_notes=["allow file overwrite"]),
+            TestSpec("allow-file-overwrite-env", 1,
+                     ["--checkpoint-open-files ./test/allow-file-overwrite"],
+                     cycles=1,
+                     env={
+                         "DMTCP_ALLOW_OVERWRITE_WITH_CKPTED_FILES": "1",
+                         "DMTCP_ALLOW_FILE_OVERWRITE_PATH":
+                         "{workdir}/open-file-env.txt",
+                         "DMTCP_ALLOW_FILE_OVERWRITE_SUCCESS_FILE":
+                         "{workdir}/allow-file-overwrite-env.success",
+                     },
+                     post_checkpoint_files={
+                         "open-file-env.txt": "modified-after-checkpoint\n",
+                     },
+                     post_restart_validator=
+                     validate_allow_file_overwrite_restart,
+                     tags=["runtime-env"],
+                     requirements=["real-worker", "checkpoint-open-files"],
+                     limits=["cycles=1"],
+                     list_notes=["DMTCP_ALLOW_OVERWRITE_WITH_CKPTED_FILES"]),
             TestSpec("tmpdir-env", 1, ["./test/dmtcp1"],
                      cycles=1,
                      env={"DMTCP_TMPDIR": "{workdir}/tmp"},
