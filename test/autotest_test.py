@@ -2631,7 +2631,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "allow-file-overwrite", "allow-file-overwrite-env",
             "tmpdir-flag", "tmpdir-env", "checkpoint-interval-env",
             "checkpoint-interval-flag", "unique-ckpt-env",
-            "unique-ckpt-flag",
+            "unique-ckpt-flag", "unique-ckpt-disable-flag",
             "modify-env", "pathvirt",
             "coordinator-exit-on-last", "command-json-bcheckpoint",
             "coordinator-reject-restart-while-running",
@@ -2791,6 +2791,11 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         unique_flag = REGISTRY.get_test("unique-ckpt-flag")
         self.assertIn("--enable-unique-checkpoint-filenames",
                       unique_flag.commands[0])
+        unique_disable = REGISTRY.get_test("unique-ckpt-disable-flag")
+        self.assertIn("--disable-unique-checkpoint-filenames",
+                      unique_disable.commands[0])
+        self.assertEqual(unique_disable.env["DMTCP_UNIQUE_CKPT_PLUGIN"], "1")
+        self.assertIsNotNone(unique_disable.post_run_validator)
         modify_env = REGISTRY.get_test("modify-env")
         self.assertIn("--modify-env ./test/modify-env1",
                       modify_env.commands[0])

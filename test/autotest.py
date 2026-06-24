@@ -1351,6 +1351,20 @@ def validate_unique_checkpoint_subdir(context: TestContext):
             )
 
 
+def validate_non_unique_checkpoint_dir(context: TestContext):
+    image_paths = checkpoint_image_paths(context)
+    if not image_paths:
+        raise HarnessFailure("validate", "no checkpoint images recorded")
+
+    for image in image_paths:
+        if image.parent != context.work.ckpt_dir:
+            raise HarnessFailure(
+                "validate",
+                f"checkpoint image was placed in a unique directory: "
+                f"{image}",
+            )
+
+
 def validate_tmpdir_is_private(context: TestContext):
     tmpdir = pathlib.Path(context.env["DMTCP_TMPDIR"])
     if not tmpdir.exists():
@@ -1547,6 +1561,7 @@ class TestRegistry:
         "checkpoint-interval-flag": "Checkpoint mechanics",
         "unique-ckpt-env": "Checkpoint mechanics",
         "unique-ckpt-flag": "Checkpoint mechanics",
+        "unique-ckpt-disable-flag": "Checkpoint mechanics",
         "dmtcp1-m32": "Build variants",
         "gzip": "Checkpoint mechanics",
         "waitpid": "Process control and signals",
@@ -2194,6 +2209,18 @@ class TestRegistry:
                      requirements=["real-worker"],
                      limits=["cycles=1"],
                      list_notes=["unique checkpoint flag"]),
+            TestSpec("unique-ckpt-disable-flag", 1,
+                     [
+                         "--disable-unique-checkpoint-filenames "
+                         "./test/dmtcp1"
+                     ],
+                     cycles=1,
+                     env={"DMTCP_UNIQUE_CKPT_PLUGIN": "1"},
+                     post_run_validator=validate_non_unique_checkpoint_dir,
+                     tags=["launcher-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["disable unique checkpoint flag"]),
             TestSpec("dmtcp1-m32", 1, ["./test/dmtcp1-m32"]),
             TestSpec("epoll2", 2, ["./test/epoll1 --use-epoll-create1"],
                      configure_flags=["HAS_EPOLL_CREATE1"]),
