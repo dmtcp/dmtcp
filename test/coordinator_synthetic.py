@@ -42,10 +42,13 @@ def read_nonempty_file(path):
 
 
 class CoordinatorFixture:
-    def __init__(self, extra_args=None):
+    def __init__(self, extra_args=None, cwd=ROOT, env=None):
         self.tmp = tempfile.TemporaryDirectory(prefix="dmtcp-coord-synth-")
         self.tmp_path = pathlib.Path(self.tmp.name)
         self.port_file = self.tmp_path / "port"
+        process_env = os.environ.copy()
+        if env is not None:
+            process_env.update(env)
         args = [
             str(DMTCP_COORDINATOR),
             "--quiet",
@@ -60,7 +63,8 @@ class CoordinatorFixture:
             args.extend(extra_args)
         self.process = subprocess.Popen(
             args,
-            cwd=str(ROOT),
+            cwd=str(cwd),
+            env=process_env,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -975,6 +979,35 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertTrue(status["running"])
             finally:
                 worker.stop()
+
+    def test_kvdb_snapshot_written_when_env_enabled(self):
+        with tempfile.TemporaryDirectory(prefix="dmtcp-kvdb-snapshot-") as tmp:
+            tmp_path = pathlib.Path(tmp)
+            with CoordinatorFixture(
+                    cwd=tmp_path,
+                    env={"DMTCP_COORD_WRITE_KV_DATA": "1"}) as coordinator:
+                worker = WorkerProcess(coordinator.port, expect_kvdb=True)
+                try:
+                    worker.wait_until_accepted()
+                    worker.wait_until_kvdb_round_trip()
+                    result = self.run_command("--json", "--coord-port",
+                                              str(coordinator.port),
+                                              "--quit")
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    payload = DmtcpCommandJson.parse(result.stdout)
+                    self.assertCommandSuccess(payload, "DMT_QUIT")
+
+                    coordinator.process.wait(timeout=5)
+                    self.assertEqual(coordinator.process.returncode, 0)
+                    snapshots = sorted(
+                        tmp_path.glob("dmtcp_coordinator_db-*.json"))
+                    self.assertEqual(len(snapshots), 1)
+                    contents = snapshots[0].read_text(encoding="utf-8")
+                    self.assertIn('"synthetic-db"', contents)
+                    self.assertIn('"synthetic-key"', contents)
+                    self.assertIn('"synthetic-value"', contents)
+                finally:
+                    worker.stop()
 
     def test_invalid_magic_worker_is_rejected(self):
         with CoordinatorFixture() as coordinator:
