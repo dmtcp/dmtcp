@@ -203,6 +203,30 @@ class DmtcpCommandJsonTest(unittest.TestCase):
             self.assertEqual(payload["coordinator_port"], coordinator.port)
             self.assertEqual(payload["checkpoint_interval"], 7)
 
+    def test_compact_interval_json_reports_updated_checkpoint_interval(self):
+        cases = [("-i7", 7), ("i9", 9)]
+        with CoordinatorFixture() as coordinator:
+            for command, interval in cases:
+                with self.subTest(command=command):
+                    result = self.run_command("--json", "--coord-port",
+                                              str(coordinator.port), command)
+
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stderr, "")
+                    payload = DmtcpCommandJson.parse(result.stdout)
+                    self.assertEqual(payload["schema_version"], 1)
+                    self.assertEqual(payload["command"],
+                                     "DMT_UPDATE_CKPT_INTERVAL")
+                    self.assertNotIn("phase", payload)
+                    self.assertNotIn("ok", payload)
+                    self.assertNotIn("type", payload)
+                    self.assertEqual(payload["command_status"],
+                                     "DMT_COORD_SUCCESS")
+                    self.assertEqual(payload["coordinator_host"], "localhost")
+                    self.assertEqual(payload["coordinator_port"],
+                                     coordinator.port)
+                    self.assertEqual(payload["checkpoint_interval"], interval)
+
     def test_interval_json_reports_coordinator_not_found(self):
         result = self.run_command("--json", "--coord-port", "1",
                                   "--interval", "7")
