@@ -1423,6 +1423,12 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         self.assertEqual(spec.restart_pause_level, 1)
 
+    def test_spec_records_restart_pause_expectation(self):
+        spec = TestSpec("restart-debug-pause-env", 1, ["./test/dmtcp1"],
+                        expect_restart_pause=True)
+
+        self.assertTrue(spec.expect_restart_pause)
+
     def test_spec_records_expected_checkpoint_gzip_mode(self):
         spec = TestSpec("no-gzip-flag", 1, ["--no-gzip ./test/dmtcp1"],
                         expect_checkpoint_gzip=False)
@@ -2656,6 +2662,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "poll-disable-event-plugin", "pthread3", "restartdir", "pty1",
             "pty2", "vfork1", "vfork2", "frisbee", "nocheckpoint",
             "checkpoint-header", "restart-debug-pause",
+            "restart-debug-pause-env",
             "restart-no-strict-checking", "restart-ckptdir-flag",
             "restart-tmpdir-flag", "ckptdir-flag", "ckpt-signal-flag",
             "checkpoint-dir-env", "no-gzip-flag", "no-gzip-env",
@@ -2714,6 +2721,11 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertIn("restart-debug", restart_pause.tags)
         self.assertIn("real-worker", restart_pause.requirements)
         self.assertIn("cycles=1", restart_pause.limits)
+        restart_pause_env = REGISTRY.get_test("restart-debug-pause-env")
+        self.assertEqual(restart_pause_env.env["DMTCP_RESTART_PAUSE"], "1")
+        self.assertTrue(restart_pause_env.expect_restart_pause)
+        self.assertIn("runtime-env", restart_pause_env.tags)
+        self.assertIn("cycles=1", restart_pause_env.limits)
         restart_no_strict = REGISTRY.get_test("restart-no-strict-checking")
         self.assertEqual(restart_no_strict.restart_args,
                          ["--no-strict-checking"])
