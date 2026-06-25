@@ -44,7 +44,7 @@ class CoordinatorFixture:
                 "30",
             ],
             cwd=str(ROOT),
-            text=True,
+            universal_newlines=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -73,7 +73,7 @@ class DmtcpCommandJsonTest(unittest.TestCase):
             [str(DMTCP_COMMAND), *args],
             cwd=str(ROOT),
             env=merged_env,
-            text=True,
+            universal_newlines=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
