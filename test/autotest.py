@@ -17,11 +17,16 @@ import tempfile
 import threading
 import time
 import traceback
-from dataclasses import dataclass, field, replace
 from random import sample
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import autotest_config
+
+if sys.version_info < (3, 7):
+    print("Skipping autotest; Python 3.7+ is required.", flush=True)
+    sys.exit(0)
+
+from dataclasses import dataclass, field, replace
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -37,6 +42,16 @@ ARTIFACT_LOG_HINT = (
     "result.log commands.log processes.log worker-*.out restart-*.out"
 )
 COORDINATOR_PROTOCOL_CATEGORY = "Coordinator protocol tests"
+
+
+def shell_join(args: Iterable[object]) -> str:
+    return " ".join(shlex.quote(str(arg)) for arg in args)
+
+
+def remove_prefix(text: str, prefix: str) -> str:
+    if text.startswith(prefix):
+        return text[len(prefix):]
+    return text
 
 
 class DmtcpCommandJson:
@@ -651,7 +666,7 @@ class TestContext:
                     pass
                 os.execvpe(argv[0], argv, self.env)
             except BaseException as error:
-                message = f"exec failed for {shlex.join(argv)}: {error}\n"
+                message = f"exec failed for {shell_join(argv)}: {error}\n"
                 try:
                     os.write(2, message.encode("utf-8", "replace"))
                 finally:
@@ -865,7 +880,7 @@ class TestContext:
     def _record_command(self, phase: str, argv: List[str]):
         with (self.work.path / "commands.log").open("a",
                                                     encoding="utf-8") as out:
-            out.write(f"$ {shlex.join([str(arg) for arg in argv])}\n")
+            out.write(f"$ {shell_join(argv)}\n")
             out.write(f"phase={phase}\n")
 
     def _record_checkpoint_images(self, phase: str,
@@ -2105,7 +2120,7 @@ def format_active_failed_run_status(result: TestResult) -> str:
 def run_display_name(spec: Union[TestSpec, CommandTestSpec]) -> str:
     name = spec.name
     if spec.category == COORDINATOR_PROTOCOL_CATEGORY:
-        return name.removeprefix("coordinator-")
+        return remove_prefix(name, "coordinator-")
     return name
 
 
@@ -2341,7 +2356,7 @@ def command_failure_detail_lines(
         spec: CommandTestSpec, result: TestResult,
         max_output_lines: int = COMMAND_OUTPUT_TAIL_LINES) -> List[str]:
     lines = [
-        f"command: {shlex.join(spec.command)}",
+        f"command: {shell_join(spec.command)}",
         f"cwd: {spec.cwd}",
     ]
     output = result.details.rstrip()
@@ -2405,7 +2420,7 @@ def format_failure_record_lines(
         lines.append(f"    artifacts: {failure.artifact_dir}")
         lines.append(f"    logs: {ARTIFACT_LOG_HINT}")
     if failure.command is not None:
-        lines.append(f"    command: {shlex.join(failure.command)}")
+        lines.append(f"    command: {shell_join(failure.command)}")
     if failure.cwd is not None:
         lines.append(f"    cwd: {failure.cwd}")
     return lines
