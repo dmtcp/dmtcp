@@ -376,6 +376,7 @@ close(int fd)
   return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) && __GLIBC_PREREQ(2, 34)
 extern "C" int
 close_range(unsigned int first, unsigned int last, int flags)
 {
@@ -409,6 +410,7 @@ close_range(unsigned int first, unsigned int last, int flags)
 
   return ret;
 }
+#endif
 
 extern "C" int
 fclose(FILE *fp)
