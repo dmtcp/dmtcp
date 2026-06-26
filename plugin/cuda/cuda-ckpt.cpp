@@ -37,6 +37,8 @@ typedef struct {
     int fd;
     unsigned long pipe_inode;
     pipe_rw_t rw_type;
+    int status_flags; // F_GETFL: access mode + O_NONBLOCK/O_DIRECT/...
+    int fd_flags;     // F_GETFD: FD_CLOEXEC
 } pipe_info_t;
 
 // Structure to map old inode to new FDs (for conceptual recreation)
@@ -82,9 +84,16 @@ int inspect_pipes(pipe_info_t *pipe_fd_array, int max_pipe_fds) {
       JASSERT(flags != -1);
       pipe_rw_t rw_type = (pipe_rw_t)(flags & O_ACCMODE);
       JASSERT(rw_type == PIPE_READ || rw_type == PIPE_WRITE);
+      // Capture both the file-status flags (F_GETFL: O_NONBLOCK, O_DIRECT, ...)
+      // and the file-descriptor flags (F_GETFD: FD_CLOEXEC) so they can be
+      // restored after the pipe is recreated with pipe()+dup2 on restart.
+      int fd_flags = fcntl(fd, F_GETFD);
+      JASSERT(fd_flags != -1);
       pipe_fd_array[count].fd = fd;
       pipe_fd_array[count].pipe_inode = inode;
       pipe_fd_array[count].rw_type = rw_type;
+      pipe_fd_array[count].status_flags = flags;
+      pipe_fd_array[count].fd_flags = fd_flags;
       count++;
     }
   }
@@ -158,7 +167,17 @@ int recreate_pipes(pipe_info_t *pipe_fd_array, int num_fds) {
       }
     }
     assert(new_fd_to_dup != -1);
-    assert(dup2(new_fd_to_dup, old_fd) != -1);
+    int ret = dup2(new_fd_to_dup, old_fd);
+    assert(ret != -1);
+    // Restore the original pipe flags. dup2 gives old_fd the source pipe end's
+    // (default) flags, so reapply: file-status flags via F_SETFL (the access
+    // mode and creation-flag bits are ignored by F_SETFL, so mask them out),
+    // and FD_CLOEXEC via F_SETFD (dup2 always clears close-on-exec on old_fd).
+    JASSERT(fcntl(old_fd, F_SETFL,
+                  pipe_fd_array[i].status_flags & ~O_ACCMODE) != -1)
+      (old_fd)(JASSERT_ERRNO);
+    JASSERT(fcntl(old_fd, F_SETFD, pipe_fd_array[i].fd_flags) != -1)
+      (old_fd)(JASSERT_ERRNO);
   }
   
   // Final Step: Close the *original* new FDs that were used for duplication.
