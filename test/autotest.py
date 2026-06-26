@@ -195,8 +195,11 @@ class TestSpec:
     env: Dict[str, Optional[str]] = field(default_factory=dict)
     library_paths: List[str] = field(default_factory=list)
     restart_uses_directory: bool = False
+    restart_args: List[str] = field(default_factory=list)
     validate_checkpoint_headers: bool = False
     expect_checkpoint_gzip: Optional[bool] = None
+    checkpoint_dir_files: Dict[str, str] = field(default_factory=dict)
+    post_checkpoint_files: Dict[str, str] = field(default_factory=dict)
     completion_command: str = "--kill"
     coordinator_args: List[str] = field(default_factory=list)
     category: str = "Single-process programs"
@@ -211,7 +214,10 @@ class TestSpec:
     private_env_dirs: Dict[str, str] = field(default_factory=dict)
     replace_worker_index: Optional[int] = None
     reject_restart_while_running: bool = False
+    restart_pause_level: Optional[int] = None
+    expect_restart_pause: bool = False
     run_serial: bool = False
+    post_restart_validator: Optional[Callable[["TestContext"], None]] = None
     post_run_validator: Optional[Callable[["TestContext"], None]] = None
 
     def peer_counts(self) -> List[int]:
@@ -589,6 +595,9 @@ class TestContext:
     def _expand_command(self, command: str) -> str:
         return command.replace("{workdir}", shlex.quote(str(self.work.path)))
 
+    def _expand_arg(self, arg: str) -> str:
+        return arg.replace("{workdir}", str(self.work.path))
+
     def _launch_process(self, index: int, command: str, phase: str):
         command = self._expand_command(command)
         command_argv = shlex.split(command)
@@ -703,6 +712,7 @@ class TestContext:
             raise HarnessFailure("status", str(error)) from error
 
     def _checkpoint(self):
+        self._write_checkpoint_dir_files()
         if self.spec.pre_checkpoint_delay > 0.0:
             time.sleep(self.spec.pre_checkpoint_delay)
         payload = self._run_json_command(
@@ -722,10 +732,38 @@ class TestContext:
                        "checkpoint", "checkpoint image was not created")
         images = self._checkpoint_images()
         self._record_checkpoint_images("checkpoint", images)
+        self._validate_checkpoint_images(images)
+        self._write_post_checkpoint_files()
         if self.spec.checkpoint_kills_workers():
             self._wait_for_status(0, False, "checkpoint")
         else:
             self._wait_for_status(self.spec.peer_counts(), True, "checkpoint")
+
+    def _validate_checkpoint_images(self, images: List[pathlib.Path]):
+        if not self.spec.validate_checkpoint_headers and \
+                self.spec.expect_checkpoint_gzip is None:
+            return
+
+        for image in images:
+            with image.open("rb") as stream:
+                header = stream.read(32)
+            is_gzip = header.startswith(b"\x1f\x8b")
+            if self.spec.expect_checkpoint_gzip is not None and \
+                    is_gzip != self.spec.expect_checkpoint_gzip:
+                expected = "gzip" if self.spec.expect_checkpoint_gzip \
+                    else "plain"
+                actual = "gzip" if is_gzip else "plain"
+                raise HarnessFailure(
+                    "checkpoint",
+                    f"checkpoint image has {actual} format; "
+                    f"expected {expected}: {image}",
+                )
+            if self.spec.validate_checkpoint_headers and not is_gzip and \
+                    not header.startswith(b"DMTCP_CHECKPOINT_IMAGE_"):
+                raise HarnessFailure(
+                    "checkpoint",
+                    f"checkpoint image has invalid DMTCP signature: {image}",
+                )
 
     def _kill_workers(self, best_effort: bool = False):
         try:
@@ -791,6 +829,13 @@ class TestContext:
         self._record_checkpoint_images("restart", images)
         index = len(self.processes)
         restart_args = [str(self.harness.restart), "--quiet"]
+        restart_args.extend(
+            self._expand_arg(arg) for arg in self.spec.restart_args)
+        if self.spec.restart_pause_level is not None:
+            restart_args.extend([
+                "--debug-restart-pause",
+                str(self.spec.restart_pause_level),
+            ])
         if self.spec.restart_uses_directory:
             restart_args.extend(["--restartdir", str(self.work.ckpt_dir)])
         else:
@@ -803,8 +848,48 @@ class TestContext:
             f"restart-worker-{index}",
         )
         self.processes.append(proc)
+        if self.spec.restart_pause_level is not None or \
+                self.spec.expect_restart_pause:
+            self._assert_restart_paused(proc)
+            self._terminate_process_group(proc, f"restart-pause {proc.pid}")
+            self._wait_for_status(0, False, "restart-pause")
+            return
         self._wait_for_status(self.spec.peer_counts(), True, "restart")
+        if self.spec.post_restart_validator is not None:
+            self.spec.post_restart_validator(self)
         self._clear_checkpoint_dir()
+
+    def _assert_restart_paused(self, proc: subprocess.Popen):
+        start = time.time()
+        deadline = time.time() + min(self.spec.timeout, 5.0)
+        observed_alive = False
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                raise HarnessFailure(
+                    "restart-pause",
+                    "dmtcp_restart exited instead of pausing",
+                )
+            observed_alive = True
+            status = self._status()
+            if status.running:
+                raise HarnessFailure(
+                    "restart-pause",
+                    "dmtcp_restart rejoined the coordinator instead of "
+                    "pausing",
+                )
+            if observed_alive and time.time() - start >= 1.0:
+                return
+            time.sleep(0.1)
+        if not observed_alive:
+            raise HarnessFailure(
+                "restart-pause",
+                "dmtcp_restart did not stay alive long enough to verify "
+                "debug pause",
+            )
+        raise HarnessFailure(
+            "restart-pause",
+            "timed out before verifying debug restart pause",
+        )
 
     def _assert_restart_rejected_while_running(self):
         images = self._checkpoint_images()
@@ -1131,7 +1216,37 @@ class TestContext:
         return f"{label}=pid:{proc.pid},state:{state}"
 
     def _checkpoint_images(self) -> List[pathlib.Path]:
-        return sorted(self.work.ckpt_dir.glob("ckpt_*.dmtcp"))
+        return sorted(self.work.path.glob("**/ckpt_*.dmtcp"))
+
+    def _write_checkpoint_dir_files(self):
+        for relative_path, contents in self.spec.checkpoint_dir_files.items():
+            path = pathlib.Path(relative_path)
+            if path.is_absolute() or ".." in path.parts:
+                raise HarnessFailure(
+                    "setup",
+                    f"invalid checkpoint file path: {relative_path}",
+                )
+            output_path = self.work.ckpt_dir / path
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                contents.replace("{workdir}", str(self.work.path)),
+                encoding="utf-8",
+            )
+
+    def _write_post_checkpoint_files(self):
+        for relative_path, contents in self.spec.post_checkpoint_files.items():
+            path = pathlib.Path(relative_path)
+            if path.is_absolute() or ".." in path.parts:
+                raise HarnessFailure(
+                    "setup",
+                    f"invalid post-checkpoint file path: {relative_path}",
+                )
+            output_path = self.work.path / path
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                contents.replace("{workdir}", str(self.work.path)),
+                encoding="utf-8",
+            )
 
     def _clear_checkpoint_dir(self):
         for path in self.work.ckpt_dir.iterdir():
@@ -1200,6 +1315,138 @@ def validate_log_overrides(context: TestContext):
     require_text(log, "libdmtcp.so: Running program", "override.log")
 
 
+def checkpoint_image_paths(context: TestContext) -> List[pathlib.Path]:
+    log = read_required_artifact(context, "checkpoint-images.log")
+    paths = []
+    for line in log.splitlines():
+        if line.startswith("phase=") or not line:
+            continue
+        paths.append(pathlib.Path(line))
+    return paths
+
+
+def validate_unique_checkpoint_subdir(context: TestContext):
+    image_paths = checkpoint_image_paths(context)
+    if not image_paths:
+        raise HarnessFailure("validate", "no checkpoint images recorded")
+
+    for image in image_paths:
+        if image.parent == context.work.ckpt_dir:
+            raise HarnessFailure(
+                "validate",
+                f"checkpoint image was not placed in a unique directory: "
+                f"{image}",
+            )
+        if image.parent.parent != context.work.ckpt_dir:
+            raise HarnessFailure(
+                "validate",
+                f"unique checkpoint directory is outside checkpoint root: "
+                f"{image.parent}",
+            )
+        if not image.parent.name.startswith("ckpt_"):
+            raise HarnessFailure(
+                "validate",
+                f"unique checkpoint directory has unexpected name: "
+                f"{image.parent}",
+            )
+
+
+def validate_non_unique_checkpoint_dir(context: TestContext):
+    image_paths = checkpoint_image_paths(context)
+    if not image_paths:
+        raise HarnessFailure("validate", "no checkpoint images recorded")
+
+    for image in image_paths:
+        if image.parent != context.work.ckpt_dir:
+            raise HarnessFailure(
+                "validate",
+                f"checkpoint image was placed in a unique directory: "
+                f"{image}",
+            )
+
+
+def validate_tmpdir_is_private(context: TestContext):
+    tmpdir = pathlib.Path(context.env["DMTCP_TMPDIR"])
+    if not tmpdir.exists():
+        raise HarnessFailure("validate", f"missing tmpdir: {tmpdir}")
+    if not tmpdir.is_relative_to(context.work.path):
+        raise HarnessFailure("validate", f"tmpdir escaped workdir: {tmpdir}")
+
+
+def validate_tmpdir_flag(context: TestContext):
+    wait_for_success_artifact(context, "DMTCP_TMPDIR_SUCCESS_FILE",
+                              "tmpdir-flag")
+
+
+def validate_restart_tmpdir(context: TestContext):
+    wait_for_success_artifact(context, "DMTCP_RESTART_TMPDIR_SUCCESS_FILE",
+                              "restart-tmpdir")
+
+
+def validate_restart_ckptdir(context: TestContext):
+    restart_ckpt_dir = context.work.path / "restart-ckpt"
+    images = sorted(restart_ckpt_dir.glob("ckpt_*.dmtcp"))
+    if not images:
+        raise HarnessFailure(
+            "validate",
+            f"dmtcp_restart --ckptdir did not create a checkpoint image "
+            f"under {restart_ckpt_dir}",
+        )
+
+
+def validate_checkpoint_dir_env(context: TestContext):
+    env_ckpt_dir = context.work.path / "env-ckpt"
+    images = sorted(env_ckpt_dir.glob("ckpt_*.dmtcp"))
+    if not images:
+        raise HarnessFailure(
+            "validate",
+            f"DMTCP_CHECKPOINT_DIR did not create a checkpoint image "
+            f"under {env_ckpt_dir}",
+        )
+
+
+def wait_for_success_artifact(context: TestContext, env_name: str,
+                              phase: str):
+    path = pathlib.Path(context.env[env_name])
+
+    def success_marker_ready() -> bool:
+        try:
+            contents = path.read_text(encoding="utf-8")
+        except OSError:
+            return False
+        return "ok" in contents
+
+    context._wait_for(
+        success_marker_ready,
+        phase,
+        f"missing success artifact with ok marker: {path}",
+    )
+
+
+def validate_modify_env_restart(context: TestContext):
+    wait_for_success_artifact(context, "DMTCP_MODIFY_ENV_SUCCESS_FILE",
+                              "modify-env")
+
+
+def validate_pathvirt_restart(context: TestContext):
+    wait_for_success_artifact(context, "DMTCP_PATHVIRT_SUCCESS_FILE",
+                              "pathvirt")
+
+
+def validate_allow_file_overwrite_restart(context: TestContext):
+    wait_for_success_artifact(context,
+                              "DMTCP_ALLOW_FILE_OVERWRITE_SUCCESS_FILE",
+                              "allow-file-overwrite")
+
+
+def validate_auto_checkpoint_interval(context: TestContext):
+    if not context._checkpoint_images():
+        raise HarnessFailure(
+            "validate",
+            "DMTCP_CHECKPOINT_INTERVAL did not create a checkpoint image",
+        )
+
+
 class TestRegistry:
     DISABLED_CATEGORY = "Disabled tests"
 
@@ -1236,6 +1483,7 @@ class TestRegistry:
         "coordinator-reject-restart-while-running":
             COORDINATOR_PROTOCOL_CATEGORY,
         "coordinator-barrier": COORDINATOR_PROTOCOL_CATEGORY,
+        "join-coordinator-flag": COORDINATOR_PROTOCOL_CATEGORY,
         "logging-runtime": "Logging",
         "logging-quiet": "Logging",
         "logging-overrides": "Logging",
@@ -1284,10 +1532,38 @@ class TestRegistry:
         "plugin-sleep2": "Plugin behavior",
         "plugin-example-db": "Plugin behavior",
         "plugin-init": "Plugin behavior",
+        "plugin-init-env": "Plugin behavior",
+        "modify-env": "Plugin behavior",
+        "pathvirt": "Plugin behavior",
         "poll-disable-event-plugin": "Plugin behavior",
+        "poll-disable-event-plugin-env": "Plugin behavior",
         "syscall-tester": "Checkpoint mechanics",
+        "checkpoint-open-files-alias": "Checkpoint mechanics",
+        "checkpoint-open-files-env": "Checkpoint mechanics",
         "nocheckpoint": "Checkpoint mechanics",
         "checkpoint-header": "Checkpoint mechanics",
+        "restart-debug-pause": "Checkpoint mechanics",
+        "restart-debug-pause-env": "Checkpoint mechanics",
+        "restart-no-strict-checking": "Checkpoint mechanics",
+        "restart-no-strict-checking-env": "Checkpoint mechanics",
+        "restart-ckptdir-flag": "Checkpoint mechanics",
+        "restart-join-coordinator-flag": "Checkpoint mechanics",
+        "restart-tmpdir-flag": "Checkpoint mechanics",
+        "ckptdir-flag": "Checkpoint mechanics",
+        "ckpt-signal-flag": "Checkpoint mechanics",
+        "ckpt-signal-env": "Checkpoint mechanics",
+        "checkpoint-dir-env": "Checkpoint mechanics",
+        "gzip-flag": "Checkpoint mechanics",
+        "no-gzip-flag": "Checkpoint mechanics",
+        "no-gzip-env": "Checkpoint mechanics",
+        "allow-file-overwrite": "Checkpoint mechanics",
+        "allow-file-overwrite-env": "Checkpoint mechanics",
+        "tmpdir-flag": "Checkpoint mechanics",
+        "tmpdir-env": "Checkpoint mechanics",
+        "checkpoint-interval-flag": "Checkpoint mechanics",
+        "unique-ckpt-env": "Checkpoint mechanics",
+        "unique-ckpt-flag": "Checkpoint mechanics",
+        "unique-ckpt-disable-flag": "Checkpoint mechanics",
         "dmtcp1-m32": "Build variants",
         "gzip": "Checkpoint mechanics",
         "waitpid": "Process control and signals",
@@ -1566,6 +1842,13 @@ class TestRegistry:
                      tags=["coordinator", "barrier"],
                      requirements=["real-worker"],
                      limits=["cycles=1"]),
+            TestSpec("join-coordinator-flag", 1,
+                     ["--join-coordinator ./test/dmtcp1"],
+                     cycles=1,
+                     tags=["coordinator", "launcher-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["launcher --join-coordinator"]),
             TestSpec("gettid", 1, ["./test/gettid"]),
             TestSpec("file1", 1, ["./test/file1"]),
             TestSpec("file3", 1, ["./test/file3"]),
@@ -1594,6 +1877,19 @@ class TestRegistry:
             TestSpec("syscall-tester", 1,
                      ["--checkpoint-open-files ./test/syscall-tester"],
                      checkpoint_command="--kcheckpoint"),
+            TestSpec("checkpoint-open-files-alias", 1,
+                     ["--ckpt-open-files ./test/syscall-tester"],
+                     checkpoint_command="--kcheckpoint",
+                     tags=["launcher-options"],
+                     requirements=["real-worker", "checkpoint-open-files"],
+                     list_notes=["launcher --ckpt-open-files"]),
+            TestSpec("checkpoint-open-files-env", 1,
+                     ["./test/syscall-tester"],
+                     checkpoint_command="--kcheckpoint",
+                     env={"DMTCP_CKPT_OPEN_FILES": "1"},
+                     tags=["runtime-env"],
+                     requirements=["real-worker", "checkpoint-open-files"],
+                     list_notes=["DMTCP_CKPT_OPEN_FILES"]),
             TestSpec("shared-fd1", 2, ["./test/shared-fd1"]),
             TestSpec("shared-fd2", 2, ["./test/shared-fd2"]),
             TestSpec("stale-fd", 2, ["./test/stale-fd"]),
@@ -1643,12 +1939,102 @@ class TestRegistry:
                          f"--with-plugin {ROOT}/test/"
                          "libdmtcp_plugin-init.so ./test/dmtcp1"
                      ]),
+            TestSpec("plugin-init-env", 1, ["./test/dmtcp1"],
+                     env={
+                         "DMTCP_PLUGIN":
+                         f"{ROOT}/test/libdmtcp_plugin-init.so",
+                     },
+                     tags=["plugin", "runtime-env"],
+                     list_notes=["DMTCP_PLUGIN"]),
+            TestSpec("modify-env", 1, ["--modify-env ./test/modify-env1"],
+                     cycles=1,
+                     env={
+                         "DMTCP_MODIFY_ENV_TARGET": "before-restart",
+                         "DMTCP_MODIFY_ENV_REMOVE": "remove-me",
+                         "DMTCP_MODIFY_ENV_SUCCESS_FILE":
+                         "{workdir}/modify-env.success",
+                     },
+                     checkpoint_dir_files={
+                         "dmtcp_env.txt":
+                         "DMTCP_MODIFY_ENV_TARGET=after-restart\n"
+                         "DMTCP_MODIFY_ENV_REMOVE\n",
+                     },
+                     post_restart_validator=validate_modify_env_restart,
+                     tags=["plugin"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["modify-env plugin"]),
+            TestSpec("pathvirt", 1, ["--pathvirt ./test/pathvirt1"],
+                     cycles=1,
+                     env={
+                         "DMTCP_PATH_MAPPING":
+                         "{workdir}/virtual:{workdir}/physical",
+                         "DMTCP_PATHVIRT_REAL_DIR":
+                         "{workdir}/physical",
+                         "DMTCP_PATHVIRT_REAL_FILE":
+                         "{workdir}/physical/pathvirt-data.txt",
+                         "DMTCP_PATHVIRT_VIRTUAL_FILE":
+                         "{workdir}/virtual/pathvirt-data.txt",
+                         "DMTCP_PATHVIRT_SUCCESS_FILE":
+                         "{workdir}/pathvirt.success",
+                     },
+                     post_restart_validator=validate_pathvirt_restart,
+                     tags=["plugin"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["pathvirt plugin"]),
             TestSpec("popen1", [1, 2], ["./test/popen1"]),
             TestSpec("poll-disable-event-plugin", 1,
                      ["--disable-event-plugin ./test/poll"]),
+            TestSpec("poll-disable-event-plugin-env", 1, ["./test/poll"],
+                     env={"DMTCP_EVENT_PLUGIN": "0"},
+                     tags=["plugin", "runtime-env"],
+                     list_notes=["DMTCP_EVENT_PLUGIN=0"]),
             TestSpec("pthread3", 1, ["./test/pthread2 80"]),
             TestSpec("restartdir", 1, ["./test/dmtcp1"],
                      restart_uses_directory=True),
+            TestSpec("restart-no-strict-checking", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     restart_args=["--no-strict-checking"],
+                     tags=["restart-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["restart --no-strict-checking"]),
+            TestSpec("restart-no-strict-checking-env", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     env={"DMTCP_DISABLE_STRICT_CHECKING": "1"},
+                     tags=["restart-options", "runtime-env"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["DMTCP_DISABLE_STRICT_CHECKING"]),
+            TestSpec("restart-ckptdir-flag", 1, ["./test/dmtcp1"],
+                     restart_args=["--ckptdir", "{workdir}/restart-ckpt"],
+                     post_run_validator=validate_restart_ckptdir,
+                     tags=["restart-options"],
+                     requirements=["real-worker"],
+                     list_notes=["restart --ckptdir"]),
+            TestSpec("restart-join-coordinator-flag", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     restart_args=["--join-coordinator"],
+                     tags=["restart-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["restart --join-coordinator"]),
+            TestSpec("restart-tmpdir-flag", 1,
+                     ["./test/restart-tmpdir"],
+                     cycles=1,
+                     restart_args=["--tmpdir", "{workdir}/restart-tmp"],
+                     env={
+                         "DMTCP_RESTART_TMPDIR_ROOT":
+                         "{workdir}/restart-tmp",
+                         "DMTCP_RESTART_TMPDIR_SUCCESS_FILE":
+                         "{workdir}/restart-tmpdir.success",
+                     },
+                     post_restart_validator=validate_restart_tmpdir,
+                     tags=["restart-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["restart --tmpdir"]),
             TestSpec("pty1", 2, ["./test/pty1"]),
             TestSpec("pty2", 2, ["./test/pty2"]),
             TestSpec("vfork1", [1, 2, 3, 4], ["./test/vfork1 'ls | wc'"]),
@@ -1669,9 +2055,188 @@ class TestRegistry:
             TestSpec("checkpoint-header", 1, ["./test/dmtcp1"], cycles=1,
                      env={"DMTCP_GZIP": "0"},
                      validate_checkpoint_headers=True,
+                     expect_checkpoint_gzip=False,
                      tags=["checkpoint-header"],
                      requirements=["plain-checkpoint-image"],
                      limits=["cycles=1"]),
+            TestSpec("restart-debug-pause", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     restart_pause_level=1,
+                     tags=["restart-debug"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["debug restart pause"]),
+            TestSpec("restart-debug-pause-env", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     env={"DMTCP_RESTART_PAUSE": "1"},
+                     expect_restart_pause=True,
+                     tags=["restart-debug", "runtime-env"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["DMTCP_RESTART_PAUSE=1"]),
+            TestSpec("ckptdir-flag", 1,
+                     ["--ckptdir {workdir}/launch-ckpt ./test/dmtcp1"],
+                     cycles=1,
+                     env={"DMTCP_GZIP": "0"},
+                     expect_checkpoint_gzip=False,
+                     tags=["launcher-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["launcher --ckptdir"]),
+            TestSpec("ckpt-signal-flag", 1,
+                     ["--ckpt-signal 10 ./test/dmtcp1"],
+                     cycles=1,
+                     tags=["launcher-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["launcher --ckpt-signal"]),
+            TestSpec("ckpt-signal-env", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     env={"DMTCP_SIGCKPT": "10"},
+                     tags=["runtime-env"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["DMTCP_SIGCKPT"]),
+            TestSpec("checkpoint-dir-env", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     env={"DMTCP_CHECKPOINT_DIR": "{workdir}/env-ckpt"},
+                     post_run_validator=validate_checkpoint_dir_env,
+                     tags=["runtime-env"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["DMTCP_CHECKPOINT_DIR"]),
+            TestSpec("gzip-flag", 1, ["--gzip ./test/dmtcp1"],
+                     cycles=1,
+                     expect_checkpoint_gzip=True,
+                     tags=["launcher-options"],
+                     requirements=["real-worker"],
+                     blocked_configure_flags=["AARCH64_HOST"],
+                     limits=["cycles=1"],
+                     list_notes=["launcher --gzip"]),
+            TestSpec("no-gzip-flag", 1, ["--no-gzip ./test/dmtcp1"],
+                     cycles=1,
+                     expect_checkpoint_gzip=False,
+                     tags=["launcher-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["launcher --no-gzip"]),
+            TestSpec("no-gzip-env", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     env={"DMTCP_GZIP": "0"},
+                     expect_checkpoint_gzip=False,
+                     tags=["runtime-env"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["DMTCP_GZIP=0"]),
+            TestSpec("allow-file-overwrite", 1,
+                     [
+                         "--checkpoint-open-files --allow-file-overwrite "
+                         "./test/allow-file-overwrite"
+                     ],
+                     cycles=1,
+                     env={
+                         "DMTCP_ALLOW_FILE_OVERWRITE_PATH":
+                         "{workdir}/open-file.txt",
+                         "DMTCP_ALLOW_FILE_OVERWRITE_SUCCESS_FILE":
+                         "{workdir}/allow-file-overwrite.success",
+                     },
+                     post_checkpoint_files={
+                         "open-file.txt": "modified-after-checkpoint\n",
+                     },
+                     post_restart_validator=
+                     validate_allow_file_overwrite_restart,
+                     tags=["launcher-options"],
+                     requirements=["real-worker", "checkpoint-open-files"],
+                     limits=["cycles=1"],
+                     list_notes=["allow file overwrite"]),
+            TestSpec("allow-file-overwrite-env", 1,
+                     ["--checkpoint-open-files ./test/allow-file-overwrite"],
+                     cycles=1,
+                     env={
+                         "DMTCP_ALLOW_OVERWRITE_WITH_CKPTED_FILES": "1",
+                         "DMTCP_ALLOW_FILE_OVERWRITE_PATH":
+                         "{workdir}/open-file-env.txt",
+                         "DMTCP_ALLOW_FILE_OVERWRITE_SUCCESS_FILE":
+                         "{workdir}/allow-file-overwrite-env.success",
+                     },
+                     post_checkpoint_files={
+                         "open-file-env.txt": "modified-after-checkpoint\n",
+                     },
+                     post_restart_validator=
+                     validate_allow_file_overwrite_restart,
+                     tags=["runtime-env"],
+                     requirements=["real-worker", "checkpoint-open-files"],
+                     limits=["cycles=1"],
+                     list_notes=["DMTCP_ALLOW_OVERWRITE_WITH_CKPTED_FILES"]),
+            TestSpec("tmpdir-env", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     env={"DMTCP_TMPDIR": "{workdir}/tmp"},
+                     post_run_validator=validate_tmpdir_is_private,
+                     tags=["runtime-env"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["DMTCP_TMPDIR"]),
+            TestSpec("tmpdir-flag", 1,
+                     ["--tmpdir {workdir}/launch-tmp ./test/tmpdir"],
+                     cycles=0,
+                     post_launch_delay=1.0,
+                     env={
+                         "DMTCP_TMPDIR_TEST_ROOT":
+                         "{workdir}/launch-tmp",
+                         "DMTCP_TMPDIR_SUCCESS_FILE":
+                         "{workdir}/tmpdir.success",
+                     },
+                     post_run_validator=validate_tmpdir_flag,
+                     tags=["launcher-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=0"],
+                     list_notes=["launcher --tmpdir"]),
+            TestSpec("checkpoint-interval-env", 1, ["./test/dmtcp1"],
+                     cycles=0,
+                     post_launch_delay=4.0,
+                     env={"DMTCP_CHECKPOINT_INTERVAL": "1"},
+                     post_run_validator=validate_auto_checkpoint_interval,
+                     tags=["runtime-env"],
+                     requirements=["real-worker"],
+                     limits=["cycles=0"],
+                     list_notes=["DMTCP_CHECKPOINT_INTERVAL"]),
+            TestSpec("checkpoint-interval-flag", 1,
+                     ["--interval 1 ./test/dmtcp1"],
+                     cycles=0,
+                     post_launch_delay=4.0,
+                     post_run_validator=validate_auto_checkpoint_interval,
+                     tags=["launcher-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=0"],
+                     list_notes=["launcher --interval"]),
+            TestSpec("unique-ckpt-env", 1, ["./test/dmtcp1"],
+                     cycles=1,
+                     env={"DMTCP_UNIQUE_CKPT_PLUGIN": "1"},
+                     post_run_validator=validate_unique_checkpoint_subdir,
+                     tags=["runtime-env"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["DMTCP_UNIQUE_CKPT_PLUGIN"]),
+            TestSpec("unique-ckpt-flag", 1,
+                     ["--enable-unique-checkpoint-filenames ./test/dmtcp1"],
+                     cycles=1,
+                     post_run_validator=validate_unique_checkpoint_subdir,
+                     tags=["launcher-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["unique checkpoint flag"]),
+            TestSpec("unique-ckpt-disable-flag", 1,
+                     [
+                         "--disable-unique-checkpoint-filenames "
+                         "./test/dmtcp1"
+                     ],
+                     cycles=1,
+                     env={"DMTCP_UNIQUE_CKPT_PLUGIN": "1"},
+                     post_run_validator=validate_non_unique_checkpoint_dir,
+                     tags=["launcher-options"],
+                     requirements=["real-worker"],
+                     limits=["cycles=1"],
+                     list_notes=["disable unique checkpoint flag"]),
             TestSpec("dmtcp1-m32", 1, ["./test/dmtcp1-m32"]),
             TestSpec("epoll2", 2, ["./test/epoll1 --use-epoll-create1"],
                      configure_flags=["HAS_EPOLL_CREATE1"]),
@@ -1705,7 +2270,10 @@ class TestRegistry:
                      pre_checkpoint_delay=1.0,
                      tags=["slow"]),
             TestSpec("gzip", 1, ["./test/dmtcp1"],
-                     env={"DMTCP_GZIP": "1"}),
+                     env={"DMTCP_GZIP": "1"},
+                     expect_checkpoint_gzip=True,
+                     blocked_configure_flags=["AARCH64_HOST"],
+                     list_notes=["DMTCP_GZIP=1"]),
             TestSpec("readline", 1, ["./test/readline"]),
             TestSpec("perl", 1, ["/usr/bin/perl -e 'while (1) { sleep 1 }'"],
                      post_launch_delay=2.0,
@@ -1887,6 +2455,12 @@ COMMAND_TESTS = (
         [sys.executable, "./autotest_test.py"],
     ),
     CommandTestSpec(
+        "dmtcp-cli",
+        "CLI option tests",
+        "harness",
+        [sys.executable, "./test_dmtcp_cli.py"],
+    ),
+    CommandTestSpec(
         "coordinator-synthetic",
         COORDINATOR_PROTOCOL_CATEGORY,
         "coordinator",
@@ -1903,6 +2477,7 @@ SUITE_ORDER = ("unit", "harness", "coordinator", "integration")
 COMMAND_CATEGORY_ORDER = (
     "Unit tests",
     "Harness tests",
+    "CLI option tests",
     COORDINATOR_PROTOCOL_CATEGORY,
 )
 COMMAND_INTEGRATION_CATEGORIES = frozenset({

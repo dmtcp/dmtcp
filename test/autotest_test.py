@@ -822,7 +822,12 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             work.port_file = tmp_path / "port"
             ckpt = work.ckpt_dir / "ckpt_test.dmtcp"
             ckpt.write_bytes(b"checkpoint")
-            spec = TestSpec("restart-transcript", 1, ["/bin/true"])
+            spec = TestSpec("restart-transcript", 1, ["/bin/true"],
+                            restart_args=[
+                                "--tmpdir",
+                                "{workdir}/restart-tmp",
+                                "--no-strict-checking",
+                            ])
             context = TestContext(DmtcpHarness(ROOT), spec, work)
 
             with mock.patch.object(autotest_module.subprocess, "Popen"), \
@@ -836,7 +841,115 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                 encoding="utf-8")
             self.assertIn("phase=restart-worker-0", transcript)
             self.assertIn("dmtcp_restart --quiet", transcript)
+            self.assertIn(f"--tmpdir {tmp_path}/restart-tmp", transcript)
+            self.assertIn("--no-strict-checking", transcript)
             self.assertIn(str(ckpt), transcript)
+
+    def test_restart_debug_pause_records_command_and_kills_restart(self):
+        class FakeProcess:
+            pid = 6789
+
+            def poll(self):
+                return None
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            ckpt = work.ckpt_dir / "ckpt_test.dmtcp"
+            ckpt.write_bytes(b"checkpoint")
+            spec = TestSpec("restart-debug-pause", 1, ["/bin/true"],
+                            restart_pause_level=1)
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+            fake_process = FakeProcess()
+
+            with mock.patch.object(context, "_spawn_worker_process",
+                                   return_value=fake_process) as spawn, \
+                 mock.patch.object(context, "_assert_restart_paused") \
+                 as assert_paused, \
+                 mock.patch.object(context, "_terminate_process_group") \
+                 as terminate, \
+                 mock.patch.object(context, "_wait_for_status") as status:
+                context._restart()
+
+            spawn.assert_called_once_with(
+                [
+                    str(context.harness.restart),
+                    "--quiet",
+                    "--debug-restart-pause",
+                    "1",
+                    str(ckpt),
+                ],
+                tmp_path / "restart-0.out",
+                "w",
+                "restart-worker-0",
+            )
+            assert_paused.assert_called_once_with(fake_process)
+            terminate.assert_called_once_with(fake_process,
+                                              "restart-pause 6789")
+            status.assert_called_once_with(0, False, "restart-pause")
+            transcript = (tmp_path / "commands.log").read_text(
+                encoding="utf-8")
+            self.assertIn("phase=restart-worker-0", transcript)
+            self.assertIn("--debug-restart-pause 1", transcript)
+
+    def test_restart_debug_pause_allows_paused_coordinator_peer(self):
+        class FakeProcess:
+            def poll(self):
+                return None
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("restart-debug-pause", 1, ["/bin/true"],
+                            restart_pause_level=1)
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            with mock.patch.object(
+                    context, "_status",
+                    return_value=DmtcpStatus(
+                        num_peers=1,
+                        running=False,
+                        checkpoint_interval=0,
+                    )), \
+                 mock.patch.object(
+                     autotest_module.time, "time",
+                     side_effect=[0.0, 0.0, 0.0, 1.1]), \
+                 mock.patch.object(autotest_module.time, "sleep"):
+                context._assert_restart_paused(FakeProcess())
+
+    def test_restart_debug_pause_rejects_running_coordinator_state(self):
+        class FakeProcess:
+            def poll(self):
+                return None
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec("restart-debug-pause", 1, ["/bin/true"],
+                            restart_pause_level=1)
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            with mock.patch.object(
+                    context, "_status",
+                    return_value=DmtcpStatus(
+                        num_peers=1,
+                        running=True,
+                        checkpoint_interval=0,
+                    )):
+                with self.assertRaisesRegex(HarnessFailure, "rejoined"):
+                    context._assert_restart_paused(FakeProcess())
 
     def test_restart_can_use_a_pty(self):
         class FakeProcess:
@@ -943,6 +1056,83 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                 encoding="utf-8")
             self.assertIn("phase=checkpoint", image_log)
             self.assertIn(str(ckpt), image_log)
+
+    def test_checkpoint_images_include_nested_checkpoint_dirs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            nested = work.ckpt_dir / "ckpt_unique"
+            nested.mkdir()
+            image = nested / "ckpt_test.dmtcp"
+            image.write_bytes(b"checkpoint")
+            context = TestContext(
+                DmtcpHarness(ROOT),
+                TestSpec("nested", 1, ["/bin/true"]),
+                work,
+            )
+
+            self.assertEqual(context._checkpoint_images(), [image])
+
+    def test_checkpoint_validation_rejects_unexpected_gzip_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            image = work.ckpt_dir / "ckpt_test.dmtcp"
+            image.write_bytes(b"DMTCP_CHECKPOINT_IMAGE_v5.0\n\0")
+            spec = TestSpec("gzip", 1, ["/bin/true"],
+                            expect_checkpoint_gzip=True)
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            with self.assertRaisesRegex(HarnessFailure,
+                                        "expected gzip"):
+                context._validate_checkpoint_images([image])
+
+    def test_checkpoint_validation_accepts_plain_dmtcp_signature(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            image = work.ckpt_dir / "ckpt_test.dmtcp"
+            image.write_bytes(b"DMTCP_CHECKPOINT_IMAGE_v5.0\n\0")
+            spec = TestSpec("checkpoint-header", 1, ["/bin/true"],
+                            validate_checkpoint_headers=True,
+                            expect_checkpoint_gzip=False)
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            context._validate_checkpoint_images([image])
+
+    def test_unique_checkpoint_validator_rejects_images_outside_ckpt_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            misplaced = tmp_path / "ckpt_misplaced"
+            misplaced.mkdir()
+            image = misplaced / "ckpt_test.dmtcp"
+            image.write_bytes(b"checkpoint")
+            (tmp_path / "checkpoint-images.log").write_text(
+                f"phase=checkpoint\n{image}\n",
+                encoding="utf-8",
+            )
+            context = TestContext(
+                DmtcpHarness(ROOT),
+                TestSpec("unique", 1, ["/bin/true"]),
+                work,
+            )
+
+            with self.assertRaisesRegex(HarnessFailure,
+                                        "outside checkpoint root"):
+                autotest_module.validate_unique_checkpoint_subdir(context)
 
     def test_complete_supports_kill_exit_on_last(self):
         spec = TestSpec("exit-on-last", 1, ["./test/dmtcp1"],
@@ -1219,6 +1409,140 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                         restart_uses_directory=True)
 
         self.assertTrue(spec.restart_uses_directory)
+
+    def test_spec_records_restart_args(self):
+        spec = TestSpec("restart-tmpdir-flag", 1, ["./test/restart-tmpdir"],
+                        restart_args=["--tmpdir", "{workdir}/restart-tmp"])
+
+        self.assertEqual(spec.restart_args,
+                         ["--tmpdir", "{workdir}/restart-tmp"])
+
+    def test_spec_records_restart_pause_level(self):
+        spec = TestSpec("restart-debug-pause", 1, ["./test/dmtcp1"],
+                        restart_pause_level=1)
+
+        self.assertEqual(spec.restart_pause_level, 1)
+
+    def test_spec_records_restart_pause_expectation(self):
+        spec = TestSpec("restart-debug-pause-env", 1, ["./test/dmtcp1"],
+                        expect_restart_pause=True)
+
+        self.assertTrue(spec.expect_restart_pause)
+
+    def test_spec_records_expected_checkpoint_gzip_mode(self):
+        spec = TestSpec("no-gzip-flag", 1, ["--no-gzip ./test/dmtcp1"],
+                        expect_checkpoint_gzip=False)
+
+        self.assertFalse(spec.expect_checkpoint_gzip)
+
+    def test_checkpoint_dir_files_are_written(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec(
+                "modify-env", 1, ["./test/modify-env1"],
+                checkpoint_dir_files={
+                    "dmtcp_env.txt": "VAR={workdir}\n",
+                    "nested/file.txt": "nested\n",
+                },
+            )
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            context._write_checkpoint_dir_files()
+
+            self.assertEqual(
+                (work.ckpt_dir / "dmtcp_env.txt").read_text(
+                    encoding="utf-8"),
+                f"VAR={tmp_path}\n",
+            )
+            self.assertEqual(
+                (work.ckpt_dir / "nested/file.txt").read_text(
+                    encoding="utf-8"),
+                "nested\n",
+            )
+
+    def test_post_checkpoint_files_are_written(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            work = mock.Mock()
+            work.path = tmp_path
+            work.ckpt_dir = tmp_path / "ckpt"
+            work.ckpt_dir.mkdir()
+            work.port_file = tmp_path / "port"
+            spec = TestSpec(
+                "allow-file-overwrite", 1, ["./test/allow-file-overwrite"],
+                post_checkpoint_files={
+                    "open-file.txt": "VAR={workdir}\n",
+                    "nested/file.txt": "nested\n",
+                },
+            )
+            context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+            context._write_post_checkpoint_files()
+
+            self.assertEqual(
+                (work.path / "open-file.txt").read_text(encoding="utf-8"),
+                f"VAR={tmp_path}\n",
+            )
+            self.assertEqual(
+                (work.path / "nested/file.txt").read_text(encoding="utf-8"),
+                "nested\n",
+            )
+
+    def test_checkpoint_dir_files_reject_escape_paths(self):
+        absolute_bad_path = str(pathlib.Path(tempfile.gettempdir()) / "bad")
+        for bad_path in ("../bad", absolute_bad_path):
+            with self.subTest(path=bad_path):
+                with tempfile.TemporaryDirectory() as tmp:
+                    tmp_path = pathlib.Path(tmp)
+                    work = mock.Mock()
+                    work.path = tmp_path
+                    work.ckpt_dir = tmp_path / "ckpt"
+                    work.ckpt_dir.mkdir()
+                    work.port_file = tmp_path / "port"
+                    spec = TestSpec("bad-file", 1, ["./test/dmtcp1"],
+                                    checkpoint_dir_files={bad_path: "bad"})
+                    context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+                    with self.assertRaisesRegex(
+                            HarnessFailure,
+                            "invalid checkpoint file path"):
+                        context._write_checkpoint_dir_files()
+
+    def test_post_checkpoint_files_reject_escape_paths(self):
+        absolute_bad_path = str(pathlib.Path(tempfile.gettempdir()) / "bad")
+        for bad_path in ("../bad", absolute_bad_path):
+            with self.subTest(path=bad_path):
+                with tempfile.TemporaryDirectory() as tmp:
+                    tmp_path = pathlib.Path(tmp)
+                    work = mock.Mock()
+                    work.path = tmp_path
+                    work.ckpt_dir = tmp_path / "ckpt"
+                    work.ckpt_dir.mkdir()
+                    work.port_file = tmp_path / "port"
+                    spec = TestSpec(
+                        "bad-file", 1, ["./test/dmtcp1"],
+                        post_checkpoint_files={bad_path: "bad"},
+                    )
+                    context = TestContext(DmtcpHarness(ROOT), spec, work)
+
+                    with self.assertRaisesRegex(
+                            HarnessFailure,
+                            "invalid post-checkpoint file path"):
+                        context._write_post_checkpoint_files()
+
+    def test_spec_records_post_restart_validator(self):
+        def validator(context):
+            return None
+
+        spec = TestSpec("post-restart", 1, ["./test/dmtcp1"],
+                        post_restart_validator=validator)
+
+        self.assertIs(spec.post_restart_validator, validator)
 
     def test_spec_records_extra_coordinator_args(self):
         spec = TestSpec("exit-on-last", 1, ["./test/dmtcp1"],
@@ -1914,6 +2238,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(command_calls, [
             "dmtcp-unit",
             "autotest-unit",
+            "dmtcp-cli",
             "coordinator-synthetic",
             "command-json",
         ])
@@ -1925,6 +2250,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         for heading in [
             "Unit tests",
             "Harness tests",
+            "CLI option tests",
             "Coordinator protocol tests",
             "Checkpoint/restart integration tests",
         ]:
@@ -1934,7 +2260,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertIn("  exit-on-last   run:PASSED (0.0s)", lines)
         self.assertIn("  dmtcp1         ckpt:PASSED; rstr:PASSED -> "
                       "ckpt:PASSED; rstr:PASSED (0.0s)", lines)
-        self.assertIn("test groups: pass=6 fail=0 skipped=0 total=6", lines)
+        self.assertIn("test groups: pass=7 fail=0 skipped=0 total=7", lines)
 
     def test_autotest_passes_slow_count_to_harness(self):
         captured = {}
@@ -2290,19 +2616,54 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             "rlimit-nofile", "procfd1", "epoll1", "forkexec",
             "client-server", "seqpacket", "shared-memory1", "shared-memory2",
             "shared-memory3", "sysv-shm1", "sysv-shm2", "sysv-sem", "sysv-msg",
-            "syscall-tester", "file2", "presuspend", "plugin-sleep2",
-            "plugin-init", "popen1", "poll-disable-event-plugin", "pthread3",
-            "restartdir", "pty1", "pty2", "vfork1", "vfork2", "frisbee",
-            "nocheckpoint", "checkpoint-header",
+            "syscall-tester", "checkpoint-open-files-alias",
+            "checkpoint-open-files-env", "file2", "presuspend",
+            "plugin-sleep2", "plugin-init", "plugin-init-env", "popen1",
+            "poll-disable-event-plugin", "poll-disable-event-plugin-env",
+            "pthread3", "restartdir", "pty1", "pty2", "vfork1", "vfork2",
+            "frisbee", "nocheckpoint",
+            "checkpoint-header", "restart-debug-pause",
+            "restart-debug-pause-env",
+            "restart-no-strict-checking", "restart-no-strict-checking-env",
+            "restart-ckptdir-flag", "restart-join-coordinator-flag",
+            "restart-tmpdir-flag",
+            "ckptdir-flag", "ckpt-signal-flag", "ckpt-signal-env",
+            "checkpoint-dir-env", "no-gzip-flag", "no-gzip-env",
+            "allow-file-overwrite", "allow-file-overwrite-env",
+            "tmpdir-flag", "tmpdir-env", "checkpoint-interval-env",
+            "checkpoint-interval-flag", "unique-ckpt-env",
+            "unique-ckpt-flag", "unique-ckpt-disable-flag",
+            "modify-env", "pathvirt",
             "coordinator-exit-on-last", "command-json-bcheckpoint",
             "coordinator-reject-restart-while-running",
+            "join-coordinator-flag",
         ]:
             self.assertIn(name, names)
+        if getattr(autotest_config, "AARCH64_HOST", "no") != "yes":
+            self.assertIn("gzip-flag", names)
 
         syscall_tester = REGISTRY.get_test("syscall-tester")
         self.assertEqual(syscall_tester.checkpoint_command, "--kcheckpoint")
         self.assertEqual(syscall_tester.commands,
                          ["--checkpoint-open-files ./test/syscall-tester"])
+        checkpoint_open_files_alias = REGISTRY.get_test(
+            "checkpoint-open-files-alias")
+        self.assertEqual(checkpoint_open_files_alias.checkpoint_command,
+                         "--kcheckpoint")
+        self.assertEqual(checkpoint_open_files_alias.commands,
+                         ["--ckpt-open-files ./test/syscall-tester"])
+        self.assertIn("checkpoint-open-files",
+                      checkpoint_open_files_alias.requirements)
+        checkpoint_open_files_env = REGISTRY.get_test(
+            "checkpoint-open-files-env")
+        self.assertEqual(checkpoint_open_files_env.checkpoint_command,
+                         "--kcheckpoint")
+        self.assertEqual(checkpoint_open_files_env.commands,
+                         ["./test/syscall-tester"])
+        self.assertEqual(checkpoint_open_files_env.env["DMTCP_CKPT_OPEN_FILES"],
+                         "1")
+        self.assertIn("DMTCP_CKPT_OPEN_FILES",
+                      checkpoint_open_files_env.list_notes)
         coordinator_barrier = REGISTRY.get_test("coordinator-barrier")
         self.assertEqual(coordinator_barrier.category,
                          "Coordinator protocol tests")
@@ -2312,6 +2673,11 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertIn("barrier", coordinator_barrier.tags)
         self.assertIn("real-worker", coordinator_barrier.requirements)
         self.assertIn("cycles=1", coordinator_barrier.limits)
+        join_coordinator = REGISTRY.get_test("join-coordinator-flag")
+        self.assertIn("--join-coordinator", join_coordinator.commands[0])
+        self.assertEqual(join_coordinator.cycles, 1)
+        self.assertIn("coordinator", join_coordinator.tags)
+        self.assertIn("cycles=1", join_coordinator.limits)
         restartdir = REGISTRY.get_test("restartdir")
         self.assertTrue(restartdir.restart_uses_directory)
         frisbee = REGISTRY.get_test("frisbee")
@@ -2326,6 +2692,137 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(checkpoint_header.env["DMTCP_GZIP"], "0")
         self.assertIn("checkpoint-header", checkpoint_header.tags)
         self.assertIn("cycles=1", checkpoint_header.limits)
+        restart_pause = REGISTRY.get_test("restart-debug-pause")
+        self.assertEqual(restart_pause.restart_pause_level, 1)
+        self.assertEqual(restart_pause.cycles, 1)
+        self.assertIn("restart-debug", restart_pause.tags)
+        self.assertIn("real-worker", restart_pause.requirements)
+        self.assertIn("cycles=1", restart_pause.limits)
+        restart_pause_env = REGISTRY.get_test("restart-debug-pause-env")
+        self.assertEqual(restart_pause_env.env["DMTCP_RESTART_PAUSE"], "1")
+        self.assertTrue(restart_pause_env.expect_restart_pause)
+        self.assertIn("runtime-env", restart_pause_env.tags)
+        self.assertIn("cycles=1", restart_pause_env.limits)
+        restart_no_strict = REGISTRY.get_test("restart-no-strict-checking")
+        self.assertEqual(restart_no_strict.restart_args,
+                         ["--no-strict-checking"])
+        self.assertIn("restart-options", restart_no_strict.tags)
+        restart_no_strict_env = REGISTRY.get_test(
+            "restart-no-strict-checking-env")
+        self.assertEqual(
+            restart_no_strict_env.env["DMTCP_DISABLE_STRICT_CHECKING"],
+            "1",
+        )
+        self.assertIn("runtime-env", restart_no_strict_env.tags)
+        self.assertIn("cycles=1", restart_no_strict_env.limits)
+        restart_ckptdir = REGISTRY.get_test("restart-ckptdir-flag")
+        self.assertEqual(restart_ckptdir.restart_args,
+                         ["--ckptdir", "{workdir}/restart-ckpt"])
+        self.assertEqual(restart_ckptdir.cycles, 2)
+        self.assertIsNotNone(restart_ckptdir.post_run_validator)
+        self.assertIn("restart-options", restart_ckptdir.tags)
+        restart_join = REGISTRY.get_test("restart-join-coordinator-flag")
+        self.assertEqual(restart_join.restart_args, ["--join-coordinator"])
+        self.assertEqual(restart_join.cycles, 1)
+        self.assertIn("restart-options", restart_join.tags)
+        restart_tmpdir = REGISTRY.get_test("restart-tmpdir-flag")
+        self.assertEqual(restart_tmpdir.restart_args,
+                         ["--tmpdir", "{workdir}/restart-tmp"])
+        self.assertIn("DMTCP_RESTART_TMPDIR_ROOT", restart_tmpdir.env)
+        self.assertIsNotNone(restart_tmpdir.post_restart_validator)
+        self.assertIn("restart-options", restart_tmpdir.tags)
+        ckptdir = REGISTRY.get_test("ckptdir-flag")
+        self.assertIn("--ckptdir {workdir}/launch-ckpt",
+                      ckptdir.commands[0])
+        self.assertFalse(ckptdir.expect_checkpoint_gzip)
+        ckpt_signal_env = REGISTRY.get_test("ckpt-signal-env")
+        self.assertEqual(ckpt_signal_env.env["DMTCP_SIGCKPT"], "10")
+        self.assertIn("runtime-env", ckpt_signal_env.tags)
+        self.assertIn("cycles=1", ckpt_signal_env.limits)
+        checkpoint_dir_env = REGISTRY.get_test("checkpoint-dir-env")
+        self.assertEqual(
+            checkpoint_dir_env.env["DMTCP_CHECKPOINT_DIR"],
+            "{workdir}/env-ckpt",
+        )
+        self.assertIsNotNone(checkpoint_dir_env.post_run_validator)
+        self.assertIn("cycles=1", checkpoint_dir_env.limits)
+        no_gzip = REGISTRY.get_test("no-gzip-flag")
+        self.assertIn("--no-gzip", no_gzip.commands[0])
+        self.assertFalse(no_gzip.expect_checkpoint_gzip)
+        no_gzip_env = REGISTRY.get_test("no-gzip-env")
+        self.assertEqual(no_gzip_env.env["DMTCP_GZIP"], "0")
+        self.assertFalse(no_gzip_env.expect_checkpoint_gzip)
+        self.assertIn("cycles=1", no_gzip_env.limits)
+        allow_overwrite = REGISTRY.get_test("allow-file-overwrite")
+        self.assertIn("--allow-file-overwrite",
+                      allow_overwrite.commands[0])
+        self.assertIn("open-file.txt",
+                      allow_overwrite.post_checkpoint_files)
+        self.assertIsNotNone(allow_overwrite.post_restart_validator)
+        self.assertIn("cycles=1", allow_overwrite.limits)
+        allow_overwrite_env = REGISTRY.get_test("allow-file-overwrite-env")
+        self.assertEqual(
+            allow_overwrite_env.env[
+                "DMTCP_ALLOW_OVERWRITE_WITH_CKPTED_FILES"],
+            "1",
+        )
+        self.assertIn("open-file-env.txt",
+                      allow_overwrite_env.post_checkpoint_files)
+        self.assertIsNotNone(allow_overwrite_env.post_restart_validator)
+        self.assertIn("cycles=1", allow_overwrite_env.limits)
+        tmpdir_flag = REGISTRY.get_test("tmpdir-flag")
+        self.assertIn("--tmpdir {workdir}/launch-tmp",
+                      tmpdir_flag.commands[0])
+        self.assertEqual(tmpdir_flag.cycles, 0)
+        self.assertIn("DMTCP_TMPDIR_TEST_ROOT", tmpdir_flag.env)
+        self.assertIsNotNone(tmpdir_flag.post_run_validator)
+        self.assertIn("cycles=0", tmpdir_flag.limits)
+        unique_env = REGISTRY.get_test("unique-ckpt-env")
+        self.assertEqual(unique_env.env["DMTCP_UNIQUE_CKPT_PLUGIN"], "1")
+        checkpoint_interval = REGISTRY.get_test("checkpoint-interval-env")
+        self.assertEqual(
+            checkpoint_interval.env["DMTCP_CHECKPOINT_INTERVAL"],
+            "1",
+        )
+        self.assertEqual(checkpoint_interval.cycles, 0)
+        self.assertIn("cycles=0", checkpoint_interval.limits)
+        self.assertIsNotNone(checkpoint_interval.post_run_validator)
+        checkpoint_interval_flag = REGISTRY.get_test(
+            "checkpoint-interval-flag")
+        self.assertIn("--interval 1", checkpoint_interval_flag.commands[0])
+        self.assertEqual(checkpoint_interval_flag.cycles, 0)
+        self.assertIn("cycles=0", checkpoint_interval_flag.limits)
+        self.assertIsNotNone(checkpoint_interval_flag.post_run_validator)
+        unique_flag = REGISTRY.get_test("unique-ckpt-flag")
+        self.assertIn("--enable-unique-checkpoint-filenames",
+                      unique_flag.commands[0])
+        unique_disable = REGISTRY.get_test("unique-ckpt-disable-flag")
+        self.assertIn("--disable-unique-checkpoint-filenames",
+                      unique_disable.commands[0])
+        self.assertEqual(unique_disable.env["DMTCP_UNIQUE_CKPT_PLUGIN"], "1")
+        self.assertIsNotNone(unique_disable.post_run_validator)
+        plugin_init_env = REGISTRY.get_test("plugin-init-env")
+        self.assertIn("libdmtcp_plugin-init.so",
+                      plugin_init_env.env["DMTCP_PLUGIN"])
+        self.assertIn("runtime-env", plugin_init_env.tags)
+        modify_env = REGISTRY.get_test("modify-env")
+        self.assertIn("--modify-env ./test/modify-env1",
+                      modify_env.commands[0])
+        self.assertEqual(
+            modify_env.env["DMTCP_MODIFY_ENV_TARGET"],
+            "before-restart",
+        )
+        self.assertIn("dmtcp_env.txt", modify_env.checkpoint_dir_files)
+        self.assertIsNotNone(modify_env.post_restart_validator)
+        self.assertIn("cycles=1", modify_env.limits)
+        pathvirt = REGISTRY.get_test("pathvirt")
+        self.assertIn("--pathvirt ./test/pathvirt1", pathvirt.commands[0])
+        self.assertIn("DMTCP_PATH_MAPPING", pathvirt.env)
+        self.assertIsNotNone(pathvirt.post_restart_validator)
+        self.assertIn("cycles=1", pathvirt.limits)
+        poll_disable_env = REGISTRY.get_test("poll-disable-event-plugin-env")
+        self.assertEqual(poll_disable_env.env["DMTCP_EVENT_PLUGIN"], "0")
+        self.assertIn("runtime-env", poll_disable_env.tags)
         exit_on_last = REGISTRY.get_test("coordinator-exit-on-last")
         self.assertEqual(exit_on_last.cycles, 0)
         self.assertEqual(exit_on_last.coordinator_args, ["--exit-on-last"])
@@ -2436,8 +2933,12 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         if "pthread_atfork1" in names:
             atfork = REGISTRY.get_test("pthread_atfork1")
             self.assertIn(f"{ROOT}/test", atfork.library_paths)
-        for name in ("waitpid", "waitid-syscall", "gzip", "bash"):
+        for name in ("waitpid", "waitid-syscall", "bash"):
             assert_registered_unless_m32_disabled(self, names, name)
+        if getattr(autotest_config, "AARCH64_HOST", "no") == "yes":
+            self.assertNotIn("gzip", names)
+        else:
+            assert_registered_unless_m32_disabled(self, names, "gzip")
         if getattr(autotest_config, "AARCH64_HOST", "no") == "yes":
             self.assertNotIn("perl", names)
         else:
@@ -2458,6 +2959,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         if "gzip" in names:
             gzip = REGISTRY.get_test("gzip")
             self.assertEqual(gzip.env["DMTCP_GZIP"], "1")
+            self.assertTrue(gzip.expect_checkpoint_gzip)
+            self.assertEqual(gzip.blocked_configure_flags, ["AARCH64_HOST"])
         if autotest_config.HAS_JAVA == "yes" and \
                 autotest_config.HAS_JAVAC == "yes" and \
                 (ROOT / "test/java1.class").exists():

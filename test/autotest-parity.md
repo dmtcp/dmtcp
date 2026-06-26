@@ -30,13 +30,13 @@ or executable-path checks enable them.
 
 | Group | Ported tests |
 | --- | --- |
-| Harness and command protocol | `command-json-bcheckpoint`, `command-json-kill`, `command-json-quit`, `coordinator-exit-on-last`, `coordinator-replacement-worker`, `coordinator-reject-restart-while-running` |
-| Core smoke and process state | `dmtcp1`, `dmtcp1-m32`, `dmtcp1-quiet`, `dmtcp1-trace`, `dmtcp2`, `dmtcp3`, `dmtcp4`, `dmtcp5`, `alarm`, `sched_test`, `coordinator-barrier`, `gettid`, `sigchild`, `rlimit-restore`, `rlimit-nofile`, `environ`, `realpath`, `forkexec`, `vfork1`, `vfork2`, `frisbee`, `checkpoint-header`, `selinux1`, `cma`, `waitpid`, `waitid-syscall` |
+| Harness and command protocol | `command-json-bcheckpoint`, `command-json-kill`, `command-json-quit`, `coordinator-exit-on-last`, `coordinator-replacement-worker`, `coordinator-reject-restart-while-running`, `join-coordinator-flag` |
+| Core smoke and process state | `dmtcp1`, `dmtcp1-m32`, `dmtcp1-quiet`, `dmtcp1-trace`, `dmtcp2`, `dmtcp3`, `dmtcp4`, `dmtcp5`, `alarm`, `sched_test`, `coordinator-barrier`, `gettid`, `sigchild`, `rlimit-restore`, `rlimit-nofile`, `environ`, `realpath`, `forkexec`, `vfork1`, `vfork2`, `frisbee`, `checkpoint-header`, `restart-debug-pause`, `restart-debug-pause-env`, `restart-no-strict-checking`, `restart-no-strict-checking-env`, `restart-ckptdir-flag`, `restart-join-coordinator-flag`, `restart-tmpdir-flag`, `ckptdir-flag`, `ckpt-signal-flag`, `ckpt-signal-env`, `checkpoint-dir-env`, `gzip-flag`, `no-gzip-flag`, `no-gzip-env`, `allow-file-overwrite`, `allow-file-overwrite-env`, `tmpdir-flag`, `tmpdir-env`, `checkpoint-interval-env`, `checkpoint-interval-flag`, `unique-ckpt-env`, `unique-ckpt-flag`, `unique-ckpt-disable-flag`, `selinux1`, `cma`, `waitpid`, `waitid-syscall` |
 | Logging | `logging-runtime`, `logging-quiet`, `logging-overrides` |
 | File, fd, and path behavior | `file1`, `file2`, `file3`, `stat`, `mmap1`, `mremap`, `poll`, `shared-fd1`, `shared-fd2`, `stale-fd`, `procfd1`, `epoll1`, `epoll2`, `gzip` |
 | Threads and synchronization | `pthread1`, `pthread2`, `pthread3`, `pthread4`, `pthread5`, `pthread6`, `pthread_atfork1`, `pthread_atfork2`, `mutex1`, `mutex2`, `mutex3`, `mutex4`, `timer1`, `clock`, `gettimeofday` |
 | IPC, sockets, and PTY smoke | `client-server`, `seqpacket`, `ssh1`, `shared-memory1`, `shared-memory2`, `shared-memory3`, `sysv-shm1`, `sysv-shm2`, `sysv-sem`, `sysv-msg`, `posix-mq1`, `posix-mq-close-untracked`, `pty1`, `pty2` |
-| Plugins and events | `dlopen1`, `dlopen2`, `syscall-tester`, `presuspend`, `plugin-sleep2`, `plugin-example-db`, `plugin-init`, `poll-disable-event-plugin`, `popen1`, `restartdir`, `nocheckpoint` |
+| Plugins and events | `dlopen1`, `dlopen2`, `syscall-tester`, `checkpoint-open-files-env`, `presuspend`, `plugin-sleep2`, `plugin-example-db`, `plugin-init`, `plugin-init-env`, `modify-env`, `pathvirt`, `poll-disable-event-plugin`, `poll-disable-event-plugin-env`, `popen1`, `restartdir`, `nocheckpoint` |
 | Shells, terminal apps, and language/runtime smoke | `perl`, `python`, `bash`, `dash`, `zsh`, `readline`, `tcsh`, `script`, `vim`, `emacs`, `screen`, `java1`, `cilk1`, `matlab-nodisplay`, `openmp-1`, `openmp-2` |
 | MPI smoke | `hellompich-n1`, `hellompich-n2`, `openmpi` |
 
@@ -50,7 +50,38 @@ or executable-path checks enable them.
 | `coordinator-replacement-worker` | Ported with `cycles=0` | This validates that a real replacement worker can join after one live worker disconnects, without adding a checkpoint/restart cycle. |
 | `coordinator-reject-restart-while-running` | Ported with `cycles=0` | This validates coordinator rejection of a restart worker while the original computation is still running. It creates a checkpoint image first, then attempts `dmtcp_restart` before killing the original worker. |
 | `coordinator-barrier` | Ported with `cycles=1` | This is a focused real-worker cross-check for normal two-worker coordinator barrier release. |
+| `join-coordinator-flag` | Ported with `cycles=1` | This validates that launcher `--join-coordinator` joins the harness coordinator for a normal checkpoint/restart cycle. |
+| `checkpoint-open-files-alias` | Ported | This validates that launcher `--ckpt-open-files` behaves like `--checkpoint-open-files`. |
+| `checkpoint-open-files-env` | Ported with `cycles=1` | This validates the `DMTCP_CKPT_OPEN_FILES` equivalent of launcher `--checkpoint-open-files`. |
 | `checkpoint-header` | Ported with `cycles=1` | This validates the fixed bootstrap records in an uncompressed checkpoint image without adding a second restart cycle. |
+| `restart-debug-pause` | Ported with `cycles=1` | This validates that `dmtcp_restart --debug-restart-pause 1` pauses before the restarted worker rejoins the coordinator. The harness kills the paused restart after the bounded check so the suite cannot hang. |
+| `restart-debug-pause-env` | Ported with `cycles=1` | This validates that `DMTCP_RESTART_PAUSE=1` pauses before the restarted worker rejoins the coordinator. The harness kills the paused restart after the bounded check so the suite cannot hang. |
+| `restart-no-strict-checking` | Ported with `cycles=1` | This validates that `dmtcp_restart --no-strict-checking` is accepted during a normal restart flow. |
+| `restart-no-strict-checking-env` | Ported with `cycles=1` | This validates that `DMTCP_DISABLE_STRICT_CHECKING` is accepted during a normal restart flow. |
+| `restart-ckptdir-flag` | Ported | This validates that `dmtcp_restart --ckptdir` changes the restarted computation's checkpoint directory for a later checkpoint. |
+| `restart-join-coordinator-flag` | Ported with `cycles=1` | This validates that `dmtcp_restart --join-coordinator` rejoins the harness coordinator during a normal restart flow. |
+| `restart-tmpdir-flag` | Ported with `cycles=1` | This validates that `dmtcp_restart --tmpdir` changes the restarted worker's DMTCP tmpdir root. |
+| `ckptdir-flag` | Ported with `cycles=1` | This validates that launcher `--ckptdir` writes checkpoint images outside the default per-test checkpoint directory and that restart can consume them. |
+| `ckpt-signal-flag` | Ported with `cycles=1` | This validates that launcher `--ckpt-signal` works for a normal checkpoint/restart cycle. |
+| `ckpt-signal-env` | Ported with `cycles=1` | This validates the `DMTCP_SIGCKPT` equivalent of launcher `--ckpt-signal`. |
+| `checkpoint-dir-env` | Ported with `cycles=1` | This validates that `DMTCP_CHECKPOINT_DIR` writes checkpoint images under the requested directory. |
+| `gzip-flag` | Ported with `cycles=1`, disabled on AArch64 | This validates that explicit launcher `--gzip` creates a gzip checkpoint image where the platform supports gzip checkpoints. AArch64 is blocked because `dmtcp_launch` forces gzip off there. |
+| `gzip` | Ported with `cycles=1`, disabled on AArch64 | This validates that `DMTCP_GZIP=1` creates a gzip checkpoint image where the platform supports gzip checkpoints. AArch64 is blocked because `dmtcp_launch` forces gzip off there. |
+| `no-gzip-flag` | Ported with `cycles=1` | This validates that explicit launcher `--no-gzip` creates a plain checkpoint image. |
+| `no-gzip-env` | Ported with `cycles=1` | This validates that `DMTCP_GZIP=0` creates a plain checkpoint image. |
+| `allow-file-overwrite` | Ported with `cycles=1` | This validates that launcher `--allow-file-overwrite` restores checkpointed open-file contents when the on-disk file changes before restart. |
+| `allow-file-overwrite-env` | Ported with `cycles=1` | This validates that `DMTCP_ALLOW_OVERWRITE_WITH_CKPTED_FILES` restores checkpointed open-file contents when paired with checkpoint-open-files. |
+| `tmpdir-flag` | Ported with `cycles=0` | This validates that launcher `--tmpdir` changes DMTCP's runtime tmpdir root without adding a checkpoint/restart cycle. |
+| `tmpdir-env` | Ported with `cycles=1` | This validates that `DMTCP_TMPDIR` can point at a private per-test directory. |
+| `checkpoint-interval-env` | Ported with `cycles=0` | This validates that `DMTCP_CHECKPOINT_INTERVAL` creates an automatic checkpoint image without a manual checkpoint command. |
+| `checkpoint-interval-flag` | Ported with `cycles=0` | This validates that launcher `--interval` creates an automatic checkpoint image without a manual checkpoint command. |
+| `unique-ckpt-env` | Ported with `cycles=1` | This validates that `DMTCP_UNIQUE_CKPT_PLUGIN=1` places checkpoint images in unique checkpoint subdirectories. |
+| `unique-ckpt-flag` | Ported with `cycles=1` | This validates that launcher `--enable-unique-checkpoint-filenames` places checkpoint images in unique checkpoint subdirectories. |
+| `unique-ckpt-disable-flag` | Ported with `cycles=1` | This validates that launcher `--disable-unique-checkpoint-filenames` overrides `DMTCP_UNIQUE_CKPT_PLUGIN=1`. |
+| `plugin-init-env` | Ported | This validates the `DMTCP_PLUGIN` equivalent of launcher `--with-plugin` for an external plugin. |
+| `modify-env` | Ported with `cycles=1` | This validates that launcher `--modify-env` applies `dmtcp_env.txt` changes from the checkpoint directory before user code resumes after restart. |
+| `pathvirt` | Ported with `cycles=1` | This validates that launcher `--pathvirt` applies `DMTCP_PATH_MAPPING` to file opens before and after restart. |
+| `poll-disable-event-plugin-env` | Ported | This validates that `DMTCP_EVENT_PLUGIN=0` disables the built-in event plugin for the existing `poll` smoke test. |
 | `dmtcp1-m32` | Built-artifact-gated | Authoritative only when the multilib build produces `test/dmtcp1-m32`. |
 | `readline`, `selinux1`, `cma`, `cilk1`, `pthread_atfork1`, `pthread_atfork2` | Built-artifact-gated | Configure and Makefile rules still decide whether these binaries can be built, but the Python registry now filters them by the resulting `test/<name>` artifact instead of duplicating those configure or architecture checks. |
 | `openmp-1`, `openmp-2` | Built-artifact-gated, slow | These use the default two checkpoint/restart cycles and keep the old harness's `S=3*DEFAULT_S` checkpoint settle delay because checkpointing too early can race active OpenMP startup work. |
