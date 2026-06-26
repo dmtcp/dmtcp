@@ -225,6 +225,23 @@ check-autotest: tests
 	 echo '*** Please add python to path'; \
 	fi
 
+# ThreadSanitizer reserves ~125 TB of virtual address space at init, so its
+# targets cannot run under the 32 GB $(LIMIT) that `check` uses to cap
+# mtcp_restart -- TSAN would abort (SIGSEGV) before main.  Run the tsan-tagged
+# tests here WITHOUT $(LIMIT).  Selection is by --tag so unavailable variants
+# (e.g. clang's not installed) are skipped, and exit 2 ("no tests selected",
+# meaning no TSAN runtime present) is treated as a graceful skip.
+check-tsan: tests
+	@ if test "@HAS_PYTHON3@" = yes; then PY=python3; \
+	  elif test "@HAS_PYTHON@" = yes; then PY=python; \
+	  else echo '*** No python found in your path.'; exit 1; fi; \
+	  $$PY $(top_srcdir)/test/autotest.py --suite integration --tag tsan ${AUTOTEST}; \
+	  rc=$$?; \
+	  if test $$rc -eq 2; then \
+	   echo 'check-tsan: no TSAN tests available (skipped)'; rc=0; \
+	  fi; \
+	  exit $$rc
+
 check-list:
 	cd test && $(MAKE) check-list
 
@@ -430,4 +447,4 @@ am--refresh:
 	build-multilib build-multilib-m32 build-multilib-m64 \
 	mkdirs dmtcp plugin contrib clean distclean am--refresh \
 	tests tests-32 check-unit check-harness-unit \
-	check-coordinator-synthetic check check-autotest check-list
+	check-coordinator-synthetic check check-autotest check-tsan check-list

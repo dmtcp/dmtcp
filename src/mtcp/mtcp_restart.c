@@ -842,9 +842,21 @@ read_one_memory_area(int fd, VA endOfStack)
       * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
       * mtcp_safemmap here to check for address conflicts.
       */
+      int mmapFlags = area.flags;
+      if (area.flags & MAP_ANONYMOUS) {
+        /* Tools like ThreadSanitizer reserve enormous sparse regions (its
+         * shadow/meta mappings span multiple terabytes) with MAP_NORESERVE.
+         * /proc/self/maps does not expose MAP_NORESERVE. So area.flags lacks
+         * it, and the kernel refuses to commit such a region on restore
+         * (ENOMEM).  Restored contents are written on demand, and zero/absent
+         * pages stay uncommitted (matching the residency-based zero-page
+         * scan), so MAP_NORESERVE is safe for any anonymous region.
+         */
+        mmapFlags |= MAP_NORESERVE;
+      }
       mmappedat =
         mmap_fixed_noreplace(area.addr, area.size, area.prot | PROT_WRITE,
-                            area.flags, imagefd, area.offset);
+                            mmapFlags, imagefd, area.offset);
 
       MTCP_ASSERT(mmappedat == area.addr);
 

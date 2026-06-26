@@ -16,7 +16,7 @@ jobs:
     - name: add extra programs for tests
       run: |
         sudo apt-get update
-        sudo apt-get install emacs emacs-nox gdb screen tcsh zsh
+        sudo apt-get install emacs emacs-nox gdb screen tcsh zsh clang
     - name: configure
       run: ./configure
     - name: make
@@ -25,3 +25,7 @@ jobs:
       run: make tests
     - name: make check
       run: make check AUTOTEST="--retry-once --jobs 8"
+    # TSAN targets need an unrestricted RLIMIT_AS, so they are skipped by
+    # `make check` (which runs under ulimit -v 32GB) and run separately here.
+    - name: make check-tsan
+      run: make check-tsan AUTOTEST="--retry-once --jobs 4"

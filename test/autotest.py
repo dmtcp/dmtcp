@@ -8,6 +8,7 @@ import json
 import os
 import pathlib
 import pty
+import resource
 import shlex
 import shutil
 import signal
@@ -1457,6 +1458,12 @@ class TestRegistry:
         )
         if reasons:
             return list(dict.fromkeys(reasons))
+        if "tsan" in test.tags:
+            tsan_reason = cls._tsan_address_space_reason()
+            if tsan_reason:
+                reasons.append(tsan_reason)
+        if test.name == "tsan-clang" and not test.library_paths:
+            reasons.append("missing clang TSAN runtime dir")
         for command in test.commands:
             reasons.extend(cls._command_executable_reasons(command))
         for path in test.required_files:
@@ -1475,10 +1482,44 @@ class TestRegistry:
             for test in tests
         ]
 
+    @staticmethod
+    def _clang_runtime_dir() -> str:
+        # clang's -shared-libsan TSAN runtime lives in a non-standard dir with no
+        # RPATH, so the tsan-clang test needs LD_LIBRARY_PATH pointing at it.
+        try:
+            out = subprocess.run(["clang", "-print-runtime-dir"],
+                                 capture_output=True, text=True, timeout=10)
+            return out.stdout.strip() if out.returncode == 0 else ""
+        # Probe only: any failure here just disables the tsan-clang test
+        # (returns ""); it must never crash the suite.  Intentionally broad --
+        # covers clang-not-found, timeout, OS errors, and decode errors.
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _tsan_address_space_reason() -> Optional[str]:
+        # ThreadSanitizer reserves ~125 TiB of virtual address space at init
+        # (its shadow/meta mappings + allocator).  Under a smaller RLIMIT_AS the
+        # reservation fails and TSAN aborts (SIGSEGV) before main -- e.g.
+        # `make check` runs the suite under `ulimit -v 33554432` (32 GiB) to cap
+        # mtcp_restart.  So the tsan-tagged tests can only run when RLIMIT_AS is
+        # effectively unlimited; auto-skip them otherwise (run them via
+        # `make check-tsan`, which omits the ulimit).
+        tsan_min_bytes = 1 << 47  # 128 TiB
+        try:
+            soft, _ = resource.getrlimit(resource.RLIMIT_AS)
+        except (ValueError, OSError):
+            return None
+        if soft == resource.RLIM_INFINITY or soft >= tsan_min_bytes:
+            return None
+        return ("needs an unlimited address space for TSAN "
+                f"(RLIMIT_AS capped at {soft // (1 << 30)} GiB)")
+
     def _build_tests(self) -> List[TestSpec]:
         frisbee_p1, frisbee_p2, frisbee_p3 = [
             str(port) for port in sample(range(2000, 10000), 3)
         ]
+        clang_rtdir = self._clang_runtime_dir()
 
         tests = [
             TestSpec("dmtcp1", 1, ["./test/dmtcp1"]),
@@ -1559,6 +1600,40 @@ class TestRegistry:
             TestSpec("dmtcp2", 1, ["./test/dmtcp2"]),
             TestSpec("dmtcp3", 1, ["./test/dmtcp3"]),
             TestSpec("dmtcp4", 1, ["./test/dmtcp4"]),
+            # Regression guard for ThreadSanitizer (-fsanitize=thread) targets,
+            # exercising full (default cycles=2) checkpoint/restart.  Requirements
+            # handled by dmtcp_launch: load libtsan before libdmtcp, disable ASLR,
+            # keep DMTCP wrappers from re-entering a half-initialized TSAN during
+            # its constructor, raw-syscall checkpoint I/O past TSAN's
+            # interceptors, residency scan of the shadow, MAP_NORESERVE restore of
+            # TSAN's multi-TB reserved regions, a "called_from_lib:libdmtcp.so"
+            # TSAN suppression so the post-restart checkpoint thread does not hang
+            # in a TSAN interceptor, and -- so a SECOND consecutive restart works
+            # -- switching the checkpoint thread onto a fresh TSAN fiber after
+            # each restart (threadlist.cpp), since the image can otherwise capture
+            # the checkpoint thread's own trace torn mid-write.
+            # Auto-disabled when the TSAN runtime / ./test/tsan_target is absent.
+            TestSpec("tsan", 1, ["./test/tsan_target"], tags=["tsan"]),
+            # Same guard built with clang -fsanitize=thread -shared-libsan.
+            # LD_LIBRARY_PATH points at clang's runtime dir because its shared
+            # TSAN runtime has no RPATH (a clang fact, not DMTCP-specific).
+            # Auto-disabled when clang / its shared TSAN runtime is absent
+            # (then ./test/tsan_target_clang is not built).
+            TestSpec("tsan-clang", 1, ["./test/tsan_target_clang"],
+                     library_paths=[clang_rtdir] if clang_rtdir else [],
+                     tags=["tsan", "clang"]),
+            # clang STATIC default: TSAN runtime linked into the exe, detected by
+            # dmtcp_launch via the "__tsan_init" symbol in .dynstr (no DT_NEEDED,
+            # no prepend, no LD_LIBRARY_PATH; dmtcp_launch still disables ASLR).
+            TestSpec("tsan-clang-static", 1,
+                     ["./test/tsan_target_clang_static"],
+                     tags=["tsan", "clang"]),
+            # Regression guard for the pagemap residency zero-page optimization
+            # (Util::scanOccupiedRangeBatch in writeckpt.cpp).  Run on both the
+            # ioctl(PAGEMAP_SCAN) fast path and the portable pread() fallback.
+            TestSpec("zeropages", 1, ["./test/zeropages"]),
+            TestSpec("zeropages-pread", 1, ["./test/zeropages"],
+                     env={"DMTCP_DISABLE_PAGEMAP_SCAN": "1"}),
             TestSpec("alarm", 1, ["./test/alarm"]),
             TestSpec("sched_test", 2, ["./test/sched_test"]),
             TestSpec("coordinator-barrier", 2, ["./test/sched_test"],
