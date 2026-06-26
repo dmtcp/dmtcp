@@ -1618,7 +1618,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                 "missing-test-tag",
             ],
             cwd=str(ROOT),
-            text=True,
+            universal_newlines=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
@@ -1627,6 +1627,45 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2)
         self.assertIn("No tests selected", result.stderr)
+
+    def test_autotest_starts_without_dataclasses_on_python36(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            temp_path = pathlib.Path(tempdir)
+            (temp_path / "sitecustomize.py").write_text(
+                "import collections\n"
+                "import sys\n"
+                "VersionInfo = collections.namedtuple(\n"
+                "    'version_info', 'major minor micro releaselevel serial')\n"
+                "sys.version_info = VersionInfo(3, 6, 8, 'final', 0)\n"
+            )
+            (temp_path / "dataclasses.py").write_text(
+                "raise ModuleNotFoundError('No module named dataclasses')\n"
+            )
+            env = os.environ.copy()
+            env["PYTHONPATH"] = os.pathsep.join(
+                [str(temp_path), env.get("PYTHONPATH", "")]
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "test" / "autotest.py"),
+                    "--list",
+                    "dmtcp1",
+                ],
+                cwd=str(ROOT),
+                env=env,
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=10,
+            )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("  dmtcp1", result.stdout)
+        self.assertNotIn("Skipping autotest", result.stdout)
+        self.assertEqual(result.stderr, "")
 
     def test_autotest_list_rejects_unknown_test(self):
         result = subprocess.run(
@@ -1637,7 +1676,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                 "definitely-not-a-test",
             ],
             cwd=str(ROOT),
-            text=True,
+            universal_newlines=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
@@ -1658,7 +1697,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                 "missing-test-tag",
             ],
             cwd=str(ROOT),
-            text=True,
+            universal_newlines=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,

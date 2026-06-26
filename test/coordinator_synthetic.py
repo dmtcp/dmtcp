@@ -61,7 +61,7 @@ class CoordinatorFixture:
         self.process = subprocess.Popen(
             args,
             cwd=str(ROOT),
-            text=True,
+            universal_newlines=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -401,7 +401,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 "70000",
             ],
             cwd=str(ROOT),
-            text=True,
+            universal_newlines=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=5,
@@ -416,7 +416,7 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
         return subprocess.run(
             [str(DMTCP_COMMAND), *args],
             cwd=str(ROOT),
-            text=True,
+            universal_newlines=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=COMMAND_TIMEOUT,
