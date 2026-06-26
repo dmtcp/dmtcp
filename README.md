@@ -6,9 +6,14 @@ applications, including multi-threaded and distributed applications. It
 operates directly on the user binary executable, without any Linux kernel
 modules or other kernel modifications.
 
+**NOTE:** This 4.2 release of DMTCP is an interim release.  In the near
+future, DMTCP 5.0 will be released.  The `main` branch of DMTCP at github
+is for version 5.0, and this release is based on the branch 4.2-dev.
+
 DMTCP supports:
  * most Linux distros
  * x86_64, i386, arm64, risc-v
+ * **NEW:** Checkpointing of host, running CUDA kernels
 
 If you are looking for transparent checkpointing of MPI, please see:
  * MANA package: https://github.com/mpickpt/mana

@@ -3,6 +3,14 @@ DMTCP NEWS -- history of user-visible changes.
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>,
 or "Issues" at https://github.com/dmtcp/dmtcp .
 
+Version 4.2.0 release notes (June 26, 2026)
+===========================================
+* CUDA plugin
+* Detect unallocated pages via pagemap residency at checkpoint
+* Fixed StackHead
+* Fixed close_range() compatibility issue on old systems
+* Skip scanning pre-existing socket for MPI + Hydra
+
 Version 4.1.1 release notes (May 10, 2026)
 ==========================================
 This is a minor release which fixes some compatibility issues related
