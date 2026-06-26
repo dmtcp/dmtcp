@@ -12,6 +12,8 @@
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <vector>
+#include "config.h"
+#include "constants.h"
 #include "dmtcp.h"
 #include "jassert.h"
 #include "procselfmaps.h"
@@ -277,6 +279,19 @@ static int eventfd_trampoline(unsigned int initval, int flags) {
 static void cuda_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data) {
   switch (event) {
     case DMTCP_EVENT_INIT:
+      // The CUDA checkpoint API matches the process by its name on restart, so
+      // the "DMTCP:" program-name prefix must NOT be applied. DMTCP only adds
+      // that prefix when it was built with prgname-prefix enabled AND the
+      // DMTCP_DISABLE_PRGNAME_PREFIX env var is unset (see threadlist.cpp). If
+      // both hold, restart of a CUDA process would fail, so refuse to launch.
+#ifdef ENABLE_PRGNAME_PREFIX
+      JASSERT(getenv(ENV_VAR_DISABLE_PRGNAME_PREFIX) != NULL)
+        .Text("The CUDA plugin requires the DMTCP program-name prefix to be "
+              "disabled; otherwise the CUDA checkpoint API fails after restart. "
+              "Disable it using either approach:\n"
+              "  1. Build DMTCP with ./configure --disable-prgname-prefix, or\n"
+              "  2. Set the environment variable DMTCP_DISABLE_PRGNAME_PREFIX=1");
+#endif
       dmtcp_setup_trampoline("eventfd", (void *)&eventfd_trampoline,
                              &eventfd_trampoline_info);
       break;
