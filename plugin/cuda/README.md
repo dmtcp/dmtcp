@@ -10,7 +10,12 @@ in CUDA 12.4.
 make
 ```
 
+## Test
+```
+make check
+```
+
 ## Run
 ```
-dmtcp_launch --with-plugin /path/to/crac/libdmtcp_crac.so [target]
+dmtcp_launch --with-plugin /path/to/libdmtcp_cuda.so [target]
 ```
