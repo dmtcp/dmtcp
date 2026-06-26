@@ -134,6 +134,11 @@
 #define ENV_VAR_FSGSBASE_ENABLED        "DMTCP_FSGSBASE_ENABLED"
 #define ENV_VAR_LOG_FILE                "DMTCP_LOG_FILE"
 
+// Set to "1" to force Util::scanOccupiedRangeBatch() to use the portable
+// pread() scan of /proc/self/pagemap instead of the ioctl(PAGEMAP_SCAN)
+// fast path (debugging/testing the fallback on kernels that support both).
+#define ENV_VAR_DISABLE_PAGEMAP_SCAN    "DMTCP_DISABLE_PAGEMAP_SCAN"
+
 // this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL                  \
   ENV_VAR_NAME_HOST,                  \
@@ -171,6 +176,7 @@
   ENV_VAR_VIRTUAL_PPID,               \
   ENV_VAR_REAL_PPID,                  \
   ENV_VAR_FSGSBASE_ENABLED,           \
+  ENV_VAR_DISABLE_PAGEMAP_SCAN,       \
   ENV_VAR_LOG_FILE
 
 #define DMTCP_RESTART_CMD       "dmtcp_restart"

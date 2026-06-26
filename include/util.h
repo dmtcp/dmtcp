@@ -257,6 +257,8 @@ bool isPseudoTty(const char *path);
 size_t pageSize();
 size_t pageMask();
 bool areZeroPages(void *addr, size_t numPages);
+bool scanOccupiedRangeBatch(uintptr_t start, uintptr_t end,
+                            uintptr_t *size_scanned);
 
 char *findExecutable(char *executable, const char *path_env, char *exec_path);
 char *getPath(const char *cmd, bool is32bit = false);
