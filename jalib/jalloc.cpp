@@ -326,7 +326,7 @@ class JFixedAllocStack
         char buf[N];
       };
     };
-    struct StackHead {
+    struct alignas(16) StackHead {
       uintptr_t counter;
       FreeItem* node;
     };
