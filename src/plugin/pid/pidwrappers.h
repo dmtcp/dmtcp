@@ -231,13 +231,13 @@ pid_t _real_setsid(void);
 
 int _real_kill(pid_t pid, int sig);
 
-pid_t _real_wait(__WAIT_STATUS stat_loc);
+pid_t _real_wait(int *stat_loc);
 pid_t _real_waitpid(pid_t pid, int *stat_loc, int options);
 int _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
 
-pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage);
+pid_t _real_wait3(int *status, int options, struct rusage *rusage);
 pid_t _real_wait4(pid_t pid,
-                  __WAIT_STATUS status,
+                  int *status,
                   int options,
                   struct rusage *rusage);
 LIB_PRIVATE extern int send_sigwinch;

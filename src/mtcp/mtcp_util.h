@@ -21,12 +21,12 @@
 
 #include "procmapsarea.h"
 
-#define MTCP_PRINTF(args ...)                                               \
+#define MTCP_PRINTF(fmt, ...)                                               \
   do {                                                                      \
     mtcp_printf("[%d] %s:%d %s:\n  ",                                       \
-                mtcp_sys_getpid(), __FILE__, __LINE__, __FUNCTION__);       \
+                mtcp_sys_getpid(), __FILE__, __LINE__, __func__);           \
     (void)mtcp_sys_errno; /* prevent compiler warning if we don't use it */ \
-    mtcp_printf(args);                                                      \
+    mtcp_printf(fmt, ##__VA_ARGS__);                                                      \
   } while (0)
 
 #define MTCP_ASSERT(condition)                          \
@@ -38,7 +38,7 @@
 #ifdef LOGGING
 # define DPRINTF MTCP_PRINTF
 #else // ifdef LOGGING
-# define DPRINTF(args ...) // debug printing
+# define DPRINTF(fmt, ...) // debug printing
 #endif // ifdef LOGGING
 
 #if 0
