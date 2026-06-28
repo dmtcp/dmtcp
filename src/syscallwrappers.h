@@ -491,7 +491,7 @@ int _real_unlink(const char *pathname);
 
 int _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
 pid_t _real_wait4(pid_t pid,
-                  __WAIT_STATUS status,
+                  int *status,
                   int options,
                   struct rusage *rusage);
 

@@ -263,7 +263,7 @@ dmtcp_prepare_wrappers(void)
     if (dmtcp_real_func_addr[ENUM(name)] == NULL) {                           \
       dmtcp_prepare_wrappers();                                               \
     }                                                                         \
-    fn = dmtcp_real_func_addr[ENUM(name)];                                    \
+    fn = (typeof(&name))(uintptr_t)dmtcp_real_func_addr[ENUM(name)];          \
     if (fn == NULL) {                                                         \
       fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n"             \
                       "           The symbol wasn't found in current library" \
@@ -648,14 +648,14 @@ LIB_PRIVATE
 void
 _real_openlog(const char *ident, int option, int facility)
 {
-  REAL_FUNC_PASSTHROUGH(openlog) (ident, option, facility);
+  REAL_FUNC_PASSTHROUGH_NORETURN(openlog) (ident, option, facility);
 }
 
 LIB_PRIVATE
 void
 _real_closelog(void)
 {
-  REAL_FUNC_PASSTHROUGH(closelog) ();
+  REAL_FUNC_PASSTHROUGH_NORETURN(closelog) ();
 }
 
 // set the handler
@@ -826,7 +826,7 @@ _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 
 LIB_PRIVATE
 pid_t
-_real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
+_real_wait4(pid_t pid, int *status, int options, struct rusage *rusage)
 {
   REAL_FUNC_PASSTHROUGH(wait4) (pid, status, options, rusage);
 }

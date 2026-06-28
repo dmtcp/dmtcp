@@ -325,7 +325,7 @@ open64(const char *pathname, int flags, ...)
      */
     g_tun_fd = result;
     DPRINTF("[%s:%d]: PARAMS: pathname: %s, flags:%d; Result: %d\n",
-            __FUNCTION__, __LINE__, pathname, flags, g_tun_fd);
+            __func__, __LINE__, pathname, flags, g_tun_fd);
   }
   return result;
 }
@@ -355,7 +355,7 @@ open(const char *pathname, int flags, ...)
      */
     g_tun_fd = result;
     DPRINTF("[%s:%d]: PARAMS: pathname: %s, flags:%d; Result: %d\n",
-            __FUNCTION__, __LINE__, pathname, flags, g_tun_fd);
+            __func__, __LINE__, pathname, flags, g_tun_fd);
   }
   return result;
 }
@@ -388,7 +388,7 @@ ioctl(int fd, unsigned long int request, ...)
 
     /* Capture arguments of ioctl() */
     DPRINTF("[%s:%d]: PARAMS: fd: %d, request:%s, arg:%p; Result: %d\n",
-            __FUNCTION__, __LINE__, fd, request_name, arg, result);
+            __func__, __LINE__, fd, request_name, arg, result);
     inc_last_req_idx();
     g_request_table[g_last_req_idx].request = request;
     g_request_table[g_last_req_idx].arg = get_arg(request, arg);

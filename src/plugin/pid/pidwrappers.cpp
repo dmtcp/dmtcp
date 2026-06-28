@@ -406,9 +406,9 @@ realWaitidId(idtype_t idtype, id_t id)
 }
 
 extern "C" pid_t
-wait(__WAIT_STATUS stat_loc)
+wait(int *stat_loc)
 {
-  return waitpid(-1, (int *)stat_loc, 0);
+  return waitpid(-1, stat_loc, 0);
 }
 
 extern "C" pid_t
@@ -418,13 +418,13 @@ waitpid(pid_t pid, int *stat_loc, int options)
 }
 
 extern "C" pid_t
-wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
+wait3(int *status, int options, struct rusage *rusage)
 {
   return wait4(-1, status, options, rusage);
 }
 
 extern "C" pid_t
-wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
+wait4(pid_t pid, int *status, int options, struct rusage *rusage)
 {
   int stat;
   int saved_errno = errno;
@@ -433,7 +433,7 @@ wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
   const struct timespec maxts = { 1, 0 };
 
   if (status == NULL) {
-    status = (__WAIT_STATUS)&stat;
+    status = &stat;
   }
 
   if (!dmtcp_pid_is_enabled()) {
@@ -449,7 +449,7 @@ wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
       if (realResult == -1) {
         saved_errno = errno;
       }
-      retval = virtualizeWait4Result(realResult, (int *)status);
+      retval = virtualizeWait4Result(realResult, status);
     }
 
     if ((options & WNOHANG) || retval != 0) {
