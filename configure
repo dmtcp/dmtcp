@@ -36,6 +36,7 @@ esac
 fi
 
 
+
 # Reset variables that may have inherited troublesome values from
 # the environment.
 
@@ -823,10 +824,8 @@ enable_silent_rules
 enable_maintainer_mode
 enable_dependency_tracking
 enable_openmp
-enable_logging
 enable_debug
 enable_quiet
-enable_timing
 enable_realtime_ckpt_signal
 enable_unique_checkpoint_filenames
 enable_forked_checkpointing
@@ -10500,6 +10499,7 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
 printf "%s\n" "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
+
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if this is WSL (Windows Subystem for Linux)" >&5
 printf %s "checking if this is WSL (Windows Subystem for Linux)... " >&6; }
 if uname -r | grep -i Microsoft > /dev/null; then
@@ -11080,6 +11080,7 @@ printf "%s\n" "no" >&6; }
 fi
 
 
+
 #check for vim
 # Extract the first word of "vim", so it can be a program name with args.
 set dummy vim; ac_word=$2
@@ -11172,6 +11173,7 @@ else
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
 fi
+
 
 
 #check for strace
@@ -12464,42 +12466,6 @@ printf "%s\n" "$sysconf_pagesize" >&6; }
 
 printf "%s\n" "#define MTCP_PAGE_SIZE $sysconf_pagesize" >>confdefs.h
 
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __WAIT_STATUS type" >&5
-printf %s "checking for __WAIT_STATUS type... " >&6; }
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-
-    #include <sys/wait.h>
-    #include <sys/types.h>
-    #include <stdlib.h>
-    int main() {
-      __WAIT_STATUS status __attribute__((unused));
-      return 0;
-    }
-
-
-_ACEOF
-if ac_fn_c_try_link "$LINENO"
-then :
-  wait_status='yes'
-else case e in #(
-  e) wait_status='no' ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $wait_status" >&5
-printf "%s\n" "$wait_status" >&6; }
-
-if test "$wait_status" = "no"; then
-
-printf "%s\n" "#define __WAIT_STATUS int *" >>confdefs.h
-
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: *** glibc-2.24 removed __WAIT_STATUS; This check will go away in the future." >&5
-printf "%s\n" "$as_me: *** glibc-2.24 removed __WAIT_STATUS; This check will go away in the future." >&6;}
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -14013,3 +13979,5 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 printf "%s\n" "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
+
+

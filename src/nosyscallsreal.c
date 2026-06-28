@@ -331,7 +331,7 @@ _real_kill(pid_t pid, int sig)
 }
 
 pid_t
-_real_wait(__WAIT_STATUS stat_loc)
+_real_wait(int *stat_loc)
 {
   REAL_FUNC_PASSTHROUGH_PID_T(wait) (stat_loc);
 }
@@ -349,13 +349,13 @@ _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 }
 
 pid_t
-_real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
+_real_wait3(int *status, int options, struct rusage *rusage)
 {
   REAL_FUNC_PASSTHROUGH_PID_T(wait3) (status, options, rusage);
 }
 
 pid_t
-_real_wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
+_real_wait4(pid_t pid, int *status, int options, struct rusage *rusage)
 {
   REAL_FUNC_PASSTHROUGH_PID_T(wait4) (pid, status, options, rusage);
 }

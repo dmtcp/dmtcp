@@ -327,8 +327,9 @@ const int ENDLIST = -1;
 #define FAILURE   -1
 #define UNDEFINED -2
 
-#define print_error(format, args...) \
-  printf("\033[0;31m%s():%d " format "\033[0m", __FUNCTION__, __LINE__, ##args);
+#define print_error(format, ...) \
+  printf("\033[0;31m%s():%d " format "\033[0m", \
+         __func__, __LINE__, ##__VA_ARGS__);
 
 /* a really generic way of spitting out analysis that isn't the important one
    in the test, used in the block test code.  Also, it is marked as
@@ -365,7 +366,7 @@ char passage[] = "This is tedious and lonely code. There is no salvation "
                  "in writing this code.";
 
 /* Print a spacer at the debug level */
-#define testbreak() printf("\n--- Line %d: %s() --- \n", __LINE__, __FUNCTION__);
+#define testbreak() printf("\n--- Line %d: %s() --- \n", __LINE__, __func__);
 
 /* a simple utility routine */
 void *

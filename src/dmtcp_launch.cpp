@@ -48,7 +48,6 @@ using namespace dmtcp;
 
 static void processArgs(int *orig_argc, const char ***orig_argv);
 static int testMatlab(const char *filename);
-static int testJava(const char **argv);
 static bool testSetuid(const char *filename);
 static void testStaticallyLinked(const char *filename);
 static bool testScreen(const char **argv, const char ***newArgv);
@@ -529,6 +528,10 @@ main(int argc, const char **argv)
       stderr);
   }
 
+  // FIXME: ***DELETE THE FOLLOWING COMMENT***
+  //        ***SEE: Detect unallocated pages via pagemap residency at checkpoint
+  //        ***     That PR #1260 handles unallocated (i.e., zero-mapped
+  //        ***     pages.  Delete this comment when putshed in.
   // Remove this when zero-mapped pages are supported.  For segments with
   // no file backing:  Start with 4096 (page) offset and keep doubling offset
   // until finding region of memory segment with many zeroes.
@@ -543,7 +546,6 @@ main(int argc, const char **argv)
   // - Gene
 
   testMatlab(argv[0]);
-  testJava(argv);  // Warn that -Xmx flag needed to limit virtual memory size
 
   // If libdmtcp.so is in standard search path and _also_ has setgid access,
   // then LD_PRELOAD will work.
@@ -699,45 +701,6 @@ testMatlab(const char *filename)
 # endif // if __GNUC__ == 4 && __GNUC_MINOR__ > 1
 #endif // ifdef __GNUC__
   return 0;
-}
-
-// FIXME:  Remove this when DMTCP supports zero-mapped pages
-static int
-testJava(const char **argv)
-{
-  static const char *theJavaWarning =
-    "\n**** WARNING:  Sun/Oracle Java claims a large amount of memory\n"
-    "****  for its heap on startup.  As of DMTCP version 1.2.4, DMTCP _does_\n"
-    "****  handle zero-mapped virtual memory, but it may take up to a\n"
-    "****  minute.  This will be fixed to be much faster in a future\n"
-    "****  version of DMTCP.  In the meantime, if your Java supports it,\n"
-    "****  use the -Xmx flag for a smaller heap:  e.g.  java -Xmx64M javaApp\n"
-    "****  (Invoke dmtcp_launch with --quiet to avoid this msg.)\n\n";
-
-  if (getenv(ENV_VAR_QUIET) != NULL &&
-      !Util::strEquals(getenv(ENV_VAR_QUIET), "0")) {
-    return 0;
-  }
-  if (Util::strEquals(argv[0], "java")) {
-    while (*(++argv) != NULL) {
-      if (std::string_view(*argv).starts_with("-Xmx")) {
-        return 0; // The user called java with -Xmx.  No need for warning.
-      }
-    }
-  }
-
-  // If physical memory is large enough, warn them that -Xmx is faster.
-  const long pageCount = sysconf(_SC_PHYS_PAGES);
-  const long pageSize = sysconf(_SC_PAGESIZE);
-  if (pageCount > 0 && pageSize > 0) {
-    const unsigned long long memTotalBytes =
-      static_cast<unsigned long long>(pageCount) *
-      static_cast<unsigned long long>(pageSize);
-    if (memTotalBytes > 4ULL * 1024 * 1024 * 1024) {
-      fputs(theJavaWarning, stderr);
-    }
-  }
-  return -1;
 }
 
 static bool

@@ -323,7 +323,7 @@ syscall(long sys_num, ...)
 #endif
   case SYS_wait4:
   {
-    SYSCALL_GET_ARGS_4(pid_t, pid, __WAIT_STATUS, status, int, options,
+    SYSCALL_GET_ARGS_4(pid_t, pid, int *, status, int, options,
                        struct rusage *, rusage);
     ret = wait4(pid, status, options, rusage);
     break;
