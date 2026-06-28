@@ -120,13 +120,14 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/ax_append_flag.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-DIST_COMMON = $(srcdir)/Makefile.am $(include_HEADERS) \
-	$(nobase_noinst_HEADERS) $(am__DIST_COMMON)
+DIST_COMMON = $(srcdir)/Makefile.am $(dmtcpversioninclude_HEADERS) \
+	$(include_HEADERS) $(nobase_noinst_HEADERS) $(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/include/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dmtcplibdir)" \
+	"$(DESTDIR)$(dmtcpversionincludedir)" \
 	"$(DESTDIR)$(includedir)"
 PROGRAMS = $(bin_PROGRAMS) $(dmtcplib_PROGRAMS)
 LIBRARIES = $(noinst_LIBRARIES)
@@ -360,7 +361,8 @@ am__uninstall_files_from_dir = { \
   || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
        $(am__cd) "$$dir" && echo $$files | $(am__xargs_n) 40 $(am__rm_f); }; \
   }
-HEADERS = $(include_HEADERS) $(nobase_noinst_HEADERS)
+HEADERS = $(dmtcpversioninclude_HEADERS) $(include_HEADERS) \
+	$(nobase_noinst_HEADERS)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
 am__recursive_targets = \
@@ -586,6 +588,7 @@ top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
 jalibdir = $(top_srcdir)/jalib
 dmtcpincludedir = $(top_srcdir)/include
+dmtcpversionincludedir = $(includedir)/dmtcp
 dmtcplibdir = $(pkglibdir)
 SUBDIRS = mtcp plugin
 
@@ -615,8 +618,8 @@ noinst_LIBRARIES = libdmtcpinternal.a 				\
 		   libnohijack.a 				\
 		   libjalib.a
 
-include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
-		  $(srcdir)/../include/dmtcp/version.h
+include_HEADERS = $(srcdir)/../include/dmtcp.h
+dmtcpversioninclude_HEADERS = $(srcdir)/../include/dmtcp/version.h
 
 
 # headers:
@@ -1060,6 +1063,400 @@ am--depfiles: $(am__depfiles_remade)
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+
+plugin/%.$(OBJEXT): $(srcdir)/plugin/%.cpp
+	@$(MKDIR_P) $(@D) $(@D)/$(DEPDIR)
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCXX_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXXCOMPILE) -c -o $@ $<
+
+__d_libdir__libdmtcp_so-alarm.o: alarm.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-alarm.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-alarm.Tpo -c -o __d_libdir__libdmtcp_so-alarm.o `test -f 'alarm.cpp' || echo '$(srcdir)/'`alarm.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-alarm.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-alarm.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='alarm.cpp' object='__d_libdir__libdmtcp_so-alarm.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-alarm.o `test -f 'alarm.cpp' || echo '$(srcdir)/'`alarm.cpp
+
+__d_libdir__libdmtcp_so-alarm.obj: alarm.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-alarm.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-alarm.Tpo -c -o __d_libdir__libdmtcp_so-alarm.obj `if test -f 'alarm.cpp'; then $(CYGPATH_W) 'alarm.cpp'; else $(CYGPATH_W) '$(srcdir)/alarm.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-alarm.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-alarm.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='alarm.cpp' object='__d_libdir__libdmtcp_so-alarm.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-alarm.obj `if test -f 'alarm.cpp'; then $(CYGPATH_W) 'alarm.cpp'; else $(CYGPATH_W) '$(srcdir)/alarm.cpp'; fi`
+
+__d_libdir__libdmtcp_so-ckptserializer.o: ckptserializer.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-ckptserializer.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-ckptserializer.Tpo -c -o __d_libdir__libdmtcp_so-ckptserializer.o `test -f 'ckptserializer.cpp' || echo '$(srcdir)/'`ckptserializer.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-ckptserializer.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-ckptserializer.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ckptserializer.cpp' object='__d_libdir__libdmtcp_so-ckptserializer.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-ckptserializer.o `test -f 'ckptserializer.cpp' || echo '$(srcdir)/'`ckptserializer.cpp
+
+__d_libdir__libdmtcp_so-ckptserializer.obj: ckptserializer.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-ckptserializer.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-ckptserializer.Tpo -c -o __d_libdir__libdmtcp_so-ckptserializer.obj `if test -f 'ckptserializer.cpp'; then $(CYGPATH_W) 'ckptserializer.cpp'; else $(CYGPATH_W) '$(srcdir)/ckptserializer.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-ckptserializer.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-ckptserializer.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ckptserializer.cpp' object='__d_libdir__libdmtcp_so-ckptserializer.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-ckptserializer.obj `if test -f 'ckptserializer.cpp'; then $(CYGPATH_W) 'ckptserializer.cpp'; else $(CYGPATH_W) '$(srcdir)/ckptserializer.cpp'; fi`
+
+__d_libdir__libdmtcp_so-dmtcpplugin.o: dmtcpplugin.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-dmtcpplugin.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpplugin.Tpo -c -o __d_libdir__libdmtcp_so-dmtcpplugin.o `test -f 'dmtcpplugin.cpp' || echo '$(srcdir)/'`dmtcpplugin.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpplugin.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpplugin.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='dmtcpplugin.cpp' object='__d_libdir__libdmtcp_so-dmtcpplugin.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-dmtcpplugin.o `test -f 'dmtcpplugin.cpp' || echo '$(srcdir)/'`dmtcpplugin.cpp
+
+__d_libdir__libdmtcp_so-dmtcpplugin.obj: dmtcpplugin.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-dmtcpplugin.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpplugin.Tpo -c -o __d_libdir__libdmtcp_so-dmtcpplugin.obj `if test -f 'dmtcpplugin.cpp'; then $(CYGPATH_W) 'dmtcpplugin.cpp'; else $(CYGPATH_W) '$(srcdir)/dmtcpplugin.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpplugin.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpplugin.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='dmtcpplugin.cpp' object='__d_libdir__libdmtcp_so-dmtcpplugin.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-dmtcpplugin.obj `if test -f 'dmtcpplugin.cpp'; then $(CYGPATH_W) 'dmtcpplugin.cpp'; else $(CYGPATH_W) '$(srcdir)/dmtcpplugin.cpp'; fi`
+
+__d_libdir__libdmtcp_so-dmtcpworker.o: dmtcpworker.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-dmtcpworker.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Tpo -c -o __d_libdir__libdmtcp_so-dmtcpworker.o `test -f 'dmtcpworker.cpp' || echo '$(srcdir)/'`dmtcpworker.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='dmtcpworker.cpp' object='__d_libdir__libdmtcp_so-dmtcpworker.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-dmtcpworker.o `test -f 'dmtcpworker.cpp' || echo '$(srcdir)/'`dmtcpworker.cpp
+
+__d_libdir__libdmtcp_so-dmtcpworker.obj: dmtcpworker.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-dmtcpworker.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Tpo -c -o __d_libdir__libdmtcp_so-dmtcpworker.obj `if test -f 'dmtcpworker.cpp'; then $(CYGPATH_W) 'dmtcpworker.cpp'; else $(CYGPATH_W) '$(srcdir)/dmtcpworker.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='dmtcpworker.cpp' object='__d_libdir__libdmtcp_so-dmtcpworker.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-dmtcpworker.obj `if test -f 'dmtcpworker.cpp'; then $(CYGPATH_W) 'dmtcpworker.cpp'; else $(CYGPATH_W) '$(srcdir)/dmtcpworker.cpp'; fi`
+
+__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.o: dmtcp_dlsym_wrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.Tpo -c -o __d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.o `test -f 'dmtcp_dlsym_wrappers.cpp' || echo '$(srcdir)/'`dmtcp_dlsym_wrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='dmtcp_dlsym_wrappers.cpp' object='__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.o `test -f 'dmtcp_dlsym_wrappers.cpp' || echo '$(srcdir)/'`dmtcp_dlsym_wrappers.cpp
+
+__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.obj: dmtcp_dlsym_wrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.Tpo -c -o __d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.obj `if test -f 'dmtcp_dlsym_wrappers.cpp'; then $(CYGPATH_W) 'dmtcp_dlsym_wrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/dmtcp_dlsym_wrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='dmtcp_dlsym_wrappers.cpp' object='__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.obj `if test -f 'dmtcp_dlsym_wrappers.cpp'; then $(CYGPATH_W) 'dmtcp_dlsym_wrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/dmtcp_dlsym_wrappers.cpp'; fi`
+
+__d_libdir__libdmtcp_so-execwrappers.o: execwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-execwrappers.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Tpo -c -o __d_libdir__libdmtcp_so-execwrappers.o `test -f 'execwrappers.cpp' || echo '$(srcdir)/'`execwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='execwrappers.cpp' object='__d_libdir__libdmtcp_so-execwrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-execwrappers.o `test -f 'execwrappers.cpp' || echo '$(srcdir)/'`execwrappers.cpp
+
+__d_libdir__libdmtcp_so-execwrappers.obj: execwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-execwrappers.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Tpo -c -o __d_libdir__libdmtcp_so-execwrappers.obj `if test -f 'execwrappers.cpp'; then $(CYGPATH_W) 'execwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/execwrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='execwrappers.cpp' object='__d_libdir__libdmtcp_so-execwrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-execwrappers.obj `if test -f 'execwrappers.cpp'; then $(CYGPATH_W) 'execwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/execwrappers.cpp'; fi`
+
+__d_libdir__libdmtcp_so-glibcsystem.o: glibcsystem.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-glibcsystem.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Tpo -c -o __d_libdir__libdmtcp_so-glibcsystem.o `test -f 'glibcsystem.cpp' || echo '$(srcdir)/'`glibcsystem.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='glibcsystem.cpp' object='__d_libdir__libdmtcp_so-glibcsystem.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-glibcsystem.o `test -f 'glibcsystem.cpp' || echo '$(srcdir)/'`glibcsystem.cpp
+
+__d_libdir__libdmtcp_so-glibcsystem.obj: glibcsystem.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-glibcsystem.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Tpo -c -o __d_libdir__libdmtcp_so-glibcsystem.obj `if test -f 'glibcsystem.cpp'; then $(CYGPATH_W) 'glibcsystem.cpp'; else $(CYGPATH_W) '$(srcdir)/glibcsystem.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='glibcsystem.cpp' object='__d_libdir__libdmtcp_so-glibcsystem.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-glibcsystem.obj `if test -f 'glibcsystem.cpp'; then $(CYGPATH_W) 'glibcsystem.cpp'; else $(CYGPATH_W) '$(srcdir)/glibcsystem.cpp'; fi`
+
+__d_libdir__libdmtcp_so-kvdb.o: kvdb.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-kvdb.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Tpo -c -o __d_libdir__libdmtcp_so-kvdb.o `test -f 'kvdb.cpp' || echo '$(srcdir)/'`kvdb.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='kvdb.cpp' object='__d_libdir__libdmtcp_so-kvdb.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-kvdb.o `test -f 'kvdb.cpp' || echo '$(srcdir)/'`kvdb.cpp
+
+__d_libdir__libdmtcp_so-kvdb.obj: kvdb.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-kvdb.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Tpo -c -o __d_libdir__libdmtcp_so-kvdb.obj `if test -f 'kvdb.cpp'; then $(CYGPATH_W) 'kvdb.cpp'; else $(CYGPATH_W) '$(srcdir)/kvdb.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='kvdb.cpp' object='__d_libdir__libdmtcp_so-kvdb.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-kvdb.obj `if test -f 'kvdb.cpp'; then $(CYGPATH_W) 'kvdb.cpp'; else $(CYGPATH_W) '$(srcdir)/kvdb.cpp'; fi`
+
+__d_libdir__libdmtcp_so-miscwrappers.o: miscwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-miscwrappers.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Tpo -c -o __d_libdir__libdmtcp_so-miscwrappers.o `test -f 'miscwrappers.cpp' || echo '$(srcdir)/'`miscwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='miscwrappers.cpp' object='__d_libdir__libdmtcp_so-miscwrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-miscwrappers.o `test -f 'miscwrappers.cpp' || echo '$(srcdir)/'`miscwrappers.cpp
+
+__d_libdir__libdmtcp_so-miscwrappers.obj: miscwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-miscwrappers.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Tpo -c -o __d_libdir__libdmtcp_so-miscwrappers.obj `if test -f 'miscwrappers.cpp'; then $(CYGPATH_W) 'miscwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/miscwrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='miscwrappers.cpp' object='__d_libdir__libdmtcp_so-miscwrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-miscwrappers.obj `if test -f 'miscwrappers.cpp'; then $(CYGPATH_W) 'miscwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/miscwrappers.cpp'; fi`
+
+__d_libdir__libdmtcp_so-plugin_pathtranslator.o: plugin_pathtranslator.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-plugin_pathtranslator.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-plugin_pathtranslator.Tpo -c -o __d_libdir__libdmtcp_so-plugin_pathtranslator.o `test -f 'plugin_pathtranslator.cpp' || echo '$(srcdir)/'`plugin_pathtranslator.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-plugin_pathtranslator.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-plugin_pathtranslator.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='plugin_pathtranslator.cpp' object='__d_libdir__libdmtcp_so-plugin_pathtranslator.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-plugin_pathtranslator.o `test -f 'plugin_pathtranslator.cpp' || echo '$(srcdir)/'`plugin_pathtranslator.cpp
+
+__d_libdir__libdmtcp_so-plugin_pathtranslator.obj: plugin_pathtranslator.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-plugin_pathtranslator.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-plugin_pathtranslator.Tpo -c -o __d_libdir__libdmtcp_so-plugin_pathtranslator.obj `if test -f 'plugin_pathtranslator.cpp'; then $(CYGPATH_W) 'plugin_pathtranslator.cpp'; else $(CYGPATH_W) '$(srcdir)/plugin_pathtranslator.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-plugin_pathtranslator.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-plugin_pathtranslator.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='plugin_pathtranslator.cpp' object='__d_libdir__libdmtcp_so-plugin_pathtranslator.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-plugin_pathtranslator.obj `if test -f 'plugin_pathtranslator.cpp'; then $(CYGPATH_W) 'plugin_pathtranslator.cpp'; else $(CYGPATH_W) '$(srcdir)/plugin_pathtranslator.cpp'; fi`
+
+__d_libdir__libdmtcp_so-plugininfo.o: plugininfo.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-plugininfo.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-plugininfo.Tpo -c -o __d_libdir__libdmtcp_so-plugininfo.o `test -f 'plugininfo.cpp' || echo '$(srcdir)/'`plugininfo.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-plugininfo.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-plugininfo.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='plugininfo.cpp' object='__d_libdir__libdmtcp_so-plugininfo.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-plugininfo.o `test -f 'plugininfo.cpp' || echo '$(srcdir)/'`plugininfo.cpp
+
+__d_libdir__libdmtcp_so-plugininfo.obj: plugininfo.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-plugininfo.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-plugininfo.Tpo -c -o __d_libdir__libdmtcp_so-plugininfo.obj `if test -f 'plugininfo.cpp'; then $(CYGPATH_W) 'plugininfo.cpp'; else $(CYGPATH_W) '$(srcdir)/plugininfo.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-plugininfo.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-plugininfo.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='plugininfo.cpp' object='__d_libdir__libdmtcp_so-plugininfo.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-plugininfo.obj `if test -f 'plugininfo.cpp'; then $(CYGPATH_W) 'plugininfo.cpp'; else $(CYGPATH_W) '$(srcdir)/plugininfo.cpp'; fi`
+
+__d_libdir__libdmtcp_so-pluginmanager.o: pluginmanager.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-pluginmanager.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-pluginmanager.Tpo -c -o __d_libdir__libdmtcp_so-pluginmanager.o `test -f 'pluginmanager.cpp' || echo '$(srcdir)/'`pluginmanager.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-pluginmanager.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-pluginmanager.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pluginmanager.cpp' object='__d_libdir__libdmtcp_so-pluginmanager.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-pluginmanager.o `test -f 'pluginmanager.cpp' || echo '$(srcdir)/'`pluginmanager.cpp
+
+__d_libdir__libdmtcp_so-pluginmanager.obj: pluginmanager.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-pluginmanager.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-pluginmanager.Tpo -c -o __d_libdir__libdmtcp_so-pluginmanager.obj `if test -f 'pluginmanager.cpp'; then $(CYGPATH_W) 'pluginmanager.cpp'; else $(CYGPATH_W) '$(srcdir)/pluginmanager.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-pluginmanager.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-pluginmanager.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pluginmanager.cpp' object='__d_libdir__libdmtcp_so-pluginmanager.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-pluginmanager.obj `if test -f 'pluginmanager.cpp'; then $(CYGPATH_W) 'pluginmanager.cpp'; else $(CYGPATH_W) '$(srcdir)/pluginmanager.cpp'; fi`
+
+__d_libdir__libdmtcp_so-popen.o: popen.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-popen.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-popen.Tpo -c -o __d_libdir__libdmtcp_so-popen.o `test -f 'popen.cpp' || echo '$(srcdir)/'`popen.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-popen.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-popen.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='popen.cpp' object='__d_libdir__libdmtcp_so-popen.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-popen.o `test -f 'popen.cpp' || echo '$(srcdir)/'`popen.cpp
+
+__d_libdir__libdmtcp_so-popen.obj: popen.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-popen.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-popen.Tpo -c -o __d_libdir__libdmtcp_so-popen.obj `if test -f 'popen.cpp'; then $(CYGPATH_W) 'popen.cpp'; else $(CYGPATH_W) '$(srcdir)/popen.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-popen.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-popen.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='popen.cpp' object='__d_libdir__libdmtcp_so-popen.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-popen.obj `if test -f 'popen.cpp'; then $(CYGPATH_W) 'popen.cpp'; else $(CYGPATH_W) '$(srcdir)/popen.cpp'; fi`
+
+__d_libdir__libdmtcp_so-tls.o: tls.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-tls.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-tls.Tpo -c -o __d_libdir__libdmtcp_so-tls.o `test -f 'tls.cpp' || echo '$(srcdir)/'`tls.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-tls.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-tls.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='tls.cpp' object='__d_libdir__libdmtcp_so-tls.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-tls.o `test -f 'tls.cpp' || echo '$(srcdir)/'`tls.cpp
+
+__d_libdir__libdmtcp_so-tls.obj: tls.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-tls.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-tls.Tpo -c -o __d_libdir__libdmtcp_so-tls.obj `if test -f 'tls.cpp'; then $(CYGPATH_W) 'tls.cpp'; else $(CYGPATH_W) '$(srcdir)/tls.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-tls.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-tls.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='tls.cpp' object='__d_libdir__libdmtcp_so-tls.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-tls.obj `if test -f 'tls.cpp'; then $(CYGPATH_W) 'tls.cpp'; else $(CYGPATH_W) '$(srcdir)/tls.cpp'; fi`
+
+__d_libdir__libdmtcp_so-posix_spawn.o: posix_spawn.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-posix_spawn.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-posix_spawn.Tpo -c -o __d_libdir__libdmtcp_so-posix_spawn.o `test -f 'posix_spawn.cpp' || echo '$(srcdir)/'`posix_spawn.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-posix_spawn.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-posix_spawn.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='posix_spawn.cpp' object='__d_libdir__libdmtcp_so-posix_spawn.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-posix_spawn.o `test -f 'posix_spawn.cpp' || echo '$(srcdir)/'`posix_spawn.cpp
+
+__d_libdir__libdmtcp_so-posix_spawn.obj: posix_spawn.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-posix_spawn.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-posix_spawn.Tpo -c -o __d_libdir__libdmtcp_so-posix_spawn.obj `if test -f 'posix_spawn.cpp'; then $(CYGPATH_W) 'posix_spawn.cpp'; else $(CYGPATH_W) '$(srcdir)/posix_spawn.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-posix_spawn.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-posix_spawn.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='posix_spawn.cpp' object='__d_libdir__libdmtcp_so-posix_spawn.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-posix_spawn.obj `if test -f 'posix_spawn.cpp'; then $(CYGPATH_W) 'posix_spawn.cpp'; else $(CYGPATH_W) '$(srcdir)/posix_spawn.cpp'; fi`
+
+__d_libdir__libdmtcp_so-rlimitfloatenv.o: rlimitfloatenv.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-rlimitfloatenv.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-rlimitfloatenv.Tpo -c -o __d_libdir__libdmtcp_so-rlimitfloatenv.o `test -f 'rlimitfloatenv.cpp' || echo '$(srcdir)/'`rlimitfloatenv.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-rlimitfloatenv.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-rlimitfloatenv.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='rlimitfloatenv.cpp' object='__d_libdir__libdmtcp_so-rlimitfloatenv.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-rlimitfloatenv.o `test -f 'rlimitfloatenv.cpp' || echo '$(srcdir)/'`rlimitfloatenv.cpp
+
+__d_libdir__libdmtcp_so-rlimitfloatenv.obj: rlimitfloatenv.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-rlimitfloatenv.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-rlimitfloatenv.Tpo -c -o __d_libdir__libdmtcp_so-rlimitfloatenv.obj `if test -f 'rlimitfloatenv.cpp'; then $(CYGPATH_W) 'rlimitfloatenv.cpp'; else $(CYGPATH_W) '$(srcdir)/rlimitfloatenv.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-rlimitfloatenv.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-rlimitfloatenv.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='rlimitfloatenv.cpp' object='__d_libdir__libdmtcp_so-rlimitfloatenv.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-rlimitfloatenv.obj `if test -f 'rlimitfloatenv.cpp'; then $(CYGPATH_W) 'rlimitfloatenv.cpp'; else $(CYGPATH_W) '$(srcdir)/rlimitfloatenv.cpp'; fi`
+
+__d_libdir__libdmtcp_so-signalwrappers.o: signalwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-signalwrappers.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-signalwrappers.Tpo -c -o __d_libdir__libdmtcp_so-signalwrappers.o `test -f 'signalwrappers.cpp' || echo '$(srcdir)/'`signalwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-signalwrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-signalwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='signalwrappers.cpp' object='__d_libdir__libdmtcp_so-signalwrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-signalwrappers.o `test -f 'signalwrappers.cpp' || echo '$(srcdir)/'`signalwrappers.cpp
+
+__d_libdir__libdmtcp_so-signalwrappers.obj: signalwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-signalwrappers.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-signalwrappers.Tpo -c -o __d_libdir__libdmtcp_so-signalwrappers.obj `if test -f 'signalwrappers.cpp'; then $(CYGPATH_W) 'signalwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/signalwrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-signalwrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-signalwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='signalwrappers.cpp' object='__d_libdir__libdmtcp_so-signalwrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-signalwrappers.obj `if test -f 'signalwrappers.cpp'; then $(CYGPATH_W) 'signalwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/signalwrappers.cpp'; fi`
+
+__d_libdir__libdmtcp_so-siginfo.o: siginfo.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-siginfo.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-siginfo.Tpo -c -o __d_libdir__libdmtcp_so-siginfo.o `test -f 'siginfo.cpp' || echo '$(srcdir)/'`siginfo.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-siginfo.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-siginfo.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='siginfo.cpp' object='__d_libdir__libdmtcp_so-siginfo.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-siginfo.o `test -f 'siginfo.cpp' || echo '$(srcdir)/'`siginfo.cpp
+
+__d_libdir__libdmtcp_so-siginfo.obj: siginfo.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-siginfo.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-siginfo.Tpo -c -o __d_libdir__libdmtcp_so-siginfo.obj `if test -f 'siginfo.cpp'; then $(CYGPATH_W) 'siginfo.cpp'; else $(CYGPATH_W) '$(srcdir)/siginfo.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-siginfo.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-siginfo.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='siginfo.cpp' object='__d_libdir__libdmtcp_so-siginfo.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-siginfo.obj `if test -f 'siginfo.cpp'; then $(CYGPATH_W) 'siginfo.cpp'; else $(CYGPATH_W) '$(srcdir)/siginfo.cpp'; fi`
+
+__d_libdir__libdmtcp_so-syslogwrappers.o: syslogwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-syslogwrappers.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-syslogwrappers.Tpo -c -o __d_libdir__libdmtcp_so-syslogwrappers.o `test -f 'syslogwrappers.cpp' || echo '$(srcdir)/'`syslogwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-syslogwrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-syslogwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='syslogwrappers.cpp' object='__d_libdir__libdmtcp_so-syslogwrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-syslogwrappers.o `test -f 'syslogwrappers.cpp' || echo '$(srcdir)/'`syslogwrappers.cpp
+
+__d_libdir__libdmtcp_so-syslogwrappers.obj: syslogwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-syslogwrappers.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-syslogwrappers.Tpo -c -o __d_libdir__libdmtcp_so-syslogwrappers.obj `if test -f 'syslogwrappers.cpp'; then $(CYGPATH_W) 'syslogwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/syslogwrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-syslogwrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-syslogwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='syslogwrappers.cpp' object='__d_libdir__libdmtcp_so-syslogwrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-syslogwrappers.obj `if test -f 'syslogwrappers.cpp'; then $(CYGPATH_W) 'syslogwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/syslogwrappers.cpp'; fi`
+
+__d_libdir__libdmtcp_so-terminal.o: terminal.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-terminal.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-terminal.Tpo -c -o __d_libdir__libdmtcp_so-terminal.o `test -f 'terminal.cpp' || echo '$(srcdir)/'`terminal.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-terminal.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-terminal.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='terminal.cpp' object='__d_libdir__libdmtcp_so-terminal.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-terminal.o `test -f 'terminal.cpp' || echo '$(srcdir)/'`terminal.cpp
+
+__d_libdir__libdmtcp_so-terminal.obj: terminal.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-terminal.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-terminal.Tpo -c -o __d_libdir__libdmtcp_so-terminal.obj `if test -f 'terminal.cpp'; then $(CYGPATH_W) 'terminal.cpp'; else $(CYGPATH_W) '$(srcdir)/terminal.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-terminal.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-terminal.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='terminal.cpp' object='__d_libdir__libdmtcp_so-terminal.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-terminal.obj `if test -f 'terminal.cpp'; then $(CYGPATH_W) 'terminal.cpp'; else $(CYGPATH_W) '$(srcdir)/terminal.cpp'; fi`
+
+__d_libdir__libdmtcp_so-threadlist.o: threadlist.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-threadlist.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Tpo -c -o __d_libdir__libdmtcp_so-threadlist.o `test -f 'threadlist.cpp' || echo '$(srcdir)/'`threadlist.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='threadlist.cpp' object='__d_libdir__libdmtcp_so-threadlist.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-threadlist.o `test -f 'threadlist.cpp' || echo '$(srcdir)/'`threadlist.cpp
+
+__d_libdir__libdmtcp_so-threadlist.obj: threadlist.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-threadlist.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Tpo -c -o __d_libdir__libdmtcp_so-threadlist.obj `if test -f 'threadlist.cpp'; then $(CYGPATH_W) 'threadlist.cpp'; else $(CYGPATH_W) '$(srcdir)/threadlist.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='threadlist.cpp' object='__d_libdir__libdmtcp_so-threadlist.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-threadlist.obj `if test -f 'threadlist.cpp'; then $(CYGPATH_W) 'threadlist.cpp'; else $(CYGPATH_W) '$(srcdir)/threadlist.cpp'; fi`
+
+__d_libdir__libdmtcp_so-threadsync.o: threadsync.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-threadsync.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Tpo -c -o __d_libdir__libdmtcp_so-threadsync.o `test -f 'threadsync.cpp' || echo '$(srcdir)/'`threadsync.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='threadsync.cpp' object='__d_libdir__libdmtcp_so-threadsync.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-threadsync.o `test -f 'threadsync.cpp' || echo '$(srcdir)/'`threadsync.cpp
+
+__d_libdir__libdmtcp_so-threadsync.obj: threadsync.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-threadsync.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Tpo -c -o __d_libdir__libdmtcp_so-threadsync.obj `if test -f 'threadsync.cpp'; then $(CYGPATH_W) 'threadsync.cpp'; else $(CYGPATH_W) '$(srcdir)/threadsync.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='threadsync.cpp' object='__d_libdir__libdmtcp_so-threadsync.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-threadsync.obj `if test -f 'threadsync.cpp'; then $(CYGPATH_W) 'threadsync.cpp'; else $(CYGPATH_W) '$(srcdir)/threadsync.cpp'; fi`
+
+__d_libdir__libdmtcp_so-threadwrappers.o: threadwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-threadwrappers.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Tpo -c -o __d_libdir__libdmtcp_so-threadwrappers.o `test -f 'threadwrappers.cpp' || echo '$(srcdir)/'`threadwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='threadwrappers.cpp' object='__d_libdir__libdmtcp_so-threadwrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-threadwrappers.o `test -f 'threadwrappers.cpp' || echo '$(srcdir)/'`threadwrappers.cpp
+
+__d_libdir__libdmtcp_so-threadwrappers.obj: threadwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-threadwrappers.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Tpo -c -o __d_libdir__libdmtcp_so-threadwrappers.obj `if test -f 'threadwrappers.cpp'; then $(CYGPATH_W) 'threadwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/threadwrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='threadwrappers.cpp' object='__d_libdir__libdmtcp_so-threadwrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-threadwrappers.obj `if test -f 'threadwrappers.cpp'; then $(CYGPATH_W) 'threadwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/threadwrappers.cpp'; fi`
+
+__d_libdir__libdmtcp_so-wrapperlock.o: wrapperlock.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-wrapperlock.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Tpo -c -o __d_libdir__libdmtcp_so-wrapperlock.o `test -f 'wrapperlock.cpp' || echo '$(srcdir)/'`wrapperlock.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='wrapperlock.cpp' object='__d_libdir__libdmtcp_so-wrapperlock.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-wrapperlock.o `test -f 'wrapperlock.cpp' || echo '$(srcdir)/'`wrapperlock.cpp
+
+__d_libdir__libdmtcp_so-wrapperlock.obj: wrapperlock.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-wrapperlock.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Tpo -c -o __d_libdir__libdmtcp_so-wrapperlock.obj `if test -f 'wrapperlock.cpp'; then $(CYGPATH_W) 'wrapperlock.cpp'; else $(CYGPATH_W) '$(srcdir)/wrapperlock.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-wrapperlock.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='wrapperlock.cpp' object='__d_libdir__libdmtcp_so-wrapperlock.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-wrapperlock.obj `if test -f 'wrapperlock.cpp'; then $(CYGPATH_W) 'wrapperlock.cpp'; else $(CYGPATH_W) '$(srcdir)/wrapperlock.cpp'; fi`
+
+__d_libdir__libdmtcp_so-wrappers.o: wrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-wrappers.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-wrappers.Tpo -c -o __d_libdir__libdmtcp_so-wrappers.o `test -f 'wrappers.cpp' || echo '$(srcdir)/'`wrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-wrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-wrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='wrappers.cpp' object='__d_libdir__libdmtcp_so-wrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-wrappers.o `test -f 'wrappers.cpp' || echo '$(srcdir)/'`wrappers.cpp
+
+__d_libdir__libdmtcp_so-wrappers.obj: wrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-wrappers.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-wrappers.Tpo -c -o __d_libdir__libdmtcp_so-wrappers.obj `if test -f 'wrappers.cpp'; then $(CYGPATH_W) 'wrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/wrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-wrappers.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-wrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='wrappers.cpp' object='__d_libdir__libdmtcp_so-wrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-wrappers.obj `if test -f 'wrappers.cpp'; then $(CYGPATH_W) 'wrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/wrappers.cpp'; fi`
+
+__d_libdir__libdmtcp_so-writeckpt.o: writeckpt.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-writeckpt.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-writeckpt.Tpo -c -o __d_libdir__libdmtcp_so-writeckpt.o `test -f 'writeckpt.cpp' || echo '$(srcdir)/'`writeckpt.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-writeckpt.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-writeckpt.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='writeckpt.cpp' object='__d_libdir__libdmtcp_so-writeckpt.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-writeckpt.o `test -f 'writeckpt.cpp' || echo '$(srcdir)/'`writeckpt.cpp
+
+__d_libdir__libdmtcp_so-writeckpt.obj: writeckpt.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-writeckpt.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-writeckpt.Tpo -c -o __d_libdir__libdmtcp_so-writeckpt.obj `if test -f 'writeckpt.cpp'; then $(CYGPATH_W) 'writeckpt.cpp'; else $(CYGPATH_W) '$(srcdir)/writeckpt.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-writeckpt.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-writeckpt.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='writeckpt.cpp' object='__d_libdir__libdmtcp_so-writeckpt.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-writeckpt.obj `if test -f 'writeckpt.cpp'; then $(CYGPATH_W) 'writeckpt.cpp'; else $(CYGPATH_W) '$(srcdir)/writeckpt.cpp'; fi`
+install-dmtcpversionincludeHEADERS: $(dmtcpversioninclude_HEADERS)
+	@$(NORMAL_INSTALL)
+	@list='$(dmtcpversioninclude_HEADERS)'; test -n "$(dmtcpversionincludedir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(dmtcpversionincludedir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(dmtcpversionincludedir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(dmtcpversionincludedir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(dmtcpversionincludedir)" || exit $$?; \
+	done
+
+uninstall-dmtcpversionincludeHEADERS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dmtcpversioninclude_HEADERS)'; test -n "$(dmtcpversionincludedir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(dmtcpversionincludedir)'; $(am__uninstall_files_from_dir)
 install-includeHEADERS: $(include_HEADERS)
 	@$(NORMAL_INSTALL)
 	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
@@ -1243,7 +1640,7 @@ check: check-recursive
 all-am: Makefile $(PROGRAMS) $(LIBRARIES) $(HEADERS)
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dmtcplibdir)" "$(DESTDIR)$(includedir)"; do \
+	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dmtcplibdir)" "$(DESTDIR)$(dmtcpversionincludedir)" "$(DESTDIR)$(includedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-recursive
@@ -1365,7 +1762,8 @@ info: info-recursive
 
 info-am:
 
-install-data-am: install-dmtcplibPROGRAMS install-includeHEADERS
+install-data-am: install-dmtcplibPROGRAMS \
+	install-dmtcpversionincludeHEADERS install-includeHEADERS
 
 install-dvi: install-dvi-recursive
 
@@ -1473,7 +1871,7 @@ ps: ps-recursive
 ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
-	uninstall-includeHEADERS
+	uninstall-dmtcpversionincludeHEADERS uninstall-includeHEADERS
 
 .MAKE: $(am__recursive_targets) install-am install-strip
 
@@ -1484,15 +1882,16 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	distclean-generic distclean-tags distdir dvi dvi-am html \
 	html-am info info-am install install-am install-binPROGRAMS \
 	install-data install-data-am install-dmtcplibPROGRAMS \
-	install-dvi install-dvi-am install-exec install-exec-am \
-	install-html install-html-am install-includeHEADERS \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs installdirs-am \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS \
-	uninstall-dmtcplibPROGRAMS uninstall-includeHEADERS
+	install-dmtcpversionincludeHEADERS install-dvi install-dvi-am \
+	install-exec install-exec-am install-html install-html-am \
+	install-includeHEADERS install-info install-info-am \
+	install-man install-pdf install-pdf-am install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs installdirs-am maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
+	uninstall-am uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
+	uninstall-dmtcpversionincludeHEADERS uninstall-includeHEADERS
 
 .PRECIOUS: Makefile
 
