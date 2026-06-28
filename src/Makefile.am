@@ -15,6 +15,7 @@ AUTOMAKE_OPTIONS = foreign
 
 jalibdir=$(top_srcdir)/jalib
 dmtcpincludedir=$(top_srcdir)/include
+dmtcpversionincludedir = $(includedir)/dmtcp
 dmtcplibdir = $(pkglibdir)
 
 SUBDIRS = mtcp
@@ -93,9 +94,8 @@ bin_PROGRAMS = $(d_bindir)/dmtcp_command 			\
 
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so
 
-include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
-		  $(srcdir)/../include/dmtcp/version.h
-
+include_HEADERS = $(srcdir)/../include/dmtcp.h
+dmtcpversioninclude_HEADERS = $(srcdir)/../include/dmtcp/version.h
 
 # headers:
 nobase_noinst_HEADERS =						\

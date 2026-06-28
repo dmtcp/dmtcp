@@ -122,13 +122,14 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/ax_append_flag.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-DIST_COMMON = $(srcdir)/Makefile.am $(include_HEADERS) \
-	$(nobase_noinst_HEADERS) $(am__DIST_COMMON)
+DIST_COMMON = $(srcdir)/Makefile.am $(dmtcpversioninclude_HEADERS) \
+	$(include_HEADERS) $(nobase_noinst_HEADERS) $(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/include/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dmtcplibdir)" \
+	"$(DESTDIR)$(dmtcpversionincludedir)" \
 	"$(DESTDIR)$(includedir)"
 PROGRAMS = $(bin_PROGRAMS) $(dmtcplib_PROGRAMS)
 LIBRARIES = $(noinst_LIBRARIES)
@@ -558,7 +559,8 @@ am__uninstall_files_from_dir = { \
   || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
        $(am__cd) "$$dir" && echo $$files | $(am__xargs_n) 40 $(am__rm_f); }; \
   }
-HEADERS = $(include_HEADERS) $(nobase_noinst_HEADERS)
+HEADERS = $(dmtcpversioninclude_HEADERS) $(include_HEADERS) \
+	$(nobase_noinst_HEADERS)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
 am__recursive_targets = \
@@ -783,6 +785,7 @@ top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
 jalibdir = $(top_srcdir)/jalib
 dmtcpincludedir = $(top_srcdir)/include
+dmtcpversionincludedir = $(includedir)/dmtcp
 dmtcplibdir = $(pkglibdir)
 SUBDIRS = mtcp
 
@@ -836,8 +839,8 @@ noinst_LIBRARIES = libdmtcpinternal.a 				\
 		   libdmtcp_pid_internal.a			\
 		   libdmtcp_unique_ckpt_internal.a
 
-include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
-		  $(srcdir)/../include/dmtcp/version.h
+include_HEADERS = $(srcdir)/../include/dmtcp.h
+dmtcpversioninclude_HEADERS = $(srcdir)/../include/dmtcp/version.h
 
 
 # headers:
@@ -1947,6 +1950,27 @@ __d_libdir__libdmtcp_so-writeckpt.obj: writeckpt.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='writeckpt.cpp' object='__d_libdir__libdmtcp_so-writeckpt.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-writeckpt.obj `if test -f 'writeckpt.cpp'; then $(CYGPATH_W) 'writeckpt.cpp'; else $(CYGPATH_W) '$(srcdir)/writeckpt.cpp'; fi`
+install-dmtcpversionincludeHEADERS: $(dmtcpversioninclude_HEADERS)
+	@$(NORMAL_INSTALL)
+	@list='$(dmtcpversioninclude_HEADERS)'; test -n "$(dmtcpversionincludedir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(dmtcpversionincludedir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(dmtcpversionincludedir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(dmtcpversionincludedir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(dmtcpversionincludedir)" || exit $$?; \
+	done
+
+uninstall-dmtcpversionincludeHEADERS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dmtcpversioninclude_HEADERS)'; test -n "$(dmtcpversionincludedir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(dmtcpversionincludedir)'; $(am__uninstall_files_from_dir)
 install-includeHEADERS: $(include_HEADERS)
 	@$(NORMAL_INSTALL)
 	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
@@ -2130,7 +2154,7 @@ check: check-recursive
 all-am: Makefile $(PROGRAMS) $(LIBRARIES) $(HEADERS)
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dmtcplibdir)" "$(DESTDIR)$(includedir)"; do \
+	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dmtcplibdir)" "$(DESTDIR)$(dmtcpversionincludedir)" "$(DESTDIR)$(includedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-recursive
@@ -2250,7 +2274,8 @@ info: info-recursive
 
 info-am:
 
-install-data-am: install-dmtcplibPROGRAMS install-includeHEADERS
+install-data-am: install-dmtcplibPROGRAMS \
+	install-dmtcpversionincludeHEADERS install-includeHEADERS
 
 install-dvi: install-dvi-recursive
 
@@ -2355,7 +2380,7 @@ ps: ps-recursive
 ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
-	uninstall-includeHEADERS
+	uninstall-dmtcpversionincludeHEADERS uninstall-includeHEADERS
 
 .MAKE: $(am__recursive_targets) install-am install-strip
 
@@ -2366,15 +2391,16 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	distclean-generic distclean-tags distdir dvi dvi-am html \
 	html-am info info-am install install-am install-binPROGRAMS \
 	install-data install-data-am install-dmtcplibPROGRAMS \
-	install-dvi install-dvi-am install-exec install-exec-am \
-	install-html install-html-am install-includeHEADERS \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs installdirs-am \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS \
-	uninstall-dmtcplibPROGRAMS uninstall-includeHEADERS
+	install-dmtcpversionincludeHEADERS install-dvi install-dvi-am \
+	install-exec install-exec-am install-html install-html-am \
+	install-includeHEADERS install-info install-info-am \
+	install-man install-pdf install-pdf-am install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs installdirs-am maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
+	uninstall-am uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
+	uninstall-dmtcpversionincludeHEADERS uninstall-includeHEADERS
 
 .PRECIOUS: Makefile
 
