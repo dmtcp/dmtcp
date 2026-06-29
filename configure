@@ -36,6 +36,7 @@ esac
 fi
 
 
+
 # Reset variables that may have inherited troublesome values from
 # the environment.
 
@@ -639,8 +640,7 @@ ac_includes_default="\
 #endif"
 
 ac_header_c_list=
-ac_subst_vars='MANA_HELPER_DIR
-RESTART_PLUGIN
+ac_subst_vars='RESTART_PLUGIN
 HAS_OPENMPI
 OPENMPI_MPIRUN
 OPENMPI_MPICC
@@ -823,10 +823,8 @@ enable_silent_rules
 enable_maintainer_mode
 enable_dependency_tracking
 enable_openmp
-enable_logging
 enable_debug
 enable_quiet
-enable_timing
 enable_realtime_ckpt_signal
 enable_unique_checkpoint_filenames
 enable_forked_checkpointing
@@ -8816,6 +8814,7 @@ case "$host_cpu" in
   aarch64*) is_aarch64_host=yes ;;
   i?86) is_i486_host=yes ;;
   x86_64) is_x86_64_host=yes ;;
+  riscv64) is_riscv64_host=yes ;;
 esac
 
  if test "$is_x86_64_host" == "yes"; then
@@ -10500,6 +10499,7 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
 printf "%s\n" "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
+
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if this is WSL (Windows Subystem for Linux)" >&5
 printf %s "checking if this is WSL (Windows Subystem for Linux)... " >&6; }
 if uname -r | grep -i Microsoft > /dev/null; then
@@ -11080,6 +11080,7 @@ printf "%s\n" "no" >&6; }
 fi
 
 
+
 #check for vim
 # Extract the first word of "vim", so it can be a program name with args.
 set dummy vim; ac_word=$2
@@ -11172,6 +11173,7 @@ else
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
 fi
+
 
 
 #check for strace
@@ -12036,29 +12038,7 @@ else
   fi
 fi
 
-
-# NOTE FO FUTURE:  We should avoid AM_CONDITIONAL.
-# automake-2.71 has a bug in AM_CONDITIONAL.  When the if statment is
-#  _not_ triggered.  They seem to assume that you _must_ define
-# the conditional case for 'then' and for 'else', even if 'else'
-# means creating a differently named file that is empty.
-# Otherwise, automake tries to do dependency checking on the
-#   file specified in 'then', even though we onky triggered the 'if'.
-# FLAME ON: automake is a separate, poorly documented, inflexible
-#   language that loses the clarity and simplicity of an ordinary
-#   Makefile.in.  For example, it's not possible to have a per-file CLFAGS.
-# *** BUG IN ORIGINAL DESIGN WITH automake:  It's not clear if
-#   --with-mana-helper-dir ever worked.  We were using the default only.
-mana_helper_dir=no
-if test "$mana_helper_dir" != "no"; then
-  # This is the buggy case.
-  RESTART_PLUGIN=`realpath $mana_helper_dir`/dmtcp_restart_plugin.$(OBJEXT)
-  MANA_HELPER_DIR=`realpath $mana_helper_dir`
-else
-  RESTART_PLUGIN=
-  MANA_HELPER_DIR=
-fi
-
+RESTART_PLUGIN=
 
 
 if test "$use_m32" = "yes"; then
@@ -12103,61 +12083,50 @@ then :
 fi
 
 
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $CXX __sync_bool_compare_and_swap builtins" >&5
-printf %s "checking for $CXX __sync_bool_compare_and_swap builtins... " >&6; }
-ac_ext=cpp
-ac_cpp='$CXXCPP $CPPFLAGS'
-ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
-
-CXXFLAGS_orig="$CXXFLAGS"
-CXXFLAGS="$CXXFLAGS -march=native"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-
-    #include <assert.h>
-    #include <stdlib.h>
-    int main() {
-      __int128 dest = static_cast<__int128>(0x1234567812345678);
-      __int128 oldValue=0x7ffffffff098;
-      __int128 newValue=0x7ffffffff088;
-      bool result = __sync_bool_compare_and_swap(&dest, oldValue, newValue);
-      assert(result == false && dest != newValue);
-      dest = oldValue;
-      result = __sync_bool_compare_and_swap(&dest, oldValue, newValue);
-      assert(result == true && dest == newValue);
-      return 0;
-    }
-
-
-_ACEOF
-if ac_fn_cxx_try_link "$LINENO"
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if $CXX jalloc.cpp emits __atomic_compare_exchange_16" >&5
+printf %s "checking if $CXX jalloc.cpp emits __atomic_compare_exchange_16... " >&6; }
+if test -n "$host_cpu" -a ! "$is_riscv64_host"; then
+  arch_flag="-march=native";
+fi
+created_stub_config_h=no
+if test ! -f include/config.h; then
+  : > include/config.h
+  created_stub_config_h=yes
+fi
+if  (cd src && $CXX $arch_flag -DHAS_128_BIT_INLINE_ASM=1 -std=c++20 -DHAVE_CONFIG_H -I. -I../include -fPIC -g -O2 -S -o - ../jalib/jalloc.cpp) | grep --quiet __atomic_compare_exchange_16
 then :
-  gccSyncBuiltins='yes'
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+printf "%s\n" "#define NEEDS_128_BIT_LIBATOMIC 1" >>confdefs.h
+
+    needs_libatomic=yes
+
 else case e in #(
-  e) gccSyncBuiltins='no' ;;
+  e)
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+
+printf "%s\n" "#define HAS_128_BIT_INLINE_ASM 1" >>confdefs.h
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: Will assume $CXX emits inline assembly" >&5
+printf "%s\n" "$as_me: Will assume $CXX emits inline assembly" >&6;}
+   ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-CXXFLAGS="$CXXFLAGS_orig"
-ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $gccSyncBuiltins" >&5
-printf "%s\n" "$gccSyncBuiltins" >&6; }
-if test "$gccSyncBuiltins" = "yes"; then
-
-printf "%s\n" "#define HAS_128_SYNC_BOOL 1" >>confdefs.h
-
+if test "$created_stub_config_h" = yes; then
+  rm -f include/config.h
 fi
 
-if test "$is_arm_host" == "yes" -o "$is_i486_host" == "yes" ; then
+if test "$is_aarch64_host" == "yes"; then
+  # GCC's libatomic on aarch64 may call pthread_mutex_lock() instead of using
+  # atomic instructions (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=70814),
+  # which can deadlock if the target application interposes on
+  # pthread_mutex_lock via dlsym.  Treat libatomic as unavailable so
+  # jalloc.cpp falls back to the futex-based implementation.
+  has_libatomic=no
+elif test "$is_arm_host" == "yes" -o "$is_i486_host" == "yes" ; then
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for __atomic_compare_exchange_8 in -latomic" >&5
 printf %s "checking for __atomic_compare_exchange_8 in -latomic... " >&6; }
 if test ${ac_cv_lib_atomic___atomic_compare_exchange_8+y}
@@ -12203,10 +12172,17 @@ fi
 printf "%s\n" "$ac_cv_lib_atomic___atomic_compare_exchange_8" >&6; }
 if test "x$ac_cv_lib_atomic___atomic_compare_exchange_8" = xyes
 then :
-  printf "%s\n" "#define HAVE_LIBATOMIC 1" >>confdefs.h
 
-  LIBS="-latomic $LIBS"
 
+printf "%s\n" "#define HAS_128_BIT_LIBATOMIC 1" >>confdefs.h
+
+                has_libatomic=yes
+
+else case e in #(
+  e)
+                has_libatomic=no
+                ;;
+esac
 fi
 
 else
@@ -12255,166 +12231,30 @@ fi
 printf "%s\n" "$ac_cv_lib_atomic___atomic_compare_exchange_16" >&6; }
 if test "x$ac_cv_lib_atomic___atomic_compare_exchange_16" = xyes
 then :
-  printf "%s\n" "#define HAVE_LIBATOMIC 1" >>confdefs.h
-
-  LIBS="-latomic $LIBS"
-
-fi
-
-fi
-if test ${ac_cv_lib_atomic_+y}; then
-  printf %s "*** libatomic.so not found; In jalib/jalloc.cpp need to"
-  printf %s "***   replace __atomic_* by __sync_*."
-fi
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $CXX __atomic_compare_exchange builtins using -latomic" >&5
-printf %s "checking for $CXX __atomic_compare_exchange builtins using -latomic... " >&6; }
-ac_ext=cpp
-ac_cpp='$CXXCPP $CPPFLAGS'
-ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
-
-# It seems to be undocumented that this needs '-latomic' as of 2024.
-LDFLAGS_orig="$LDFLAGS"
-LDFLAGS="$LDFLAGS -latomic"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
 
 
-    #include <atomic>
-    #include <assert.h>
-    #include <stdlib.h>
-    int main() {
-      typedef unsigned __int128 uint128_t;
-      uint128_t *dst = static_cast<uint128_t*>(malloc(128));
-      uint128_t *oldValue = static_cast<uint128_t*>(malloc(128));
-      uint128_t *newValue = static_cast<uint128_t*>(malloc(128));
-      *dst = static_cast<uint128_t>(1);
-      *oldValue = static_cast<uint128_t>(1);
-      *newValue = static_cast<uint128_t>(2);
-      bool result = __atomic_compare_exchange((uint128_t*)dst,
-                                         (uint128_t*)oldValue,
-                                         (uint128_t*)newValue, 0,
-                                          __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-      assert(result == true);
-      assert(*dst == *newValue);
-      return 0;
-    }
+printf "%s\n" "#define HAS_128_BIT_LIBATOMIC 1" >>confdefs.h
 
-
-_ACEOF
-if ac_fn_cxx_try_link "$LINENO"
-then :
-  gccAtomicBuiltins='yes'
-else case e in #(
-  e) gccAtomicBuiltins='no' ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-LDFLAGS="$LDFLAGS_orig"
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing __atomic_compare_exchange_16" >&5
-printf %s "checking for library containing __atomic_compare_exchange_16... " >&6; }
-if test ${ac_cv_search___atomic_compare_exchange_16+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) ac_func_search_save_LIBS=$LIBS
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-namespace conftest {
-  extern "C" int __atomic_compare_exchange_16 ();
-}
-int
-main (void)
-{
-return conftest::__atomic_compare_exchange_16 ();
-  ;
-  return 0;
-}
-_ACEOF
-for ac_lib in '' atomic
-do
-  if test -z "$ac_lib"; then
-    ac_res="none required"
-  else
-    ac_res=-l$ac_lib
-    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
-  fi
-  if ac_fn_cxx_try_link "$LINENO"
-then :
-  ac_cv_search___atomic_compare_exchange_16=$ac_res
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext
-  if test ${ac_cv_search___atomic_compare_exchange_16+y}
-then :
-  break
-fi
-done
-if test ${ac_cv_search___atomic_compare_exchange_16+y}
-then :
-
-else case e in #(
-  e) ac_cv_search___atomic_compare_exchange_16=no ;;
-esac
-fi
-rm conftest.$ac_ext
-LIBS=$ac_func_search_save_LIBS ;;
-esac
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search___atomic_compare_exchange_16" >&5
-printf "%s\n" "$ac_cv_search___atomic_compare_exchange_16" >&6; }
-ac_res=$ac_cv_search___atomic_compare_exchange_16
-if test "$ac_res" != no
-then :
-  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+                has_libatomic=yes
 
 else case e in #(
   e)
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: Could not find 128-bit atomic support in libatomic." >&5
-printf "%s\n" "$as_me: WARNING: Could not find 128-bit atomic support in libatomic." >&2;}
- ;;
+                has_libatomic=no
+                ;;
 esac
 fi
 
-
-ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $gccAtomicBuiltins" >&5
-printf "%s\n" "$gccAtomicBuiltins" >&6; }
-
-if test "$gccAtomicBuiltins" = "yes"; then
-
-printf "%s\n" "#define HAS_128_ATOMIC 1" >>confdefs.h
-
 fi
-is_clang_cpp=no
-$CXX -x c++ -dM -E - < /dev/null | grep -q "__clang__" && is_clang_cpp=yes
-if test "$gccAtomicBuiltins" = "no" -a "$is_clang_cpp" = "yes"; then
-  { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in '$ac_pwd':" >&5
-printf "%s\n" "$as_me: error: in '$ac_pwd':" >&2;}
-as_fn_error $? "Using C++20 with clang++ to support atomic built-ins.
-                  Missing Linux packages.  If Ubuntu/Debian, consider:
-                  sudo apt install clang libclang-rt-dev libc++abi-dev
-                  libstdc++-14-dev (or later version of libstdc++-14-dev).
-                  If Red Hat/Fedora/CentOS/Rocky Linux, consider:
-                  sudo dnf install clang-devel libstdc++-devel libatomic
-See 'config.log' for more details" "$LINENO" 5; }
+
+if test "$needs_libatomic" = "yes" -a "$has_libatomic" = "yes"; then
+  LIBS="$LIBS -latomic"
 fi
-if test "$gccAtomicBuiltins" = "no"; then
-  { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in '$ac_pwd':" >&5
-printf "%s\n" "$as_me: error: in '$ac_pwd':" >&2;}
-as_fn_error $? "Using C++20, which should support both sync and atomic
-                  built-ins.  Will default to using slower mutexes in jalloc.cpp
-See 'config.log' for more details" "$LINENO" 5; }
+
+if test "$needs_libatomic" = "yes" -a "$has_libatomic" = "no"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: libatomic.so not found.  jalib/jalloc.cpp will use the
+               slower futex method.  Not significant unless using many threads" >&5
+printf "%s\n" "$as_me: WARNING: libatomic.so not found.  jalib/jalloc.cpp will use the
+               slower futex method.  Not significant unless using many threads" >&2;}
 fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking value of page size (sysconf(_SC_PAGESIZE))" >&5
@@ -14013,3 +13853,5 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 printf "%s\n" "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
+
+

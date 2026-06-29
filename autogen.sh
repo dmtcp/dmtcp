@@ -5,6 +5,7 @@
 # RUNS:  autoconf, autoheader, automake, etc., in the right order
 # OUTPUT:  config.h.in, Makefile.in, configure, etc.
 
+# --install gets the latest aux files: config.guess, config.sub, missing, etc.
 autoreconf --force --install --verbose
 # aclocal
 # autoconf

@@ -139,41 +139,22 @@ static inline bool
 bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
 {
   bool result = false;
-# if defined(HAS_128_ATOMIC) && !defined(__aarch64__)
-  // This requires libatomic.so in GNU
+  /* NOTE: ./configure tested if the atomic built-ins are available
+   *        and if they define inline asm or a function defined in libatomic.so
+   * NOTE: __sync_bool_compare_and_swap() used to write code inline without the
+   *       help of libatomic.so.  This atomic built-in is now obsolete.
+   */
+# if defined(HAS_128_BIT_INLINE_ASM) || defined(HAS_128_BIT_LIBATOMIC)
   // For ARM64 (aarch64), as of 2024, the GCC version of libatomic.so
   // may call pthread_mutex_lock instead of using atomic instructions.
   // See:  https://gcc.gnu.org/bugzilla/show_bug.cgi?id=70814
   // This can generate an infinite loop if the target application
   // interposes on pthread_mutex_lock using dlsym.  McMini is such a case.
   typedef unsigned __int128 uint128_t;
-  // This requires libatomic.so in GNU
   result = __atomic_compare_exchange((uint128_t*)dst,
                                      (uint128_t*)oldValue,
                                      (uint128_t*)newValue, 0,
                                       __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-# elif defined (HAS_128_SYNC_BOOL)
-  typedef unsigned __int128 uint128_t;
-  // FIXME:  WE should modify dmtcp_command.cpp and coorindatorapi.cpp
-  //   to replace JALLOC_HELPER_MALLOC/FREE by malloc/free at runtime for
-  //   dmtcp_command/workerList. We could then remove this special-case code.
-  //   workerList is never used by libdmtcp.so.  So, there's no reason for JALIB.
-  if (getenv("DMTCP_COMMAND")) {
-    // DMTCP command is a single thread talking to the coordinator.
-    // It doesn't need the 3 MB of bloat caused by src/jalib.a
-    // We escape it for now, since aarch64/gcc can't support this code.
-    // So, for a small, single-threaded process, let's avoid the bloat.
-    if (*(uint128_t*)oldValue == *(uint128_t volatile *)dst) {
-      *(uint128_t volatile *)dst = *(uint128_t*)newValue;
-      return true;
-    } else {
-      return false;
-    }
-  }
-  // This requires compiling with -mcx16
-  result = __sync_bool_compare_and_swap((uint128_t volatile *)dst,
-                                        *(uint128_t*)oldValue,
-                                        *(uint128_t*)newValue);
 # else
   // Using futex protects us if target app interposes on pthread_mutex_lock.
   static uint32_t atomic_compare_futex = 0;

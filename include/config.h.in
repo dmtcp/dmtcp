@@ -27,11 +27,13 @@
 /* Child process does checkpointing */
 #undef FORKED_CHECKPOINTING
 
-/* Define to 1 if 'gcc test.c -latomic' works for __atomic_compare_exchange */
-#undef HAS_128_ATOMIC
+/* Define to 1 if C++ compiles __atomic_compare_exchange() in jalib/jalloc.cpp
+   to 128-bit inline assembly (e.g., cmpxch16b) */
+#undef HAS_128_BIT_INLINE_ASM
 
-/* Define to 1 if __sync_bool_compare_and_swap is supported */
-#undef HAS_128_SYNC_BOOL
+/* Define to 1 if C++ flag '-latomic' works and __atomic_compare_exchange_16
+   is a defined symbol */
+#undef HAS_128_BIT_LIBATOMIC
 
 /* Define to 1 if you have process_vm_readv and process_vm_writev. */
 #undef HAS_CMA
@@ -57,9 +59,6 @@
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
-
-/* Define to 1 if you have the 'atomic' library (-latomic). */
-#undef HAVE_LIBATOMIC
 
 /* Define to 1 if you have the <linux/version.h> header file. */
 #undef HAVE_LINUX_VERSION_H
@@ -109,9 +108,12 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Verbose trace output and log files in $DMTCP_TMPDIR */
 /* Page size (sysconf(_SC_PAGESIZE)) */
 #undef MTCP_PAGE_SIZE
+
+/* Define to 1 if C++ compiles __atomic_compare_exchange() in jalib/jalloc.cpp
+   to __atomic_compare_exchange_16() */
+#undef NEEDS_128_BIT_LIBATOMIC
 
 /* Name of package */
 #undef PACKAGE
