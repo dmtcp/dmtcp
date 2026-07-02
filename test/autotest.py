@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
+import sys
+
+if sys.version_info < (3, 7):
+    print("Skipping autotest; Python 3.7+ is required.", flush=True)
+    sys.exit(0)
+
 import argparse
 import concurrent.futures
 from collections import Counter
@@ -12,7 +18,6 @@ import shlex
 import shutil
 import signal
 import subprocess
-import sys
 import tempfile
 import threading
 import time
@@ -21,10 +26,6 @@ from random import sample
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import autotest_config
-
-if sys.version_info < (3, 7):
-    print("Skipping autotest; Python 3.7+ is required.", flush=True)
-    sys.exit(0)
 
 from dataclasses import dataclass, field, replace
 
