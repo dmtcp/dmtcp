@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -269,6 +270,8 @@ ThreadList::prepareThread(Thread *th, void *(*fn)(void *), void *arg)
   th->exiting = 0;
   th->wrapperLockCount = 0;
   th->procname[0] = '\0';
+  th->guardAddr = NULL;
+  th->guardSize = 0;
 }
 
 /*****************************************************************************
@@ -309,6 +312,36 @@ ThreadList::initThread(Thread *th)
   ThreadList::addToActiveList(th);
 }
 
+// The lightweight stack guard regions that glibc >= 2.42 installs at the low end
+// of each thread's stack (recorded in the pthread_create wrapper) read as
+// occupied memory and fault when accessed. removeStackGuards() clears them so
+// the checkpoint memory scan can read every stack page; restoreStackGuards()
+// puts them back afterward, and on restart, keeping stack-overflow protection
+// during normal execution.
+//
+// The MADV_GUARD_* macros only exist on glibc >= 2.42, so they appear only
+// inside this guard; older glibc gets no-op stubs. Keep the condition in sync
+// with the one in the pthread_create wrapper, which records guardAddr/guardSize.
+#if defined(MADV_GUARD_INSTALL) && defined(MADV_GUARD_REMOVE)
+static void
+madviseStackGuards(int advice)
+{
+  for (Thread *thread = activeThreads; thread != NULL; thread = thread->next) {
+    if (thread->guardSize > 0) {
+      WARN_ERRNO(madvise(thread->guardAddr, thread->guardSize, advice) == 0,
+                 "failed to update lightweight stack guard region: "
+                 "tid={} addr={} size={} advice={}",
+                 thread->tid, thread->guardAddr, thread->guardSize, advice);
+    }
+  }
+}
+static void removeStackGuards()  { madviseStackGuards(MADV_GUARD_REMOVE); }
+static void restoreStackGuards() { madviseStackGuards(MADV_GUARD_INSTALL); }
+#else
+static void removeStackGuards()  {}
+static void restoreStackGuards() {}
+#endif // if defined(MADV_GUARD_INSTALL) && defined(MADV_GUARD_REMOVE)
+
 /*************************************************************************
  *
  *  Write checkpoint image
@@ -335,7 +368,13 @@ ThreadList::writeCkpt()
   // const ssize_t pagesize = Util::pageSize();
   // ASSERT_EQ(sizeof(header) % pagesize, 0ul);
 
+  // Remove the lightweight stack guard regions so writeCkptImage() can process
+  // every stack page without faulting; reinstall them afterward so this
+  // (checkpointing) process keeps its guard protection while it continues. The
+  // restarted process reinstalls them separately in postRestartWork().
+  removeStackGuards();
   CkptSerializer::writeCkptImage(header, ckptFilename);
+  restoreStackGuards();
 }
 
 /*************************************************************************
@@ -817,6 +856,11 @@ ThreadList::postRestartWork()
   SharedData::postRestart();
 
   restoreInProgress = true;
+
+  // The checkpoint image was written with the lightweight stack guard regions
+  // removed (see writeCkpt()). Reinstall them now that memory has been restored
+  // at its original addresses, before the threads are recreated on their stacks.
+  restoreStackGuards();
 
   Util::allowGdbDebug(DEBUG_POST_RESTART);
 

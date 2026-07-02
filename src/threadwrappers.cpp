@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <sys/param.h> // for EXEC_PAGESIZE
 #include <sys/syscall.h>
 #include "../jalib/jalloc.h"
 #include "constants.h"
@@ -130,25 +131,43 @@ pthread_create(pthread_t *pth,
 
   if (retval == 0) {
     ProcessInfo::instance().clearPthreadJoinState(*pth);
-    // Since glibc 2.42, pthread_create adds a lightweight guard page
-    // at the beginning of the new thread's stack using madvise() and
-    // MADV_GUARD_INSTALL. DMTCP may reads from this guard page and
-    // cause a segfault. As a quick fix, we remove the guard page
-    // immediately.
+    // Since glibc 2.42, pthread_create installs a lightweight guard region at
+    // the low end of the new thread's stack via madvise(MADV_GUARD_INSTALL).
+    // The checkpoint memory scan would classify these guard pages as occupied
+    // and fault while reading them. Record the guard region here so the
+    // checkpoint thread can temporarily remove it while writing the checkpoint
+    // image and reinstall it afterward (see ThreadList::writeCkpt() and
+    // ThreadList::postRestartWork()).
     //
-    // FIXME: A better solution will be keep a record or added
-    // lightweight guard page. Remove them at checkpoint time and
-    // restore them at restart time.
-#if __GLIBC__ == 2 && __GLIBC_MINOR__ >= 42
+    // glibc places the guard immediately below the lowest usable stack byte, so
+    // the region is [stack_addr - guardSize, stack_addr). guardSize is the
+    // configured guard (pthread_attr_getguardsize(), rounded up to the page
+    // size), floored at EXEC_PAGESIZE: glibc enforces that floor so the guard is
+    // at least one page under any supported kernel page size. On aarch64
+    // EXEC_PAGESIZE is 64 KB (vs. a 4 KB runtime page), so the guard is 64 KB
+    // there even though getguardsize() reports 4 KB. This reproduces glibc's own
+    // sizing exactly, giving the precise per-thread region independent of how
+    // the kernel lays out or merges stack VMAs.
+    //
+    // The MADV_GUARD_* macros (and the lightweight guard they compensate for)
+    // both appeared in glibc 2.42. Keep this condition in sync with the one in
+    // ThreadList::updateStackGuards(), which removes/reinstalls the region.
+#if defined(MADV_GUARD_INSTALL) && defined(MADV_GUARD_REMOVE)
     pthread_attr_t new_attr;
     void *stack_addr;
     size_t stack_size, guard_size;
     pthread_getattr_np(*pth, &new_attr);
     pthread_attr_getstack(&new_attr, &stack_addr, &stack_size);
     pthread_attr_getguardsize(&new_attr, &guard_size);
-    madvise((void*)((char*)stack_addr - guard_size), guard_size,
-            MADV_GUARD_REMOVE);
     pthread_attr_destroy(&new_attr);
+
+    size_t pageSize = sysconf(_SC_PAGESIZE);
+    guard_size = (guard_size + pageSize - 1) & ~(pageSize - 1);
+    if (guard_size < (size_t) EXEC_PAGESIZE) {
+      guard_size = EXEC_PAGESIZE;
+    }
+    newThread->guardAddr = (char *)stack_addr - guard_size;
+    newThread->guardSize = guard_size;
 #endif
   } else { // if we failed to create new pthread
     ThreadSync::wrapperExecutionLockUnlockForNewThread(newThread);
