@@ -56,6 +56,7 @@ gdb.execute("set python print-stack full")
 #     (gdb) signals
 #     (gdb) load-symbols [FILENAME]
 #     (gdb) load-symbols-library [FILENAME_OR_ADDRESS]
+#     (gdb) unload-symbols  # Clears all symbol files (same as: symbol-file)
 #     (gdb) add-symbol-file-from-filename-and-address FILENAME ADDRESS
 #         (Needed if FILENAME not listed in procmaps;
 #          Better version of add-symbol-file; ADDRESS anywhere in memory range)
@@ -68,7 +69,7 @@ gdb.execute("set python print-stack full")
 ## To interactively test and modify these commands:  (gdb) python-interactive
 ## Executing GDB commands:  gdb.execute(), gdb.parse_and_eval()
 
-dmtcp_commands = "load-symbols, load-symbols-library, " +\
+dmtcp_commands = "load-symbols, load-symbols-library, unload-symbols, " +\
   "add-symbol-files-all, add-symbol-file-from-filename-and-address, " +\
   "add-symbol-file-from-substring, add-symbol-file-at-address, " +\
   "show-filename-at-address (OR: whereis-address), " +\
@@ -431,6 +432,20 @@ With 2 argument2, specify filename and address; /proc/*/maps may have
           load_symbols_library(arg1, arg2)
 # This will add the new gdb command: load-symbols-library
 LoadSymbolsLibrary()
+
+
+class UnloadSymbols(gdb.Command):
+    """unload-symbols (clears all symbol files; same as: (gdb) symbol-file)"""
+
+    def __init__(self):
+        super(UnloadSymbols,
+              self).__init__("unload-symbols", gdb.COMMAND_FILES)
+        self.dont_repeat()
+
+    def invoke(self, dummy_args, from_tty):
+        gdb.execute("symbol-file", False, True)
+# This will add the new gdb command: unload-symbols
+UnloadSymbols()
 
 
 def add_symbol_files_from_filename(filename, base_addr):
