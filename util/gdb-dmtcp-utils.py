@@ -16,7 +16,6 @@
 # *****************************************************************************/
 
 import subprocess
-import re
 import sys
 import os
 import textwrap
@@ -602,25 +601,52 @@ class Signals(gdb.Command):
       print_signals()
 Signals()
 
-# For /proc/*/maps line: ADDR1-ADDR2 ... FILE,
-#   Returns (FILE, ADDR1, ADDR2, PERMISSIONS)
-def procmap_filename_address(line):
-  quad = line.split()
-  if line[0] == ' ':  # if this came from (gdb) info proc mapping
-    if quad[-1] == "0x0":
-      quad[-1] = "[NO_LABEL]"
-    if '/' in quad[-1]:
-      return (quad[-1],) + (int(quad[0], 16),) + (int(quad[1], 16),) + \
-             (quad[1],)
-    else:
-      return ("NO_LABEL",) + (int(quad[0], 16),) + (int(quad[1], 16),) + \
-             (quad[1],)
-  if quad[-1] == "0":
-    quad[-1] = "[NO_LABEL]"
-  if '/' in quad[-2]:  # if procmaps line ends in "/tmp/a.out (deleted)"
-    quad[-1] = quad[-2] + ' ' + quad[-1]
-  return (quad[-1],) + \
-         tuple([int("0x"+elt, 16) for elt in quad[0].split("-")]) + (quad[1],)
+def is_hex_address(token):
+  return token.startswith("0x") and len(token) > 2 and \
+         all(c in "0123456789abcdefABCDEF" for c in token[2:])
+
+def is_plain_hex(token):
+  return len(token) > 0 and all(c in "0123456789abcdefABCDEF" for c in token)
+
+def is_permission_string(token):
+  return 3 <= len(token) <= 4 and set(token) <= set("rwxsp-")
+
+# Data row of GDB's "info proc mappings" (used when debugging a core file):
+#   START_ADDR END_ADDR SIZE OFFSET [PERMS] [FILENAME]
+# PERMS is only present on GDB versions/targets that can recover it from the
+# core's own ELF program headers; FILENAME is absent for anonymous mappings.
+# Returns (FILE, ADDR1, ADDR2, PERMISSIONS), or None if not a data row.
+def parse_gdb_proc_mapping_line(line):
+  tokens = line.split()
+  if len(tokens) < 4 or not all(is_hex_address(t) for t in tokens[:4]):
+    return None
+  (start, end) = (tokens[0], tokens[1])
+  rest = tokens[4:]
+  if rest and is_permission_string(rest[0]):
+    (permission, filename_tokens) = (rest[0], rest[1:])
+  else:
+    (permission, filename_tokens) = ("????", rest)
+  filename = " ".join(filename_tokens)
+  return (filename if filename else "[NO_LABEL]",
+          int(start, 16), int(end, 16), permission)
+
+# Line of /proc/PID/maps (used when debugging a live process):
+#   ADDR1-ADDR2 PERMS OFFSET DEV INODE [FILENAME]
+# Returns (FILE, ADDR1, ADDR2, PERMISSIONS), or None if not a data row.
+def parse_proc_maps_line(line):
+  tokens = line.split()
+  if len(tokens) < 5:
+    return None
+  addr_range = tokens[0].split("-")
+  if len(addr_range) != 2 or not all(is_plain_hex(a) for a in addr_range):
+    return None
+  permission = tokens[1]
+  if len(permission) != 4 or not is_permission_string(permission):
+    return None
+  filename = " ".join(tokens[5:])
+  return (filename if filename else "[NO_LABEL]",
+          int(addr_range[0], 16), int(addr_range[1], 16), permission)
+
 def is_text_segment(memory):
   (file, _, _, permission) = memory
   return "/dev/" not in file and "/locale/" not in file and \
@@ -631,15 +657,16 @@ def memory_regions():
     sys.exit(1)
   if usingCore():
     lines = gdb.execute("info proc mappings", False, True).split('\n')
-    lines = [procmap_filename_address(line) for line in lines
-                                  if " 0x" in line and "/dev/" not in line and
-                                     "/locale/" not in line]
+    regions = [parse_gdb_proc_mapping_line(line) for line in lines]
+    regions = [r for r in regions if r is not None and
+                                "/dev/" not in r[0] and "/locale/" not in r[0]]
   else:
     p = subprocess.Popen(["cat", "/proc/"+str(getpid())+"/maps"],
                          stdout = subprocess.PIPE)
     lines = (line.decode("utf-8").strip() for line in p.stdout.readlines())
-    lines = [procmap_filename_address(line) for line in lines]
-  return lines
+    regions = [parse_proc_maps_line(line) for line in lines]
+    regions = [r for r in regions if r is not None]
+  return regions
 def memory_regions_executable():
   if not usingCore():
     return [memory for memory in memory_regions() if is_text_segment(memory)]
