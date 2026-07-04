@@ -91,8 +91,8 @@ class FileConnection : public Connection
                    int type = FILE_REGULAR)
       : Connection(type)
       , _path(path)
-      , _mode(mode)
-      , _fileAlreadyExists(false) {}
+      , _fileAlreadyExists(false)
+      , _mode(mode) {}
 
     virtual void doLocking() override;
     virtual void drain() override;

@@ -210,6 +210,8 @@ dmtcp_initialize()
 // be called before dmtcp_initialize_entry_point.
 // Note that 1-100 are reserved for implementation, but we are okay since this
 // function is only enabled for debugging.
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wprio-ctor-dtor"
 extern "C" void __attribute__((constructor(100)))
 dmtcp_initialize_entry_point_test()
 {
@@ -217,6 +219,7 @@ dmtcp_initialize_entry_point_test()
   pthread_t thread = pthread_self();
   pthread_getaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
 }
+# pragma GCC diagnostic pop
 #endif
 
 // Initialize remaining components.

@@ -290,7 +290,7 @@ KernelBufferDrainer::beginDrainOf(int fd, const ConnectionIdentifier &id, int ba
                                    sizeof theMagicDrainCookie));
 
   // now setup a reader:
-  if (_isSeqpacket[fd] = (baseType == SOCK_SEQPACKET)) {
+  if ((_isSeqpacket[fd] = (baseType == SOCK_SEQPACKET))) {
     addDataSocket(new JSeqpacketReader(fd));
   } else {
     addDataSocket(new jalib::JChunkReader(fd, 512));

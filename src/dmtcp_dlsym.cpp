@@ -177,7 +177,7 @@ static Elf32_Word
 hash_next(Elf32_Word index, Elf32_Word *hash_table, int use_gnu_hash)
 {
   if (use_gnu_hash) {
-    ASSERT_GT(index, STN_UNDEF);
+    ASSERT_GT(index, (Elf32_Word)STN_UNDEF);
     uint32_t nbuckets = ((uint32_t *)hash_table)[0];
     uint32_t symndx = ((uint32_t *)hash_table)[1];
     uint32_t maskwords = ((uint32_t *)hash_table)[2];

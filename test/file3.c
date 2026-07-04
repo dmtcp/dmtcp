@@ -25,7 +25,6 @@ main()
   int dmtcpEnabled = dmtcp_is_enabled();
   uint32_t generation = 0;
   int renamedAfterCkpt = 0;
-  int sawRecreatedFile = 0;
 
   char *dir = getenv("DMTCP_TMPDIR");
 
@@ -87,7 +86,6 @@ main()
     if (renamedAfterCkpt) {
       rc = stat(filename, &statbuf);
       if (rc == 0) {
-        sawRecreatedFile = 1;
         if ((statbuf.st_mode & 07000) != 0 ||
             (statbuf.st_mode & 0777) != EXPECTED_MODE) {
           abort();
