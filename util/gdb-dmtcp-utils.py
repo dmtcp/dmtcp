@@ -92,7 +92,7 @@ def is_recent_gdb():
   return is_recent_gdb.value
 # This should be used only for executable binaries.
 def file_base_address(file):
-  output = subprocess.run("readelf -S " + file + " | grep '\.text'",
+  output = subprocess.run("readelf -S " + file + r" | grep '\.text'",
                           shell=True, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, timeout=300)
   text_fields = output.stdout.decode('utf-8').split()
@@ -103,7 +103,6 @@ def load_symbols(exec_file=None):
           gdb.VERSION + ")")
     return
 
-  # *** FIXME: Consider ways to refactor this code for readability.
   if exec_file:
     exec_files = [exec_file]
   else:
@@ -114,7 +113,6 @@ def load_symbols(exec_file=None):
       print("*** It appears that " + exec_info[0][0] + " was loaded twice.\n" +
             "*** Assuming that the second copy was migrated from original.\n" +
             "*** Will re-load symbols for GDB using addresses of second copy.")
-      breakpoint()
       offset = exec_info[1][1] - exec_info[0][1]
       gdb.execute("symbol-file -readnow -o " + hex(offset) + " " +
                   exec_info[0][0])
@@ -122,7 +120,6 @@ def load_symbols(exec_file=None):
     base_address = next(address
                         for (filename, address, _, _) in memory_regions()
                         if filename == exec_info[0][0])
-    print(base_address, file_base_address(exec_info[0][0]))
     if len(exec_info) == 1 and \
        base_address > file_base_address(exec_info[0][0]) + 10*4096:
       print("*** Binary migrated from original address. Loading symbols there.")
@@ -207,18 +204,6 @@ def is_exec_file(filename):
   if (tmp.startswith("lib") or tmp.startswith("ld")) and ".so" in tmp:
     return False  # This is a library
   return os.access(filename, os.X_OK)
-
-  #### FIXME:  Remove the rest when this is working.
-  # 16 bytes for ELF magic number; then 2 bytes (short) for ELF type
-  header = open(filename, "rb")
-  elf_magic_number = header.read(16)
-  elf_type = header.read(2)
-  # Is it little-endian or big-endian
-  elf_type = elf_type[0] if sys.byteorder == "little" else elf_type[1]
-  # Handle both Python2.7 and Python3: type 2 is executable; type 3 is .so file
-  elf_type = elf_type if isinstance(elf_type, int) else ord(elf_type)
-  header.read(6) # Skip next 6 bytes
-  return elf_type == 2
 
 # FROM: https://stackoverflow.com/questions/33049201/gdb-add-symbol-file-all-sections-and-load-address
 def relocatesections(filename):
@@ -417,7 +402,7 @@ LoadSymbols()
 
 
 class LoadSymbolsLibrary(gdb.Command):
-    """load-symbols-library [FILENAME-OR-ADDRESS] [ADDRESS[ (loads symbols)
+    """load-symbols-library [FILENAME-OR-ADDRESS] [ADDRESS] (loads symbols)
 With no argument, it loads symbols for the newest call frame that has no name.
 With 1 argument, specify filename or address; /proc/*/maps must have filename.
 With 2 argument2, specify filename and address; /proc/*/maps may have
