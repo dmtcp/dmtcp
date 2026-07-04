@@ -22,7 +22,7 @@ import textwrap
 
 try:
   gdb.selected_thread()
-except:
+except Exception:
   print("\n*** USAGE:  source THIS_FILE  (from inside GDB)\n")
   sys.exit(1)
 
@@ -92,10 +92,23 @@ def is_recent_gdb():
   return is_recent_gdb.value
 # This should be used only for executable binaries.
 def file_base_address(file):
-  output = subprocess.run("readelf -S " + file + r" | grep '\.text'",
-                          shell=True, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, timeout=300)
-  text_fields = output.stdout.decode('utf-8').split()
+  # NOTE: Intentionally not passing '-W'/'--wide'.  Without it, readelf
+  # wraps each 64-bit section entry across two lines: the first line ends
+  # in Address then Offset (which is all we need here); the second,
+  # indented continuation line holds Size/EntSize/Flags/Link/Info/Align
+  # and never contains '.text', so it's never selected below.  With '-W',
+  # everything is on one line and the last two fields become Info/Align
+  # instead of Address/Offset.
+  output = subprocess.run(["readelf", "-S", file], stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, timeout=300)
+  if output.returncode != 0:
+    raise RuntimeError("readelf -S " + file + " failed: " +
+                        output.stderr.decode('utf-8').strip())
+  lines = output.stdout.decode('utf-8').splitlines()
+  text_lines = [line for line in lines if '.text' in line.split()]
+  if not text_lines:
+    raise RuntimeError("No .text section found in " + file)
+  text_fields = text_lines[0].split()
   return int(text_fields[-2], 16) - int(text_fields[-1], 16)
 def load_symbols(exec_file=None):
   if not is_recent_gdb():
@@ -116,6 +129,9 @@ def load_symbols(exec_file=None):
       offset = exec_info[1][1] - exec_info[0][1]
       gdb.execute("symbol-file -readnow -o " + hex(offset) + " " +
                   exec_info[0][0])
+      return
+    if not exec_info:
+      print("No exec-files found\n")
       return
     base_address = next(address
                         for (filename, address, _, _) in memory_regions()
@@ -199,9 +215,9 @@ def load_symbols_library(filename_or_address, address=-1):
 def is_exec_file(filename):
   if not os.path.exists(filename):
     return False
-  tmp = filename
-  tmp = tmp[0 if "/" not in tmp else tmp.rindex("/")+1:] 
-  if (tmp.startswith("lib") or tmp.startswith("ld")) and ".so" in tmp:
+  basename = os.path.basename(filename)
+  idx = basename.rfind(".so")
+  if idx != -1 and set(basename[idx + 3:]) <= set(".0123456789"):
     return False  # This is a library
   return os.access(filename, os.X_OK)
 
@@ -323,7 +339,7 @@ ShowFilenameAtAddress()
 #   gdb.execute("alias whereis-address=show-filename-at-address")
 try:
   gdb.execute("alias whereis-address=show-filename-at-address")
-except:
+except Exception:
   pass
 
 
@@ -692,13 +708,13 @@ def cast_to_memory_address(memory_address):
 
 def memory_region_at_address(memory_address):
   memory_address = cast_to_memory_address(memory_address)
+  not_found = ("NOT_FOUND (Did you intend the address in hex?)", 0, 0, "????")
+  if memory_address is None:
+    return not_found
   regions = memory_regions()
   match = [region for region in regions
            if memory_address >= region[1] and memory_address < region[2]]
-  if match:
-    return match[0]
-  else:
-    return ("NOT_FOUND (Did you intend the address in hex?)", 0, 0, "????")
+  return match[0] if match else not_found
 
 def print_signals():
   signals_x86_arm = [
