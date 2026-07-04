@@ -56,6 +56,10 @@ int cuda_initialized = 0;
 pipe_info_t pipe_list[MAX_PIPE_FDS] = {0};
 int num_fds_found;
 
+// FIXME: In DMTCP 5.0, we will stop promoting pipes to socket. Then pipes
+// created by CUDA will be handled properly, and we don't need to save
+// and restore pipes in this plugin.
+//
 // The main inspection function
 int inspect_pipes(pipe_info_t *pipe_fd_array, int max_pipe_fds) {
   // ... (content of inspect_pipes function from previous response) ...
