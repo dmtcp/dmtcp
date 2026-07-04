@@ -22,7 +22,7 @@ import textwrap
 
 try:
   gdb.selected_thread()
-except:
+except Exception:
   print("\n*** USAGE:  source THIS_FILE  (from inside GDB)\n")
   sys.exit(1)
 
@@ -92,10 +92,10 @@ def is_recent_gdb():
   return is_recent_gdb.value
 # This should be used only for executable binaries.
 def file_base_address(file):
-  output = subprocess.run("readelf -S " + file + r" | grep '\.text'",
-                          shell=True, stdout=subprocess.PIPE,
+  output = subprocess.run(["readelf", "-S", file], stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, timeout=300)
-  text_fields = output.stdout.decode('utf-8').split()
+  lines = output.stdout.decode('utf-8').splitlines()
+  text_fields = next(line for line in lines if '.text' in line).split()
   return int(text_fields[-2], 16) - int(text_fields[-1], 16)
 def load_symbols(exec_file=None):
   if not is_recent_gdb():
@@ -199,9 +199,8 @@ def load_symbols_library(filename_or_address, address=-1):
 def is_exec_file(filename):
   if not os.path.exists(filename):
     return False
-  tmp = filename
-  tmp = tmp[0 if "/" not in tmp else tmp.rindex("/")+1:] 
-  if (tmp.startswith("lib") or tmp.startswith("ld")) and ".so" in tmp:
+  basename = os.path.basename(filename)
+  if (basename.startswith("lib") or basename.startswith("ld")) and ".so" in basename:
     return False  # This is a library
   return os.access(filename, os.X_OK)
 
@@ -323,7 +322,7 @@ ShowFilenameAtAddress()
 #   gdb.execute("alias whereis-address=show-filename-at-address")
 try:
   gdb.execute("alias whereis-address=show-filename-at-address")
-except:
+except Exception:
   pass
 
 
@@ -693,13 +692,13 @@ def cast_to_memory_address(memory_address):
 
 def memory_region_at_address(memory_address):
   memory_address = cast_to_memory_address(memory_address)
+  not_found = ("NOT_FOUND (Did you intend the address in hex?)", 0, 0, "????")
+  if memory_address is None:
+    return not_found
   regions = memory_regions()
   match = [region for region in regions
            if memory_address >= region[1] and memory_address < region[2]]
-  if match:
-    return match[0]
-  else:
-    return ("NOT_FOUND (Did you intend the address in hex?)", 0, 0, "????")
+  return match[0] if match else not_found
 
 def print_signals():
   signals_x86_arm = [
