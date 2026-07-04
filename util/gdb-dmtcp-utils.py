@@ -56,6 +56,7 @@ gdb.execute("set python print-stack full")
 #     (gdb) signals
 #     (gdb) load-symbols [FILENAME]
 #     (gdb) load-symbols-library [FILENAME_OR_ADDRESS]
+#     (gdb) load-symbols-library-all  # Repeats load-symbols-library until done
 #     (gdb) unload-symbols  # Clears all symbol files (same as: symbol-file)
 #     (gdb) add-symbol-file-from-filename-and-address FILENAME ADDRESS
 #         (Needed if FILENAME not listed in procmaps;
@@ -69,7 +70,8 @@ gdb.execute("set python print-stack full")
 ## To interactively test and modify these commands:  (gdb) python-interactive
 ## Executing GDB commands:  gdb.execute(), gdb.parse_and_eval()
 
-dmtcp_commands = "load-symbols, load-symbols-library, unload-symbols, " +\
+dmtcp_commands = "load-symbols, load-symbols-library, " +\
+  "load-symbols-library-all, unload-symbols, " +\
   "add-symbol-files-all, add-symbol-file-from-filename-and-address, " +\
   "add-symbol-file-from-substring, add-symbol-file-at-address, " +\
   "show-filename-at-address (OR: whereis-address), " +\
@@ -179,6 +181,15 @@ def load_symbols(exec_file=None):
     print("Call 'load-symbols EXEC_FILE' for the primary executable file.\n")
   else: # else len(exec_files) == 0
     print("No exec-files found\n")
+
+# Returns the newest call frame with no symbol name, or None if all
+# frames from the newest down already have names.
+def newest_unnamed_frame():
+  frame = gdb.newest_frame()
+  while frame and frame.name():
+    frame = frame.older()
+  return frame
+
 def load_symbols_library(filename_or_address, address=-1):
   if not is_recent_gdb():
     print("Older GDB; use add-symbol-file-from-substring (GDB is version: " +
@@ -433,10 +444,8 @@ With 2 argument2, specify filename and address; /proc/*/maps may have
 
     def invoke(self, filename_or_address, from_tty):
         if not filename_or_address:
-          frame = gdb.newest_frame()
-          while frame and frame.name():
-            frame = frame.older()
-          if not frame or frame.name():
+          frame = newest_unnamed_frame()
+          if not frame:
             print("Nothing done!  Symbols for all call frames"
                   " have been loaded")
             return
@@ -449,6 +458,40 @@ With 2 argument2, specify filename and address; /proc/*/maps may have
           load_symbols_library(arg1, arg2)
 # This will add the new gdb command: load-symbols-library
 LoadSymbolsLibrary()
+
+
+class LoadSymbolsLibraryAll(gdb.Command):
+    """load-symbols-library-all (repeats load-symbols-library until done)
+Repeatedly resolves the newest call frame with no symbol name, the same
+way load-symbols-library does with no arguments, until either all frames
+have names or a frame's symbols can't be resolved."""
+
+    def __init__(self):
+        super(LoadSymbolsLibraryAll,
+              self).__init__("load-symbols-library-all", gdb.COMMAND_FILES)
+        self.dont_repeat()
+
+    def invoke(self, dummy_args, from_tty):
+        steps = 0
+        while True:
+          frame = newest_unnamed_frame()
+          if not frame:
+            break
+          pc = frame.pc()
+          load_symbols_library(str(hex(pc)))
+          frame = newest_unnamed_frame()
+          if frame and frame.pc() == pc:
+            print("Could not resolve symbols for frame at %s; stopping."
+                  % hex(pc))
+            return
+          steps += 1
+        if steps == 0:
+          print("Nothing done!  Symbols for all call frames have been loaded")
+        else:
+          print("Symbols for all call frames have been loaded"
+                " (%d load-symbols-library step(s))." % steps)
+# This will add the new gdb command: load-symbols-library-all
+LoadSymbolsLibraryAll()
 
 
 class UnloadSymbols(gdb.Command):
