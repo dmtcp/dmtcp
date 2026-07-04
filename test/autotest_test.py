@@ -1628,7 +1628,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("No tests selected", result.stderr)
 
-    def test_autotest_skips_before_python37(self):
+    def test_if_autotest_skips_before_python37(self):
         with tempfile.TemporaryDirectory() as tempdir:
             temp_path = pathlib.Path(tempdir)
             (temp_path / "sitecustomize.py").write_text(
