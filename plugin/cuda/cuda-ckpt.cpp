@@ -112,14 +112,25 @@ int recreate_pipes(pipe_info_t *pipe_fd_array, int num_fds) {
   pipe_map_t pipe_map[MAX_PIPE_FDS] = {0};
   int map_count = 0;
 
-  // Reserve sites for the original pipes; new pipes will land elsewhere.
+  // Placeholder fd used to reserve the original pipe fd sites.
   int fd_unique = open("/dev/zero", O_RDONLY);
+
+  // inspect_pipes() records every pipe fd present at checkpoint, including
+  // pipes owned by other subsystems (e.g. MPI/Hydra PMI pipes and DMTCP's own
+  // pipes) that DMTCP re-creates on restart.  Those fds are already occupied
+  // here; the CUDA driver's own pipes are the ones DMTCP does not restore, so
+  // their fd numbers are still free.  Keep only those free, CUDA-owned pipes
+  // and reserve their fd sites; new pipes will land elsewhere.
+  int kept = 0;
   for (int i = 0; i < num_fds; i++) {
     int fd = pipe_fd_array[i].fd;
-    // Assert no pre-existing fd at site of old fds
-    JASSERT(fd == fd_unique || fcntl(fd, F_GETFD) == -1);
-    dup2(fd_unique, fd); // Occupy fd; Close it later.
+    if (fd != fd_unique && fcntl(fd, F_GETFD) != -1) {
+      continue; // occupied by another subsystem's restored pipe; not ours
+    }
+    pipe_fd_array[kept++] = pipe_fd_array[i];
+    dup2(fd_unique, fd); // Occupy fd; close it later.
   }
+  num_fds = kept;
 
   // Create a new pipe_map with the original pipes
   for (int i = 0; i < num_fds; i++) {
