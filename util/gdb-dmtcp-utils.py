@@ -381,7 +381,7 @@ AddSymbolFilesAll()
 
 
 class LoadSymbols(gdb.Command):
-    """load-symbols [optional: FILENAME] (load symbols from /proc/self/maps)
+    """load-symbols [optional: FILENAME] (loads symbols for the main executable)
 
 Normally, load-symbols works with no arguments.  When GDB stack does
 not show any symbols, try this.
@@ -413,11 +413,15 @@ LoadSymbols()
 
 
 class LoadSymbolsLibrary(gdb.Command):
-    """load-symbols-library [FILENAME-OR-ADDRESS] [ADDRESS] (loads symbols)
+    """load-symbols-library [FILENAME-OR-ADDRESS] [ADDRESS] (for a library or address; see load-symbols for the main executable)
 With no argument, it loads symbols for the newest call frame that has no name.
 With 1 argument, specify filename or address; /proc/*/maps must have filename.
-With 2 argument2, specify filename and address; /proc/*/maps may have
-  no filename; ADDRESS may be given as '$pc'."""
+With 2 arguments, specify filename and address; /proc/*/maps may have
+  no filename; ADDRESS may be given as '$pc'.
+
+If the resolved file turns out to be the main executable, this command
+calls load-symbols automatically, which handles DMTCP's restart address
+relocation heuristics."""
 
     def __init__(self):
         super(LoadSymbolsLibrary,
