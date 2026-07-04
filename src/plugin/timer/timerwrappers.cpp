@@ -184,9 +184,14 @@ pthread_getcpuclockid(pthread_t thread, clockid_t *clock_id)
   // We need to acquire an exclusive lock here because the corresponding Pid
   // plugin wrapper requires an exclusive lock.
   WrapperLockExcl wrapperLock;
+  // glibc declares clock_id as __nonnull, but we defensively guard against
+  // callers that violate that contract anyway.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnonnull-compare"
   if (clock_id == NULL) {
     return _real_pthread_getcpuclockid(thread, clock_id);
   }
+#pragma GCC diagnostic pop
   clockid_t realId;
   int ret = _real_pthread_getcpuclockid(thread, &realId);
   if (ret == 0) {

@@ -3781,7 +3781,6 @@ int BasicCloseRange(void)
   char tf3[NAMEBUF] = { 0 };
   int tmpfd1, tmpfd2, tmpfd3;
   int fd1, fd2, fd3;
-  int fd_before_protected, fd_after_protected;
   int passed;
   int block = SUCCESS;
   int flags;

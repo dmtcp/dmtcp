@@ -278,7 +278,7 @@ ThreadSync::wrapperExecutionLockUnlock()
 
   Thread *thread = dmtcp_get_current_thread();
 
-  ASSERT_NE(0,
+  ASSERT_NE(0u,
             thread->wrapperLockCount,
             "wrapper execution lock unlock without matching lock: tid={}",
             thread->tid);

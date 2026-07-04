@@ -54,7 +54,7 @@ static void
 processChildThread(Thread *thread)
 {
   dmtcp_init_virtual_tid();
-  ASSERT_NE(0,
+  ASSERT_NE(0u,
             thread->wrapperLockCount,
             "child thread entered without inherited wrapper lock: tid={}",
             thread->tid);
@@ -113,7 +113,7 @@ pthread_create(pthread_t *pth,
 
   Thread *newThread = ThreadList::getNewThread(start_routine, arg);
   ThreadSync::wrapperExecutionLockLockForNewThread(newThread);
-  ASSERT_NE(0,
+  ASSERT_NE(0u,
             newThread->wrapperLockCount,
             "new thread wrapper lock was not pre-acquired: tid={}",
             newThread->tid);
