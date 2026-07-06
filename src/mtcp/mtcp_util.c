@@ -866,6 +866,30 @@ int mtcp_parse_dprintf_env(char **environ)
          (mtcp_strcmp(logLevel, "trace") == 0 ||
           mtcp_strcmp(logLevel, "3") == 0);
 }
+// Scan /proc/self/maps and print every region overlapping [addr, addr+len),
+// to diagnose an unexpected address collision (e.g. EEXIST from
+// mmap_fixed_noreplace() below).  Best-effort: only called on an already-
+// failing path, so a failure here just skips the extra diagnostics.
+static void
+printOverlappingAreas(RestoreInfo *rinfo, void *addr, size_t len)
+{
+  int mtcp_sys_errno;
+  VA rangeStart = (VA) addr;
+  VA rangeEnd = (VA) addr + len;
+  int mapsfd = mtcp_sys_open("/proc/self/maps", O_RDONLY, 0);
+  if (mapsfd == -1) {
+    return;
+  }
+  Area area;
+  while (mtcp_readmapsline(rinfo, mapsfd, &area)) {
+    if (area.endAddr > rangeStart && area.addr < rangeEnd) {
+      MTCP_PRINTF("  colliding with existing region: %p-%p prot: %p"
+                  " flags: %p name: %s\n",
+                  area.addr, area.endAddr, area.prot, area.flags, area.name);
+    }
+  }
+  mtcp_sys_close(mapsfd);
+}
 
 // This emulates MAP_FIXED_NOREPLACE, which became available only in Linux 4.17
 // FIXME:  This assume that addr is a multiple of PAGESIZE.  We should
@@ -892,12 +916,16 @@ void* mmap_fixed_noreplace(RestoreInfo *rinfo, void *addr, size_t len,
   } else if (addr2 != MAP_FAILED) {
     // undo the mmap
     MTCP_PRINTF("error mapping %p bytes at %p; mapped at %p instead\n", len, addr, addr2);
+    printOverlappingAreas(rinfo, addr, len);
     mtcp_sys_munmap(addr2, len);
     mtcp_sys_errno = EEXIST;
     return MAP_FAILED;
   } else {
     // the mmap really did fail
     MTCP_PRINTF("error %d mapping %p bytes at %p, flags: %p, prot :%p\n", mtcp_sys_errno, len, addr, flags, prot);
+    if (mtcp_sys_errno == EEXIST) {
+      printOverlappingAreas(rinfo, addr, len);
+    }
     return MAP_FAILED;
   }
 }

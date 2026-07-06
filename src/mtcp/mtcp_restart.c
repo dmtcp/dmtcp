@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Copyright (C) 2014 Kapil Arya <kapil@ccs.neu.edu>                         *
- * Copyright (C) 2014 Gene Cooperman <gene@ccs.neu.edu>                      *
+ * Copyright (C) 2014,2026 Gene Cooperman <gene@ccs.neu.edu>                 *
  *                                                                           *
  * DMTCP is free software: you can redistribute it and/or                    *
  * modify it under the terms of the GNU Lesser General Public License as     *
