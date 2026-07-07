@@ -117,8 +117,18 @@ dmtcp_get_current_thread()
     return curThread;
   }
 
-  ASSERT_NULL(motherofall);
-  ThreadList::init();
+  if (_real_gettid() == _real_getpid()) {
+    // We are the main thread of the process: create motherofall.
+    ASSERT_NULL(motherofall);
+    ThreadList::init();
+  } else {
+    // Another constructor may have created its own thread, racing to call
+    // ThreadList::init() first. We want the main thread of the process to
+    // win that race. So wait for it here instead.
+    while (__atomic_load_n(&motherofall, __ATOMIC_ACQUIRE) == nullptr) {
+    }
+    ThreadList::initThread(ThreadList::getNewThread(NULL, NULL));
+  }
 
   ASSERT_NOT_NULL(curThread);
   return curThread;
@@ -192,10 +202,12 @@ ThreadList::init()
   if (motherofall == nullptr) {
     // We need to use static storage for motherofall to avoid calling
     // JALLOC_MALLOC during initialization which could lead to infinite recursion.
-    motherofall = &motherofallStorage;
-    prepareThread(motherofall, NULL, NULL);
+    Thread *th = &motherofallStorage;
+    prepareThread(th, NULL, NULL);
     /* Set up caller as one of our threads so we can work on it */
-    initThread(motherofall);
+    initThread(th);
+    // Publish last (release), so a waiting thread sees it fully initialized.
+    __atomic_store_n(&motherofall, th, __ATOMIC_RELEASE);
   }
 
   /* Save this process's pid.  Then verify that the TLS has it where it should
