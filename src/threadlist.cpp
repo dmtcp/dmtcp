@@ -783,7 +783,7 @@ ThreadList::waitForAllRestored(Thread *thread)
 void
 ThreadList::postRestart(int restartPause)
 {
-  // This function and related ones are defined in src/mtcp/restore_libc.c
+  // This function and related ones are defined in src/tls.cpp
   TLSInfo_RestoreTLSState(motherofall);
   TLSInfo_RestoreTLSTidPid(motherofall);
 
