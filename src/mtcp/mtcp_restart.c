@@ -63,7 +63,8 @@
 #include "procmapsarea.h"
 
 #ifdef FAST_RST_VIA_MMAP
-static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
+static void mmapfile(RestoreInfo *rinfo, int fd, void *buf, size_t size,
+                     int prot, int flags);
 #endif
 
 #define BINARY_NAME     "mtcp_restart"
@@ -79,8 +80,8 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
 static RestoreInfo rinfo;
 
 /* Internal routines */
-static void readmemoryareas(int fd, VA endOfStack);
-static int read_one_memory_area(int fd, VA endOfStack);
+static void readmemoryareas(RestoreInfo *rinfo, int fd, VA endOfStack);
+static int read_one_memory_area(RestoreInfo *rinfo, int fd, VA endOfStack);
 static void restorememoryareas(RestoreInfo *rinfo_ptr);
 static void restore_brk(RestoreInfo *rinfo);
 static int doAreasOverlap(Area *area, MemRegion *memRegion);
@@ -209,6 +210,7 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
   rinfo.fd = -1;
   rinfo.use_gdb = 0;
 
+  rinfo.dprintfEnabled = mtcp_parse_dprintf_env(environ);
 
   char *restart_pause_str = mtcp_getenv("DMTCP_RESTART_PAUSE", environ);
   if (restart_pause_str == NULL) {
@@ -271,7 +273,7 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
   // Copy over old stack to new location;
   mtcp_memcpy(rinfo.new_stack_addr, rinfo.old_stack_addr, rinfo.old_stack_size);
 
-  DPRINTF("We have copied mtcp_restart to higher address.  We will now\n"
+  DPRINTF(&rinfo, "We have copied mtcp_restart to higher address.  We will now\n"
           "    jump into a copy of restorememoryareas().\n");
 
   RELOCATE_STACK(rinfo.stack_offset);
@@ -299,10 +301,10 @@ mtcp_restart_new_stack(RestoreInfo *rinfoGlobal)
   // Reset environ.
   rinfo.environ = (char**) (((VA) rinfo.environ) - rinfo.stack_offset);
 
-  DPRINTF("Entered copy of mtcp_restart_new_stack().  Will now unmap old memory "
+  DPRINTF(&rinfo, "Entered copy of mtcp_restart_new_stack().  Will now unmap old memory "
           "and call restore function supplied by main().");
 
-  DPRINTF("DPRINTF may fail when we unmap, since strings are in rodata.\n"
+  DPRINTF(&rinfo, "DPRINTF may fail when we unmap, since strings are in rodata.\n"
           "But we may be lucky if the strings have been cached by the O/S\n"
           "or if compiler uses relative addressing for rodata with -fPIC\n");
 
@@ -320,7 +322,7 @@ mtcp_restart_new_stack(RestoreInfo *rinfoGlobal)
   // MAP_GROWSDOWN after compute_regions_to_munmap()'s early snapshot.
   refreshRegionsToMunmap(&rinfo);
 
-  DPRINTF("Unmapping original text, data, and stack.");
+  DPRINTF(&rinfo, "Unmapping original text, data, and stack.");
 
   // Unmap original text, data, and stack.
   for (size_t i = 0; i < rinfo.num_regions_to_munmap; i++) {
@@ -332,7 +334,7 @@ mtcp_restart_new_stack(RestoreInfo *rinfoGlobal)
     }
   }
 
-  DPRINTF("Calling restore_func.");
+  DPRINTF(&rinfo, "Calling restore_func.");
   rinfo.restore_func(&rinfo);
 }
 
@@ -370,7 +372,7 @@ validateRestoreBufferLocation(RestoreInfo *rinfo)
 
   Area area;
   int attempt = 1;
-  while (mtcp_readmapsline(mapsfd, &area)) {
+  while (mtcp_readmapsline(rinfo, mapsfd, &area)) {
     if (doAreasOverlap(&area, &restoreBuf)) {
       if (attempt >= 3) {
         MTCP_PRINTF("***ERROR: Restore buffer overlaps with memory area %p-%p\n",
@@ -457,7 +459,7 @@ restore_brk(RestoreInfo *rinfo)
     // Now unmap the just mapped extended heap. This is to ensure that we don't
     // have overlap with the restore region.
     if (mtcp_sys_munmap((void*) current_brk, new_brk - current_brk) == -1) {
-      DPRINTF("***WARNING: munmap failed; errno: %d\n", mtcp_sys_errno);
+      DPRINTF(rinfo, "***WARNING: munmap failed; errno: %d\n", mtcp_sys_errno);
     }
   }
 
@@ -468,11 +470,11 @@ restore_brk(RestoreInfo *rinfo)
               new_brk, rinfo->ckptHdr.savedBrk);
     } else {
       if (new_brk == current_brk) {
-        DPRINTF("error: new/current break (%p) != saved break (%p);" \
+        DPRINTF(rinfo, "error: new/current break (%p) != saved break (%p);" \
                 " continuing without resetting heap\n",
                 current_brk, rinfo->ckptHdr.savedBrk);
       } else {
-        DPRINTF("error: new break (%p) != current break (%p);" \
+        DPRINTF(rinfo, "error: new break (%p) != current break (%p);" \
                 " continuing without resetting heap\n",
                 new_brk, current_brk);
       }
@@ -487,7 +489,7 @@ restore_brk(RestoreInfo *rinfo)
   MTCP_ASSERT (mapsfd >= 0);
 
   Area area;
-  while (mtcp_readmapsline(mapsfd, &area)) {
+  while (mtcp_readmapsline(rinfo, mapsfd, &area)) {
     if (mtcp_strcmp(area.name, "[heap]") == 0) {
       MTCP_ASSERT(area.endAddr == (VA) new_brk);
       MTCP_ASSERT(mtcp_sys_munmap(area.addr, area.size) != -1);
@@ -559,18 +561,18 @@ restorememoryareas(RestoreInfo *rinfo)
 {
   int mtcp_sys_errno;
   /* Restore memory areas */
-  DPRINTF("restoring memory areas\n");
-  readmemoryareas(rinfo->fd, (VA) rinfo->ckptHdr.endOfStack);
+  DPRINTF(rinfo, "restoring memory areas\n");
+  readmemoryareas(rinfo, rinfo->fd, (VA) rinfo->ckptHdr.endOfStack);
 
   /* Everything restored, close file and finish up */
 
-  DPRINTF("close cpfd %d\n", rinfo->fd);
+  DPRINTF(rinfo, "close cpfd %d\n", rinfo->fd);
   mtcp_sys_close(rinfo->fd);
   IMB; /* flush instruction cache, since mtcp_restart.c code is now gone. */
 
   /* System calls and libc library calls should now work. */
 
-  DPRINTF("MTCP restore is now complete.  Continuing by jumping to\n"
+  DPRINTF(rinfo, "MTCP restore is now complete.  Continuing by jumping to\n"
           "  ThreadList::postRestart() back inside libdmtcp.so: %p...\n",
           rinfo->ckptHdr.postRestartAddr);
 
@@ -619,11 +621,11 @@ refreshRegionsToMunmap(RestoreInfo *rinfo)
   }
 
   Area area;
-  while (mtcp_readmapsline(mapsfd, &area)) {
+  while (mtcp_readmapsline(rinfo, mapsfd, &area)) {
     for (size_t i = 0; i < rinfo->num_regions_to_munmap; i++) {
       if ((uint64_t) area.endAddr == rinfo->regions_to_munmap[i].endAddr &&
           (uint64_t) area.addr < rinfo->regions_to_munmap[i].startAddr) {
-        DPRINTF("Widening munmap region [%p, %p) to start at %p"
+        DPRINTF(rinfo, "Widening munmap region [%p, %p) to start at %p"
                 " (MAP_GROWSDOWN)\n",
                 (void*) rinfo->regions_to_munmap[i].startAddr,
                 (void*) rinfo->regions_to_munmap[i].endAddr,
@@ -647,7 +649,7 @@ compute_regions_to_munmap(RestoreInfo *rinfo)
   MTCP_ASSERT (mapsfd >= 0);
 
   rinfo->num_regions_to_munmap = 0;
-  while (mtcp_readmapsline(mapsfd, &area)) {
+  while (mtcp_readmapsline(rinfo, mapsfd, &area)) {
     if (mtcp_strcmp(area.name, "[vdso]") == 0 ||
         mtcp_strcmp(area.name, "[vvar]") == 0 ||
         mtcp_strcmp(area.name, "[vvar_vclock]") == 0 ||
@@ -732,10 +734,10 @@ restore_vdso_vvar(RestoreInfo *rinfo)
  *
  **************************************************************************/
 static void
-readmemoryareas(int fd, VA endOfStack)
+readmemoryareas(RestoreInfo *rinfo, int fd, VA endOfStack)
 {
   while (1) {
-    if (read_one_memory_area(fd, endOfStack) == -1) {
+    if (read_one_memory_area(rinfo, fd, endOfStack) == -1) {
       break; /* error */
     }
   }
@@ -751,7 +753,7 @@ readmemoryareas(int fd, VA endOfStack)
 
 NO_OPTIMIZE
 static int
-read_one_memory_area(int fd, VA endOfStack)
+read_one_memory_area(RestoreInfo *rinfo, int fd, VA endOfStack)
 {
   int mtcp_sys_errno;
   int imagefd;
@@ -767,7 +769,7 @@ read_one_memory_area(int fd, VA endOfStack)
 
   if (area.name[0] && mtcp_strstr(area.name, "[heap]")
       && mtcp_sys_brk(NULL) != area.addr + area.size) {
-    DPRINTF("WARNING: break (%p) not equal to end of heap (%p)\n",
+    DPRINTF(rinfo, "WARNING: break (%p) not equal to end of heap (%p)\n",
             mtcp_sys_brk(NULL), area.addr + area.size);
   }
   /* MAP_GROWSDOWN flag is required for stack region on restart to make
@@ -781,7 +783,7 @@ read_one_memory_area(int fd, VA endOfStack)
   if ((area.name[0] && area.name[0] != '/' && mtcp_strstr(area.name, "stack"))
       || (area.endAddr == endOfStack)) {
     area.flags = area.flags | MAP_GROWSDOWN;
-    DPRINTF("Detected stack area. End of stack (%p); Area end address (%p)\n",
+    DPRINTF(rinfo, "Detected stack area. End of stack (%p); Area end address (%p)\n",
             endOfStack, area.endAddr);
   }
 
@@ -797,7 +799,7 @@ read_one_memory_area(int fd, VA endOfStack)
 
   /* CASE MAPPED AS ZERO PAGE: */
   if ((area.properties & DMTCP_ZERO_PAGE) != 0) {
-    DPRINTF("restoring zero-paged anonymous area, %p bytes at %p\n",
+    DPRINTF(rinfo, "restoring zero-paged anonymous area, %p bytes at %p\n",
             area.size, area.addr);
     // No need to mmap since the region has already been mmapped by the parent
     // header.
@@ -820,7 +822,7 @@ read_one_memory_area(int fd, VA endOfStack)
      *   should have been opened with read permission, only.
      */
     else if (area.flags & MAP_ANONYMOUS) {
-      mmapfile (fd, area.addr, area.size, area.prot,
+      mmapfile (rinfo, fd, area.addr, area.size, area.prot,
                 area.flags & ~MAP_ANONYMOUS);
     }
 #endif
@@ -850,7 +852,7 @@ read_one_memory_area(int fd, VA endOfStack)
           off_t curr_size = mtcp_sys_lseek(imagefd, 0, SEEK_END);
           MTCP_ASSERT(curr_size != -1);
           if ((curr_size < area.offset + area.size) && (area.prot & PROT_WRITE)) {
-            DPRINTF("restoring non-anonymous area %s as anonymous: %p  bytes at %p\n",
+            DPRINTF(rinfo, "restoring non-anonymous area %s as anonymous: %p  bytes at %p\n",
                     area.name, area.size, area.addr);
             mtcp_sys_close(imagefd);
             imagefd = -1;
@@ -861,10 +863,10 @@ read_one_memory_area(int fd, VA endOfStack)
       }
 
       if (area.flags & MAP_ANONYMOUS) {
-        DPRINTF("restoring anonymous area, %p  bytes at %p\n",
+        DPRINTF(rinfo, "restoring anonymous area, %p  bytes at %p\n",
                 area.size, area.addr);
       } else {
-        DPRINTF("restoring to non-anonymous area,"
+        DPRINTF(rinfo, "restoring to non-anonymous area,"
                 " %p bytes at %p from %s + 0x%X\n",
                 area.size, area.addr, area.name, area.offset);
       }
@@ -883,7 +885,8 @@ read_one_memory_area(int fd, VA endOfStack)
       * mtcp_safemmap here to check for address conflicts.
       */
       mmappedat =
-        mmap_fixed_noreplace(area.addr, area.size, area.prot | PROT_WRITE,
+        mmap_fixed_noreplace(rinfo, area.addr, area.size,
+                            area.prot | PROT_WRITE,
                             area.flags, imagefd, area.offset);
 
       MTCP_ASSERT(mmappedat == area.addr);
@@ -914,7 +917,7 @@ read_one_memory_area(int fd, VA endOfStack)
 
       /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
       if (area.mmapFileSize > 0 && area.name[0] == '/') {
-        DPRINTF("restoring memory region %p of %p bytes at %p\n",
+        DPRINTF(rinfo, "restoring memory region %p of %p bytes at %p\n",
                     area.mmapFileSize, area.size, area.addr);
         mtcp_readfile(fd, area.addr, area.mmapFileSize);
       } else {
@@ -1073,7 +1076,8 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
   //        a now obsolete request by the MANA project.  We should
   //        refactor this.
   uint64_t len = rinfo->ckptHdr.restoreBuf.endAddr - rinfo->ckptHdr.restoreBuf.startAddr;
-  void *addr = mmap_fixed_noreplace((VA) rinfo->ckptHdr.restoreBuf.startAddr,
+  void *addr = mmap_fixed_noreplace(rinfo,
+                                    (VA) rinfo->ckptHdr.restoreBuf.startAddr,
                                     len,
                                     PROT_NONE,
                                     MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED,
@@ -1159,7 +1163,7 @@ remapExistingAreasToReservedArea(RestoreInfo *rinfo,
   }
 
   Area area;
-  while (mtcp_readmapsline(mapsfd, &area)) {
+  while (mtcp_readmapsline(rinfo, mapsfd, &area)) {
     if (isVdsoArea(&area)) {
       rinfo->currentVdso.startAddr = (uint64_t)area.addr;
       rinfo->currentVdso.endAddr = (uint64_t)area.endAddr;
@@ -1226,14 +1230,15 @@ remapExistingAreasToReservedArea(RestoreInfo *rinfo,
 }
 
 #ifdef FAST_RST_VIA_MMAP
-static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
+static void mmapfile(RestoreInfo *rinfo, int fd, void *buf, size_t size,
+                     int prot, int flags)
 {
   int mtcp_sys_errno;
   void *addr;
   int rc;
 
   /* Use mmap for this portion of checkpoint image. */
-  addr = mmap_fixed_noreplace(buf, size, prot, flags,
+  addr = mmap_fixed_noreplace(rinfo, buf, size, prot, flags,
                        fd, mtcp_sys_lseek(fd, 0, SEEK_CUR));
   if (addr != buf) {
     if (addr == MAP_FAILED) {
