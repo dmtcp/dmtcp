@@ -96,6 +96,7 @@ static void restore_vdso_vvar_work(MemRegion *currentRegion,
                                    const char *regionName);
 static void restore_vdso_vvar(RestoreInfo *rinfo);
 static void compute_regions_to_munmap(RestoreInfo *rinfo);
+static void refreshRegionsToMunmap(RestoreInfo *rinfo);
 static void validateRestoreBufferLocation(RestoreInfo *rinfo);
 
 // const char service_interp[] __attribute__((section(".interp"))) =
@@ -314,6 +315,10 @@ mtcp_restart_new_stack(RestoreInfo *rinfoGlobal)
 # warning __FUNCTION__ "TODO: Implementation for ARM64"
 #endif /* if defined(__i386__) || defined(__x86_64__) */
 
+
+  // Widen any recorded region (e.g., our own stack) that grew via
+  // MAP_GROWSDOWN after compute_regions_to_munmap()'s early snapshot.
+  refreshRegionsToMunmap(&rinfo);
 
   DPRINTF("Unmapping original text, data, and stack.");
 
@@ -594,6 +599,41 @@ restorememoryareas(RestoreInfo *rinfo)
     (fnptr_post_restart_t) rinfo->ckptHdr.postRestartAddr;
   post_restart_fptr(rinfo->restart_pause);
   // NOTREACHED
+}
+
+// compute_regions_to_munmap()'s snapshot can go stale: a later function's
+// large stack frame can trigger MAP_GROWSDOWN to extend our own stack
+// further down, leaving an orphaned fragment that the unmap loop below
+// would otherwise miss -- and which can later collide with the
+// checkpointed process's own memory areas. A growsdown region's end
+// address never moves, so match on that to find and widen the recorded
+// start.
+NO_OPTIMIZE
+static void
+refreshRegionsToMunmap(RestoreInfo *rinfo)
+{
+  int mtcp_sys_errno;
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    return; // best-effort; fall back to the original (possibly stale) list
+  }
+
+  Area area;
+  while (mtcp_readmapsline(mapsfd, &area)) {
+    for (size_t i = 0; i < rinfo->num_regions_to_munmap; i++) {
+      if ((uint64_t) area.endAddr == rinfo->regions_to_munmap[i].endAddr &&
+          (uint64_t) area.addr < rinfo->regions_to_munmap[i].startAddr) {
+        DPRINTF("Widening munmap region [%p, %p) to start at %p"
+                " (MAP_GROWSDOWN)\n",
+                (void*) rinfo->regions_to_munmap[i].startAddr,
+                (void*) rinfo->regions_to_munmap[i].endAddr,
+                area.addr);
+        rinfo->regions_to_munmap[i].startAddr = (uint64_t) area.addr;
+      }
+    }
+  }
+
+  mtcp_sys_close(mapsfd);
 }
 
 NO_OPTIMIZE
