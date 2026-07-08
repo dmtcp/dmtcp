@@ -14,6 +14,8 @@ import json
 import os
 import pathlib
 import pty
+import resource
+import select
 import shlex
 import shutil
 import signal
@@ -1761,6 +1763,49 @@ class TestRegistry:
         return list(dict.fromkeys(reasons))
 
     @classmethod
+    def _address_space_reason(cls) -> Optional[str]:
+        # Trial-run instead of duplicating mmap-noreserve.c's REGION_BYTES:
+        # it prints READY on success, or fails fast via perror("mmap").
+        binary = ROOT / "test" / "mmap-noreserve"
+        if not binary.exists():
+            return None  # _command_executable_reasons() will report this
+        try:
+            original = resource.getrlimit(resource.RLIMIT_AS)
+            resource.setrlimit(resource.RLIMIT_AS, (original[1], original[1]))
+        except (ValueError, OSError):
+            return None  # can't tell; let the test attempt to run
+        # Runs at import time with no outer timeout, so bound the wait: it
+        # stays alive after printing READY, so select() one line rather than
+        # waiting for exit, and always kill/reap it before restoring RLIMIT_AS.
+        proc = None
+        timed_out = False
+        try:
+            proc = subprocess.Popen([str(binary)], stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, text=True)
+            readable, _, _ = select.select([proc.stdout], [], [], 10)
+            timed_out = not readable
+            line = proc.stdout.readline() if readable else ""
+            ready = line.strip() == "READY"
+        except OSError:
+            return None
+        finally:
+            if proc is not None:
+                proc.kill()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    pass
+            try:
+                resource.setrlimit(resource.RLIMIT_AS, original)
+            except (ValueError, OSError):
+                pass
+        if timed_out:
+            return None  # probe inconclusive; let the test attempt to run
+        if ready:
+            return None
+        return "virt. mem. hard limit too small"
+
+    @classmethod
     def _categorize_tests(cls, tests: Iterable[TestSpec]) -> List[TestSpec]:
         return [
             replace(
@@ -1880,6 +1925,10 @@ class TestRegistry:
             TestSpec("stat", 1, ["./test/stat"]),
             TestSpec("mmap1", 1, ["./test/mmap1"]),
             TestSpec("mremap", 1, ["./test/mremap"]),
+            # Regression guard for restoring a huge MAP_NORESERVE anonymous
+            # region (src/mtcp/mtcp_restart.c, MAP_NORESERVE_SIZE_THRESHOLD),
+            # modeled on how ThreadSanitizer reserves its shadow/meta mappings.
+            TestSpec("mmap-noreserve", 1, ["./test/mmap-noreserve"]),
             TestSpec("gettimeofday", 1, ["./test/gettimeofday"]),
             TestSpec("sigchild", 1, ["./test/sigchild"]),
             TestSpec("rlimit-restore", 1, ["./test/rlimit-restore"]),
