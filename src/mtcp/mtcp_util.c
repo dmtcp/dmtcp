@@ -41,6 +41,7 @@
 
 #include "mtcp_sys.h"
 #include "mtcp_util.h"
+#include "mtcp_restart.h"
 #include "../membarrier.h"
 
 unsigned long long mtcp_strtoll (const char *str)
@@ -456,7 +457,7 @@ char mtcp_readhex (int fd, VA *value)
  *
  *****************************************************************************/
 
-int mtcp_readmapsline (int mapsfd, Area *area)
+int mtcp_readmapsline (RestoreInfo *rinfo, int mapsfd, Area *area)
 {
   int mtcp_sys_errno __attribute__((unused));
   char c, rflag, sflag, wflag, xflag;
@@ -527,7 +528,7 @@ int mtcp_readmapsline (int mapsfd, Area *area)
   return (1);
 
 skipeol:
-  DPRINTF("ERROR:  mtcp readmapsline*: bad maps line <%c", c);
+  DPRINTF(rinfo, "ERROR:  mtcp readmapsline*: bad maps line <%c", c);
   while ((c != '\n') && (c != '\0')) {
     c = mtcp_readchar (mapsfd);
     mtcp_printf ("%c", c);
@@ -554,7 +555,8 @@ skipeol:
  * This is arguably a bug in eu-strip.
  *****************************************************************************/
 // static int dummy_uninitialized_static_var;
-void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
+void mtcp_get_memory_region_of_this_library(RestoreInfo *rinfo, VA *startaddr,
+                                            VA *endaddr)
 {
   int mtcp_sys_errno;
   ino_t lib_inode;
@@ -572,7 +574,7 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
   int mapsfd = mtcp_sys_open("/proc/self/maps", O_RDONLY, 0);
   MTCP_ASSERT(mapsfd != -1);
 
-  while (mtcp_readmapsline (mapsfd, &area)) {
+  while (mtcp_readmapsline (rinfo, mapsfd, &area)) {
     VA start_addr = area.addr;
     VA end_addr = area.addr + area.size;
 
@@ -851,12 +853,26 @@ char *mtcp_getenv(const char *name, char **environ)
   return NULL;
 }
 
+// Hand-parses DMTCP_LOG_LEVEL the same way src/logger.cpp's parseLogLevel()
+// does for TRACE, but restricted to on/off since DPRINTF has no separate
+// Note/Warn/Error levels.  Returns a plain int (rather than setting a
+// global) so the caller can store it in RestoreInfo::dprintfEnabled, which
+// survives mtcp_restart unmapping its own original text/data/stack; see the
+// DPRINTF macro in mtcp_util.h.
+int mtcp_parse_dprintf_env(char **environ)
+{
+  char *logLevel = mtcp_getenv("DMTCP_LOG_LEVEL", environ);
+  return logLevel != NULL &&
+         (mtcp_strcmp(logLevel, "trace") == 0 ||
+          mtcp_strcmp(logLevel, "3") == 0);
+}
+
 // This emulates MAP_FIXED_NOREPLACE, which became available only in Linux 4.17
 // FIXME:  This assume that addr is a multiple of PAGESIZE.  We should
 //         check that in the function, and either issue an error in that
 //         case, or else simulate the action of MAP_FIXED_NOREPLACE.
-void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
-                           int fd, off_t offset)
+void* mmap_fixed_noreplace(RestoreInfo *rinfo, void *addr, size_t len,
+                           int prot, int flags, int fd, off_t offset)
 {
   int mtcp_sys_errno;  // mtcp_sys_mmap, etc., are macros using this
   if (flags & MAP_FIXED) {
@@ -871,7 +887,7 @@ void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
 #endif
   void *addr2 = mtcp_sys_mmap(addr, len, prot, flags, fd, offset);
   if (addr == addr2) {
-    DPRINTF("Mapped %p bytes at %p\n", len, addr);
+    DPRINTF(rinfo, "Mapped %p bytes at %p\n", len, addr);
     return addr2;
   } else if (addr2 != MAP_FAILED) {
     // undo the mmap

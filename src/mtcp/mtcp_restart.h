@@ -111,6 +111,14 @@ typedef struct RestoreInfo {
   int use_gdb;
   volatile int restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE_WHILE
 
+  // Set once from DMTCP_LOG_LEVEL early in mtcp_restart_process_args() and
+  // read by the DPRINTF macro (mtcp_util.h).  This lives in RestoreInfo,
+  // not a plain global, because it must still be readable from the copy of
+  // this struct on the stack after mtcp_restart unmaps its own original
+  // text/data/stack (see the "Algorithm" comment at the top of
+  // mtcp_restart.c); a plain global would be unmapped along with it.
+  int dprintfEnabled;
+
   // The following fields are only valid until mtcp_restart memory is unmapped,
   // and checkpoint image is mapped in.
   int argc;
