@@ -96,6 +96,7 @@ or executable-path checks enable them.
 | `hellompich-n1`, `hellompich-n2`, `openmpi` | Configure-flag-gated and built-artifact-gated | MPI smoke tests require configure-discovered launchers and the built MPI test binary; `openmpi` keeps the old `[5, 6]` peer-count allowance. |
 | `java1` | Configure-flag-gated and required-file-gated | Requires both `HAS_JAVA`/`HAS_JAVAC` and the built `test/java1.class` artifact. |
 | `shared-memory3` | Ported, slow | This old-disabled test now passes two checkpoint/restart cycles on the current host. It keeps the old harness's `S=10*DEFAULT_S` checkpoint settle delay. |
+| `mmap-noreserve` | Ported with `cycles=2`, address-space-gated | Regression guard for restoring a huge `MAP_NORESERVE` anonymous region (`src/mtcp/mtcp_restart.c`, `MAP_NORESERVE_SIZE_THRESHOLD`), modeled on how ThreadSanitizer reserves its shadow/meta mappings. The registry's `needs_max_address_space` check skips it when `RLIMIT_AS` is finite and too low to hold the test's reservation. |
 
 Logging-specific limits:
 
