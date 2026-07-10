@@ -204,7 +204,11 @@ tests-32: build
 #  and modifies most of the zero-mapped pages -- using 16 MB)
 # JDK Runtime Environment (Java/IcedTea6 1.12.4 (OpenJDK, Java 1.6.0_27)
 #   now needs at least 32 MB  (June, 2013)
-LIMIT=ulimit -v 33554432
+# -S (soft limit only): leaves the hard limit untouched, so autotest.py can
+# still raise the soft limit back up for a test that needs it (see
+# TestSpec.needs_max_address_space, e.g. the mmap-noreserve test, which
+# mmaps a region far larger than 32MB).
+LIMIT=ulimit -S -v 33554432
 
 check: tests
 	@cd test && $(MAKE) --no-print-directory check-prereqs
