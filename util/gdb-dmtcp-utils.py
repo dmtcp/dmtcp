@@ -41,7 +41,7 @@ gdb.execute("set python print-stack full")
 # Then you can try either of:
 #     (gdb) add-symbol-files-all  # Better for older GDB versions
 #     (gdb) load-symbols  # Better for newer GDB versions
-#     (gdb) load-symbols-library ADDR_OR_FILE  # Better for newer GDB versions
+#     (gdb) load-symbols-library-all ADDR_OR_FILE # Better for newer GDB version
 #            [Deletes prev. symbols; add-symbols-files-all will no longer work]
 
 # This also adds GDB commands:
