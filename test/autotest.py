@@ -3322,8 +3322,8 @@ def print_integration_list(selected: List[TestSpec]) -> int:
 def run_integration_tests(
         args, selected: List[TestSpec],
         show_suite_heading: bool,
-        name_width: int = RUN_TESTNAME_WIDTH) -> Tuple[
-            int, int, List[FailureRecord]]:
+        name_width: int = RUN_TESTNAME_WIDTH) -> Tuple[int, int,
+                                                       List[FailureRecord]]:
     passed = 0
     failures = []
     if show_suite_heading:
@@ -3369,11 +3369,9 @@ def main():
             return 2
     except KeyError as error:
         name = error.args[0]
-        disabled_test = next(
-            (test for test in REGISTRY._disabled_tests
-             if test.name == name),
-            None,
-        )
+        disabled_test = next( (test for test in REGISTRY._disabled_tests
+                                    if test.name == name),
+                              None,)
         if disabled_test:
             print(f"Disabled test: {name}", file=sys.stderr)
             print(f"  Reason: {disabled_test.list_notes[0]}",

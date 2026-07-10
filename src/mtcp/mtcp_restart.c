@@ -685,7 +685,7 @@ restorememoryareas(RestoreInfo *rinfo)
       "  # In most recent Linuxes/glibc/gdb, you will also need to do:\n"
       "  (gdb) source DMTCP_ROOT/util/gdb-dmtcp-utils\n"
       "  (gdb) load-symbols # (better for recent GDB: try it)\n"
-      "  (gdb) load-symbols-library ADDR_OR_FILE"
+      "  (gdb) load-symbols-library-all ADDR_OR_FILE"
       "  # Better for newer GDB versions\n"
       "  (gdb) add-symbol-files-all # (better for GDB-8 and earlier)\n",
       mtcp_sys_getpid()
