@@ -237,6 +237,12 @@ class TestSpec:
     run_serial: bool = False
     post_restart_validator: Optional[Callable[["TestContext"], None]] = None
     post_run_validator: Optional[Callable[["TestContext"], None]] = None
+    # 'make check' runs this suite under a small `ulimit -S -v` (see LIMIT in
+    # Makefile.in) to keep mtcp_restart from flying out of control. A test
+    # that deliberately mmaps a huge MAP_NORESERVE region (see
+    # test/mmap-noreserve.c) needs the process's own address-space limit
+    # raised first; see DmtcpHarness.run()'s use of this flag.
+    needs_max_address_space: bool = False
 
     def peer_counts(self) -> List[int]:
         if isinstance(self.peers, int):
@@ -368,6 +374,40 @@ class DmtcpHarness:
 
     def run(self, spec: TestSpec) -> TestResult:
         spec = self._scaled_spec(spec)
+        raised_as_limit = None
+        if spec.needs_max_address_space:
+            raised_as_limit = self._raise_address_space_limit(spec.name)
+        try:
+            return self._run_locked(spec)
+        finally:
+            if raised_as_limit is not None:
+                self._restore_address_space_limit(raised_as_limit)
+
+    # Raise RLIMIT_AS's soft limit to the hard limit, scoped to tests with
+    # needs_max_address_space (see LIMIT in Makefile.in: `ulimit -S -v`
+    # leaves the hard limit alone so it can be restored here).
+    @staticmethod
+    def _raise_address_space_limit(test_name: str) -> Optional[Tuple[int, int]]:
+        try:
+            soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+            resource.setrlimit(resource.RLIMIT_AS, (hard, hard))
+            return (soft, hard)
+        except (ValueError, OSError) as error:
+            print(f"DMTCP: autotest: {test_name}: could not raise RLIMIT_AS "
+                  f"(address space) soft limit to the hard limit: {error}",
+                  file=sys.stderr)
+            return None
+
+    @staticmethod
+    def _restore_address_space_limit(original: Tuple[int, int]):
+        soft, hard = original
+        try:
+            resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+        except (ValueError, OSError) as error:
+            print(f"DMTCP: autotest: could not restore RLIMIT_AS (address "
+                  f"space) soft limit: {error}", file=sys.stderr)
+
+    def _run_locked(self, spec: TestSpec) -> TestResult:
         work = TestWorkDir(self.root, spec.name)
         context = TestContext(self, spec, work)
         result = None
@@ -1754,6 +1794,10 @@ class TestRegistry:
         )
         if reasons:
             return list(dict.fromkeys(reasons))
+        if test.needs_max_address_space:
+            reason = cls._address_space_reason()
+            if reason:
+                reasons.append(reason)
         for command in test.commands:
             reasons.extend(cls._command_executable_reasons(command))
         for path in test.required_files:
@@ -1928,7 +1972,8 @@ class TestRegistry:
             # Regression guard for restoring a huge MAP_NORESERVE anonymous
             # region (src/mtcp/mtcp_restart.c, MAP_NORESERVE_SIZE_THRESHOLD),
             # modeled on how ThreadSanitizer reserves its shadow/meta mappings.
-            TestSpec("mmap-noreserve", 1, ["./test/mmap-noreserve"]),
+            TestSpec("mmap-noreserve", 1, ["./test/mmap-noreserve"],
+                     needs_max_address_space=True),
             TestSpec("gettimeofday", 1, ["./test/gettimeofday"]),
             TestSpec("sigchild", 1, ["./test/sigchild"]),
             TestSpec("rlimit-restore", 1, ["./test/rlimit-restore"]),
