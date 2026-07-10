@@ -3366,7 +3366,18 @@ def main():
                   file=sys.stderr)
             return 2
     except KeyError as error:
-        print(f"Unknown test: {error.args[0]}", file=sys.stderr)
+        name = error.args[0]
+        disabled_test = next(
+            (test for test in REGISTRY._disabled_tests
+             if test.name == name),
+            None,
+        )
+        if disabled_test:
+            print(f"Disabled test: {name}", file=sys.stderr)
+            print(f"  Reason: {disabled_test.list_notes[0]}",
+                  file=sys.stderr)
+        else:
+            print(f"Unknown test: {name}", file=sys.stderr)
         return 2
 
     if "integration" in suites and not selected:
