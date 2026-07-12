@@ -47,7 +47,6 @@ import getopt
 import math  # for log
 import os
 import re
-import sre_compile
 import string
 import sys
 import unicodedata
@@ -649,7 +648,7 @@ def Match(pattern, s):
   # performance reasons; factoring it out into a separate function turns out
   # to be noticeably expensive.
   if pattern not in _regexp_compile_cache:
-    _regexp_compile_cache[pattern] = sre_compile.compile(pattern)
+    _regexp_compile_cache[pattern] = re.compile(pattern)
   return _regexp_compile_cache[pattern].match(s)
 
 
@@ -667,14 +666,14 @@ def ReplaceAll(pattern, rep, s):
     string with replacements made (or original string if no replacements)
   """
   if pattern not in _regexp_compile_cache:
-    _regexp_compile_cache[pattern] = sre_compile.compile(pattern)
+    _regexp_compile_cache[pattern] = re.compile(pattern)
   return _regexp_compile_cache[pattern].sub(rep, s)
 
 
 def Search(pattern, s):
   """Searches the string for the pattern, caching the compiled regexp."""
   if pattern not in _regexp_compile_cache:
-    _regexp_compile_cache[pattern] = sre_compile.compile(pattern)
+    _regexp_compile_cache[pattern] = re.compile(pattern)
   return _regexp_compile_cache[pattern].search(s)
 
 
@@ -1088,7 +1087,7 @@ class FileInfo(object):
     If we have a real absolute path name here we can try to do something smart:
     detecting the root of the checkout and truncating /path/to/checkout from
     the name so that we get header guards that don't include things like
-    "C:\Documents and Settings\..." or "/home/username/..." in them and thus
+    "C:\\Documents and Settings\\..." or "/home/username/..." in them and thus
     people on different computers who have checked the source out to different
     locations won't see bogus errors.
     """
