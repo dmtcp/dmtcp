@@ -99,6 +99,8 @@ static void restore_vdso_vvar(RestoreInfo *rinfo);
 static void compute_regions_to_munmap(RestoreInfo *rinfo);
 static void refreshRegionsToMunmap(RestoreInfo *rinfo);
 static void validateRestoreBufferLocation(RestoreInfo *rinfo);
+static void reserveUnusedRestoreBufSpace(RestoreInfo *rinfo,
+                                         uint64_t origStart, uint64_t origEnd);
 
 // const char service_interp[] __attribute__((section(".interp"))) =
 // "/lib64/ld-linux-x86-64.so.2";
@@ -262,6 +264,9 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
     mtcp_sys_exit(0);
   }
 
+  uint64_t restoreBufOrigStart = rinfo.ckptHdr.restoreBuf.startAddr;
+  uint64_t restoreBufOrigEnd = rinfo.ckptHdr.restoreBuf.endAddr;
+
   validateRestoreBufferLocation(&rinfo);
 
   compute_regions_to_munmap(&rinfo);
@@ -269,6 +274,15 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
   /* For __arm__ and __aarch64__ will need to invalidate cache after this.
    */
   remapExistingAreasToReservedArea(&rinfo, restore_func);
+
+  // validateRestoreBufferLocation() above narrowed rinfo.ckptHdr.restoreBuf
+  // down to whichever third of the original reservation mtcp_restart could
+  // safely relocate into, silently freeing the other two thirds back to the
+  // kernel. Reclaim that freed space now (as PROT_NONE, matching its
+  // pre-restart state) so nothing else (e.g., a TSAN interceptor) can claim
+  // it before the restored process's own ProcessInfo::restart() rebuilds
+  // the full reservation.
+  reserveUnusedRestoreBufSpace(&rinfo, restoreBufOrigStart, restoreBufOrigEnd);
 
   // Copy over old stack to new location;
   mtcp_memcpy(rinfo.new_stack_addr, rinfo.old_stack_addr, rinfo.old_stack_size);
@@ -389,6 +403,75 @@ validateRestoreBufferLocation(RestoreInfo *rinfo)
   rinfo->ckptHdr.restoreBuf = restoreBuf;
 
   mtcp_sys_close(mapsfd);
+}
+
+// mtcp_restart's own footprint within a 90MB restoreBuf third (relocated
+// text/data/bss/stack, at most vdso/vvar) is a handful of mappings; this
+// bounds the fixed buffer reserveUnusedRestoreBufSpace() reads them into.
+#define MAX_RESTOREBUF_AREAS 32
+
+// Re-scan /proc/self/maps over the original, un-narrowed restoreBuf range and
+// re-mmap (PROT_NONE) every gap that isn't already occupied by mtcp_restart's
+// own (now-relocated) regions, vdso/vvar, or its stack. Called after
+// remapExistingAreasToReservedArea() so the chosen third's real mappings are
+// already in place and are naturally skipped, rather than re-reserved.
+NO_OPTIMIZE
+static void
+reserveUnusedRestoreBufSpace(RestoreInfo *rinfo,
+                             uint64_t origStart, uint64_t origEnd)
+{
+  int mtcp_sys_errno;
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+  MTCP_ASSERT (mapsfd >= 0);
+
+  // Buffer every overlapping area before creating any gap-fill mappings
+  // below: mutating our own VMA layout via mmap_fixed_noreplace() while
+  // /proc/self/maps is still being read line-by-line is fragile, since the
+  // kernel can merge/split adjacent VMAs between reads of that virtual
+  // file. A single read pass with no concurrent mutation avoids that.
+  // mtcp_restart will always have a small number of areas here, guaranteed
+  // to be less than MAX_RESTOREBUF_AREAS.
+  Area areas[MAX_RESTOREBUF_AREAS];
+  int numAreas = 0;
+  Area area;
+  while (mtcp_readmapsline(rinfo, mapsfd, &area)) {
+    uint64_t areaStart = (uint64_t) area.addr;
+    uint64_t areaEnd = (uint64_t) area.endAddr;
+    if (areaEnd <= origStart || areaStart >= origEnd) {
+      continue;
+    }
+    MTCP_ASSERT(numAreas < MAX_RESTOREBUF_AREAS);
+    areas[numAreas++] = area;
+  }
+  mtcp_sys_close(mapsfd);
+
+  uint64_t cursor = origStart;
+  for (int i = 0; i < numAreas; i++) {
+    if (cursor >= origEnd) {
+      break;
+    }
+
+    uint64_t areaStart = (uint64_t) areas[i].addr;
+    uint64_t areaEnd = (uint64_t) areas[i].endAddr;
+    if (areaEnd <= cursor) {
+      continue;
+    }
+    if (areaStart > cursor) {
+      void *addr = mmap_fixed_noreplace(rinfo, (VA) cursor, areaStart - cursor,
+                                        PROT_NONE,
+                                        MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+      MTCP_ASSERT(addr != MAP_FAILED);
+    }
+    if (areaEnd > cursor) {
+      cursor = areaEnd;
+    }
+  }
+  if (cursor < origEnd) {
+    void *addr = mmap_fixed_noreplace(rinfo, (VA) cursor, origEnd - cursor,
+                                      PROT_NONE,
+                                      MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    MTCP_ASSERT(addr != MAP_FAILED);
+  }
 }
 
 NO_OPTIMIZE
