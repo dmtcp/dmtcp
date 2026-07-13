@@ -28,6 +28,9 @@
 #include <netdb.h>
 #include <poll.h>
 #include <semaphore.h>  // for sem_post(&sem_launch)
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -564,6 +567,36 @@ bool waitForBarrier(const string& barrier,
   return true;
 }
 
+void findOldCoordAndPromptToKill(int port) {
+  if (port == 0) {
+    return;
+  }
+  char portStr[10];
+  int rc = snprintf(portStr, sizeof(portStr), "%d", port);
+  ASSERT_ERRNO(rc > 0 && rc < (long)sizeof(portStr), "Bad port: {}", port);
+
+  FILE *stream = popen("ps -eo pid,cmd", "r");
+  if (stream == NULL) {
+    return;
+  }
+  char line[1000];
+  while (fgets(line, sizeof(line), stream) != NULL) {
+    // Catch formats like "dmtcp_coordinator -p 7779" or "... --port 7779"
+    char prevPortDigit;
+    if (strstr(line, "dmtcp_coord") != NULL &&
+        strstr(line, portStr) != NULL &&
+        (prevPortDigit = *(strstr(line, portStr) - 1)) &&
+        (prevPortDigit < '0' || prevPortDigit > '9')) {
+      long int pid = strtol(line, NULL, 10);
+      if (pid > 0) {
+        printf("FOUND OLD PID (\"ps -eo pid,cmd\"): %s", line);
+        printf("  *** TO KILL:     kill -9 %ld\n\n", pid);
+      }
+    }
+  }
+  pclose(stream);
+}
+
 void
 startNewCoordinator(CoordinatorMode mode)
 {
@@ -581,12 +614,17 @@ startNewCoordinator(CoordinatorMode mode)
   errno = 0;
   jalib::JServerSocket coordinatorListenerSocket(jalib::JSockAddr::ANY,
                                                  port, 128);
-  ASSERT_ERRNO(coordinatorListenerSocket.isValid(),
-               "Failed to create socket to connect to coordinator port; this "
-               "may be an old coordinator, a missing --join-coordinator, or a "
-               "port still being released by the OS: host={} port={} "
-               "listener_port={}",
-               host, port, coordinatorListenerSocket.port());
+  if (!coordinatorListenerSocket.isValid()) {
+    int orig_errno = errno;
+    NOTE("Failed to create socket to connect to coordinator port.\n"
+         "This may be an old coordinator, a missing --join-coordinator, or a\n"
+         "port still being released by the OS.\n"
+         "Requested coordinator: host={} port={} listener_port={}\n",
+         host, port, coordinatorListenerSocket.port());
+    findOldCoordAndPromptToKill(port);
+    errno = orig_errno;
+    ASSERT_ERRNO(false, "coordinatorListenerSocket.isValid: SEE COMMENT ABOVE");
+  }
   // Now dup the sockfd to
   coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
   setCoordPort(coordinatorListenerSocket.port());
