@@ -1745,10 +1745,12 @@ char *short_name(char short_buf[], char *name, unsigned int len, char *suffix) {
   if (6 + strlen(suffix) > len) {
     return NULL;
   }
+  // Compute base_name_len now, in case short_buf and base_name overlap
+  size_t base_name_len = strlen(base_name);
   short_buf[0] = '\0';
   int cmd_len = min(strlen(base_name)+1, len);
   memmove(short_buf, base_name, cmd_len);
-  int short_buf_len = min(strlen(base_name), len - suffix_len - 1);
+  int short_buf_len = min(base_name_len, len - suffix_len - 1);
   strncpy(short_buf + short_buf_len, suffix, suffix_len + 1);
   memset(short_buf+strlen(short_buf), '\0', len - strlen(short_buf));
   return short_buf;
