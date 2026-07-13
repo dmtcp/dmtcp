@@ -1745,11 +1745,12 @@ char *short_name(char short_buf[], char *name, unsigned int len, char *suffix) {
   if (6 + strlen(suffix) > len) {
     return NULL;
   }
-  memset(short_buf, '\0', len);
+  short_buf[0] = '\0';
   int cmd_len = min(strlen(base_name)+1, len);
-  memcpy(short_buf, base_name, cmd_len);
+  memmove(short_buf, base_name, cmd_len);
   int short_buf_len = min(strlen(base_name), len - suffix_len - 1);
-  strncpy(short_buf + short_buf_len, suffix, suffix_len);
+  strncpy(short_buf + short_buf_len, suffix, suffix_len + 1);
+  memset(short_buf+strlen(short_buf), '\0', len - strlen(short_buf));
   return short_buf;
 }
 
