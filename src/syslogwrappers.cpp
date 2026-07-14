@@ -32,6 +32,7 @@ static bool _syslogEnabled = false;
 static bool _identIsNotNULL = false;
 static int _option = -1;
 static int _facility = -1;
+static string *_ident = NULL;
 
 static void SyslogCheckpointer_StopService();
 static void SyslogCheckpointer_RestoreService();
@@ -76,11 +77,22 @@ LIB_PRIVATE DmtcpPluginDescriptor_t syslogPlugin = {
 };
 
 static string&
-_ident()
+savedIdent()
 {
-  static string *t = new string();
+  string *ident = __atomic_load_n(&_ident, __ATOMIC_ACQUIRE);
+  if (ident != NULL) {
+    return *ident;
+  }
 
-  return *t;
+  string *newIdent = new string();
+  string *expected = NULL;
+  if (__atomic_compare_exchange_n(&_ident, &expected, newIdent, false,
+                                  __ATOMIC_RELEASE, __ATOMIC_ACQUIRE)) {
+    return *newIdent;
+  }
+
+  delete newIdent;
+  return *expected;
 }
 
 void
@@ -101,7 +113,7 @@ SyslogCheckpointer_RestoreService()
     ASSERT(_option >= 0 && _facility >= 0,
            "invalid syslog restore state: option={} facility={}", _option,
            _facility);
-    openlog((_identIsNotNULL ? _ident().c_str() : NULL),
+    openlog((_identIsNotNULL ? savedIdent().c_str() : NULL),
             _option, _facility);
   }
 }
@@ -122,7 +134,7 @@ openlog(const char *ident, int option, int facility)
 
   _identIsNotNULL = (ident != NULL);
   if (ident != NULL) {
-    _ident() = ident;
+    savedIdent() = ident;
   }
   _option = option;
   _facility = facility;

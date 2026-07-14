@@ -1,7 +1,6 @@
 #include "glibc_pthread.h"
 
 #include <string.h>
-#include <atomic>
 
 #include "futex.h"
 #include "util.h"
@@ -35,21 +34,13 @@ glibc_lll_unlock(int *futex)
   }
 }
 
-extern "C" void dmtcp_initialize_entry_point();
 struct libc_pthread_addr dmtcp_pthread_get_addrs(pthread_t th)
 {
-  // If dmtcp_initialize_entry_point() is not called, then we need to call it
-  // here.  This is because dmtcp_pthread_get_addrs() is called by several
-  // low-level function relying on pthread_t. We need pthread_t->tid to be
-  // virtualized. This is done during the pid pluging initialization (which in
-  // turn is done as part of DMTCP initialization).
-  static bool dmtcp_pthread_get_addrs_initialized = false;
-  if (!dmtcp_pthread_get_addrs_initialized) {
-    dmtcp_pthread_get_addrs_initialized = true;
-    dmtcp_initialize_entry_point();
-  }
-
-  static int libcMinor = dmtcp::Util::glibcVersion().minor;
+  // This helper only discovers glibc pthread field addresses.  It must not
+  // initialize DMTCP: sanitizer/libc startup can call it before DMTCP is
+  // ready.  Current-thread TID virtualization is handled by dmtcp_pid_gettid()
+  // during ThreadList::init().
+  int libcMinor = dmtcp::Util::glibcVersion().minor;
   struct libc_pthread_addr ret;
 
   if (libcMinor >= 33) {

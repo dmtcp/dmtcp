@@ -723,12 +723,25 @@ ProcessInfo::addKeyValuePairToCkptHeader(const string &key, const string &value)
 const string&
 ProcessInfo::getValue(const string &key)
 {
-  static string *empty = new string();
   if (kvmap.contains(key)) {
     return kvmap[key];
   }
 
-  return *empty;
+  static string *empty = NULL;
+  string *value = __atomic_load_n(&empty, __ATOMIC_ACQUIRE);
+  if (value != NULL) {
+    return *value;
+  }
+
+  string *newValue = new string();
+  string *expected = NULL;
+  if (__atomic_compare_exchange_n(&empty, &expected, newValue, false,
+                                  __ATOMIC_RELEASE, __ATOMIC_ACQUIRE)) {
+    return *newValue;
+  }
+
+  delete newValue;
+  return *expected;
 }
 
 void
