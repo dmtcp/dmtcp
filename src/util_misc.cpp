@@ -137,31 +137,34 @@ Util::readBooleanEnv(const char *envName, bool defaultValue)
 Util::Version
 Util::glibcVersion()
 {
-  static const Version cachedVersion = [] {
-    const char *versionText = gnu_get_libc_version();
-    const char *dot = strchr(versionText, '.');
-    ASSERT(dot != NULL && dot != versionText && dot[1] != '\0',
-           "unsupported glibc version text: version={}",
-           versionText);
+  static Version cachedVersion = {0, 0};
 
-    Version parsed = {0, 0};
-    ASSERT(parseInteger(std::string_view(versionText, dot - versionText),
-                        &parsed.major),
-           "failed to parse glibc major version: version={}",
-           versionText);
-    const char *minorStart = dot + 1;
-    const char *minorEnd = strchr(minorStart, '.');
-    if (minorEnd == NULL) {
-      minorEnd = minorStart + strlen(minorStart);
-    }
-    ASSERT(parseInteger(std::string_view(minorStart, minorEnd - minorStart),
-                        &parsed.minor),
-           "failed to parse glibc minor version: version={}",
-           versionText);
-    return parsed;
-  }();
+  if (cachedVersion.major != 0) {
+    return cachedVersion;
+  }
 
-  return cachedVersion;
+  const char *versionText = gnu_get_libc_version();
+  const char *dot = strchr(versionText, '.');
+  ASSERT(dot != NULL && dot != versionText && dot[1] != '\0',
+         "unsupported glibc version text: version={}",
+         versionText);
+
+  Version parsed = {0, 0};
+  ASSERT(parseInteger(std::string_view(versionText, dot - versionText),
+                      &parsed.major),
+         "failed to parse glibc major version: version={}",
+         versionText);
+  const char *minorStart = dot + 1;
+  const char *minorEnd = strchr(minorStart, '.');
+  if (minorEnd == NULL) {
+    minorEnd = minorStart + strlen(minorStart);
+  }
+  ASSERT(parseInteger(std::string_view(minorStart, minorEnd - minorStart),
+                      &parsed.minor),
+         "failed to parse glibc minor version: version={}",
+         versionText);
+  cachedVersion = parsed;
+  return parsed;
 }
 
 // Add it back if needed.
@@ -563,16 +566,22 @@ Util::isPseudoTty(const char *path)
 size_t
 Util::pageSize()
 {
-  static size_t page_size = sysconf(_SC_PAGESIZE);
+  static size_t page_size = 0;
 
+  if (page_size == 0) {
+    page_size = sysconf(_SC_PAGESIZE);
+  }
   return page_size;
 }
 
 size_t
 Util::pageMask()
 {
-  static size_t page_mask = ~(pageSize() - 1);
+  static size_t page_mask = 0;
 
+  if (page_mask == 0) {
+    page_mask = ~(pageSize() - 1);
+  }
   return page_mask;
 }
 
@@ -585,7 +594,7 @@ Util::pageMask()
 bool
 Util::areZeroPages(void *addr, size_t numPages)
 {
-  static size_t page_size = pageSize();
+  size_t page_size = pageSize();
   long long *buf = (long long *)addr;
   size_t i;
   size_t end = numPages * page_size / sizeof(*buf);

@@ -84,13 +84,16 @@ static DmtcpMutex exitedChildTidsLock = DMTCP_MUTEX_INITIALIZER_LLL;
 #define dmtcp_pthread_set_tid(pth, tid) do {} while (0)
 #endif
 
+static int pidPluginEnabled = -1;
+
 extern "C"
 int
 dmtcp_pid_is_enabled()
 {
-  static const int enabled =
-    internalPluginEnabled(INTERNAL_PLUGIN_PID) ? 1 : 0;
-  return enabled;
+  if (pidPluginEnabled == -1) {
+    pidPluginEnabled = internalPluginEnabled(INTERNAL_PLUGIN_PID) ? 1 : 0;
+  }
+  return pidPluginEnabled;
 }
 
 extern "C"

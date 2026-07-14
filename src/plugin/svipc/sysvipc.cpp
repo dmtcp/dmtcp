@@ -258,8 +258,7 @@ huge_memcpy(char *dest, char *src, size_t size)
 
   // const size_t oneGB = (1024 * 1024 * 1024);
   size_t chunkSize = hundredMB;
-  static long page_size = sysconf(_SC_PAGESIZE);
-  static long pagesPerChunk = chunkSize / page_size;
+  size_t pagesPerChunk = chunkSize / Util::pageSize();
   size_t n = size / chunkSize;
   for (size_t i = 0; i < n; i++) {
     if (!Util::areZeroPages(src, pagesPerChunk)) {
