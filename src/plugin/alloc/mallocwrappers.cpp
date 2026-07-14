@@ -27,12 +27,15 @@
 
 using namespace dmtcp;
 
+static int allocPluginEnabled = -1;
+
 EXTERNC int
 dmtcp_alloc_enabled()
 {
-  static const int enabled =
-    internalPluginEnabled(INTERNAL_PLUGIN_ALLOC) ? 1 : 0;
-  return enabled;
+  if (allocPluginEnabled == -1) {
+    allocPluginEnabled = internalPluginEnabled(INTERNAL_PLUGIN_ALLOC) ? 1 : 0;
+  }
+  return allocPluginEnabled;
 }
 
 extern "C" void *calloc(size_t nmemb, size_t size)

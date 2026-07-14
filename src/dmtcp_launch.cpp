@@ -23,6 +23,7 @@
 #include <linux/version.h>
 #include <errno.h>
 #include <string_view>
+#include <stdlib.h>
 #include <unistd.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 # include <sys/personality.h>
@@ -587,16 +588,15 @@ main(int argc, const char **argv)
 
   // set up CHECKPOINT_DIR
   if (getenv(ENV_VAR_CHECKPOINT_DIR) == NULL) {
-    const char *ckptDir = get_current_dir_name();
+    char *ckptDir = get_current_dir_name();
     if (ckptDir != NULL) {
-      // copy to private buffer
-      static string _buf = ckptDir;
-      ckptDir = _buf.c_str();
+      setenv(ENV_VAR_CHECKPOINT_DIR, ckptDir, 0);
+      TRACE("setting " ENV_VAR_CHECKPOINT_DIR ": value={}", ckptDir);
+      free(ckptDir);
     } else {
-      ckptDir = ".";
+      setenv(ENV_VAR_CHECKPOINT_DIR, ".", 0);
+      TRACE("setting " ENV_VAR_CHECKPOINT_DIR ": value=.");
     }
-    setenv(ENV_VAR_CHECKPOINT_DIR, ckptDir, 0);
-    TRACE("setting " ENV_VAR_CHECKPOINT_DIR ": value={}", ckptDir);
   }
 
   if (checkpointOpenFiles) {
