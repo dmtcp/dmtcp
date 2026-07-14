@@ -92,13 +92,10 @@ class DmtcpCommandJson:
                 "dmtcp_command JSON field type has been replaced by command")
         actual_command = payload.get("command")
         if actual_command != expected_command:
-            raise ValueError(
-                f"expected JSON command '{expected_command}', "
-                f"got {actual_command!r}"
-            )
+            raise ValueError(f"expected JSON command '{expected_command}', "
+                             f"got {actual_command!r}")
         if "phase" in payload:
-            raise ValueError(
-                "dmtcp_command JSON field phase is redundant")
+            raise ValueError("dmtcp_command JSON field phase is redundant")
         if "ok" in payload:
             raise ValueError("dmtcp_command JSON field ok is obsolete")
         command_status = payload.get("command_status")
@@ -108,14 +105,13 @@ class DmtcpCommandJson:
         if "coordinator_host" in payload:
             coordinator_host = payload.get("coordinator_host")
             if type(coordinator_host) is not str:
-                raise ValueError(
-                    "dmtcp_command JSON field coordinator_host must be a string")
+                raise ValueError("dmtcp_command JSON field coordinator_host "
+                                 "must be a string")
         if "coordinator_port" in payload:
             coordinator_port = payload.get("coordinator_port")
             if type(coordinator_port) is not int:
-                raise ValueError(
-                    "dmtcp_command JSON field coordinator_port must be an "
-                "integer")
+                raise ValueError("dmtcp_command JSON field coordinator_port "
+                                 "must be an integer")
 
     @classmethod
     def is_success(cls, payload: Dict[str, object]) -> bool:
@@ -540,8 +536,9 @@ class TestContext:
         for proc in self.processes:
             self._terminate_process_group(proc, f"worker {proc.pid}")
         if self.coordinator_proc is not None and self.coordinator_proc.poll() is None:
-            self._terminate_process_group(self.coordinator_proc,
-                                          f"coordinator {self.coordinator_proc.pid}")
+            self._terminate_process_group(
+                self.coordinator_proc,
+                f"coordinator {self.coordinator_proc.pid}")
         for path in self._created_private_env_paths:
             shutil.rmtree(path, ignore_errors=True)
 
@@ -645,9 +642,11 @@ class TestContext:
                     except ValueError:
                         pass
             if self.coordinator_proc is not None and self.coordinator_proc.poll() is not None:
-                raise HarnessFailure("coordinator", "coordinator exited before writing port")
+                raise HarnessFailure(
+                    "coordinator", "coordinator exited before writing port")
             time.sleep(0.05)
-        raise HarnessFailure("coordinator", "coordinator did not write port file")
+        raise HarnessFailure(
+            "coordinator", "coordinator did not write port file")
 
     def _launch_processes(self):
         for index, command in enumerate(self.spec.commands):
@@ -1004,7 +1003,8 @@ class TestContext:
             pass
 
     def _record_cleanup(self, message: str):
-        with (self.work.path / "cleanup.log").open("a", encoding="utf-8") as out:
+        with (self.work.path / "cleanup.log").open(
+                "a", encoding="utf-8") as out:
             out.write(message)
             out.write("\n")
 
@@ -2513,7 +2513,8 @@ class TestRegistry:
     def _has_all(values, required) -> bool:
         return all(value in values for value in required)
 
-    def select(self, names=None, tags=None, requirements=None) -> List[TestSpec]:
+    def select(self, names=None, tags=None,
+               requirements=None) -> List[TestSpec]:
         if names:
             tests = [self.get_test(name) for name in names]
         else:
@@ -3321,7 +3322,8 @@ def print_integration_list(selected: List[TestSpec]) -> int:
 def run_integration_tests(
         args, selected: List[TestSpec],
         show_suite_heading: bool,
-        name_width: int = RUN_TESTNAME_WIDTH) -> Tuple[int, int, List[FailureRecord]]:
+        name_width: int = RUN_TESTNAME_WIDTH) -> Tuple[
+            int, int, List[FailureRecord]]:
     passed = 0
     failures = []
     if show_suite_heading:
