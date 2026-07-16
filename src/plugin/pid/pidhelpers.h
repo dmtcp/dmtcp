@@ -14,7 +14,7 @@ extern "C"
 #endif
 
 int dmtcp_pid_is_enabled();
-pid_t dmtcp_pid_gettid();
+pid_t dmtcp_pid_init_thread_tid();
 int dmtcp_tkill(int tid, int sig);
 int dmtcp_tgkill(int tgid, int tid, int sig);
 LIB_PRIVATE int dmtcp_pid_on_waitid_syscall(idtype_t idtype,
