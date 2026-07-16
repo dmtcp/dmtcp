@@ -40,8 +40,8 @@ void initMotherOfAll();
 void wrapperExecutionLockLock();
 void wrapperExecutionLockUnlock();
 void wrapperExecutionLockLockExcl();
-void wrapperExecutionLockLockForNewThread(Thread *thread);
-void wrapperExecutionLockUnlockForNewThread(Thread *thread);
+bool wrapperExecutionLockLockForNewThread();
+void wrapperExecutionLockUnlockForNewThread();
 
 bool libdlLockLock();
 void libdlLockUnlock();

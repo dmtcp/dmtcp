@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <pthread.h>
 #include <type_traits>
 
 namespace {
@@ -36,6 +37,16 @@ void pluginDescriptorKeepsPlainAbiShape()
   ASSERT_TRUE(std::strlen(DMTCP_PLUGIN_API_VERSION) > 0);
 }
 
+void pthreadEventDataCarriesThreadIds()
+{
+  DmtcpEventData_t data{};
+  data.pthreadInfo.pthread = pthread_self();
+  data.pthreadInfo.tid = 42;
+
+  ASSERT_EQ(sizeof(data.pthreadInfo.pthread), sizeof(pthread_t));
+  ASSERT_EQ(data.pthreadInfo.tid, static_cast<pid_t>(42));
+}
+
 } // namespace
 
 extern const dmtcp_test::TestCase dmtcpHeaderTests[] = {
@@ -43,6 +54,7 @@ extern const dmtcp_test::TestCase dmtcpHeaderTests[] = {
   {"DmtcpCkptHeader restart fields stay plain", ckptHeaderKeepsRestartFieldsPlain},
   {"checkpoint signature fits header field", ckptSignatureFitsHeaderField},
   {"plugin descriptor keeps plain ABI shape", pluginDescriptorKeepsPlainAbiShape},
+  {"pthread event data carries thread ids", pthreadEventDataCarriesThreadIds},
 };
 
 extern const size_t dmtcpHeaderTestCount =

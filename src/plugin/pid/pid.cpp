@@ -77,9 +77,6 @@ static volatile bool restartInProgress = false;
 
 static string pidMapFile;
 
-static vector<pid_t> *exitedChildTids = NULL;
-static DmtcpMutex exitedChildTidsLock = DMTCP_MUTEX_INITIALIZER_LLL;
-
 #ifndef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
 #define dmtcp_pthread_set_tid(pth, tid) do {} while (0)
 #endif
@@ -126,9 +123,21 @@ dmtcp_pid_update_mapping(pid_t virtualPid, pid_t realPid)
 
 extern "C"
 pid_t
-dmtcp_pid_gettid()
+dmtcp_pid_init_thread_tid()
 {
-  return dmtcp_pid_is_enabled() ? VirtualPidTable::gettid() : _real_gettid();
+  if (!dmtcp_pid_is_enabled()) {
+    return _real_gettid();
+  }
+
+  bool isMotherOfAll = _real_gettid() == _real_getpid();
+  pid_t virtualTid = isMotherOfAll ?
+                     VirtualPidTable::getpid() :
+                     VirtualPidTable::instance().getNewVirtualTid();
+  VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
+  if (!isMotherOfAll) {
+    dmtcp_pthread_set_tid(pthread_self(), virtualTid);
+  }
+  return virtualTid;
 }
 
 // Also copied into src/threadlist.cpp, so that libdmtcp.sp
@@ -176,35 +185,6 @@ dmtcp_update_virtual_to_real_tid(pid_t tid)
 
   dmtcp_pthread_set_tid(pthread_self(), virtualTid);
   return virtualTid;
-}
-
-static
-void removeExitedChildTids()
-{
-  // First remove stale thread ids.
-  pid_t realPid = _real_getpid();
-  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&exitedChildTidsLock));
-  for (auto it = exitedChildTids->begin(); it != exitedChildTids->end();) {
-    pid_t tid = *it;
-    pid_t realTid = dmtcp_pid_virtual_to_real(tid);
-    if (_real_tgkill(realPid, realTid, 0) == 0) {
-      it++;
-    } else {
-      it = exitedChildTids->erase(it);
-      VirtualPidTable::instance().erase(tid);
-    }
-  }
-  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&exitedChildTidsLock));
-}
-
-extern "C"
-void dmtcp_init_virtual_tid()
-{
-  removeExitedChildTids();
-  pid_t virtualTid = VirtualPidTable::instance().getNewVirtualTid();
-  VirtualPidTable::resetTid(virtualTid);
-
-  dmtcp_pthread_set_tid(pthread_self(), virtualTid);
 }
 
 static void
@@ -377,21 +357,20 @@ pidVirt_PostRestart()
 static void
 pidVirt_ThreadExit(DmtcpEventData_t *data)
 {
-  /* This thread has finished its execution, do some cleanup on our part.
-   *  erasing the original_tid entry from virtualpidtable
-   *  FIXME: What if the process gets checkpointed after erase() but before the
-   *  thread actually exits?
-   */
-  pid_t tid = VirtualPidTable::gettid();
-  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&exitedChildTidsLock));
-  exitedChildTids->push_back(tid);
-  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&exitedChildTidsLock));
+  if (!dmtcp_pid_is_enabled()) {
+    return;
+  }
+  ASSERT_NOT_NULL(data);
+  VirtualPidTable::instance().recordExitTid(data->pthreadInfo.tid);
 }
 
 static void
 pidVirt_ThreadResume()
 {
-  pid_t virtualTid = VirtualPidTable::gettid();
+  if (!dmtcp_pid_is_enabled()) {
+    return;
+  }
+  pid_t virtualTid = dmtcp_gettid();
   VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
   dmtcp_pthread_set_tid(pthread_self(), virtualTid);
 }
@@ -402,7 +381,7 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   switch (event) {
   case DMTCP_EVENT_INIT:
     SharedData::setPidMap(getpid(), _real_getpid());
-    exitedChildTids = new vector<pid_t>();
+    VirtualPidTable::instance().refreshExitedTids();
     dmtcp_pthread_set_tid(pthread_self(), getpid());
     break;
 
@@ -436,7 +415,7 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
 
   case DMTCP_EVENT_PRECHECKPOINT:
-    removeExitedChildTids();
+    VirtualPidTable::instance().refreshExitedTids();
     break;
 
   case DMTCP_EVENT_RESUME:
