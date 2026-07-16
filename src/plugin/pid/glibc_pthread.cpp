@@ -38,8 +38,8 @@ struct libc_pthread_addr dmtcp_pthread_get_addrs(pthread_t th)
 {
   // This helper only discovers glibc pthread field addresses.  It must not
   // initialize DMTCP: sanitizer/libc startup can call it before DMTCP is
-  // ready.  Current-thread TID virtualization is handled by dmtcp_pid_gettid()
-  // during ThreadList::init().
+  // ready.  Current-thread TID virtualization is handled during
+  // ThreadList::init().
   int libcMinor = dmtcp::Util::glibcVersion().minor;
   struct libc_pthread_addr ret;
 

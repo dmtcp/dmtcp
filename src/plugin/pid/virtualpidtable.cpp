@@ -29,6 +29,7 @@
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "dmtcp.h"
+#include "glibc_pthread.h"
 #include "pidwrappers.h"
 #include "shareddata.h"
 #include "util.h"
@@ -37,12 +38,15 @@
 using namespace dmtcp;
 
 static int _numTids = 1;
-static __thread pid_t _dmtcp_thread_tid ATTR_TLS_INITIAL_EXEC = -1;
 
 static pid_t _dmtcp_pid = -1;
 static pid_t _dmtcp_ppid = -1;
 static pid_t _dmtcp_realPid = -1;
 static pid_t _dmtcp_realPpid = -1;
+
+#ifndef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
+#define dmtcp_pthread_set_tid(pth, tid) do {} while (0)
+#endif
 
 
 VirtualPidTable::VirtualPidTable()
@@ -79,10 +83,11 @@ VirtualPidTable::resetPidPpid()
 }
 
 void
-VirtualPidTable::resetTid(pid_t tid)
+VirtualPidTable::recordExitTid(pid_t tid)
 {
-  _dmtcp_thread_tid = tid;
-  instance().updateMapping(_dmtcp_thread_tid, _real_gettid());
+  _do_lock_tbl();
+  _exitedThreadTids.push_back(tid);
+  _do_unlock_tbl();
 }
 
 pid_t
@@ -112,23 +117,25 @@ VirtualPidTable::getppid()
   return _dmtcp_ppid;
 }
 
-pid_t
-VirtualPidTable::gettid()
+void
+VirtualPidTable::refreshExitedTids()
 {
-  /* dmtcp::ThreadList::updateTid calls gettid() before calling
-   * ThreadSync::decrementUninitializedThreadCount() and so the value is
-   * cached before it is accessed by some other DMTCP code.
-   */
-  if (_dmtcp_thread_tid == -1) {
-    _dmtcp_thread_tid = getpid();
+  pid_t realPid = _real_getpid();
 
-    // Make sure this is the motherofall thread.
-    ASSERT(_real_gettid() == _real_getpid(),
-           "initial thread real tid/pid mismatch: tid={} pid={}",
-           _real_gettid(),
-           _real_getpid());
+  _do_lock_tbl();
+  for (auto it = _exitedThreadTids.begin();
+       it != _exitedThreadTids.end();) {
+    pid_t tid = *it;
+    auto mapIt = _idMapTable.find(tid);
+    pid_t realTid = mapIt == _idMapTable.end() ? tid : mapIt->second;
+    if (_real_tgkill(realPid, realTid, 0) == 0) {
+      it++;
+    } else {
+      it = _exitedThreadTids.erase(it);
+      _idMapTable.erase(tid);
+    }
   }
-  return _dmtcp_thread_tid;
+  _do_unlock_tbl();
 }
 
 void
@@ -153,6 +160,8 @@ VirtualPidTable::refresh()
 
   ASSERT(getpid() != -1, "virtual pid is not initialized");
 
+  refreshExitedTids();
+
   _do_lock_tbl();
   for (i = _idMapTable.begin(), next = i; i != _idMapTable.end(); i = next) {
     next++;
@@ -169,6 +178,7 @@ VirtualPidTable::getNewVirtualTid()
 {
   pid_t tid = -1;
 
+  refreshExitedTids();
   if (VirtualIdTable<pid_t>::getNewVirtualId(&tid) == false) {
     refresh();
   }
@@ -184,11 +194,21 @@ void
 VirtualPidTable::resetOnFork()
 {
   resetPidPpid();
-  resetTid(getpid());
-  VirtualIdTable<pid_t>::resetOnFork(getpid());
+  pid_t virtualPid = getpid();
+  pid_t virtualPpid = getppid();
+
+  VirtualIdTable<pid_t>::resetOnFork(virtualPid);
   _numTids = 1;
-  _idMapTable[getpid()] = _real_getpid();
-  refresh();
+
+  _do_lock_tbl();
+  _exitedThreadTids.clear();
+  _idMapTable.clear();
+  _idMapTable[virtualPid] = _real_getpid();
+  if (virtualPpid > 0) {
+    _idMapTable[virtualPpid] = _real_getppid();
+  }
+  _do_unlock_tbl();
+
   printMaps();
 }
 
