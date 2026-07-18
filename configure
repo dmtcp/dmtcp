@@ -8084,7 +8084,7 @@ if test ${enable_prgname_prefix+y}
 then :
   enableval=$enable_prgname_prefix; use_prgname_prefix=$enableval
 else case e in #(
-  e) use_prgname_prefix=yes ;;
+  e) use_prgname_prefix=no ;;
 esac
 fi
 
