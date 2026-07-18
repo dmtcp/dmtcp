@@ -118,13 +118,14 @@ pthread_create(pthread_t *pth,
             "new thread wrapper lock was not pre-acquired: tid={}",
             newThread->tid);
 
-  ASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING),
+  ThreadState thread_state = (ThreadState) thread->state;
+  ASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, thread_state),
          "Failed to mark thread (tid:{}) from RUNNING to THREAD_CREATE",
          thread->tid);
 
   int retval = _real_pthread_create(pth, attr, thread_start, newThread);
 
-  ASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE),
+  ASSERT(Thread_UpdateState(thread, thread_state, ST_THREAD_CREATE),
          "Failed to mark thread (tid:{}) from THREAD_CREATE to RUNNING",
          thread->tid);
 
