@@ -89,6 +89,7 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_PRECHECKPOINT,
   DMTCP_EVENT_RESUME,
   DMTCP_EVENT_RESTART,
+  // This event will be replaced by others
   DMTCP_EVENT_RUNNING,
   DMTCP_EVENT_THREAD_RESUME,
 
@@ -99,6 +100,18 @@ typedef enum eDmtcpEvent {
 
   DMTCP_EVENT_VIRTUAL_TO_REAL_PATH,
   DMTCP_EVENT_REAL_TO_VIRTUAL_PATH,
+
+  // NOTE: These are new events replacing the old DMTCP_EVENT_RUNNING.
+  // Currently, they are triggered at the same time as DMTCP_EVENT_RUNNING.
+  // Plugins using these events needs to determine the current status by
+  // themselves.
+  //
+  // DMTCP_EVENT_RUNNING_AFTER_LAUNCH calls plugins in forward order.
+  // DMTCP_EVENT_RUNNING_AFTER_RESUME/RESTART calls plugins in the
+  // reverse order.
+  DMTCP_EVENT_RUNNING_AFTER_LAUNCH,
+  DMTCP_EVENT_RUNNING_AFTER_RESUME,
+  DMTCP_EVENT_RUNNING_AFTER_RESTART,
 
   nDmtcpEvents
 } DmtcpEvent_t;

@@ -240,6 +240,7 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   // The following events are processed in the order of plugin registration.
   case DMTCP_EVENT_INIT:
   case DMTCP_EVENT_RUNNING:
+  case DMTCP_EVENT_RUNNING_AFTER_LAUNCH:
   case DMTCP_EVENT_PRE_EXEC:
   case DMTCP_EVENT_POST_EXEC:
   case DMTCP_EVENT_ATFORK_PREPARE:
@@ -283,6 +284,8 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_RESUME:
   case DMTCP_EVENT_RESTART:
   case DMTCP_EVENT_THREAD_RESUME:
+  case DMTCP_EVENT_RUNNING_AFTER_RESUME:
+  case DMTCP_EVENT_RUNNING_AFTER_RESTART:
 
     if (event == DMTCP_EVENT_RESTART) {
       DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 5);
