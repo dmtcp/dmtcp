@@ -88,6 +88,14 @@ struct Thread {
 
   uint32_t wrapperLockCount;
 
+  // Lightweight stack guard region installed by glibc >= 2.42 at the low end
+  // of the thread's stack via madvise(MADV_GUARD_INSTALL). Recorded when the
+  // thread is created so that the checkpoint thread can temporarily remove it
+  // while writing the checkpoint image and reinstall it afterward and on
+  // restart. guardSize == 0 means no guard region is tracked for this thread.
+  void *guardAddr;
+  size_t guardSize;
+
   Thread *next;
   Thread *prev;
 };
