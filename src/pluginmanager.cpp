@@ -283,6 +283,7 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_RESUME:
   case DMTCP_EVENT_RESTART:
   case DMTCP_EVENT_THREAD_RESUME:
+  case DMTCP_EVENT_RUNNING_AFTER:
 
     if (event == DMTCP_EVENT_RESTART) {
       DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 5);
