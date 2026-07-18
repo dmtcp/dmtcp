@@ -378,6 +378,8 @@ DmtcpWorker::waitForCheckpointRequest()
 {
   JTRACE("running");
 
+  PluginManager::eventHook(DMTCP_EVENT_RUNNING_AFTER);
+
   WorkerState::setCurrentState(WorkerState::RUNNING);
 
   PluginManager::eventHook(DMTCP_EVENT_RUNNING);

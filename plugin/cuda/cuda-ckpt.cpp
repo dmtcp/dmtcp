@@ -330,7 +330,7 @@ static void cuda_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data) {
                              &eventfd_trampoline_info);
       break;
 
-    case DMTCP_EVENT_RUNNING:
+    case DMTCP_EVENT_RUNNING_AFTER:
       /************************************************************************
        * NOTE: This event will be triggered whenever the user threads starts
        * running. It could be after initial launch, after resuming from
