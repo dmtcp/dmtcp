@@ -103,11 +103,18 @@ pthread_create(pthread_t *pth,
   ThreadSync::wrapperExecutionLockLockForNewThread(newThread);
   JASSERT(newThread->wrapperLockCount != 0);
 
-  JASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING));
-
-  int retval = _real_pthread_create(pth, attr, thread_start, newThread);
-
-  JASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE));
+  int retval;
+  // If the thread is in checkpointing state, then we don't need to update the
+  // state of the thread. The CUDA plugin will create a new thread in the
+  // PRESUSPEND event from the checkpoint thread. This is a special case
+  // and we don't want to update the state of the thread in this case.
+  if (thread->state == ST_CKPNTHREAD) {
+    retval = _real_pthread_create(pth, attr, thread_start, newThread);
+  } else {
+    JASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING));
+    retval = _real_pthread_create(pth, attr, thread_start, newThread);
+    JASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE));
+  }
 
   if (retval == 0) {
     ProcessInfo::instance().clearPthreadJoinState(*pth);
