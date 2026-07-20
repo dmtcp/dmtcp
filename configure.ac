@@ -22,7 +22,7 @@ AC_PROG_CC
 AC_PROG_CPP
 
 AC_CONFIG_MACRO_DIR([m4])
-AX_CXX_COMPILE_STDCXX([14], [noext], [mandatory])
+AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 
 AX_CHECK_COMPILE_FLAG([-std=gnu11],
   [AX_APPEND_FLAG([-std=gnu11])],
@@ -41,7 +41,6 @@ AC_CONFIG_FILES([Makefile \
                  plugin/Makefile \
                  src/Makefile \
                  src/mtcp/Makefile \
-                 src/plugin/Makefile \
                  include/dmtcp/version.h \
                  test/Makefile \
                  test/autotest_config.py \
@@ -63,29 +62,10 @@ if test -n "$ac_unrecognized_opts"; then
   esac
 fi
 
-AC_ARG_ENABLE([logging],
-            [AS_HELP_STRING([--enable-logging],
-                            [enable (very) verbose logging output
-                             and write log files to $DMTCP_TMPDIR (default is
-                             disabled)])],
-            [use_logging=$enableval],
-            [use_logging=no])
-
-if test "$use_logging" = "yes"; then
-  AC_SUBST([LOGGING], [yes])
-  AC_DEFINE([LOGGING],[1],[Verbose trace output and log files in $DMTCP_TMPDIR])
-  CFLAGS="$CFLAGS -DLOGGING"
-  CPPFLAGS="$CPPFLAGS -DLOGGING"
-  CXXFLAGS="$CXXFLAGS -DLOGGING"
-else
-  AC_SUBST([LOGGING], [no])
-fi
-
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
                             [Use debugging flags "-Wall -g3 -O0" on DMTCP libs
-                             (default is
-                             disabled); also, see --enable-logging])],
+                             (default is disabled)])],
             [use_debug=$enableval],
             [use_debug=no])
 
@@ -108,18 +88,6 @@ AC_ARG_ENABLE([quiet],
 
 if test "$use_quiet" = "yes"; then
   AC_DEFINE([QUIET],[1],[No output, not even NOTE and WARNING])
-fi
-
-AC_ARG_ENABLE([timing],
-            [AS_HELP_STRING([--enable-timing],
-                            [record checkpoint/restart timing information
-                            to jtimings.csv, in working directory of
-                            dmtcp_coordinator, and to stderr.])],
-            [use_jtiming=$enableval],
-            [use_jtiming=no])
-
-if test "$use_jtiming" = "yes"; then
-  AC_DEFINE([TIMING],[1],[Record timing information to stderr and jtimings.csv])
 fi
 
 AC_ARG_ENABLE([realtime_ckpt_signal],
@@ -350,6 +318,12 @@ if test "$use_m32" = "yes" -o "$use_multilib" = "yes"; then
   fi
 fi
 
+AC_CHECK_DECLS([SYS_mq_open],
+               [has_sys_mq_open=yes],
+               [has_sys_mq_open=no],
+               [[#include <sys/syscall.h>]])
+AC_SUBST([HAS_SYS_MQ_OPEN], [$has_sys_mq_open])
+
 AC_ARG_ENABLE([static_libstdcxx],
             [AS_HELP_STRING([--enable-static-libstdcxx],
                             [Compile $CXX with -static-libstdc++.
@@ -436,6 +410,7 @@ case "$host_cpu" in
   x86_64) is_x86_64_host=yes ;;
   powerpc64*) is_ppc64_host=yes ;;
   ppc64*) is_ppc64_host=yes ;;
+  riscv64) is_riscv64_host=yes ;;
 esac
 
 AM_CONDITIONAL(X86_64_HOST, [test "$is_x86_64_host" == "yes"])
@@ -674,29 +649,9 @@ AC_CHECK_PROG(HAS_PYTHON, [python], [yes], [no], [/usr/bin])
 #check for python3
 AC_CHECK_PROG(HAS_PYTHON3, [python3], [yes], [no], [/usr/bin])
 
-#check for dash
-AC_CHECK_PROG(HAS_DASH, [dash], [yes], [no], [/bin])
-
-#check for tcsh
-AC_CHECK_PROG(HAS_TCSH, [tcsh], [yes], [no], [/bin])
-
-#check for zsh
-AC_CHECK_PROG(HAS_ZSH, [zsh], [yes], [no], [/bin])
-
 #check for vim
 AC_CHECK_PROG(HAS_VIM, [vim], [yes], [no], [/usr/bin:/bin])
 AC_PATH_PROG([VIM],    [vim],        [no], [/usr/bin:/bin])
-
-#check for emacs
-AC_CHECK_PROG(HAS_EMACS, [emacs], [yes], [no], [/usr/bin])
-AC_CHECK_PROG(HAS_EMACS_NOX, [emacs-nox], [yes], [no], [/usr/bin])
-
-#check for script
-AC_CHECK_PROG(HAS_SCRIPT, [script], [yes], [no], [/usr/bin])
-
-#check for screen
-AC_CHECK_PROG(HAS_SCREEN, [screen], [yes], [no], [/usr/bin])
-AC_PATH_PROG([SCREEN],    [screen],        [no], [/usr/bin])
 
 #check for strace
 AC_CHECK_PROG(HAS_STRACE, [strace], [yes], [no], [/usr/bin])
@@ -805,40 +760,10 @@ else
   fi
 fi
 
-dnl ****** TODO: THIS IS STALE CODE.  WE WILL DELETE IT (or updateit?)
-dnl ****** AFTER WE COMMIT THE PR FOR THE NEW, PLANNED RESTART PLUGINS.
-dnl AC_ARG_WITH([mana_helper_dir],
-dnl             [AS_HELP_STRING([--with-mana-helper-dir=manadir],
-dnl                             [Directory containing additional mana-specific helpers.])],
-dnl             [mana_helper_dir=$withval],
-dnl             [mana_helper_dir=no])
-dnl ***** TODO: When finally removing this, also remove references
-dnl             in src/Makefile.am and src/mtcp/Makefile.in
-
-dnl ****** TODO: SEE ABOVE: KEEP THIS UNTIL THE NEW RESTART PLUGIN
-# NOTE FO FUTURE:  We should avoid AM_CONDITIONAL.
-# automake-2.71 has a bug in AM_CONDITIONAL.  When the if statment is
-#  _not_ triggered.  They seem to assume that you _must_ define
-# the conditional case for 'then' and for 'else', even if 'else'
-# means creating a differently named file that is empty.
-# Otherwise, automake tries to do dependency checking on the
-#   file specified in 'then', even though we onky triggered the 'if'.
-# FLAME ON: automake is a separate, poorly documented, inflexible
-#   language that loses the clarity and simplicity of an ordinary
-#   Makefile.in.  For example, it's not possible to have a per-file CLFAGS.
-# *** BUG IN ORIGINAL DESIGN WITH automake:  It's not clear if
-#   --with-mana-helper-dir ever worked.  We were using the default only.
-mana_helper_dir=no
-if test "$mana_helper_dir" != "no"; then
-  # This is the buggy case.
-  RESTART_PLUGIN=`realpath $mana_helper_dir`/dmtcp_restart_plugin.$(OBJEXT)
-  MANA_HELPER_DIR=`realpath $mana_helper_dir`
-else
-  RESTART_PLUGIN=
-  MANA_HELPER_DIR=
-fi
+dnl MANA used to use the restart plugin, but not any longer.
+dnl So, specify no restart plugin.
+RESTART_PLUGIN=
 AC_SUBST([RESTART_PLUGIN])
-AC_SUBST([MANA_HELPER_DIR])
 
 if test "$use_m32" = "yes"; then
   interp=/lib/ld-linux.so.2
@@ -856,119 +781,83 @@ AC_DEFINE_UNQUOTED([ELF_INTERPRETER],["$interp"],[Generated by readelf -aW | gre
 
 AC_CHECK_HEADERS([sys/epoll.h sys/eventfd.h sys/signalfd.h sys/inotify.h])
 
-dnl atomic builtins are required for jalloc support.
-AC_MSG_CHECKING(for $CXX __sync_bool_compare_and_swap builtins)
-dnl Since we'll be using these atomic builtins in C++ files we should test
-dnl the C++ compiler.
-AC_LANG_PUSH([C++])
-dnl C++ standard set for C++14.  If standalone, use: -std=c++14 -march=native
-dnl Apparently, x86_64 requires -march=native, but aarch64 assumes that
-dnl that all such architectures support __sync_bool_compare_and_swap().
-CXXFLAGS_orig="$CXXFLAGS"
-CXXFLAGS="$CXXFLAGS -march=native"
-AC_LINK_IFELSE(
-[
-dnl NOTE:  x86_64 and clang do sync_book_compare_and_swap fine.
-dnl        Unfortunately, the Debian-12 release (and others??)
-dnl        have a gcc-12 that by default uses 'gcc -noutline',
-dnl        which assumes __aarch64_cas16_sync is defined, and gcc defines it
-dnl        _only_ if this is the base executable, and not a .o or .so file
-  AC_LANG_SOURCE([[
-    #include <assert.h>
-    #include <stdlib.h>
-    int main() {
-      __int128 dest = static_cast<__int128>(0x1234567812345678);
-      __int128 oldValue=0x7ffffffff098;
-      __int128 newValue=0x7ffffffff088;
-      bool result = __sync_bool_compare_and_swap(&dest, oldValue, newValue);
-      assert(result == false && dest != newValue);
-      dest = oldValue;
-      result = __sync_bool_compare_and_swap(&dest, oldValue, newValue);
-      assert(result == true && dest == newValue);
-      return 0;
-    }
-  ]])
-], [gccSyncBuiltins='yes'], [gccSyncBuiltins='no'])
-CXXFLAGS="$CXXFLAGS_orig"
-AC_LANG_POP([C++])
-AC_MSG_RESULT([$gccSyncBuiltins])
-if test "$gccSyncBuiltins" = "yes"; then
-  AC_DEFINE([HAS_128_SYNC_BOOL],[1],[Define to 1 if __sync_bool_compare_and_swap is supported])
+AC_MSG_CHECKING([if $CXX jalloc.cpp emits __atomic_compare_exchange_16])
+if test -n "$host_cpu" -a ! "$is_riscv64_host"; then
+  arch_flag="-march=native";
+fi
+dnl jalib/jalloc.cpp does '#include "config.h"' unconditionally, but
+dnl config.h is not written until AC_OUTPUT runs, at the very end of this
+dnl script.  On a fresh checkout, without a stub, the compile below would
+dnl fail for a reason unrelated to atomics, and we would silently (and
+dnl incorrectly) fall back to assuming inline assembly.  So, ensure a
+dnl (possibly empty) config.h exists just for this probe, without
+dnl disturbing a real one if it already exists.
+created_stub_config_h=no
+if test ! -f include/config.h; then
+  : > include/config.h
+  created_stub_config_h=yes
+fi
+AS_IF([ (cd src && $CXX $arch_flag -DHAS_128_BIT_INLINE_ASM=1 -std=c++20 -DHAVE_CONFIG_H -I. -I../include -fPIC -g -O2 -S -o - ../jalib/jalloc.cpp) | grep --quiet __atomic_compare_exchange_16 ],
+  [
+    AC_MSG_RESULT([yes])
+    AC_DEFINE([NEEDS_128_BIT_LIBATOMIC], [1],
+              [Define to 1 if C++ compiles __atomic_compare_exchange()
+               in jalib/jalloc.cpp to __atomic_compare_exchange_16()])
+    needs_libatomic=yes
+  ],
+  [
+    AC_MSG_RESULT([no])
+    AC_DEFINE([HAS_128_BIT_INLINE_ASM], [1],
+              [Define to 1 if C++ compiles __atomic_compare_exchange() in
+               jalib/jalloc.cpp to 128-bit inline assembly (e.g., cmpxch16b)])
+    AC_MSG_NOTICE([Will assume $CXX emits inline assembly])
+  ])
+if test "$created_stub_config_h" = yes; then
+  rm -f include/config.h
 fi
 
-dnl NOTE:  Using __atomic_* requires linking with -latomic.
-dnl        If libatomic not available, then we must switch to __sync_*.
-dnl        __atomic_compare_exchange_16 is the 16-byte (128-bit) version.
-if test "$is_arm_host" == "yes" -o "$is_i486_host" == "yes" ; then
-  AC_CHECK_LIB([atomic], [__atomic_compare_exchange_8])
+if test "$is_aarch64_host" == "yes"; then
+  # GCC's libatomic on aarch64 may call pthread_mutex_lock() instead of using
+  # atomic instructions (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=70814),
+  # which can deadlock if the target application interposes on
+  # pthread_mutex_lock via dlsym.  Treat libatomic as unavailable so
+  # jalloc.cpp falls back to the futex-based implementation.
+  has_libatomic=no
+elif test "$is_arm_host" == "yes" -o "$is_i486_host" == "yes" ; then
+  AC_CHECK_LIB([atomic], [__atomic_compare_exchange_8],
+               [
+                AC_DEFINE([HAS_128_BIT_LIBATOMIC],[1],
+                          [Define to 1 if C++ flag '-latomic' works and
+                           __atomic_compare_exchange_16 is a defined symbol])
+                has_libatomic=yes
+               ],
+               [
+                has_libatomic=no
+               ])
 else
-  AC_CHECK_LIB([atomic], [__atomic_compare_exchange_16])
-fi
-if test ${ac_cv_lib_atomic_+y}; then
-  printf %s "*** libatomic.so not found; In jalib/jalloc.cpp need to"
-  printf %s "***   replace __atomic_* by __sync_*."
+  AC_CHECK_LIB([atomic], [__atomic_compare_exchange_16],
+               [
+                AC_DEFINE([HAS_128_BIT_LIBATOMIC],[1],
+                          [Define to 1 if C++ flag '-latomic' works and
+                           __atomic_compare_exchange_16 is a defined symbol])
+                has_libatomic=yes
+               ],
+               [
+                has_libatomic=no
+               ])
 fi
 
-dnl atomic builtins are required for jalloc support.
-AC_MSG_CHECKING(for $CXX __atomic_compare_exchange builtins using -latomic)
-dnl Since we'll be using these atomic builtins in C++ files we should test
-dnl the C++ compiler.
-AC_LANG_PUSH([C++])
-# It seems to be undocumented that this needs '-latomic' as of 2024.
-LDFLAGS_orig="$LDFLAGS"
-LDFLAGS="$LDFLAGS -latomic"
-AC_LINK_IFELSE(
-[
-  AC_LANG_SOURCE([[
-    #include <atomic>
-    #include <assert.h>
-    #include <stdlib.h>
-    int main() {
-      typedef unsigned __int128 uint128_t;
-      uint128_t *dst = static_cast<uint128_t*>(malloc(128));
-      uint128_t *oldValue = static_cast<uint128_t*>(malloc(128));
-      uint128_t *newValue = static_cast<uint128_t*>(malloc(128));
-      *dst = static_cast<uint128_t>(1);
-      *oldValue = static_cast<uint128_t>(1);
-      *newValue = static_cast<uint128_t>(2);
-      bool result = __atomic_compare_exchange((uint128_t*)dst,
-                                         (uint128_t*)oldValue,
-                                         (uint128_t*)newValue, 0,
-                                          __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-      assert(result == true);
-      assert(*dst == *newValue);
-      return 0;
-    }
-  ]])
-], [gccAtomicBuiltins='yes'], [gccAtomicBuiltins='no'])
-LDFLAGS="$LDFLAGS_orig"
-
-dnl __atomic_compare_exchange_16 is often in libatomic
-AC_SEARCH_LIBS([__atomic_compare_exchange_16], [atomic], [], [
-  AC_MSG_WARN([Could not find 128-bit atomic support in libatomic.])
-])
-
-AC_LANG_POP([C++])
-AC_MSG_RESULT([$gccAtomicBuiltins])
-
-if test "$gccAtomicBuiltins" = "yes"; then
-  AC_DEFINE([HAS_128_ATOMIC],[1],[Define to 1 if 'gcc test.c -latomic' works for __atomic_compare_exchange])
+dnl We could alternatively do:
+dnl  LIBATOMIC="-latomic"
+dnl  AC_SUBST([LIBATOMIC])
+dnl and add ${LIBATOMIC} for all src/Makefile.am targets using jalloc.o
+if test "$needs_libatomic" = "yes" -a "$has_libatomic" = "yes"; then
+  LIBS="$LIBS -latomic"
 fi
-dnl $CXX might be "clang++ -std=c++14".  Further, we need "-x c++"
-dnl   or else clang++ defaults to assuming a C file.
-is_clang_cpp=no
-$CXX -x c++ -dM -E - < /dev/null | grep -q "__clang__" && is_clang_cpp=yes
-if test "$gccAtomicBuiltins" = "no" -a "$is_clang_cpp" = "yes"; then
-  AC_MSG_FAILURE([Using C++14 with clang++ to support atomic built-ins.
-                  Missing Linux packages.  If Ubuntu/Debian, consider:
-                  sudo apt install clang libclang-rt-dev libc++abi-dev
-                  libstdc++-14-dev (or later version of libstdc++-14-dev).
-                  If Red Hat/Fedora/CentOS/Rocky Linux, consider:
-                  sudo dnf install clang-devel libstdc++-devel libatomic])
-fi
-if test "$gccAtomicBuiltins" = "no"; then
-  AC_MSG_FAILURE([Using C++14, which should support both sync and atomic
-                  built-ins.  Will default to using slower mutexes in jalloc.cpp])
+
+if test "$needs_libatomic" = "yes" -a "$has_libatomic" = "no"; then
+  AC_MSG_WARN([libatomic.so not found.  jalib/jalloc.cpp will use the
+               slower futex method.  Not significant unless using many threads])
 fi
 
 AC_MSG_CHECKING([value of page size (sysconf(_SC_PAGESIZE))])
@@ -987,42 +876,8 @@ fi
 AC_DEFINE_UNQUOTED([MTCP_PAGE_SIZE], $sysconf_pagesize,
                    [Page size (sysconf(_SC_PAGESIZE))])
 
-dnl TODO:  __WAIT_STATUS is defined in include/config.h to be 'int *'
-dnl        POSIX says 'int'.  Why do we need __WAIT_STATUS for DMTCP,
-dnl        and then do AC_DEFINE to define it??
-dnl        It was part of the glibc lxstat support, but it was deprecated,
-dnl        and then removed as of glibcgccAtomicBuiltins" = "no"; then
 AC_MSG_RESULT([$sysconf_pagesize])
 AC_DEFINE_UNQUOTED([MTCP_PAGE_SIZE], $sysconf_pagesize,
                    [Page size (sysconf(_SC_PAGESIZE))])
-
-dnl TODO:  __WAIT_STATUS is defined in include/config.h to be 'int *'
-dnl        POSIX says 'int'.  Why do we need __WAIT_STATUS for DMTCP,
-dnl        and then do AC_DEFINE to define it??
-dnl        It was part of the glibc lxstat support, but it was deprecated,
-dnl        and then removed as of glibc-2.24 in 2016.
-dnl        DMTCP should also drop support for __WAIT_STATUS.
-dnl Check whether __WAIT_STATUS is available.
-AC_MSG_CHECKING(for __WAIT_STATUS type)
-AC_LINK_IFELSE(
-[
-  AC_LANG_SOURCE([[
-    #include <sys/wait.h>
-    #include <sys/types.h>
-    #include <stdlib.h>
-    int main() {
-      __WAIT_STATUS status __attribute__((unused));
-      return 0;
-    }
-  ]])
-], [wait_status='yes'], [wait_status='no'])
-AC_MSG_RESULT([$wait_status])
-
-if test "$wait_status" = "no"; then
-  AC_DEFINE([__WAIT_STATUS],[int *],
-            [can use __WAIT_STATUS as wait status type])
-fi
-dnl __WAIT_STATUS entered at commit 7d1344 (2009) and bdcac4 (2016)
-AC_MSG_NOTICE([*** glibc-2.24 removed __WAIT_STATUS; This check will go away in the future.])
 
 AC_OUTPUT

@@ -83,35 +83,28 @@ struct user_desc {
 #include <unistd.h>
 
 #include "dmtcp.h"
-
-// Keep in sync with dmtcp/src/constants.h
-#define ENV_VAR_VIRTUAL_PID "DMTCP_VIRTUAL_PID"
+#include "pidhelpers.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif // ifdef __cplusplus
 
+#ifndef DMTCP_UNION_SEMUN_DEFINED
+#define DMTCP_UNION_SEMUN_DEFINED
 union semun {
   int val;                   /* Value for SETVAL */
   struct semid_ds *buf;      /* Buffer for IPC_STAT, IPC_SET */
   unsigned short *array;     /* Array for GETALL, SETALL */
   struct seminfo *__buf;     /* Buffer for IPC_INFO (Linux-specific) */
 };
+#endif // ifndef DMTCP_UNION_SEMUN_DEFINED
 
 void dmtcpResetPidPpid();
 void dmtcpResetTid(pid_t tid);
 
-LIB_PRIVATE void pidVirt_atfork_prepare();
-LIB_PRIVATE void pidVirt_atfork_child();
-
-LIB_PRIVATE void pidVirt_vfork_prepare();
-LIB_PRIVATE void pidVirt_vfork_child();
-
 /* The following function are defined in pidwrappers.cpp */
 LIB_PRIVATE pid_t dmtcp_gettid();
-LIB_PRIVATE int dmtcp_tkill(int tid, int sig);
-LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
 
 #define FOREACH_PIDVIRT_WRAPPER(MACRO) \
   MACRO(fork)                          \
@@ -199,7 +192,14 @@ pid_t _real_gettid(void);
 int _real_tkill(int tid, int sig);
 int _real_tgkill(int tgid, int tid, int sig);
 
-long int _real_syscall(long int sys_num, ...);
+long int _real_syscall(long int sys_num,
+                       long int arg1,
+                       long int arg2,
+                       long int arg3,
+                       long int arg4,
+                       long int arg5,
+                       long int arg6,
+                       long int arg7);
 
 /* System V shared memory */
 int _real_shmget(key_t key, size_t size, int shmflg);
@@ -222,7 +222,7 @@ pid_t _real_tcgetpgrp(int fd);
 int _real_tcsetpgrp(int fd, pid_t pgrp);
 
 pid_t _real_getpgrp(void);
-pid_t _real_setpgrp(void);
+int _real_setpgrp(void);
 
 pid_t _real_getpgid(pid_t pid);
 int _real_setpgid(pid_t pid, pid_t pgid);
@@ -232,13 +232,13 @@ pid_t _real_setsid(void);
 
 int _real_kill(pid_t pid, int sig);
 
-pid_t _real_wait(__WAIT_STATUS stat_loc);
+pid_t _real_wait(int *stat_loc);
 pid_t _real_waitpid(pid_t pid, int *stat_loc, int options);
 int _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
 
-pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage);
+pid_t _real_wait3(int *status, int options, struct rusage *rusage);
 pid_t _real_wait4(pid_t pid,
-                  __WAIT_STATUS status,
+                  int *status,
                   int options,
                   struct rusage *rusage);
 LIB_PRIVATE extern int send_sigwinch;
@@ -249,7 +249,7 @@ int _real_setuid(uid_t uid);
 
 int _real_pthread_cancel(pthread_t th);
 void _real_pthread_exit(void *retval);
-int _real_fcntl(int fd, int cmd, void *arg);
+int _real_fcntl(int fd, int cmd, ...);
 
 int _real_open(const char *pathname, int flags, ...);
 int _real_open64(const char *pathname, int flags, ...);

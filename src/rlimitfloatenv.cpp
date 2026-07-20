@@ -1,9 +1,9 @@
 #include <fenv.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#include "../jalib/jassert.h"
 #include "shareddata.h"
 #include "util.h"
+#include "dmtcp_assert.h"
 #include "config.h"
 #include "dmtcp.h"
 
@@ -63,10 +63,11 @@ restore_rlimit_float_settings()
     getrlimit(_RLIMIT, &rlim);                                               \
     if (_rlim_cur <= rlim.rlim_max) {                                        \
       rlim.rlim_cur = _rlim_cur;                                             \
-      JASSERT(setrlimit(_RLIMIT, &rlim) == 0) (JASSERT_ERRNO);               \
+      ASSERT_NE(-1, setrlimit(_RLIMIT, &rlim),                           \
+                   "setrlimit(" #_RLIMIT ") failed");                       \
     } else {                                                                 \
-      JTRACE("Prev. soft limit of " #_RLIMIT " lowered to new hard limit")   \
-        (_rlim_cur) (rlim.rlim_max);                                         \
+      TRACE("Prev. soft limit of " #_RLIMIT " lowered to new hard limit: "  \
+            "prev={} hard={}", _rlim_cur, rlim.rlim_max);                    \
       _rlim_cur = rlim.rlim_max;                                             \
     }                                                                        \
   }
@@ -99,20 +100,13 @@ rlimitfloat_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t rlimitFloatPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t rlimitFloatPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "rlimit_float",
+  "RLIMIT_FLOAT",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Rlimit/floating point plugin",
   rlimitfloat_EventHook
 };
-
-
-DmtcpPluginDescriptor_t
-dmtcp_Rlimit_Float_PluginDescr()
-{
-  return rlimitFloatPlugin;
-}
 }

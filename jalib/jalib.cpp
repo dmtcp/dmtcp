@@ -33,7 +33,8 @@
 #include <sys/resource.h>
 
 #include "jalib.h"
-#include "jassert.h"
+#define DMTCP_LOG_COMPONENT "jalib"
+#include "dmtcp_assert.h"
 #include <fstream>
 
 static JalibFuncPtrs jalibFuncPtrs;
@@ -52,18 +53,16 @@ extern "C" void
 jalib_init(JalibFuncPtrs _jalibFuncPtrs,
            const char *elfInterpreter,
            int stderrFd,
-           int jassertLogFd,
+           int logFd,
            int dmtcp_fail_rc)
 {
   dmtcpInfo.elfInterpreter = elfInterpreter;
   dmtcpInfo.stderrFd = stderrFd;
-  dmtcpInfo.logFd = jassertLogFd;
+  dmtcpInfo.logFd = logFd;
   dmtcpInfo.dmtcp_fail_rc = dmtcp_fail_rc;
 
   jalibFuncPtrs = _jalibFuncPtrs;
   jalib_funcptrs_initialized = 1;
-
-  JASSERT_INIT();
 }
 
 const char *
@@ -140,9 +139,10 @@ dup(int oldfd)
 int dup2(int oldfd, int newfd) {
   struct rlimit file_limit;
   getrlimit(RLIMIT_NOFILE, &file_limit);
-  JASSERT ( (unsigned int)newfd < file_limit.rlim_cur )
-          (newfd)(file_limit.rlim_cur)
-          .Text("dup2: newfd is >= current limit on number of files");
+  ASSERT((unsigned int)newfd < file_limit.rlim_cur,
+         "dup2 newfd is >= current limit on number of files: newfd={} "
+         "limit={}",
+         newfd, file_limit.rlim_cur);
   REAL_FUNC_PASSTHROUGH(int, dup2) (oldfd, newfd);
 }
 
@@ -156,12 +156,12 @@ long
 syscall(long sys_num, ...)
 {
   int i;
-  void *arg[7];
+  long arg[7];
   va_list ap;
 
   va_start(ap, sys_num);
   for (i = 0; i < 7; i++) {
-    arg[i] = va_arg(ap, void *);
+    arg[i] = va_arg(ap, long);
   }
   va_end(ap);
 

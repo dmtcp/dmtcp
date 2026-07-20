@@ -3,11 +3,11 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include "jassert.h"
 #include "constants.h"
 #include "dmtcp.h"
 #include "syscallwrappers.h"
 #include "threadlist.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 
@@ -52,14 +52,15 @@ SigInfo::setupCkptSigHandler(sighandler_t handler)
       STOPSIGNAL = strtol(tmp, &endp, 0);
 
       if ((errno != 0) || (tmp == endp)) {
-        JWARNING(false) (getenv("DMTCP_SIGCKPT")) (CKPT_SIGNAL)
-        .Text("Your chosen SIGCKPT does not translate to a number, and cannot "
-              "be used.  Default signal will be used instead");
+        WARN(false,
+             "DMTCP_SIGCKPT does not translate to a number; using default: "
+             "DMTCP_SIGCKPT={} default={}",
+             getenv("DMTCP_SIGCKPT"), CKPT_SIGNAL);
         STOPSIGNAL = CKPT_SIGNAL;
       } else if (STOPSIGNAL < 1 || STOPSIGNAL >= SIGRTMAX) {
-        JNOTE("Your chosen SIGCKPT is not a valid signal, and cannot be used."
-              " Default signal will be used instead.")
-          (STOPSIGNAL) (CKPT_SIGNAL);
+        NOTE("Your chosen SIGCKPT is not a valid signal, and cannot be used. "
+             "Default signal will be used instead: requested={} default={}",
+             STOPSIGNAL, CKPT_SIGNAL);
         STOPSIGNAL = CKPT_SIGNAL;
       }
     }
@@ -73,15 +74,16 @@ SigInfo::setupCkptSigHandler(sighandler_t handler)
 
   // We can't use standard sigaction here, because DMTCP has a wrapper around
   // it that will not allow anyone to set a signal handler for SIGUSR2.
-  JASSERT(_real_sigaction(STOPSIGNAL, &act, &old_act) != -1) (JASSERT_ERRNO)
-  .Text("Error setting up signal handler");
+  ASSERT_NE(-1, _real_sigaction(STOPSIGNAL, &act, &old_act),
+               "error setting up checkpoint signal handler: signal={}",
+               STOPSIGNAL);
 
   if ((old_act.sa_handler != SIG_IGN) && (old_act.sa_handler != SIG_DFL) &&
       (old_act.sa_handler != handler)) {
-    JASSERT(false) (STOPSIGNAL) (old_act.sa_handler)
-    .Text("\nSignal handler already in use. You may employ a different\n"
-          "signal by setting the environment variable DMTCP_SIGCKPT to the\n"
-          "number of the signal that DMTCP should use for checkpointing.\n");
+    ASSERT(false,
+           "checkpoint signal handler already in use: signal={} handler={}. "
+           "Set DMTCP_SIGCKPT to a different checkpoint signal number.",
+           STOPSIGNAL, old_act.sa_handler);
   }
 }
 
@@ -108,25 +110,27 @@ SigInfo::saveSigHandlers()
   act.sa_handler = SIG_IGN;
 
   // Remove signal handler
-  JASSERT(_real_sigaction(STOPSIGNAL, &act, &old_act) != -1) (JASSERT_ERRNO)
-  .Text("Error setting up signal handler");
+  ASSERT_NE(-1, _real_sigaction(STOPSIGNAL, &act, &old_act),
+               "error disabling checkpoint signal handler: signal={}",
+               STOPSIGNAL);
 
   // Reinstall the previous handler
-  JASSERT(_real_sigaction(STOPSIGNAL, &old_act, NULL) != -1) (JASSERT_ERRNO)
-  .Text("Error setting up signal handler");
+  ASSERT_NE(-1, _real_sigaction(STOPSIGNAL, &old_act, NULL),
+               "error restoring checkpoint signal handler: signal={}",
+               STOPSIGNAL);
 
   /* Now save all the signal handlers */
-  JTRACE("saving signal handlers");
+  TRACE("saving signal handlers");
   for (sig = SIGRTMAX; sig > 0; --sig) {
-    if (_real_syscall(SYS_rt_sigaction, sig, NULL, &sigactions[sig],
-                      _NSIG / 8) < 0) {
-      JASSERT(errno == EINVAL) (sig) (JASSERT_ERRNO)
-      .Text("error saving signal action");
+    if (_real_syscall(SYS_rt_sigaction, sig, (long)NULL,
+                      (long)&sigactions[sig], _NSIG / 8, 0, 0, 0) < 0) {
+      ASSERT_ERRNO(errno == EINVAL,
+                   "error saving signal action: signal={}", sig);
       memset(&sigactions[sig], 0, sizeof sigactions[sig]);
     }
 
     if (sigactions[sig].sa_handler != SIG_DFL) {
-      JTRACE("saving signal handler (non-default) for") (sig);
+      TRACE("saving signal handler (non-default): sig={}", sig);
     }
   }
 }
@@ -141,15 +145,15 @@ SigInfo::restoreSigHandlers()
 {
   int sig;
 
-  JTRACE("restoring signal handlers");
+  TRACE("restoring signal handlers");
   for (sig = SIGRTMAX; sig > 0; --sig) {
 #ifdef VERBOSE_LOGGING
-    JTRACE("restore signal handler for") (sig);
+    TRACE("restore signal handler: sig={}", sig);
 #endif // ifdef VERBOSE_LOGGING
 
-    JASSERT(_real_syscall(SYS_rt_sigaction, sig, &sigactions[sig], NULL,
-                          _NSIG / 8) == 0 || errno == EINVAL)
-      (sig) (JASSERT_ERRNO)
-    .Text("error restoring signal handler");
+    ASSERT_ERRNO(_real_syscall(SYS_rt_sigaction, sig, (long)&sigactions[sig],
+                               (long)NULL, _NSIG / 8, 0, 0, 0) == 0 ||
+                 errno == EINVAL,
+                 "error restoring signal handler: signal={}", sig);
   }
 }

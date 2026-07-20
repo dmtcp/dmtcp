@@ -139,7 +139,7 @@ _Unwind_Resume(void)
 {
   int mtcp_sys_errno;
 
-  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
+  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __func__);
   mtcp_abort();
 }
 
@@ -148,7 +148,7 @@ __gcc_personality_v0(void)
 {
   int mtcp_sys_errno;
 
-  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
+  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __func__);
   mtcp_abort();
 }
 
@@ -157,7 +157,7 @@ __intel_security_cookie(void)
 {
   int mtcp_sys_errno;
 
-  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
+  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __func__);
   mtcp_abort();
 }
 
@@ -166,6 +166,6 @@ __intel_security_check_cookie(void)
 {
   int mtcp_sys_errno;
 
-  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
+  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __func__);
   mtcp_abort();
 }

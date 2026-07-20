@@ -40,8 +40,6 @@
 # define CKPT_SIGNAL SIGUSR2
 #endif // ifndef CKPT_SIGNAL
 
-// This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
-// always be kept in sync with that.
 #define LIBC_FILENAME            "libc.so.6"
 
 #define LIBDL_FILENAME           "libdl.so.2"
@@ -50,6 +48,9 @@
 #define CKPT_FILE_SUFFIX_LEN     strlen(".dmtcp")
 #define CKPT_FILES_SUBDIR_PREFIX "ckpt_"
 #define CKPT_FILES_SUBDIR_SUFFIX "_files"
+
+#define DEV_ZERO_DELETED_STR     "/dev/zero (deleted)"
+#define DEV_NULL_DELETED_STR     "/dev/null (deleted)"
 
 // Not used
 // #define X11_LISTENER_PORT_START 6000
@@ -70,6 +71,9 @@
 // this next string can be at most 16 chars long
 #define DMTCP_MAGIC_STRING          "DMTCP_CKPT_V0\n"
 
+// Bound protocol side-band payloads before allocating buffers from peer input.
+#define DMTCP_MAX_MESSAGE_EXTRA_BYTES (1024U * 1024U)
+
 // it should be safe to change any of these names
 #define ENV_VAR_NAME_HOST           "DMTCP_COORD_HOST"
 #define ENV_VAR_NAME_PORT           "DMTCP_COORD_PORT"
@@ -87,10 +91,14 @@
                                     "DMTCP_ALLOW_OVERWRITE_WITH_CKPTED_FILES"
 #define ENV_VAR_PLUGIN              "DMTCP_PLUGIN"
 #define ENV_VAR_QUIET               "DMTCP_QUIET"
+#define ENV_VAR_LOG_LEVEL           "DMTCP_LOG_LEVEL"
+#define ENV_VAR_LOG_OVERRIDES       "DMTCP_LOG_OVERRIDES"
 #define ENV_VAR_DMTCP_DUMMY         "DMTCP_DUMMY"
 
-// Keep in sync with plugin/pid/pidwrappers.h
 #define ENV_VAR_VIRTUAL_PID         "DMTCP_VIRTUAL_PID"
+#define ENV_VAR_REAL_PID            "DMTCP_REAL_PID"
+#define ENV_VAR_VIRTUAL_PPID        "DMTCP_VIRTUAL_PPID"
+#define ENV_VAR_REAL_PPID           "DMTCP_REAL_PPID"
 
 // Keep in sync with plugin/batch-queue/rm_pmi.h
 #define ENV_VAR_EXPLICIT_SRUN       "DMTCP_EXPLICIT_SRUN"
@@ -103,6 +111,16 @@
 #define ENV_VAR_COMPRESSION         "DMTCP_GZIP"
 #define ENV_VAR_ALLOC_PLUGIN        "DMTCP_ALLOC_PLUGIN"
 #define ENV_VAR_DL_PLUGIN           "DMTCP_DL_PLUGIN"
+#define ENV_VAR_SSH_PLUGIN          "DMTCP_SSH_PLUGIN"
+#define ENV_VAR_EVENT_PLUGIN        "DMTCP_EVENT_PLUGIN"
+#define ENV_VAR_FILE_PLUGIN         "DMTCP_FILE_PLUGIN"
+#define ENV_VAR_PTY_PLUGIN          "DMTCP_PTY_PLUGIN"
+#define ENV_VAR_SOCKET_PLUGIN       "DMTCP_SOCKET_PLUGIN"
+#define ENV_VAR_SVIPC_PLUGIN        "DMTCP_SVIPC_PLUGIN"
+#define ENV_VAR_TIMER_PLUGIN        "DMTCP_TIMER_PLUGIN"
+#define ENV_VAR_PID_PLUGIN          "DMTCP_PID_PLUGIN"
+#define ENV_VAR_UNIQUE_CKPT_PLUGIN  "DMTCP_UNIQUE_CKPT_PLUGIN"
+#define ENV_VAR_DISABLE_ALL_PLUGINS "DMTCP_DISABLE_ALL_PLUGINS"
 
 #define ENV_VAR_FORKED_CKPT             "DMTCP_FORKED_CHECKPOINT"
 #define ENV_VAR_SIGCKPT                 "DMTCP_SIGCKPT"
@@ -115,6 +133,11 @@
 // Set to "1" if the system supports FSGSBASE feature.
 #define ENV_VAR_FSGSBASE_ENABLED        "DMTCP_FSGSBASE_ENABLED"
 #define ENV_VAR_LOG_FILE                "DMTCP_LOG_FILE"
+
+// Set to "1" to force Util::scanOccupiedRangeBatch() to use the portable
+// pread() scan of /proc/self/pagemap instead of the ioctl(PAGEMAP_SCAN)
+// fast path (debugging/testing the fallback on kernels that support both).
+#define ENV_VAR_DISABLE_PAGEMAP_SCAN    "DMTCP_DISABLE_PAGEMAP_SCAN"
 
 // this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL                  \
@@ -130,14 +153,30 @@
   ENV_VAR_TMPDIR,                     \
   ENV_VAR_CKPT_OPEN_FILES,            \
   ENV_VAR_QUIET,                      \
+  ENV_VAR_LOG_LEVEL,                  \
+  ENV_VAR_LOG_OVERRIDES,              \
   ENV_VAR_STDERR_PATH,                \
   ENV_VAR_COMPRESSION,                \
   ENV_VAR_ALLOC_PLUGIN,               \
   ENV_VAR_DL_PLUGIN,                  \
+  ENV_VAR_SSH_PLUGIN,                 \
+  ENV_VAR_EVENT_PLUGIN,               \
+  ENV_VAR_FILE_PLUGIN,                \
+  ENV_VAR_PTY_PLUGIN,                 \
+  ENV_VAR_SOCKET_PLUGIN,              \
+  ENV_VAR_SVIPC_PLUGIN,               \
+  ENV_VAR_TIMER_PLUGIN,               \
+  ENV_VAR_PID_PLUGIN,                 \
+  ENV_VAR_UNIQUE_CKPT_PLUGIN,         \
+  ENV_VAR_DISABLE_ALL_PLUGINS,        \
   ENV_VAR_SIGCKPT,                    \
   ENV_VAR_SCREENDIR,                  \
   ENV_VAR_VIRTUAL_PID,                \
+  ENV_VAR_REAL_PID,                   \
+  ENV_VAR_VIRTUAL_PPID,               \
+  ENV_VAR_REAL_PPID,                  \
   ENV_VAR_FSGSBASE_ENABLED,           \
+  ENV_VAR_DISABLE_PAGEMAP_SCAN,       \
   ENV_VAR_LOG_FILE
 
 #define DMTCP_RESTART_CMD       "dmtcp_restart"
@@ -160,7 +199,10 @@
   "This is free software, and you are welcome to redistribute it\n" \
   "under certain conditions; see COPYING file for details.\n"
 
-#define HELP_AND_CONTACT_INFO               \
-  "Report bugs to: " PACKAGE_BUGREPORT "\n" \
+#define HELP_AND_CONTACT_INFO                                          \
+  "For verbose runtime tracing, set environment variable"              \
+  " DMTCP_LOG_LEVEL=trace or DMTCP_LOG_LEVEL=3\n"                      \
+  " options are: error/warn/note/trace [0-3]; note/2 is the default\n" \
+  "Report bugs to: " PACKAGE_BUGREPORT "\n"                            \
   "DMTCP home page: <" PACKAGE_URL ">\n"
 #endif // ifndef CONSTANTS_H

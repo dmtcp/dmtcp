@@ -23,6 +23,7 @@
 // So, we temporarily rename it so that type declarations are not for msgrcv.
 #define msgrcv msgrcv_glibc
 
+#include <errno.h>
 #include <stdarg.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
@@ -30,14 +31,167 @@
 
 #undef msgrcv
 
-#include "jassert.h"
+#include "pluginmanager.h"
 #include "dmtcp.h"
+#include "plugin/pid/pidhelpers.h"
 #include "sysvipc.h"
 #include "sysvipcwrappers.h"
+#include "dmtcp_assert.h"
+#include "wrapperlock.h"
 
 using namespace dmtcp;
 
 static struct timespec ts_100ms = { 0, 100 * 1000 * 1000 };
+
+static bool
+semctlCmdRequiresArg(int cmd)
+{
+  switch (cmd) {
+  case IPC_STAT:
+  case IPC_SET:
+  case IPC_INFO:
+  case SEM_INFO:
+  case GETALL:
+  case SETALL:
+  case SETVAL:
+#ifdef SEM_STAT
+  case SEM_STAT:
+#endif
+#ifdef SEM_STAT_ANY
+  case SEM_STAT_ANY:
+#endif
+    return true;
+  default:
+    return false;
+  }
+}
+
+static bool
+semctlCmdUsesIndex(int cmd)
+{
+  switch (cmd) {
+#ifdef SEM_STAT
+  case SEM_STAT:
+#endif
+#ifdef SEM_STAT_ANY
+  case SEM_STAT_ANY:
+#endif
+    return true;
+  default:
+    return false;
+  }
+}
+
+static bool
+msgctlCmdUsesIndex(int cmd)
+{
+  switch (cmd) {
+#ifdef MSG_STAT
+  case MSG_STAT:
+#endif
+#ifdef MSG_STAT_ANY
+  case MSG_STAT_ANY:
+#endif
+    return true;
+  default:
+    return false;
+  }
+}
+
+static int
+unsupportedIndexStatResult()
+{
+  errno = EINVAL;
+  return -1;
+}
+
+static int
+virtualizeShmIndexStatResult(int realId, struct shmid_ds *buf)
+{
+  int virtId = REAL_TO_VIRTUAL_SHM_ID(realId);
+  if (virtId != -1) {
+    return virtId;
+  }
+
+  if (buf == NULL) {
+    return unsupportedIndexStatResult();
+  }
+
+  key_t key = buf->shm_perm.__key;
+  SysVShm::instance().on_shmget(realId, key, key, buf->shm_segsz,
+                                buf->shm_perm.mode);
+  virtId = REAL_TO_VIRTUAL_SHM_ID(realId);
+  return virtId != -1 ? virtId : unsupportedIndexStatResult();
+}
+
+static int
+virtualizeSemIndexStatResult(int realId, union semun arg)
+{
+  int virtId = REAL_TO_VIRTUAL_SEM_ID(realId);
+  if (virtId != -1) {
+    return virtId;
+  }
+
+  if (arg.buf == NULL) {
+    return unsupportedIndexStatResult();
+  }
+
+  SysVSem::instance().on_semget(realId, arg.buf->sem_perm.__key,
+                                arg.buf->sem_nsems,
+                                arg.buf->sem_perm.mode);
+  virtId = REAL_TO_VIRTUAL_SEM_ID(realId);
+  return virtId != -1 ? virtId : unsupportedIndexStatResult();
+}
+
+static int
+virtualizeMsgIndexStatResult(int realId, struct msqid_ds *buf)
+{
+  int virtId = REAL_TO_VIRTUAL_MSQ_ID(realId);
+  if (virtId != -1) {
+    return virtId;
+  }
+
+  if (buf == NULL) {
+    return unsupportedIndexStatResult();
+  }
+
+  SysVMsq::instance().on_msgget(realId, buf->msg_perm.__key,
+                                buf->msg_perm.mode);
+  virtId = REAL_TO_VIRTUAL_MSQ_ID(realId);
+  return virtId != -1 ? virtId : unsupportedIndexStatResult();
+}
+
+static int
+virtualizeSemctlPidResult(int cmd, int ret)
+{
+  if (ret != -1 && cmd == GETPID) {
+    return dmtcp_pid_real_to_virtual(ret);
+  }
+  return ret;
+}
+
+static void
+virtualizeMsgPidFields(int ret, int cmd, struct msqid_ds *buf)
+{
+  if (ret == -1 || buf == NULL) {
+    return;
+  }
+
+  switch (cmd) {
+  case IPC_STAT:
+#ifdef MSG_STAT
+  case MSG_STAT:
+#endif
+#ifdef MSG_STAT_ANY
+  case MSG_STAT_ANY:
+#endif
+    buf->msg_lspid = dmtcp_pid_real_to_virtual(buf->msg_lspid);
+    buf->msg_lrpid = dmtcp_pid_real_to_virtual(buf->msg_lrpid);
+    return;
+  default:
+    return;
+  }
+}
 
 /*
  * In Open MPI 2.0, shmdt() is intercepted by modifying libraries' global
@@ -46,8 +200,8 @@ static struct timespec ts_100ms = { 0, 100 * 1000 * 1000 };
  * finally calls syscall() with the corresponding syscall number. The
  * inside_shmdt variable indicates if the code is inside our shmdt()
  * wrapper. If so, our syscall wrapper simply calls _real_syscall(),
- * avoiding the recursive call to the shmdt() wrapper.  See the wrapper
- * of syscall() in miscwrappers.cpp and pid_miscwrappers.cpp.
+ * avoiding the recursive call to the shmdt() wrapper. See the wrapper
+ * of syscall() in miscwrappers.cpp.
 
  * FIXME: for the long term, we need to think about the case where user
  * code modifies its own global offset table.
@@ -64,10 +218,14 @@ extern "C"
 int
 shmget(key_t key, size_t size, int shmflg)
 {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    return _real_shmget(key, size, shmflg);
+  }
+
   int realId = -1;
   int virtId = -1;
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  WrapperLock wrapperLock;
 
   // If multiple clients try to simultaneously create shm regions with
   // (IPC_PRIVATE | IPC_EXCL), there is a race condition that can cause the
@@ -93,19 +251,24 @@ shmget(key_t key, size_t size, int shmflg)
   if (realId != -1) {
     SysVShm::instance().on_shmget(realId, realKey, key, size, shmflg);
     virtId = REAL_TO_VIRTUAL_SHM_ID(realId);
-    JTRACE("Creating new Shared memory segment")
-      (key) (size) (shmflg) (realId) (virtId);
+    TRACE("Created SysV shared-memory segment: key={} size={} flags={} "
+          "real_shmid={} virt_shmid={}",
+          key, size, shmflg, realId, virtId);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return virtId;
 }
 
 extern "C"
 void *shmat(int shmid, const void *shmaddr, int shmflg)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    return _real_shmat(shmid, shmaddr, shmflg);
+  }
+
+  WrapperLock wrapperLock;
   int realShmid = VIRTUAL_TO_REAL_SHM_ID(shmid);
-  JASSERT(realShmid != -1).Text("Not Implemented");
+  ASSERT(realShmid != -1, "shmat virtual id has no real mapping: shmid={}",
+         shmid);
   void *ret = _real_shmat(realShmid, shmaddr, shmflg);
 #ifdef __arm__
 
@@ -135,17 +298,19 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
         _real_shmdt(ret_addr[j]);
       }
     }
-    JASSERT((long)ret % 0x4000 == 0)
-      (shmaddr) (shmflg) (getpid())
-    .Text("Failed to get SHMLBA-aligned address after 20 tries");
+    ASSERT((long)ret % 0x4000 == 0,
+           "failed to get SHMLBA-aligned address after 20 tries: "
+           "shmaddr={} shmflg={} pid={}",
+           shmaddr, shmflg, getpid());
   }
 #endif // ifdef __arm__
 
   if (ret != (void *)-1) {
     SysVShm::instance().on_shmat(shmid, shmaddr, shmflg, ret);
-    JTRACE("Mapping Shared memory segment") (shmid) (realShmid) (shmflg) (ret);
+    TRACE("Attached SysV shared-memory segment: virt_shmid={} "
+          "real_shmid={} flags={} addr={}",
+          shmid, realShmid, shmflg, ret);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
@@ -159,15 +324,21 @@ extern "C"
 int
 shmdt(const void *shmaddr)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    inside_shmdt = true;
+    int ret = _real_shmdt(shmaddr);
+    inside_shmdt = false;
+    return ret;
+  }
+
+  WrapperLock wrapperLock;
   inside_shmdt = true;
   int ret = _real_shmdt(shmaddr);
   if (ret != -1) {
     SysVShm::instance().on_shmdt(shmaddr);
-    JTRACE("Unmapping Shared memory segment") (shmaddr);
+    TRACE("Detached SysV shared-memory segment: addr={}", shmaddr);
   }
   inside_shmdt = false;
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
@@ -175,11 +346,58 @@ extern "C"
 int
 shmctl(int shmid, int cmd, struct shmid_ds *buf)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    int ret = _real_shmctl(shmid, cmd, buf);
+    if (ret != -1 && buf != NULL) {
+      switch (cmd) {
+      case IPC_STAT:
+#ifdef SHM_STAT
+      case SHM_STAT:
+#endif
+#ifdef SHM_STAT_ANY
+      case SHM_STAT_ANY:
+#endif
+        buf->shm_cpid = dmtcp_pid_real_to_virtual(buf->shm_cpid);
+        buf->shm_lpid = dmtcp_pid_real_to_virtual(buf->shm_lpid);
+        break;
+      default:
+        break;
+      }
+    }
+    return ret;
+  }
+
+  WrapperLock wrapperLock;
+  switch (cmd) {
+#ifdef SHM_STAT
+  case SHM_STAT:
+#endif
+#ifdef SHM_STAT_ANY
+  case SHM_STAT_ANY:
+#endif
+  {
+    int realId = _real_shmctl(shmid, cmd, buf);
+    if (realId == -1) {
+      return -1;
+    }
+    if (buf != NULL) {
+      buf->shm_cpid = dmtcp_pid_real_to_virtual(buf->shm_cpid);
+      buf->shm_lpid = dmtcp_pid_real_to_virtual(buf->shm_lpid);
+    }
+    return virtualizeShmIndexStatResult(realId, buf);
+  }
+  default:
+    break;
+  }
+
   int realShmid = VIRTUAL_TO_REAL_SHM_ID(shmid);
-  JASSERT(realShmid != -1);
+  ASSERT(realShmid != -1, "shmctl virtual id has no real mapping: shmid={}",
+         shmid);
   int ret = _real_shmctl(realShmid, cmd, buf);
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  if (ret != -1 && buf != NULL && cmd == IPC_STAT) {
+    buf->shm_cpid = dmtcp_pid_real_to_virtual(buf->shm_cpid);
+    buf->shm_lpid = dmtcp_pid_real_to_virtual(buf->shm_lpid);
+  }
   return ret;
 }
 
@@ -193,17 +411,21 @@ extern "C"
 int
 semget(key_t key, int nsems, int semflg)
 {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    return _real_semget(key, nsems, semflg);
+  }
+
   int realId = -1;
   int virtId = -1;
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  WrapperLock wrapperLock;
   realId = _real_semget(key, nsems, semflg);
   if (realId != -1) {
     SysVSem::instance().on_semget(realId, key, nsems, semflg);
     virtId = REAL_TO_VIRTUAL_SEM_ID(realId);
-    JTRACE("Creating new SysV Semaphore") (key) (nsems) (semflg);
+    TRACE("Created SysV semaphore set: key={} sem_count={} flags={}",
+          key, nsems, semflg);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return virtId;
 }
 
@@ -211,6 +433,10 @@ extern "C"
 int
 semop(int semid, struct sembuf *sops, size_t nsops)
 {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    return _real_semop(semid, sops, nsops);
+  }
+
   return semtimedop(semid, sops, nsops, NULL);
 }
 
@@ -221,6 +447,10 @@ semtimedop(int semid,
            size_t nsops,
            const struct timespec *timeout)
 {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    return _real_semtimedop(semid, sops, nsops, timeout);
+  }
+
   struct timespec totaltime = { 0, 0 };
   int ret;
   int realId;
@@ -235,14 +465,14 @@ semtimedop(int semid,
 
   if (ipc_nowait_specified ||
       (timeout != NULL && TIMESPEC_CMP(timeout, &ts_100ms, <))) {
-    DMTCP_PLUGIN_DISABLE_CKPT();
+    WrapperLock wrapperLock;
     realId = VIRTUAL_TO_REAL_SEM_ID(semid);
-    JASSERT(realId != -1);
+    ASSERT(realId != -1,
+           "semtimedop virtual id has no real mapping: semid={}", semid);
     ret = _real_semtimedop(realId, sops, nsops, timeout);
     if (ret == 0) {
       SysVSem::instance().on_semop(semid, sops, nsops);
     }
-    DMTCP_PLUGIN_ENABLE_CKPT();
     return ret;
   }
 
@@ -252,14 +482,16 @@ semtimedop(int semid,
    */
   while (timeout == NULL || TIMESPEC_CMP(&totaltime, timeout, <)) {
     ret = EAGAIN;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    realId = VIRTUAL_TO_REAL_SEM_ID(semid);
-    JASSERT(realId != -1);
-    ret = _real_semtimedop(realId, sops, nsops, &ts_100ms);
-    if (ret == 0) {
-      SysVSem::instance().on_semop(semid, sops, nsops);
+    {
+      WrapperLock wrapperLock;
+      realId = VIRTUAL_TO_REAL_SEM_ID(semid);
+      ASSERT(realId != -1,
+             "semtimedop virtual id has no real mapping: semid={}", semid);
+      ret = _real_semtimedop(realId, sops, nsops, &ts_100ms);
+      if (ret == 0) {
+        SysVSem::instance().on_semop(semid, sops, nsops);
+      }
     }
-    DMTCP_PLUGIN_ENABLE_CKPT();
 
     // TODO Handle EIDRM
     if (ret == 0 ||
@@ -277,28 +509,45 @@ extern "C"
 int
 semctl(int semid, int semnum, int cmd, ...)
 {
-  union semun uarg;
+  union semun uarg = { 0 };
   va_list arg;
 
-  va_start(arg, cmd);
-  uarg = va_arg(arg, union semun);
-  va_end(arg);
+  if (semctlCmdRequiresArg(cmd)) {
+    va_start(arg, cmd);
+    uarg = va_arg(arg, union semun);
+    va_end(arg);
+  }
   int ret = -1;
+
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    return virtualizeSemctlPidResult(cmd,
+                                     _real_semctl(semid, semnum, cmd, uarg));
+  }
 
   if (cmd == SEM_INFO || cmd == IPC_INFO) {
     return _real_semctl(semid, semnum, cmd, uarg);
   }
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  WrapperLock wrapperLock;
+  if (semctlCmdUsesIndex(cmd)) {
+    ret = _real_semctl(semid, semnum, cmd, uarg);
+    if (ret == -1) {
+      return -1;
+    }
+    return virtualizeSemctlPidResult(cmd, virtualizeSemIndexStatResult(ret,
+                                                                       uarg));
+  }
+
   int realId = VIRTUAL_TO_REAL_SEM_ID(semid);
-  JASSERT(realId != -1) (semid) (semnum) (cmd);
+  ASSERT(realId != -1,
+         "semctl virtual id has no real mapping: semid={} semnum={} cmd={}",
+         semid, semnum, cmd);
   ret = _real_semctl(realId, semnum, cmd, uarg);
   if (ret != -1) {
     SysVSem::instance().on_semctl(semid, semnum, cmd, uarg);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
 
-  return ret;
+  return virtualizeSemctlPidResult(cmd, ret);
 }
 
 /******************************************************************************
@@ -311,17 +560,21 @@ extern "C"
 int
 msgget(key_t key, int msgflg)
 {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    return _real_msgget(key, msgflg);
+  }
+
   int realId = -1;
   int virtId = -1;
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  WrapperLock wrapperLock;
   realId = _real_msgget(key, msgflg);
   if (realId != -1) {
     SysVMsq::instance().on_msgget(realId, key, msgflg);
     virtId = REAL_TO_VIRTUAL_MSQ_ID(realId);
-    JTRACE("Creating new SysV Msg Queue") (key) (msgflg);
+    TRACE("Created SysV message queue: key={} flags={}",
+          key, msgflg);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return virtId;
 }
 
@@ -329,6 +582,10 @@ extern "C"
 int
 msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
 {
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    return _real_msgsnd(msqid, msgp, msgsz, msgflg);
+  }
+
   int ret;
   int realId;
 
@@ -338,14 +595,16 @@ msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
    * If IPC_NOWAIT was specified and msgsnd fails with EAGAIN, return.
    */
   while (true) {
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
-    JASSERT(realId != -1);
-    ret = _real_msgsnd(realId, msgp, msgsz, msgflg | IPC_NOWAIT);
-    if (ret == 0) {
-      SysVMsq::instance().on_msgsnd(msqid, msgp, msgsz, msgflg);
+    {
+      WrapperLock wrapperLock;
+      realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
+      ASSERT(realId != -1,
+             "msgsnd virtual id has no real mapping: msqid={}", msqid);
+      ret = _real_msgsnd(realId, msgp, msgsz, msgflg | IPC_NOWAIT);
+      if (ret == 0) {
+        SysVMsq::instance().on_msgsnd(msqid, msgp, msgsz, msgflg);
+      }
     }
-    DMTCP_PLUGIN_ENABLE_CKPT();
 
     // TODO Handle EIDRM
     if ((ret == 0) ||
@@ -356,7 +615,7 @@ msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
 
     nanosleep(&ts_100ms, NULL);
   }
-  JASSERT(false).Text("Not Reached");
+  ASSERT(false, "unreachable after msgsnd retry loop");
   return -1;
 }
 
@@ -364,7 +623,11 @@ extern "C"
 ssize_t
 msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
 {
-  int ret;
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    return _real_msgrcv(msqid, msgp, msgsz, msgtyp, msgflg);
+  }
+
+  ssize_t ret;
   int realId;
 
   /*
@@ -373,14 +636,16 @@ msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
    * If IPC_NOWAIT was specified and msgsnd fails with EAGAIN, return.
    */
   while (true) {
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
-    JASSERT(realId != -1);
-    ret = _real_msgrcv(realId, msgp, msgsz, msgtyp, msgflg | IPC_NOWAIT);
-    if (ret == 0) {
-      SysVMsq::instance().on_msgrcv(msqid, msgp, msgsz, msgtyp, msgflg);
+    {
+      WrapperLock wrapperLock;
+      realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
+      ASSERT(realId != -1,
+             "msgrcv virtual id has no real mapping: msqid={}", msqid);
+      ret = _real_msgrcv(realId, msgp, msgsz, msgtyp, msgflg | IPC_NOWAIT);
+      if (ret >= 0) {
+        SysVMsq::instance().on_msgrcv(msqid, msgp, msgsz, msgtyp, msgflg);
+      }
     }
-    DMTCP_PLUGIN_ENABLE_CKPT();
 
     // TODO Handle EIDRM
     if ((ret >= 0) ||
@@ -391,7 +656,7 @@ msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
 
     nanosleep(&ts_100ms, NULL);
   }
-  JASSERT(false).Text("Not Reached");
+  ASSERT(false, "unreachable after msgrcv retry loop");
   return -1;
 }
 
@@ -399,13 +664,29 @@ extern "C"
 int
 msgctl(int msqid, int cmd, struct msqid_ds *buf)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_SVIPC)) {
+    int ret = _real_msgctl(msqid, cmd, buf);
+    virtualizeMsgPidFields(ret, cmd, buf);
+    return ret;
+  }
+
+  WrapperLock wrapperLock;
+  if (msgctlCmdUsesIndex(cmd)) {
+    int realId = _real_msgctl(msqid, cmd, buf);
+    if (realId == -1) {
+      return -1;
+    }
+    virtualizeMsgPidFields(realId, cmd, buf);
+    return virtualizeMsgIndexStatResult(realId, buf);
+  }
+
   int realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
-  JASSERT(realId != -1);
+  ASSERT(realId != -1, "msgctl virtual id has no real mapping: msqid={}",
+         msqid);
   int ret = _real_msgctl(realId, cmd, buf);
   if (ret != -1) {
     SysVMsq::instance().on_msgctl(msqid, cmd, buf);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  virtualizeMsgPidFields(ret, cmd, buf);
   return ret;
 }

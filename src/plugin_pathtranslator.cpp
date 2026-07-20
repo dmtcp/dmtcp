@@ -42,9 +42,10 @@
 
 #include "config.h"
 #include "dmtcp.h"
-#include "jassert.h"
+#include "dmtcpalloc.h"
 #include "jserialize.h"
 #include "util.h"
+#include "dmtcp_assert.h"
 
 #ifdef DMTCP_AUTO_PATH_MAPPING
 # include <unistd.h>
@@ -85,11 +86,14 @@ static void populatePathMapping(const char *pathMappingStr)
       continue;
     }
     std::string::size_type colonIdx = token.find(':');
-    JASSERT(colonIdx != std::string::npos)(token).Text("Bad mapping; expect old:new");
+    ASSERT(colonIdx != std::string::npos,
+           "bad path mapping; expected old:new: mapping={}", token);
     string oldPath = token.substr(0, colonIdx);
     string newPath = token.substr(colonIdx + 1);
-    JASSERT(!oldPath.empty());
-    JASSERT(!newPath.empty());
+    ASSERT(!oldPath.empty(), "path mapping has empty source: mapping={}",
+           token);
+    ASSERT(!newPath.empty(), "path mapping has empty target: mapping={}",
+           token);
     (*pathMapping)[oldPath] = newPath;
   }
 }
@@ -148,7 +152,7 @@ pathTranslator_PrepareForExec(DmtcpEventData_t *data)
 {
 #ifndef DMTCP_AUTO_PATH_MAPPING
   pathTranslator_Init();
-  JASSERT(data != NULL);
+  ASSERT_NOT_NULL(data);
   jalib::JBinarySerializeWriterRaw wr("", data->preExec.serializationFd);
   wr.serialize(*pathMapping);
 #endif
@@ -159,7 +163,7 @@ pathTranslator_PostExec(DmtcpEventData_t *data)
 {
 #ifndef DMTCP_AUTO_PATH_MAPPING
   pathTranslator_Init();
-  JASSERT(data != NULL);
+  ASSERT_NOT_NULL(data);
   jalib::JBinarySerializeReaderRaw rd("", data->postExec.serializationFd);
   rd.serialize(*pathMapping);
 #endif
@@ -205,7 +209,9 @@ pathTranslator_VirtualToReal(DmtcpEventData_t *data)
                          "%s%s",
                          newp.c_str(),
                          suffix.c_str());
-        JASSERT(n > 0 && n < PATH_MAX).Text("Translated path exceeds PATH_MAX");
+        ASSERT(n > 0 && n < PATH_MAX,
+               "translated path exceeds PATH_MAX: length={} limit={}",
+               n, PATH_MAX);
       }
     }
   }
@@ -267,20 +273,14 @@ pathTranslator_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-DmtcpPluginDescriptor_t pathTranslator_plugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t pathTranslator_plugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "pathTranslator",
+  "PATHVIRT",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "PathTranslator plugin",
   pathTranslator_EventHook
 };
-
-DmtcpPluginDescriptor_t
-dmtcp_PathTranslator_PluginDescr()
-{
-  return pathTranslator_plugin;
-}
 
 };

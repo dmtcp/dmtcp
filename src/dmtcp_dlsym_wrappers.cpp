@@ -12,7 +12,7 @@
 #include <dlfcn.h>
 
 #include "dmtcp.h"
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "config.h"
 #include "threadsync.h"
 
@@ -25,14 +25,15 @@ print_debug_messages(dt_tag tags,
 {
 #ifdef VERBOSE
   if (default_symbol_index) {
-    JTRACE("** st_value: ")
-          (tags.base_addr + tags.symtab[default_symbol_index].st_value);
-    JTRACE("** symbol version: ")
-          (version_name(tags.versym[default_symbol_index], &tags));
+    TRACE("** st_value: {}",
+          tags.base_addr + tags.symtab[default_symbol_index].st_value);
+    TRACE("** symbol version: {}",
+          version_name(tags.versym[default_symbol_index], &tags));
   }
   if (!default_symbol_index) {
-    JTRACE("ERROR:  No default symbol version found"
-           "        Extend code to look for hidden symbols?")(symbol);
+    TRACE("ERROR: No default symbol version found. Extend code to look for "
+          "hidden symbols? symbol={}",
+          symbol);
   }
 #endif /* ifdef VERBOSE */
 }

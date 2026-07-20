@@ -24,7 +24,7 @@
 #include "config.h"
 #include "dmtcp.h"
 
-#include "jassert.h"
+#include "dmtcp_assert.h"
 
 namespace dmtcp
 {
@@ -34,7 +34,7 @@ static void
 checkpoint()
 {
   timeLeft = alarm(0);
-  JTRACE("*** Alarm stopped. ***") (timeLeft);
+  TRACE("*** Alarm stopped. *** timeLeft={}", timeLeft);
 }
 
 static void
@@ -42,7 +42,7 @@ resume()
 {
   /* Need to restart the timer on resume/restart. */
   if (timeLeft > 0) {
-    JTRACE("*** Resuming alarm. ***") (timeLeft);
+    TRACE("*** Resuming alarm. *** timeLeft={}", timeLeft);
     timeLeft = alarm(timeLeft);
   }
 }
@@ -65,20 +65,13 @@ alarm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t alarmPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t alarmPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "alarm",
+  "ALARM",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Alarm plugin",
   alarm_EventHook
 };
-
-
-DmtcpPluginDescriptor_t
-dmtcp_Alarm_PluginDescr()
-{
-  return alarmPlugin;
-}
 }

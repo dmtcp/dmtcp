@@ -15,11 +15,12 @@
 #include "ckptserializer.h"
 #include "constants.h"
 #include "coordinatorapi.h"
+#include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "dmtcpworker.h"
 #include "jalloc.h"
-#include "jassert.h"
 #include "mtcp/mtcp_header.h"
+#include "plugin/pid/pidhelpers.h"
 #include "pluginmanager.h"
 #include "shareddata.h"
 #include "siginfo.h"
@@ -29,6 +30,7 @@
 #include "tls.h"
 #include "uniquepid.h"
 #include "util.h"
+#include "dmtcp_assert.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
@@ -88,13 +90,19 @@ static void Thread_RestoreSigState(Thread *th);
 static void
 lock_threads(void)
 {
-  JASSERT(DmtcpMutexLock(&threadlistLock) == 0) (JASSERT_ERRNO);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadlistLock));
 }
 
 static void
 unlk_threads(void)
 {
-  JASSERT(DmtcpMutexUnlock(&threadlistLock) == 0) (JASSERT_ERRNO);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadlistLock));
+}
+
+static int
+signalThread(Thread *thread, int sig)
+{
+  return dmtcp_tgkill(motherpid, thread->tid, sig);
 }
 
 bool dmtcp_is_ckpt_thread()
@@ -109,8 +117,18 @@ dmtcp_get_current_thread()
     return curThread;
   }
 
-  ASSERT_NULL(motherofall);
-  ThreadList::init();
+  if (_real_gettid() == _real_getpid()) {
+    // We are the main thread of the process: create motherofall.
+    ASSERT_NULL(motherofall);
+    ThreadList::init();
+  } else {
+    // Another constructor may have created its own thread, racing to call
+    // ThreadList::init() first. We want the main thread of the process to
+    // win that race. So wait for it here instead.
+    while (__atomic_load_n(&motherofall, __ATOMIC_ACQUIRE) == nullptr) {
+    }
+    ThreadList::initThread(ThreadList::getNewThread(NULL, NULL));
+  }
 
   ASSERT_NOT_NULL(curThread);
   return curThread;
@@ -189,10 +207,12 @@ ThreadList::init()
   if (motherofall == nullptr) {
     // We need to use static storage for motherofall to avoid calling
     // JALLOC_MALLOC during initialization which could lead to infinite recursion.
-    motherofall = &motherofallStorage;
-    prepareThread(motherofall, NULL, NULL);
+    Thread *th = &motherofallStorage;
+    prepareThread(th, NULL, NULL);
     /* Set up caller as one of our threads so we can work on it */
-    initThread(motherofall);
+    initThread(th);
+    // Publish last (release), so a waiting thread sees it fully initialized.
+    __atomic_store_n(&motherofall, th, __ATOMIC_RELEASE);
   }
 
   /* Save this process's pid.  Then verify that the TLS has it where it should
@@ -201,7 +221,6 @@ ThreadList::init()
    * descriptor.
    */
 
-  /* libc/getpid can lie if we had used kernel fork() instead of libc fork(). */
   motherpid = getpid();
 
 }
@@ -222,7 +241,10 @@ ThreadList::createCkptThread()
   pthread_t checkpointhreadid;
 
   /* Spawn off a thread that will perform the checkpoints from time to time */
-  JASSERT(pthread_create(&checkpointhreadid, NULL, checkpointhread, NULL) == 0);
+  ASSERT_PTHREAD_SUCCESS(pthread_create(&checkpointhreadid,
+                                        NULL,
+                                        checkpointhread,
+                                        NULL));
 
   /* Stop until checkpoint thread has finished initializing.
    * Some programs (like gcl) implement their own glibc functions in
@@ -286,7 +308,7 @@ ThreadList::initThread(Thread *th)
   if (curThread == NULL) {
     curThread = th;
   }
-  th->tid = _real_syscall(SYS_gettid);
+  th->tid = dmtcp_pid_gettid();
 
   th->flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
               | CLONE_SIGHAND | CLONE_THREAD
@@ -297,7 +319,7 @@ ThreadList::initThread(Thread *th)
   th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
   th->ctid = th->ptid;
 
-  JTRACE("starting thread") (th->tid);
+  TRACE("starting thread: tid={}", th->tid);
 
   // Check and remove any thread descriptor which has the same tid as ours.
   // Also, remove any dead threads from the list.
@@ -380,17 +402,23 @@ checkpointhread(void *dummy)
     sigdelset(&set, SIGSETXID);
     sigdelset(&set, SIGCANCEL);
 
-    JASSERT(pthread_sigmask(SIG_SETMASK, &set, NULL) == 0);
+    ASSERT_PTHREAD_SUCCESS(pthread_sigmask(SIG_SETMASK, &set, NULL),
+                               "setting checkpoint-thread signal mask");
   }
 
   /* Set up our restart point.  I.e., we get jumped to here after a restore. */
 #ifdef SETJMP
-  JASSERT(sigsetjmp(ckptThread->jmpbuf, 1) >= 0) (JASSERT_ERRNO);
+  ASSERT(sigsetjmp(ckptThread->jmpbuf, 1) >= 0,
+         "failed to save checkpoint-thread jump context: tid={}",
+         ckptThread->tid);
 #else  // ifdef SETJMP
-  JASSERT(getcontext(&ckptThread->savctx) == 0) (JASSERT_ERRNO);
+  ASSERT_NE(-1, getcontext(&ckptThread->savctx),
+               "failed to save checkpoint-thread context: tid={}",
+               ckptThread->tid);
 #endif  // ifdef SETJMP
   save_sp(&ckptThread->saved_sp);
-  JTRACE("after sigsetjmp/getcontext") (curThread->tid) (curThread->saved_sp);
+  TRACE("Saved checkpoint-thread restart context: tid={} saved_sp={}",
+        curThread->tid, curThread->saved_sp);
 
   if (originalstartup) {
     originalstartup = false;
@@ -398,9 +426,9 @@ checkpointhread(void *dummy)
     /* We are being restored.  Wait for all other threads to finish being
      * restored before resuming checkpointing.
      */
-    JTRACE("waiting for other threads after restore");
+    TRACE("waiting for other threads after restore");
     ThreadList::waitForAllRestored(ckptThread);
-    JTRACE("resuming after restore");
+    TRACE("resuming after restore");
   }
 
   /* This is a sleep-checkpoint-resume loop by the checkpoint thread.
@@ -409,19 +437,19 @@ checkpointhread(void *dummy)
    */
   while (1) {
     /* Wait a while between writing checkpoint files */
-    JTRACE("before DmtcpWorker::waitForCheckpointRequest()");
+    TRACE("before DmtcpWorker::waitForCheckpointRequest()");
     DmtcpWorker::waitForCheckpointRequest();
 
     restoreInProgress = false;
 
     ThreadList::suspendThreads();
 
-    JTRACE("Release locks and wait for exiting threads to die.");
+    TRACE("Release locks and wait for exiting threads to die.");
     DmtcpWorker::releaseLocks();
 
     ThreadList::waitForExitingThreads();
 
-    JTRACE("Prepare plugin, etc. for checkpoint");
+    TRACE("Prepare plugin, etc. for checkpoint");
     DmtcpWorker::preCheckpoint();
 
     // Gather ckpt-thread's TLS state as it could have changed as a result of
@@ -452,7 +480,7 @@ ThreadList::suspendThreads()
   Thread *next;
 
   DmtcpRWLockInit(&threadResumeLock);
-  JASSERT(DmtcpRWLockWrLock(&threadResumeLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpRWLockWrLock(&threadResumeLock));
 
   /* Halt all other threads - force them to call stopthisthread
    * If any have blocked checkpointing, wait for them to unblock before
@@ -481,10 +509,11 @@ ThreadList::suspendThreads()
          * We will need to rescan (hopefully it will be suspended by then)
          */
         if (Thread_UpdateState(thread, ST_SIGNALED, ST_RUNNING)) {
-          if (THREAD_TGKILL(motherpid, thread->tid,
-                            SigInfo::ckptSignal()) < 0) {
-            JASSERT(errno == ESRCH) (JASSERT_ERRNO) (thread->tid)
-            .Text("error signalling thread");
+          if (signalThread(thread, SigInfo::ckptSignal()) < 0) {
+            ASSERT_ERRNO(errno == ESRCH,
+                         "error signalling thread for checkpoint: tid={} "
+                         "signal={}",
+                         thread->tid, SigInfo::ckptSignal());
             ThreadList::threadIsDead(thread);
           } else {
             needrescan = 1;
@@ -493,7 +522,7 @@ ThreadList::suspendThreads()
         break;
 
       case ST_SIGNALED:
-        if (THREAD_TGKILL(motherpid, thread->tid, 0) == -1 && errno == ESRCH) {
+        if (signalThread(thread, 0) == -1 && errno == ESRCH) {
           ThreadList::threadIsDead(thread);
         } else {
           needrescan = 1;
@@ -512,7 +541,9 @@ ThreadList::suspendThreads()
         break;
 
       default:
-        JASSERT(false);
+        ASSERT(false, "unexpected thread state while suspending: tid={} "
+               "state={}",
+               thread->tid, thread->state);
       }
     }
     if (needrescan) {
@@ -525,8 +556,8 @@ ThreadList::suspendThreads()
     sem_wait(&semNotifyCkptThread);
   }
 
-  JASSERT(activeThreads != NULL);
-  JTRACE("everything suspended") (numUserThreads);
+  ASSERT_NOT_NULL(activeThreads);
+  TRACE("everything suspended: numUserThreads={}", numUserThreads);
 }
 
 void ThreadList::waitForExitingThreads()
@@ -539,7 +570,7 @@ void ThreadList::waitForExitingThreads()
     for (Thread *thread = activeThreads; thread != NULL; thread = next) {
       next = thread->next;
       if (thread->exiting) {
-        if (THREAD_TGKILL(motherpid, thread->tid, 0) == -1 && errno == ESRCH) {
+        if (signalThread(thread, 0) == -1 && errno == ESRCH) {
           // Thread exited. Let's remove it from the list.
           ThreadList::threadIsDead(thread);
         } else {
@@ -568,8 +599,8 @@ void ThreadList::vforkResumeThreads()
 void
 ThreadList::resumeThreads()
 {
-  JTRACE("resuming user threads");
-  JASSERT(DmtcpRWLockUnlock(&threadResumeLock) == 0) (JASSERT_ERRNO);
+  TRACE("resuming user threads");
+  ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
 }
 
 /*************************************************************************
@@ -612,15 +643,14 @@ stopthisthread(int signum)
 
   // Case 5 above.
   if (curThread == ckptThread || curThread->state == ST_RUNNING) {
-    CoordinatorAPI::connectAndSendUserCommand('c');
+    CoordinatorAPI::connectAndSendUserCommand(DMT_CHECKPOINT);
     return;
   }
 
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
-    JWARNING(prctl(PR_GET_NAME, curThread->procname) != -1) (JASSERT_ERRNO)
-    .Text("prctl(PR_GET_NAME, ...) failed");
+    WARN_NE(-1, prctl(PR_GET_NAME, curThread->procname));
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
     Thread_SaveSigState(curThread);  // save sig state (and block sig delivery)
@@ -628,14 +658,16 @@ stopthisthread(int signum)
 
     /* Set up our restart point, ie, we get jumped to here after a restore */
 #ifdef SETJMP
-    JASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0);
+    ASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0,
+           "failed to save user-thread jump context");
 #else  // ifdef SETJMP
-    JASSERT(getcontext(&curThread->savctx) == 0);
+    ASSERT_NE(-1, getcontext(&curThread->savctx));
 #endif  // ifdef SETJMP
     save_sp(&curThread->saved_sp);
 
-    JTRACE("Thread after sigsetjmp/getcontext")
-      (curThread->tid) (curThread->saved_sp) (__builtin_return_address(0));
+    TRACE("Saved user-thread checkpoint context: tid={} saved_sp={} "
+          "return_address={}",
+          curThread->tid, curThread->saved_sp, __builtin_return_address(0));
 
     if (!restoreInProgress) {
       /* We are a user thread and all context is saved.
@@ -643,11 +675,14 @@ stopthisthread(int signum)
        */
 
       /* Tell the checkpoint thread that we're all saved away */
-      JASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG));
+      ASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG),
+             "Failed to mark thread (tid:{}) from SUSPEND_IN_PROGRESS to "
+             "SUSPENDED",
+             curThread->tid);
       sem_post(&semNotifyCkptThread);
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
-      JTRACE("User thread suspended") (curThread->tid);
+      TRACE("User thread suspended: tid={}", curThread->tid);
 
       // We can't use sem_wait here because sem_wait registers a cleanup
       // handler before going into blocking wait. The handler is popped before
@@ -658,11 +693,14 @@ stopthisthread(int signum)
       // However, the sem_wait cleanup handler is now invalid and thus we get a
       // segfault.
       // The change in sem_wait behavior was first introduce in glibc 2.21.
-      JASSERT(DmtcpRWLockRdLock(&threadResumeLock) == 0);
+      ASSERT_LOCK_SUCCESS(DmtcpRWLockRdLock(&threadResumeLock));
 
-      JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
+      ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
+             "Failed to mark thread (tid:{}) from SUSPENDED to RUNNING "
+             "after checkpoint",
+             curThread->tid);
 
-      JASSERT(DmtcpRWLockUnlock(&threadResumeLock) == 0);
+      ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
     } else {
       // If the user defined DMTCP_DISABLE_PRGNAME_PREFIX, skip this prefix.
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
@@ -679,19 +717,22 @@ stopthisthread(int signum)
         curThread->procname[sizeof(curThread->procname) - 1] = '\0';
       }
 # endif
-      JASSERT(prctl(PR_SET_NAME, curThread->procname) != -1 || errno == EINVAL)
-        (curThread->procname) (JASSERT_ERRNO)
-      .Text("prctl(PR_SET_NAME, ...) failed");
+      ASSERT_ERRNO(prctl(PR_SET_NAME, curThread->procname) != -1 ||
+                   errno == EINVAL,
+                   "prctl(PR_SET_NAME) failed");
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
-      JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
+      ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
+             "Failed to mark restored thread (tid:{}) from SUSPENDED to "
+             "RUNNING",
+             curThread->tid);
 
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
       ThreadList::waitForAllRestored(curThread);
     }
 
-    JTRACE("User thread returning to user code")
-      (curThread->tid) (__builtin_return_address(0));
+    TRACE("User thread returning to user code: tid={} return_address={}",
+          curThread->tid, __builtin_return_address(0));
   }
 }
 
@@ -718,11 +759,11 @@ ThreadList::waitForAllRestored(Thread *thread)
     // and not having an appropriate signal handler could kill the process.
     SigInfo::restoreSigHandlers();
 
-    JTRACE("before DmtcpWorker::postRestart()");
+    TRACE("before DmtcpWorker::postRestart()");
 
-    DmtcpWorker::postRestart(thread->ckptReadTime);
+    DmtcpWorker::postRestart();
 
-    JTRACE("after DmtcpWorker::postRestart()");
+    TRACE("after DmtcpWorker::postRestart()");
 
     /* raise the signals which were pending for the entire process at the time
      * of checkpoint. It is assumed that if a signal is pending for all threads
@@ -757,23 +798,25 @@ ThreadList::waitForAllRestored(Thread *thread)
  *
  *****************************************************************************/
 void
-ThreadList::postRestart(double readTime, int restartPause)
+ThreadList::postRestart(int restartPause)
 {
-  // This function and related ones are defined in src/mtcp/restore_libc.c
+  // This function and related ones are defined in src/tls.cpp
   TLSInfo_RestoreTLSState(motherofall);
   TLSInfo_RestoreTLSTidPid(motherofall);
+
+  motherpid = getpid();
 
   restartPauseLevel = restartPause;
   DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 2);
 
-  postRestartWork(readTime);
+  postRestartWork();
 }
 
 /*****************************************************************************
  *
  *****************************************************************************/
 void
-ThreadList::postRestartWork(double readTime)
+ThreadList::postRestartWork()
 {
   Thread *thread;
   sigset_t tmp;
@@ -782,7 +825,9 @@ ThreadList::postRestartWork(double readTime)
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
   }
 
-  dmtcp_update_virtual_to_real_tid(motherofall->tid);
+  // The PID plugin helper refreshes the virtual->real TID map and returns the
+  // virtual TID that ThreadList stores in Thread::tid.
+  motherofall->tid = dmtcp_update_virtual_to_real_tid(motherofall->tid);
 
   DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 3);
 
@@ -801,8 +846,6 @@ ThreadList::postRestartWork(double readTime)
       continue;
     }
 
-    thread->ckptReadTime = readTime;
-
     /* Create the thread so it can finish restoring itself. */
     pid_t tid = _real_clone(restarthread,
 
@@ -814,8 +857,10 @@ ThreadList::postRestartWork(double readTime)
                             thread->flags & ~CLONE_SETTLS,
                             thread, thread->ptid, NULL, thread->ctid);
 
-    JASSERT(tid > 0);  // (JASSERT_ERRNO) .Text("Error recreating thread");
-    JTRACE("Thread recreated") (thread->tid) (tid);
+    ASSERT_ERRNO(tid > 0, "error recreating thread: tid={} result={}",
+                 thread->tid, tid);
+  TRACE("Recreated thread after restart: virtual_tid={} real_tid={}",
+          thread->tid, tid);
   }
 
   restarthread(motherofall);
@@ -836,7 +881,8 @@ restarthread(void *threadv)
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
   }
 
-  dmtcp_update_virtual_to_real_tid(thread->tid);
+  // Keep Thread::tid in the virtual namespace while refreshing its real mapping.
+  thread->tid = dmtcp_update_virtual_to_real_tid(thread->tid);
 
   if (thread == motherofall) {  // if this is a user thread
     DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 4);
@@ -846,13 +892,14 @@ restarthread(void *threadv)
    * Note that if this is the restored checkpointhread, it jumps to the
    * checkpointhread routine
    */
-  JTRACE("calling siglongjmp/setcontext") (thread->tid);
+  TRACE("calling siglongjmp/setcontext: tid={}", thread->tid);
 #ifdef SETJMP
   siglongjmp(thread->jmpbuf, 1); /* Shouldn't return */
 #else  // ifdef SETJMP
   setcontext(&thread->savctx); /* Shouldn't return */
 #endif  // ifdef SETJMP
-  JASSERT(false);
+  ASSERT(false, "restored thread context unexpectedly returned: tid={}",
+         thread->tid);
   return 0;   /* NOTREACHED : stop compiler warning */
 }
 
@@ -864,12 +911,14 @@ Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval)
 {
   int res = 0;
 
-  JASSERT(DmtcpMutexLock(&threadStateLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadStateLock),
+                      "locking thread state");
   if (oldval == th->state) {
     th->state = newval;
     res = 1;
   }
-  JASSERT(DmtcpMutexUnlock(&threadStateLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadStateLock),
+                      "unlocking thread state");
   return res;
 }
 
@@ -882,7 +931,10 @@ void
 Thread_SaveSigState(Thread *th)
 {
   // Save signal block mask
-  JASSERT(pthread_sigmask(SIG_SETMASK, NULL, &th->sigblockmask) == 0);
+  ASSERT_PTHREAD_SUCCESS(
+    pthread_sigmask(SIG_SETMASK, NULL, &th->sigblockmask),
+    "saving thread signal mask: tid={}",
+    th->tid);
 
   // Save pending signals
   sigpending(&th->sigpending);
@@ -898,8 +950,11 @@ Thread_RestoreSigState(Thread *th)
 {
   int i;
 
-  JTRACE("restoring signal mask for thread") (th->tid);
-  JASSERT(pthread_sigmask(SIG_SETMASK, &th->sigblockmask, NULL) == 0);
+  TRACE("restoring signal mask for thread: tid={}", th->tid);
+  ASSERT_PTHREAD_SUCCESS(
+    pthread_sigmask(SIG_SETMASK, &th->sigblockmask, NULL),
+    "restoring thread signal mask: tid={}",
+    th->tid);
 
   // Raise the signals which were pending for only this thread at the time of
   // checkpoint.
@@ -908,8 +963,8 @@ Thread_RestoreSigState(Thread *th)
         sigismember(&th->sigblockmask, i) == 1 &&
         sigismember(&sigpending_global, i) == 0 &&
         i != dmtcp_get_ckpt_signal()) {
-      if (i != SIGCHLD) {
-        JNOTE("\n*** WARNING:  SIGCHLD was delivered prior to ckpt.\n"
+      if (i == SIGCHLD) {
+        NOTE("\n*** WARNING:  SIGCHLD was delivered prior to ckpt.\n"
               "*** Will raise it on restart.  If not desired, change\n"
               "*** this line raising SIGCHLD.");
       }
@@ -953,22 +1008,18 @@ ThreadList::addToActiveList(Thread *th)
   curThread = th;
 
   tid = curThread->tid;
-  JASSERT(tid != 0);
+  ASSERT(tid != 0, "cannot add thread with zero tid");
 
   // First remove duplicate descriptors.
   for (thread = activeThreads; thread != NULL; thread = next_thread) {
     next_thread = thread->next;
     if (thread != curThread && thread->tid == tid) {
-      JTRACE("Removing duplicate thread descriptor") (thread->tid);
+      TRACE("Removing duplicate thread descriptor: tid={}", thread->tid);
 
       // There will be at most one duplicate descriptor.
       threadIsDead(thread);
       continue;
     }
-
-    // FIXME:  This causes segfault on second restart.  Why?
-    // JASSERT(thread != curThread)(thread)
-    // .Text("adding curThread, but it's already on activeThreads");
 
     /* NOTE:  ST_ZOMBIE is used only for the sake of efficiency.  We
      *   test threads in state ST_ZOMBIE using tgkill to remove them
@@ -977,8 +1028,8 @@ ThreadList::addToActiveList(Thread *th)
      */
     if (thread->exiting) {
       /* if no thread with this tid, then we can remove zombie descriptor */
-      if (-1 == THREAD_TGKILL(motherpid, thread->tid, 0)) {
-        JTRACE("Killing zombie thread") (thread->tid);
+      if (-1 == signalThread(thread, 0)) {
+        TRACE("Killing zombie thread: tid={}", thread->tid);
         threadIsDead(thread);
       }
     }
@@ -1002,8 +1053,8 @@ ThreadList::addToActiveList(Thread *th)
 void
 ThreadList::threadIsDead(Thread *thread)
 {
-  JASSERT(thread != NULL);
-  JTRACE("Putting thread on freelist") (thread->tid);
+  ASSERT_NOT_NULL(thread);
+  TRACE("Putting thread on freelist: tid={}", thread->tid);
 
   /* Remove thread block from 'threads' list */
   if (thread->prev != NULL) {

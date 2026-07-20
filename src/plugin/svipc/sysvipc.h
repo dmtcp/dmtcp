@@ -34,8 +34,6 @@
 #include <vector>
 
 #include "jalloc.h"
-#include "jassert.h"
-#include "jbuffer.h"
 #include "jconvert.h"
 #include "jserialize.h"
 #include "dmtcpalloc.h"
@@ -56,12 +54,15 @@
 #define REAL_TO_VIRTUAL_MSQ_ID(id) SysVMsq::instance().realToVirtualId(id)
 #define VIRTUAL_TO_REAL_MSQ_ID(id) SysVMsq::instance().virtualToRealId(id)
 
+#ifndef DMTCP_UNION_SEMUN_DEFINED
+#define DMTCP_UNION_SEMUN_DEFINED
 union semun {
   int val;                 /* Value for SETVAL */
   struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
   unsigned short *array;   /* Array for GETALL, SETALL */
   struct seminfo *__buf;   /* Buffer for IPC_INFO (Linux-specific) */
 };
+#endif // ifndef DMTCP_UNION_SEMUN_DEFINED
 
 namespace dmtcp
 {
@@ -358,7 +359,7 @@ class MsgQueue : public SysVObj
     }
 
   private:
-    vector<jalib::JBuffer>_msgInQueue;
+    vector<vector<char> >_msgInQueue;
     msgqnum_t _qnum;
 };
 }

@@ -32,7 +32,6 @@
 
 #include "dmtcpalloc.h"
 #include "jalloc.h"
-#include "jassert.h"
 
 namespace jalib
 {

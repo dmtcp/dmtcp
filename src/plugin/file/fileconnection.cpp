@@ -1,0 +1,1019 @@
+/****************************************************************************
+ *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
+ *                                                                          *
+ *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
+ *                                                                          *
+ *  DMTCP:dmtcp/src is free software: you can redistribute it and/or        *
+ *  modify it under the terms of the GNU Lesser General Public License as   *
+ *  published by the Free Software Foundation, either version 3 of the      *
+ *  License, or (at your option) any later version.                         *
+ *                                                                          *
+ *  DMTCP:dmtcp/src is distributed in the hope that it will be useful,      *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU Lesser General Public License for more details.                     *
+ *                                                                          *
+ *  You should have received a copy of the GNU Lesser General Public        *
+ *  License along with DMTCP:dmtcp/src.  If not, see                        *
+ *  <http://www.gnu.org/licenses/>.                                         *
+ ****************************************************************************/
+
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <linux/limits.h>
+#include <sys/file.h>
+#include <sys/ioctl.h>
+#include <sys/select.h>
+#include <sys/un.h>
+#include <termios.h>
+#include <time.h>
+#include <unistd.h>
+#include <fstream>
+#include <ios>
+#include <iostream>
+
+#include "jconvert.h"
+#include "jfilesystem.h"
+#include "jsocket.h"
+#include "dmtcp.h"
+#include "pluginmanager.h"
+#include "shareddata.h"
+#include "util.h"
+
+#include "fileconnection.h"
+#include "fileconnlist.h"
+#include "filewrappers.h"
+#include "dmtcp_assert.h"
+#include "wrapperlock.h"
+
+using namespace dmtcp;
+
+static void writeFileFromFd(int fd, int destFd);
+static bool areFilesEqual(int fd, int destFd, size_t size);
+
+static const char *
+virtualToRealPathForInternalOpen(const string& virtualPath, char *realPath)
+{
+  ASSERT(virtualPath.size() < PATH_MAX,
+         "Path too long for internal open translation: path={}", virtualPath);
+
+  strncpy(realPath, virtualPath.c_str(), PATH_MAX);
+  realPath[PATH_MAX - 1] = '\0';
+
+  /*
+   * FileConnection must use _real_open() while rebuilding internal fd state,
+   * but saved paths can still contain virtual /proc pid components.  Since
+   * _real_open() bypasses wrappers, fire the same path translation event that
+   * the public open wrappers would have fired.
+   */
+  DmtcpEventData_t data;
+  data.virtualToRealPath.path = realPath;
+  PluginManager::eventHook(DMTCP_EVENT_VIRTUAL_TO_REAL_PATH, &data);
+
+  return realPath;
+}
+
+static bool
+_isVimApp()
+{
+  static int isVimApp = -1;
+
+  if (isVimApp == -1) {
+    string progName = jalib::Filesystem::GetProgramName();
+
+    if (progName == "vi" || progName == "vim" || progName == "vim-normal" ||
+        progName == "vim.basic" || progName == "vim.tiny" ||
+        progName == "vim.gtk" || progName == "vim.gnome") {
+      isVimApp = 1;
+    } else {
+      isVimApp = 0;
+    }
+  }
+  return isVimApp;
+}
+
+static bool
+_isBlacklistedFile(string &path)
+{
+  if ((Util::strStartsWith(path.c_str(), "/dev/") &&
+       !Util::strStartsWith(path.c_str(), "/dev/shm/")) ||
+      Util::strStartsWith(path.c_str(), "/proc/") ||
+      Util::strStartsWith(path.c_str(), dmtcp_get_tmpdir())) {
+    return true;
+  }
+  return false;
+}
+
+/*****************************************************************************
+ * File Connection
+ *****************************************************************************/
+
+// Upper limit on filesize for files that are automatically chosen for ckpt.
+// Default 100MB
+#define MAX_FILESIZE_TO_AUTOCKPT (100 * 1024 * 1024)
+
+void
+FileConnection::doLocking()
+{
+  if (Util::strStartsWith(_path.c_str(), "/proc/")) {
+    _type = FILE_PROCFS;
+  }
+
+  Connection::doLocking();
+  _ckpted_file = false;
+}
+
+void
+FileConnection::calculateRelativePath()
+{
+  string cwd = jalib::Filesystem::GetCWD();
+
+  if (_path.starts_with(cwd) &&
+      _path.length() > cwd.length()) {
+    /* CWD = "/A/B", FileName = "/A/B/C/D" ==> relPath = "C/D" */
+    _rel_path = _path.substr(cwd.length() + 1);
+  } else {
+    _rel_path = "*";
+  }
+}
+
+void
+FileConnection::drain()
+{
+  struct stat statbuf;
+
+  ASSERT(_fds.size() > 0, "file connection has no fds during drain");
+
+  _ckpted_file = false;
+  _allow_overwrite = false;
+
+  // Read the current file descriptor offset
+  _offset = lseek(_fds[0], 0, SEEK_CUR);
+  fstat(_fds[0], &statbuf);
+  _mode = statbuf.st_mode;
+  _st_dev = statbuf.st_dev;
+  _st_ino = statbuf.st_ino;
+  _st_size = statbuf.st_size;
+
+  if (_type == FILE_PROCFS) {
+    return;
+  }
+
+  if (statbuf.st_nlink == 0) {
+    _type = FILE_DELETED;
+  } else {
+    // Update _path to reflect the current state. The file path might be a new
+    // one after restart and if the current process wasn't the leader, it never
+    // had a chance to update the _path. Update it now.
+    _path = jalib::Filesystem::GetDeviceName(_fds[0]);
+    // Files deleted on NFS have the .nfsXXXX format.
+    if (Util::strStartsWith(jalib::Filesystem::BaseName(_path).c_str(), ".nfs")
+        || !jalib::Filesystem::FileExists(_path)) {
+      _type = FILE_DELETED;
+    }
+  }
+
+  calculateRelativePath();
+
+  // If this file is related to supported Resource Management system
+  // handle it specially
+  if (_type == FILE_BATCH_QUEUE &&
+      dmtcp_bq_should_ckpt_file &&
+      dmtcp_bq_should_ckpt_file(_path.c_str(), &_rmtype)) {
+    TRACE("Pre-checkpoint batch-queue file: path={} fd_count={}",
+          _path, _fds.size());
+    for (unsigned int i = 0; i < _fds.size(); i++) {
+      TRACE("Batch-queue file descriptor: index={} fd={}", i, _fds[i]);
+    }
+    _ckpted_file = true;
+    return;
+  }
+
+  if (_type == FILE_DELETED && (_fcntlFlags & O_WRONLY)) {
+    return;
+  }
+
+  if (dmtcp_must_ckpt_file && dmtcp_must_ckpt_file(_path.c_str())) {
+    _ckpted_file = true;
+    return;
+  }
+
+  if (_isBlacklistedFile(_path)) {
+    return;
+  }
+  if (dmtcp_should_ckpt_open_files() && statbuf.st_uid == getuid()) {
+    _ckpted_file = true;
+  } else if (_type == FILE_DELETED || _type == FILE_SHM) {
+    _ckpted_file = true;
+  } else if (_isVimApp() &&
+             (!Util::strEndsWith(_path.c_str(), ".swp") &&
+              !Util::strEndsWith(_path.c_str(), ".swo"))) {
+    _ckpted_file = true;
+  } else if (Util::strStartsWith(jalib::Filesystem::GetProgramName().c_str(),
+                                 "emacs")) {
+    _ckpted_file = true;
+#if 0
+  } else if ((_fcntlFlags & (O_WRONLY | O_RDWR)) != 0 &&
+             _offset < _st_size &&
+             _st_size < MAX_FILESIZE_TO_AUTOCKPT &&
+             statbuf.st_uid == getuid()) {
+    // FIXME: Disable the following heuristic until we can come up with
+    // a better one
+    _ckpted_file = true;
+#endif // if 0
+  } else {
+    _ckpted_file = false;
+  }
+}
+
+void
+FileConnection::preCkpt()
+{
+  if (_ckpted_file) {
+    ConnectionIdentifier id;
+    ASSERT(_type != FILE_PROCFS && _type != FILE_INVALID,
+           "invalid file type for checkpoint: type={}", _type);
+    ASSERT(SharedData::getCkptLeaderForFile(_st_dev, _st_ino, &id),
+           "failed to get checkpoint leader for file: dev={} ino={}",
+           _st_dev, _st_ino);
+    if (id == _id) {
+      _savedFilePath = getSavedFilePath(_path);
+      ASSERT(FileConnList::createDirectoryTree(_savedFilePath),
+             "Unable to create directory in file path: path={}",
+             _savedFilePath);
+
+      int destFd = _real_open(
+          _savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
+          S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+      ASSERT_NE(-1, destFd,
+                          "failed to open checkpointed file copy: path={} "
+                          "saved={}",
+                          _path, _savedFilePath);
+
+      TRACE("Saving checkpointed file copy: path={} saved={}",
+            _path, _savedFilePath);
+      if (_fcntlFlags & O_WRONLY) {
+        // If the file is opened() in write-only mode. Open it in readonly mode
+        // to create the ckpt copy.
+        int tmpfd = _real_open(_path.c_str(), O_RDONLY, 0);
+        ASSERT_NE(-1, tmpfd,
+                            "failed to open write-only file for checkpoint "
+                            "copy: path={}",
+                            _path);
+        writeFileFromFd(tmpfd, destFd);
+        _real_close(tmpfd);
+      } else {
+        writeFileFromFd(_fds[0], destFd);
+      }
+      _real_close(destFd);
+    } else {
+      TRACE("Not checkpointing file; another process owns the copy: path={}",
+            _path);
+      _ckpted_file = false;
+    }
+
+    /* The _allow_overwrite flag is clear by default; we only set
+     * it for a regular file that has its _ckpted_file flag set and
+     * only for the process that's been chosen as the fd leader.
+     */
+    if (_ckpted_file &&
+        (dmtcp_allow_overwrite_with_ckpted_files() ||
+         (dmtcp_must_overwrite_file &&
+          dmtcp_must_overwrite_file(_path.c_str())))) {
+      _allow_overwrite = true;
+    }
+  }
+}
+
+/* Given an open file-descriptor for a saved file, saves a copy
+ * of its existing copy, and replaces the existing copy with the
+ * saved file.
+ */
+void
+FileConnection::overwriteFileWithBackup(int savedFd)
+{
+  char currentTimeBuff[30] = { 0 };
+  time_t rawtime;
+
+  time(&rawtime);
+  strftime(currentTimeBuff, 30, "-%F-%H-%M-%S.bk", localtime(&rawtime));
+  dmtcp::string backupPath = _path + currentTimeBuff;
+
+  // Temporarily close the file to avoid overwriting
+  _real_close(_fds[0]);
+
+  // Create a backup of user file
+  WARN_NE(-1, rename(_path.c_str(), backupPath.c_str()),
+                "Error creating a backup: path={} backup={}", _path,
+                backupPath);
+
+  /* Overwrite the existing file with the contents of the saved
+   * file. We need to open it in WRONLY mode here because the file
+   * might have been opened originally in read-only mode.
+   */
+  int destFileFd = _real_open(_path.c_str(), O_CREAT | O_WRONLY, 0640);
+  ASSERT_ERRNO(destFileFd >= 0,
+               "Error opening file for overwriting: path={}", _path);
+  writeFileFromFd(savedFd, destFileFd);
+  _real_close(destFileFd);
+
+  // Re-open the (closed) file with the original flags
+  int tempfd = openFile();
+  restoreDupFds(tempfd);
+}
+
+void
+FileConnection::refill(bool isRestart)
+{
+  struct stat statbuf;
+
+  if (!isRestart) {
+    return;
+  }
+  if (strstr(_path.c_str(), "infiniband/uverbs") ||
+      strstr(_path.c_str(), "uverbs-event")) {
+    return;
+  }
+
+  if (_ckpted_file && _fileAlreadyExists) {
+    int savedFd = _real_open(_savedFilePath.c_str(), O_RDONLY, 0);
+    ASSERT_NE(-1, savedFd,
+                        "failed to open checkpointed file copy: saved={}",
+                        _savedFilePath);
+
+    if (_allow_overwrite) {
+      TRACE("Copying checkpointed file to original location: saved={} "
+            "path={}",
+            _savedFilePath, _path);
+      this->overwriteFileWithBackup(savedFd);
+    } else {
+      if (!areFilesEqual(_fds[0], savedFd, _st_size)) {
+        if (_type == FILE_SHM) {
+          WARN(false,
+                  "Mapping current version of file into memory, not file as "
+                  "it existed at checkpoint: path={} saved={}",
+                  _path, _savedFilePath);
+        } else {
+          ASSERT(false,
+                 "File already exists and checkpointed copy differs: path={} "
+                 "saved={}",
+                 _path, _savedFilePath);
+        }
+      }
+    }
+    _real_close(savedFd);
+  }
+
+  if (!_ckpted_file) {
+    int tempfd;
+    if (_type == FILE_DELETED &&
+        ((_fcntlFlags & O_WRONLY) || (_fcntlFlags & O_RDWR))) {
+      tempfd = _real_open(_path.c_str(), _fcntlFlags | O_CREAT, 0600);
+      ASSERT_NE(-1, tempfd, "open() failed: path={}", _path);
+      ASSERT_NE(-1, truncate(_path.c_str(), _st_size),
+                   "truncate failed: path={} size={}", _path, _st_size);
+    } else if (jalib::Filesystem::FileExists(_path)) {
+      if (stat(_path.c_str(), &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
+        if (statbuf.st_size > _st_size &&
+            ((_fcntlFlags & O_APPEND) ||
+             (_fcntlFlags & O_WRONLY) ||
+             (_fcntlFlags & O_RDWR))) {
+          errno = 0;
+          // MANA deterministic p2p saves the p2p requests in a log file.  The
+          // log file is used to keep track the source rank from which the
+          // request with MPI_ANY_SOURCE is actually received. In order to
+          // deterministically replay the uncompleted requests from the same
+          // source at restart, the requests are also saved after checkpoint.
+          // The log file size at restart is larger than its size saved in the
+          // checkpoint image. Just give a warning here and continue.
+          //
+          // Plugins can use this API to preserve file contents at restart.
+          if (!dmtcp_skip_truncate_file_at_restart(_path.c_str())) {
+            TRACE("Truncating file to checkpointed size: path={} "
+                  "saved_size={} current_size={}",
+                  _path, _st_size, statbuf.st_size);
+            ASSERT_NE(-1, truncate(_path.c_str(), _st_size),
+                         "truncate failed: path={} size={}", _path, _st_size);
+          } else {
+            WARN(false,
+                    "Setting saved size to the current file size: path={} "
+                    "saved_size={} current_size={}",
+                    _path, _st_size, statbuf.st_size);
+            _st_size = statbuf.st_size;
+          }
+        } else if (statbuf.st_size < _st_size) {
+          WARN(false,
+                  "Size of file smaller than expected: path={} saved_size={} "
+                  "current_size={}",
+                  _path, _st_size, statbuf.st_size);
+        }
+      }
+      tempfd = openFile();
+    } else if (_fcntlFlags & O_WRONLY) {
+      // File doesn't exist. If it's a WRONLY file, we'll create a new one.
+      mode_t createMode = (_mode == 0) ? 0600 : (_mode & 0777);
+      tempfd = _real_open(_path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, createMode);
+      ASSERT_NE(-1, tempfd,
+                          "failed to create missing WRONLY file: path={}",
+                          _path);
+      ASSERT_NE(-1, ftruncate(tempfd, _st_size),
+                   "ftruncate failed: path={} fd={} size={}", _path, tempfd,
+                   _st_size);
+    } else {
+      ASSERT(false, "File not found: path={}", _path);
+    }
+
+    restoreDupFds(tempfd);
+  }
+
+  errno = 0;
+  if (jalib::Filesystem::FileExists(_path) &&
+      stat(_path.c_str(), &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
+    if (_offset <= statbuf.st_size && _offset <= _st_size) {
+      ASSERT_EQ(static_cast<off_t>(_offset),
+                lseek(_fds[0], _offset, SEEK_SET),
+                "failed to restore file offset: path={} offset={}",
+                _path, _offset);
+    } else if (_offset > statbuf.st_size || _offset > _st_size) {
+      WARN(false,
+           "No lseek done: offset is larger than min of old and new size: "
+           "path={} offset={} saved_size={} current_size={}",
+           _path, _offset, _st_size, statbuf.st_size);
+    }
+  }
+  refreshPath();
+}
+
+void
+FileConnection::resume(bool isRestart)
+{
+  if (isRestart && _type == FILE_DELETED) {
+    /* Here we want to unlink the file. We want to do it only at the time of
+     * restart, but there is no way of finding out if we are restarting or not.
+     * That is why we look for the file on disk and if it is present(it was
+     * deleted at ckpt time), then we assume that we are restarting and hence
+     * we unlink the file.
+     */
+    if (jalib::Filesystem::FileExists(_path)) {
+      WARN_NE(-1, unlink(_path.c_str()),
+                    "The file was unlinked at checkpoint, but unlinking it "
+                    "after restart failed: path={}",
+                    _path);
+    }
+  }
+}
+
+void
+FileConnection::refreshPath()
+{
+  string cwd = jalib::Filesystem::GetCWD();
+
+  if (_type == FILE_BATCH_QUEUE) {
+    // get new file name
+    string newpath = jalib::Filesystem::GetDeviceName(_fds[0]);
+    TRACE("Refreshing batch-queue file path: fd={} old_path={} new_path={} "
+          "connection={}",
+          _fds[0], _path, newpath, this);
+    if (newpath != _path) {
+      TRACE("Batch-queue file path changed: old_path={} new_path={}",
+            _path, newpath);
+      _path = newpath;
+    }
+    return;
+  }
+
+  if (dmtcp_get_new_file_path) {
+    char newpath[PATH_MAX];
+    newpath[0] = '\0';
+    dmtcp_get_new_file_path(_path.c_str(), cwd.c_str(), newpath);
+    if (newpath[0] != '\0') {
+      ASSERT(jalib::Filesystem::FileExists(newpath),
+             "Path returned by plugin does not exist: old={} new={}", _path,
+             newpath);
+      _path = newpath;
+      return;
+    }
+  }
+  if (_rel_path != "*" && !jalib::Filesystem::FileExists(_path)) {
+    // If file at absolute path doesn't exist and file path is relative to
+    // executable current dir
+    string oldPath = _path;
+    string fullPath = cwd + "/" + _rel_path;
+    if (jalib::Filesystem::FileExists(fullPath)) {
+      _path = fullPath;
+      TRACE("Resolved file path from saved relative path: old_path={} "
+            "new_path={} relative_path={}",
+            oldPath, _path, _rel_path);
+    }
+  } else if (_type == FILE_PROCFS) {
+    // No need to refresh path. PID plugin will take care of the translation.
+  }
+}
+
+void
+FileConnection::postRestart()
+{
+  int tempfd;
+
+  ASSERT(_fds.size() > 0, "file connection has no fds during postRestart");
+
+  refreshPath();
+
+  if (!_ckpted_file) {
+    return;
+  }
+  _fileAlreadyExists = false;
+
+  TRACE("Restoring file connection: con_id={} path={}",
+        id().toString(), _path);
+  ASSERT(jalib::Filesystem::FileExists(_savedFilePath),
+         "Unable to find checkpointed copy of file: saved={} path={}",
+         _savedFilePath, _path);
+
+  if (_type == FILE_BATCH_QUEUE) {
+    ASSERT_NOT_NULL(dmtcp_bq_restore_file,
+                        "batch-queue restore hook is missing");
+    tempfd = dmtcp_bq_restore_file(_path.c_str(), _savedFilePath.c_str(),
+                                   _fcntlFlags, _rmtype);
+    TRACE("Restored batch-queue file: path={}", _path);
+  } else {
+    refreshPath();
+    ASSERT(FileConnList::createDirectoryTree(_path),
+           "Unable to create directory in file path: path={}", _path);
+
+    /* Now try to create the file with O_EXCL. If we fail with EEXIST, there
+     * are two possible scenarios:
+     * - The file was created by a different restarting process with data from
+     *   checkpointed copy. It is possible that the data is in flight, so we
+     *   should wait until the next barrier to compare the data from our copy.
+     * - The file existed before restart. After the next barrier, abort if the
+     *   contents differ from our checkpointed copy.
+     */
+    int fd = _real_open(_path.c_str(), O_CREAT | O_EXCL | O_RDWR,
+                        S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    ASSERT_ERRNO(fd != -1 || errno == EEXIST,
+                 "failed to create restored file: path={}", _path);
+
+    if (fd == -1) {
+      _fileAlreadyExists = true;
+    } else {
+      int srcFd = _real_open(_savedFilePath.c_str(), O_RDONLY, 0);
+      ASSERT_NE(-1, srcFd,
+                          "Failed to open checkpointed copy of the file: "
+                          "path={} saved={}",
+                          _path, _savedFilePath);
+      TRACE("Copying saved checkpointed file to original location: saved={} "
+            "path={}",
+            _savedFilePath, _path);
+      writeFileFromFd(srcFd, fd);
+      _real_close(srcFd);
+      _real_close(fd);
+    }
+    tempfd = openFile();
+  }
+  restoreDupFds(tempfd);
+}
+
+bool
+FileConnection::checkDup(int fd, const char *npath)
+{
+  bool retVal = false;
+
+  int myfd = _fds[0];
+
+  string fullPath = jalib::Filesystem::GetDeviceName(myfd);
+  string fpath = string(npath);
+  if (fullPath != fpath &&
+       lseek(myfd, 0, SEEK_CUR) == lseek(fd, 0, SEEK_CUR)) {
+    off_t newOffset = lseek(myfd, 1, SEEK_CUR);
+    ASSERT_NE(-1, newOffset, "lseek failed: fd={}", myfd);
+
+    if (newOffset == lseek(fd, 0, SEEK_CUR)) {
+      retVal = true;
+    }
+
+    // Now restore the old offset
+    ASSERT_NE(-1, lseek(myfd, -1, SEEK_CUR),
+                               "lseek failed: fd={}", myfd);
+  }
+  return retVal;
+}
+
+int
+FileConnection::openFile()
+{
+  ASSERT(jalib::Filesystem::FileExists(_path), "File not present: path={}",
+         _path);
+
+  char realPath[PATH_MAX];
+  int fd = _real_open(virtualToRealPathForInternalOpen(_path, realPath),
+                      _fcntlFlags);
+  ASSERT_NE(-1, fd, "open() failed: path={}", _path);
+
+  TRACE("Opened tracked file: fd={} path={} real_path={} flags={}",
+        fd, _path, realPath, _fcntlFlags);
+  return fd;
+}
+
+static bool
+areFilesEqual(int fd, int savedFd, size_t size)
+{
+  long page_size = sysconf(_SC_PAGESIZE);
+  const size_t bufSize = 1024 * page_size;
+  char *buf1 = (char *)JALLOC_HELPER_MALLOC(bufSize);
+  char *buf2 = (char *)JALLOC_HELPER_MALLOC(bufSize);
+
+  off_t offset1 = lseek(fd, 0, SEEK_CUR);
+  off_t offset2 = lseek(savedFd, 0, SEEK_CUR);
+
+  ASSERT_NE(-1, lseek(fd, 0, SEEK_SET),
+               "failed to seek current file: fd={}", fd);
+  ASSERT_NE(-1, lseek(savedFd, 0, SEEK_SET),
+               "failed to seek saved file: fd={}", savedFd);
+
+  int readBytes;
+  while (size > 0) {
+    readBytes = Util::readAll(savedFd, buf1, MIN(bufSize, size));
+    ASSERT_NE(-1, readBytes, "Read Failed: fd={}", savedFd);
+    if (readBytes == 0) {
+      break;
+    }
+    if (Util::readAll(fd, buf2, readBytes) != readBytes) {
+      break;
+    }
+    if (memcmp(buf1, buf2, readBytes) != 0) {
+      break;
+    }
+    size -= readBytes;
+  }
+  JALLOC_HELPER_FREE(buf1);
+  JALLOC_HELPER_FREE(buf2);
+  ASSERT_NE(-1, lseek(fd, offset1, SEEK_SET),
+               "failed to restore current file offset: fd={} offset={}", fd,
+               offset1);
+  ASSERT_NE(-1, lseek(savedFd, offset2, SEEK_SET),
+               "failed to restore saved file offset: fd={} offset={}",
+               savedFd, offset2);
+  return size == 0;
+}
+
+static void
+writeFileFromFd(int fd, int destFd)
+{
+  long page_size = sysconf(_SC_PAGESIZE);
+  const size_t bufSize = 1024 * page_size;
+  char *buf = (char *)JALLOC_HELPER_MALLOC(bufSize);
+
+  // Synchronize memory buffer with data in filesystem
+  // On some Linux kernels, the shared-memory test will fail without this.
+  fsync(fd);
+
+  off_t offset = lseek(fd, 0, SEEK_CUR);
+  ASSERT_NE(-1, lseek(fd, 0, SEEK_SET),
+               "failed to seek source file: fd={}", fd);
+  ASSERT_NE(-1, lseek(destFd, 0, SEEK_SET),
+               "failed to seek destination file: fd={}", destFd);
+
+  int readBytes, writtenBytes;
+  while (1) {
+    readBytes = Util::readAll(fd, buf, bufSize);
+    ASSERT_NE(-1, readBytes, "Read Failed: fd={}", fd);
+    if (readBytes == 0) {
+      break;
+    }
+    writtenBytes = Util::writeAll(destFd, buf, readBytes);
+    ASSERT_NE(-1, writtenBytes, "Write failed: fd={}", destFd);
+  }
+  JALLOC_HELPER_FREE(buf);
+  ASSERT_NE(-1, lseek(fd, offset, SEEK_SET),
+               "failed to restore source file offset: fd={} offset={}", fd,
+               offset);
+}
+
+string
+FileConnection::getSavedFilePath(const string &path)
+{
+  ostringstream os;
+
+  os << dmtcp_get_ckpt_files_subdir()
+     << "/" << jalib::Filesystem::BaseName(_path) << "_" << _id.conId();
+
+  return os.str();
+}
+
+void
+FileConnection::serializeSubClass(jalib::JBinarySerializer &o)
+{
+  JSERIALIZE_ASSERT_POINT("FileConnection");
+  o&_path &_rel_path;
+  o&_mode &_offset&_st_dev&_st_ino&_st_size&_ckpted_file &_rmtype;
+  TRACE("Serializing file connection: path={} relative_path={} "
+        "ckpt_files_dir={} checkpointed={} allow_overwrite={} flags={}",
+        _path, _rel_path, dmtcp_get_ckpt_files_subdir(), _ckpted_file,
+        _allow_overwrite, _fcntlFlags);
+}
+
+/*****************************************************************************
+ * FIFO Connection
+ *****************************************************************************/
+void
+FifoConnection::drain()
+{
+  struct stat st;
+
+  ASSERT(_fds.size() > 0, "FIFO connection has no fds during drain");
+
+  stat(_path.c_str(), &st);
+  TRACE("Checkpointing FIFO: fd={} path={}", _fds[0], _path);
+  _mode = st.st_mode;
+
+  int new_flags = (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR |
+    O_NONBLOCK;
+  ckptfd = _real_open(_path.c_str(), new_flags);
+  ASSERT_NE(-1, ckptfd,
+                      "failed to open FIFO for checkpoint: path={}", _path);
+
+  _in_data.clear();
+  size_t bufsize = 256;
+  char buf[bufsize];
+  int size;
+
+  while (1) { // flush fifo
+    size = read(ckptfd, buf, bufsize);
+    if (size < 0) {
+      break; // nothing to flush
+    }
+    for (int i = 0; i < size; i++) {
+      _in_data.push_back(buf[i]);
+    }
+  }
+  close(ckptfd);
+  TRACE("Finished checkpointing FIFO: fd={} buffered_bytes={}",
+        _fds[0], _in_data.size());
+}
+
+void
+FifoConnection::refill(bool isRestart)
+{
+  int new_flags = (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR |
+    O_NONBLOCK;
+
+  ckptfd = _real_open(_path.c_str(), new_flags);
+  ASSERT_NE(-1, ckptfd, "failed to open FIFO for refill: path={}",
+                      _path);
+
+  size_t bufsize = 256;
+  char buf[bufsize];
+  size_t j;
+  for (size_t i = 0; i < (_in_data.size() / bufsize); i++) { // refill fifo
+    for (j = 0; j < bufsize; j++) {
+      buf[j] = _in_data[j + i * bufsize];
+    }
+    ASSERT_EQ(static_cast<ssize_t>(j),
+                          Util::writeAll(ckptfd, buf, j),
+                          "failed to refill FIFO chunk: fd={} chunk={}",
+                          _fds[0], i);
+  }
+  int start = (_in_data.size() / bufsize) * bufsize;
+  for (j = 0; j < _in_data.size() % bufsize; j++) {
+    buf[j] = _in_data[start + j];
+  }
+  errno = 0;
+  buf[j] = '\0';
+  TRACE("Refilling FIFO tail: fd={} bytes={}", _fds[0], j);
+  ASSERT_EQ(static_cast<ssize_t>(j),
+                        Util::writeAll(ckptfd, buf, j),
+                        "failed to refill FIFO tail: fd={}", _fds[0]);
+
+  close(ckptfd);
+
+  // unlock fifo
+  flock(_fds[0], LOCK_UN);
+  TRACE("Finished refilling FIFO after checkpoint: fd={}", _fds[0]);
+}
+
+void
+FifoConnection::refreshPath()
+{
+  string cwd = jalib::Filesystem::GetCWD();
+
+  if (_rel_path != "*") { // file path is relative to executable current dir
+    string oldPath = _path;
+    ostringstream fullPath;
+    fullPath << cwd << "/" << _rel_path;
+    if (jalib::Filesystem::FileExists(fullPath.str())) {
+      _path = fullPath.str();
+      TRACE("Resolved FIFO path from saved relative path: old_path={} "
+            "new_path={}",
+            oldPath, _path);
+    }
+  }
+}
+
+void
+FifoConnection::postRestart()
+{
+  ASSERT(_fds.size() > 0, "FIFO connection has no fds during postRestart");
+  TRACE("Restoring FIFO connection: con_id={} path={}",
+        id().toString(), _path);
+  refreshPath();
+  int tempfd = openFile();
+  restoreDupFds(tempfd);
+  refreshPath();
+}
+
+int
+FifoConnection::openFile()
+{
+  int fd;
+
+  if (!jalib::Filesystem::FileExists(_path)) {
+    TRACE("FIFO path missing after restart; recreating it: path={}", _path);
+    dmtcp::string dir = jalib::Filesystem::DirName(_path);
+    TRACE("Creating FIFO parent directory: dir={}", dir);
+    jalib::Filesystem::mkdir_r(dir, 0755);
+    mkfifo(_path.c_str(), _mode);
+    TRACE("Created FIFO path: path={} errno={}", _path, errno);
+  }
+
+  fd = _real_open(_path.c_str(), O_RDWR | O_NONBLOCK);
+  TRACE("Opened FIFO after restart: path={} fd={}", _path, fd);
+
+  ASSERT_NE(-1, fd, "failed to open FIFO after restart: path={}", _path);
+  return fd;
+}
+
+void
+FifoConnection::serializeSubClass(jalib::JBinarySerializer &o)
+{
+  JSERIALIZE_ASSERT_POINT("FifoConnection");
+  o&_path&_rel_path&_savedRelativePath&_mode &_in_data;
+  TRACE("Serializing FIFO connection: path={} relative_path={} "
+        "saved_relative_path={}",
+        _path, _rel_path, _savedRelativePath);
+}
+
+/*****************************************************************************
+ * Stdio Connection
+ *****************************************************************************/
+void
+StdioConnection::postRestart()
+{
+  for (size_t i = 0; i < _fds.size(); ++i) {
+    int fd = _fds[i];
+    if (fd <= 2) {
+      TRACE("Skipping stdio restore; inheriting parent fd: fd={}",
+            fd);
+      continue;
+    }
+    int oldFd = -1;
+    switch (_type) {
+    case STDIO_IN:
+      TRACE("Restoring STDIN mapping: fd={}", fd);
+      oldFd = 0;
+      break;
+    case STDIO_OUT:
+      TRACE("Restoring STDOUT mapping: fd={}", fd);
+      oldFd = 1;
+      break;
+    case STDIO_ERR:
+      TRACE("Restoring STDERR mapping: fd={}", fd);
+      oldFd = 2;
+      break;
+    default:
+      ASSERT(false, "Invalid stdio connection type: type={}", _type);
+    }
+    errno = 0;
+    WARN_EQ(fd,
+                           _real_dup2(oldFd, fd),
+                           "Failed to restore stdio fd: old_fd={} fd={}",
+                           oldFd, fd);
+  }
+}
+
+/*****************************************************************************
+ * POSIX Message Queue Connection
+ *****************************************************************************/
+void
+PosixMQConnection::on_mq_close()
+{}
+
+void
+PosixMQConnection::on_mq_notify(const struct sigevent *sevp)
+{
+  if (sevp == NULL && _notifyReg) {
+    _notifyReg = false;
+  } else {
+    _notifyReg = true;
+    if (sevp) {
+      _sevp = *sevp;
+    }
+  }
+}
+
+extern "C" void
+dmtcp_posix_on_mq_notify(mqd_t mqdes, const struct sigevent *sevp)
+{
+  if (!internalPluginEnabled(INTERNAL_PLUGIN_FILE)) {
+    return;
+  }
+
+  PosixMQConnection *con = (PosixMQConnection *)
+    FileConnList::instance().getConnection(mqdes);
+  if (con != NULL) {
+    con->on_mq_notify(sevp);
+  }
+}
+
+extern "C" void
+dmtcp_posix_on_mq_notify_thread_start(mqd_t mqdes)
+{
+  WrapperLock wrapperLock;
+  dmtcp_posix_on_mq_notify(mqdes, NULL);
+}
+
+void
+PosixMQConnection::doLocking()
+{
+  if (!(_oflag & O_RDWR) && !(_oflag & O_RDONLY)) {
+    return;
+  }
+  Connection::doLocking();
+}
+
+void
+PosixMQConnection::drain()
+{
+  ASSERT(_fds.size() > 0, "POSIX MQ connection has no fds during drain");
+
+  TRACE("Checkpointing POSIX message queue: fd={}", _fds[0]);
+
+  struct stat statbuf;
+  ASSERT_NE(-1, fstat(_fds[0], &statbuf),
+               "failed to stat POSIX MQ: fd={}", _fds[0]);
+  if (_mode == 0) {
+    _mode = statbuf.st_mode;
+  }
+
+  struct mq_attr attr;
+  ASSERT_NE(-1, mq_getattr(_fds[0], &attr),
+               "failed to read POSIX MQ attributes: fd={}", _fds[0]);
+  _attr = attr;
+  if (attr.mq_curmsgs < 0) {
+    return;
+  }
+
+  _qnum = attr.mq_curmsgs;
+  char *buf = (char *)JALLOC_HELPER_MALLOC(attr.mq_msgsize);
+  for (long i = 0; i < _qnum; i++) {
+    unsigned prio;
+    ssize_t numBytes = _real_mq_receive(_fds[0], buf, attr.mq_msgsize, &prio);
+    ASSERT_ERRNO(numBytes != -1,
+                 "failed to drain POSIX MQ message: fd={} index={}", _fds[0],
+                 i);
+    // Append buf to the end of the vector.
+    _msgInQueue.emplace_back(buf, buf + numBytes);
+    _msgInQueuePrio.push_back(prio);
+  }
+  JALLOC_HELPER_FREE(buf);
+}
+
+void
+PosixMQConnection::refill(bool isRestart)
+{
+  for (long i = 0; i < _qnum; i++) {
+    ASSERT_ERRNO(_real_mq_send(_fds[0], _msgInQueue[i].data(),
+                               _msgInQueue[i].size(),
+                               _msgInQueuePrio[i]) != -1,
+                 "failed to refill POSIX MQ message: fd={} index={} size={} "
+                 "prio={}",
+                 _fds[0], i, _msgInQueue[i].size(), _msgInQueuePrio[i]);
+  }
+  _msgInQueue.clear();
+  _msgInQueuePrio.clear();
+}
+
+void
+PosixMQConnection::postRestart()
+{
+  ASSERT(_fds.size() > 0, "POSIX MQ connection has no fds during postRestart");
+
+  errno = 0;
+  if (_oflag & O_EXCL) {
+    mq_unlink(_name.c_str());
+  }
+
+  int tempfd = _real_mq_open(_name.c_str(), _oflag, _mode, &_attr);
+  ASSERT_NE(-1, tempfd,
+                      "failed to reopen POSIX MQ after restart: name={}",
+                      _name);
+  restoreDupFds(tempfd);
+}
+
+void
+PosixMQConnection::serializeSubClass(jalib::JBinarySerializer &o)
+{
+  JSERIALIZE_ASSERT_POINT("PosixMQConnection");
+  o&_name&_oflag&_mode &_attr;
+}

@@ -21,9 +21,9 @@
 
 #include <syslog.h>
 #include <string>
-#include "../jalib/jassert.h"
 #include "dmtcpalloc.h"
 #include "syscallwrappers.h"
+#include "dmtcp_assert.h"
 
 namespace dmtcp
 {
@@ -65,22 +65,15 @@ syslog_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t syslogPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t syslogPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "syslog",
+  "SYSLOG",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Syslog plugin",
   syslog_event_hook
 };
-
-
-DmtcpPluginDescriptor_t
-dmtcp_Syslog_PluginDescr()
-{
-  return syslogPlugin;
-}
 
 static string&
 _ident()
@@ -93,7 +86,7 @@ _ident()
 void
 SyslogCheckpointer_StopService()
 {
-  JASSERT(!_isSuspended);
+  ASSERT(!_isSuspended, "syslog stop requested while already suspended");
   if (_syslogEnabled) {
     closelog();
     _isSuspended = true;
@@ -105,7 +98,9 @@ SyslogCheckpointer_RestoreService()
 {
   if (_isSuspended) {
     _isSuspended = false;
-    JASSERT(_option >= 0 && _facility >= 0) (_option) (_facility);
+    ASSERT(_option >= 0 && _facility >= 0,
+           "invalid syslog restore state: option={} facility={}", _option,
+           _facility);
     openlog((_identIsNotNULL ? _ident().c_str() : NULL),
             _option, _facility);
   }
@@ -120,8 +115,8 @@ SyslogCheckpointer_ResetOnFork()
 extern "C" void
 openlog(const char *ident, int option, int facility)
 {
-  JASSERT(!_isSuspended);
-  JTRACE("openlog") (ident);
+  ASSERT(!_isSuspended, "openlog called while syslog is suspended");
+  TRACE("openlog: ident={}", ident);
   _real_openlog(ident, option, facility);
   _syslogEnabled = true;
 
@@ -136,8 +131,8 @@ openlog(const char *ident, int option, int facility)
 extern "C" void
 closelog(void)
 {
-  JASSERT(!_isSuspended);
-  JTRACE("closelog");
+  ASSERT(!_isSuspended, "closelog called while syslog is suspended");
+  TRACE("closelog");
   _real_closelog();
   _syslogEnabled = false;
 }

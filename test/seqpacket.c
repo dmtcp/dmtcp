@@ -43,9 +43,6 @@ int server(void)
         error("bind");
     }
 
-    close(pipefd[0]);
-    assert(write(pipefd[1], &start, 1) == 1);
-
     printf("Server: Listening at %s...\n", SOCKET_NAME);
 
     /* 3. Prepare for accepting connections (backlog size 5) */
@@ -53,6 +50,9 @@ int server(void)
     if (ret == -1) {
         error("listen");
     }
+
+    close(pipefd[0]);
+    assert(write(pipefd[1], &start, 1) == 1);
 
     /* 4. Accept connection and receive message */
         printf("Server: Waiting for connection...\n");

@@ -19,17 +19,29 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <signal.h>
+#include <fcntl.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
+#include <sys/sem.h>
+#include <sys/shm.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <time.h>
+#include <unistd.h>
+#include <errno.h>
 #include "jalloc.h"
-#include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
+#include "pluginmanager.h"
 #include "config.h"
 #include "dmtcp.h"
 #include "glibc_pthread.h"
 #include "pidwrappers.h"
 #include "protectedfds.h"
 #include "shareddata.h"
+#include "util.h"
+#include "dmtcp_assert.h"
 #include "virtualpidtable.h"
 
 static char PROC_PREFIX[] = "/proc/";
@@ -40,6 +52,25 @@ static char PROC_TASK_TOKEN[] = "/task/";
 static const size_t PROC_TASK_TOKEN_LEN = sizeof(PROC_TASK_TOKEN) - 1;
 
 using namespace dmtcp;
+
+static bool
+parseProcPidPrefix(char *pidStr, pid_t *pid, char **rest)
+{
+  char *end = pidStr;
+  while (*end >= '0' && *end <= '9') {
+    ++end;
+  }
+  if (end == pidStr) {
+    return false;
+  }
+
+  if (!Util::parseInteger(std::string_view(pidStr, end - pidStr), pid)) {
+    return false;
+  }
+
+  *rest = end;
+  return true;
+}
 
 extern "C" pid_t dmtcp_update_ppid();
 static volatile bool restartInProgress = false;
@@ -54,17 +85,47 @@ static DmtcpMutex exitedChildTidsLock = DMTCP_MUTEX_INITIALIZER_LLL;
 #endif
 
 extern "C"
-pid_t
-dmtcp_real_to_virtual_pid(pid_t realPid)
+int
+dmtcp_pid_is_enabled()
 {
-  return REAL_TO_VIRTUAL_PID(realPid);
+  static const int enabled =
+    internalPluginEnabled(INTERNAL_PLUGIN_PID) ? 1 : 0;
+  return enabled;
 }
 
 extern "C"
 pid_t
-dmtcp_virtual_to_real_pid(pid_t virtualPid)
+dmtcp_pid_virtual_to_real(pid_t virtualPid)
 {
-  return VIRTUAL_TO_REAL_PID(virtualPid);
+  return dmtcp_pid_is_enabled() ?
+         VirtualPidTable::instance().virtualToReal(virtualPid) : virtualPid;
+}
+
+extern "C"
+pid_t
+dmtcp_pid_real_to_virtual(pid_t realPid)
+{
+  return dmtcp_pid_is_enabled() ?
+         VirtualPidTable::instance().realToVirtual(realPid) : realPid;
+}
+
+extern "C"
+void
+dmtcp_pid_update_mapping(pid_t virtualPid, pid_t realPid)
+{
+  if (!dmtcp_pid_is_enabled()) {
+    return;
+  }
+
+  VirtualPidTable::instance().updateMapping(virtualPid, realPid);
+  SharedData::setPidMap(virtualPid, realPid);
+}
+
+extern "C"
+pid_t
+dmtcp_pid_gettid()
+{
+  return dmtcp_pid_is_enabled() ? VirtualPidTable::gettid() : _real_gettid();
 }
 
 // Also copied into src/threadlist.cpp, so that libdmtcp.sp
@@ -91,17 +152,27 @@ dmtcp_real_tgkill(pid_t tgid, pid_t tid, int sig)
 }
 
 extern "C"
-void
+pid_t
 dmtcp_update_virtual_to_real_tid(pid_t tid)
 {
+  if (!dmtcp_pid_is_enabled()) {
+    return tid;
+  }
+
+  pid_t virtualTid = dmtcp_pid_real_to_virtual(tid);
+  if (virtualTid == tid && _real_gettid() == _real_getpid()) {
+    virtualTid = VirtualPidTable::getpid();
+  }
+
   if (!restartInProgress) {
     restartInProgress = true;
     VirtualPidTable::instance().postRestart();
   }
 
-  VirtualPidTable::instance().updateMapping(tid, _real_gettid());
+  VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
 
-  dmtcp_pthread_set_tid(pthread_self(), tid);
+  dmtcp_pthread_set_tid(pthread_self(), virtualTid);
+  return virtualTid;
 }
 
 static
@@ -109,10 +180,10 @@ void removeExitedChildTids()
 {
   // First remove stale thread ids.
   pid_t realPid = _real_getpid();
-  DmtcpMutexLock(&exitedChildTidsLock);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&exitedChildTidsLock));
   for (auto it = exitedChildTids->begin(); it != exitedChildTids->end();) {
     pid_t tid = *it;
-    pid_t realTid = VIRTUAL_TO_REAL_PID(tid);
+    pid_t realTid = dmtcp_pid_virtual_to_real(tid);
     if (_real_tgkill(realPid, realTid, 0) == 0) {
       it++;
     } else {
@@ -120,7 +191,7 @@ void removeExitedChildTids()
       VirtualPidTable::instance().erase(tid);
     }
   }
-  DmtcpMutexUnlock(&exitedChildTidsLock);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&exitedChildTidsLock));
 }
 
 extern "C"
@@ -137,12 +208,12 @@ static void
 pidVirt_PrepareForExec(DmtcpEventData_t *data)
 {
   pid_t virtPid = getpid();
-  pid_t realPid = VIRTUAL_TO_REAL_PID(virtPid);
+  pid_t realPid = dmtcp_pid_virtual_to_real(virtPid);
   pid_t virtPpid = getppid();
-  pid_t realPpid = VIRTUAL_TO_REAL_PID(virtPpid);
+  pid_t realPpid = dmtcp_pid_virtual_to_real(virtPpid);
   Util::setVirtualPidEnvVar(virtPid, realPid, virtPpid, realPpid);
 
-  JASSERT(data != NULL);
+  ASSERT_NOT_NULL(data);
   jalib::JBinarySerializeWriterRaw wr("", data->preExec.serializationFd);
   VirtualPidTable::instance().serialize(wr);
 }
@@ -150,7 +221,7 @@ pidVirt_PrepareForExec(DmtcpEventData_t *data)
 static void
 pidVirt_PostExec(DmtcpEventData_t *data)
 {
-  JASSERT(data != NULL);
+  ASSERT_NOT_NULL(data);
   jalib::JBinarySerializeReaderRaw rd("", data->postExec.serializationFd);
   VirtualPidTable::instance().serialize(rd);
   VirtualPidTable::instance().refresh();
@@ -168,15 +239,20 @@ pidVirt_ProcessProcSelfTask(DmtcpEventData_t *data)
     return;
   }
 
-  char *rest = nullptr;
   char *tidStr = ptr + PROC_TASK_TOKEN_LEN;
 
-  pid_t virtualTid = strtol(tidStr, &rest, 0);
-  if (virtualTid > 0) {
+  pid_t virtualTid = 0;
+  char *rest = nullptr;
+  if (parseProcPidPrefix(tidStr, &virtualTid, &rest) && virtualTid > 0) {
     char buf[PATH_MAX - 20];
-    strncpy(buf, rest, PATH_MAX - 20);
-    pid_t realTid = VIRTUAL_TO_REAL_PID(virtualTid);
-    JASSERT(20+strlen(buf) < PATH_MAX); // Reserve char[20] for realTid, below.
+    size_t len = strnlen(rest, sizeof buf - 1);
+    memcpy(buf, rest, len);
+    buf[len] = '\0';
+    pid_t realTid = dmtcp_pid_virtual_to_real(virtualTid);
+    // Reserve char[20] for realTid below.
+    ASSERT(20 + strlen(buf) < PATH_MAX,
+           "translated /proc task path is too long: rest_len={}",
+           strlen(buf));
     snprintf(tidStr, PATH_MAX, "%d%s", realTid, buf);
   }
 }
@@ -190,12 +266,12 @@ pid_virtual_to_real_filepath(DmtcpEventData_t *data)
   }
 
   int index = strlen(PROC_PREFIX);
-  char *rest;
-  pid_t virtualPid = strtol(&data->virtualToRealPath.path[index], &rest, 0);
-
-  if (virtualPid > 0) {
+  char *pidStr = &data->virtualToRealPath.path[index];
+  pid_t virtualPid = 0;
+  char *rest = nullptr;
+  if (parseProcPidPrefix(pidStr, &virtualPid, &rest) && virtualPid > 0) {
     char newPath[PATH_MAX];
-    pid_t realPid = VIRTUAL_TO_REAL_PID(virtualPid);
+    pid_t realPid = dmtcp_pid_virtual_to_real(virtualPid);
     snprintf(newPath, PATH_MAX, "/proc/%d%s", realPid, rest);
     strncpy(data->virtualToRealPath.path, newPath, PATH_MAX);
   }
@@ -212,15 +288,15 @@ pid_real_to_virtual_filepath(DmtcpEventData_t *data)
   }
 
   int index = strlen(PROC_PREFIX);
-  char *rest;
-  pid_t realPid = strtol(&data->realToVirtualPath.path[index], &rest, 0);
-
-  if (realPid <= 0) {
+  char *pidStr = &data->realToVirtualPath.path[index];
+  pid_t realPid = 0;
+  char *rest = nullptr;
+  if (!parseProcPidPrefix(pidStr, &realPid, &rest) || realPid <= 0) {
     return;
   }
 
   char newPath[PATH_MAX];
-  pid_t virtualPid = REAL_TO_VIRTUAL_PID(realPid);
+  pid_t virtualPid = dmtcp_pid_real_to_virtual(realPid);
   sprintf(newPath, "/proc/%d%s", virtualPid, rest);
   strncpy(data->realToVirtualPath.path, newPath, PATH_MAX);
 }
@@ -236,7 +312,7 @@ openSharedFile(string const& name, int flags)
 
   dmtcp::string dir = jalib::Filesystem::DirName(name);
 
-  JTRACE("shared file dir:")(dir);
+  TRACE("Creating shared PID-map directory: dir={}", dir);
   jalib::Filesystem::mkdir_r(dir, 0755);
 
   if ((fd = open(name.c_str(), O_EXCL | O_CREAT | O_TRUNC | flags, 0600)) >=
@@ -253,7 +329,7 @@ openSharedFile(string const& name, int flags)
   }
 
   // unable to create & open OR open
-  JASSERT(false)(name)(strerror(errno)).Text("Cannot open file");
+  ASSERT_ERRNO(false, "cannot open file: path={}", name);
   return -1;
 }
 
@@ -281,9 +357,11 @@ pidVirt_PostRestart()
     << std::hex << dmtcp_get_coordinator_timestamp();
 
   // Open and create pidMapFile if it doesn't exist.
-  JTRACE("Open dmtcpPidMapFile")(o.str());
-  int fd = openSharedFile(o.str(), O_RDWR);
-  JASSERT(fd != -1);
+  TRACE("Opening DMTCP PID-map file: path={}", o.str());
+  pidMapFile = o.str();
+  int fd = openSharedFile(pidMapFile, O_RDWR);
+  ASSERT_NE(-1, fd, "failed to open PID map file: path={}",
+                      pidMapFile);
 
   VirtualPidTable::instance().writeMapsToFile(fd);
   dmtcp_local_barrier("PID:RESTART");
@@ -302,9 +380,17 @@ pidVirt_ThreadExit(DmtcpEventData_t *data)
    *  thread actually exits?
    */
   pid_t tid = VirtualPidTable::gettid();
-  DmtcpMutexLock(&exitedChildTidsLock);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&exitedChildTidsLock));
   exitedChildTids->push_back(tid);
-  DmtcpMutexUnlock(&exitedChildTidsLock);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&exitedChildTidsLock));
+}
+
+static void
+pidVirt_ThreadResume()
+{
+  pid_t virtualTid = VirtualPidTable::gettid();
+  VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
+  dmtcp_pthread_set_tid(pthread_self(), virtualTid);
 }
 
 static void
@@ -317,17 +403,9 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     dmtcp_pthread_set_tid(pthread_self(), getpid());
     break;
 
-  case DMTCP_EVENT_ATFORK_PREPARE:
-    pidVirt_atfork_prepare();
-    break;
-
   case DMTCP_EVENT_ATFORK_CHILD:
   case DMTCP_EVENT_VFORK_CHILD:
-    pidVirt_atfork_child();
-    break;
-
-  case DMTCP_EVENT_VFORK_PREPARE:
-    pidVirt_vfork_prepare();
+    VirtualPidTable::instance().resetOnFork();
     break;
 
   case DMTCP_EVENT_PRE_EXEC:
@@ -361,6 +439,10 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_RESUME:
     break;
 
+  case DMTCP_EVENT_THREAD_RESUME:
+    pidVirt_ThreadResume();
+    break;
+
   case DMTCP_EVENT_RESTART:
     pidVirt_PostRestart();
     restartInProgress = false;
@@ -372,14 +454,12 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 
-DmtcpPluginDescriptor_t pidPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t pidPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "pid",
+  "PID",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "PID virtualization plugin",
   pid_event_hook
 };
-
-DMTCP_DECL_PLUGIN(pidPlugin);

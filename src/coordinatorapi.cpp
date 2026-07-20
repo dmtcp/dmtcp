@@ -28,6 +28,9 @@
 #include <netdb.h>
 #include <poll.h>
 #include <semaphore.h>  // for sem_post(&sem_launch)
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -41,6 +44,7 @@
 #include "syscallwrappers.h"
 #include "threadinfo.h"
 #include "util.h"
+#include "dmtcp_assert.h"
 
 // sem_launch is used in threadlist.cpp
 // sem_launch_first_time will be set just before pthread_create(checkpointhread)
@@ -118,20 +122,58 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "coordinatorapi",
+  "COORDINATOR_API",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Coordinator API plugin",
   eventHook
 };
 
-DmtcpPluginDescriptor_t
-pluginDescr()
+CoordinatorCmd
+parseCoordinatorCmd(const char *command)
 {
-  return coordinatorAPIPlugin;
+  if (command == NULL) {
+    return DMT_INVALID_COORDINATOR_COMMAND;
+  }
+  while (*command == '-') {
+    command++;
+  }
+
+  if (strcmp(command, "s") == 0 || strcmp(command, "status") == 0) {
+    return DMT_STATUS;
+  }
+  if (strcmp(command, "l") == 0 || strcmp(command, "t") == 0 ||
+      strcmp(command, "list") == 0) {
+    return DMT_LIST;
+  }
+  if (strcmp(command, "c") == 0 || strcmp(command, "checkpoint") == 0) {
+    return DMT_CHECKPOINT;
+  }
+  if (strcmp(command, "bc") == 0 || strcmp(command, "bcheckpoint") == 0) {
+    return DMT_BLOCKING_CKPT;
+  }
+  if (strcmp(command, "kc") == 0 || strcmp(command, "ck") == 0 ||
+      strcmp(command, "K") == 0 || strcmp(command, "Kc") == 0 ||
+      strcmp(command, "kcheckpoint") == 0) {
+    return DMT_KILL_AFTER_CKPT;
+  }
+  if (strcmp(command, "i") == 0 || strcmp(command, "interval") == 0) {
+    return DMT_UPDATE_CKPT_INTERVAL;
+  }
+  if (strcmp(command, "k") == 0 || strcmp(command, "kill") == 0) {
+    return DMT_KILL;
+  }
+  if (strcmp(command, "q") == 0 || strcmp(command, "quit") == 0) {
+    return DMT_QUIT;
+  }
+  if (strcmp(command, "h") == 0 || strcmp(command, "help") == 0 ||
+      strcmp(command, "?") == 0) {
+    return DMT_HELP;
+  }
+  return DMT_INVALID_COORDINATOR_COMMAND;
 }
 
 void
@@ -232,7 +274,8 @@ createNewSocketToCoordinator(CoordinatorMode mode)
 
 void init()
 {
-  JTRACE("Informing coordinator of new process") (UniquePid::ThisProcess());
+  TRACE("Informing coordinator of new process: process={}",
+        UniquePid::ThisProcess());
 
   DmtcpMessage msg (DMT_UPDATE_PROCESS_INFO_AFTER_INIT_OR_EXEC);
   sendMsgToCoordinator(msg, jalib::Filesystem::GetProgramName());
@@ -240,16 +283,20 @@ void init()
 
 void resetCoordinatorSocket(int sock)
 {
-  JASSERT(Util::isValidFd(sock));
-  JASSERT(sock != PROTECTED_COORD_FD);
+  ASSERT(Util::isValidFd(sock), "invalid coordinator socket: fd={}", sock);
+  ASSERT(sock != PROTECTED_COORD_FD,
+         "new coordinator socket already uses protected fd: fd={}", sock);
   Util::changeFd(sock, PROTECTED_COORD_FD);
-  JASSERT(Util::isValidFd(coordinatorSocket));
+  ASSERT(Util::isValidFd(coordinatorSocket),
+         "protected coordinator socket is invalid after fd change: fd={}",
+         coordinatorSocket);
 
-  JTRACE("Informing coordinator of new process") (UniquePid::ThisProcess());
+  TRACE("Informing coordinator of new process: process={}",
+        UniquePid::ThisProcess());
 
   DmtcpMessage msg(DMT_UPDATE_PROCESS_INFO_AFTER_FORK);
-  if (dmtcp_virtual_to_real_pid) {
-    msg.realPid = dmtcp_virtual_to_real_pid(getpid());
+  if (dmtcp_pid_virtual_to_real) {
+    msg.realPid = dmtcp_pid_virtual_to_real(getpid());
   } else {
     msg.realPid = getpid();
   }
@@ -280,7 +327,8 @@ void atForkChild()
 void vforkChild()
 {
   resetCoordinatorSocket(childCoordinatorSocket);
-  JASSERT(nsSock == -1) .Text("Not Implemented");
+  ASSERT(nsSock == -1,
+         "vfork child namespace socket support is not implemented");
 }
 
 void
@@ -290,34 +338,54 @@ closeConnection()
 }
 
 char*
-connectAndSendUserCommand(char c,
-                          int *coordCmdStatus,
+connectAndSendUserCommand(CoordinatorCmd command,
+                          CoordinatorCmdStatus *coordCmdStatus,
                           int *numPeers,
                           int *isRunning,
-                          int *ckptInterval)
+                          int *ckptInterval,
+                          DmtcpMessage *response)
 {
   char *replyData = NULL;
+  if (response != NULL) {
+    *response = DmtcpMessage(DMT_USER_CMD_RESULT);
+    response->coordCmd = command;
+  }
+
   int coordFd = createNewSocketToCoordinator(COORD_ANY);
   if (coordFd == -1) {
-    *coordCmdStatus = CoordCmdStatus::ERROR_COORDINATOR_NOT_FOUND;
+    if (coordCmdStatus != NULL) {
+      *coordCmdStatus = DMT_COORD_NOT_FOUND;
+    }
+    if (response != NULL) {
+      response->coordCmdStatus = DMT_COORD_NOT_FOUND;
+    }
     return replyData;
   }
 
   // Tell the coordinator to run given user command
   DmtcpMessage msg(DMT_USER_CMD);
-  msg.coordCmd = c;
+  msg.coordCmd = command;
 
-  if (c == 'i') {
+  if (command == DMT_UPDATE_CKPT_INTERVAL) {
     const char *interval = getenv(ENV_VAR_CKPT_INTR);
     if (interval != NULL) {
       msg.theCheckpointInterval = jalib::StringToInt(interval);
     }
   }
-  JASSERT(Util::writeAll(coordFd, &msg, sizeof(msg)) == sizeof(msg));
+  ASSERT_EQ(static_cast<ssize_t>(sizeof(msg)),
+                        Util::writeAll(coordFd, &msg, sizeof(msg)),
+                        "failed to send user command to coordinator: fd={} "
+                        "command={}",
+                        coordFd, coordinatorCmdName(command));
 
   // The coordinator will violently close our socket...
-  if (c == 'q' || c == 'Q') {
-    *coordCmdStatus = CoordCmdStatus::NOERROR;
+  if (command == DMT_QUIT) {
+    if (coordCmdStatus != NULL) {
+      *coordCmdStatus = DMT_COORD_SUCCESS;
+    }
+    if (response != NULL) {
+      response->coordCmdStatus = DMT_COORD_SUCCESS;
+    }
     return replyData;
   }
 
@@ -326,7 +394,14 @@ connectAndSendUserCommand(char c,
   reply.poison();
   recvMsgFromCoordinatorRaw(coordFd, &reply, (void**)&replyData);
   reply.assertValid();
-  JASSERT(reply.type == DMT_USER_CMD_RESULT);
+  ASSERT(reply.type == DMT_USER_CMD_RESULT,
+         "unexpected coordinator user-command reply type: type={}",
+         reply.type);
+  reply.coordCmd = command;
+
+  if (response != NULL) {
+    *response = reply;
+  }
 
   if (coordCmdStatus != NULL) {
     *coordCmdStatus = reply.coordCmdStatus;
@@ -355,9 +430,17 @@ sendMsgToCoordinatorRaw(int fd,
   if (extraData != NULL) {
     msg.extraBytes = len;
   }
-  JASSERT(Util::writeAll(fd, &msg, sizeof(msg)) == sizeof(msg));
+  ASSERT_EQ(static_cast<ssize_t>(sizeof(msg)),
+                        Util::writeAll(fd, &msg, sizeof(msg)),
+                        "failed to send coordinator message header: fd={} "
+                        "type={}",
+                        fd, msg.type);
   if (extraData != NULL) {
-    JASSERT(Util::writeAll(fd, extraData, len) == (ssize_t)len);
+    ASSERT_EQ(static_cast<ssize_t>(len),
+                          Util::writeAll(fd, extraData, len),
+                          "failed to send coordinator message payload: fd={} "
+                          "type={} len={}",
+                          fd, msg.type, len);
   }
 }
 
@@ -382,8 +465,15 @@ recvMsgFromCoordinatorRaw(int fd, DmtcpMessage *msg, void **extraData)
     return;
   }
 
+  if (!tmpMsg.isValid()) {
+    return;
+  }
+
   if (tmpMsg.extraBytes > 0) {
-    JASSERT(extraData != NULL);
+    ASSERT_NOT_NULL(extraData,
+                        "coordinator message has payload but caller did not "
+                        "request it: type={} bytes={}",
+                        tmpMsg.type, tmpMsg.extraBytes);
 
     // Caller must free this buffer
     void *buf = JALLOC_HELPER_MALLOC(tmpMsg.extraBytes);
@@ -404,7 +494,7 @@ recvMsgFromCoordinatorRaw(int fd, DmtcpMessage *msg, void **extraData)
   // wants to kill) vs. normal runtime.
   // TODO(Kapil): Consider generating an EXIT event for plugins.
   if (msg->isValid() && msg->type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
+    TRACE("Received KILL message from coordinator, exiting");
     _exit(0);
   }
 }
@@ -431,12 +521,14 @@ bool waitForBarrier(const string& barrier,
 {
   DmtcpMessage barrierMsg(DMT_BARRIER);
 
-  JASSERT(barrier.length() < sizeof(barrierMsg.barrier)) (barrier);
+  ASSERT(barrier.length() < sizeof(barrierMsg.barrier),
+         "barrier name too long: barrier={} len={} max={}", barrier,
+         barrier.length(), sizeof(barrierMsg.barrier));
   strcpy(barrierMsg.barrier, barrier.c_str());
 
   sendMsgToCoordinator(barrierMsg);
 
-  JTRACE("waiting for DMT_BARRIER_RELEASED message") (barrier);
+  TRACE("waiting for DMT_BARRIER_RELEASED message: barrier={}", barrier);
 
   char *extraData = NULL;
   DmtcpMessage msg;
@@ -458,9 +550,13 @@ bool waitForBarrier(const string& barrier,
     }
   }
 
-  JASSERT(msg.type == DMT_BARRIER_RELEASED) (msg.type);
-  JASSERT(extraData != NULL);
-  JASSERT(barrier == extraData) (barrier) (extraData);
+  ASSERT(msg.type == DMT_BARRIER_RELEASED,
+         "unexpected barrier reply type: type={}", msg.type);
+  ASSERT_NOT_NULL(extraData, "barrier reply missing payload: barrier={}",
+                      barrier);
+  ASSERT(barrier == extraData,
+         "barrier reply payload mismatch: expected={} actual={}", barrier,
+         static_cast<char *>(extraData));
 
   JALLOC_FREE(extraData);
 
@@ -471,6 +567,36 @@ bool waitForBarrier(const string& barrier,
   return true;
 }
 
+void findOldCoordAndPromptToKill(int port) {
+  if (port == 0) {
+    return;
+  }
+  char portStr[10];
+  int rc = snprintf(portStr, sizeof(portStr), "%d", port);
+  ASSERT_ERRNO(rc > 0 && rc < (long)sizeof(portStr), "Bad port: {}", port);
+
+  FILE *stream = popen("ps -eo pid,cmd", "r");
+  if (stream == NULL) {
+    return;
+  }
+  char line[1000];
+  while (fgets(line, sizeof(line), stream) != NULL) {
+    // Catch formats like "dmtcp_coordinator -p 7779" or "... --port 7779"
+    char prevPortDigit;
+    if (strstr(line, "dmtcp_coord") != NULL &&
+        strstr(line, portStr) != NULL &&
+        (prevPortDigit = *(strstr(line, portStr) - 1)) &&
+        (prevPortDigit < '0' || prevPortDigit > '9')) {
+      long int pid = strtol(line, NULL, 10);
+      if (pid > 0) {
+        printf("FOUND OLD PID (\"ps -eo pid,cmd\"): %s", line);
+        printf("  *** TO KILL:     kill -9 %ld\n\n", pid);
+      }
+    }
+  }
+  pclose(stream);
+}
+
 void
 startNewCoordinator(CoordinatorMode mode)
 {
@@ -478,38 +604,33 @@ startNewCoordinator(CoordinatorMode mode)
   int port = UNINITIALIZED_PORT;
   getCoordHostAndPort(mode, &host, &port);
 
-  JASSERT(strcmp(host.c_str(), "localhost") == 0 ||
-          strcmp(host.c_str(), "127.0.0.1") == 0 ||
-          jalib::Filesystem::GetCurrentHostname() == host.c_str())
-    (host) (jalib::Filesystem::GetCurrentHostname())
-  .Text("Won't automatically start coordinator because DMTCP_HOST"
-        " is set to a remote host.");
+  string currentHost = jalib::Filesystem::GetCurrentHostname();
+  ASSERT(host == "localhost" || host == "127.0.0.1" || currentHost == host,
+         "Won't automatically start coordinator because DMTCP_HOST is set "
+         "to a remote host: host={} current_host={}",
+         host, currentHost);
 
   // Create a socket and bind it to an unused port.
   errno = 0;
   jalib::JServerSocket coordinatorListenerSocket(jalib::JSockAddr::ANY,
                                                  port, 128);
-  JASSERT(coordinatorListenerSocket.isValid())
-    (coordinatorListenerSocket.port()) (JASSERT_ERRNO) (host) (port)
-    .Text("Failed to create socket to connect to coordinator port."
-          "\n  If the above message (sterror) is:"
-          "\n            \"Address already in use\" or \"Bad file descriptor\","
-          "\n    then this may be an old coordinator."
-          "\n    Or maybe you're joining an existing coordinator, and forgot"
-          "\n      to use 'dmtcp_launch --join-coordinator'."
-          "\n  Either:"
-          "\n    (a) use '--join-coordinator; or"
-          "\n    (b) kill the old coordinator with 'pkill -9 dmtcp_coord' or"
-          "\n        (while using same host and port):"
-          "\n        dmtcp_command ---coord-host XX --coord-port YY --quit; or"
-          "\n    (c) if the old coordinator is already gone, wait a few seconds"
-          "\n        or a minute for the O/S to free up that port again.\n");
+  if (!coordinatorListenerSocket.isValid()) {
+    int orig_errno = errno;
+    NOTE("Failed to create socket to connect to coordinator port.\n"
+         "This may be an old coordinator, a missing --join-coordinator, or a\n"
+         "port still being released by the OS.\n"
+         "Requested coordinator: host={} port={} listener_port={}\n",
+         host, port, coordinatorListenerSocket.port());
+    findOldCoordAndPromptToKill(port);
+    errno = orig_errno;
+    ASSERT_ERRNO(false, "coordinatorListenerSocket.isValid: SEE COMMENT ABOVE");
+  }
   // Now dup the sockfd to
   coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
   setCoordPort(coordinatorListenerSocket.port());
 
-  JTRACE("Starting a new coordinator automatically.")
-    (coordinatorListenerSocket.port());
+  TRACE("Starting a new coordinator automatically: port={}",
+        coordinatorListenerSocket.port());
 
   if (fork() == 0) {
     /* NOTE:  This code assumes that dmtcp_launch (the current program)
@@ -535,12 +656,13 @@ startNewCoordinator(CoordinatorMode mode)
       NULL
     };
     execv(args[0], args);
-    JASSERT(false)(coordinator)(JASSERT_ERRNO).Text(
-      "exec(dmtcp_coordinator) failed");
+    ASSERT_ERRNO(false, "exec(dmtcp_coordinator) failed: path={}",
+                 coordinator);
   } else {
     int status;
     _real_close(PROTECTED_COORD_FD);
-    JASSERT(wait(&status) > 0) (JASSERT_ERRNO);
+    ASSERT_ERRNO(wait(&status) > 0,
+                 "failed waiting for auto-started coordinator");
   }
 }
 
@@ -550,28 +672,30 @@ createNewConnToCoord(CoordinatorMode mode)
   int sockfd = -1;
   if (mode & COORD_JOIN) {
     sockfd = createNewSocketToCoordinator(mode);
-    JASSERT(sockfd != -1) (JASSERT_ERRNO)
-      .Text("Coordinator not found, but --join was specified. Exiting.");
+    ASSERT_NE(-1, sockfd,
+                        "Coordinator not found, but --join was specified");
   } else if (mode & COORD_NEW) {
     startNewCoordinator(mode);
     sockfd = createNewSocketToCoordinator(mode);
-    JASSERT(sockfd != -1) (JASSERT_ERRNO)
-      .Text("Error connecting to newly started coordinator.");
+    ASSERT_NE(-1, sockfd,
+                        "Error connecting to newly started coordinator");
   } else if (mode & COORD_ANY) {
     sockfd = createNewSocketToCoordinator(mode);
     if (sockfd == -1) {
-      JTRACE("Coordinator not found, trying to start a new one.");
+      TRACE("Coordinator not found, trying to start a new one.");
       startNewCoordinator(mode);
       sockfd = createNewSocketToCoordinator(mode);
-      JASSERT(sockfd != -1) (JASSERT_ERRNO)
-        .Text("Error connecting to newly started coordinator.");
+      ASSERT_NE(-1, sockfd,
+                          "Error connecting to newly started coordinator");
     }
   } else {
-    JASSERT(false).Text("Not Reached");
+    ASSERT(false, "invalid coordinator mode: mode={}", mode);
   }
 
   Util::changeFd(sockfd, PROTECTED_COORD_FD);
-  JASSERT(Util::isValidFd(coordinatorSocket));
+  ASSERT(Util::isValidFd(coordinatorSocket),
+         "protected coordinator socket is invalid after connection: fd={}",
+         coordinatorSocket);
 }
 
 DmtcpMessage
@@ -580,8 +704,8 @@ sendRecvHandshake(int fd,
                   string progname,
                   UniquePid *compId)
 {
-  if (dmtcp_virtual_to_real_pid) {
-    msg.realPid = dmtcp_virtual_to_real_pid(getpid());
+  if (dmtcp_pid_virtual_to_real) {
+    msg.realPid = dmtcp_pid_virtual_to_real(getpid());
   } else {
     msg.realPid = getpid();
   }
@@ -601,28 +725,36 @@ sendRecvHandshake(int fd,
   msg.assertValid();
 
   if (msg.type == DMT_REJECT_NOT_RUNNING) {
-    JASSERT(false)
-    .Text("Connection rejected by the coordinator.\n"
-          "Reason: Current computation not in RUNNING state.\n"
-          "         Is a checkpoint/restart in progress?");
+    ASSERT(false,
+           "Connection rejected by the coordinator: current computation is "
+           "not in RUNNING state; checkpoint/restart may be in progress");
   } else if (msg.type == DMT_REJECT_WRONG_COMP) {
-    JASSERT(compId != NULL);
-    JASSERT(false) (*compId)
-    .Text("Connection rejected by the coordinator.\n"
-          " Reason: This process has a different computation group.");
+    ASSERT_NOT_NULL(compId,
+                        "coordinator rejected wrong computation without "
+                        "expected compId");
+    ASSERT(false,
+           "Connection rejected by the coordinator: different computation "
+           "group: hostid={} pid={} generation={}",
+           compId->hostid(), compId->pid(), compId->computationGeneration());
+  } else if (msg.type == DMT_REJECT_RESTART_PEER_MISMATCH) {
+    ASSERT(false,
+           "Connection rejected by the coordinator: restart peer count does "
+           "not match this computation");
   }
   // Coordinator also prints this, but its stderr may go to /dev/null
   if (msg.type == DMT_REJECT_NOT_RESTARTING) {
     string coordinatorHost = ""; // C++ magic code; "" to be invisibly replaced
     int coordinatorPort;
     getCoordHostAndPort(COORD_ANY, &coordinatorHost, &coordinatorPort);
-    JNOTE ("\n\n*** Computation not in RESTARTING or CHECKPOINTED state."
-        "\n***Can't join the existing coordinator, as it is serving a"
-        "\n***different computation.  Consider launching a new coordinator."
-        "\n***Consider, also, checking with:  dmtcp_command --status")
-        (coordinatorPort);
+    NOTE("\n\n*** Computation not in RESTARTING or CHECKPOINTED state."
+         "\n***Can't join the existing coordinator, as it is serving a"
+         "\n***different computation.  Consider launching a new coordinator."
+         "\n***Consider, also, checking with:  dmtcp_command --status"
+         "\n***Coordinator port: {}",
+         coordinatorPort);
   }
-  JASSERT(msg.type == DMT_ACCEPT)(msg.type);
+  ASSERT(msg.type == DMT_ACCEPT,
+         "unexpected coordinator handshake reply type: type={}", msg.type);
   return msg;
 }
 
@@ -633,10 +765,19 @@ connectToCoordOnStartup(CoordinatorMode mode,
                         CoordinatorInfo *coordInfo,
                         struct in_addr  *localIP)
 {
-  JASSERT(compId != NULL && localIP != NULL && coordInfo != NULL);
+  ASSERT_NOT_NULL(compId,
+                      "connectToCoordOnStartup requires non-null compId "
+                      "output pointer");
+  ASSERT_NOT_NULL(localIP,
+                      "connectToCoordOnStartup requires non-null localIP "
+                      "output pointer");
+  ASSERT_NOT_NULL(coordInfo,
+                      "connectToCoordOnStartup requires non-null coordInfo "
+                      "output pointer");
 
   createNewConnToCoord(mode);
-  JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
+  TRACE("sending coordinator handshake: process={}",
+        UniquePid::ThisProcess());
   DmtcpMessage hello_local(DMT_NEW_WORKER);
   hello_local.virtualPid = -1;
 
@@ -644,21 +785,23 @@ connectToCoordOnStartup(CoordinatorMode mode,
                                                 hello_local,
                                                 progname);
 
-  JASSERT(hello_remote.virtualPid != -1);
-  JTRACE("Got virtual pid from coordinator") (hello_remote.virtualPid);
+  ASSERT(hello_remote.virtualPid != -1,
+         "coordinator did not assign a virtual pid during startup handshake");
+  TRACE("Got virtual pid from coordinator: virtualPid={}",
+        hello_remote.virtualPid);
 
   pid_t ppid = getppid();
   Util::setVirtualPidEnvVar(hello_remote.virtualPid, getpid(), ppid, ppid);
 
-  JASSERT(compId != NULL && localIP != NULL && coordInfo != NULL);
   *compId = hello_remote.compGroup.upid();
   coordInfo->id = hello_remote.from.upid();
   coordInfo->timeStamp = hello_remote.coordTimeStamp;
   coordInfo->addrLen = sizeof (coordInfo->addr);
-  JASSERT(getpeername(coordinatorSocket,
-                      (struct sockaddr*) &coordInfo->addr,
-                      &coordInfo->addrLen) == 0)
-    (JASSERT_ERRNO);
+  ASSERT_NE(-1, getpeername(coordinatorSocket,
+                                         (struct sockaddr*) &coordInfo->addr,
+                                         &coordInfo->addrLen),
+                             "failed to get coordinator peer address: fd={}",
+                             coordinatorSocket);
   memcpy(localIP, &hello_remote.ipAddr, sizeof hello_remote.ipAddr);
 }
 
@@ -670,16 +813,19 @@ createNewConnectionBeforeFork(string& progname)
   SharedData::getCoordAddr((struct sockaddr *)&addr, &len);
   socklen_t addrlen = len;
   int sock = jalib::JClientSocket((struct sockaddr *)&addr, addrlen);
-  JASSERT(sock != -1);
+  ASSERT_NE(-1, sock,
+                      "failed to create coordinator connection before fork");
 
   DmtcpMessage hello_local(DMT_NEW_WORKER);
   DmtcpMessage hello_remote = sendRecvHandshake(sock, hello_local, progname);
-  JASSERT(hello_remote.virtualPid != -1);
+  ASSERT(hello_remote.virtualPid != -1,
+         "coordinator did not assign a virtual pid before fork");
 
-  if (dmtcp_virtual_to_real_pid) {
-    JTRACE("Got virtual pid from coordinator") (hello_remote.virtualPid);
+  if (dmtcp_pid_virtual_to_real) {
+    TRACE("Got virtual pid from coordinator: virtualPid={}",
+          hello_remote.virtualPid);
     pid_t pid = getpid();
-    pid_t realPid = dmtcp_virtual_to_real_pid(pid);
+    pid_t realPid = dmtcp_pid_virtual_to_real(pid);
     Util::setVirtualPidEnvVar(hello_remote.virtualPid, 0, pid, realPid);
   }
   return sock;
@@ -694,7 +840,8 @@ connectToCoordOnRestart(CoordinatorMode  mode,
                         struct in_addr  *localIP)
 {
   createNewConnToCoord(mode);
-  JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
+  TRACE("sending coordinator handshake: process={}",
+        UniquePid::ThisProcess());
   DmtcpMessage hello_local(DMT_RESTART_WORKER);
   hello_local.virtualPid = -1;
   hello_local.numPeers = np;
@@ -709,16 +856,18 @@ connectToCoordOnRestart(CoordinatorMode  mode,
     coordInfo->id = hello_remote.from.upid();
     coordInfo->timeStamp = hello_remote.coordTimeStamp;
     coordInfo->addrLen = sizeof(coordInfo->addr);
-    JASSERT(getpeername(coordinatorSocket,
-                        (struct sockaddr *)&coordInfo->addr,
-                        &coordInfo->addrLen) == 0)
-      (JASSERT_ERRNO);
+    ASSERT_NE(-1,
+      getpeername(coordinatorSocket,
+                  (struct sockaddr *)&coordInfo->addr,
+                  &coordInfo->addrLen),
+      "failed to get coordinator peer address after restart: fd={}",
+      coordinatorSocket);
   }
   if (localIP != NULL) {
     memcpy(localIP, &hello_remote.ipAddr, sizeof hello_remote.ipAddr);
   }
 
-  JTRACE("Coordinator handshake RECEIVED!!!!!");
+  TRACE("Coordinator handshake RECEIVED!!!!!");
 }
 
 void
@@ -739,7 +888,8 @@ sendCkptFilename()
   if (remoteShellType != NULL) {
     shellType = remoteShellType;
   }
-  JTRACE("recording filenames") (ckptFilename) (hostname) (shellType);
+  TRACE("recording filenames: ckptFilename={} hostname={} shellType={}",
+        ckptFilename, hostname, shellType);
 
   size_t buflen = hostname.length() + shellType.length() +
                   ckptFilename.length() + 3;
@@ -765,33 +915,55 @@ kvdbRequest(DmtcpMessage const& msg,
       !dmtcp_is_ckpt_thread()) {
     if (nsSock == -1) {
       nsSock = createNewSocketToCoordinator(COORD_ANY);
-      JASSERT(nsSock != -1);
+      ASSERT_NE(-1, nsSock,
+                          "failed to create namespace coordinator socket");
       nsSock = Util::changeFd(nsSock, PROTECTED_NS_FD);
       sock = nsSock;
       DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
-      JASSERT(Util::writeAll(sock, &m, sizeof(m)) == sizeof(m));
+      ASSERT_EQ(static_cast<ssize_t>(sizeof(m)),
+                            Util::writeAll(sock, &m, sizeof(m)),
+                            "failed to register namespace service worker: "
+                            "fd={}",
+                            sock);
     }
     sock = nsSock;
   }
 
-  JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  JASSERT(Util::writeAll(sock, key.data(), msg.keyLen) ==
-    (ssize_t)msg.keyLen);
-  JASSERT(Util::writeAll(sock, val.data(), msg.valLen) ==
-    (ssize_t)msg.valLen);
+  ASSERT_EQ(static_cast<ssize_t>(sizeof(msg)),
+                        Util::writeAll(sock, &msg, sizeof(msg)),
+                        "failed to send KVDB message header: fd={} type={}",
+                        sock, msg.type);
+  ASSERT_EQ(static_cast<ssize_t>(msg.keyLen),
+                        Util::writeAll(sock, key.data(), msg.keyLen),
+                        "failed to send KVDB key: fd={} key_len={}", sock,
+                        msg.keyLen);
+  ASSERT_EQ(static_cast<ssize_t>(msg.valLen),
+                        Util::writeAll(sock, val.data(), msg.valLen),
+                        "failed to send KVDB value: fd={} val_len={}", sock,
+                        msg.valLen);
 
   DmtcpMessage reply;
   reply.poison();
-  JASSERT(Util::readAll(sock, &reply, sizeof(reply)) == sizeof(reply));
+  ASSERT_EQ(static_cast<ssize_t>(sizeof(reply)),
+                        Util::readAll(sock, &reply, sizeof(reply)),
+                        "failed to read KVDB reply: fd={}", sock);
   reply.assertValid();
-  JASSERT(reply.type == DMT_KVDB_RESPONSE);
+  ASSERT(reply.type == DMT_KVDB_RESPONSE,
+         "unexpected KVDB reply type: type={}", reply.type);
 
   if (reply.extraBytes != 0) {
-    char valBuf[reply.extraBytes];
-    JASSERT(Util::readAll(sock, valBuf, reply.valLen) ==
-            (ssize_t)reply.valLen);
+    ASSERT(reply.valLen <= reply.extraBytes,
+           "invalid KVDB reply payload sizes: valLen={} extraBytes={}",
+           reply.valLen, reply.extraBytes);
+    string valBuf(reply.extraBytes, '\0');
+    ASSERT_EQ(static_cast<ssize_t>(reply.extraBytes),
+                          Util::readAll(sock, valBuf.data(),
+                                        reply.extraBytes),
+                          "failed to read KVDB reply payload: fd={} len={}",
+                          sock, reply.extraBytes);
     if (oldVal != nullptr) {
-      *oldVal = valBuf;
+      oldVal->assign(valBuf.data(), reply.valLen == 0 ? 0 :
+                     reply.valLen - 1);
     }
   }
 

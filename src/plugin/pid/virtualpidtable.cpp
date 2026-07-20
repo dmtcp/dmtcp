@@ -32,6 +32,7 @@
 #include "pidwrappers.h"
 #include "shareddata.h"
 #include "util.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 
@@ -100,7 +101,7 @@ VirtualPidTable::getppid()
   if (_dmtcp_ppid == -1) {
     resetPidPpid();
   }
-  if (_real_getppid() != VIRTUAL_TO_REAL_PID(_dmtcp_ppid)) {
+  if (_real_getppid() != instance().virtualToReal(_dmtcp_ppid)) {
     // The original parent died; reset our ppid.
     //
     // On older systems, a process is inherited by init (pid = 1) after its
@@ -122,7 +123,10 @@ VirtualPidTable::gettid()
     _dmtcp_thread_tid = getpid();
 
     // Make sure this is the motherofall thread.
-    JASSERT(_real_gettid() == _real_getpid()) (_real_gettid()) (_real_getpid());
+    ASSERT(_real_gettid() == _real_getpid(),
+           "initial thread real tid/pid mismatch: tid={} pid={}",
+           _real_gettid(),
+           _real_getpid());
   }
   return _dmtcp_thread_tid;
 }
@@ -147,7 +151,7 @@ VirtualPidTable::refresh()
   id_iterator next;
   pid_t _real_pid = _real_getpid();
 
-  JASSERT(getpid() != -1);
+  ASSERT(getpid() != -1, "virtual pid is not initialized");
 
   _do_lock_tbl();
   for (i = _idMapTable.begin(), next = i; i != _idMapTable.end(); i = next) {
@@ -169,8 +173,9 @@ VirtualPidTable::getNewVirtualTid()
     refresh();
   }
 
-  JASSERT(VirtualIdTable<pid_t>::getNewVirtualId(&tid))
-    (_idMapTable.size()).Text("Exceeded maximum number of threads allowed");
+  ASSERT(VirtualIdTable<pid_t>::getNewVirtualId(&tid),
+         "exceeded maximum number of threads allowed: map_size={}",
+         _idMapTable.size());
 
   return tid;
 }
@@ -191,9 +196,7 @@ void
 VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
 {
   if (virtualId > 0 && realId > 0) {
-    _do_lock_tbl();
-    _idMapTable[virtualId] = realId;
-    _do_unlock_tbl();
+    VirtualIdTable<pid_t>::updateMapping(virtualId, realId);
   }
 }
 

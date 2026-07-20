@@ -26,9 +26,9 @@
 #include "util.h"
 #include "lookup_service.h"
 #include "tokenize.h"
-#include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jsocket.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 
@@ -50,18 +50,20 @@ LookupService::set(string const& id, string const& key, string const& val)
 KVDBResponse
 LookupService::get(string const& id, string const& key, string *val)
 {
-  if (_maps.find(id) == _maps.end()) {
-    JTRACE("Lookup Failed, database not found.") (id);
+  auto mapIt = _maps.find(id);
+  if (mapIt == _maps.end()) {
+    TRACE("Lookup Failed, database not found: id={}", id);
     return KVDBResponse::DB_NOT_FOUND;
   }
 
-  KeyValueMap &kvmap = _maps[id];
-  if (kvmap.find(key) == kvmap.end()) {
-    JTRACE("Lookup Failed, Key not found.") (id) (key);
+  KeyValueMap &kvmap = mapIt->second;
+  auto valueIt = kvmap.find(key);
+  if (valueIt == kvmap.end()) {
+    TRACE("Lookup Failed, Key not found: id={} key={}", id, key);
     return KVDBResponse::KEY_NOT_FOUND;
   }
 
-  *val = kvmap[key];
+  *val = valueIt->second;
 
   return KVDBResponse::SUCCESS;
 }
@@ -93,10 +95,11 @@ LookupService::processRequest(jalib::JSocket &remote,
                          const DmtcpMessage &msg,
                          const void *extraData)
 {
-  JASSERT(msg.keyLen > 0 &&
-          msg.valLen > 0 &&
-          (msg.keyLen + msg.valLen) == msg.extraBytes)
-  (msg.keyLen)(msg.valLen)(msg.extraBytes);
+  ASSERT(msg.keyLen > 0 &&
+         msg.valLen > 0 &&
+         (msg.keyLen + msg.valLen) == msg.extraBytes,
+         "invalid KVDB payload sizes: keyLen={} valLen={} extraBytes={}",
+         msg.keyLen, msg.valLen, msg.extraBytes);
 
   if (msg.kvdbRequest == KVDBRequest::GET) {
     processGet(remote, msg, extraData);
@@ -137,44 +140,46 @@ LookupService::processSet(jalib::JSocket &remote,
   string oldVal("0");
   get(msg.kvdbId, key, &oldVal);
 
+  auto valueIt = kvmap.find(key);
   if (msg.kvdbRequest == KVDBRequest::SET ||
-      kvmap.find(key) == kvmap.end()) {
+      valueIt == kvmap.end()) {
     kvmap[key] = val;
     sendResponse(remote, oldVal);
     return;
   }
 
   int64_t val64 = jalib::StringToInt64(val);
-  int64_t oldVal64 = jalib::StringToInt64(kvmap[key]);
+  int64_t oldVal64 = jalib::StringToInt64(valueIt->second);
 
   switch (msg.kvdbRequest)
   {
   case KVDBRequest::INCRBY:
-    kvmap[key] = jalib::XToString(oldVal64 + val64);
+    valueIt->second = jalib::XToString(oldVal64 + val64);
     break;
 
   case KVDBRequest::OR:
-    kvmap[key] = jalib::XToString(oldVal64 | val64);
+    valueIt->second = jalib::XToString(oldVal64 | val64);
     break;
 
   case KVDBRequest::XOR:
-    kvmap[key] = jalib::XToString(oldVal64 ^ val64);
+    valueIt->second = jalib::XToString(oldVal64 ^ val64);
     break;
 
   case KVDBRequest::AND:
-    kvmap[key] = jalib::XToString(oldVal64 & val64);
+    valueIt->second = jalib::XToString(oldVal64 & val64);
     break;
 
   case KVDBRequest::MIN:
-    kvmap[key] = jalib::XToString(MIN(oldVal64, val64));
+    valueIt->second = jalib::XToString(MIN(oldVal64, val64));
     break;
 
   case KVDBRequest::MAX:
-    kvmap[key] = jalib::XToString(MAX(oldVal64, val64));
+    valueIt->second = jalib::XToString(MAX(oldVal64, val64));
     break;
 
   default:
-    JASSERT(false).Text("Invalid operation");
+    ASSERT(false, "Invalid KVDB operation: {}",
+           static_cast<int>(msg.kvdbRequest));
   }
 
   sendResponse(remote, oldVal);
@@ -228,7 +233,7 @@ LookupService::serialize(string const& file)
   ofstream o;
   o.open (file.data());
 
-  JASSERT(o.is_open());
+  ASSERT(o.is_open(), "failed to open lookup service snapshot: {}", file);
 
   o << "{\n";
 

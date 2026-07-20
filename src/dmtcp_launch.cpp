@@ -21,13 +21,17 @@
 
 #include <sys/resource.h>
 #include <linux/version.h>
+#include <errno.h>
+#include <string_view>
+#include <unistd.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 # include <sys/personality.h>
 # ifndef ADDR_NO_RANDOMIZE
 #  define ADDR_NO_RANDOMIZE  0x0040000  /* In case of old glibc, not defined */
 # endif
 #endif
-#include "../jalib/jassert.h"
+#include <stdio.h>
+#include <string.h>
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "constants.h"
@@ -36,6 +40,7 @@
 #include "shareddata.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "dmtcp_assert.h"
 
 #define BINARY_NAME "dmtcp_launch"
 
@@ -43,7 +48,6 @@ using namespace dmtcp;
 
 static void processArgs(int *orig_argc, const char ***orig_argv);
 static int testMatlab(const char *filename);
-static int testJava(const char **argv);
 static bool testSetuid(const char *filename);
 static void testStaticallyLinked(const char *filename);
 static bool testScreen(const char **argv, const char ***newArgv);
@@ -107,6 +111,10 @@ static const char *theUsage =
   "  --ckpt-signal signum\n"
   "              Signal number used internally by DMTCP for checkpointing\n"
   "              (default: SIGUSR2/12).\n"
+  "  --enable-unique-checkpoint-filenames\n"
+  "  --disable-unique-checkpoint-filenames\n"
+  "              Enable/disable unique checkpoint directory names\n"
+  "              (environment variable DMTCP_UNIQUE_CKPT_PLUGIN=[01]).\n"
   "\n"
   "Enable/disable plugins:\n"
   "  --with-plugin (environment variable DMTCP_PLUGIN)\n"
@@ -125,8 +133,26 @@ static const char *theUsage =
   "              Disable alloc plugin (default: enabled).\n"
   "  --disable-dl-plugin: (environment variable DMTCP_DL_PLUGIN=[01])\n"
   "              Disable dl plugin (default: enabled).\n"
-  "  --disable-all-plugins (EXPERTS ONLY, FOR DEBUGGING)\n"
-  "              Disable all plugins.\n"
+  "  --disable-ssh-plugin: (environment variable DMTCP_SSH_PLUGIN=[01])\n"
+  "              Disable ssh plugin (default: enabled).\n"
+  "  --disable-event-plugin: (environment variable DMTCP_EVENT_PLUGIN=[01])\n"
+  "              Disable event plugin (default: enabled).\n"
+  "  --disable-file-plugin: (environment variable DMTCP_FILE_PLUGIN=[01])\n"
+  "              Disable file plugin (default: enabled).\n"
+  "  --disable-pty-plugin: (environment variable DMTCP_PTY_PLUGIN=[01])\n"
+  "              Disable pty plugin (default: enabled).\n"
+  "  --disable-socket-plugin: (environment variable DMTCP_SOCKET_PLUGIN=[01])\n"
+  "              Disable socket plugin (default: enabled).\n"
+  "  --disable-svipc-plugin: (environment variable DMTCP_SVIPC_PLUGIN=[01])\n"
+  "              Disable svipc plugin (default: enabled).\n"
+  "  --disable-timer-plugin: (environment variable DMTCP_TIMER_PLUGIN=[01])\n"
+  "              Disable timer plugin (default: enabled).\n"
+  "  --disable-pid-plugin: (environment variable DMTCP_PID_PLUGIN=[01])\n"
+  "              Disable pid plugin (default: enabled).\n"
+  "  --disable-all-plugins: (environment variable DMTCP_DISABLE_ALL_PLUGINS=[01])\n"
+  "              (EXPERTS ONLY, FOR DEBUGGING)\n"
+  "              Disable all built-in plugins; external DMTCP_PLUGIN entries\n"
+  "              remain enabled.\n"
   "\n"
   "Other options:\n"
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
@@ -165,7 +191,11 @@ static bool enableModifyEnvPlugin = false;
 
 static bool enableAllocPlugin = true;
 static bool enableDlPlugin = true;
-static bool enableIPCPlugin = true;
+static bool enableSshPlugin = true;
+static bool enableEventPlugin = true;
+static bool enableFilePlugin = true;
+static bool enablePtyPlugin = true;
+static bool enableSocketPlugin = true;
 static bool enableSvipcPlugin = true;
 static bool enablePathVirtPlugin = false;
 static bool enableTimerPlugin = true;
@@ -192,16 +222,8 @@ struct PluginInfo {
 
 static struct PluginInfo pluginInfo[] = {               // Default value
   { &enableModifyEnvPlugin, "libdmtcp_modify-env.so" },  // Disabled
-  { &enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so" }, // Disabled
-  { &enableAllocPlugin, "libdmtcp_alloc.so" },          // Enabled
-  { &enableDlPlugin, "libdmtcp_dl.so" },                // Enabled
-  { &enableIPCPlugin, "libdmtcp_ipc.so" },              // Enabled
-  { &enableSvipcPlugin, "libdmtcp_svipc.so" },          // Enabled
-  { &enablePathVirtPlugin,  "libdmtcp_pathvirt.so"},    // Disabled
-  { &enableTimerPlugin, "libdmtcp_timer.so" },          // Enabled
   { &enableLibDMTCP, "libdmtcp.so" },                   // Enabled
-  // PID plugin must come last.
-  { &enablePIDPlugin, "libdmtcp_pid.so" }               // Enabled
+  { &enablePathVirtPlugin,  "libdmtcp_pathvirt.so"}     // Disabled
 };
 
 const size_t numLibs = sizeof(pluginInfo) / sizeof(struct PluginInfo);
@@ -294,6 +316,14 @@ processArgs(int *orig_argc, const char ***orig_argv)
     } else if (s == "--allow-file-overwrite") {
       setenv(ENV_VAR_ALLOW_OVERWRITE_WITH_CKPTED_FILES, "1", 0);
       shift;
+    } else if (s == "--enable-unique-checkpoint-filenames") {
+      enableUniqueCkptPlugin = true;
+      setenv(ENV_VAR_UNIQUE_CKPT_PLUGIN, "1", 1);
+      shift;
+    } else if (s == "--disable-unique-checkpoint-filenames") {
+      enableUniqueCkptPlugin = false;
+      setenv(ENV_VAR_UNIQUE_CKPT_PLUGIN, "0", 1);
+      shift;
     } else if (s == "--modify-env") {
       enableModifyEnvPlugin = true;
       shift;
@@ -306,8 +336,53 @@ processArgs(int *orig_argc, const char ***orig_argv)
     } else if (s == "--disable-dl-plugin") {
       setenv(ENV_VAR_DL_PLUGIN, "0", 1);
       shift;
+    } else if (s == "--disable-ssh-plugin") {
+      enableSshPlugin = false;
+      setenv(ENV_VAR_SSH_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-event-plugin") {
+      enableEventPlugin = false;
+      setenv(ENV_VAR_EVENT_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-file-plugin") {
+      enableFilePlugin = false;
+      setenv(ENV_VAR_FILE_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-pty-plugin") {
+      enablePtyPlugin = false;
+      setenv(ENV_VAR_PTY_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-socket-plugin") {
+      enableSocketPlugin = false;
+      setenv(ENV_VAR_SOCKET_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-ipc-plugin") {
+      enableSshPlugin = false;
+      enableEventPlugin = false;
+      enableFilePlugin = false;
+      enablePtyPlugin = false;
+      enableSocketPlugin = false;
+      setenv(ENV_VAR_SSH_PLUGIN, "0", 1);
+      setenv(ENV_VAR_EVENT_PLUGIN, "0", 1);
+      setenv(ENV_VAR_FILE_PLUGIN, "0", 1);
+      setenv(ENV_VAR_PTY_PLUGIN, "0", 1);
+      setenv(ENV_VAR_SOCKET_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-svipc-plugin") {
+      enableSvipcPlugin = false;
+      setenv(ENV_VAR_SVIPC_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-timer-plugin") {
+      enableTimerPlugin = false;
+      setenv(ENV_VAR_TIMER_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-pid-plugin") {
+      enablePIDPlugin = false;
+      setenv(ENV_VAR_PID_PLUGIN, "0", 1);
+      shift;
     } else if (s == "--no-plugins" || s == "--disable-all-plugins") {
       disableAllPlugins = true;
+      setenv(ENV_VAR_DISABLE_ALL_PLUGINS, "1", 1);
       shift;
     } else if (s == "--with-plugin") {
       setenv(ENV_VAR_PLUGIN, argv[1], 1);
@@ -324,13 +399,12 @@ processArgs(int *orig_argc, const char ***orig_argv)
       personality(ADDR_NO_RANDOMIZE);
 #endif
       shift;
-    } else if ((s.length() > 2 && s.substr(0, 2) == "--") ||
-               (s.length() > 1 && s.substr(0, 1) == "-")) {
-      printf("Invalid Argument\n%s", theUsage);
-      exit(DMTCP_FAIL_RC);
     } else if (argc > 1 && s == "--") {
       shift;
       break;
+    } else if (s.length() > 1 && s.starts_with("-")) {
+      printf("Invalid Argument\n%s", theUsage);
+      exit(DMTCP_FAIL_RC);
     } else {
       break;
     }
@@ -349,13 +423,14 @@ processArgs(int *orig_argc, const char ***orig_argv)
    * NOTE:  This occurs _only_ on second CKPT of 'make check' tests.
    */
   if (getenv(ENV_VAR_COMPRESSION) == NULL /* NULL default => --gzip */ ||
-      strcmp(getenv(ENV_VAR_COMPRESSION), "1") == 0) {
+      Util::strEquals(getenv(ENV_VAR_COMPRESSION), "1")) {
     setenv(ENV_VAR_COMPRESSION, "0", 1);
     if (getenv(ENV_VAR_QUIET) != NULL &&
-        strcmp(getenv(ENV_VAR_QUIET), "0") == 0) {
-      JASSERT_STDERR <<
+        Util::strEquals(getenv(ENV_VAR_QUIET), "0")) {
+      fputs(
         "\n*** Turning off gzip compression.  The armv8 CPU support is"
-        " still in beta testing.\n*** Gzip not yet supported.\n\n";
+        " still in beta testing.\n*** Gzip not yet supported.\n\n",
+        stderr);
     }
   }
 #endif // if __aarch64__
@@ -367,7 +442,7 @@ processArgs(int *orig_argc, const char ***orig_argv)
     // Use static; some compilers save string const on local stack otherwise.
     static const char *default_port = STRINGIFY(DEFAULT_PORT);
     setenv(ENV_VAR_NAME_PORT, default_port, 1);
-    JTRACE("No port specified\n"
+    TRACE("No port specified\n"
            "Setting mode to --new-coordinator --coord-port "
            STRINGIFY(DEFAULT_PORT));
   }
@@ -395,7 +470,7 @@ main(int argc, const char **argv)
   // FIXME:  This was changed in Mar., 2022.
   //         We can remove this msg in 2 or 3 years.
   if (getenv("DMTCP_ABORT_ON_FAILED_ASSERT")) {
-    JNOTE("\n\n*********************************************\n"
+    NOTE("\n\n*********************************************\n"
               "* DMTCP_ABORT_ON_FAILED_ASSERT is obsolete. *\n"
               "* Please use DMTCP_ABORT_ON_FAILURE instead.*\n"
               "*********************************************\n");
@@ -403,7 +478,7 @@ main(int argc, const char **argv)
 
   UniquePid::ThisProcess(true);
 
-  Util::initializeLogFile(tmpDir.c_str(), "dmtcp_launch");
+  initializeLogFile(tmpDir.c_str(), "dmtcp_launch");
 
   DmtcpUniqueProcessId compId;
   CoordinatorInfo coordInfo;
@@ -442,16 +517,21 @@ main(int argc, const char **argv)
   struct rlimit rlim;
   getrlimit(RLIMIT_STACK, &rlim);
   if (rlim.rlim_cur > 256 * 1024 * 1024 && rlim.rlim_cur != RLIM_INFINITY) {
-    JASSERT_STDERR <<
+    fputs(
       "*** WARNING:  RLIMIT_STACK > 1/4 GB.  This causes each thread to"
       "\n***  receive a 1/4 GB stack segment.  Checkpoint/restart will be slow,"
       "\n***  and will potentially break if many threads are created."
       "\n*** Suggest setting (sh/bash):  ulimit -s 10000"
       "\n***                (csh/tcsh):  limit stacksize 10000"
       "\n*** prior to using DMTCP.  (This will be fixed in the future, when"
-      "\n*** DMTCP supports restoring zero-mapped pages.)\n\n\n";
+      "\n*** DMTCP supports restoring zero-mapped pages.)\n\n\n",
+      stderr);
   }
 
+  // FIXME: ***DELETE THE FOLLOWING COMMENT***
+  //        ***SEE: Detect unallocated pages via pagemap residency at checkpoint
+  //        ***     That PR #1260 handles unallocated (i.e., zero-mapped
+  //        ***     pages.  Delete this comment when putshed in.
   // Remove this when zero-mapped pages are supported.  For segments with
   // no file backing:  Start with 4096 (page) offset and keep doubling offset
   // until finding region of memory segment with many zeroes.
@@ -466,7 +546,6 @@ main(int argc, const char **argv)
   // - Gene
 
   testMatlab(argv[0]);
-  testJava(argv);  // Warn that -Xmx flag needed to limit virtual memory size
 
   // If libdmtcp.so is in standard search path and _also_ has setgid access,
   // then LD_PRELOAD will work.
@@ -503,7 +582,7 @@ main(int argc, const char **argv)
 #endif
 
   if (argc > 0) {
-    JTRACE("dmtcp_launch starting new program:")(argv[0]);
+    TRACE("dmtcp_launch starting new program: argv0={}", argv[0]);
   }
 
   // set up CHECKPOINT_DIR
@@ -517,7 +596,7 @@ main(int argc, const char **argv)
       ckptDir = ".";
     }
     setenv(ENV_VAR_CHECKPOINT_DIR, ckptDir, 0);
-    JTRACE("setting " ENV_VAR_CHECKPOINT_DIR)(ckptDir);
+    TRACE("setting " ENV_VAR_CHECKPOINT_DIR ": value={}", ckptDir);
   }
 
   if (checkpointOpenFiles) {
@@ -532,10 +611,12 @@ main(int argc, const char **argv)
     // Couldn't read argv_buf
     // FIXME:  This could have been a symbolic link.  Don't issue an error,
     // unless we're sure that the executable is not readable.
-    JASSERT_STDERR <<
+    fprintf(
+      stderr,
       "*** ERROR:  Executable to run w/ DMTCP appears not to be readable,\n"
       "***         or no such executable in path.\n\n"
-                   << argv[0] << "\n";
+      "%s\n",
+      argv[0]);
     exit(DMTCP_FAIL_RC);
   } else {
     testStaticallyLinked(argv[0]);
@@ -560,7 +641,7 @@ main(int argc, const char **argv)
   // should disable the SESSION_MANAGER environment variable to prevent the
   // application from communication with the X session manager.
   if (getenv("SESSION_MANAGER") != NULL) {
-    JTRACE("Unsetting SESSION_MANAGER environment variable.");
+    TRACE("Unsetting SESSION_MANAGER environment variable.");
     unsetenv("SESSION_MANAGER");
   }
 
@@ -580,12 +661,12 @@ main(int argc, const char **argv)
   }
 
   // should be unreachable
-  JASSERT_STDERR <<
-    "ERROR: Failed to exec(\"" << argv[0] << "\"): " << JASSERT_ERRNO << "\n"
-                 << "Perhaps it is not in your $PATH?\n"
-                 << "See `dmtcp_launch --help` for usage.\n";
-
-  // fprintf(stderr, theExecFailedMsg, argv[0], JASSERT_ERRNO);
+  const int savedErrno = errno;
+  fprintf(stderr,
+          "ERROR: Failed to exec(\"%s\"): %s\n"
+          "Perhaps it is not in your $PATH?\n"
+          "See `dmtcp_launch --help` for usage.\n",
+          argv[0], strerror(savedErrno));
 
   return -1;
 }
@@ -611,9 +692,10 @@ testMatlab(const char *filename)
     " executing.)\n\n";
 
   // FIXME:  should expand filename and "matlab" before checking
-  if (strcmp(filename, "matlab") == 0 &&
-      (getenv(ENV_VAR_QUIET) == NULL || strcmp(getenv(ENV_VAR_QUIET), "0"))) {
-    JASSERT_STDERR << theMatlabWarning;
+  if (Util::strEquals(filename, "matlab") &&
+      (getenv(ENV_VAR_QUIET) == NULL ||
+       Util::strEquals(getenv(ENV_VAR_QUIET), "0"))) {
+    fputs(theMatlabWarning, stderr);
     return -1;
   }
 # endif // if __GNUC__ == 4 && __GNUC_MINOR__ > 1
@@ -621,53 +703,12 @@ testMatlab(const char *filename)
   return 0;
 }
 
-// FIXME:  Remove this when DMTCP supports zero-mapped pages
-static int
-testJava(const char **argv)
-{
-  static const char *theJavaWarning =
-    "\n**** WARNING:  Sun/Oracle Java claims a large amount of memory\n"
-    "****  for its heap on startup.  As of DMTCP version 1.2.4, DMTCP _does_\n"
-    "****  handle zero-mapped virtual memory, but it may take up to a\n"
-    "****  minute.  This will be fixed to be much faster in a future\n"
-    "****  version of DMTCP.  In the meantime, if your Java supports it,\n"
-    "****  use the -Xmx flag for a smaller heap:  e.g.  java -Xmx64M javaApp\n"
-    "****  (Invoke dmtcp_launch with --quiet to avoid this msg.)\n\n";
-
-  if (getenv(ENV_VAR_QUIET) != NULL
-      && strcmp(getenv(ENV_VAR_QUIET), "0") != 0) {
-    return 0;
-  }
-  if (strcmp(argv[0], "java") == 0) {
-    while (*(++argv) != NULL) {
-      if (strncmp(*argv, "-Xmx", sizeof("-Xmx") - 1) == 0) {
-        return 0; // The user called java with -Xmx.  No need for warning.
-      }
-    }
-  }
-
-  // If user has more than 4 GB of RAM, warn them that -Xmx is faster.
-  int fd;
-  char buf[100];
-  static const char *meminfoPrefix = "MemTotal:       ";
-  if ((fd = open("/proc/meminfo", O_RDONLY)) != -1 &&
-      read(fd, buf, sizeof(meminfoPrefix) + 16) == sizeof(meminfoPrefix) + 16 &&
-      strncmp(buf, meminfoPrefix, sizeof(meminfoPrefix) + 1) == 0 &&
-      atol(buf + sizeof(meminfoPrefix)) > 17000000) { /* units of kB : mem > 4
-                                                         GB */
-    JASSERT_STDERR << theJavaWarning;
-  }
-  if (fd != -1) {
-    close(fd);
-  }
-  return -1;
-}
-
 static bool
 testSetuid(const char *filename)
 {
   if (Util::isSetuid(filename) &&
-      strcmp(filename, "screen") != 0 && strstr(filename, "/screen") == NULL) {
+      !Util::strEquals(filename, "screen") &&
+      strstr(filename, "/screen") == NULL) {
     static const char *theSetuidWarning =
       "\n"
       "**** WARNING:  This process has the setuid or setgid bit set.  This is\n"
@@ -676,7 +717,7 @@ testSetuid(const char *filename)
       "***  for the best.  For some programs, you may wish to\n"
       "***  compile your own private copy, without using setuid permission.\n";
 
-    JASSERT_STDERR << theSetuidWarning;
+    fputs(theSetuidWarning, stderr);
     sleep(3);
     return true;
   }
@@ -687,21 +728,19 @@ void
 testStaticallyLinked(const char *pathname)
 {
   if (Util::isStaticallyLinked(pathname)) {
-    JASSERT_STDERR <<
-      "*** WARNING:  " ELF_INTERPRETER " --verify " << pathname << " returns\n"
-                   << "***  nonzero status.\n"
-                   << "*** This often means that " << pathname << " is\n"
-                   <<
-      "*** a statically linked target.  If so, you can confirm this with\n"
-                   << "*** the 'file' command.\n"
-                   << "***  The standard DMTCP only supports dynamically"
-                   << " linked executables.\n"
-                   <<
-      "*** If you cannot recompile dynamically, please talk to the"
-                   << " developers about a\n"
-                   <<
-      "*** custom DMTCP version for statically linked executables.\n"
-                   << "*** Proceeding for now, and hoping for the best.\n\n";
+    fprintf(stderr,
+            "*** WARNING:  " ELF_INTERPRETER " --verify %s returns\n"
+            "***  nonzero status.\n"
+            "*** This often means that %s is\n"
+            "*** a statically linked target. You can confirm this\n"
+            "*** with the 'file' command.\n"
+            "***  The standard DMTCP only supports dynamically"
+            " linked executables.\n"
+            "*** If you cannot recompile dynamically, please talk to the"
+            " developers about a\n"
+            "*** custom DMTCP version for statically linked executables.\n"
+            "*** Proceeding for now, and hoping for the best.\n\n",
+            pathname, pathname);
   }
 }
 
@@ -723,7 +762,7 @@ testFsGsBase()
 {
 #ifdef __x86_64__
   pid_t childPid = fork();
-  JASSERT(childPid != -1);
+  ASSERT_NE(-1, childPid, "failed to fork FSGSBASE probe");
 
   if (childPid == 0) {
     unsigned long fsbase = -1;
@@ -740,7 +779,10 @@ testFsGsBase()
   }
 
   int status = 0;
-  JASSERT(waitpid(childPid, &status, 0) == childPid);
+  ASSERT_EQ(childPid,
+                        waitpid(childPid, &status, 0),
+                        "failed to wait for FSGSBASE probe child: child_pid={}",
+                        childPid);
 
   if (status == 0) {
     setenv(ENV_VAR_FSGSBASE_ENABLED, "1", 1);
@@ -751,51 +793,52 @@ testFsGsBase()
 }
 
 static void
+syncPluginEnvWithLauncherState(const char *envName, bool *enabled)
+{
+  if (getenv(envName) != NULL) {
+    *enabled = Util::readBooleanEnv(envName, *enabled);
+  } else {
+    setenv(envName, *enabled ? "1" : "0", 0);
+  }
+}
+
+static void
 setLDPreloadLibs(bool is32bitElf)
 {
   // preloadLibs are to set LD_PRELOAD:
   // LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
-  string preloadLibs = "";
+  string externalPreloadLibs = "";
 
   // FIXME:  If the colon-separated elements of ENV_VAR_PLUGIN are not
   // absolute pathnames, then they must be expanded to absolute pathnames.
   // Warn user if an absolute pathname is not valid.
   if (getenv(ENV_VAR_PLUGIN) != NULL) {
-    preloadLibs += getenv(ENV_VAR_PLUGIN);
-    preloadLibs += ":";
+    externalPreloadLibs += getenv(ENV_VAR_PLUGIN);
+    externalPreloadLibs += ":";
   }
-  string preloadLibs32 = preloadLibs;
+  string preloadLibs = externalPreloadLibs;
+  string preloadLibs32 = externalPreloadLibs;
 
-  // set up Alloc plugin
-  if (getenv(ENV_VAR_ALLOC_PLUGIN) != NULL) {
-    const char *ptr = getenv(ENV_VAR_ALLOC_PLUGIN);
-    if (strcmp(ptr, "1") == 0) {
-      enableAllocPlugin = true;
-    } else if (strcmp(ptr, "0") == 0) {
-      enableAllocPlugin = false;
-    } else {
-      JASSERT(false) (getenv(ENV_VAR_ALLOC_PLUGIN))
-      .Text("Invalid value for the environment variable.");
-    }
-  }
+  disableAllPlugins =
+    Util::readBooleanEnv(ENV_VAR_DISABLE_ALL_PLUGINS, disableAllPlugins);
 
-  // Setup Dl plugin
-  if (getenv(ENV_VAR_DL_PLUGIN) != NULL) {
-    const char *ptr = getenv(ENV_VAR_DL_PLUGIN);
-    if (strcmp(ptr, "1") == 0) {
-      enableDlPlugin = true;
-    } else if (strcmp(ptr, "0") == 0) {
-      enableDlPlugin = false;
-    } else {
-      JASSERT(false) (getenv(ENV_VAR_DL_PLUGIN))
-      .Text("Invalid value for the environment variable.");
-    }
-  }
+  syncPluginEnvWithLauncherState(ENV_VAR_ALLOC_PLUGIN, &enableAllocPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_DL_PLUGIN, &enableDlPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_SSH_PLUGIN, &enableSshPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_EVENT_PLUGIN, &enableEventPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_FILE_PLUGIN, &enableFilePlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_PTY_PLUGIN, &enablePtyPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_SOCKET_PLUGIN, &enableSocketPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_SVIPC_PLUGIN, &enableSvipcPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_TIMER_PLUGIN, &enableTimerPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_PID_PLUGIN, &enablePIDPlugin);
+  syncPluginEnvWithLauncherState(ENV_VAR_UNIQUE_CKPT_PLUGIN,
+                                 &enableUniqueCkptPlugin);
 
   if (disableAllPlugins) {
-    preloadLibs = Util::getPath("libdmtcp.so");
+    preloadLibs = externalPreloadLibs + Util::getPath("libdmtcp.so");
 #if defined(__x86_64__) || defined(__aarch64__)
-    preloadLibs32 = Util::getPath("libdmtcp.so", true);
+    preloadLibs32 = externalPreloadLibs + Util::getPath("libdmtcp.so", true);
 #endif // if defined(__x86_64__) || defined(__aarch64__)
   } else {
     for (size_t i = 0; i < numLibs; i++) {
@@ -834,13 +877,14 @@ setLDPreloadLibs(bool is32bitElf)
 #if defined(__x86_64__) || defined(__aarch64__)
   if (is32bitElf) {
     string libdmtcp = Util::getPath("libdmtcp.so", true);
-    JWARNING(libdmtcp != "libdmtcp.so") (libdmtcp)
-    .Text("You appear to be checkpointing a 32-bit target under 64-bit Linux.\n"
-          "DMTCP was unable to find the 32-bit installation.\n"
-          "See DMTCP FAQ or try:\n"
-          "  ./configure --enable-m32 && make clean && make -j && "
-          "make install\n"
-          "  ./configure && make clean && make -j && make install\n");
+    WARN(libdmtcp != "libdmtcp.so",
+            "unable to find 32-bit DMTCP installation: libdmtcp={}. "
+            "You appear to be checkpointing a 32-bit target under 64-bit "
+            "Linux. See DMTCP FAQ or try: "
+            "./configure --enable-m32 && make clean && make -j && "
+            "make install; "
+            "./configure && make clean && make -j && make install",
+            libdmtcp);
     if (enableKernelLoader) {
       setenv("UH_PRELOAD", preloadLibs32.c_str(), 1);
     } else {
@@ -848,6 +892,6 @@ setLDPreloadLibs(bool is32bitElf)
     }
   }
 #endif // if defined(__x86_64__) || defined(__aarch64__)
-  JTRACE("getting value of LD_PRELOAD")
-    (getenv("LD_PRELOAD")) (preloadLibs) (preloadLibs32);
+  TRACE("getting value of LD_PRELOAD: env={} preloadLibs={} preloadLibs32={}",
+        getenv("LD_PRELOAD"), preloadLibs, preloadLibs32);
 }

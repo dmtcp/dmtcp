@@ -38,6 +38,7 @@
 # define _real_clock_getres          NEXT_FNC(clock_getres)
 # define _real_clock_gettime         NEXT_FNC(clock_gettime)
 # define _real_clock_settime         NEXT_FNC(clock_settime)
+# define _real_clock_nanosleep      NEXT_FNC(clock_nanosleep)
 
 int timer_create_sigev_thread(clockid_t clock_id,
                               struct sigevent *evp,

@@ -20,7 +20,7 @@
  ****************************************************************************/
 
 #include "jalib.h"
-#include "jassert.h"
+#define DMTCP_LOG_COMPONENT "jalib"
 #include "jserialize.h"
 #include <fcntl.h>
 #include <stdio.h>
@@ -32,7 +32,7 @@ jalib::JBinarySerializeWriterRaw::JBinarySerializeWriterRaw(
   : JBinarySerializer(path)
   , _fd(fd)
 {
-  JASSERT(_fd >= 0)(path)(JASSERT_ERRNO).Text("open(path) failed");
+  ASSERT_ERRNO(_fd >= 0, "open(path) failed: path={}", path);
 }
 
 jalib::JBinarySerializeWriter::JBinarySerializeWriter(const dmtcp::string &path)
@@ -46,7 +46,7 @@ jalib::JBinarySerializeReaderRaw::JBinarySerializeReaderRaw(
   : JBinarySerializer(path)
   , _fd(fd)
 {
-  JASSERT(_fd >= 0)(path)(JASSERT_ERRNO).Text("open(path) failed");
+  ASSERT_ERRNO(_fd >= 0, "open(path) failed: path={}", path);
 }
 
 jalib::JBinarySerializeReader::JBinarySerializeReader(const dmtcp::string &path)
@@ -73,13 +73,13 @@ jalib::JBinarySerializeReaderRaw::isReader() { return true; }
 void
 jalib::JBinarySerializeWriterRaw::rewind()
 {
-  JASSERT(lseek(_fd, 0, SEEK_SET) == 0)(strerror(errno)).Text("Cannot rewind");
+  ASSERT_ERRNO(lseek(_fd, 0, SEEK_SET) == 0, "cannot rewind serializer");
 }
 
 void
 jalib::JBinarySerializeReaderRaw::rewind()
 {
-  JASSERT(lseek(_fd, 0, SEEK_SET) == 0)(strerror(errno)).Text("Cannot rewind");
+  ASSERT_ERRNO(lseek(_fd, 0, SEEK_SET) == 0, "cannot rewind serializer");
 }
 
 bool
@@ -87,7 +87,7 @@ jalib::JBinarySerializeWriterRaw::isempty()
 {
   struct stat buf;
 
-  JASSERT(fstat(_fd, &buf) == 0);
+  ASSERT_ERRNO(fstat(_fd, &buf) == 0, "failed to stat serializer fd");
   return buf.st_size == 0;
 }
 
@@ -96,7 +96,7 @@ jalib::JBinarySerializeReaderRaw::isempty()
 {
   struct stat buf;
 
-  JASSERT(fstat(_fd, &buf) == 0);
+  ASSERT_ERRNO(fstat(_fd, &buf) == 0, "failed to stat serializer fd");
   return buf.st_size == 0;
 }
 
@@ -105,10 +105,10 @@ jalib::JBinarySerializeReaderRaw::isEOF()
 {
   struct stat buf;
 
-  JASSERT(fstat(_fd, &buf) == 0);
+  ASSERT_ERRNO(fstat(_fd, &buf) == 0, "failed to stat serializer fd");
 
   off_t cur = lseek(_fd, 0, SEEK_CUR);
-  JASSERT(cur != -1);
+  ASSERT_ERRNO(cur != -1, "failed to query serializer fd offset");
 
   return cur == buf.st_size;
 }
@@ -118,8 +118,9 @@ jalib::JBinarySerializeWriterRaw::readOrWrite(void *buffer, size_t len)
 {
   size_t ret = jalib::writeAll(_fd, buffer, len);
 
-  JASSERT(ret == len) (filename()) (len) (JASSERT_ERRNO)
-  .Text("write() failed");
+  ASSERT_ERRNO(ret == len,
+               "write() failed: file={} expected_bytes={} actual_bytes={}",
+               filename(), len, ret);
   _bytes += len;
 }
 
@@ -128,7 +129,8 @@ jalib::JBinarySerializeReaderRaw::readOrWrite(void *buffer, size_t len)
 {
   size_t ret = jalib::readAll(_fd, buffer, len);
 
-  JASSERT(ret == len) (filename()) (JASSERT_ERRNO) (ret) (len)
-  .Text("read() failed");
+  ASSERT_ERRNO(ret == len,
+               "read() failed: file={} expected_bytes={} actual_bytes={}",
+               filename(), len, ret);
   _bytes += len;
 }

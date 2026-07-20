@@ -3,6 +3,17 @@ DMTCP NEWS -- history of user-visible changes.
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>,
 or "Issues" at https://github.com/dmtcp/dmtcp .
 
+Version 4.1.1 release notes (May 10, 2026)
+==========================================
+This is a minor release which fixes some compatibility issues related
+to newer versions of GCC and glibc, and bug fixes.
+* Fixed issues related to pthread functions in glibc >= 2.42.
+* Fixed compatiblity issues with newer GCC (C23).
+* Fixed virtual to real path mapping.
+* Fixed a bug in internal use of ReaderWriterLock.
+* Fixed file creation mode on restart.
+
+
 Version 4.1.0 release notes (Jan. 6, 2026)
 ==========================================
 This is a minor release which includes feature enhancements and bug fixes.

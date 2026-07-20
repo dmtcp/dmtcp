@@ -24,6 +24,7 @@
 
 #include <sys/types.h>
 #include "../jalib/jalloc.h"
+#include "dmtcp.h"
 #include "uniquepid.h"
 
 namespace dmtcp

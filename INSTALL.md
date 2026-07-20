@@ -62,9 +62,10 @@ The general methodology is:
   ./dmtcp_launch a.out <args,...>
 ```
 
-Note that files `/tmp/${USER}/dmtcp-${USER}@${HOST}/jassertlog.*` are created
-with debugging information if you configured with `--enable-debug`.
-See `./configure --help` for that and other options.
+Note that DMTCP creates log files under
+`/tmp/${USER}/dmtcp-${USER}@${HOST}/*.log` by default. Set
+`DMTCP_LOG_LEVEL=trace` before launching an application to include trace-level
+logs.
 
 See the file [QUICK-START.md](QUICK-START.md) for further information on using DMTCP.
 

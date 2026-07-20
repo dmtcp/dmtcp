@@ -21,17 +21,23 @@
 
 #include "util.h"
 #include <fcntl.h>
+#include <gnu/libc-version.h>
 #include <limits.h>  // for PATH_MAX
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/time.h>
-#include "../jalib/jassert.h"
+#include <unistd.h>
+#include <linux/fs.h>  // for PAGEMAP_SCAN ioctl (Linux 6.7+)
 #include "../jalib/jfilesystem.h"
+#include "constants.h"
 #include "dmtcp.h"
 #include "membarrier.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 
@@ -52,8 +58,7 @@ Util::lockFile(int fd)
     result = _real_fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
   } while (result == -1 && errno == EINTR);
 
-  JASSERT(result != -1) (JASSERT_ERRNO)
-  .Text("Unable to lock the PID MAP file");
+  ASSERT_NE(-1, result, "Unable to lock file: fd={}", fd);
 #if (__arm__ || __aarch64__)
   WMB;  // DMB, ensure writes by others to memory have completed before we
         // we enter protected region.
@@ -81,8 +86,8 @@ Util::unlockFile(int fd)
 
   result = _real_fcntl(fd, F_SETLK, &fl); /* set the region to unlocked */
 
-  JASSERT(result != -1 || errno == ENOLCK) (JASSERT_ERRNO)
-  .Text("Unlock Failed");
+  ASSERT_ERRNO(result != -1 || errno == ENOLCK,
+               "Unable to unlock file: fd={}", fd);
 }
 
 bool
@@ -91,12 +96,7 @@ Util::strStartsWith(const char *str, const char *pattern)
   if (str == NULL || pattern == NULL) {
     return false;
   }
-  int len1 = strlen(str);
-  int len2 = strlen(pattern);
-  if (len1 >= len2) {
-    return strncmp(str, pattern, len2) == 0;
-  }
-  return false;
+  return strStartsWith(std::string_view(str), std::string_view(pattern));
 }
 
 bool
@@ -105,13 +105,63 @@ Util::strEndsWith(const char *str, const char *pattern)
   if (str == NULL || pattern == NULL) {
     return false;
   }
-  int len1 = strlen(str);
-  int len2 = strlen(pattern);
-  if (len1 >= len2) {
-    size_t idx = len1 - len2;
-    return strncmp(str + idx, pattern, len2) == 0;
+  return strEndsWith(std::string_view(str), std::string_view(pattern));
+}
+
+bool
+Util::readBooleanEnv(const char *envName, bool defaultValue)
+{
+  if (envName == NULL) {
+    return defaultValue;
   }
-  return false;
+
+  const char *value = getenv(envName);
+  if (value == NULL) {
+    return defaultValue;
+  }
+
+  if (strEquals(value, "1")) {
+    return true;
+  }
+
+  if (strEquals(value, "0")) {
+    return false;
+  }
+
+  ASSERT(false,
+         "Invalid value for boolean environment variable: name={} value={}",
+         envName, value);
+  return defaultValue;
+}
+
+Util::Version
+Util::glibcVersion()
+{
+  static const Version cachedVersion = [] {
+    const char *versionText = gnu_get_libc_version();
+    const char *dot = strchr(versionText, '.');
+    ASSERT(dot != NULL && dot != versionText && dot[1] != '\0',
+           "unsupported glibc version text: version={}",
+           versionText);
+
+    Version parsed = {0, 0};
+    ASSERT(parseInteger(std::string_view(versionText, dot - versionText),
+                        &parsed.major),
+           "failed to parse glibc major version: version={}",
+           versionText);
+    const char *minorStart = dot + 1;
+    const char *minorEnd = strchr(minorStart, '.');
+    if (minorEnd == NULL) {
+      minorEnd = minorStart + strlen(minorStart);
+    }
+    ASSERT(parseInteger(std::string_view(minorStart, minorEnd - minorStart),
+                        &parsed.minor),
+           "failed to parse glibc minor version: version={}",
+           versionText);
+    return parsed;
+  }();
+
+  return cachedVersion;
 }
 
 // Add it back if needed.
@@ -172,7 +222,9 @@ Util::writeAll(int fd, const void *buf, size_t count)
       num_written += rc;
     }
   } while (num_written < count);
-  JASSERT(num_written == count) (num_written) (count);
+  ASSERT(num_written == count,
+         "short write in Util::writeAll: fd={} written={} expected={}", fd,
+         num_written, count);
   return num_written;
 }
 
@@ -226,7 +278,7 @@ Util::skipBytes(int fd, size_t count)
 ssize_t
 Util::readAll(const char *path, void *buf, size_t count)
 {
-  JASSERT(path != nullptr);
+  ASSERT_NOT_NULL(path);
 
   int fd = _real_open(path, O_RDONLY);
   if (fd == -1) {
@@ -243,7 +295,10 @@ int
 Util::changeFd(int oldfd, int newfd)
 {
   if (oldfd != newfd) {
-    JASSERT(_real_dup2(oldfd, newfd) == newfd);
+    ASSERT_EQ(newfd,
+                          _real_dup2(oldfd, newfd),
+                          "dup2 failed in Util::changeFd: oldfd={} newfd={}",
+                          oldfd, newfd);
     _real_close(oldfd);
   }
   return newfd;
@@ -267,7 +322,8 @@ Util::readLine(int fd, char *buf, int count)
   int i = 0;
   char c;
 
-  JASSERT(fd >= 0 && buf != NULL) (fd) ((void *)buf);
+  ASSERT_NE(-1, fd, "invalid Util::readLine fd: buf={}", buf);
+  ASSERT_NOT_NULL(buf, "invalid Util::readLine buffer: fd={}", fd);
 #define NEWLINE '\n' // Linux, OSX
   while (i < count) {
     ssize_t rc = read(fd, &c, 1);
@@ -466,7 +522,7 @@ Util::readProcMapsLine(int mapsfd, ProcMapsArea *area)
   return 1;
 
 skipeol:
-  JASSERT(false).Text("Not Reached");
+  ASSERT(false, "malformed /proc maps line");
   return 0;    /* NOTREACHED : stop compiler warning */
 }
 
@@ -485,45 +541,6 @@ Util::memProtToOpenFlags(int prot)
   return 0;
 }
 
-#define TRACER_PID_STR "TracerPid:"
-pid_t
-Util::getTracerPid(pid_t tid)
-{
-  if (!dmtcp_real_to_virtual_pid) {
-    return 0;
-  }
-
-  char buf[512];
-  char *str;
-  static int tracerStrLen = strlen(TRACER_PID_STR);
-  int fd;
-
-  if (tid == -1) {
-    tid = gettid();
-  }
-  sprintf(buf, "/proc/%d/status", tid);
-  fd = _real_open(buf, O_RDONLY, 0);
-  JASSERT(fd != -1) (buf) (JASSERT_ERRNO);
-  readAll(fd, buf, sizeof buf);
-  _real_close(fd);
-  str = strstr(buf, TRACER_PID_STR);
-  JASSERT(str != NULL);
-  str += tracerStrLen;
-
-  while (*str == ' ' || *str == '\t') {
-    str++;
-  }
-
-  pid_t tracerPid = (pid_t)strtol(str, NULL, 10);
-  return tracerPid == 0 ? tracerPid : dmtcp_real_to_virtual_pid(tracerPid);
-}
-
-bool
-Util::isPtraced()
-{
-  return getTracerPid() != 0;
-}
-
 bool
 Util::isValidFd(int fd)
 {
@@ -536,8 +553,8 @@ Util::isPseudoTty(const char *path)
   if (Util::strStartsWith(path, "/dev/tty") ||
       Util::strStartsWith(path, "/dev/pty") ||
       Util::strStartsWith(path, "/dev/pts/") ||
-      strcmp(path, "/dev/ptmx") == 0 ||
-      strcmp(path, "/dev/pts/ptmx") == 0) {
+      Util::strEquals(path, "/dev/ptmx") ||
+      Util::strEquals(path, "/dev/pts/ptmx")) {
     return true;
   }
   return false;
@@ -585,6 +602,143 @@ Util::areZeroPages(void *addr, size_t numPages)
   return res == 0;
 }
 
+// BATCH_SIZE: pages inspected per pread() in the fallback path.
+// 1024 pages = 4MB of virtual address space per batch (4KB pages).
+#define PAGEMAP_BATCH_SIZE 1024
+
+// Returns true if the leading run of pages in the anonymous range [start, end)
+// is "zero" (each page neither present nor swapped), false if it is occupied
+// (present or swapped).  *size_scanned (OUT) is set to the byte length of that
+// leading run.  Callers advance start by *size_scanned and call again to walk
+// the whole area, mirroring mtcp_get_next_page_range() in writeckpt.cpp but
+// without faulting in absent pages.
+//
+// CORRECTNESS CONSTRAINT: "absent => reads as zero" holds only for genuinely
+// anonymous private memory.  For file-backed mappings (including deleted-but-
+// still-mapped files) an absent page faults in the file's contents, so the
+// caller MUST restrict this to anonymous regions.
+//
+// Prefers ioctl(PAGEMAP_SCAN) (Linux 6.7+, where the kernel skips holes) and
+// falls back to a batched pread() of /proc/self/pagemap on older kernels.  If
+// the pagemap cannot be inspected at all, it conservatively reports the range
+// as occupied so the caller writes the data (no data loss).
+bool
+Util::scanOccupiedRangeBatch(uintptr_t start, uintptr_t end,
+                             uintptr_t *size_scanned)
+{
+  const size_t page_size = pageSize();
+  const uintptr_t pgMask = ~(uintptr_t)(page_size - 1);
+
+  // DMTCP areas are already page-aligned; align defensively anyway.
+  uintptr_t startAddr = start & pgMask;
+  uintptr_t endAddr = (end + page_size - 1) & pgMask;
+
+  if (startAddr >= endAddr) { // empty range
+    *size_scanned = 0;
+    return false;
+  }
+
+  // Use _real_open/_real_close: this may run mid-checkpoint, where the file
+  // plugin's open()/close() wrappers (fd tracking) must not be invoked.
+  int fd = _real_open("/proc/self/pagemap", O_RDONLY);
+  if (fd < 0) {
+    *size_scanned = endAddr - start;
+    return false; // can't inspect: treat as occupied (write the data)
+  }
+
+// PAGEMAP_SCAN (and pm_scan_arg, PAGE_IS_PRESENT, etc.) is defined in
+// /usr/include/linux/fs.h; it is absent on kernel headers older than Linux 6.7,
+// in which case only the pread() fallback below is compiled.
+#ifdef PAGEMAP_SCAN
+  // DMTCP_DISABLE_PAGEMAP_SCAN=1 forces the portable pread() fallback even
+  // where the ioctl is available (covers that path in testing/debugging).
+  if (!readBooleanEnv(ENV_VAR_DISABLE_PAGEMAP_SCAN, false)) {
+    struct page_region region;
+    struct pm_scan_arg arg;
+    memset(&arg, 0, sizeof(arg));
+    arg.size = sizeof(arg);
+    arg.start = startAddr;
+    arg.end = endAddr;
+    arg.vec = (uintptr_t)&region;
+    arg.vec_len = 1; // only need the leading occupied run / first hole edge
+    arg.category_anyof_mask = PAGE_IS_PRESENT | PAGE_IS_SWAPPED;
+    arg.return_mask = PAGE_IS_PRESENT | PAGE_IS_SWAPPED;
+
+    long ret = ioctl(fd, PAGEMAP_SCAN, &arg);
+    if (ret >= 0) {
+      _real_close(fd);
+      if (ret == 0) {
+        // No occupied pages found: the walked range is all zero.
+        uintptr_t walkEnd = arg.walk_end ? (uintptr_t)arg.walk_end : endAddr;
+        *size_scanned = walkEnd - start;
+        return true;
+      }
+      if ((uintptr_t)region.start <= startAddr) {
+        // start is occupied: leading run is the returned occupied region.
+        *size_scanned = (uintptr_t)region.end - start;
+        return false;
+      }
+      // start is in a hole: the leading zero run ends where occupancy begins.
+      *size_scanned = (uintptr_t)region.start - start;
+      return true;
+    }
+    // ioctl unsupported (pre-6.7 kernel) or failed: fall through to pread().
+  }
+#endif // PAGEMAP_SCAN
+
+  // Fallback: batched pread() of /proc/self/pagemap.
+  uint64_t entries[PAGEMAP_BATCH_SIZE];
+  uintptr_t current_addr = startAddr;
+  int leading_occupied = -1; // occupancy of the leading run; set to 0/1 below
+
+  while (current_addr < endAddr) {
+    size_t pages_remaining = (endAddr - current_addr) / page_size;
+    size_t pages_to_read = (pages_remaining < PAGEMAP_BATCH_SIZE)
+                           ? pages_remaining : PAGEMAP_BATCH_SIZE;
+    off_t offset = (off_t)(current_addr / page_size) * sizeof(uint64_t);
+    ssize_t bytes_read =
+      pread(fd, entries, pages_to_read * sizeof(uint64_t), offset);
+    if (bytes_read <= 0) {
+      break;
+    }
+    size_t actual_pages = bytes_read / sizeof(uint64_t);
+    if (actual_pages == 0) {
+      break;
+    }
+
+    for (size_t i = 0; i < actual_pages; i++) {
+      // Bit 63: present (in RAM).  Bit 62: swapped (on disk).  Normalize to a
+      // 0/1 bool so present and swapped both count as "occupied".
+      int is_occupied = ((entries[i] >> 62) & 0x3) != 0;
+
+      if (leading_occupied == -1) {
+        leading_occupied = is_occupied;
+      } else if (is_occupied != leading_occupied) {
+        // First boundary: the leading run is [start, page_ptr).
+        uintptr_t page_ptr = current_addr + i * page_size;
+        *size_scanned = page_ptr - start;
+        _real_close(fd);
+        return !leading_occupied; // negate: true == zero pages
+      }
+    }
+    current_addr += actual_pages * page_size;
+  }
+
+  _real_close(fd);
+  if (leading_occupied == -1) {
+    // No page was classified (e.g. pread failed on the first read).  Never
+    // return a zero-length run -- that would stall callers that advance by
+    // *size_scanned.  Conservatively report the whole range as occupied so the
+    // caller writes its data and still makes progress.
+    *size_scanned = endAddr - start;
+    return false;
+  }
+  // No boundary found: the whole range is one run (current_addr marks how far
+  // we got if pread() broke out early).
+  *size_scanned = (current_addr >= endAddr ? endAddr : current_addr) - start;
+  return !leading_occupied;
+}
+
 /* Caller must allocate exec_path of size at least MTCP_MAX_PATH */
 char *
 Util::findExecutable(char *executable, const char *path_env, char *exec_path)
@@ -593,7 +747,7 @@ Util::findExecutable(char *executable, const char *path_env, char *exec_path)
   const char *tmp_env;
   int len;
 
-  JASSERT(exec_path != NULL);
+  ASSERT_NOT_NULL(exec_path);
   if (path_env == NULL) {
     path_env = ""; // Will try stdpath later in this function
   }
@@ -631,7 +785,7 @@ Util::findExecutable(char *executable, const char *path_env, char *exec_path)
 
   // In case we're running with PATH environment variable unset:
   const char *stdpath = "/usr/local/bin:/usr/bin:/bin";
-  if (strcmp(path_env, stdpath) == 0) {
+  if (Util::strEquals(path_env, stdpath)) {
     return NULL;  // Already tried stdpath
   } else {
     return findExecutable(executable, stdpath, exec_path);
@@ -672,15 +826,19 @@ Util::allowGdbDebug(int currentDebugLevel)
   if (Util::isValidFd(PROTECTED_DEBUG_SOCKET_FD)) {
     int requestedDebugLevel = 0;
     // Inform parent of current level
-    JASSERT(write(PROTECTED_DEBUG_SOCKET_FD,
-                  &currentDebugLevel,
-                  sizeof(currentDebugLevel))
-            == sizeof(currentDebugLevel));
+    ASSERT_ERRNO(write(PROTECTED_DEBUG_SOCKET_FD,
+                       &currentDebugLevel,
+                       sizeof(currentDebugLevel))
+                   == sizeof(currentDebugLevel),
+                 "failed to write current debug level: fd={} level={}",
+                 PROTECTED_DEBUG_SOCKET_FD, currentDebugLevel);
     // Read the requested level from the parent
-    JASSERT(read(PROTECTED_DEBUG_SOCKET_FD,
-                 &requestedDebugLevel,
-                 sizeof(requestedDebugLevel))
-            == sizeof(requestedDebugLevel));
+    ASSERT_ERRNO(read(PROTECTED_DEBUG_SOCKET_FD,
+                      &requestedDebugLevel,
+                      sizeof(requestedDebugLevel))
+                   == sizeof(requestedDebugLevel),
+                 "failed to read requested debug level: fd={}",
+                 PROTECTED_DEBUG_SOCKET_FD);
     if (currentDebugLevel == requestedDebugLevel) {
       // Wait for GDB to connect if the requested level
       // matches the current level
@@ -713,16 +871,17 @@ Util::getTimestampStr()
 void
 Util::replace(char *str, const char *match, const char *replace)
 {
-  // find first occurance of match in src and replace it with replace and copy it into str.
+  ASSERT(strlen(match) > 0, "empty match string in Util::replace");
   char *pos = strstr(str, match);
   if (pos == NULL) {
     return;
   }
 
-  char buffer[4096];
-  strcpy(buffer, pos);
-  strcpy(pos, replace);
-  strcat(str, buffer);
+  const size_t matchLen = strlen(match);
+  const size_t replaceLen = strlen(replace);
+  char *suffix = pos + matchLen;
+  memmove(pos + replaceLen, suffix, strlen(suffix) + 1);
+  memcpy(pos, replace, replaceLen);
 }
 
 string

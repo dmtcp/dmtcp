@@ -33,7 +33,7 @@ namespace dmtcp
 struct UniquePid : public DmtcpUniqueProcessId {
   public:
     static UniquePid &ParentProcess();
-    static UniquePid &ThisProcess(bool disableJTrace = false);
+    static UniquePid &ThisProcess(bool disableTrace = false);
     UniquePid();
 
     UniquePid(const uint64_t &host,
@@ -89,8 +89,6 @@ struct UniquePid : public DmtcpUniqueProcessId {
     string toString() const;
 
     bool isNull() const;
-
-    static DmtcpPluginDescriptor_t pluginDescr();
 };
 
 ostream&operator<<(ostream &o, const UniquePid &id);

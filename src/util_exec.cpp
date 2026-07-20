@@ -21,18 +21,71 @@
 
 #include "util.h"
 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/time.h>
-#include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "protectedfds.h"
 #include "shareddata.h"
 #include "syscallwrappers.h"
 #include "uniquepid.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
+
+static void
+setPidEnvVar(const char *envName, pid_t value)
+{
+  static const size_t kPidEnvValueSize = 32;
+  char valueBuf[kPidEnvValueSize];
+  char paddedBuf[kPidEnvValueSize];
+
+  int len = snprintf(valueBuf, sizeof(valueBuf), "%d", value);
+  ASSERT(len > 0 && (size_t)len < sizeof(valueBuf),
+         "pid environment value exceeded buffer: name={} value={} len={} "
+         "capacity={}",
+         envName, value, len, sizeof(valueBuf));
+
+  if (getenv(envName) == NULL) {
+    int paddedLen = snprintf(paddedBuf, sizeof(paddedBuf), "%031d", value);
+    ASSERT_EQ((int)sizeof(paddedBuf) - 1,
+              paddedLen,
+              "padded pid environment value exceeded buffer: name={} value={}",
+              envName,
+              value);
+    setenv(envName, paddedBuf, 1);
+  } else {
+    char *envStr = (char *)getenv(envName);
+    if (strlen(envStr) < static_cast<size_t>(len)) {
+      setenv(envName, valueBuf, 1);
+    } else {
+      memcpy(envStr, valueBuf, len + 1);
+    }
+  }
+}
+
+static pid_t
+getPidEnvVar(const char *envName)
+{
+  const char *str = getenv(envName);
+  if (str == NULL) {
+    fprintf(stderr, "ERROR at %s:%d: env var %s not set\n\n",
+            __FILE__, __LINE__, envName);
+    _exit(DMTCP_FAIL_RC);
+  }
+
+  pid_t pid = 0;
+  if (!Util::parseInteger(str, &pid)) {
+    fprintf(stderr, "ERROR at %s:%d: env var %s invalid: %s\n\n",
+            __FILE__, __LINE__, envName, str);
+    _exit(DMTCP_FAIL_RC);
+  }
+
+  return pid;
+}
 
 void
 Util::setVirtualPidEnvVar(pid_t virtPid,
@@ -45,21 +98,10 @@ Util::setVirtualPidEnvVar(pid_t virtPid,
   // implements its own setenv by keeping a private copy libc:environ and never
   // refers to libc:private, thus libc:setenv is outdated and calling setenv()
   // can cause segfault.
-  char buf1[80];
-  char buf2[80];
-
-  memset(buf2, '#', sizeof(buf2));
-  buf2[sizeof(buf2) - 1] = '\0';
-
-  sprintf(buf1, "%d:%d:%d:%d:", virtPid, realPid, virtPpid, realPpid);
-
-  if (getenv(ENV_VAR_VIRTUAL_PID) == NULL) {
-    memcpy(buf2, buf1, strlen(buf1));
-    setenv(ENV_VAR_VIRTUAL_PID, buf2, 1);
-  } else {
-    char *envStr = (char *)getenv(ENV_VAR_VIRTUAL_PID);
-    memcpy(envStr, buf1, strlen(buf1));
-  }
+  setPidEnvVar(ENV_VAR_VIRTUAL_PID, virtPid);
+  setPidEnvVar(ENV_VAR_REAL_PID, realPid);
+  setPidEnvVar(ENV_VAR_VIRTUAL_PPID, virtPpid);
+  setPidEnvVar(ENV_VAR_REAL_PPID, realPpid);
 }
 
 void
@@ -68,16 +110,10 @@ Util::getVirtualPidFromEnvVar(pid_t *virtPid,
                               pid_t *virtPpid,
                               pid_t *realPpid)
 {
-  pid_t vPid, rPid, vPpid, rPpid;
-
-  const char *str = getenv(ENV_VAR_VIRTUAL_PID);
-  if (str == NULL) {
-    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
-            __FILE__, __LINE__);
-    _exit(DMTCP_FAIL_RC);
-  }
-
-  ASSERT_EQ(4, sscanf(str, "%d:%d:%d:%d:", &vPid, &rPid, &vPpid, &rPpid));
+  const pid_t vPid = getPidEnvVar(ENV_VAR_VIRTUAL_PID);
+  const pid_t rPid = getPidEnvVar(ENV_VAR_REAL_PID);
+  const pid_t vPpid = getPidEnvVar(ENV_VAR_VIRTUAL_PPID);
+  const pid_t rPpid = getPidEnvVar(ENV_VAR_REAL_PPID);
 
   if (virtPid) {
     *virtPid = vPid;
@@ -178,9 +214,14 @@ Util::expandPathname(const char *inpath, char *const outpath, size_t size)
         outpath[nextPtr - pathVar] = '\0';
       }
 
-      JASSERT(size > strlen(outpath) + strlen(inpath) + 1)
-        (size) (outpath) (strlen(outpath)) (inpath) (strlen(inpath))
-      .Text("Pathname too long; Use larger buffer.");
+      ASSERT(size > strlen(outpath) + strlen(inpath) + 1,
+             "pathname too long; use larger buffer: size={} prefix={} "
+             "prefix_len={} path={} path_len={}",
+             size,
+             outpath,
+             strlen(outpath),
+             inpath,
+             strlen(inpath));
 
       strcat(outpath, "/");
       strcat(outpath, inpath);
@@ -364,24 +405,26 @@ Util::setScreenDir()
 {
   if (getenv("SCREENDIR") == NULL) {
     // This will flash by, but the user will see it again on exiting screen.
-    JASSERT_STDERR <<
-      "*** WARNING: Environment variable SCREENDIR is not set!\n"
-                   << "***  Set this to a safe location, and if restarting on\n"
-                   << "***  a new host, copy your SCREENDIR directory there.\n"
-                   << "***  DMTCP will use"
-       " $DMTCP_TMPDIR/dmtcp-USER@HOST/uscreens for now,\n"
-                   << "***  but this directory may not survive a re-boot!\n"
-                   << "***      As of DMTCP-1.2.3, emacs23 not yet supported\n"
-                   << "***  inside screen.  Please use emacs22 for now.  This\n"
-                   << "***  will be fixed in a future version of DMTCP.\n\n";
+    fputs("*** WARNING: Environment variable SCREENDIR is not set!\n"
+          "***  Set this to a safe location, and if restarting on\n"
+          "***  a new host, copy your SCREENDIR directory there.\n"
+          "***  DMTCP will use"
+          " $DMTCP_TMPDIR/dmtcp-USER@HOST/uscreens for now,\n"
+          "***  but this directory may not survive a re-boot!\n"
+          "***      As of DMTCP-1.2.3, emacs23 not yet supported\n"
+          "***  inside screen.  Please use emacs22 for now.  This\n"
+          "***  will be fixed in a future version of DMTCP.\n\n",
+          stderr);
     setenv("SCREENDIR", getScreenDir().c_str(), 1);
   } else {
     if (access(getenv("SCREENDIR"), R_OK | W_OK | X_OK) != 0) {
-      JASSERT_STDERR << "*** WARNING: Environment variable SCREENDIR is set\n"
-                     << "***  to directory with improper permissions.\n"
-                     << "***  Please use a SCREENDIR with permission 700."
-                     << "  [ SCREENDIR = " << getenv("SCREENDIR") << " ]\n"
-                     << "***  Continuing anyway, and hoping for the best.\n";
+      fprintf(stderr,
+              "*** WARNING: Environment variable SCREENDIR is set\n"
+              "***  to directory with improper permissions.\n"
+              "***  Please use a SCREENDIR with permission 700."
+              "  [ SCREENDIR = %s ]\n"
+              "***  Continuing anyway, and hoping for the best.\n",
+              getenv("SCREENDIR"));
     }
   }
 }
@@ -414,12 +457,6 @@ Util::patchArgvIfSetuid(const char *filename,
   memset(realFilename, 0, sizeof(realFilename));
   expandPathname(filename, realFilename, sizeof(realFilename));
 
-  // // Prepare the buffer; man 2 readlink says it won't NUL terminate.
-  // char expandedFilename[PATH_MAX] = {0};
-  // expandPathname(filename, expandedFilename, sizeof (expandedFilename));
-  // JASSERT(readlink(expandedFilename, realFilename, PATH_MAX - 1) != -1)
-  // (filename) (expandedFilename) (realFilename) (JASSERT_ERRNO);
-
   size_t newArgc = 0;
   while (origArgv[newArgc] != NULL) {
     newArgc++;
@@ -448,12 +485,17 @@ Util::patchArgvIfSetuid(const char *filename,
            "/bin/cp %s %s", realFilename, newFilename);
 
   // Remove any stale copy, just in case it's not right.
-  JASSERT(unlink(newFilename) == 0 || errno == ENOENT) (newFilename);
+  ASSERT_ERRNO(unlink(newFilename) == 0 || errno == ENOENT,
+               "failed to remove stale setuid copy: path={}",
+               newFilename);
 
-  JASSERT(safeSystem(cpCmdBuf) == 0)(cpCmdBuf)
-  .Text("call to system(cpCmdBuf) failed");
+  ASSERT_ZERO(safeSystem(cpCmdBuf),
+                         "call to system failed: cmd={}",
+                         cpCmdBuf);
 
-  JASSERT(access(newFilename, X_OK) == 0) (newFilename) (JASSERT_ERRNO);
+  ASSERT_NE(-1, access(newFilename, X_OK),
+               "setuid copy is not executable: path={}",
+               newFilename);
 
   (*newArgv)[0] = newFilename;
   int i;
@@ -489,8 +531,11 @@ Util::patchArgvIfSetuid(const char *filename,
 # endif // if (defined(__x86_64__) || defined(__aarch64__)) &&
         // !defined(CONFIG_M32)
 
-  JASSERT(newArgv0Len > strlen(origPath) + 1)
-    (newArgv0Len) (origPath) (strlen(origPath)).Text("Buffer not large enough");
+  ASSERT(newArgv0Len > strlen(origPath) + 1,
+         "buffer not large enough: size={} path={} path_len={}",
+         newArgv0Len,
+         origPath,
+         strlen(origPath));
 
   strncpy(newArgv0, origPath, newArgv0Len);
 
@@ -499,8 +544,11 @@ Util::patchArgvIfSetuid(const char *filename,
     origArgvLen++;
   }
 
-  JASSERT(newArgvLen >= origArgvLen + 1) (origArgvLen) (newArgvLen)
-  .Text("newArgv not large enough to hold the expanded argv");
+  ASSERT(newArgvLen >= origArgvLen + 1,
+         "newArgv not large enough to hold the expanded argv: "
+         "argc={} capacity={}",
+         origArgvLen,
+         newArgvLen);
 
   // ISN'T THIS A BUG?  newArgv WAS DECLARED 'char ***'.
   newArgv[0] = ldStrPtr;
@@ -532,7 +580,7 @@ Util::adjustRlimitStack()
     if (!(oldPersonality & ADDR_COMPAT_LAYOUT)) {
       // Force ADDR_COMPAT_LAYOUT for libs in high mem, to avoid vdso conflict
       personality(oldPersonality & ADDR_COMPAT_LAYOUT);
-      JTRACE("setting ADDR_COMPAT_LAYOUT");
+      TRACE("setting ADDR_COMPAT_LAYOUT");
       setenv("DMTCP_ADDR_COMPAT_LAYOUT", "temporarily is set", 1);
     }
   }
@@ -542,7 +590,7 @@ Util::adjustRlimitStack()
     if (rlim.rlim_cur != RLIM_INFINITY) {
       char buf[100];
       sprintf(buf, "%lu", rlim.rlim_cur); // "%llu" for BSD/Mac OS
-      JTRACE("setting rlim_cur for RLIMIT_STACK") (rlim.rlim_cur);
+      TRACE("setting rlim_cur for RLIMIT_STACK: rlim_cur={}", rlim.rlim_cur);
       setenv("DMTCP_RLIMIT_STACK", buf, 1);
 
       // Force kernel's internal compat_va_layout to 0; Force libs to high mem.
@@ -574,7 +622,7 @@ Util::getPath(const char *cmd, bool is32bit)
 #if defined(__x86_64__) || defined(__aarch64__) || defined(__riscv)
   if (is32bit) {  // if this is a multi-architecture build
     string basename = jalib::Filesystem::BaseName(cmd);
-    if (strcmp(cmd, "mtcp_restart-32") == 0) {
+    if (Util::strEquals(cmd, "mtcp_restart-32")) {
       suffixFor32Bits = "32/bin/";
     } else {
       suffixFor32Bits = "32/lib/dmtcp/";
@@ -605,6 +653,16 @@ Util::getDmtcpArgs(void)
   const char *compression = getenv(ENV_VAR_COMPRESSION);
   const char *allocPlugin = getenv(ENV_VAR_ALLOC_PLUGIN);
   const char *dlPlugin = getenv(ENV_VAR_DL_PLUGIN);
+  const char *sshPlugin = getenv(ENV_VAR_SSH_PLUGIN);
+  const char *eventPlugin = getenv(ENV_VAR_EVENT_PLUGIN);
+  const char *filePlugin = getenv(ENV_VAR_FILE_PLUGIN);
+  const char *ptyPlugin = getenv(ENV_VAR_PTY_PLUGIN);
+  const char *socketPlugin = getenv(ENV_VAR_SOCKET_PLUGIN);
+  const char *svipcPlugin = getenv(ENV_VAR_SVIPC_PLUGIN);
+  const char *timerPlugin = getenv(ENV_VAR_TIMER_PLUGIN);
+  const char *pidPlugin = getenv(ENV_VAR_PID_PLUGIN);
+  const char *uniqueCkptPlugin = getenv(ENV_VAR_UNIQUE_CKPT_PLUGIN);
+  const char *disableAllPlugins = getenv(ENV_VAR_DISABLE_ALL_PLUGINS);
 
   const char *ckptOpenFiles = getenv(ENV_VAR_CKPT_OPEN_FILES);
   const char *ckptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
@@ -618,10 +676,18 @@ Util::getDmtcpArgs(void)
   argVector.push_back("--coord-port");
   argVector.push_back(jalib::XToString(SharedData::coordPort()));
 
-  if (jassert_quiet == 1) {
+  int quietCount = 0;
+  if (const char *quiet = getenv(ENV_VAR_QUIET)) {
+    if (quiet[0] >= '0' && quiet[0] <= '9') {
+      quietCount = quiet[0] - '0';
+    }
+  }
+
+  if (quietCount == 1) {
     argVector.push_back("-q");
-  } else if (jassert_quiet == 2) {
-    argVector.push_back("-q -q");
+  } else if (quietCount == 2) {
+    argVector.push_back("-q");
+    argVector.push_back("-q");
   }
 
   if (sigckpt != NULL) {
@@ -649,19 +715,63 @@ Util::getDmtcpArgs(void)
   }
 
   if (compression != NULL) {
-    if (strcmp(compression, "1") == 0) {
+    if (Util::strEquals(compression, "0")) {
       argVector.push_back("--no-gzip");
     } else {
       argVector.push_back("--gzip");
     }
   }
 
-  if (allocPlugin != NULL && strcmp(allocPlugin, "0") == 0) {
+  if (Util::strEquals(allocPlugin, "0")) {
     argVector.push_back("--disable-alloc-plugin");
   }
 
-  if (dlPlugin != NULL && strcmp(dlPlugin, "0") == 0) {
+  if (Util::strEquals(dlPlugin, "0")) {
     argVector.push_back("--disable-dl-plugin");
+  }
+
+  if (Util::strEquals(sshPlugin, "0")) {
+    argVector.push_back("--disable-ssh-plugin");
+  }
+
+  if (Util::strEquals(eventPlugin, "0")) {
+    argVector.push_back("--disable-event-plugin");
+  }
+
+  if (Util::strEquals(filePlugin, "0")) {
+    argVector.push_back("--disable-file-plugin");
+  }
+
+  if (Util::strEquals(ptyPlugin, "0")) {
+    argVector.push_back("--disable-pty-plugin");
+  }
+
+  if (Util::strEquals(socketPlugin, "0")) {
+    argVector.push_back("--disable-socket-plugin");
+  }
+
+  if (Util::strEquals(svipcPlugin, "0")) {
+    argVector.push_back("--disable-svipc-plugin");
+  }
+
+  if (Util::strEquals(timerPlugin, "0")) {
+    argVector.push_back("--disable-timer-plugin");
+  }
+
+  if (Util::strEquals(pidPlugin, "0")) {
+    argVector.push_back("--disable-pid-plugin");
+  }
+
+  if (uniqueCkptPlugin != NULL) {
+    if (Util::strEquals(uniqueCkptPlugin, "1")) {
+      argVector.push_back("--enable-unique-checkpoint-filenames");
+    } else if (Util::strEquals(uniqueCkptPlugin, "0")) {
+      argVector.push_back("--disable-unique-checkpoint-filenames");
+    }
+  }
+
+  if (Util::strEquals(disableAllPlugins, "1")) {
+    argVector.push_back("--disable-all-plugins");
   }
 
   if (dmtcp_modify_env_enabled != NULL && dmtcp_modify_env_enabled()) {
@@ -679,10 +789,10 @@ Util::getDmtcpArgs(void)
   }
 
   char **args = (char**) JALLOC_MALLOC((num_args + 1) * sizeof(char*));
-  JASSERT(args != NULL);
+  ASSERT_NOT_NULL(args);
 
   char *buffer = (char*) JALLOC_MALLOC(totalBytes);
-  JASSERT(buffer != NULL);
+  ASSERT_NOT_NULL(buffer);
   memset(buffer, 0, totalBytes);
 
   char *ptr = buffer;

@@ -147,8 +147,11 @@ ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1
 	mv `ls -t ckpt_dmtcp1_*.dmtcp | head -1` ckpt_dmtcp1_test.dmtcp.gz
 	gunzip ckpt_dmtcp1_test.dmtcp.gz
 
-gdb:
-	make -f Makefile.debug gdb
+gdb: $(targetdir)/bin/$(MTCP_RESTART) ckpt_dmtcp1_test.dmtcp
+	# DPRINTF tracing (mtcp_util.h) is a runtime check, not a build flag:
+	# set DMTCP_LOG_LEVEL=trace to see it, no special rebuild needed.
+	DMTCP_LOG_LEVEL=trace gdb --args $(targetdir)/bin/$(MTCP_RESTART) \
+	  --use-gdb ckpt_dmtcp1_test.dmtcp
 
 install: all
 	${INSTALL_PROGRAM} $(targetdir)/bin/$(MTCP_RESTART) $(DESTDIR)$(bindir)

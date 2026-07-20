@@ -29,6 +29,7 @@
 #include "protectedfds.h"
 #include "shareddata.h"
 #include "syscallwrappers.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 
@@ -45,7 +46,8 @@ theUniqueHostId()
   // gethostid() calls socket() on some systems, which we don't want
   char buf[512];
 
-  JASSERT(::gethostname(buf, sizeof(buf)) == 0)(JASSERT_ERRNO);
+  ASSERT_NE(-1, ::gethostname(buf, sizeof(buf)),
+               "gethostname failed");
 
   // so return a bad hash of our hostname
   long h = 0;
@@ -62,7 +64,8 @@ inline static long
 getTimeNs()
 {
   struct timespec value;
-  JASSERT(clock_gettime(CLOCK_MONOTONIC, &value) == 0);
+  ASSERT_NE(-1, clock_gettime(CLOCK_MONOTONIC, &value),
+               "clock_gettime(CLOCK_MONOTONIC) failed");
   long nsecs = value.tv_sec * 1000000000L + value.tv_nsec;
   return nsecs;
 }
@@ -106,12 +109,12 @@ parentProcess()
 // _computation_generation field of return value may later have to be modified.
 // So, it can't return a const UniquePid
 UniquePid&
-UniquePid::ThisProcess(bool disableJTrace /*=false*/)
+UniquePid::ThisProcess(bool disableTrace /*=false*/)
 {
   if (theProcess() == nullProcess()) {
     theProcess() = UniquePid(theUniqueHostId(), ::getpid(), getTimeNs());
-    if (disableJTrace == false) {
-      JTRACE("recalculated process UniquePid...")(theProcess());
+    if (disableTrace == false) {
+      TRACE("recalculated process UniquePid: process={}", theProcess());
     }
   }
 
@@ -213,7 +216,7 @@ UniquePid::resetOnFork()
   // parentProcess() is for inspection tools
   parentProcess() = ThisProcess();
   theProcess() = UniquePid(host, getpid(), getTimeNs());
-  JTRACE("Explicitly setting process UniquePid")(ThisProcess());
+  TRACE("Explicitly setting process UniquePid: process={}", ThisProcess());
 }
 
 bool
@@ -225,7 +228,7 @@ UniquePid::isNull() const
 void
 UniquePid::serialize(jalib::JBinarySerializer &o)
 {
-  // NOTE: Do not put JTRACE/JNOTE/JASSERT in here
+  // NOTE: Do not put TRACE/NOTE/ASSERT in here
   UniquePid theCurrentProcess, theParentProcess;
 
   if (o.isWriter()) {
@@ -274,19 +277,12 @@ UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t UniquePidPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t UniquePidPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "UniquePid",
+  "UNIQUE_PID",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "processInfo plugin",
   UniquePid_EventHook
 };
-
-
-DmtcpPluginDescriptor_t
-UniquePid::pluginDescr()
-{
-  return UniquePidPlugin;
-}

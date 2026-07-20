@@ -22,11 +22,15 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
+#ifdef HAS_CMA
+#include <sys/uio.h>
+#endif
 #include <poll.h>
-#include "../jalib/jassert.h"
+#include "dmtcp_assert.h"
 #include "../jalib/jconvert.h"
 #include "constants.h"
 #include "dmtcpworker.h"
+#include "plugin/pid/pidhelpers.h"
 #include "processinfo.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
@@ -91,9 +95,9 @@ extern "C" int
 setrlimit (int resource, const struct rlimit *rlim) {
   if ( resource == RLIMIT_NOFILE &&
        (rlim->rlim_cur < 1024 || rlim->rlim_max < 1024) ) {
-    JNOTE("Blocked attempt to lower RLIMIT_NOFILE\n"
-                 "  below 1024 (needed for DMTCP protected fd)")
-         (rlim->rlim_cur) (rlim->rlim_max);
+    NOTE("Blocked attempt to lower RLIMIT_NOFILE\n"
+         "  below 1024 (needed for DMTCP protected fd): cur={} max={}",
+         rlim->rlim_cur, rlim->rlim_max);
     struct rlimit rlim2 = {0};
     if (rlim->rlim_cur < 1024) { rlim2.rlim_cur = 1024; }
     if (rlim->rlim_max < 1024) { rlim2.rlim_max = 1024; }
@@ -105,7 +109,7 @@ setrlimit (int resource, const struct rlimit *rlim) {
 extern "C" int
 pipe(int fds[2])
 {
-  JTRACE("promoting pipe() to socketpair()");
+  TRACE("promoting pipe() to socketpair()");
 
   // just promote pipes to socketpairs
   return socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
@@ -117,7 +121,7 @@ pipe(int fds[2])
 extern "C" int
 pipe2(int fds[2], int flags)
 {
-  JTRACE("promoting pipe2() to socketpair()");
+  TRACE("promoting pipe2() to socketpair()");
 
   // just promote pipes to socketpairs
   int newFlags = 0;
@@ -154,58 +158,6 @@ pipe2(int fds[2], int flags)
 // ProcessInfo::instance().setsid(origPid);
 // return origPid;
 // }
-
-#if 1
-extern "C" pid_t
-wait(__WAIT_STATUS stat_loc)
-{
-  return waitpid(-1, (int *)stat_loc, 0);
-}
-
-extern "C" pid_t
-waitpid(pid_t pid, int *stat_loc, int options)
-{
-  return wait4(pid, stat_loc, options, NULL);
-}
-
-extern "C" pid_t
-wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
-{
-  return wait4(-1, status, options, rusage);
-}
-
-extern "C"
-pid_t
-wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
-{
-  int stat;
-  pid_t retval = 0;
-
-  if (status == NULL) {
-    status = (__WAIT_STATUS)&stat;
-  }
-
-  retval = _real_wait4(pid, status, options, rusage);
-
-  return retval;
-}
-
-extern "C" int
-waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
-{
-  siginfo_t siginfop;
-
-  memset(&siginfop, 0, sizeof(siginfop));
-
-  int retval = _real_waitid(idtype, id, &siginfop, options);
-
-  if (retval == 0 && infop != NULL) {
-    *infop = siginfop;
-  }
-
-  return retval;
-}
-#endif // if 1
 
 extern "C" int __clone(int (*fn)(void *arg),
                        void *child_stack,
@@ -264,7 +216,7 @@ extern "C" int __clone(int (*fn)(void *arg),
  * If we discover system calls for which the 7 args strategy doesn't work,
  *  we can special case them.
  *
- * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
+ * XXX: DO NOT USE TRACE/NOTE/ASSERT in this function; even better, do not
  *      use any STL here.  (--Kapil)
  */
 extern "C" long
@@ -294,6 +246,106 @@ syscall(long sys_num, ...)
                        char *const *,
                        envp);
     ret = execve(filename, argv, envp);
+    break;
+  }
+
+  case SYS_gettid:
+  {
+    ret = dmtcp_pid_gettid();
+    break;
+  }
+  case SYS_tkill:
+  {
+    SYSCALL_GET_ARGS_2(int, tid, int, sig);
+    ret = dmtcp_tkill(tid, sig);
+    break;
+  }
+  case SYS_tgkill:
+  {
+    SYSCALL_GET_ARGS_3(int, tgid, int, tid, int, sig);
+    ret = dmtcp_tgkill(tgid, tid, sig);
+    break;
+  }
+  case SYS_getpid:
+  {
+    ret = getpid();
+    break;
+  }
+  case SYS_getppid:
+  {
+    ret = getppid();
+    break;
+  }
+#ifndef __aarch64__
+#ifndef __riscv
+  case SYS_getpgrp:
+  {
+    ret = getpgrp();
+    break;
+  }
+#endif
+#endif
+  case SYS_getpgid:
+  {
+    SYSCALL_GET_ARG(pid_t, pid);
+    ret = getpgid(pid);
+    break;
+  }
+  case SYS_setpgid:
+  {
+    SYSCALL_GET_ARGS_2(pid_t, pid, pid_t, pgid);
+    ret = setpgid(pid, pgid);
+    break;
+  }
+  case SYS_getsid:
+  {
+    SYSCALL_GET_ARG(pid_t, pid);
+    ret = getsid(pid);
+    break;
+  }
+  case SYS_kill:
+  {
+    SYSCALL_GET_ARGS_2(pid_t, pid, int, sig);
+    ret = kill(pid, sig);
+    break;
+  }
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 9))
+  case SYS_waitid:
+  {
+    SYSCALL_GET_ARGS_5(int, idtype, id_t, id, siginfo_t *, infop, int,
+                       options, struct rusage *, rusage);
+    // waitid(2)'s raw syscall ABI has a fifth rusage argument that libc
+    // waitid(3) cannot represent, so delegate to the PID plugin helper.
+    ret = dmtcp_pid_on_waitid_syscall((idtype_t)idtype, id, infop, options,
+                                      rusage);
+    break;
+  }
+#endif
+  case SYS_wait4:
+  {
+    SYSCALL_GET_ARGS_4(pid_t, pid, int *, status, int, options,
+                       struct rusage *, rusage);
+    ret = wait4(pid, status, options, rusage);
+    break;
+  }
+#ifdef __i386__
+  case SYS_waitpid:
+  {
+    SYSCALL_GET_ARGS_3(pid_t, pid, int *, status, int, options);
+    ret = waitpid(pid, status, options);
+    break;
+  }
+#endif
+  case SYS_setgid:
+  {
+    SYSCALL_GET_ARG(gid_t, gid);
+    ret = setgid(gid);
+    break;
+  }
+  case SYS_setuid:
+  {
+    SYSCALL_GET_ARG(uid_t, uid);
+    ret = setuid(uid);
     break;
   }
 
@@ -553,9 +605,11 @@ syscall(long sys_num, ...)
   case SYS_shmdt:
   {
     SYSCALL_GET_ARG(const void *, shmaddr);
+    // Exception to the syscall-to-libc-wrapper rule: external GOT interposition
+    // can route shmdt back through syscall while the SysV shmdt wrapper is active.
     if (dmtcp_svipc_inside_shmdt != NULL &&
         dmtcp_svipc_inside_shmdt()) {
-      ret = _real_syscall(SYS_shmdt, shmaddr);
+      ret = _real_syscall(SYS_shmdt, (long)shmaddr, 0, 0, 0, 0, 0, 0);
     } else {
       ret = shmdt(shmaddr);
     }
@@ -683,11 +737,37 @@ syscall(long sys_num, ...)
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27) && __GLIBC_PREREQ(2,
        // 9)
 
+#ifdef HAS_CMA
+  case SYS_process_vm_readv:
+  {
+    SYSCALL_GET_ARGS_6(pid_t, pid,
+                       const struct iovec *, local_iov,
+                       unsigned long, liovcnt,
+                       const struct iovec *, remote_iov,
+                       unsigned long, riovcnt,
+                       unsigned long, flags);
+    ret = process_vm_readv(pid, local_iov, liovcnt, remote_iov, riovcnt, flags);
+    break;
+  }
+  case SYS_process_vm_writev:
+  {
+    SYSCALL_GET_ARGS_6(pid_t, pid,
+                       const struct iovec *, local_iov,
+                       unsigned long, liovcnt,
+                       const struct iovec *, remote_iov,
+                       unsigned long, riovcnt,
+                       unsigned long, flags);
+    ret = process_vm_writev(pid, local_iov, liovcnt, remote_iov, riovcnt, flags);
+    break;
+  }
+#endif
+
   default:
   {
     SYSCALL_GET_ARGS_7(void *, arg1, void *, arg2, void *, arg3, void *, arg4,
                        void *, arg5, void *, arg6, void *, arg7);
-    ret = _real_syscall(sys_num, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+    ret = _real_syscall(sys_num, (long)arg1, (long)arg2, (long)arg3,
+                        (long)arg4, (long)arg5, (long)arg6, (long)arg7);
     break;
   }
   }

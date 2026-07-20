@@ -29,7 +29,6 @@
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
-#include "jassert.h"
 #include "jfilesystem.h"
 #include "constants.h"
 #include "dmtcp.h"
@@ -38,9 +37,7 @@
 #include "procselfmaps.h"
 #include "shareddata.h"
 #include "util.h"
-
-#define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
-#define DEV_NULL_DELETED_STR "/dev/null (deleted)"
+#include "dmtcp_assert.h"
 
 /* Shared memory regions for Direct Rendering Infrastructure */
 #define DEV_DRI_SHMEM        "/dev/dri/card"
@@ -71,16 +68,27 @@ vector<ProcMapsArea> *nscdAreas = NULL;
 
 // static void sync_shared_mem(void);
 static void writememoryarea(int fd, Area area);
-static void mtcp_write_anonymous_pages(int fd, Area area);
+static void mtcp_write_anonymous_pages(int fd, Area area,
+                                       bool residencyScanSafe);
 
 static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
 
 static void
+writeCkptAll(int fd, const void *buf, size_t count, const char *what)
+{
+  ASSERT_EQ(static_cast<ssize_t>(count),
+                        Util::writeAll(fd, buf, count),
+                        "failed to write checkpoint data: what={} fd={}",
+                        what, fd);
+}
+
+static void
 writeAreaHeader(int fd, Area *area)
 {
-  JASSERT(area->addr + area->size == area->endAddr)
-    ((void*)area->addr)((int)area->size);
-  JASSERT(Util::writeAll(fd, area, sizeof(*area)) == (ssize_t) sizeof(*area));
+  ASSERT(area->addr + area->size == area->endAddr,
+         "invalid checkpoint area bounds: addr={} size={} end={}",
+         area->addr, area->size, area->endAddr);
+  writeCkptAll(fd, area, sizeof(*area), "area header");
 }
 
 /*****************************************************************************
@@ -98,11 +106,11 @@ mtcp_writememoryareas(int fd)
 {
   Area area;
 
-  JTRACE("Performing checkpoint.");
+  TRACE("Performing checkpoint.");
 
   // Here we want to sync the shared memory pages with the backup files
   // FIXME: Why do we need this?
-  // JTRACE("syncing shared memory with backup files");
+  // TRACE("syncing shared memory with backup files");
   // sync_shared_mem();
 
   /**************************************************************************/
@@ -126,11 +134,12 @@ mtcp_writememoryareas(int fd)
     while (procSelfMapsTmp.getNextArea(&area)) {
       if (Util::isNscdArea(area)) {
         /* Special Case Handling: nscd is enabled*/
-        JTRACE("NSCD daemon shared memory area present.\n"
-               "  DMTCP will now try to remap this area in read/write mode as\n"
-               "  private (zero pages), so that glibc will automatically\n"
-               "  stop using NSCD or ask NSCD daemon for new shared area\n")
-          (area.name);
+        TRACE("NSCD daemon shared memory area present.\n"
+              "  DMTCP will now try to remap this area in read/write mode as\n"
+              "  private (zero pages), so that glibc will automatically\n"
+              "  stop using NSCD or ask NSCD daemon for new shared area\n"
+              "  area={}",
+              area.name);
 
         nscdAreas->push_back(area);
       }
@@ -152,7 +161,7 @@ mtcp_writememoryareas(int fd)
    * That method had called mmap to create a shared memory segment at
    * address ProcessInfo::_restoreBuf.startAddr, of length _restoreBufAddr:_restoreBufLen,
    * a synonym for RESTORE_TOTAL_SIZE (defined both in src/processinfo.h
-   * and src/mtcp/mtcp_restart.h).  The JTRACE below confirms that this
+   * and src/mtcp/mtcp_restart.h).  The TRACE below confirms that this
    * was done in the "init" event, with a hint only here: (to hold mtcp_restart code)
    *     In src/mtcp/mtcp_restart.c, we see that restoreBuf.startAddr and restoreBufLen
    * have been transferred to the command line, and now have the new synonyms:
@@ -172,9 +181,10 @@ mtcp_writememoryareas(int fd)
    *        to processinfo.cpp, we have it used in: ProcessInfo::restart()
    *        and 'case DMTCP_EVENT_RESTART' in processInfo_EventHook().
    */
-  JTRACE("addr and len of restoreBuf (to hold mtcp_restart code)")
-    ((void *)ProcessInfo::instance().restoreBuf.startAddr)
-    (ProcessInfo::instance().restoreBuf.endAddr);
+  TRACE("addr and len of restoreBuf (to hold mtcp_restart code): "
+        "start={} end={}",
+        (void *)ProcessInfo::instance().restoreBuf.startAddr,
+        ProcessInfo::instance().restoreBuf.endAddr);
   procSelfMaps = new ProcSelfMaps();
 
   // We must not cause an mmap() here, or the mem regions will not be correct.
@@ -188,14 +198,15 @@ mtcp_writememoryareas(int fd)
         skip = dmtcp_skip_memory_region_ckpting(&area);
       }
       if (skip) {
-        JTRACE("skipping over memory section as suggested by plugin")
-          (area.name) ((void*)area.addr) (area.size);
+        TRACE("skipping over memory section as suggested by plugin: "
+              "name={} addr={} size={}",
+              area.name, (void*)area.addr, area.size);
         break;
       }
 
       unchecked_area.addr = area.endAddr;
       unchecked_area.size = unchecked_area.endAddr - area.endAddr;
-      
+
       // the whole thing comes after the restore image
       writememoryarea(fd, area);
     } while (unchecked_area.size != 0);
@@ -206,21 +217,27 @@ mtcp_writememoryareas(int fd)
 
   area.addr = NULL; // End of data
   area.size = -1; // End of data
-  JASSERT(Util::writeAll(fd, &area, sizeof(area)) == sizeof(area));
+  writeCkptAll(fd, &area, sizeof(area), "end-of-areas marker");
 
   /* That's all folks */
-  JASSERT(_real_close(fd) == 0);
+  ASSERT_NE(-1,
+    _real_close(fd),
+    "failed to close checkpoint memory-area fd: fd={}", fd);
 }
 
 static void
 remap_nscd_areas(const vector<ProcMapsArea> &areas)
 {
   for (size_t i = 0; i < areas.size(); i++) {
-    JASSERT(munmap(areas[i].addr, areas[i].size) == 0) (JASSERT_ERRNO)
-    .Text("error unmapping NSCD shared area");
-    JASSERT(mmap(areas[i].addr, areas[i].size, areas[i].prot,
-                 MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, 0, 0) != MAP_FAILED)
-      (JASSERT_ERRNO).Text("error remapping NSCD shared area.");
+    ASSERT_NE(-1,
+      munmap(areas[i].addr, areas[i].size),
+      "error unmapping NSCD shared area: addr={} size={}",
+      areas[i].addr, areas[i].size);
+    ASSERT_ERRNO(mmap(areas[i].addr, areas[i].size, areas[i].prot,
+                      MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, 0, 0) !=
+                 MAP_FAILED,
+                 "error remapping NSCD shared area: addr={} size={} prot={}",
+                 areas[i].addr, areas[i].size, areas[i].prot);
   }
 }
 
@@ -254,8 +271,19 @@ mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
 }
 
 static void
-mtcp_write_anonymous_pages(int fd, Area area)
+mtcp_write_anonymous_pages(int fd, Area area, bool residencyScanSafe)
 {
+  // The region is checkpointed as alternating zero / non-zero runs so that
+  // unallocated and zero pages cost no image space and need not be faulted in:
+  //   - zero runs are found by page residency (Util::scanOccupiedRangeBatch,
+  //     via PAGEMAP_SCAN/pagemap) for anonymous memory, or by reading contents
+  //     (mtcp_get_next_page_range -> Util::areZeroPages) for deleted-file maps;
+  //   - a zero run is saved as a DMTCP_ZERO_PAGE header with no data, then
+  //     dropped from RSS with madvise(MADV_DONTNEED); non-zero runs save bytes.
+  // On restart the parent header re-mmaps the whole region as fresh anonymous
+  // memory (zero-fill-on-demand: zero runs are left unallocated, not physically
+  // zeroed) and only the non-zero child runs are read back in.
+
   // Force DMTCP_ZERO_PAGE_PARENT_ENTRY.
   // Each consecutive zero/non-zero chunk will have a separate header.
   // On restart, we mmap the region using the parent header, but restore
@@ -264,6 +292,16 @@ mtcp_write_anonymous_pages(int fd, Area area)
   writeAreaHeader(fd, &area);
   area.properties ^= DMTCP_ZERO_PAGE_PARENT_HEADER;
 
+  // Util::scanOccupiedRangeBatch() detects zero pages from /proc/self/pagemap
+  // residency instead of reading their contents, so it never faults in absent
+  // pages.  But it classifies an absent page as zero, which is only valid for
+  // genuinely private anonymous memory.  For shared memory (incl. SysV shm,
+  // which the caller reclassifies as MAP_PRIVATE|MAP_ANONYMOUS) or a deleted-
+  // but-still-mapped file, an absent page can still hold data, so those use the
+  // content scan.  The caller decides this (before any reclassification) and
+  // passes it in as residencyScanSafe.
+  bool useResidencyScan = residencyScanSafe;
+
   while (area.size > 0) {
     size_t size;
     int is_zero;
@@ -271,6 +309,18 @@ mtcp_write_anonymous_pages(int fd, Area area)
     if (dmtcp_infiniband_enabled && dmtcp_infiniband_enabled()) {
       size = area.size;
       is_zero = 0;
+    } else if (useResidencyScan) {
+      uintptr_t scanned = 0;
+      is_zero = Util::scanOccupiedRangeBatch(
+        (uintptr_t)a.addr, (uintptr_t)a.addr + area.size, &scanned);
+      size = scanned;
+      if (size == 0) {
+        // Defensive: the scan should never report zero progress, but if it
+        // somehow does, treat the remaining area as occupied so the loop below
+        // (area.size -= size) advances instead of spinning forever.
+        size = area.size;
+        is_zero = 0;
+      }
     } else {
       mtcp_get_next_page_range(&a, &size, &is_zero);
     }
@@ -280,15 +330,20 @@ mtcp_write_anonymous_pages(int fd, Area area)
     a.size = size;
     a.endAddr = a.addr + a.size;
 
+    // TODO: Each run writes a full sizeof(Area)==4KB header (no page data for
+    // zero runs).  Residency scanning yields page-granular runs, so a sparsely-
+    // written region can emit many 4KB headers.  A future compact format (e.g.
+    // one parent header + a per-page zero/non-zero bitmap or run-length list)
+    // could decouple per-run cost from sizeof(Area).
     writeAreaHeader(fd, &a);
 
     if (!is_zero) {
-      JASSERT(Util::writeAll(fd, a.addr, a.size) == (ssize_t) a.size)
-        .Text("writeAll failed during ckpt");
+      writeCkptAll(fd, a.addr, a.size, "anonymous page data");
     } else {
       if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
-        JTRACE("error doing madvise(..., MADV_DONTNEED)")
-          (JASSERT_ERRNO) ((void *)a.addr) ((int)a.size);
+        TRACE("error doing madvise(..., MADV_DONTNEED): errno={} addr={} "
+              "size={}",
+              strerror(errno), (void *)a.addr, (int)a.size);
       }
     }
     area.addr += size;
@@ -303,6 +358,16 @@ writememoryarea(int fd, Area area)
   // result in a change of memory layout. For example, a call to JALLOC_NEW
   // will invoke mmap if the JAlloc arena is full. Similarly, for STL objects
   // such as vector and string.
+
+  // Residency-based zero detection ("an absent page reads as zero") is valid
+  // only for genuinely PRIVATE ANONYMOUS memory.  Capture this BEFORE the
+  // reclassification below rewrites shared regions (SysV shm, /dev/zero) as
+  // MAP_PRIVATE | MAP_ANONYMOUS: for shared memory a page that is absent from
+  // THIS process can still hold data written via another attachment, so such
+  // regions must use the content scan.
+  bool residencyScanSafe = (area.name[0] == '\0') &&
+                           (area.flags & MAP_PRIVATE) &&
+                           !(area.flags & MAP_SHARED);
 
   if ((uint64_t)area.addr == ProcessInfo::instance().restoreBuf.startAddr) {
     return;
@@ -373,8 +438,8 @@ writememoryarea(int fd, Area area)
 
   if (area.size == 0) {
     /* Kernel won't let us munmap this.  But we don't need to restore it. */
-    JTRACE("skipping over zero-sized segment")
-      ((void*)area.addr) (area.size);
+    TRACE("skipping over zero-sized segment: addr={} size={}",
+          (void*)area.addr, area.size);
     return;
   }
 
@@ -382,14 +447,13 @@ writememoryarea(int fd, Area area)
       JTRACE("Skipping uprobes region")(area.addr);
       return;
   }
-
-  if (0 == strcmp(area.name, "[vsyscall]") ||
-      0 == strcmp(area.name, "[vectors]") ||
-      0 == strcmp(area.name, "[vvar]") ||
-      0 == strcmp(area.name, "[vvar_vclock]")) {
+  if (Util::strEquals(area.name, "[vsyscall]") ||
+      Util::strEquals(area.name, "[vectors]") ||
+      Util::strEquals(area.name, "[vvar]") ||
+      Util::strEquals(area.name, "[vvar_vclock]")) {
     // NOTE: We can't trust kernel's "[vdso]" label here.  See below.
-    JTRACE("skipping over memory special section")
-      (area.name) ((void*)area.addr) (area.size);
+    TRACE("skipping over memory special section: name={} addr={} size={}",
+          area.name, (void*)area.addr, area.size);
     return;
   } else if ((uint64_t) area.addr == ProcessInfo::instance().vdso.startAddr) {
     //  vDSO issue:
@@ -417,8 +481,8 @@ writememoryarea(int fd, Area area)
     //  user data.  This was observed to happen in RHEL 6.6.  The solution is
     //  to trust DMTCP for the vdso location (as in the if condition above),
     //  and not to trust the kernel's "[vdso]" label.
-    JTRACE("skipping vDSO special section")
-      (area.name) ((void*)area.addr) (area.size);
+    TRACE("skipping vDSO special section: name={} addr={} size={}",
+          area.name, (void*)area.addr, area.size);
     return;
   } else if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
       Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
@@ -433,11 +497,11 @@ writememoryarea(int fd, Area area)
      *
      * The above explanation also applies to "/dev/null (deleted)"
      */
-    JTRACE("saving area as Anonymous") (area.name);
+    TRACE("saving area as Anonymous: name={}", area.name);
     area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
     area.name[0] = '\0';
   } else if (Util::isSysVShmArea(area)) {
-    JTRACE("Saving SysV SHM area as Anonymous") (area.name);
+    TRACE("Saving SysV SHM area as Anonymous: name={}", area.name);
     area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
     area.name[0] = '\0';
   } else if (Util::isNscdArea(area)) {
@@ -459,11 +523,13 @@ writememoryarea(int fd, Area area)
   }
 
   if (!(area.flags & MAP_ANONYMOUS)) {
-    JTRACE("save region") ((void*)area.addr) (area.size) (area.name) (area.offset);
+    TRACE("save region: addr={} size={} name={} offset={}",
+          (void*)area.addr, area.size, area.name, area.offset);
   } else if (area.name[0] == '\0') {
-    JTRACE("save anonymous") ((void*)area.addr) (area.size);
+    TRACE("save anonymous: addr={} size={}", (void*)area.addr, area.size);
   } else {
-    JTRACE("save anonymous") ((void*)area.addr) (area.size) (area.name) (area.offset);
+    TRACE("save anonymous: addr={} size={} name={} offset={}",
+          (void*)area.addr, area.size, area.name, area.offset);
   }
 
   if (area.name[0] == '\0') {
@@ -483,19 +549,23 @@ writememoryarea(int fd, Area area)
    * condition.
    */
   if ((area.prot & PROT_READ) == 0) {
-    JASSERT(mprotect(area.addr, area.size, area.prot | PROT_READ) == 0)
-      (JASSERT_ERRNO) (area.size) ((void*)area.addr)
-      .Text("error adding PROT_READ to mem region");
+    ASSERT_NE(-1,
+      mprotect(area.addr, area.size, area.prot | PROT_READ),
+      "error adding PROT_READ to memory region: addr={} size={} prot={}",
+      area.addr, area.size, area.prot);
   }
 
   if ((area.flags & MAP_ANONYMOUS) != 0) {
     // Handle anonymous pages.
-    mtcp_write_anonymous_pages(fd, area);
+    mtcp_write_anonymous_pages(fd, area, residencyScanSafe);
   } else if (!jalib::Filesystem::FileExists(area.name)) {
-    // Handle non-existing files
-    mtcp_write_anonymous_pages(fd, area);
+    // Handle non-existing files (deleted file: not residency-safe, so the
+    // content scan runs regardless of residencyScanSafe).
+    mtcp_write_anonymous_pages(fd, area, residencyScanSafe);
   } else {
-    JASSERT(strlen(area.name) > 0);
+    ASSERT(strlen(area.name) > 0,
+           "checkpoint file-backed area has an empty path: addr={} size={}",
+           area.addr, area.size);
 
     // FIXME: If the file was opened and deleted, we cannot handle that here.
     struct stat statbuf = {0};
@@ -513,18 +583,19 @@ writememoryarea(int fd, Area area)
     // NOTE: We cannot use lseek(SEEK_CUR) to detect how much data was
     // actually written here. This is because fd might be a pipe to gzip.
     if (area.mmapFileSize > 0) {
-      JASSERT(Util::writeAll(fd, area.addr, area.mmapFileSize) ==
-              (ssize_t)area.mmapFileSize);
+      writeCkptAll(fd, area.addr, area.mmapFileSize,
+                   "file-backed mapped data");
     } else {
-      JASSERT(Util::writeAll(fd, area.addr, area.size) == (ssize_t)area.size);
+      writeCkptAll(fd, area.addr, area.size, "mapped data");
     }
   }
 
-  
+
   // Now remove PROT_READ from the area if it didn't have it originally
   if ((area.prot & PROT_READ) == 0) {
-    JASSERT(mprotect(area.addr, area.size, area.prot) == 0)
-      (JASSERT_ERRNO) ((void*)area.addr) (area.size)
-      .Text("error removing PROT_READ from mem region.");
+    ASSERT_NE(-1,
+      mprotect(area.addr, area.size, area.prot),
+      "error removing PROT_READ from memory region: addr={} size={} prot={}",
+      area.addr, area.size, area.prot);
   }
 }

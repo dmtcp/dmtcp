@@ -20,14 +20,13 @@
  ****************************************************************************/
 
 #include <pthread.h>
-#include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "jassert.h"
 #include "syscallwrappers.h"
 #include "threadinfo.h"
 #include "threadsync.h"
+#include "dmtcp_assert.h"
 #include "workerstate.h"
 
 using namespace dmtcp;
@@ -78,29 +77,29 @@ ThreadSync::initMotherOfAll()
 void
 ThreadSync::acquireLocks()
 {
-  // JASSERT(WorkerState::currentState() == WorkerState::PRESUSPEND);
-
   /* TODO: We should introduce the notion of lock ranks/priorities for all
    * these locks to prevent future deadlocks due to rank violation.
    */
 
-  JTRACE("Waiting for libdlLock");
-  JASSERT(DmtcpMutexLock(&libdlLock) == 0);
+  TRACE("Waiting for libdlLock");
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&libdlLock));
 
-  JTRACE("Waiting for other threads to exit DMTCP-Wrappers");
+  TRACE("Waiting for other threads to exit DMTCP-Wrappers");
   ThreadSync::wrapperExecutionLockLockExcl();
 
-  JTRACE("Done acquiring all locks");
+  TRACE("Done acquiring all locks");
 }
 
 void
 ThreadSync::releaseLocks()
 {
-  JASSERT(WorkerState::currentState() == WorkerState::SUSPENDED);
+  ASSERT(WorkerState::currentState() == WorkerState::SUSPENDED,
+         "releaseLocks expected SUSPENDED worker state: state={}",
+         WorkerState::currentState());
 
-  JTRACE("Releasing ThreadSync locks");
+  TRACE("Releasing ThreadSync locks");
   ThreadSync::wrapperExecutionLockUnlock();
-  JASSERT(DmtcpMutexUnlock(&libdlLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&libdlLock));
 }
 
 void
@@ -127,11 +126,12 @@ ThreadSync::libdlLockLock()
 
   // The process is still initializing. We don't need to acquire lock.
   if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    errno = saved_errno;
     return false;
   }
 
   if (libdlLockOwner != gettid()) {
-    JASSERT(DmtcpMutexLock(&libdlLock) == 0);
+    ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&libdlLock));
     libdlLockOwner = gettid();
     lockAcquired = true;
   }
@@ -146,13 +146,16 @@ ThreadSync::libdlLockUnlock()
 
   // The process is still initializing. We don't need to acquire lock.
   if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    errno = saved_errno;
     return;
   }
 
-  JASSERT(libdlLockOwner == 0 || libdlLockOwner == gettid())
-    (libdlLockOwner) (gettid());
+  pid_t currentTid = gettid();
+  ASSERT(libdlLockOwner == 0 || libdlLockOwner == currentTid,
+         "libdlLock owner mismatch: owner={} currentTid={}", libdlLockOwner,
+         currentTid);
   libdlLockOwner = 0;
-  JASSERT(DmtcpMutexUnlock(&libdlLock) == 0);
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&libdlLock));
   errno = saved_errno;
 }
 
@@ -163,6 +166,7 @@ ThreadSync::wrapperExecutionLockLock()
 
   // The process is still initializing. We don't need to acquire lock.
   if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    errno = saved_errno;
     return;
   }
 
@@ -170,11 +174,7 @@ ThreadSync::wrapperExecutionLockLock()
 
   if (thread->wrapperLockCount == 0) {
     // If we don't have a lock, acquire it now.
-    if (DmtcpRWLockRdLock(&_wrapperExecutionLock) != 0) {
-      fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
-              errno, __FILE__, __LINE__, __PRETTY_FUNCTION__);
-      _exit(DMTCP_FAIL_RC);
-    }
+    ASSERT_LOCK_SUCCESS(DmtcpRWLockRdLock(&_wrapperExecutionLock));
   }
   thread->wrapperLockCount++;
 
@@ -184,14 +184,14 @@ ThreadSync::wrapperExecutionLockLock()
 void
 ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
 {
-  JASSERT(thread != nullptr);
-  JASSERT(thread->wrapperLockCount == 0);
+  ASSERT_NOT_NULL(thread,
+                  "wrapperExecutionLockLockForNewThread requires a thread");
+  ASSERT(thread->wrapperLockCount == 0,
+         "new thread wrapper lock count must start at zero: count={}",
+         thread->wrapperLockCount);
 
-  if (DmtcpRWLockRdLockIgnoreQueuedWriter(&_wrapperExecutionLock) != 0) {
-    fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
-            errno, __FILE__, __LINE__, __PRETTY_FUNCTION__);
-    _exit(DMTCP_FAIL_RC);
-  }
+  ASSERT_LOCK_SUCCESS(
+    DmtcpRWLockRdLockIgnoreQueuedWriter(&_wrapperExecutionLock));
 
   thread->wrapperLockCount++;
 }
@@ -199,14 +199,13 @@ ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
 void
 ThreadSync::wrapperExecutionLockUnlockForNewThread(Thread *thread)
 {
-  JASSERT(thread != nullptr);
-  JASSERT(thread->wrapperLockCount == 1);
+  ASSERT_NOT_NULL(thread,
+                  "wrapperExecutionLockUnlockForNewThread requires a thread");
+  ASSERT(thread->wrapperLockCount == 1,
+         "new thread wrapper lock count must be one before unlock: count={}",
+         thread->wrapperLockCount);
 
-  if (DmtcpRWLockUnlock(&_wrapperExecutionLock) != 0) {
-    fprintf(stderr, "ERROR %d at %s:%d %s: Failed to release lock\n",
-            errno, __FILE__, __LINE__, __PRETTY_FUNCTION__);
-    _exit(DMTCP_FAIL_RC);
-  }
+  ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&_wrapperExecutionLock));
 
   thread->wrapperLockCount = 0;
 }
@@ -253,17 +252,14 @@ ThreadSync::wrapperExecutionLockLockExcl()
 
   // The process is still initializing. We don't need to acquire lock.
   if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    errno = saved_errno;
     return;
   }
 
   Thread *thread = dmtcp_get_current_thread();
 
-  if (DmtcpRWLockWrLock(&_wrapperExecutionLock) != 0) {
-    fprintf(stderr, "ERROR %s:%d %s: Failed to acquire lock\n",
-            __FILE__, __LINE__, __PRETTY_FUNCTION__);
-    _exit(DMTCP_FAIL_RC);
-  }
-  thread->wrapperLockCount++;
+  ASSERT_LOCK_SUCCESS(DmtcpRWLockWrLock(&_wrapperExecutionLock));
+  ++thread->wrapperLockCount;
   errno = saved_errno;
 }
 
@@ -276,19 +272,20 @@ ThreadSync::wrapperExecutionLockUnlock()
 
   // The process is still initializing. We don't need to acquire lock.
   if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+    errno = saved_errno;
     return;
   }
 
   Thread *thread = dmtcp_get_current_thread();
 
-  JASSERT(thread->wrapperLockCount != 0);
+  ASSERT_NE(0u,
+            thread->wrapperLockCount,
+            "wrapper execution lock unlock without matching lock: tid={}",
+            thread->tid);
   thread->wrapperLockCount -= 1;
 
-  if (thread->wrapperLockCount == 0 &&
-      DmtcpRWLockUnlock(&_wrapperExecutionLock) != 0) {
-    fprintf(stderr, "ERROR %s:%d %s: Failed to release lock.\n",
-            __FILE__, __LINE__, __PRETTY_FUNCTION__);
-    _exit(DMTCP_FAIL_RC);
+  if (thread->wrapperLockCount == 0) {
+    ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&_wrapperExecutionLock));
   }
 
   errno = saved_errno;
@@ -302,13 +299,13 @@ ThreadSync::wrapperExecutionLockUnlock()
 void
 ThreadSync::presuspendEventHookLockLock()
 {
-  JTRACE("Acquiring event-hook lock");
-  JASSERT(DmtcpMutexLock(&presuspendEventHookLock) == 0);
+  TRACE("Acquiring event-hook lock");
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&presuspendEventHookLock));
 }
 
 void
 ThreadSync::presuspendEventHookLockUnlock()
 {
-  JTRACE("Releasing event-hook lock");
-  JASSERT(DmtcpMutexUnlock(&presuspendEventHookLock) == 0);
+  TRACE("Releasing event-hook lock");
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&presuspendEventHookLock));
 }

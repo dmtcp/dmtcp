@@ -1,32 +1,188 @@
 #include "pluginmanager.h"
 
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "constants.h"
 #include "coordinatorapi.h"
 #include "config.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
-#include "jtimer.h"
 #include "plugininfo.h"
 #include "util.h"
+#include "dmtcp_assert.h"
 
 static dmtcp::PluginManager *pluginManager = NULL;
-JTIMER_NOPRINT(ckptWriteTime);
+
+extern LIB_PRIVATE DmtcpPluginDescriptor_t UniqueCkptPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t sshPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t eventPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t filePlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t ptyPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t socketPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t sysvipcPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t timerPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t pidPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t UniquePidPlugin;
 
 extern "C" void
 dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)
 {
-  JASSERT(pluginManager != NULL);
+  ASSERT_NOT_NULL(pluginManager);
 
   pluginManager->registerPlugin(descr);
 }
 
 namespace dmtcp
 {
-DmtcpPluginDescriptor_t dmtcp_Syslog_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_Rlimit_Float_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_Alarm_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_Terminal_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_ProcessInfo_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_PathTranslator_PluginDescr();
+extern LIB_PRIVATE DmtcpPluginDescriptor_t syslogPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t rlimitFloatPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t alarmPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t terminalPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t processInfoPlugin;
+extern LIB_PRIVATE DmtcpPluginDescriptor_t pathTranslator_plugin;
+
+namespace CoordinatorAPI
+{
+extern LIB_PRIVATE DmtcpPluginDescriptor_t coordinatorAPIPlugin;
+}
+
+struct InternalPluginEntry {
+  DmtcpPluginDescriptor_t *descriptor;
+  bool enabled;
+};
+
+/*
+ * Plugin descriptors stay in their owning modules.  PluginManager keeps only
+ * registration order and cached enablement state for built-in plugins.
+ */
+static DmtcpPluginDescriptor_t allocPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "ALLOC",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Allocation wrappers",
+  NULL
+};
+
+static DmtcpPluginDescriptor_t dlPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "DL",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Dynamic loader wrappers",
+  NULL
+};
+
+static InternalPluginEntry internalPlugins[] = {
+  // Keep UNIQUE_CKPT first.  Its PRECHECKPOINT hook updates the checkpoint
+  // directory name, and later plugins should observe that final directory
+  // when they serialize or reopen plugin-owned state.
+  { &::UniqueCkptPlugin, false },
+  { &pathTranslator_plugin, false },
+  { &syslogPlugin, false },
+  { &rlimitFloatPlugin, false },
+  { &alarmPlugin, false },
+  { &terminalPlugin, false },
+  { &CoordinatorAPI::coordinatorAPIPlugin, false },
+  { &processInfoPlugin, false },
+  { &::UniquePidPlugin, false },
+  { &::sshPlugin, false },
+  { &::eventPlugin, false },
+  { &::filePlugin, false },
+  { &::ptyPlugin, false },
+  { &::socketPlugin, false },
+  { &::sysvipcPlugin, false },
+  { &::timerPlugin, false },
+  { &::pidPlugin, false },
+  { &allocPlugin, false },
+  { &dlPlugin, false }
+};
+
+static pthread_once_t internalPluginInitOnce = PTHREAD_ONCE_INIT;
+static bool disableAllInternalPlugins = false;
+
+static size_t
+numInternalPlugins()
+{
+  return sizeof(internalPlugins) / sizeof(internalPlugins[0]);
+}
+
+static const char *
+internalPluginEnvName(const char *pluginName,
+                      char *envName,
+                      size_t size)
+{
+  int len = snprintf(envName, size, "DMTCP_%s_PLUGIN", pluginName);
+  ASSERT(len > 0 && (size_t)len < size,
+         "internal plugin environment variable name is too long: "
+         "plugin={} size={} required={}",
+         pluginName, size, len);
+  return envName;
+}
+
+static void
+initializeInternalPluginStateOnce()
+{
+  disableAllInternalPlugins =
+    Util::readBooleanEnv(ENV_VAR_DISABLE_ALL_PLUGINS, false);
+
+  for (size_t i = 0; i < numInternalPlugins(); i++) {
+    InternalPluginEntry *entry = &internalPlugins[i];
+    ASSERT_NOT_NULL(entry->descriptor);
+    ASSERT_NOT_NULL(entry->descriptor->pluginName,
+                        "internal plugin descriptor is missing a plugin name: "
+                        "index={}", i);
+    for (size_t j = 0; j < i; j++) {
+      ASSERT(strcmp(internalPlugins[j].descriptor->pluginName,
+                    entry->descriptor->pluginName) != 0,
+             "duplicate internal plugin name: {}",
+             entry->descriptor->pluginName);
+    }
+
+    char envName[64];
+    entry->enabled =
+      Util::readBooleanEnv(internalPluginEnvName(entry->descriptor->pluginName,
+                                                 envName, sizeof(envName)),
+                           true);
+  }
+}
+
+static void
+initializeInternalPluginState()
+{
+  ASSERT_PTHREAD_SUCCESS(pthread_once(&internalPluginInitOnce,
+                                      initializeInternalPluginStateOnce));
+}
+
+static InternalPluginEntry *
+findInternalPluginEntry(const char *pluginName)
+{
+  ASSERT_NOT_NULL(pluginName, "invalid internal plugin name");
+  for (size_t i = 0; i < numInternalPlugins(); i++) {
+    InternalPluginEntry *entry = &internalPlugins[i];
+    if (entry->descriptor->pluginName == pluginName ||
+        Util::strEquals(entry->descriptor->pluginName, pluginName)) {
+      return entry;
+    }
+  }
+
+  ASSERT(false, "unknown internal plugin name: {}", pluginName);
+  return NULL;
+}
+
+bool
+internalPluginEnabled(const char *pluginName)
+{
+  initializeInternalPluginState();
+  InternalPluginEntry *entry = findInternalPluginEntry(pluginName);
+
+  return !disableAllInternalPlugins && entry->enabled;
+}
 
 void
 PluginManager::initialize()
@@ -48,7 +204,10 @@ PluginManager::PluginManager()
 void
 PluginManager::registerPlugin(DmtcpPluginDescriptor_t descr)
 {
-  // TODO(kapil): Validate the incoming descriptor.
+  ASSERT(descr.pluginApiVersion != nullptr &&
+         strcmp(descr.pluginApiVersion, DMTCP_PLUGIN_API_VERSION) == 0,
+         "incompatible DMTCP plugin API version: plugin_api={} expected={}",
+         descr.pluginApiVersion, DMTCP_PLUGIN_API_VERSION);
   PluginInfo *info = new PluginInfo(descr);
 
   pluginInfos.push_back(info);
@@ -57,15 +216,14 @@ PluginManager::registerPlugin(DmtcpPluginDescriptor_t descr)
 extern "C" void
 dmtcp_initialize_plugin()
 {
-  // Now register the "in-built" plugins.
-  dmtcp_register_plugin(dmtcp_PathTranslator_PluginDescr());
-  dmtcp_register_plugin(dmtcp_Syslog_PluginDescr());
-  dmtcp_register_plugin(dmtcp_Rlimit_Float_PluginDescr());
-  dmtcp_register_plugin(dmtcp_Alarm_PluginDescr());
-  dmtcp_register_plugin(dmtcp_Terminal_PluginDescr());
-  dmtcp_register_plugin(CoordinatorAPI::pluginDescr());
-  dmtcp_register_plugin(dmtcp_ProcessInfo_PluginDescr());
-  dmtcp_register_plugin(UniquePid::pluginDescr());
+  initializeInternalPluginState();
+  for (size_t i = 0; i < numInternalPlugins(); i++) {
+    InternalPluginEntry *entry = &internalPlugins[i];
+    if (entry->descriptor->event_hook != NULL &&
+        internalPluginEnabled(entry->descriptor->pluginName)) {
+      dmtcp_register_plugin(*entry->descriptor);
+    }
+  }
 
   void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);
   if (fn != NULL) {
@@ -144,7 +302,7 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
   default:
-    JASSERT(false) (event).Text("Not Reachable");
+    ASSERT(false, "unhandled plugin event: {}", static_cast<int>(event));
   }
 }
 } // namespace dmtcp {

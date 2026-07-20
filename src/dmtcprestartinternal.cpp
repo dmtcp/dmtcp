@@ -31,7 +31,6 @@
 #include <sys/prctl.h>
 #endif  // ifdef HAS_PR_SET_PTRACER
 
-#include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "constants.h"
@@ -41,6 +40,7 @@
 #include "shareddata.h"
 #include "uniquepid.h"
 #include "util.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 
@@ -163,22 +163,31 @@ checkVdsoOffsetMismatch(DmtcpCkptHeader *ckptHdr)
   uint64_t time_offset =
     dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_time");
 
-  ASSERT_EQ(ckptHdr->clock_gettime_offset, clock_gettime_offset);
-  JASSERT(ckptHdr->getcpu_offset == getcpu_offset) .Text(error);
-  JASSERT(ckptHdr->gettimeofday_offset == gettimeofday_offset) .Text(error);
-  JASSERT(ckptHdr->time_offset == time_offset) .Text(error);
+  ASSERT(ckptHdr->clock_gettime_offset == clock_gettime_offset,
+         "{} checkpoint offset={}, current offset={}",
+         error, ckptHdr->clock_gettime_offset, clock_gettime_offset);
+  ASSERT(ckptHdr->getcpu_offset == getcpu_offset,
+         "{} checkpoint offset={}, current offset={}",
+         error, ckptHdr->getcpu_offset, getcpu_offset);
+  ASSERT(ckptHdr->gettimeofday_offset == gettimeofday_offset,
+         "{} checkpoint offset={}, current offset={}",
+         error, ckptHdr->gettimeofday_offset, gettimeofday_offset);
+  ASSERT(ckptHdr->time_offset == time_offset,
+         "{} checkpoint offset={}, current offset={}",
+         error, ckptHdr->time_offset, time_offset);
 }
 
 RestoreTarget::RestoreTarget(const string &path)
   : _path(path)
 {
-  JASSERT(jalib::Filesystem::FileExists(_path))
-  (_path).Text("checkpoint file missing");
+  ASSERT(jalib::Filesystem::FileExists(_path),
+         "checkpoint file missing: {}", _path.c_str());
 
   _fd = readCkptHeader(_path, &_ckptHdr);
   checkVdsoOffsetMismatch(&_ckptHdr);
 
-  JTRACE("restore target")(_path)(numPeers())(compGroup());
+  TRACE("restore target: path={} numPeers={} compGroup={}",
+        _path, numPeers(), compGroup());
 }
 
 void
@@ -211,16 +220,20 @@ RestoreTarget::initialize()
    */
   SharedData::initialize(tmpDir.c_str(), &compId, &coordInfo, &localIPAddr);
 
-  Util::initializeLogFile(SharedData::getTmpDir());
+  initializeLogFile(SharedData::getTmpDir());
 
   if (ckptdir_arg.empty()) {
     // Create the ckpt-dir fd so that the restarted process can know about
     // the abs-path of ckpt-image.
     string dirName = jalib::Filesystem::DirName(_path);
     int dirfd = open(dirName.c_str(), O_RDONLY);
-    JASSERT(dirfd != -1)(JASSERT_ERRNO);
+    ASSERT_ERRNO(dirfd != -1,
+                 "failed to open checkpoint image directory: {}",
+                 dirName.c_str());
     if (dirfd != PROTECTED_CKPT_DIR_FD) {
-      JASSERT(dup2(dirfd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD);
+      ASSERT_ERRNO(dup2(dirfd, PROTECTED_CKPT_DIR_FD) ==
+                     PROTECTED_CKPT_DIR_FD,
+                   "failed to install checkpoint directory fd");
       close(dirfd);
     }
   }
@@ -233,7 +246,7 @@ RestoreTarget::restoreGroup()
 {
   if (isGroupLeader()) {
     // create new Group where this process becomes a leader
-    JTRACE("Create new Group.");
+    TRACE("Create new Group.");
     setpgid(0, 0);
   }
 }
@@ -243,7 +256,8 @@ RestoreTarget::createDependentChildProcess()
 {
   pid_t pid = fork();
 
-  JASSERT(pid != -1);
+  ASSERT_NE(-1,
+    pid, "fork failed while creating dependent child process");
   if (pid != 0) {
     return;
   }
@@ -255,16 +269,20 @@ RestoreTarget::createDependentNonChildProcess()
 {
   pid_t pid = fork();
 
-  JASSERT(pid != -1);
+  ASSERT_NE(-1,
+    pid, "fork failed while creating dependent non-child process");
   if (pid == 0) {
     pid_t gchild = fork();
-    JASSERT(gchild != -1);
+    ASSERT_NE(-1,
+      gchild, "fork failed while creating dependent grandchild process");
     if (gchild != 0) {
       exit(0);
     }
     createProcess();
   } else {
-    JASSERT(waitpid(pid, NULL, 0) == pid);
+    ASSERT_EQ(pid,
+                          waitpid(pid, NULL, 0),
+                          "failed to wait for dependent child process");
   }
 }
 
@@ -273,16 +291,19 @@ RestoreTarget::createOrphanedProcess(bool createIndependentRootProcesses)
 {
   pid_t pid = fork();
 
-  JASSERT(pid != -1);
+  ASSERT_NE(-1, pid, "fork failed while creating orphaned process");
   if (pid == 0) {
     pid_t gchild = fork();
-    JASSERT(gchild != -1);
+    ASSERT_NE(-1,
+      gchild, "fork failed while creating orphaned grandchild process");
     if (gchild != 0) {
       exit(0);
     }
     createProcess(createIndependentRootProcesses);
   } else {
-    JASSERT(waitpid(pid, NULL, 0) == pid);
+    ASSERT_EQ(pid,
+                          waitpid(pid, NULL, 0),
+                          "failed to wait for orphan parent process");
     exit(0);
   }
 }
@@ -296,8 +317,8 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
     allowedModes = COORD_ANY; // we have coord; restore default of COORD_ANY
   }
 
-  JTRACE("Creating process during restart")(upid())(procname());
-  JTRACE("Creating process during restart")(upid())(procname());
+  TRACE("Creating process during restart: upid={} procname={}",
+        upid(), procname());
 
   RestoreTargetMap::iterator it;
   for (it = targets.begin(); it != targets.end(); it++) {
@@ -323,9 +344,10 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
   // If we were the session leader, become one now.
   if (sid() == pid()) {
     if (getsid(0) != pid()) {
-      JWARNING(setsid() != -1)
-      (getsid(0))(JASSERT_ERRNO)
-        .Text("Failed to restore this process as session leader.");
+      WARN_NE(-1, setsid(),
+                    "Failed to restore this process as session leader: "
+                    "current session id={}",
+                    getsid(0));
     }
   }
 
@@ -353,21 +375,22 @@ RestoreTarget::createProcess(bool createIndependentRootProcesses)
 
   runMtcpRestart(_fd, this);
 
-  JASSERT(false).Text("unreachable");
+  ASSERT(false, "unreachable");
 }
 
 char *get_pause_param()
 {
 #ifdef HAS_PR_SET_PTRACER
   if (getenv("DMTCP_GDB_ATTACH_ON_RESTART")) {
-    JNOTE("\n     *******************************************************\n"
-          "     *** Environment variable, DMTCP_GDB_ATTACH_ON_RESTART is set\n"
-          "     *** You can attach to the running process as follows:\n"
-          "     ***     gdb _PROGRAM_NAME_ PID  [See below for PID.]\n"
-          "     *** NOTE:  This mode can be a security risk.\n"
-          "     ***        Do not set the env. variable normally.\n"
-          "     *******************************************************")
-      (getpid());
+    NOTE("\n     *******************************************************\n"
+         "     *** Environment variable, DMTCP_GDB_ATTACH_ON_RESTART is set\n"
+         "     *** You can attach to the running process as follows:\n"
+         "     ***     gdb _PROGRAM_NAME_ PID  [See below for PID.]\n"
+         "     *** NOTE:  This mode can be a security risk.\n"
+         "     ***        Do not set the env. variable normally.\n"
+         "     *** PID: {}\n"
+         "     *******************************************************",
+         getpid());
     prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // Allow 'gdb attach'
   }
 #endif // ifdef HAS_PR_SET_PTRACER
@@ -451,8 +474,8 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
         if (rc < 0) break;
       } while (currentDebugLevel != requestedDebugLevel);
       if (rc < 0) {
-        JASSERT(false)
-               .Text("Unable to set up debug connection "
+        ASSERT_ERRNO(false,
+                     "Unable to set up debug connection "
                      "with the restarted process");
       }
       char cpid[11]; // XXX: Is 10 digits for long PID plus a terminating null
@@ -465,11 +488,14 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
       execvp(command[0], command);
     } else if (pid == 0) {
       close(debugPipe[0]); // child doesn't need the read end
-      JASSERT(dup2(debugPipe[1], PROTECTED_DEBUG_SOCKET_FD)
-              == PROTECTED_DEBUG_SOCKET_FD)(JASSERT_ERRNO);
-      close(debugPipe[1]);
+      ASSERT_EQ(PROTECTED_DEBUG_SOCKET_FD,
+                            dup2(debugPipe[1], PROTECTED_DEBUG_SOCKET_FD),
+                            "failed to install protected debug socket fd");
+      if (debugPipe[1] != PROTECTED_DEBUG_SOCKET_FD) {
+        close(debugPipe[1]);
+      }
     } else {
-     JASSERT(false)(JASSERT_ERRNO).Text("Fork failed");
+     ASSERT_ERRNO(false, "Fork failed");
     }
   }
 
@@ -492,8 +518,7 @@ runMtcpRestart(int fd, RestoreTarget *restoreTarget)
   mtcpArgs.push_back(NULL);
   execvp(mtcpArgs[0], &mtcpArgs[0]);
 
-  JASSERT(false) (mtcpArgs[0]) (mtcpArgs[1]) (JASSERT_ERRNO)
-  .Text("exec() failed");
+  ASSERT_ERRNO(false, "execvp({}) failed", mtcpArgs[0]);
 }
 
 // ************************ For reading checkpoint files *****************
@@ -502,7 +527,8 @@ int
 readCkptHeader(const string &path, DmtcpCkptHeader *ckptHdr)
 {
   int fd = openCkptFileToRead(path);
-  ASSERT_NE(-1, fd);
+  ASSERT_ERRNO(fd >= 0, "checkpoint file helper returned invalid fd: path={}",
+               path.c_str());
 
   ASSERT_EQ(sizeof(*ckptHdr), (size_t)Util::readAll(fd, ckptHdr, sizeof(*ckptHdr)));
   ASSERT_EQ(DMTCP_CKPT_SIGNATURE, string(ckptHdr->ckptSignature));
@@ -535,38 +561,55 @@ openCkptFileToRead(const string &filename)
   pid_t cpid;
 
   fd = open(filename.c_str(), O_RDONLY);
-  JASSERT(fd >= 0)(filename).Text("Failed to open file.");
+  ASSERT_ERRNO(fd != -1, "Failed to open checkpoint file: {}",
+               filename.c_str());
 
   DmtcpCkptHeader ckptHdr;
-  ASSERT_EQ(sizeof(ckptHdr), (size_t)Util::readAll(fd, &ckptHdr, sizeof(ckptHdr)));
+  ASSERT_EQ(static_cast<ssize_t>(sizeof(ckptHdr)),
+                        Util::readAll(fd, &ckptHdr, sizeof(ckptHdr)),
+                        "failed to read checkpoint header: path={}",
+                        filename.c_str());
   if (string(ckptHdr.ckptSignature) == DMTCP_CKPT_SIGNATURE) {
     // Uncompressed file. Rewind and return.
-    ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
+    ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) != -1,
+                 "failed to rewind checkpoint file: path={}", filename);
     return fd;
   }
 
-  ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
-  ASSERT_EQ(1, Util::readAll(fd, &fc, 1));
-  ASSERT_EQ(0, lseek(fd, 0, SEEK_SET));
+  ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) != -1,
+               "failed to rewind checkpoint file before magic read: path={}",
+               filename);
+  ASSERT_EQ(static_cast<ssize_t>(1),
+                        Util::readAll(fd, &fc, 1),
+                        "failed to read checkpoint magic byte: path={}",
+                        filename.c_str());
+  ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) != -1,
+               "failed to rewind checkpoint file after magic read: path={}",
+               filename);
 
   if (fc == GZIP_FIRST) {
     decomp_path = gzip_path;
     decomp_args = gzip_args;
 
-    JASSERT(pipe(fds) != -1) (filename)
-    .Text("Cannot create pipe to execute gunzip to decompress ckpt file!");
+    ASSERT_ERRNO(pipe(fds) != -1,
+                 "creating gunzip pipe for checkpoint file: {}",
+                 filename.c_str());
 
     cpid = fork();
 
-    JASSERT(cpid != -1)
-    .Text("ERROR: Cannot fork to execute gunzip to decompress ckpt file!");
+    ASSERT_ERRNO(cpid != -1,
+                 "Cannot fork to execute gunzip to decompress "
+                 "checkpoint file: {}",
+                 filename.c_str());
     if (cpid > 0) { /* parent process */
-      JTRACE("created child process to uncompress checkpoint file") (cpid);
+      TRACE("created child process to uncompress checkpoint file: pid={}",
+            cpid);
       close(fd);
       close(fds[1]);
 
       // Wait for child process
-      JASSERT(waitpid(cpid, NULL, 0) == cpid);
+      ASSERT_ERRNO(waitpid(cpid, NULL, 0) == cpid,
+                   "failed to wait for decompressor process");
       return fds[0];
     } else { /* child process */
       /* Fork a grandchild process and kill the parent. This way the grandchild
@@ -578,9 +621,12 @@ openCkptFileToRead(const string &filename)
        * wait()'d upon by the corresponding mtcp_restart processes because
        * their parent is the original dmtcp_restart process and thus they
        * become zombie.
-       */
+      */
       cpid = fork();
-      JASSERT(cpid != -1);
+      ASSERT_ERRNO(cpid != -1,
+                   "Cannot fork grandchild to execute gunzip to "
+                   "decompress checkpoint file: {}",
+                   filename.c_str());
       if (cpid > 0) {
         // Use _exit() instead of exit() to avoid popping atexit() handlers
         // registered by the parent process.
@@ -588,26 +634,28 @@ openCkptFileToRead(const string &filename)
       }
 
       // Grandchild process
-      JTRACE("child process, will exec into external de-compressor");
+      TRACE("child process, will exec into external de-compressor");
       fd = dup(dup(dup(fd)));
       fds[1] = dup(fds[1]);
       close(fds[0]);
-      JASSERT(fd != -1);
-      JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
+      ASSERT_ERRNO(fd != -1,
+                   "failed to duplicate checkpoint fd for decompressor");
+      ASSERT_ERRNO(dup2(fd, STDIN_FILENO) == STDIN_FILENO,
+                   "failed to install decompressor stdin fd");
       close(fd);
-      JASSERT(dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO);
+      ASSERT_ERRNO(dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO,
+                   "failed to install decompressor stdout fd");
       close(fds[1]);
       execvp(decomp_path, (char **)decomp_args);
-      JASSERT(decomp_path != NULL) (decomp_path)
-      .Text("Failed to launch gzip.");
 
       /* should not get here */
-      JASSERT(false)
-      .Text("Decompression failed!  No restoration will be performed!");
+      ASSERT_ERRNO(false,
+                   "Failed to launch decompressor: {}", decomp_path);
     }
   } else { /* invalid magic number */
-    JASSERT(false)
-    .Text("ERROR: Invalid magic number in this checkpoint file!");
+    ASSERT(false,
+           "ERROR: Invalid magic number in checkpoint file: {}",
+           filename.c_str());
   }
   return -1;
 }
@@ -622,11 +670,17 @@ setEnvironFd()
 
   sprintf(envFile, "%s/envFile.XXXXXX", tmpDir.c_str());
   int fd = mkstemp(envFile);
-  JASSERT(fd != -1) (envFile) (JASSERT_ERRNO);
-  JASSERT(unlink(envFile) == 0) (envFile) (JASSERT_ERRNO);
-  JASSERT(dup2(fd, PROTECTED_ENVIRON_FD) == PROTECTED_ENVIRON_FD)
-    (JASSERT_ERRNO);
-  JASSERT(close(fd) == 0);
+  ASSERT_ERRNO(fd != -1,
+               "failed to create temporary environment file: {}",
+               envFile);
+  ASSERT_ERRNO(unlink(envFile) != -1,
+               "failed to unlink temporary environment file: {}", envFile);
+  ASSERT_ERRNO(dup2(fd, PROTECTED_ENVIRON_FD) == PROTECTED_ENVIRON_FD,
+               "failed to install protected environment fd");
+  if (fd != PROTECTED_ENVIRON_FD) {
+    ASSERT_ERRNO(close(fd) != -1,
+                 "failed to close temporary environment fd");
+  }
   fd = PROTECTED_ENVIRON_FD;
 
   char **env = environ;
@@ -643,19 +697,23 @@ setNewCkptDir(const string& path)
   struct stat st;
 
   if (stat(path.c_str(), &st) == -1) {
-    JASSERT(mkdir(path.c_str(), S_IRWXU) == 0 || errno == EEXIST)
-      (JASSERT_ERRNO) (path)
-    .Text("Error creating checkpoint directory");
-    JASSERT(0 == access(path.c_str(), X_OK | W_OK)) (path)
-    .Text("ERROR: Missing execute- or write-access to checkpoint dir");
+    ASSERT_ERRNO(mkdir(path.c_str(), S_IRWXU) == 0 || errno == EEXIST,
+                 "Error creating checkpoint directory: {}", path.c_str());
+    ASSERT_ERRNO(access(path.c_str(), X_OK | W_OK) != -1,
+                 "Missing execute- or write-access to checkpoint directory: {}",
+                 path.c_str());
   } else {
-    JASSERT(S_ISDIR(st.st_mode)) (path).Text("ckptdir not a directory");
+    ASSERT(S_ISDIR(st.st_mode),
+           "checkpoint directory path is not a directory: {}",
+           path.c_str());
   }
 
   int fd = open(path.c_str(), O_RDONLY);
-  JASSERT(fd != -1) (path);
-  JASSERT(dup2(fd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD)
-    (fd) (path);
+  ASSERT_ERRNO(fd != -1, "failed to open checkpoint directory: {}",
+               path.c_str());
+  ASSERT_ERRNO(dup2(fd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD,
+               "failed to install checkpoint directory fd for {}",
+               path.c_str());
   if (fd != PROTECTED_CKPT_DIR_FD) {
     close(fd);
   }
@@ -718,9 +776,9 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
       setenv(ENV_VAR_COORD_LOGFILE, argv[1], 1);
       shift; shift;
     } else if (s == "--debug-restart-pause") {
-      JASSERT(argv[1] && argv[1][0] >= '1' && argv[1][0] <= '7'
-                      && argv[1][1] == '\0')
-        .Text("--debug-restart-pause requires arg. of '1' or '2' or ...` '7'");
+      ASSERT(argc > 1 && argv[1] && argv[1][0] >= '1' && argv[1][0] <= '7' &&
+             argv[1][1] == '\0',
+             "--debug-restart-pause requires arg. of '1' or '2' or ...` '7'");
       setenv("DMTCP_RESTART_PAUSE", argv[1], 1);
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'i' &&
@@ -760,13 +818,12 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
       // Just in case a non-standard version of setenv is being used:
       setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
       shift;
-    } else if ((s.length() > 2 && s.substr(0, 2) == "--") ||
-               (s.length() > 1 && s.substr(0, 1) == "-")) {
-      printf("Invalid Argument\n%s", theUsage);
-      exit(DMTCP_FAIL_RC);
     } else if (argc > 1 && s == "--") {
       shift;
       break;
+    } else if (s.length() > 1 && s.starts_with("-")) {
+      printf("Invalid Argument\n%s", theUsage);
+      exit(DMTCP_FAIL_RC);
     } else {
       break; // argv[0] is first ckpt file to be restored; finish parsing later
     }
@@ -774,8 +831,8 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
 
   tmpDir = Util::calcTmpDir(tmpdir_arg);
 
-  // make sure JASSERT initializes now, rather than during restart
-  Util::initializeLogFile(tmpDir.c_str(), binaryName.c_str());
+  // Initialize logs now, rather than during restart.
+  initializeLogFile(tmpDir.c_str(), binaryName.c_str());
 
   if ((getenv(ENV_VAR_NAME_PORT) == NULL ||
        getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
@@ -786,7 +843,7 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
     }
     allowedModes = (allowedModes == COORD_ANY) ? COORD_NEW : allowedModes;
     setenv(ENV_VAR_NAME_PORT, STRINGIFY(DEFAULT_PORT), 1);
-    JTRACE("No port specified\n"
+    TRACE("No port specified\n"
            "Setting mode to --new-coordinator --coord-port "
                                                   STRINGIFY(DEFAULT_PORT));
   }
@@ -795,22 +852,23 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
     setNewCkptDir(ckptdir_arg);
   }
 
-  jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
-  if (!noStrictChecking && jassert_quiet < 2 &&
+  int quietCount = *getenv(ENV_VAR_QUIET) - '0';
+  if (!noStrictChecking && quietCount < 2 &&
       (getuid() == 0 || geteuid() == 0)) {
-    JASSERT_STDERR <<
+    fputs(
       "WARNING:  Running dmtcp_restart as root can be dangerous.\n"
       "  An unknown checkpoint image or bugs in DMTCP may lead to unforeseen\n"
-      "  consequences.  Continuing as root ....\n";
+      "  consequences.  Continuing as root ....\n",
+      stderr);
   }
 
-  JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
+  TRACE("New dmtcp_restart process: argc={}", argc);
 
   // If there are still arguments not processed (argc > 0), the remaining
   // arguments should be ckpt images. Can't specify ckpt images
   // with --restartdir flag.
   if (restartDir.empty() ^ (argc > 0)) {
-    JASSERT_STDERR << theUsage;
+    fputs(theUsage, stderr);
     exit(DMTCP_FAIL_RC);
   }
 
@@ -820,17 +878,21 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
       if (Util::strEndsWith(file.c_str(), ".dmtcp")) {
         string restorename(restartDir + "/" + file);
         struct stat buf;
-        JASSERT(stat(restorename.c_str(), &buf) != -1);
+        ASSERT_NE(-1, stat(restorename.c_str(), &buf),
+                     "failed to stat checkpoint image: {}",
+                     restorename.c_str());
         if (buf.st_uid != getuid() && !noStrictChecking) {
           /*Could also run if geteuid() matches*/
-          JASSERT(false) (getuid()) (buf.st_uid) (restorename)
-            .Text("Process uid doesn't match uid of checkpoint image.\n"      \
-                  "This is dangerous.  Aborting for security reasons.\n"      \
-                  "If you still want to do this, then re-run dmtcp_restart\n" \
-                  "  with the --no-strict-checking flag.\n");
+          ASSERT(false,
+                 "Process uid doesn't match uid of checkpoint image.\n"
+                 "This is dangerous.  Aborting for security reasons.\n"
+                 "If you still want to do this, then re-run dmtcp_restart\n"
+                 "  with the --no-strict-checking flag.\n"
+                 "process uid={}, checkpoint uid={}, image={}",
+                 getuid(), buf.st_uid, restorename.c_str());
         }
 
-        JTRACE("Will restart ckpt image") (restorename);
+        TRACE("Will restart ckpt image: path={}", restorename);
         ckptImages.push_back(restorename);
       }
     }
@@ -838,32 +900,37 @@ DmtcpRestart::DmtcpRestart(int argc, char **argv, const string& binaryName, cons
     for (; argc > 0; shift) {
       string restorename(argv[0]);
       struct stat buf;
-      JASSERT(stat(restorename.c_str(), &buf) != -1);
+      ASSERT_NE(-1, stat(restorename.c_str(), &buf),
+                   "failed to stat checkpoint image: {}",
+                   restorename.c_str());
 
       if (Util::strEndsWith(restorename.c_str(), "_files")) {
         continue;
       } else if (!Util::strEndsWith(restorename.c_str(), ".dmtcp")) {
-        JNOTE("File doesn't have .dmtcp extension. Check Usage.") (restorename);
+        NOTE("File doesn't have .dmtcp extension. Check Usage: path={}",
+             restorename);
         // Don't test for --quiet here.  We're aborting.  We need to say why.
-        JASSERT_STDERR << theUsage;
+        fputs(theUsage, stderr);
         exit(DMTCP_FAIL_RC);
       } else if (buf.st_uid != getuid() && !noStrictChecking) {
         /*Could also run if geteuid() matches*/
-        JASSERT(false) (getuid()) (buf.st_uid) (restorename)
-          .Text("Process uid doesn't match uid of checkpoint image.\n"      \
-                "This is dangerous.  Aborting for security reasons.\n"      \
-                "If you still want to do this, then re-run dmtcp_restart\n" \
-                "  with the --no-strict-checking flag.\n");
+        ASSERT(false,
+               "Process uid doesn't match uid of checkpoint image.\n"
+               "This is dangerous.  Aborting for security reasons.\n"
+               "If you still want to do this, then re-run dmtcp_restart\n"
+               "  with the --no-strict-checking flag.\n"
+               "process uid={}, checkpoint uid={}, image={}",
+               getuid(), buf.st_uid, restorename.c_str());
       }
 
-      JTRACE("Will restart ckpt image") (argv[0]);
+      TRACE("Will restart ckpt image: path={}", argv[0]);
       ckptImages.push_back(argv[0]);
     }
   }
 
   // If ckptImages is empty, there's no ckpt file provided.
   if (ckptImages.empty()) {
-    JASSERT_STDERR << theUsage;
+    fputs(theUsage, stderr);
     exit(DMTCP_FAIL_RC);
   }
 
@@ -901,9 +968,9 @@ DmtcpRestart::processCkptImages()
       }
     }
   }
-  JASSERT(independentProcessTreeRoots.size() > 0)
-  .Text("There must be at least one process tree that doesn't have\n"
-        "  a different process as session leader.");
+  ASSERT(independentProcessTreeRoots.size() > 0,
+         "There must be at least one process tree that doesn't have\n"
+         "  a different process as session leader.");
 
   /* Try to find non-orphaned process in independent procs list */
   RestoreTarget *t = NULL;
@@ -919,8 +986,8 @@ DmtcpRestart::processCkptImages()
     }
   }
 
-  JASSERT(t != NULL);
-  JASSERT(t->pid() != 0);
+  ASSERT_NOT_NULL(t);
+  ASSERT_NE(0, t->pid());
 
   if (foundNonOrphan) {
     t->createProcess(true);
@@ -931,5 +998,5 @@ DmtcpRestart::processCkptImages()
     t->createOrphanedProcess(true);
   }
 
-  JASSERT(false).Text("unreachable");
+  ASSERT(false, "unreachable");
 }

@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <sys/resource.h>
 #include <sys/time.h>
-#include "../jalib/jbuffer.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jsocket.h"
@@ -38,6 +37,7 @@
 #include "threadlist.h"
 #include "threadsync.h"
 #include "util.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 
@@ -52,7 +52,6 @@ EXTERNC ProcSelfMaps *procSelfMaps;
 static ATOMIC_SHARED_GLOBAL bool exitInProgress = false;
 static bool exitAfterCkpt = 0;
 static bool dmtcp_initialized = false;
-
 
 /* NOTE:  Please keep this function in sync with its copy at:
  *   dmtcp_nocheckpoint.cpp:restoreUserLDPRELOAD()
@@ -99,8 +98,10 @@ restoreUserLDPRELOAD()
   char *preload = getenv("LD_PRELOAD");
   char *userPreload = getenv(ENV_VAR_ORIG_LD_PRELOAD);
 
-  JASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload))
-  (preload)(userPreload);
+  ASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload),
+         "user LD_PRELOAD does not fit in launcher LD_PRELOAD buffer: "
+         "preload={} user_preload={}",
+         preload, userPreload);
 
   // Destructively modify environment variable "LD_PRELOAD" in place:
   preload[0] = '\0';
@@ -111,8 +112,10 @@ restoreUserLDPRELOAD()
 
     // setenv("LD_PRELOAD", userPreload, 1);
   }
-  JTRACE("LD_PRELOAD") (preload) (userPreload) (getenv(ENV_VAR_HIJACK_LIBS))
-    (getenv(ENV_VAR_HIJACK_LIBS_M32)) (getenv("LD_PRELOAD"));
+  TRACE("LD_PRELOAD: preload={} userPreload={} hijackLibs={} "
+        "hijackLibsM32={} current={}",
+        preload, userPreload, getenv(ENV_VAR_HIJACK_LIBS),
+        getenv(ENV_VAR_HIJACK_LIBS_M32), getenv("LD_PRELOAD"));
 }
 
 // This should be visible to library only.  DmtcpWorker will call
@@ -159,9 +162,9 @@ prepareLogAndProcessdDataFromSerialFile()
     // Brand new process (was never under ckpt-control),
 
     // Initialize the log file
-    Util::initializeLogFile(SharedData::getTmpDir());
+    initializeLogFile(SharedData::getTmpDir());
 
-    JTRACE("Root of processes tree");
+    TRACE("Root of processes tree");
     ProcessInfo::instance().isRootOfProcessTree = 1;
   }
 }
@@ -183,7 +186,8 @@ installSegFaultHandler()
   memset(&act, 0, sizeof(act));
   act.sa_sigaction = segFaultHandler;
   act.sa_flags = SA_SIGINFO;
-  JASSERT(sigaction(SIGSEGV, &act, NULL) == 0) (JASSERT_ERRNO);
+  ASSERT_NE(-1, sigaction(SIGSEGV, &act, NULL),
+               "failed to install DMTCP SIGSEGV handler");
 }
 
 /* This function is called at the very beginning of the DmtcpWorker constructor
@@ -206,6 +210,8 @@ dmtcp_initialize()
 // be called before dmtcp_initialize_entry_point.
 // Note that 1-100 are reserved for implementation, but we are okay since this
 // function is only enabled for debugging.
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wprio-ctor-dtor"
 extern "C" void __attribute__((constructor(100)))
 dmtcp_initialize_entry_point_test()
 {
@@ -213,6 +219,7 @@ dmtcp_initialize_entry_point_test()
   pthread_t thread = pthread_self();
   pthread_getaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
 }
+# pragma GCC diagnostic pop
 #endif
 
 // Initialize remaining components.
@@ -236,8 +243,8 @@ dmtcp_initialize_entry_point()
 
   prepareLogAndProcessdDataFromSerialFile();
 
-  JTRACE("libdmtcp.so:  Running ")
-    (jalib::Filesystem::GetProgramName()) (getenv("LD_PRELOAD"));
+  TRACE("libdmtcp.so: Running program={} LD_PRELOAD={}",
+        jalib::Filesystem::GetProgramName(), getenv("LD_PRELOAD"));
 
   if (getenv("DMTCP_SEGFAULT_HANDLER") != NULL) {
     // Install a segmentation fault handler (for debugging).
@@ -251,15 +258,16 @@ dmtcp_initialize_entry_point()
   // Also cache programName and arguments
   string programName = jalib::Filesystem::GetProgramName();
 
-  JASSERT(programName != "dmtcp_coordinator" &&
-          programName != "dmtcp_launch" &&
-          programName != "dmtcp_nocheckpoint" &&
-          programName != "dmtcp_comand" &&
-          programName != "dmtcp_restart" &&
-          programName != "mtcp_restart" &&
-          programName != "rsh" &&
-          programName != "ssh")
-    (programName).Text("This program should not be run under ckpt control");
+  ASSERT(programName != "dmtcp_coordinator" &&
+           programName != "dmtcp_launch" &&
+           programName != "dmtcp_nocheckpoint" &&
+           programName != "dmtcp_command" &&
+           programName != "dmtcp_restart" &&
+           programName != "mtcp_restart" &&
+           programName != "rsh" &&
+           programName != "ssh",
+         "This program should not be run under ckpt control: program={}",
+         programName);
 
   restoreUserLDPRELOAD();
 
@@ -315,13 +323,13 @@ dmtcp_finalize()
 //   ThreadSync::resetLocks();
   WorkerState::setCurrentState(WorkerState::UNKNOWN);
 
-  JTRACE("Process exiting.");
+  TRACE("Process exiting.");
 }
 
 void
 DmtcpWorker::ckptThreadPerformExit()
 {
-  JTRACE("User thread is performing exit(). Ckpt thread exit()ing as well");
+  TRACE("User thread is performing exit(). Ckpt thread exit()ing as well");
 
   // Ideally, we would like to perform pthread_exit(), but we are in the middle
   // of process cleanup (due to the user thread's exit() call) and as a result,
@@ -349,7 +357,7 @@ DmtcpWorker::waitForPreSuspendMessage()
 {
   SharedData::resetBarrierInfo();
 
-  JTRACE("waiting for CHECKPOINT message");
+  TRACE("waiting for CHECKPOINT message");
 
   DmtcpMessage msg;
   CoordinatorAPI::recvMsgFromCoordinator(&msg);
@@ -361,13 +369,22 @@ DmtcpWorker::waitForPreSuspendMessage()
 
   msg.assertValid();
 
-  JASSERT(msg.type == DMT_DO_CHECKPOINT) (msg.type);
+  ASSERT(msg.type == DMT_DO_CHECKPOINT,
+         "unexpected coordinator message while waiting for checkpoint: type={}",
+         msg.type);
 
   // Coordinator sends some computation information along with the SUSPEND
   // message. Extracting that.
   SharedData::updateGeneration(msg.compGroup.computationGeneration());
-  JASSERT(SharedData::getCompId() == msg.compGroup.upid())
-    (SharedData::getCompId()) (msg.compGroup);
+  DmtcpUniqueProcessId sharedCompId = SharedData::getCompId();
+  DmtcpUniqueProcessId msgCompId = msg.compGroup.upid();
+  ASSERT(sharedCompId == msgCompId,
+         "coordinator checkpoint message is for a different computation: "
+         "shared_host={} shared_pid={} shared_time={} shared_generation={} "
+         "msg_host={} msg_pid={} msg_time={} msg_generation={}",
+         sharedCompId._hostid, sharedCompId._pid, sharedCompId._time,
+         sharedCompId._computation_generation, msgCompId._hostid,
+         msgCompId._pid, msgCompId._time, msgCompId._computation_generation);
 
   ProcessInfo::instance().compGroup = SharedData::getCompId();
   exitAfterCkpt = msg.exitAfterCkpt;
@@ -376,7 +393,7 @@ DmtcpWorker::waitForPreSuspendMessage()
 void
 DmtcpWorker::waitForCheckpointRequest()
 {
-  JTRACE("running");
+  TRACE("running");
 
   WorkerState::setCurrentState(WorkerState::RUNNING);
 
@@ -394,27 +411,28 @@ DmtcpWorker::waitForCheckpointRequest()
   // Further, we also want to prevent any overlap between an event-hook call
   // made here vs. an event-hook call made by the user thread in vfork().
   ThreadSync::presuspendEventHookLockLock();
-  JTRACE("Processing pre-suspend barriers");
+  TRACE("Processing pre-suspend barriers");
   PluginManager::eventHook(DMTCP_EVENT_PRESUSPEND);
   ThreadSync::presuspendEventHookLockUnlock();
 
-  JTRACE("Preparing to acquire locks before DMT:SUSPEND barrier");
+  TRACE("Preparing to acquire locks before DMT:SUSPEND barrier");
   ThreadSync::acquireLocks();
 
-  JTRACE("Waiting for DMT:SUSPEND barrier");
+  TRACE("Waiting for DMT:SUSPEND barrier");
   if (!CoordinatorAPI::waitForBarrier("DMT:SUSPEND")) {
-    JASSERT(exitInProgress);
+    ASSERT(exitInProgress,
+           "DMT:SUSPEND barrier failed while exit is not in progress");
     ckptThreadPerformExit();
   }
 
-  JTRACE("Starting checkpoint, suspending threads...");
+  TRACE("Starting checkpoint, suspending threads...");
 }
 
 // now user threads are stopped
 void
 DmtcpWorker::releaseLocks()
 {
-  JTRACE("Threads suspended");
+  TRACE("Threads suspended");
   WorkerState::setCurrentState(WorkerState::SUSPENDED);
 
   ThreadSync::releaseLocks();
@@ -442,9 +460,9 @@ DmtcpWorker::preCheckpoint()
   SharedData::prepareForCkpt();
 
   uint32_t numPeers;
-  JTRACE("Waiting for DMT_CHECKPOINT barrier");
+  TRACE("Waiting for DMT_CHECKPOINT barrier");
   CoordinatorAPI::waitForBarrier("DMT:CHECKPOINT", &numPeers);
-  JTRACE("Computation information") (numPeers);
+  TRACE("Computation information: numPeers={}", numPeers);
 
   // initialize global number of peers:
   ProcessInfo::instance().numPeers = numPeers;
@@ -487,18 +505,22 @@ DmtcpWorker::postCheckpoint()
   WorkerState::setCurrentState(WorkerState::CHECKPOINTED);
 
   // TODO: Merge this barrier with the previous `sendCkptFilename` msg.
-  JTRACE("Waiting for Write-Ckpt barrier");
+  TRACE("Waiting for Write-Ckpt barrier");
   CoordinatorAPI::waitForBarrier("DMT:WriteCkpt");
 
   // NOTE:  If FORKED_CHECKPOINTING, the grandchild may still be checkpointing.
   //        Grandchild process will do renaming and inform coordinator.
-  if (getenv(ENV_VAR_FORKED_CKPT) == NULL) { 
+  if (getenv(ENV_VAR_FORKED_CKPT) == NULL) {
     /* Now that temp checkpoint file is complete, rename it over old permanent
      * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
      * So, gzip process can continue to write to file even after renaming.
      */
-    JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
-                   ProcessInfo::instance().getCkptFilename().c_str()) == 0);
+    ASSERT_NE(-1,
+      rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+             ProcessInfo::instance().getCkptFilename().c_str()),
+      "failed to rename checkpoint image: temp={} final={}",
+      ProcessInfo::instance().getTempCkptFilename(),
+      ProcessInfo::instance().getCkptFilename());
     CoordinatorAPI::sendCkptFilename();
   } else { // else FORKED CHECKPOINTING.  Write temp name; grandchild not done.
     string ckptFilename = ProcessInfo::instance().getCkptFilename();
@@ -509,7 +531,7 @@ DmtcpWorker::postCheckpoint()
   }
 
   if (exitAfterCkpt) {
-    JTRACE("Asked to exit after checkpoint. Exiting!");
+    TRACE("Asked to exit after checkpoint. Exiting!");
     _exit(0);
   }
 
@@ -517,22 +539,23 @@ DmtcpWorker::postCheckpoint()
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
-  JTRACE("Informing coordinator of RUNNING status") (UniquePid::ThisProcess());
+  TRACE("Informing coordinator of RUNNING status: process={}",
+        UniquePid::ThisProcess());
   CoordinatorAPI::sendMsgToCoordinator(DMT_WORKER_RESUMING);
 }
 
 void
-DmtcpWorker::postRestart(double ckptReadTime)
+DmtcpWorker::postRestart()
 {
-  JTRACE("begin postRestart()");
+  TRACE("begin postRestart()");
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
-  JTRACE("Waiting for Restart barrier");
+  TRACE("Waiting for Restart barrier");
   CoordinatorAPI::waitForBarrier("DMT:Restart");
 
   PluginManager::eventHook(DMTCP_EVENT_RESTART);
 
-  JTRACE("got resume message after restart");
+  TRACE("got resume message after restart");
 
   {
     // Send ckpt maps to coordinator.
@@ -546,6 +569,7 @@ DmtcpWorker::postRestart(double ckptReadTime)
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
-  JTRACE("Informing coordinator of RUNNING status") (UniquePid::ThisProcess());
+  TRACE("Informing coordinator of RUNNING status: process={}",
+        UniquePid::ThisProcess());
   CoordinatorAPI::sendMsgToCoordinator(DMT_WORKER_RESUMING);
 }

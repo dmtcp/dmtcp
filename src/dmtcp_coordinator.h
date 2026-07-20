@@ -103,7 +103,7 @@ typedef struct {
 class CoordFlags {
   public:
       bool quiet = false;
-      int jassert_quiet = 0;
+      int quietLevel = 0;
       bool exitOnLast = false;
       bool killAfterCkpt = false;
       int timeout = 0;
@@ -180,6 +180,8 @@ class DmtcpCoordinator
     bool startCheckpoint();
     void recordCkptFilename(CoordClient *client, const char *barrierList);
 
+    void handleUserCommand(CoordinatorCmd command,
+                           DmtcpMessage *reply = NULL);
     void handleUserCommand(dmtcp::string cmd, DmtcpMessage *reply = NULL);
     void getStatusStr(ostream *o);
     void writeStatusToFile();

@@ -21,12 +21,16 @@
 
 #include "procmapsarea.h"
 
-#define MTCP_PRINTF(args ...)                                               \
+// Forward declaration only: callers needing member access (e.g. the DPRINTF
+// macro below) must also include mtcp_restart.h for the full definition.
+typedef struct RestoreInfo RestoreInfo;
+
+#define MTCP_PRINTF(fmt, ...)                                               \
   do {                                                                      \
     mtcp_printf("[%d] %s:%d %s:\n  ",                                       \
-                mtcp_sys_getpid(), __FILE__, __LINE__, __FUNCTION__);       \
+                mtcp_sys_getpid(), __FILE__, __LINE__, __func__);           \
     (void)mtcp_sys_errno; /* prevent compiler warning if we don't use it */ \
-    mtcp_printf(args);                                                      \
+    mtcp_printf(fmt, ##__VA_ARGS__);                                                      \
   } while (0)
 
 #define MTCP_ASSERT(condition)                          \
@@ -35,11 +39,27 @@
     mtcp_abort();                                       \
   }
 
-#ifdef LOGGING
-# define DPRINTF MTCP_PRINTF
-#else // ifdef LOGGING
-# define DPRINTF(args ...) // debug printing
-#endif // ifdef LOGGING
+// Like DMTCP's TRACE (src/dmtcp_assert.h), gated at runtime by the
+// DMTCP_LOG_LEVEL environment variable, not by a compile-time macro: no
+// rebuild is needed to turn tracing on.  mtcp_restart runs raw-syscall,
+// pre-libc, so it can't call into DMTCP's C++ Logger; instead
+// mtcp_parse_dprintf_env() (called once early, while environ is still
+// available) hand-parses DMTCP_LOG_LEVEL into rinfo->dprintfEnabled, the
+// same way this file's mtcp_getenv() is already used for
+// DMTCP_RESTART_PAUSE.
+//
+// DPRINTF takes the RestoreInfo explicitly (DPRINTF(rinfo, fmt, ...)) rather
+// than reading a plain global: mtcp_restart unmaps its own original
+// text/data/stack during restart (see the "Algorithm" comment at the top of
+// mtcp_restart.c), so a plain global read after that point would fault. The
+// passed-in rinfo must be a copy that survives that unmap -- i.e. the
+// stack-resident RestoreInfo, not the original pre-relocation global.
+# define DPRINTF(rinfo, fmt, ...)              \
+  do {                                         \
+    if ((rinfo)->dprintfEnabled) {             \
+      MTCP_PRINTF(fmt, ##__VA_ARGS__);         \
+    }                                          \
+  } while (0)
 
 #if 0
 
@@ -181,12 +201,13 @@ char *mtcp_strchr(const char *s, int c);
 char *mtcp_strrchr(const char *s, int c);
 int mtcp_strstartswith(const char *s1, const char *s2);
 int mtcp_strendswith(const char *s1, const char *s2);
-int mtcp_readmapsline(int mapsfd, Area *area);
+int mtcp_readmapsline(RestoreInfo *rinfo, int mapsfd, Area *area);
 void mtcp_sys_memcpy(void *dstpp, const void *srcpp, size_t len);
 void *mtcp_memset(void *s, int c, size_t n);
 void *mtcp_memcpy(void *dstpp, const void *srcpp, size_t len);
 char *mtcp_getenv(const char *name, char **environ);
-void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
-                           int fd, off_t offset);
+int mtcp_parse_dprintf_env(char **environ);
+void* mmap_fixed_noreplace(RestoreInfo *rinfo, void *addr, size_t len,
+                           int prot, int flags, int fd, off_t offset);
 int mtcp_setauxval(char **evp, unsigned long int type, unsigned long int val);
 #endif // ifndef _MTCP_UTIL_H

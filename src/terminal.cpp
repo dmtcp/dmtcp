@@ -5,9 +5,9 @@
 #ifdef HAS_PR_SET_PTRACER
 #include <sys/prctl.h>
 #endif  // ifdef HAS_PR_SET_PTRACER
-#include "../jalib/jassert.h"
 #include "config.h"
 #include "dmtcp.h"
+#include "dmtcp_assert.h"
 
 /*************************************************************************
  *
@@ -69,15 +69,16 @@ restore_term_settings()
      *   warning.  If we try to call tcsetattr in background, we will hang up.
      */
     int foreground = (tcgetpgrp(STDIN_FILENO) == getpgrp());
-    JTRACE("restore terminal attributes, check foreground status first")
-      (foreground);
+    TRACE("restore terminal attributes, check foreground status first: "
+          "foreground={}",
+          foreground);
     if (foreground) {
       if ((!isatty(STDIN_FILENO)
            || safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) == -1)) {
-        JWARNING(false).Text("failed to restore terminal");
+        WARN(false, "failed to restore terminal");
       } else {
         struct winsize cur_win;
-        JTRACE("restored terminal");
+        TRACE("restored terminal");
         ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&cur_win);
 
         /* ws_row/ws_col was probably not 0/0 prior to checkpoint.  We change
@@ -89,8 +90,7 @@ restore_term_settings()
         }
       }
     } else {
-      JWARNING(false)
-      .Text(":skip restore terminal step -- we are in BACKGROUND");
+      WARN(false, "skip restore terminal step: process is in background");
     }
   }
 
@@ -126,20 +126,13 @@ terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static DmtcpPluginDescriptor_t terminalPlugin = {
+LIB_PRIVATE DmtcpPluginDescriptor_t terminalPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "terminal",
+  "TERMINAL",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Terminal plugin",
   terminal_EventHook
 };
-
-
-DmtcpPluginDescriptor_t
-dmtcp_Terminal_PluginDescr()
-{
-  return terminalPlugin;
-}
 }

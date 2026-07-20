@@ -50,15 +50,6 @@ __d_libdir__libdmtcp_modify_env_so_SOURCES =                           \
 __d_libdir__libdmtcp_modify_env_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_modify_env_so_LDADD = $(LDADD)
 
-#
-# Unique ckpt plugin
-#
-libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_unique-ckpt.so
-__d_libdir__libdmtcp_unique_ckpt_so_SOURCES =                          \
-	unique-ckpt/unique-ckpt.cpp
-__d_libdir__libdmtcp_unique_ckpt_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_unique_ckpt_so_LDADD = $(LDADD)
-
 install-libs: install-libdmtcpPROGRAMS
 
 uninstall-libs: uninstall-libdmtcpPROGRAMS

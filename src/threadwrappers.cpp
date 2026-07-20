@@ -21,10 +21,10 @@
 
 #include <sys/syscall.h>
 #include "../jalib/jalloc.h"
-#include "../jalib/jassert.h"
 #include "constants.h"
 #include "dmtcp.h"
 #include "dmtcpworker.h"
+#include "plugin/pid/pidhelpers.h"
 #include "pluginmanager.h"
 #include "processinfo.h"
 #include "siginfo.h"
@@ -33,6 +33,7 @@
 #include "threadsync.h"
 #include "uniquepid.h"
 #include "util.h"
+#include "dmtcp_assert.h"
 
 using namespace dmtcp;
 
@@ -40,15 +41,23 @@ using namespace dmtcp;
 extern "C" pid_t
 gettid(void) __THROW
 {
-  Thread *thread = dmtcp_get_current_thread();
-  return thread->tid;
+  return dmtcp_gettid();
+}
+
+LIB_PRIVATE pid_t
+dmtcp_gettid()
+{
+  return dmtcp_get_current_thread()->tid;
 }
 
 static void
 processChildThread(Thread *thread)
 {
   dmtcp_init_virtual_tid();
-  JASSERT(thread->wrapperLockCount != 0);
+  ASSERT_NE(0u,
+            thread->wrapperLockCount,
+            "child thread entered without inherited wrapper lock: tid={}",
+            thread->tid);
 
   ThreadList::initThread(thread);
   // Unblock ckpt signal (unblocking a non-blocked signal has no effect).
@@ -59,7 +68,10 @@ processChildThread(Thread *thread)
   // signals blocked.
   sigset_t set;
   sigaddset(&set, SigInfo::ckptSignal());
-  JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0) (JASSERT_ERRNO);
+  ASSERT_PTHREAD_SUCCESS(
+    _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),
+    "unblocking checkpoint signal in child thread: signal={}",
+    SigInfo::ckptSignal());
 
   // Lock was acquired by the parent thread on our behalf.
   ThreadSync::wrapperExecutionLockUnlock();
@@ -76,7 +88,7 @@ thread_start(void *arg)
 
   void *result = thread->fn(thread->arg);
 
-  JTRACE("Thread returned") (thread->tid);
+  TRACE("Thread returned: tid={}", thread->tid);
   WrapperLock wrapperLock;
   ThreadList::threadExit();
 
@@ -101,13 +113,20 @@ pthread_create(pthread_t *pth,
 
   Thread *newThread = ThreadList::getNewThread(start_routine, arg);
   ThreadSync::wrapperExecutionLockLockForNewThread(newThread);
-  JASSERT(newThread->wrapperLockCount != 0);
+  ASSERT_NE(0u,
+            newThread->wrapperLockCount,
+            "new thread wrapper lock was not pre-acquired: tid={}",
+            newThread->tid);
 
-  JASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING));
+  ASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING),
+         "Failed to mark thread (tid:{}) from RUNNING to THREAD_CREATE",
+         thread->tid);
 
   int retval = _real_pthread_create(pth, attr, thread_start, newThread);
 
-  JASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE));
+  ASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE),
+         "Failed to mark thread (tid:{}) from THREAD_CREATE to RUNNING",
+         thread->tid);
 
   if (retval == 0) {
     ProcessInfo::instance().clearPthreadJoinState(*pth);
@@ -155,8 +174,9 @@ __clone(int (*fn)(void *arg),
       fn, child_stack, flags, arg, parent_tidptr, newtls, child_tidptr);
   }
 
-  JASSERT(false)
-    .Text("Thread-creation with clone syscall isn't supported.");
+  ASSERT(false,
+         "Thread creation with clone syscall is not supported: flags={}",
+         flags);
 
   return 0;
 }
@@ -169,8 +189,9 @@ clone3(struct clone_args *cl_args, size_t size)
     return NEXT_FNC(clone3)(cl_args, size);
   }
 
-  JASSERT(false)
-    .Text("Thread-creation with clone3 syscall isn't supported.");
+  ASSERT(false,
+         "Thread creation with clone3 syscall is not supported: size={}",
+         size);
 
   return 0;
 }
@@ -224,7 +245,8 @@ pthread_join(pthread_t thread, void **retval)
 
   while (1) {
     WrapperLock wrapperLock;
-    JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+    ASSERT_NE(-1, clock_gettime(CLOCK_REALTIME, &ts),
+              "reading CLOCK_REALTIME before pthread_join");
     TIMESPEC_ADD(&ts, &ts_100ms, &ts);
     ret = _real_pthread_timedjoin_np(thread, retval, &ts);
     if (ret != ETIMEDOUT) {
@@ -272,7 +294,9 @@ pthread_timedjoin_np(pthread_t thread,
    */
   while (1) {
     WrapperLock wrapperLock;
-    JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+    ASSERT_NE(-1,
+              clock_gettime(CLOCK_REALTIME, &ts),
+              "reading CLOCK_REALTIME before pthread_timedjoin_np");
     if (TIMESPEC_CMP(&ts, abstime, <)) {
       TIMESPEC_ADD(&ts, &ts_100ms, &ts);
       ret = _real_pthread_timedjoin_np(thread, retval, &ts);

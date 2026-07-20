@@ -20,7 +20,6 @@
 #include <pthread.h>  // for pthread_self(), needed for WSL
 #include <elf.h>
 #include <errno.h>
-#include <gnu/libc-version.h>
 #include <linux/version.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,8 +33,10 @@
 #include <sys/types.h>
 
 #include "config.h"  // define WSL if present
-#include "jassert.h"
 #include "mtcp/mtcp_sys.h"
+#include "syscallwrappers.h"
+#include "util.h"
+#include "dmtcp_assert.h"
 
 #if defined(__x86_64__) || defined(__aarch64__) || defined(__powerpc64__) || defined(__ppc64__)
 # define ELF_AUXV_T Elf64_auxv_t
@@ -48,28 +49,6 @@
 #endif /* if defined(__x86_64__) || defined(__aarch64__) */
 
 const char *tlsErrorMsg = "*** DMTCP: Error restoring TLS information\n.";
-
-static int glibcMajorVersion()
-{
-  static int major = 0;
-  if (major == 0) {
-    major = (int) strtol(gnu_get_libc_version(), NULL, 10);
-    JASSERT(major == 2);
-  }
-  return major;
-}
-
-static int glibcMinorVersion()
-{
-  static long minor = 0;
-  if (minor == 0) {
-    char *ptr;
-    int major = (int) strtol(gnu_get_libc_version(), &ptr, 10);
-    JASSERT(major == 2);
-    minor = (int) strtol(ptr+1, NULL, 10);
-  }
-  return minor;
-}
 
 /*****************************************************************************
  *
@@ -160,11 +139,16 @@ TLSInfo_GetTidOffset(void)
 
   // tcbhead_t, etc., were introduced in glibc 2.4. We don't support earlier
   // versions.
-  JASSERT(glibcMajorVersion() == 2) (glibcMajorVersion());
-  JASSERT(glibcMinorVersion() >= 4) (glibcMinorVersion());
+  dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
+  ASSERT(glibc.major == 2,
+         "unsupported glibc major version for TLS offsets: major={}",
+         glibc.major);
+  ASSERT(glibc.minor >= 4,
+         "unsupported glibc minor version for TLS offsets: minor={}",
+         glibc.minor);
 
 #ifdef __x86_64__
-  if (glibcMinorVersion() >= 11) {
+  if (glibc.minor >= 11) {
     offset = 720;  // sizeof(tcbhead_t) + sizeof(list_t)
     return offset;
   }
@@ -172,7 +156,7 @@ TLSInfo_GetTidOffset(void)
 
 //FIXME:Define offset for __aarch64__
 
-  if (glibcMinorVersion() >= 10) {
+  if (glibc.minor >= 10) {
     offset = 26 * sizeof(void *);  // sizeof(__padding) + sizeof(list_t)
   } else {
     offset = 18 * sizeof(void *);  // sizeof(__padding) + sizeof(list_t)
@@ -201,10 +185,14 @@ TLSInfo_GetPidOffset(void)
 static void
 tls_get_thread_area(Thread *thread)
 {
-  JASSERT(_real_syscall(SYS_arch_prctl, ARCH_GET_FS, &thread->tlsInfo.fs) == 0)
-    (JASSERT_ERRNO);
-  JASSERT(_real_syscall(SYS_arch_prctl, ARCH_GET_GS, &thread->tlsInfo.gs) == 0)
-    (JASSERT_ERRNO);
+  ASSERT_NE(-1,
+    _real_syscall(SYS_arch_prctl, ARCH_GET_FS,
+                  (long)&thread->tlsInfo.fs, 0, 0, 0, 0, 0),
+    "failed to read FS TLS register: tid={}", thread->tid);
+  ASSERT_NE(-1,
+    _real_syscall(SYS_arch_prctl, ARCH_GET_GS,
+                  (long)&thread->tlsInfo.gs, 0, 0, 0, 0, 0),
+    "failed to read GS TLS register: tid={}", thread->tid);
 }
 
 void
@@ -237,9 +225,12 @@ tls_get_thread_area(Thread *thread)
 
   thread->tlsInfo.gdtentrytls.entry_number = thread->tlsInfo.gs / 8;
 
-  JASSERT(_real_syscall(SYS_get_thread_area,
-                        &thread->tlsInfo.gdtentrytls) == 0)
-    (JASSERT_ERRNO);
+  ASSERT_NE(-1,
+    _real_syscall(SYS_get_thread_area,
+                  (long)&thread->tlsInfo.gdtentrytls,
+                  0, 0, 0, 0, 0, 0),
+    "failed to read i386 TLS GDT entry: tid={} entry={}",
+    thread->tid, thread->tlsInfo.gdtentrytls.entry_number);
 }
 
 static void
@@ -414,16 +405,20 @@ get_at_sysinfo()
 
   stack = (void **)&my_environ[-1];
 
-  JASSERT (*stack == NULL) (*stack)
-    .Text("This should be argv[argc] == NULL and it's not. NO &argv[argc]");
+  ASSERT_NULL(*stack,
+                  "expected argv[argc] to be null while scanning auxv");
 
   // stack[-1] should be argv[argc-1]
-  JASSERT((void **)stack[-1] >= stack && (void **)stack[-1] >= stack + 100000)
-    .Text("Error: candidate argv[argc-1] failed consistency check");
+  ASSERT((void **)stack[-1] >= stack && (void **)stack[-1] <= stack + 100000,
+         "candidate argv[argc-1] failed consistency check: stack={} "
+         "candidate={}",
+         stack, stack[-1]);
 
   for (i = 1; stack[i] != NULL; i++) {
-    JASSERT ((void **)stack[i] >= stack && (void **)stack[i] <= stack + 10000)
-      .Text("Error: candidate argv[i] failed consistency check");
+    ASSERT((void **)stack[i] >= stack && (void **)stack[i] <= stack + 10000,
+           "candidate argv entry failed consistency check: index={} stack={} "
+           "candidate={}",
+           i, stack, stack[i]);
   }
   stack = &stack[i + 1];
 
@@ -432,7 +427,8 @@ get_at_sysinfo()
   for (auxv = (ELF_AUXV_T *)stack; auxv->a_type != AT_NULL; auxv++) {
     // mtcp_printf("0x%x 0x%x\n", auxv->a_type, auxv->a_un.a_val);
     if (auxv->a_type == (UINT_T)AT_SYSINFO) {
-      // JNOTE("AT_SYSINFO") (&auxv->a_un.a_val) (auxv->a_un.a_val);
+      // NOTE("AT_SYSINFO: ptr={} value={}",
+      //      &auxv->a_un.a_val, auxv->a_un.a_val);
       return (void *)auxv->a_un.a_val;
     }
   }
@@ -537,14 +533,15 @@ TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
   tls_pid = *(pid_t *)(addr + TLSInfo_GetPidOffset());
   tls_tid = *(pid_t *)(addr + TLSInfo_GetTidOffset());
 
-  JASSERT (tls_tid == tid) (tls_tid) (tid)
-    .Text("tls tid doesn't match the thread tid");
+  ASSERT(tls_tid == tid,
+         "TLS tid does not match thread tid: tls_tid={} tid={}", tls_tid, tid);
 
   // For glibc > 2.24, pid field is unused. Here we do the <24 check to ensure
   // that distros with glibc 2.24-NNN are covered as well.
-  JASSERT((glibcMajorVersion() == 2 && glibcMinorVersion() >= 24)
-          || tls_pid == pid)
-    (tls_pid) (pid) .Text("tls pid doesn't match getpid");
+  dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
+  ASSERT((glibc.major == 2 && glibc.minor >= 24) || tls_pid == pid,
+         "TLS pid does not match process pid: tls_pid={} pid={}", tls_pid,
+         pid);
 }
 
 /*****************************************************************************
@@ -585,11 +582,12 @@ TLSInfo_RestoreTLSTidPid(Thread *thread)
 {
   int mtcp_sys_errno __attribute__((unused));
 
-  if (glibcMajorVersion() == 2 && glibcMinorVersion() <= 24) {
+  dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
+  if (glibc.major == 2 && glibc.minor <= 24) {
     *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetPidOffset()) =
       getpid();
   }
 
   *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetTidOffset()) =
-     gettid();
+     thread->tid;
 }

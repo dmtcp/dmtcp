@@ -16,14 +16,13 @@
 # *****************************************************************************/
 
 import subprocess
-import re
 import sys
 import os
 import textwrap
 
 try:
   gdb.selected_thread()
-except:
+except Exception:
   print("\n*** USAGE:  source THIS_FILE  (from inside GDB)\n")
   sys.exit(1)
 
@@ -57,6 +56,8 @@ gdb.execute("set python print-stack full")
 #     (gdb) signals
 #     (gdb) load-symbols [FILENAME]
 #     (gdb) load-symbols-library [FILENAME_OR_ADDRESS]
+#     (gdb) load-symbols-library-all  # Repeats load-symbols-library until done
+#     (gdb) unload-symbols  # Clears all symbol files (same as: symbol-file)
 #     (gdb) add-symbol-file-from-filename-and-address FILENAME ADDRESS
 #         (Needed if FILENAME not listed in procmaps;
 #          Better version of add-symbol-file; ADDRESS anywhere in memory range)
@@ -70,6 +71,7 @@ gdb.execute("set python print-stack full")
 ## Executing GDB commands:  gdb.execute(), gdb.parse_and_eval()
 
 dmtcp_commands = "load-symbols, load-symbols-library, " +\
+  "load-symbols-library-all, unload-symbols, " +\
   "add-symbol-files-all, add-symbol-file-from-filename-and-address, " +\
   "add-symbol-file-from-substring, add-symbol-file-at-address, " +\
   "show-filename-at-address (OR: whereis-address), " +\
@@ -93,10 +95,23 @@ def is_recent_gdb():
   return is_recent_gdb.value
 # This should be used only for executable binaries.
 def file_base_address(file):
-  output = subprocess.run("readelf -S " + file + " | grep '\.text'",
-                          shell=True, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, timeout=300)
-  text_fields = output.stdout.decode('utf-8').split()
+  # NOTE: Intentionally not passing '-W'/'--wide'.  Without it, readelf
+  # wraps each 64-bit section entry across two lines: the first line ends
+  # in Address then Offset (which is all we need here); the second,
+  # indented continuation line holds Size/EntSize/Flags/Link/Info/Align
+  # and never contains '.text', so it's never selected below.  With '-W',
+  # everything is on one line and the last two fields become Info/Align
+  # instead of Address/Offset.
+  output = subprocess.run(["readelf", "-S", file], stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, timeout=300)
+  if output.returncode != 0:
+    raise RuntimeError("readelf -S " + file + " failed: " +
+                        output.stderr.decode('utf-8').strip())
+  lines = output.stdout.decode('utf-8').splitlines()
+  text_lines = [line for line in lines if '.text' in line.split()]
+  if not text_lines:
+    raise RuntimeError("No .text section found in " + file)
+  text_fields = text_lines[0].split()
   return int(text_fields[-2], 16) - int(text_fields[-1], 16)
 def load_symbols(exec_file=None):
   if not is_recent_gdb():
@@ -104,7 +119,6 @@ def load_symbols(exec_file=None):
           gdb.VERSION + ")")
     return
 
-  # *** FIXME: Consider ways to refactor this code for readability.
   if exec_file:
     exec_files = [exec_file]
   else:
@@ -115,15 +129,16 @@ def load_symbols(exec_file=None):
       print("*** It appears that " + exec_info[0][0] + " was loaded twice.\n" +
             "*** Assuming that the second copy was migrated from original.\n" +
             "*** Will re-load symbols for GDB using addresses of second copy.")
-      breakpoint()
       offset = exec_info[1][1] - exec_info[0][1]
       gdb.execute("symbol-file -readnow -o " + hex(offset) + " " +
                   exec_info[0][0])
       return
+    if not exec_info:
+      print("No exec-files found\n")
+      return
     base_address = next(address
                         for (filename, address, _, _) in memory_regions()
                         if filename == exec_info[0][0])
-    print(base_address, file_base_address(exec_info[0][0]))
     if len(exec_info) == 1 and \
        base_address > file_base_address(exec_info[0][0]) + 10*4096:
       print("*** Binary migrated from original address. Loading symbols there.")
@@ -166,6 +181,15 @@ def load_symbols(exec_file=None):
     print("Call 'load-symbols EXEC_FILE' for the primary executable file.\n")
   else: # else len(exec_files) == 0
     print("No exec-files found\n")
+
+# Returns the newest call frame with no symbol name, or None if all
+# frames from the newest down already have names.
+def newest_unnamed_frame():
+  frame = gdb.newest_frame()
+  while frame and frame.name():
+    frame = frame.older()
+  return frame
+
 def load_symbols_library(filename_or_address, address=-1):
   if not is_recent_gdb():
     print("Older GDB; use add-symbol-file-from-substring (GDB is version: " +
@@ -203,23 +227,11 @@ def load_symbols_library(filename_or_address, address=-1):
 def is_exec_file(filename):
   if not os.path.exists(filename):
     return False
-  tmp = filename
-  tmp = tmp[0 if "/" not in tmp else tmp.rindex("/")+1:] 
-  if (tmp.startswith("lib") or tmp.startswith("ld")) and ".so" in tmp:
+  basename = os.path.basename(filename)
+  idx = basename.rfind(".so")
+  if idx != -1 and set(basename[idx + 3:]) <= set(".0123456789"):
     return False  # This is a library
   return os.access(filename, os.X_OK)
-
-  #### FIXME:  Remove the rest when this is working.
-  # 16 bytes for ELF magic number; then 2 bytes (short) for ELF type
-  header = open(filename, "rb")
-  elf_magic_number = header.read(16)
-  elf_type = header.read(2)
-  # Is it little-endian or big-endian
-  elf_type = elf_type[0] if sys.byteorder == "little" else elf_type[1]
-  # Handle both Python2.7 and Python3: type 2 is executable; type 3 is .so file
-  elf_type = elf_type if isinstance(elf_type, int) else ord(elf_type)
-  header.read(6) # Skip next 6 bytes
-  return elf_type == 2
 
 # FROM: https://stackoverflow.com/questions/33049201/gdb-add-symbol-file-all-sections-and-load-address
 def relocatesections(filename):
@@ -339,7 +351,7 @@ ShowFilenameAtAddress()
 #   gdb.execute("alias whereis-address=show-filename-at-address")
 try:
   gdb.execute("alias whereis-address=show-filename-at-address")
-except:
+except Exception:
   pass
 
 
@@ -386,7 +398,7 @@ AddSymbolFilesAll()
 
 
 class LoadSymbols(gdb.Command):
-    """load-symbols [optional: FILENAME] (load symbols from /proc/self/maps)
+    """load-symbols [optional: FILENAME] (loads symbols for the main executable)
 
 Normally, load-symbols works with no arguments.  When GDB stack does
 not show any symbols, try this.
@@ -418,11 +430,15 @@ LoadSymbols()
 
 
 class LoadSymbolsLibrary(gdb.Command):
-    """load-symbols-library [FILENAME-OR-ADDRESS] [ADDRESS[ (loads symbols)
+    """load-symbols-library [FILENAME-OR-ADDRESS] [ADDRESS] (for a library or address; see load-symbols for the main executable)
 With no argument, it loads symbols for the newest call frame that has no name.
 With 1 argument, specify filename or address; /proc/*/maps must have filename.
-With 2 argument2, specify filename and address; /proc/*/maps may have
-  no filename; ADDRESS may be given as '$pc'."""
+With 2 arguments, specify filename and address; /proc/*/maps may have
+  no filename; ADDRESS may be given as '$pc'.
+
+If the resolved file turns out to be the main executable, this command
+calls load-symbols automatically, which handles DMTCP's restart address
+relocation heuristics."""
 
     def __init__(self):
         super(LoadSymbolsLibrary,
@@ -432,10 +448,8 @@ With 2 argument2, specify filename and address; /proc/*/maps may have
 
     def invoke(self, filename_or_address, from_tty):
         if not filename_or_address:
-          frame = gdb.newest_frame()
-          while frame and frame.name():
-            frame = frame.older()
-          if not frame or frame.name():
+          frame = newest_unnamed_frame()
+          if not frame:
             print("Nothing done!  Symbols for all call frames"
                   " have been loaded")
             return
@@ -448,6 +462,54 @@ With 2 argument2, specify filename and address; /proc/*/maps may have
           load_symbols_library(arg1, arg2)
 # This will add the new gdb command: load-symbols-library
 LoadSymbolsLibrary()
+
+
+class LoadSymbolsLibraryAll(gdb.Command):
+    """load-symbols-library-all (repeats load-symbols-library until done)
+Repeatedly resolves the newest call frame with no symbol name, the same
+way load-symbols-library does with no arguments, until either all frames
+have names or a frame's symbols can't be resolved."""
+
+    def __init__(self):
+        super(LoadSymbolsLibraryAll,
+              self).__init__("load-symbols-library-all", gdb.COMMAND_FILES)
+        self.dont_repeat()
+
+    def invoke(self, dummy_args, from_tty):
+        steps = 0
+        while True:
+          frame = newest_unnamed_frame()
+          if not frame:
+            break
+          pc = frame.pc()
+          load_symbols_library(str(hex(pc)))
+          frame = newest_unnamed_frame()
+          if frame and frame.pc() == pc:
+            print("Could not resolve symbols for frame at %s; stopping."
+                  % hex(pc))
+            return
+          steps += 1
+        if steps == 0:
+          print("Nothing done!  Symbols for all call frames have been loaded")
+        else:
+          print("Symbols for all call frames have been loaded"
+                " (%d load-symbols-library step(s))." % steps)
+# This will add the new gdb command: load-symbols-library-all
+LoadSymbolsLibraryAll()
+
+
+class UnloadSymbols(gdb.Command):
+    """unload-symbols (clears all symbol files; same as: (gdb) symbol-file)"""
+
+    def __init__(self):
+        super(UnloadSymbols,
+              self).__init__("unload-symbols", gdb.COMMAND_FILES)
+        self.dont_repeat()
+
+    def invoke(self, dummy_args, from_tty):
+        gdb.execute("symbol-file", False, True)
+# This will add the new gdb command: unload-symbols
+UnloadSymbols()
 
 
 def add_symbol_files_from_filename(filename, base_addr):
@@ -602,25 +664,52 @@ class Signals(gdb.Command):
       print_signals()
 Signals()
 
-# For /proc/*/maps line: ADDR1-ADDR2 ... FILE,
-#   Returns (FILE, ADDR1, ADDR2, PERMISSIONS)
-def procmap_filename_address(line):
-  quad = line.split()
-  if line[0] == ' ':  # if this came from (gdb) info proc mapping
-    if quad[-1] == "0x0":
-      quad[-1] = "[NO_LABEL]"
-    if '/' in quad[-1]:
-      return (quad[-1],) + (int(quad[0], 16),) + (int(quad[1], 16),) + \
-             (quad[1],)
-    else:
-      return ("NO_LABEL",) + (int(quad[0], 16),) + (int(quad[1], 16),) + \
-             (quad[1],)
-  if quad[-1] == "0":
-    quad[-1] = "[NO_LABEL]"
-  if '/' in quad[-2]:  # if procmaps line ends in "/tmp/a.out (deleted)"
-    quad[-1] = quad[-2] + ' ' + quad[-1]
-  return (quad[-1],) + \
-         tuple([int("0x"+elt, 16) for elt in quad[0].split("-")]) + (quad[1],)
+def is_hex_address(token):
+  return token.lower().startswith("0x") and len(token) > 2 and \
+         all(c in "0123456789abcdefABCDEF" for c in token[2:])
+
+def is_plain_hex(token):
+  return len(token) > 0 and all(c in "0123456789abcdefABCDEF" for c in token)
+
+def is_permission_string(token):
+  return 3 <= len(token) <= 4 and set(token) <= set("rwxsp-")
+
+# Data row of GDB's "info proc mappings" (used when debugging a core file):
+#   START_ADDR END_ADDR SIZE OFFSET [PERMS] [FILENAME]
+# PERMS is only present on GDB versions/targets that can recover it from the
+# core's own ELF program headers; FILENAME is absent for anonymous mappings.
+# Returns (FILE, ADDR1, ADDR2, PERMISSIONS), or None if not a data row.
+def parse_gdb_proc_mapping_line(line):
+  tokens = line.split()
+  if len(tokens) < 4 or not all(is_hex_address(t) for t in tokens[:4]):
+    return None
+  (start, end) = (tokens[0], tokens[1])
+  rest = tokens[4:]
+  if rest and is_permission_string(rest[0]):
+    (permission, filename_tokens) = (rest[0], rest[1:])
+  else:
+    (permission, filename_tokens) = ("????", rest)
+  filename = " ".join(filename_tokens)
+  return (filename if filename else "[NO_LABEL]",
+          int(start, 16), int(end, 16), permission)
+
+# Line of /proc/PID/maps (used when debugging a live process):
+#   ADDR1-ADDR2 PERMS OFFSET DEV INODE [FILENAME]
+# Returns (FILE, ADDR1, ADDR2, PERMISSIONS), or None if not a data row.
+def parse_proc_maps_line(line):
+  tokens = line.split()
+  if len(tokens) < 5:
+    return None
+  addr_range = tokens[0].split("-")
+  if len(addr_range) != 2 or not all(is_plain_hex(a) for a in addr_range):
+    return None
+  permission = tokens[1]
+  if len(permission) != 4 or not is_permission_string(permission):
+    return None
+  filename = " ".join(tokens[5:])
+  return (filename if filename else "[NO_LABEL]",
+          int(addr_range[0], 16), int(addr_range[1], 16), permission)
+
 def is_text_segment(memory):
   (file, _, _, permission) = memory
   return "/dev/" not in file and "/locale/" not in file and \
@@ -631,15 +720,15 @@ def memory_regions():
     sys.exit(1)
   if usingCore():
     lines = gdb.execute("info proc mappings", False, True).split('\n')
-    lines = [procmap_filename_address(line) for line in lines
-                                  if " 0x" in line and "/dev/" not in line and
-                                     "/locale/" not in line]
+    regions = [parse_gdb_proc_mapping_line(line) for line in lines]
+    regions = [r for r in regions if r is not None and
+                                "/dev/" not in r[0] and "/locale/" not in r[0]]
   else:
-    p = subprocess.Popen(["cat", "/proc/"+str(getpid())+"/maps"],
-                         stdout = subprocess.PIPE)
-    lines = (line.decode("utf-8").strip() for line in p.stdout.readlines())
-    lines = [procmap_filename_address(line) for line in lines]
-  return lines
+    with open("/proc/" + str(getpid()) + "/maps", encoding="utf-8") as f:
+      lines = (line.strip() for line in f)
+      regions = [parse_proc_maps_line(line) for line in lines]
+    regions = [r for r in regions if r is not None]
+  return regions
 def memory_regions_executable():
   if not usingCore():
     return [memory for memory in memory_regions() if is_text_segment(memory)]
@@ -681,13 +770,13 @@ def cast_to_memory_address(memory_address):
 
 def memory_region_at_address(memory_address):
   memory_address = cast_to_memory_address(memory_address)
+  not_found = ("NOT_FOUND (Did you intend the address in hex?)", 0, 0, "????")
+  if memory_address is None:
+    return not_found
   regions = memory_regions()
   match = [region for region in regions
            if memory_address >= region[1] and memory_address < region[2]]
-  if match:
-    return match[0]
-  else:
-    return ("NOT_FOUND (Did you intend the address in hex?)", 0, 0, "????")
+  return match[0] if match else not_found
 
 def print_signals():
   signals_x86_arm = [
