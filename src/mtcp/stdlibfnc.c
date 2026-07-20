@@ -1,5 +1,35 @@
 #include "mtcp_util.h"
 #include "mtcp_sys.h"
+#include <stdint.h>
+
+#if defined(__powerpc64__) || defined(__ppc64__)
+extern int main(int argc, char *argv[], char **environ);
+
+void
+mtcp_ppc64_start(void *initial_sp)
+{
+  int mtcp_sys_errno;
+  long *stack = (long *)initial_sp;
+  int argc = (int)stack[0];
+  char **argv = (char **)&stack[1];
+  char **envp = argv + argc + 1;
+
+  if (initial_sp == NULL) {
+    mtcp_abort();
+  }
+
+  if (argc < 0 || argc > 131072) {
+    mtcp_abort();
+  }
+
+  {
+    int result = main(argc, argv, envp);
+    mtcp_sys_exit(result);
+  }
+  (void)mtcp_sys_errno;
+  while (1) {}
+}
+#endif
 
 int
 __libc_start_main(int (*main)(int, char **, char **MAIN_AUXVEC_DECL),
@@ -11,8 +41,35 @@ __libc_start_main(int (*main)(int, char **, char **MAIN_AUXVEC_DECL),
                   void *stack_end)
 {
   int mtcp_sys_errno;
-  char **envp = argv + argc + 1;
-  int result = main(argc, argv, envp);
+  int result;
+#if !defined(__powerpc64__) && !defined(__ppc64__)
+  char **envp;
+#endif
+
+#if defined(__powerpc64__) || defined(__ppc64__)
+  (void)main;
+  (void)argc;
+  (void)argv;
+  (void)init;
+  (void)fini;
+  (void)rtld_fini;
+  (void)stack_end;
+  mtcp_abort();
+  result = 1;
+#else
+  if (main == NULL) {
+    MTCP_PRINTF("FATAL: __libc_start_main received NULL main pointer\n");
+    mtcp_abort();
+  }
+
+  if (argv == NULL) {
+    MTCP_PRINTF("FATAL: __libc_start_main received NULL argv pointer\n");
+    mtcp_abort();
+  }
+
+  envp = argv + argc + 1;
+  result = main(argc, argv, envp);
+#endif
 
   mtcp_sys_exit(result);
   (void)mtcp_sys_errno; /* Stop compiler warning about unused variable */

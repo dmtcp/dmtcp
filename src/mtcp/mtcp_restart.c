@@ -275,6 +275,10 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
 
   RELOCATE_STACK(rinfo.stack_offset);
 
+#if defined(__powerpc64__) || defined(__ppc64__)
+  extern void ppc64_restart_on_new_stack(RestoreInfo *, void (*)(RestoreInfo *));
+  ppc64_restart_on_new_stack(&rinfo, rinfo.mtcp_restart_new_stack);
+#else
   /* IMPORTANT:  We just changed to a new stack.  The call frame for this
    * function on the old stack is no longer available.  The only way to pass
    * rinfo into the next function is by passing a pointer to a global variable
@@ -282,14 +286,25 @@ mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*restore
    * function in higher memory.  We will be unmapping the original fnc.
    */
   rinfo.mtcp_restart_new_stack(&rinfo);
+#endif
 
   /* NOTREACHED */
 }
 
+#if defined(__powerpc64__) || defined(__ppc64__)
+void mtcp_restart_new_stack(RestoreInfo *rinfoGlobal);
+void mtcp_restart_new_stack_body(RestoreInfo *rinfoGlobal);
+
+NO_OPTIMIZE
+void
+mtcp_restart_new_stack_body(RestoreInfo *rinfoGlobal)
+{
+#else
 NO_OPTIMIZE
 void
 mtcp_restart_new_stack(RestoreInfo *rinfoGlobal)
 {
+#endif
   int mtcp_sys_errno;
 
   // Make a local copy so that we can unmap the original mtcp_restart text+data.
@@ -321,14 +336,37 @@ mtcp_restart_new_stack(RestoreInfo *rinfoGlobal)
   for (size_t i = 0; i < rinfo.num_regions_to_munmap; i++) {
     void* startAddr = (void*) rinfo.regions_to_munmap[i].startAddr;
     size_t len = rinfo.regions_to_munmap[i].endAddr - (uint64_t)startAddr;
+#if defined(__powerpc64__) || defined(__ppc64__)
+    if (mtcp_sys_munmap(startAddr, len) == -1) {
+      /* Avoid post-unmap warning/printf on ppc64 relocated code. */
+    }
+#else
+    mtcp_printf("TRACE: munmap[%d] start=%p len=%p\n", (int)i, startAddr, len);
     if (mtcp_sys_munmap(startAddr, len) == -1) {
       MTCP_PRINTF("***WARNING: munmap (%p, %p)failed; errno: %d\n",
                   startAddr, len, mtcp_sys_errno);
     }
+    mtcp_printf("TRACE: munmap[%d] done\n", (int)i);
+#endif
   }
 
+#if defined(__powerpc64__) || defined(__ppc64__)
+  {
+    register RestoreInfo *arg_r3 asm("r3") = &rinfo;
+    register void (*target)(RestoreInfo *) asm("r12") = rinfo.restore_func;
+    asm volatile("mtctr 12\n\t"
+                 "bctr"
+                 :
+                 : "r" (arg_r3), "r" (target)
+                 : "ctr", "memory");
+    mtcp_abort();
+  }
+#else
   DPRINTF("Calling restore_func.");
+  mtcp_printf("TRACE: calling restore_func=%p with rinfo=%p\n",
+              rinfo.restore_func, &rinfo);
   rinfo.restore_func(&rinfo);
+#endif
 }
 
 NO_OPTIMIZE
@@ -624,8 +662,9 @@ compute_regions_to_munmap(RestoreInfo *rinfo)
     if (mtcp_strcmp(area.name, "[vdso]") == 0 ||
         mtcp_strcmp(area.name, "[vvar]") == 0 ||
         mtcp_strcmp(area.name, "[vvar_vclock]") == 0 ||
-        mtcp_strcmp(area.name, "[vsyscall]") == 0) {
-      // Do not unmap vdso, vvar, or vsyscall.
+        mtcp_strcmp(area.name, "[vsyscall]") == 0 ||
+        doAreasOverlap(&area, &rinfo->ckptHdr.restoreBuf)) {
+      // Do not unmap vdso, vvar, vsyscall, or any overlap with the reserved restore area.
     } else {
       int idx = rinfo->num_regions_to_munmap++;
       rinfo->regions_to_munmap[idx].startAddr = (uint64_t) area.addr;
@@ -738,11 +777,13 @@ read_one_memory_area(int fd, VA endOfStack)
     return -1;
   }
 
+#if !defined(__powerpc64__) && !defined(__ppc64__)
   if (area.name[0] && mtcp_strstr(area.name, "[heap]")
       && mtcp_sys_brk(NULL) != area.addr + area.size) {
     DPRINTF("WARNING: break (%p) not equal to end of heap (%p)\n",
             mtcp_sys_brk(NULL), area.addr + area.size);
   }
+#endif
   /* MAP_GROWSDOWN flag is required for stack region on restart to make
    * stack grow automatically when application touches any address within the
    * guard page region(usually, one page less then stack's start address).
@@ -754,8 +795,10 @@ read_one_memory_area(int fd, VA endOfStack)
   if ((area.name[0] && area.name[0] != '/' && mtcp_strstr(area.name, "stack"))
       || (area.endAddr == endOfStack)) {
     area.flags = area.flags | MAP_GROWSDOWN;
+#if !defined(__powerpc64__) && !defined(__ppc64__)
     DPRINTF("Detected stack area. End of stack (%p); Area end address (%p)\n",
             endOfStack, area.endAddr);
+#endif
   }
 
   // We could have replaced MAP_SHARED with MAP_PRIVATE in writeckpt.cpp
@@ -770,8 +813,10 @@ read_one_memory_area(int fd, VA endOfStack)
 
   /* CASE MAPPED AS ZERO PAGE: */
   if ((area.properties & DMTCP_ZERO_PAGE) != 0) {
+#if !defined(__powerpc64__) && !defined(__ppc64__)
     DPRINTF("restoring zero-paged anonymous area, %p bytes at %p\n",
             area.size, area.addr);
+#endif
     // No need to mmap since the region has already been mmapped by the parent
     // header.
     // Just restore write-protection if needed.
@@ -823,8 +868,10 @@ read_one_memory_area(int fd, VA endOfStack)
           off_t curr_size = mtcp_sys_lseek(imagefd, 0, SEEK_END);
           MTCP_ASSERT(curr_size != -1);
           if ((curr_size < area.offset + area.size) && (area.prot & PROT_WRITE)) {
+#if !defined(__powerpc64__) && !defined(__ppc64__)
             DPRINTF("restoring non-anonymous area %s as anonymous: %p  bytes at %p\n",
                     area.name, area.size, area.addr);
+#endif
             mtcp_sys_close(imagefd);
             imagefd = -1;
             area.offset = 0;
@@ -834,12 +881,16 @@ read_one_memory_area(int fd, VA endOfStack)
       }
 
       if (area.flags & MAP_ANONYMOUS) {
+#if !defined(__powerpc64__) && !defined(__ppc64__)
         DPRINTF("restoring anonymous area, %p  bytes at %p\n",
                 area.size, area.addr);
+#endif
       } else {
+#if !defined(__powerpc64__) && !defined(__ppc64__)
         DPRINTF("restoring to non-anonymous area,"
                 " %p bytes at %p from %s + 0x%X\n",
                 area.size, area.addr, area.name, area.offset);
+#endif
       }
 
       /* Create the memory area */
@@ -887,8 +938,10 @@ read_one_memory_area(int fd, VA endOfStack)
 
       /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
       if (area.mmapFileSize > 0 && area.name[0] == '/') {
+#if !defined(__powerpc64__) && !defined(__ppc64__)
         DPRINTF("restoring memory region %p of %p bytes at %p\n",
                     area.mmapFileSize, area.size, area.addr);
+#endif
         mtcp_readfile(fd, area.addr, area.mmapFileSize);
       } else {
         mtcp_readfile(fd, area.addr, area.size);

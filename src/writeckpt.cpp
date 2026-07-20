@@ -378,6 +378,11 @@ writememoryarea(int fd, Area area)
     return;
   }
 
+  if (area.name && strstr(area.name, "uprobes")) {
+      JTRACE("Skipping uprobes region")(area.addr);
+      return;
+  }
+
   if (0 == strcmp(area.name, "[vsyscall]") ||
       0 == strcmp(area.name, "[vectors]") ||
       0 == strcmp(area.name, "[vvar]") ||

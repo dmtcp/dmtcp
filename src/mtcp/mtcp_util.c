@@ -685,6 +685,10 @@ void mtcp_printf (char const *format, ...)
   char const *p, *q;
   va_list ap;
 
+  if (format == NULL) {
+    return;
+  }
+
   va_start (ap, format);
 
   /* Scan along until we find a % */
@@ -777,8 +781,11 @@ gofish:
       /* Null terminated string */
 
       case 's': {
-        p = va_arg (ap, char *);
-        rwrite (p, mtcp_strlen (p));
+        char *str = va_arg (ap, char *);
+        if (str == NULL) {
+          str = "(null)";
+        }
+        rwrite (str, mtcp_strlen (str));
         break;
       }
 
@@ -832,7 +839,9 @@ gofish:
 
   /* Print whatever comes after the last format spec */
 
-  rwrite (p, mtcp_strlen (p));
+  if (p != NULL) {
+    rwrite (p, mtcp_strlen (p));
+  }
 }
 
 // Copied from mtcp_check_vdso.c with slight update.
