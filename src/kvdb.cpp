@@ -45,7 +45,13 @@ KVDBResponse request(KVDBRequest request,
   msg.valLen = val.length() + 1;
   msg.extraBytes = msg.keyLen + msg.valLen;
 
-  return CoordinatorAPI::kvdbRequest(msg, key, val, oldVal);
+  // kvdbRequest creates a temporary socket to communicate with the coordinator,
+  // which is not tracked by DMTCP. Therefore, it's unsafe to checkpoint when
+  // user's application, including DMTCP plugins, is requesting the KVDB.
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  KVDBResponse response = CoordinatorAPI::kvdbRequest(msg, key, val, oldVal);
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return response;
 }
 
 KVDBResponse
