@@ -35,6 +35,10 @@ from dataclasses import dataclass, field, replace
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SLOW_FACTOR_BASE = 5
 DEFAULT_SLOW_PRE_CHECKPOINT_DELAY = 0.3
+# TSAN_OPTIONS exitcode used by the tsan-race test: the process is expected
+# to exit with exactly this code once TSAN detects the deliberate post-
+# restart race (see validate_tsan_race_detected() and tsan_target_race.c).
+TSAN_RACE_EXITCODE = 66
 VALID_LAUNCH_MODES = frozenset({"pipe", "pty"})
 COLOR_RED = "\033[0;31m"
 COLOR_RESET = "\033[0m"
@@ -202,6 +206,9 @@ class TestSpec:
     peers: Union[int, List[int]]
     commands: List[str]
     cycles: int = 2
+    # Extra checkpoint/resume round-trips after each cycle's checkpoint,
+    # with no restart in between. See the "tsan-resume" TestSpec.
+    resume_cycles: int = 0
     timeout: float = 30.0
     checkpoint_command: str = "--checkpoint"
     pre_checkpoint_delay: float = 0.0
@@ -525,6 +532,10 @@ class TestContext:
                 self.harness.progress("ckpt-start")
                 self._checkpoint()
                 self.harness.progress("ckpt-passed")
+                for _ in range(self.spec.resume_cycles):
+                    self.harness.progress("ckpt-start")
+                    self._checkpoint_resume()
+                    self.harness.progress("ckpt-passed")
                 self._kill_workers()
                 self.harness.progress("rstr-start")
                 self._restart()
@@ -777,6 +788,24 @@ class TestContext:
         except ValueError as error:
             raise HarnessFailure("status", str(error)) from error
 
+    def _checkpoint_resume(self):
+        # A checkpoint issued right after RUNNING can still transiently
+        # hit DMT_COORD_NOT_RUNNING (see workersRunningAndSuspendMsgSent
+        # in dmtcp_coordinator.cpp). So retry briefly instead of failing.
+        deadline = time.time() + self.spec.timeout
+        while True:
+            try:
+                self._checkpoint()
+                return
+            except HarnessFailure as failure:
+                # _run_json_command() wraps this message with
+                # _with_diagnostics(), appending "; port=...; ..."; match
+                # the prefix rather than the whole (decorated) message.
+                if not failure.message.startswith("DMT_COORD_NOT_RUNNING") \
+                        or time.time() >= deadline:
+                    raise
+                time.sleep(0.1)
+
     def _checkpoint(self):
         self._write_checkpoint_dir_files()
         if self.spec.pre_checkpoint_delay > 0.0:
@@ -882,6 +911,11 @@ class TestContext:
             self._quit_workers_and_coordinator()
         elif self.spec.completion_command == "--kill-exit-on-last":
             self._kill_workers_and_wait_for_coordinator_exit()
+        elif self.spec.completion_command == "--none":
+            # Worker is expected to have already exited on its own (e.g.
+            # tsan-race, where TSAN's own exit() call ends the process);
+            # nothing left to tear down here.
+            pass
         else:
             raise HarnessFailure(
                 "setup",
@@ -1520,6 +1554,28 @@ def validate_auto_checkpoint_interval(context: TestContext):
         )
 
 
+def validate_tsan_race_detected(context: TestContext):
+    # tsan_target_race.c only starts racing after restart, well after
+    # _restart() confirms the worker is RUNNING. Therefore, a timeout
+    # here means TSAN failed to detect the race, not that restart failed.
+    proc = context.processes[-1]
+    try:
+        returncode = proc.wait(timeout=context.spec.timeout)
+    except subprocess.TimeoutExpired as error:
+        raise HarnessFailure(
+            "validate",
+            "TSAN did not detect the post-restart race within the "
+            "test timeout: worker kept running",
+        ) from error
+    if returncode != TSAN_RACE_EXITCODE:
+        raise HarnessFailure(
+            "validate",
+            f"expected TSAN to detect the post-restart race and exit "
+            f"with code {TSAN_RACE_EXITCODE}; worker exited with "
+            f"{returncode}",
+        )
+
+
 class TestRegistry:
     DISABLED_CATEGORY = "Disabled tests"
 
@@ -1993,6 +2049,29 @@ class TestRegistry:
             # absent.
             TestSpec("tsan-gcc", 1, ["./test/tsan_target"],
                      needs_max_address_space=True,
+                     tags=["tsan"]),
+            # Regression guard for the checkpoint/RESUME path (no restart).
+            # Caught a bug: two of three __tsan_ignore_thread_end() sites
+            # in stopthisthread() were missing the is_tsan_helper guard.
+            # resume_cycles=2 to rule out a timing artifact.
+            TestSpec("tsan-resume", 1, ["./test/tsan_target"],
+                     needs_max_address_space=True,
+                     cycles=1,
+                     resume_cycles=2,
+                     limits=["cycles=1"],
+                     tags=["tsan"]),
+            # Regression guard: verifies TSAN's race *detection*, not just
+            # process survival, across checkpoint/restart (other TSAN
+            # targets are race-free). tsan_target_race.c races only after
+            # restart; the worker exits on its own once TSAN halts it.
+            TestSpec("tsan-race", 1, ["./test/tsan_target_race"],
+                     needs_max_address_space=True,
+                     env={"TSAN_OPTIONS":
+                          f"halt_on_error=1:exitcode={TSAN_RACE_EXITCODE}"},
+                     cycles=1,
+                     post_restart_validator=validate_tsan_race_detected,
+                     completion_command="--none",
+                     limits=["cycles=1"],
                      tags=["tsan"]),
             # Same guard, built with clang -fsanitize=thread -shared-libsan.
             # LD_LIBRARY_PATH points at clang's runtime dir (no RPATH, a
