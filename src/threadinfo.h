@@ -85,6 +85,8 @@ struct Thread {
 #else // ifdef SETJMP
   ucontext_t savctx;     // context saved on suspend
 #endif // ifdef SETJMP
+  void *tsan_fiber_ctx; // For targets compiled with TSAN (-fsanitize=thread)
+  bool is_tsan_helper;
 
   uint32_t wrapperLockCount;
 
