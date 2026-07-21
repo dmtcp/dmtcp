@@ -71,12 +71,18 @@ static void *
 thread_start(void *arg)
 {
   PthreadStart *start = (PthreadStart *) arg;
-  Thread *thread = dmtcp_get_current_thread();
+  // Call ThreadList::init() directly here, rather than the public
+  // dmtcp_get_current_thread(), since reaching this trampoline is itself
+  // proof that this thread is an ordinary one, created via DMTCP's own
+  // pthread_create() wrapper below -- never TSAN's helper/background
+  // thread, which bypasses pthread_create() entirely (see
+  // dmtcp_get_current_thread()'s classification of that case instead).
+  Thread *thread = ThreadList::init();
+  void *(*fn)(void *) = start->fn;
+  void *fnArg = start->arg;
   if (start->unlockWrapperExecutionLock) {
     ThreadSync::wrapperExecutionLockUnlockForNewThread();
   }
-  void *(*fn)(void *) = start->fn;
-  void *fnArg = start->arg;
 
   JALLOC_FREE(start);
   void *result = fn(fnArg);
@@ -121,6 +127,15 @@ pthread_create(pthread_t *pth,
          thread->tid);
 
   if (retval == 0) {
+    if (is_tsan()) {
+      // This request -- or a nested one triggered as a side effect of
+      // intercepting it -- may be happening during
+      // ThreadList::createCkptThread()'s own pthread_create() call; report
+      // it as a candidate. See the comment on
+      // ThreadList::beginCkptThreadCreationWindow() for the full
+      // explanation. (A no-op outside that window.)
+      ThreadList::registerCkptThreadWindowCandidate(*pth);
+    }
     ProcessInfo::instance().clearPthreadJoinState(*pth);
     // Since glibc 2.42, pthread_create adds a lightweight guard page
     // at the beginning of the new thread's stack using madvise() and
