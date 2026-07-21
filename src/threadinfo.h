@@ -98,6 +98,11 @@ Thread *dmtcp_get_current_thread();
 // CoordinatorAPI.
 bool dmtcp_is_ckpt_thread() __attribute((weak));
 
+// True iff the target process is instrumented with ThreadSanitizer
+// (-fsanitize=thread), detected via a weak reference to TSAN's public,
+// documented fiber API (NULL when not linked against TSAN).
+bool is_tsan();
+
 int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval);
 
 EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));

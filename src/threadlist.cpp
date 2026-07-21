@@ -1,5 +1,6 @@
 #include <linux/version.h>
 #include <pthread.h>
+#include <sched.h>
 #include <semaphore.h>
 #include <signal.h>
 #include <string.h>
@@ -39,9 +40,9 @@
 
 // ThreadSanitizer Fiber API (weak: NULL no-op for non-TSAN targets). A
 // "fiber" is a separate TSAN ThreadState bindable to the current OS thread.
-// The checkpoint thread and the TSAN helper thread never get one; every
-// other thread does, and restarthread() switches it back in via
-// __tsan_switch_to_fiber().
+// The checkpoint thread has no fiber yet here (a later commit adds one);
+// the TSAN helper thread never gets one; every other thread does, and
+// restarthread() switches it back in via __tsan_switch_to_fiber().
 extern "C" void *__tsan_get_current_fiber() __attribute__((weak));
 extern "C" void __tsan_switch_to_fiber(void *fiber, unsigned flags)
   __attribute__((weak));
@@ -51,7 +52,9 @@ extern "C" void __tsan_ignore_thread_end() __attribute__((weak));
 extern "C" void __tsan_release(void *address) __attribute__((weak));
 extern "C" void __tsan_acquire(void *address) __attribute__((weak));
 
-static bool is_tsan() {
+bool
+is_tsan()
+{
   return (__tsan_get_current_fiber != NULL);
 }
 
@@ -96,6 +99,82 @@ Thread *ckptThread = NULL;
 
 static int numUserThreads = 0;
 static bool originalstartup;
+
+// TSAN's pthread_create() interceptor may spawn a nested helper-thread
+// pthread_create() during createCkptThread()'s own call; the LAST
+// pthread_t registered in that window (see
+// registerCkptThreadWindowCandidate()) is the real checkpoint thread.
+// Classification is deferred to endCkptThreadCreationWindow(), which must
+// run on the parent, since TSAN's interceptor blocks the caller until the
+// new thread(s) progress.
+static bool expectCkptThreadNext = false;
+static pthread_t ckptWindowCandidatePthreads[4];
+static int ckptWindowCandidateCount = 0;
+
+static void lock_threads(void);
+static void unlock_threads(void);
+
+void
+ThreadList::beginCkptThreadCreationWindow()
+{
+  expectCkptThreadNext = true;
+  ckptWindowCandidateCount = 0;
+}
+
+void
+ThreadList::registerCkptThreadWindowCandidate(pthread_t pth)
+{
+  if (!expectCkptThreadNext) {
+    return;
+  }
+  ASSERT(ckptWindowCandidateCount <
+           (int) (sizeof(ckptWindowCandidatePthreads) /
+                  sizeof(ckptWindowCandidatePthreads[0])),
+         "more nested thread creations during ckpt-thread creation than "
+         "expected");
+  ckptWindowCandidatePthreads[ckptWindowCandidateCount++] = pth;
+}
+
+static Thread *
+findThreadByPthreadSelf(void *pthreadSelf)
+{
+  Thread *found = NULL;
+  while (found == NULL) {
+    lock_threads();
+    for (Thread *th = activeThreads; th != NULL; th = th->next) {
+      if (th->pthreadSelf == pthreadSelf) {
+        found = th;
+        break;
+      }
+    }
+    unlock_threads();
+    if (found == NULL) {
+      sched_yield();
+    }
+  }
+  return found;
+}
+
+void
+ThreadList::endCkptThreadCreationWindow()
+{
+  expectCkptThreadNext = false;
+  if (!is_tsan()) {
+    return;
+  }
+  ASSERT(ckptWindowCandidateCount >= 1,
+         "no thread was registered for the checkpoint thread's own creation");
+  // The LAST candidate registered is the real checkpoint thread; any
+  // earlier ones are the (at most one, in every run observed so far)
+  // TSAN-internal helper-thread spawn.
+  for (int i = 0; i < ckptWindowCandidateCount - 1; i++) {
+    Thread *th =
+      findThreadByPthreadSelf((void *) ckptWindowCandidatePthreads[i]);
+    th->is_tsan_helper = true;
+    TRACE("TSAN: classified tid={} as the TSAN helper thread", th->tid);
+  }
+}
+
 // Let dmtcp.h:DMTCP_RESTART_PAUSE_WHILE(cond) use (dmtcp::restartPauseLevel
 volatile int dmtcp::restartPauseLevel = 0;
 
@@ -145,7 +224,13 @@ dmtcp_get_current_thread()
     return curThread;
   }
 
-  ThreadList::init();
+  Thread *th = ThreadList::init();
+  // Reaching here (not motherofall) means this thread bypassed DMTCP's
+  // pthread_create() wrapper (see thread_start()); for a TSAN target,
+  // that's TSAN's helper/background thread, spawned via raw clone().
+  if (is_tsan() && th != motherofall) {
+    th->is_tsan_helper = true;
+  }
   ASSERT_NOT_NULL(curThread);
   return curThread;
 }
@@ -210,11 +295,11 @@ ThreadList::resetOnFork()
  *  This routine must be called at startup time to initiate checkpointing
  *
  *****************************************************************************/
-void
+Thread *
 ThreadList::init()
 {
   if (curThread != nullptr) {
-    return;
+    return curThread;
   }
 
   Thread *th;
@@ -249,6 +334,10 @@ ThreadList::init()
 
   th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
   th->ctid = th->ptid;
+  // Set eagerly here (not just later in TLSInfo_SaveTLSState()) so this
+  // thread is findable-by-identity (see findThreadByPthreadSelf()) without
+  // waiting for a checkpoint.
+  th->pthreadSelf = (void *) pthread_self();
 
   th->tid = dmtcp_pid_init_thread_tid();
   if (th != motherofall) {
@@ -269,6 +358,7 @@ ThreadList::init()
   ThreadList::addToActiveList(th);
 
   ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadInitLock));
+  return th;
 }
 
 /*****************************************************************************
@@ -286,11 +376,18 @@ ThreadList::createCkptThread()
   originalstartup = true;
   pthread_t checkpointhreadid;
 
+  // Bracket this call so the pthread_create() wrapper (threadwrappers.cpp)
+  // can report thread-creation requests seen during it as belonging to
+  // this window -- see beginCkptThreadCreationWindow() above.
+  ThreadList::beginCkptThreadCreationWindow();
+
   /* Spawn off a thread that will perform the checkpoints from time to time */
   ASSERT_PTHREAD_SUCCESS(pthread_create(&checkpointhreadid,
                                         NULL,
                                         checkpointhread,
                                         NULL));
+
+  ThreadList::endCkptThreadCreationWindow();
 
   /* Stop until checkpoint thread has finished initializing.
    * Some programs (like gcl) implement their own glibc functions in
