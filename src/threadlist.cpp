@@ -117,6 +117,24 @@ static int ckptWindowCandidateCount = 0;
 static void lock_threads(void);
 static void unlock_threads(void);
 
+// Enforces the invariant that at most one thread is ever classified as
+// the TSAN helper thread (TSAN spawns exactly one background thread).
+static int numTsanHelperThreadsTagged = 0;
+
+static void
+markTsanHelper(Thread *th)
+{
+  th->is_tsan_helper = true;
+  numTsanHelperThreadsTagged++;
+  ASSERT(numTsanHelperThreadsTagged <= 1,
+         "TSAN: more than one thread classified as the TSAN helper "
+         "thread: tid={}",
+         th->tid);
+  if (is_tsan()) {
+    TRACE("TSAN: classified tid={} as the TSAN helper thread", th->tid);
+  }
+}
+
 #undef dmtcp_tsan_background_thread_virtual_tid
 EXTERNC int
 dmtcp_tsan_background_thread_virtual_tid()
@@ -197,8 +215,7 @@ ThreadList::endCkptThreadCreationWindow()
   for (int i = 0; i < ckptWindowCandidateCount - 1; i++) {
     Thread *th =
       findThreadByPthreadSelf((void *) ckptWindowCandidatePthreads[i]);
-    th->is_tsan_helper = true;
-    TRACE("TSAN: classified tid={} as the TSAN helper thread", th->tid);
+    markTsanHelper(th);
   }
 }
 
@@ -256,7 +273,7 @@ dmtcp_get_current_thread()
   // pthread_create() wrapper (see thread_start()); for a TSAN target,
   // that's TSAN's helper/background thread, spawned via raw clone().
   if (is_tsan() && th != motherofall) {
-    th->is_tsan_helper = true;
+    markTsanHelper(th);
   }
   ASSERT_NOT_NULL(curThread);
   return curThread;
@@ -485,6 +502,12 @@ checkpointhread(void *dummy)
    */
 
   ckptThread = curThread;
+  ASSERT(!(is_tsan() && ckptThread->is_tsan_helper),
+         "TSAN: checkpoint thread was misclassified as the TSAN "
+         "helper thread");
+  ASSERT(ckptThread != motherofall,
+         "TSAN: checkpoint thread and motherofall must never be "
+         "the same thread object");
   ckptThread->state = ST_CKPNTHREAD;
 
   // Important:  we set this in the ckpt thread to avoid a race,
@@ -774,6 +797,12 @@ stopthisthread(int signum)
 
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
+    if (is_tsan()) {
+      TRACE("TSAN: stopthisthread: tid={} is_ckpt_thread={} "
+            "is_tsan_helper={}",
+            curThread->tid, dmtcp_is_ckpt_thread(),
+            curThread->is_tsan_helper);
+    }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
     WARN_NE(-1, prctl(PR_GET_NAME, curThread->procname));
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
@@ -1016,6 +1045,10 @@ ThreadList::postRestartWork()
       ThreadList::threadIsDead(thread); // Del. old TSAN helper from active list
       continue; // TSAN helper should not be restored; Stateless, TSAN creates
     }
+
+    ASSERT(!(is_tsan() && thread->is_tsan_helper),
+           "TSAN: helper thread reached _real_clone(); should have "
+           "been skipped above");
     pid_t tid = _real_clone(restarthread,
 
                             // -128 for red zone
@@ -1063,6 +1096,14 @@ restarthread(void *threadv)
       __tsan_destroy_fiber(staleFiber);  // now inactive; free it
     }
     thread->tsan_fiber_ctx = freshFiber;
+    if (is_tsan()) {
+      TRACE("TSAN: gave checkpoint thread a fresh fiber on restart: "
+            "tid={} staleFiber={} freshFiber={}",
+            thread->tid, staleFiber, freshFiber);
+    }
+    ASSERT(freshFiber != staleFiber,
+           "TSAN: __tsan_create_fiber unexpectedly returned the "
+           "stale fiber's address");
   }
 
   TLSInfo_RestoreTLSTidPid(thread);
