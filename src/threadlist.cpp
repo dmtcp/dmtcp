@@ -1084,6 +1084,20 @@ restarthread(void *threadv)
   // __tsan_ignore_thread_begin() call, so the restored fiber already
   // carries "ignore" depth 1 from before checkpoint.
   if (is_tsan() && ! dmtcp_is_ckpt_thread()) {
+    if (thread->tsan_fiber_ctx == NULL) {
+      // No PRE-CHECKPOINT capture ran for this thread (e.g. the checkpoint
+      // signal caught it before stopthisthread() got a chance to set
+      // tsan_fiber_ctx). Give it a fresh fiber instead of handing
+      // __tsan_switch_to_fiber() a NULL pointer, as for ckptThread above.
+      TRACE("TSAN: restarthread found NULL tsan_fiber_ctx: tid={} "
+            "is_tsan_helper={} state={}",
+            thread->tid, thread->is_tsan_helper, thread->state);
+      ASSERT_NOT_NULL(__tsan_create_fiber,
+                      "TSAN runtime is missing __tsan_create_fiber");
+      thread->tsan_fiber_ctx = __tsan_create_fiber(0);
+      ASSERT_NOT_NULL(thread->tsan_fiber_ctx,
+                      "__tsan_create_fiber returned NULL");
+    }
     __tsan_switch_to_fiber(thread->tsan_fiber_ctx, 0);
     if (thread == motherofall) {
       __tsan_acquire((void*)thread);
