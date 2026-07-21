@@ -658,7 +658,12 @@ stopthisthread(int signum)
 
     // --- TSAN INJECTION: PRE-CHECKPOINT ---
     if (is_tsan() && ! curThread->is_tsan_helper && ! dmtcp_is_ckpt_thread()) {
-      __tsan_ignore_thread_begin();
+      // clang's statically linked TSAN runtime doesn't export
+      // __tsan_ignore_thread_begin/_end (unlike the fiber API and
+      // acquire/release); the weak symbol resolves to NULL here.
+      if (__tsan_ignore_thread_begin != NULL) {
+        __tsan_ignore_thread_begin();
+      }
       // Ordinary threads don't need __tsan_acquire/release
       curThread->tsan_fiber_ctx = __tsan_get_current_fiber();
       if (curThread == motherofall) {
@@ -720,7 +725,10 @@ stopthisthread(int signum)
       // --- TSAN INJECTION: RESUME ORIGINAL PROCESS ---
       if (is_tsan() && ! curThread->is_tsan_helper && !dmtcp_is_ckpt_thread()) {
         // Ordinary threads don't need __tsan_acquire/release
-        __tsan_ignore_thread_end();
+        // See the PRE-CHECKPOINT block above for why this is null-checked.
+        if (__tsan_ignore_thread_end != NULL) {
+          __tsan_ignore_thread_end();
+        }
       }
       // -----------------------------------------------
 
@@ -754,7 +762,9 @@ stopthisthread(int signum)
       ThreadList::waitForAllRestored(curThread);
 
       // --- TSAN INJECTION: POST-RESTART CLEANUP ---
-      if (is_tsan() && ! curThread->is_tsan_helper && ! dmtcp_is_ckpt_thread()) {
+      // See the PRE-CHECKPOINT block above for why this is null-checked.
+      if (is_tsan() && ! curThread->is_tsan_helper && ! dmtcp_is_ckpt_thread() &&
+          __tsan_ignore_thread_end != NULL) {
         __tsan_ignore_thread_end();
       }
       // --------------------------------------------
