@@ -704,7 +704,18 @@ stopthisthread(int signum)
 
     // --- TSAN INJECTION: PRE-CHECKPOINT ---
     if (is_tsan() && ! curThread->is_tsan_helper && ! dmtcp_is_ckpt_thread()) {
-      __tsan_ignore_thread_begin();
+      // Some TSAN runtime configurations (observed with clang's statically
+      // linked TSAN runtime) do not export __tsan_ignore_thread_begin/_end
+      // to the dynamic symbol table, even though they export the fiber API
+      // and __tsan_acquire/release. Since these are declared as weak
+      // symbols, an unexported one resolves to NULL, and calling it
+      // segfaults. Skip the ignore-begin/end bracketing entirely when
+      // unavailable: DMTCP's own checkpoint bookkeeping calls made while
+      // this thread is suspended become visible to TSAN, but that's
+      // strictly better than crashing.
+      if (__tsan_ignore_thread_begin != NULL) {
+        __tsan_ignore_thread_begin();
+      }
       // Ordinary threads don't need __tsan_acquire/release
       curThread->tsan_fiber_ctx = __tsan_get_current_fiber();
       if (curThread == motherofall) {
@@ -766,7 +777,10 @@ stopthisthread(int signum)
       // --- TSAN INJECTION: RESUME ORIGINAL PROCESS ---
       if (is_tsan() && ! curThread->is_tsan_helper && !dmtcp_is_ckpt_thread()) {
         // Ordinary threads don't need __tsan_acquire/release
-        __tsan_ignore_thread_end();
+        // See the PRE-CHECKPOINT block above for why this is null-checked.
+        if (__tsan_ignore_thread_end != NULL) {
+          __tsan_ignore_thread_end();
+        }
       }
       // -----------------------------------------------
 
@@ -800,7 +814,9 @@ stopthisthread(int signum)
       ThreadList::waitForAllRestored(curThread);
 
       // --- TSAN INJECTION: POST-RESTART CLEANUP ---
-      if (is_tsan() && ! curThread->is_tsan_helper && ! dmtcp_is_ckpt_thread()) {
+      // See the PRE-CHECKPOINT block above for why this is null-checked.
+      if (is_tsan() && ! curThread->is_tsan_helper && ! dmtcp_is_ckpt_thread() &&
+          __tsan_ignore_thread_end != NULL) {
         __tsan_ignore_thread_end();
       }
       // --------------------------------------------
