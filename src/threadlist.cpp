@@ -41,15 +41,18 @@
 // ThreadSanitizer Fiber API (weak: resolves to the TSAN runtime only for TSAN
 // targets, NULL no-op otherwise).  A "fiber" is a separate TSAN ThreadState
 // (with its own event trace) that can be bound to the current OS thread.
-// * The checkpoint thread is not yet purposely exposed to TSAN here (it has
-//   no fiber of its own at this point); a later commit adds that.
 // * The TSAN helper thread will _not_ have a fiber (by design for TSAN).
 // * All other threads, including motherofall, have a fiber.
 // * All threads go through restarthread(); If needed, each thread will use
 //    __tsan_switch_to_fiber() to restore its fiber from 'Thread' in threadlist.
+// * The checkpoint thread is a special case: on restart it is given a FRESH
+//   fiber (via __tsan_create_fiber()) rather than resuming its old one --
+//   see the comment in restarthread() for why.
 extern "C" void *__tsan_get_current_fiber() __attribute__((weak));
 extern "C" void __tsan_switch_to_fiber(void *fiber, unsigned flags)
   __attribute__((weak));
+extern "C" void *__tsan_create_fiber(unsigned flags) __attribute__((weak));
+extern "C" void __tsan_destroy_fiber(void *fiber) __attribute__((weak));
 extern "C" void __tsan_ignore_thread_begin() __attribute__((weak));
 extern "C" void __tsan_ignore_thread_end() __attribute__((weak));
 // Below, address is arbitrary, unique memory address for synchronization
@@ -518,6 +521,10 @@ checkpointhread(void *dummy)
   TRACE("Saved checkpoint-thread restart context: tid={} saved_sp={}",
         curThread->tid, curThread->saved_sp);
 
+  // On restart, we reach here via siglongjmp()/setcontext() from
+  // restarthread(), which already switched this thread to a fresh TSAN
+  // fiber before making that jump -- see the comment there for why.
+
   if (originalstartup) {
     originalstartup = false;
   } else {
@@ -556,12 +563,6 @@ checkpointhread(void *dummy)
 
     // Save signal mask and capture any pending signals.
     Thread_SaveSigState(ckptThread);
-
-    // --- TSAN INJECTION: ckpt-thread release (minimal test) ---
-    if (is_tsan()) {
-      __tsan_release((void*)ckptThread);
-    }
-    // ------------------------------------------------------------
 
     /* All other threads halted in 'stopthisthread' routine (they are all
      * in state ST_SUSPENDED).  It's safe to write checkpoint file now.
@@ -1034,6 +1035,30 @@ restarthread(void *threadv)
   Thread *thread = (Thread *)threadv;
 
   TLSInfo_RestoreTLSState(thread);
+
+  // The checkpoint thread is a special case: unlike other threads, it never
+  // goes through the suspend/resume path (excluded from
+  // __tsan_ignore_thread_begin/end). So its TSAN trace kept recording
+  // through its own intercepted calls in writeCkpt() -- possibly torn at the
+  // moment of checkpoint. Rather than resume that possibly-torn state,
+  // treat this OS thread as if a fresh, unrelated one has just been
+  // created: switch to a brand new TSAN fiber immediately, before anything
+  // else (even a TRACE() call, a few lines below) can touch the old one.
+  if (thread == ckptThread && is_tsan()) {
+    ASSERT_NOT_NULL(__tsan_create_fiber,
+                    "TSAN runtime is missing __tsan_create_fiber");
+    void *staleFiber = thread->tsan_fiber_ctx;
+    void *freshFiber = __tsan_create_fiber(0);
+    ASSERT_NOT_NULL(freshFiber, "__tsan_create_fiber returned NULL");
+    __tsan_switch_to_fiber(freshFiber, 0);
+    if (staleFiber != NULL) {
+      ASSERT_NOT_NULL(__tsan_destroy_fiber,
+                      "TSAN runtime is missing __tsan_destroy_fiber");
+      __tsan_destroy_fiber(staleFiber);  // now inactive; free it
+    }
+    thread->tsan_fiber_ctx = freshFiber;
+  }
+
   TLSInfo_RestoreTLSTidPid(thread);
 
   if (TLSInfo_HaveThreadSysinfoOffset()) {
@@ -1063,11 +1088,9 @@ restarthread(void *threadv)
   }
   // --------------------------------------
 
-  // --- TSAN INJECTION: ckpt-thread acquire (minimal test) ---
-  if (is_tsan() && dmtcp_is_ckpt_thread()) {
-    __tsan_acquire((void*)thread);
-  }
-  // ------------------------------------------------------
+  // The checkpoint thread is deliberately not touched here: it was already
+  // given a fresh TSAN fiber earlier in this function, immediately after
+  // TLSInfo_RestoreTLSState() -- see the comment there for why.
 
   /* Jump to the stopthisthread routine just after sigsetjmp/getcontext call.
    * Note that if this is the restored checkpointhread, it jumps to the
