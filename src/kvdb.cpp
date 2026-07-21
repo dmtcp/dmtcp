@@ -8,6 +8,7 @@
 #include "jconvert.h"
 #include "kvdb.h"
 #include "threadinfo.h"
+#include "wrapperlock.h"
 
 namespace dmtcp
 {
@@ -45,6 +46,7 @@ KVDBResponse request(KVDBRequest request,
   msg.valLen = val.length() + 1;
   msg.extraBytes = msg.keyLen + msg.valLen;
 
+  WrapperLock wrapperLock;
   return CoordinatorAPI::kvdbRequest(msg, key, val, oldVal);
 }
 
