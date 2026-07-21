@@ -99,6 +99,44 @@ Thread *ckptThread = NULL;
 
 static int numUserThreads = 0;
 static bool originalstartup;
+
+// TSAN's own pthread_create interceptor substitutes its internal trampoline
+// (to run ThreadStart() before the real callback) as the start_routine for
+// EVERY pthread_create() call it sees -- including DMTCP's own call to
+// create the checkpoint thread, since dmtcp_launch puts TSAN ahead of
+// libdmtcp in LD_PRELOAD.  So every ordinary thread (the checkpoint thread,
+// and all application threads) shows the SAME start_routine address to
+// ThreadList::prepareThread(), while TSAN's own background/helper thread --
+// spawned via a direct, non-self-intercepted pthread_create() call, with its
+// own real entry point as start_routine -- shows a DIFFERENT, unique
+// address.  See the "Update" note in DMTCP-TSAN-detailed-plan-instructions.txt
+// for the evidence.
+//
+// commonTrampolineFn is learned with certainty from
+// ThreadList::createCkptThread()'s own pthread_create() call.  That single
+// call can trigger MORE than one ThreadList::prepareThread() call, though:
+// empirically, TSAN's interceptor lazily spawns its background/helper thread
+// (a nested, non-self-intercepted pthread_create() call of its own) as a side
+// effect of handling the FIRST pthread_create() call it ever sees, before
+// dispatching through to the real (wrapped) callback for that original call.
+// Since DMTCP's own call to create the checkpoint thread is the first
+// pthread_create() call of the whole process, this nested spawn -- if it
+// happens at all -- happens inside that one call, and its prepareThread()
+// call happens BEFORE the checkpoint thread's own.  So: every prepareThread()
+// call seen while expectCkptThreadNext is set is remembered in
+// ckptWindowCandidates; once createCkptThread()'s own pthread_create() call
+// returns, the LAST candidate recorded is the real checkpoint thread (nothing
+// can register after it, and nothing legitimate can register between it and
+// the pthread_create() call returning), and any earlier candidates in the
+// same window are the (at most one, in every run observed so far) nested
+// helper-thread spawn.  pendingUnclassifiedThread additionally covers the
+// separate case of a thread registering even before createCkptThread() is
+// called at all (not observed in practice, but cheap to handle).
+static void *commonTrampolineFn = nullptr;
+static bool expectCkptThreadNext = false;
+static Thread *pendingUnclassifiedThread = nullptr;
+static Thread *ckptWindowCandidates[4];
+static int ckptWindowCandidateCount = 0;
 // Let dmtcp.h:DMTCP_RESTART_PAUSE_WHILE(cond) use (dmtcp::restartPauseLevel
 volatile int dmtcp::restartPauseLevel = 0;
 
@@ -276,11 +314,38 @@ ThreadList::createCkptThread()
   originalstartup = true;
   pthread_t checkpointhreadid;
 
+  // Flag the immediately following pthread_create() call so that
+  // ThreadList::prepareThread() can recognize any thread it prepares during
+  // this call as belonging to this window -- see the comment above
+  // ckptWindowCandidates for why more than one prepareThread() call can
+  // happen here.
+  expectCkptThreadNext = true;
+  ckptWindowCandidateCount = 0;
+
   /* Spawn off a thread that will perform the checkpoints from time to time */
   ASSERT_PTHREAD_SUCCESS(pthread_create(&checkpointhreadid,
                                         NULL,
                                         checkpointhread,
                                         NULL));
+
+  expectCkptThreadNext = false;
+  if (is_tsan()) {
+    // The LAST candidate registered during this window is the real
+    // checkpoint thread; any earlier ones are nested TSAN-internal spawns
+    // (its background/helper thread).
+    ASSERT(ckptWindowCandidateCount >= 1,
+           "no thread was registered for the checkpoint thread's own creation");
+    commonTrampolineFn =
+      reinterpret_cast<void *>(ckptWindowCandidates[ckptWindowCandidateCount - 1]->fn);
+    for (int i = 0; i < ckptWindowCandidateCount - 1; i++) {
+      ckptWindowCandidates[i]->is_tsan_helper = true;
+    }
+    if (pendingUnclassifiedThread != nullptr) {
+      pendingUnclassifiedThread->is_tsan_helper =
+        reinterpret_cast<void *>(pendingUnclassifiedThread->fn) != commonTrampolineFn;
+      pendingUnclassifiedThread = nullptr;
+    }
+  }
 
   /* Stop until checkpoint thread has finished initializing.
    * Some programs (like gcl) implement their own glibc functions in
@@ -324,10 +389,29 @@ ThreadList::prepareThread(Thread *th, void *(*fn)(void *), void *arg)
   th->procname[0] = '\0';
   if (is_tsan()) {
     th->tsan_fiber_ctx = NULL;
-    // Threads created here (via DMTCP's pthread_create wrapper, or as
-    // motherofall) are never the TSAN helper thread; see dmtcp_get_current_
-    // thread()'s "race" branch for how that thread is identified instead.
-    th->is_tsan_helper = false;
+    if (th == &motherofallStorage) {
+      th->is_tsan_helper = false;
+    } else if (expectCkptThreadNext) {
+      // Might be the checkpoint thread's own registration, or a nested
+      // TSAN-internal spawn triggered as a side effect of intercepting that
+      // call; see the comment above ckptWindowCandidates.  Which one this is
+      // can only be determined once ThreadList::createCkptThread()'s
+      // pthread_create() call returns, so just record it for now.
+      ASSERT(ckptWindowCandidateCount <
+               (int) (sizeof(ckptWindowCandidates) / sizeof(ckptWindowCandidates[0])),
+             "more nested thread creations during ckpt-thread creation than expected");
+      ckptWindowCandidates[ckptWindowCandidateCount++] = th;
+      th->is_tsan_helper = false; // corrected after the window closes, if needed
+    } else if (commonTrampolineFn == nullptr) {
+      // We have not yet seen the checkpoint thread's own creation, so we
+      // cannot yet tell a real TSAN helper thread's unique start_routine
+      // apart from the common app-thread trampoline. Defer.
+      ASSERT_NULL(pendingUnclassifiedThread);
+      pendingUnclassifiedThread = th;
+      th->is_tsan_helper = false; // tentative; corrected above if needed
+    } else {
+      th->is_tsan_helper = reinterpret_cast<void *>(fn) != commonTrampolineFn;
+    }
   }
 }
 
@@ -579,11 +663,21 @@ ThreadList::suspendThreads()
         break;
 
       case ST_SUSPINPROG:
-        numUserThreads++;
+        // The TSAN helper thread is still signaled/suspended along with
+        // everyone else (for a consistent memory snapshot), but it is never
+        // recreated on restart (TSAN spawns a fresh one there instead -- see
+        // postRestartWork()), so it will never contribute a sem_post in
+        // waitForAllRestored().  Don't count it, or that wait would hang
+        // waiting for a post that never comes.
+        if (! (is_tsan() && thread->is_tsan_helper)) {
+          numUserThreads++;
+        }
         break;
 
       case ST_SUSPENDED:
-        numUserThreads++;
+        if (! (is_tsan() && thread->is_tsan_helper)) {
+          numUserThreads++;
+        }
         break;
 
       case ST_CKPNTHREAD:
