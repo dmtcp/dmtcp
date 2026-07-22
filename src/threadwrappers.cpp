@@ -118,15 +118,26 @@ pthread_create(pthread_t *pth,
             "new thread wrapper lock was not pre-acquired: tid={}",
             newThread->tid);
 
-  ASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING),
-         "Failed to mark thread (tid:{}) from RUNNING to THREAD_CREATE",
-         thread->tid);
+  int retval;
+  // If the thread calling pthread_create is the checkpoint thread, skip the
+  // RUNNING <-> THREAD_CREATE state transition: the checkpoint thread is
+  // ST_CKPNTHREAD (not ST_RUNNING), so Thread_UpdateState would fail. The CUDA
+  // plugin's checkpoint path (DMTCP_EVENT_PRESUSPEND) drives the CUDA
+  // checkpoint API, which spawns short-lived helper threads from the checkpoint
+  // thread; those threads exit before the checkpoint is taken, so this is safe.
+  if (thread->state == ST_CKPNTHREAD) {
+    retval = _real_pthread_create(pth, attr, thread_start, newThread);
+  } else {
+    ASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING),
+           "Failed to mark thread (tid:{}) from RUNNING to THREAD_CREATE",
+           thread->tid);
 
-  int retval = _real_pthread_create(pth, attr, thread_start, newThread);
+    retval = _real_pthread_create(pth, attr, thread_start, newThread);
 
-  ASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE),
-         "Failed to mark thread (tid:{}) from THREAD_CREATE to RUNNING",
-         thread->tid);
+    ASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE),
+           "Failed to mark thread (tid:{}) from THREAD_CREATE to RUNNING",
+           thread->tid);
+  }
 
   if (retval == 0) {
     ProcessInfo::instance().clearPthreadJoinState(*pth);
