@@ -33,6 +33,37 @@
 #include "util.h"
 #include "dmtcp_assert.h"
 
+/****************************
+ * Start of TSAN utilities
+ ****************************/
+
+// ThreadSanitizer Fiber API (weak: resolves to the TSAN runtime only for TSAN
+// targets, NULL no-op otherwise).  A "fiber" is a separate TSAN ThreadState
+// (with its own event trace) that can be bound to the current OS thread.
+// * The checkpoint thread never had a fiber originally, by design, since
+//   conceptually, libdmtcp.so acts as if it's a lower layer than libtsan.so.
+//   (see checkpointhread() (start fnc. for ckpt thread) for details).
+// * The TSAN helper thread will _not_ have a fiber (by design for TSAN).
+// * All other threads, including motherofall, have a fiber.
+// * All threads go through restarthread(); If needed, each thread will use
+//    __tsan_switch_to_fiber() to restore its fiber from 'Thread' in threadlist.
+extern "C" void *__tsan_get_current_fiber() __attribute__((weak));
+extern "C" void __tsan_switch_to_fiber(void *fiber, unsigned flags)
+  __attribute__((weak));
+extern "C" void __tsan_ignore_thread_begin() __attribute__((weak));
+extern "C" void __tsan_ignore_thread_end() __attribute__((weak));
+// Below, address is arbitrary, unique memory address for synchronization
+extern "C" void __tsan_release(void *address) __attribute__((weak));
+extern "C" void __tsan_acquire(void *address) __attribute__((weak));
+
+static bool is_tsan() {
+  return (__tsan_get_current_fiber != NULL);
+}
+
+/****************************
+ * End of TSAN utilities
+ ****************************/
+
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
 // Default is to use  setcontext/getcontext.
@@ -422,6 +453,12 @@ checkpointhread(void *dummy)
     // Save signal mask and capture any pending signals.
     Thread_SaveSigState(ckptThread);
 
+    // --- TSAN INJECTION: ckpt-thread release (minimal test) ---
+    if (is_tsan()) {
+      __tsan_release((void*)ckptThread);
+    }
+    // ------------------------------------------------------------
+
     /* All other threads halted in 'stopthisthread' routine (they are all
      * in state ST_SUSPENDED).  It's safe to write checkpoint file now.
      */
@@ -493,11 +530,21 @@ ThreadList::suspendThreads()
         break;
 
       case ST_SUSPINPROG:
-        numUserThreads++;
+        // The TSAN helper thread is still signaled/suspended along with
+        // everyone else (for a consistent memory snapshot), but it is never
+        // recreated on restart (TSAN spawns a fresh one there instead -- see
+        // postRestartWork()). So it will never contribute a sem_post in
+        // waitForAllRestored().  Don't count it, or that wait would hang
+        // waiting for a post that never comes.
+        if (! (is_tsan() && thread->is_tsan_helper)) {
+          numUserThreads++;
+        }
         break;
 
       case ST_SUSPENDED:
-        numUserThreads++;
+        if (! (is_tsan() && thread->is_tsan_helper)) {
+          numUserThreads++;
+        }
         break;
 
       case ST_CKPNTHREAD:
@@ -616,6 +663,18 @@ stopthisthread(int signum)
     WARN_NE(-1, prctl(PR_GET_NAME, curThread->procname));
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
+    // --- TSAN INJECTION: PRE-CHECKPOINT ---
+    if (is_tsan() && ! curThread->is_tsan_helper && ! dmtcp_is_ckpt_thread()) {
+      __tsan_ignore_thread_begin();
+      // Ordinary threads don't need __tsan_acquire/release
+      curThread->tsan_fiber_ctx = __tsan_get_current_fiber();
+      if (curThread == motherofall) {
+        __tsan_release((void*)curThread);
+      }
+      // -------------------------------------------------------
+    }
+    // --------------------------------------
+
     Thread_SaveSigState(curThread);  // save sig state (and block sig delivery)
     TLSInfo_SaveTLSState(curThread);  // save thread local storage state
 
@@ -664,6 +723,14 @@ stopthisthread(int signum)
              curThread->tid);
 
       ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
+
+      // --- TSAN INJECTION: RESUME ORIGINAL PROCESS ---
+      if (is_tsan() && ! curThread->is_tsan_helper && !dmtcp_is_ckpt_thread()) {
+        // Ordinary threads don't need __tsan_acquire/release
+        __tsan_ignore_thread_end();
+      }
+      // -----------------------------------------------
+
     } else {
       // If the user defined DMTCP_DISABLE_PRGNAME_PREFIX, skip this prefix.
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
@@ -692,6 +759,12 @@ stopthisthread(int signum)
 
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
       ThreadList::waitForAllRestored(curThread);
+
+      // --- TSAN INJECTION: POST-RESTART CLEANUP ---
+      if (is_tsan() && ! curThread->is_tsan_helper && ! dmtcp_is_ckpt_thread()) {
+        __tsan_ignore_thread_end();
+      }
+      // --------------------------------------------
     }
 
     TRACE("User thread returning to user code: tid={} return_address={}",
@@ -780,6 +853,7 @@ void
 ThreadList::postRestartWork()
 {
   Thread *thread;
+  Thread *next;
   sigset_t tmp;
 
   if (TLSInfo_HaveThreadSysinfoOffset()) {
@@ -799,7 +873,10 @@ ThreadList::postRestartWork()
   Util::allowGdbDebug(DEBUG_POST_RESTART);
 
   sigfillset(&tmp);
-  for (thread = activeThreads; thread != NULL; thread = thread->next) {
+  for (thread = activeThreads; thread != NULL; thread = next) {
+    // Precompute 'next' now, in case 'thread' is declared dead below.
+    next = thread->next;
+
     sigandset(&sigpending_global, &tmp, &(thread->sigpending));
     tmp = sigpending_global;
 
@@ -807,7 +884,13 @@ ThreadList::postRestartWork()
       continue;
     }
 
-    /* Create the thread so it can finish restoring itself. */
+    /* Create the thread so it can finish restoring itself.
+     * But remove old TSAN helper thread; it's stateless: TSAN creates new one
+     */
+    if (is_tsan() && thread->is_tsan_helper) {
+      ThreadList::threadIsDead(thread); // Del. old TSAN helper from active list
+      continue; // TSAN helper should not be restored; Stateless, TSAN creates
+    }
     pid_t tid = _real_clone(restarthread,
 
                             // -128 for red zone
@@ -848,6 +931,28 @@ restarthread(void *threadv)
   if (thread == motherofall) {  // if this is a user thread
     DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 4);
   }
+
+  // --- TSAN INJECTION: RESTART BRIDGE ---
+  // Earlier, we already omitted restarthread() if thread->is_tsan_helper
+  //
+  // Do NOT call __tsan_ignore_thread_begin() here. thread->tsan_fiber_ctx
+  // was captured in stopthisthread()'s PRE-CHECKPOINT block *after* that
+  // block's own __tsan_ignore_thread_begin() call. So the restored fiber
+  // is already carrying "ignore" depth 1 from before checkpoint.
+  if (is_tsan() && ! dmtcp_is_ckpt_thread()) {
+    __tsan_switch_to_fiber(thread->tsan_fiber_ctx, 0);
+    if (thread == motherofall) {
+      __tsan_acquire((void*)thread);
+    }
+    // ---------------------------------------------------------
+  }
+  // --------------------------------------
+
+  // --- TSAN INJECTION: ckpt-thread acquire (minimal test) ---
+  if (is_tsan() && dmtcp_is_ckpt_thread()) {
+    __tsan_acquire((void*)thread);
+  }
+  // ------------------------------------------------------
 
   /* Jump to the stopthisthread routine just after sigsetjmp/getcontext call.
    * Note that if this is the restored checkpointhread, it jumps to the
