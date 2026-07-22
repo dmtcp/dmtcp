@@ -19,15 +19,14 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <sys/syscall.h>
-#include "../jalib/jalloc.h"
+#include <sys/mman.h>
 #include "constants.h"
 #include "dmtcp.h"
 #include "dmtcpworker.h"
+#include "jalloc.h"
 #include "plugin/pid/pidhelpers.h"
 #include "pluginmanager.h"
 #include "processinfo.h"
-#include "siginfo.h"
 #include "syscallwrappers.h"
 #include "threadlist.h"
 #include "threadsync.h"
@@ -36,6 +35,13 @@
 #include "dmtcp_assert.h"
 
 using namespace dmtcp;
+
+struct PthreadStart
+{
+  void *(*fn)(void *);
+  void *arg;
+  bool unlockWrapperExecutionLock;
+};
 
 // gettid / tkill / tgkill are not defined in libc.
 extern "C" pid_t
@@ -51,30 +57,12 @@ dmtcp_gettid()
 }
 
 static void
-processChildThread(Thread *thread)
+processPthreadExitEvent(DmtcpEvent_t event)
 {
-  dmtcp_init_virtual_tid();
-  ASSERT_NE(0u,
-            thread->wrapperLockCount,
-            "child thread entered without inherited wrapper lock: tid={}",
-            thread->tid);
-
-  ThreadList::initThread(thread);
-  // Unblock ckpt signal (unblocking a non-blocked signal has no effect).
-  // Normally, DMTCP wouldn't allow the ckpt signal to be blocked. However, in
-  // some situations (e.g., timer_create), libc would internally block all
-  // signals before calling pthread_create to create a helper thread.  Since,
-  // the child threads inherit parent signal mask, the helper thread has all
-  // signals blocked.
-  sigset_t set;
-  sigaddset(&set, SigInfo::ckptSignal());
-  ASSERT_PTHREAD_SUCCESS(
-    _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),
-    "unblocking checkpoint signal in child thread: signal={}",
-    SigInfo::ckptSignal());
-
-  // Lock was acquired by the parent thread on our behalf.
-  ThreadSync::wrapperExecutionLockUnlock();
+  DmtcpEventData_t data;
+  data.pthreadInfo.pthread = pthread_self();
+  data.pthreadInfo.tid = dmtcp_gettid();
+  PluginManager::eventHook(event, &data);
 }
 
 // Invoked via pthread_create as start_routine
@@ -82,11 +70,16 @@ processChildThread(Thread *thread)
 static void *
 thread_start(void *arg)
 {
-  Thread *thread = (Thread *) arg;
+  PthreadStart *start = (PthreadStart *) arg;
+  Thread *thread = dmtcp_get_current_thread();
+  if (start->unlockWrapperExecutionLock) {
+    ThreadSync::wrapperExecutionLockUnlockForNewThread();
+  }
+  void *(*fn)(void *) = start->fn;
+  void *fnArg = start->arg;
 
-  processChildThread(thread);
-
-  void *result = thread->fn(thread->arg);
+  JALLOC_FREE(start);
+  void *result = fn(fnArg);
 
   TRACE("Thread returned: tid={}", thread->tid);
   WrapperLock wrapperLock;
@@ -98,7 +91,7 @@ thread_start(void *arg)
    *  FIXME: What if the process gets checkpointed after erase() but before the
    *  thread actually exits?
    */
-  PluginManager::eventHook(DMTCP_EVENT_PTHREAD_RETURN, NULL);
+  processPthreadExitEvent(DMTCP_EVENT_PTHREAD_RETURN);
   return result;
 }
 
@@ -111,18 +104,17 @@ pthread_create(pthread_t *pth,
   WrapperLock wrapperLock;
   Thread *thread = dmtcp_get_current_thread();
 
-  Thread *newThread = ThreadList::getNewThread(start_routine, arg);
-  ThreadSync::wrapperExecutionLockLockForNewThread(newThread);
-  ASSERT_NE(0u,
-            newThread->wrapperLockCount,
-            "new thread wrapper lock was not pre-acquired: tid={}",
-            newThread->tid);
+  PthreadStart *start = (PthreadStart *) JALLOC_MALLOC(sizeof(*start));
+  start->fn = start_routine;
+  start->arg = arg;
+  start->unlockWrapperExecutionLock =
+    ThreadSync::wrapperExecutionLockLockForNewThread();
 
   ASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING),
          "Failed to mark thread (tid:{}) from RUNNING to THREAD_CREATE",
          thread->tid);
 
-  int retval = _real_pthread_create(pth, attr, thread_start, newThread);
+  int retval = _real_pthread_create(pth, attr, thread_start, start);
 
   ASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE),
          "Failed to mark thread (tid:{}) from THREAD_CREATE to RUNNING",
@@ -151,8 +143,10 @@ pthread_create(pthread_t *pth,
     pthread_attr_destroy(&new_attr);
 #endif
   } else { // if we failed to create new pthread
-    ThreadSync::wrapperExecutionLockUnlockForNewThread(newThread);
-    ThreadList::threadIsDead(newThread);
+    if (start->unlockWrapperExecutionLock) {
+      ThreadSync::wrapperExecutionLockUnlockForNewThread();
+    }
+    JALLOC_FREE(start);
   }
 
   return retval;
@@ -203,7 +197,7 @@ pthread_exit(void *retval)
     WrapperLock wrapperLock;
 
     ThreadList::threadExit();
-    PluginManager::eventHook(DMTCP_EVENT_PTHREAD_EXIT, NULL);
+    processPthreadExitEvent(DMTCP_EVENT_PTHREAD_EXIT);
   }
 
   _real_pthread_exit(retval);

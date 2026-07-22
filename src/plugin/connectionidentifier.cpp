@@ -59,9 +59,12 @@ ConnectionIdentifier::create()
 ConnectionIdentifier
 ConnectionIdentifier::null()
 {
-  static ConnectionIdentifier n;
+  static ConnectionIdentifier *n = NULL;
 
-  return n;
+  if (n == NULL) {
+    n = new ConnectionIdentifier();
+  }
+  return *n;
 }
 
 // FIXME:  This is never used.

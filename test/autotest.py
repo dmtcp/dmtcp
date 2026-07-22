@@ -231,6 +231,7 @@ class TestSpec:
     restart_pause_level: Optional[int] = None
     expect_restart_pause: bool = False
     run_serial: bool = False
+    disable_aslr: bool = False
     post_restart_validator: Optional[Callable[["TestContext"], None]] = None
     post_run_validator: Optional[Callable[["TestContext"], None]] = None
     # 'make check' runs this suite under a small `ulimit -S -v` (see LIMIT in
@@ -666,7 +667,8 @@ class TestContext:
             if not executable.exists():
                 raise HarnessFailure("setup",
                                      f"missing test binary: {command_argv[0]}")
-        argv = [str(self.harness.launch), *command_argv]
+        argv = self._maybe_disable_aslr(
+            [str(self.harness.launch), *command_argv])
         self._record_command(phase, argv)
         proc = self._spawn_worker_process(
             argv,
@@ -900,6 +902,7 @@ class TestContext:
             restart_args.extend(["--restartdir", str(self.work.ckpt_dir)])
         else:
             restart_args.extend([str(path) for path in images])
+        restart_args = self._maybe_disable_aslr(restart_args)
         self._record_command(f"restart-worker-{index}", restart_args)
         proc = self._spawn_worker_process(
             restart_args,
@@ -918,6 +921,11 @@ class TestContext:
         if self.spec.post_restart_validator is not None:
             self.spec.post_restart_validator(self)
         self._clear_checkpoint_dir()
+
+    def _maybe_disable_aslr(self, argv: List[str]) -> List[str]:
+        if self.spec.disable_aslr:
+            return ["/usr/bin/setarch", "-R", *argv]
+        return argv
 
     def _assert_restart_paused(self, proc: subprocess.Popen):
         start = time.time()
@@ -1533,6 +1541,7 @@ class TestRegistry:
         "hellompich-n1",
         "hellompich-n2",
         "openmpi",
+        "tsan-target",
     })
 
     CATEGORY_BY_TEST = {
@@ -1584,6 +1593,7 @@ class TestRegistry:
         "pthread4": "Thread and mutex tests",
         "pthread5": "Thread and mutex tests",
         "pthread6": "Thread and mutex tests",
+        "tsan-target": "Thread and mutex tests",
         "mutex1": "Thread and mutex tests",
         "mutex2": "Thread and mutex tests",
         "mutex3": "Thread and mutex tests",
@@ -1863,6 +1873,11 @@ class TestRegistry:
         frisbee_p1, frisbee_p2, frisbee_p3 = [
             str(port) for port in sample(range(2000, 10000), 3)
         ]
+        tsan_disable_aslr = self._config_yes("AARCH64_HOST")
+        tsan_required_files = ["/usr/bin/setarch"] if tsan_disable_aslr else []
+        tsan_notes = ["ThreadSanitizer", "launch only"]
+        if tsan_disable_aslr:
+            tsan_notes.append("ASLR disabled on aarch64")
 
         tests = [
             TestSpec("dmtcp1", 1, ["./test/dmtcp1"]),
@@ -1973,7 +1988,8 @@ class TestRegistry:
             # region (src/mtcp/mtcp_restart.c, MAP_NORESERVE_SIZE_THRESHOLD),
             # modeled on how ThreadSanitizer reserves its shadow/meta mappings.
             TestSpec("mmap-noreserve", 1, ["./test/mmap-noreserve"],
-                     needs_max_address_space=True),
+                     needs_max_address_space=True,
+                     run_serial=True),
             TestSpec("gettimeofday", 1, ["./test/gettimeofday"]),
             TestSpec("sigchild", 1, ["./test/sigchild"]),
             TestSpec("rlimit-restore", 1, ["./test/rlimit-restore"]),
@@ -1985,6 +2001,16 @@ class TestRegistry:
             TestSpec("pthread4", 1, ["./test/pthread4"]),
             TestSpec("pthread5", 1, ["./test/pthread5"]),
             TestSpec("pthread6", 1, ["./test/pthread6"]),
+            TestSpec("tsan-target", 1, ["./test/tsan_target"],
+                     cycles=0,
+                     disable_aslr=tsan_disable_aslr,
+                     post_launch_delay=2.0,
+                     needs_max_address_space=True,
+                     required_files=tsan_required_files,
+                     tags=["pthread", "tsan"],
+                     limits=["cycles=0"],
+                     list_notes=tsan_notes,
+                     run_serial=True),
             TestSpec("mutex1", 1, ["./test/mutex1"]),
             TestSpec("mutex2", 1, ["./test/mutex2"]),
             TestSpec("mutex3", 1, ["./test/mutex3"]),
@@ -2032,7 +2058,8 @@ class TestRegistry:
             TestSpec("file2", 1, ["./test/file2"],
                      pre_checkpoint_delay=3.0,
                      tags=["slow"]),
-            TestSpec("presuspend", [1, 2], ["./test/presuspend"]),
+            TestSpec("presuspend", [1, 2], ["./test/presuspend"],
+                     run_serial=True),
             TestSpec("plugin-sleep2", 1,
                      [
                          "--with-plugin "
@@ -2102,7 +2129,8 @@ class TestRegistry:
                      requirements=["real-worker"],
                      limits=["cycles=1"],
                      list_notes=["pathvirt plugin"]),
-            TestSpec("popen1", [1, 2], ["./test/popen1"]),
+            TestSpec("popen1", [1, 2], ["./test/popen1"],
+                     run_serial=True),
             TestSpec("poll-disable-event-plugin", 1,
                      ["--disable-event-plugin ./test/poll"]),
             TestSpec("poll-disable-event-plugin-env", 1, ["./test/poll"],
@@ -2156,10 +2184,12 @@ class TestRegistry:
                      list_notes=["restart --tmpdir"]),
             TestSpec("pty1", 2, ["./test/pty1"]),
             TestSpec("pty2", 2, ["./test/pty2"]),
-            TestSpec("vfork1", [1, 2, 3, 4], ["./test/vfork1 'ls | wc'"]),
+            TestSpec("vfork1", [1, 2, 3, 4], ["./test/vfork1 'ls | wc'"],
+                     run_serial=True),
             TestSpec("vfork2", [2, 3, 4],
                      ["./test/vfork1 "
-                      "'while true; do date; sleep 1; done'"]),
+                      "'while true; do date; sleep 1; done'"],
+                     run_serial=True),
             TestSpec("frisbee", 3,
                      [
                          f"./test/frisbee {frisbee_p1} localhost {frisbee_p2}",
@@ -2170,7 +2200,8 @@ class TestRegistry:
                      env={"DMTCP_GZIP": "1"}, post_launch_delay=2.0),
             TestSpec("nocheckpoint", [1, 2], ["./test/nocheckpoint"],
                      cycles=1,
-                     limits=["cycles=1"]),
+                     limits=["cycles=1"],
+                     run_serial=True),
             TestSpec("checkpoint-header", 1, ["./test/dmtcp1"], cycles=1,
                      env={"DMTCP_GZIP": "0"},
                      validate_checkpoint_headers=True,

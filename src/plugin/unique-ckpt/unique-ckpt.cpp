@@ -11,12 +11,16 @@
 using namespace dmtcp;
 #define GEN_WIDTH 5
 
+static int uniqueCkptPluginEnabled = -1;
+
 extern "C" int
 dmtcp_unique_ckpt_enabled(void)
 {
-  static const int enabled =
-    internalPluginEnabled(INTERNAL_PLUGIN_UNIQUE_CKPT) ? 1 : 0;
-  return enabled;
+  if (uniqueCkptPluginEnabled == -1) {
+    uniqueCkptPluginEnabled =
+      internalPluginEnabled(INTERNAL_PLUGIN_UNIQUE_CKPT) ? 1 : 0;
+  }
+  return uniqueCkptPluginEnabled;
 }
 
 static void

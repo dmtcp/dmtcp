@@ -43,21 +43,9 @@ using namespace dmtcp;
  *     existing read-locks by user threads have been released. NOTE that this
  *     is a WRITER-PREFERRED lock.
  *
- * There is a corner case too -- the newly created thread that has not been
- *   initialized yet; we need to take some extra efforts for that.
- * Here are the steps to handle the newly created uninitialized thread:
- *   A counter (_uninitializedThreadCount) for the number of newly
- *     created uninitialized threads is kept.  The counter is made
- *     thread-safe by using a mutex.
- *   The calling thread (parent) increments the counter before calling clone.
- *   The newly created child thread decrements the counter at the end of
- *     initialization in MTCP/DMTCP.
- *   After acquiring the Write lock, the checkpoint thread waits until the
- *     number of uninitialized threads is zero. At that point, no thread is
- *     executing in the clone wrapper and it is safe to do a checkpoint.
- *
- * XXX: Currently this security is provided only for the clone wrapper; this
- * should be extended to other calls as well.           -- KAPIL
+ * Newly-created pthreads start without a DMTCP Thread descriptor.  The parent
+ * holds one temporary read lock before pthread_create(); child initialization
+ * releases it after the child has joined activeThreads.
  */
 
 // NOTE: PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP is not POSIX.
@@ -67,6 +55,12 @@ static DmtcpMutex libdlLock = DMTCP_MUTEX_INITIALIZER;
 static pid_t libdlLockOwner = 0;
 
 static DmtcpMutex presuspendEventHookLock = DMTCP_MUTEX_INITIALIZER;
+
+static bool
+threadSyncLocksDisabled()
+{
+  return WorkerState::currentState() == WorkerState::UNKNOWN;
+}
 
 void
 ThreadSync::initMotherOfAll()
@@ -124,8 +118,7 @@ ThreadSync::libdlLockLock()
   int saved_errno = errno;
   bool lockAcquired = false;
 
-  // The process is still initializing. We don't need to acquire lock.
-  if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+  if (threadSyncLocksDisabled()) {
     errno = saved_errno;
     return false;
   }
@@ -144,8 +137,7 @@ ThreadSync::libdlLockUnlock()
 {
   int saved_errno = errno;
 
-  // The process is still initializing. We don't need to acquire lock.
-  if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+  if (threadSyncLocksDisabled()) {
     errno = saved_errno;
     return;
   }
@@ -164,8 +156,7 @@ ThreadSync::wrapperExecutionLockLock()
 {
   int saved_errno = errno;
 
-  // The process is still initializing. We don't need to acquire lock.
-  if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+  if (threadSyncLocksDisabled()) {
     errno = saved_errno;
     return;
   }
@@ -181,33 +172,32 @@ ThreadSync::wrapperExecutionLockLock()
   errno = saved_errno;
 }
 
-void
-ThreadSync::wrapperExecutionLockLockForNewThread(Thread *thread)
+bool
+ThreadSync::wrapperExecutionLockLockForNewThread()
 {
-  ASSERT_NOT_NULL(thread,
-                  "wrapperExecutionLockLockForNewThread requires a thread");
-  ASSERT(thread->wrapperLockCount == 0,
-         "new thread wrapper lock count must start at zero: count={}",
-         thread->wrapperLockCount);
+  int saved_errno = errno;
 
+  if (threadSyncLocksDisabled()) {
+    errno = saved_errno;
+    return false;
+  }
+
+  // The parent keeps this reader count alive until the child reaches
+  // thread_start(), so checkpoint cannot slip between pthread_create() and
+  // child thread registration.
   ASSERT_LOCK_SUCCESS(
     DmtcpRWLockRdLockIgnoreQueuedWriter(&_wrapperExecutionLock));
-
-  thread->wrapperLockCount++;
+  errno = saved_errno;
+  return true;
 }
 
 void
-ThreadSync::wrapperExecutionLockUnlockForNewThread(Thread *thread)
+ThreadSync::wrapperExecutionLockUnlockForNewThread()
 {
-  ASSERT_NOT_NULL(thread,
-                  "wrapperExecutionLockUnlockForNewThread requires a thread");
-  ASSERT(thread->wrapperLockCount == 1,
-         "new thread wrapper lock count must be one before unlock: count={}",
-         thread->wrapperLockCount);
+  int saved_errno = errno;
 
   ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&_wrapperExecutionLock));
-
-  thread->wrapperLockCount = 0;
+  errno = saved_errno;
 }
 
 /*
@@ -250,8 +240,7 @@ ThreadSync::wrapperExecutionLockLockExcl()
 {
   int saved_errno = errno;
 
-  // The process is still initializing. We don't need to acquire lock.
-  if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+  if (threadSyncLocksDisabled()) {
     errno = saved_errno;
     return;
   }
@@ -270,18 +259,20 @@ ThreadSync::wrapperExecutionLockUnlock()
 {
   int saved_errno = errno;
 
-  // The process is still initializing. We don't need to acquire lock.
-  if (WorkerState::currentState() == WorkerState::UNKNOWN) {
+  if (threadSyncLocksDisabled()) {
     errno = saved_errno;
     return;
   }
 
   Thread *thread = dmtcp_get_current_thread();
 
-  ASSERT_NE(0u,
-            thread->wrapperLockCount,
-            "wrapper execution lock unlock without matching lock: tid={}",
-            thread->tid);
+  // Lock acquisition can be bypassed while WorkerState is UNKNOWN; startup can
+  // transition to RUNNING before the matching unlock.
+  if (thread->wrapperLockCount == 0) {
+    errno = saved_errno;
+    return;
+  }
+
   thread->wrapperLockCount -= 1;
 
   if (thread->wrapperLockCount == 0) {

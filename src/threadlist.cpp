@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <string.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -51,7 +52,6 @@ using namespace dmtcp;
 ATOMIC_SHARED_GLOBAL bool restoreInProgress = false;
 static Thread motherofallStorage;
 Thread *motherofall = NULL;
-pid_t motherpid = 0;
 sigset_t sigpending_global;
 Thread *activeThreads = NULL;
 void *saved_sysinfo;
@@ -60,6 +60,8 @@ static const char *DMTCP_PRGNAME_PREFIX = "DMTCP:";
 
 static DmtcpMutex threadlistLock = DMTCP_MUTEX_INITIALIZER;
 static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
+// Thread initialization runs before curThread exists; normal locks call gettid().
+static DmtcpMutex threadInitLock = DMTCP_MUTEX_INITIALIZER_LLL;
 
 static DmtcpRWLock threadResumeLock;
 
@@ -102,7 +104,7 @@ unlk_threads(void)
 static int
 signalThread(Thread *thread, int sig)
 {
-  return dmtcp_tgkill(motherpid, thread->tid, sig);
+  return dmtcp_tgkill(getpid(), thread->tid, sig);
 }
 
 bool dmtcp_is_ckpt_thread()
@@ -117,19 +119,7 @@ dmtcp_get_current_thread()
     return curThread;
   }
 
-  if (_real_gettid() == _real_getpid()) {
-    // We are the main thread of the process: create motherofall.
-    ASSERT_NULL(motherofall);
-    ThreadList::init();
-  } else {
-    // Another constructor may have created its own thread, racing to call
-    // ThreadList::init() first. We want the main thread of the process to
-    // win that race. So wait for it here instead.
-    while (__atomic_load_n(&motherofall, __ATOMIC_ACQUIRE) == nullptr) {
-    }
-    ThreadList::initThread(ThreadList::getNewThread(NULL, NULL));
-  }
-
+  ThreadList::init();
   ASSERT_NOT_NULL(curThread);
   return curThread;
 }
@@ -182,10 +172,8 @@ ThreadList::resetOnFork()
                                              // "activeThreads" ptr.
   }
 
-  // CONTEXT:  initThread() resets curThread only if it's non-NULL.
-  // ... -> initializeMtcpEngine() -> ThreadList::init() -> initThread()
-  // See addToActiveList() for more information.
-  curThread = motherofall = nullptr;
+  // After fork, only the calling thread remains.
+  curThread = motherofall = NULL;
 
   init();
   createCkptThread();
@@ -199,25 +187,62 @@ ThreadList::resetOnFork()
 void
 ThreadList::init()
 {
-  if (motherofall == nullptr) {
-    // We need to use static storage for motherofall to avoid calling
-    // JALLOC_MALLOC during initialization which could lead to infinite recursion.
-    Thread *th = &motherofallStorage;
-    prepareThread(th, NULL, NULL);
-    /* Set up caller as one of our threads so we can work on it */
-    initThread(th);
-    // Publish last (release), so a waiting thread sees it fully initialized.
-    __atomic_store_n(&motherofall, th, __ATOMIC_RELEASE);
+  if (curThread != nullptr) {
+    return;
   }
 
-  /* Save this process's pid.  Then verify that the TLS has it where it should
-   * be. When we do a restore, we will have to modify each thread's TLS with the
-   * new motherpid. We also assume that GS uses the first GDT entry for its
-   * descriptor.
-   */
+  Thread *th;
 
-  motherpid = getpid();
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadInitLock));
+  if (motherofall == nullptr && _real_getpid() == _real_gettid()) {
+    // We need to use static storage for motherofall to avoid calling
+    // JALLOC_MALLOC during initialization which could lead to infinite recursion.
+    motherofall = &motherofallStorage;
+    th = motherofall;
+  } else {
+    th = (Thread *) JALLOC_MALLOC(sizeof(Thread));
+  }
 
+  ASSERT_NOT_NULL(th, "thread descriptor is null");
+  memset(th, 0, sizeof(*th));
+
+  th->next = NULL;
+  th->prev = NULL;
+  th->state = ST_RUNNING;
+  th->exiting = 0;
+  th->wrapperLockCount = 0;
+  th->procname[0] = '\0';
+
+  curThread = th;
+
+  th->flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
+              | CLONE_SIGHAND | CLONE_THREAD
+              | CLONE_SETTLS | CLONE_PARENT_SETTID
+              | CLONE_CHILD_CLEARTID
+              | 0);
+
+  th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
+  th->ctid = th->ptid;
+
+  th->tid = dmtcp_pid_init_thread_tid();
+  if (th != motherofall) {
+    // Libc helper threads can inherit a mask that blocks the checkpoint signal.
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SigInfo::ckptSignal());
+    ASSERT_PTHREAD_SUCCESS(
+      _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),
+      "unblocking checkpoint signal in child thread: signal={}",
+      SigInfo::ckptSignal());
+  }
+
+  TRACE("starting thread: tid={}", th->tid);
+
+  // Check and remove any thread descriptor which has the same tid as ours.
+  // Also, remove any dead threads from the list.
+  ThreadList::addToActiveList(th);
+
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadInitLock));
 }
 
 /*****************************************************************************
@@ -255,36 +280,6 @@ ThreadList::createCkptThread()
 
 /*****************************************************************************
  *
- *****************************************************************************/
-Thread *
-ThreadList::getNewThread(void *(*fn)(void *), void *arg)
-{
-  Thread *th = (Thread*) JALLOC_MALLOC(sizeof(Thread));
-  prepareThread(th, fn, arg);
-  return th;
-}
-
-/*****************************************************************************
- *
- *****************************************************************************/
-void
-ThreadList::prepareThread(Thread *th, void *(*fn)(void *), void *arg)
-{
-  /* Save exactly what the caller is supplying */
-  th->fn = fn;
-  th->arg = arg;
-  th->flags = 0;
-  th->ptid = NULL;
-  th->ctid = NULL;
-  th->next = NULL;
-  th->state = ST_RUNNING;
-  th->exiting = 0;
-  th->wrapperLockCount = 0;
-  th->procname[0] = '\0';
-}
-
-/*****************************************************************************
- *
  * Thread exited/exiting.
  *
  *****************************************************************************/
@@ -292,33 +287,6 @@ void
 ThreadList::threadExit()
 {
   curThread->exiting = 1;
-}
-
-/*****************************************************************************
- *
- *****************************************************************************/
-void
-ThreadList::initThread(Thread *th)
-{
-  if (curThread == NULL) {
-    curThread = th;
-  }
-  th->tid = dmtcp_pid_gettid();
-
-  th->flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
-              | CLONE_SIGHAND | CLONE_THREAD
-              | CLONE_SETTLS | CLONE_PARENT_SETTID
-              | CLONE_CHILD_CLEARTID
-              | 0);
-
-  th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
-  th->ctid = th->ptid;
-
-  TRACE("starting thread: tid={}", th->tid);
-
-  // Check and remove any thread descriptor which has the same tid as ours.
-  // Also, remove any dead threads from the list.
-  ThreadList::addToActiveList(th);
 }
 
 /*************************************************************************
@@ -799,8 +767,6 @@ ThreadList::postRestart(int restartPause)
   TLSInfo_RestoreTLSState(motherofall);
   TLSInfo_RestoreTLSTidPid(motherofall);
 
-  motherpid = getpid();
-
   restartPauseLevel = restartPause;
   DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 2);
 
@@ -977,38 +943,17 @@ Thread_RestoreSigState(Thread *th)
 void
 ThreadList::addToActiveList(Thread *th)
 {
-  int tid;
   Thread *thread;
   Thread *next_thread;
 
   lock_threads();
 
-  // CONTEXT:  After fork(), we called:
-  // ... -> initializeMtcpEngine() -> ThreadList::init() -> initThread()
-  // -> addToActiveList()
-  // NOTE:  After a call to fork(), only the calling thread continues to live.
-  // Before initializeMtcpEngine() called init(), it called:
-  // ... -> initializeMtcpEngine() -> ThreadSync::initMotherOfAll() ->
-  // -> ThreadSync::initThread()
-  // Logically, we would have set 'curThread = NULL;; inside
-  // ThreadSync::initThread(), but it's inconvenient since curThread
-  // is static (file-private).
-  // So, initThread() created the new thread descriptor.  We make sure
-  // to set curThread to th, the new descriptor, now, in case it wasn't
-  // done yet.
-  // We had also set curThread to NULL in ThreadList::init().  This also
-  // makes logical sense, but only because a call to fork() allows
-  // only the calling thread (caller of ThreadList::init()) to live on.
-  // So, that solution seems less general.  So, we'll handle it here, too:
-  curThread = th;
-
-  tid = curThread->tid;
-  ASSERT(tid != 0, "cannot add thread with zero tid");
+  ASSERT(th->tid != 0, "cannot add thread with zero tid");
 
   // First remove duplicate descriptors.
   for (thread = activeThreads; thread != NULL; thread = next_thread) {
     next_thread = thread->next;
-    if (thread != curThread && thread->tid == tid) {
+    if (thread != th && thread->tid == th->tid) {
       TRACE("Removing duplicate thread descriptor: tid={}", thread->tid);
 
       // There will be at most one duplicate descriptor.
@@ -1030,12 +975,12 @@ ThreadList::addToActiveList(Thread *th)
     }
   }
 
-  curThread->next = activeThreads;
-  curThread->prev = NULL;
+  th->next = activeThreads;
+  th->prev = NULL;
   if (activeThreads != NULL) {
-    activeThreads->prev = curThread;
+    activeThreads->prev = th;
   }
-  activeThreads = curThread;
+  activeThreads = th;
 
   unlk_threads();
 }

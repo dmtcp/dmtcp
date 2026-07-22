@@ -147,6 +147,12 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         self.assertEqual(spec.private_env_dirs, {"SCREENDIR": "screen"})
 
+    def test_spec_can_require_max_address_space(self):
+        spec = TestSpec("tsan-target", 1, ["./test/tsan_target"],
+                        needs_max_address_space=True)
+
+        self.assertTrue(spec.needs_max_address_space)
+
     def test_spec_can_record_configure_flags_and_required_files(self):
         spec = TestSpec("java1", 1, ["java -Xmx5M java1"],
                         configure_flags=["HAS_JAVA", "HAS_JAVAC"],
@@ -3028,6 +3034,11 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertTrue(REGISTRY.get_test("openmp-2").run_serial)
             self.assertEqual(REGISTRY.get_test("openmp-2").blocked_configure_flags,
                              ["AARCH64_HOST"])
+        self.assertTrue(REGISTRY.get_test("nocheckpoint").run_serial)
+        self.assertTrue(REGISTRY.get_test("popen1").run_serial)
+        self.assertTrue(REGISTRY.get_test("presuspend").run_serial)
+        self.assertTrue(REGISTRY.get_test("vfork1").run_serial)
+        self.assertTrue(REGISTRY.get_test("vfork2").run_serial)
         assert_registered_when_repo_file_exists(self, names, "dmtcp1-m32",
                                                 "test/dmtcp1-m32")
         assert_registered_when_repo_file_exists(self, names, "selinux1",

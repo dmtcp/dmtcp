@@ -723,11 +723,14 @@ ProcessInfo::addKeyValuePairToCkptHeader(const string &key, const string &value)
 const string&
 ProcessInfo::getValue(const string &key)
 {
-  static string *empty = new string();
   if (kvmap.contains(key)) {
     return kvmap[key];
   }
 
+  static string *empty = NULL;
+  if (empty == NULL) {
+    empty = new string();
+  }
   return *empty;
 }
 

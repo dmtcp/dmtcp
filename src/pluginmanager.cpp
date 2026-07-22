@@ -1,6 +1,5 @@
 #include "pluginmanager.h"
 
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,6 +25,11 @@ extern LIB_PRIVATE DmtcpPluginDescriptor_t sysvipcPlugin;
 extern LIB_PRIVATE DmtcpPluginDescriptor_t timerPlugin;
 extern LIB_PRIVATE DmtcpPluginDescriptor_t pidPlugin;
 extern LIB_PRIVATE DmtcpPluginDescriptor_t UniquePidPlugin;
+
+extern "C" int dmtcp_alloc_enabled(void);
+extern "C" int dmtcp_dl_enabled(void);
+extern "C" int dmtcp_pid_is_enabled(void);
+extern "C" int dmtcp_unique_ckpt_enabled(void);
 
 extern "C" void
 dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)
@@ -103,7 +107,7 @@ static InternalPluginEntry internalPlugins[] = {
   { &dlPlugin, false }
 };
 
-static pthread_once_t internalPluginInitOnce = PTHREAD_ONCE_INIT;
+static bool internalPluginStateInitialized = false;
 static bool disableAllInternalPlugins = false;
 
 static size_t
@@ -126,8 +130,12 @@ internalPluginEnvName(const char *pluginName,
 }
 
 static void
-initializeInternalPluginStateOnce()
+initializeInternalPluginState()
 {
+  if (internalPluginStateInitialized) {
+    return;
+  }
+
   disableAllInternalPlugins =
     Util::readBooleanEnv(ENV_VAR_DISABLE_ALL_PLUGINS, false);
 
@@ -150,13 +158,7 @@ initializeInternalPluginStateOnce()
                                                  envName, sizeof(envName)),
                            true);
   }
-}
-
-static void
-initializeInternalPluginState()
-{
-  ASSERT_PTHREAD_SUCCESS(pthread_once(&internalPluginInitOnce,
-                                      initializeInternalPluginStateOnce));
+  internalPluginStateInitialized = true;
 }
 
 static InternalPluginEntry *
@@ -217,6 +219,15 @@ extern "C" void
 dmtcp_initialize_plugin()
 {
   initializeInternalPluginState();
+  // These wrapper-level caches are plain file-local values so early sanitizer
+  // startup cannot trip C++ guarded static initialization.  Prime them while
+  // plugin initialization is still single-threaded; later wrapper calls only
+  // read the cached values.
+  dmtcp_alloc_enabled();
+  dmtcp_dl_enabled();
+  dmtcp_pid_is_enabled();
+  dmtcp_unique_ckpt_enabled();
+
   for (size_t i = 0; i < numInternalPlugins(); i++) {
     InternalPluginEntry *entry = &internalPlugins[i];
     if (entry->descriptor->event_hook != NULL &&
