@@ -1520,9 +1520,10 @@ Optional Features:
                  === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===
                           (Use at your own risk!!)
 
-  --disable-prgname-prefix
-                          On restart, disables 'DMTCP:' prefix of comm field
-                          in ps for CUDA ckpt compatibility; Default: enabled
+  --enable-prgname-prefix
+                          On restart, adds 'DMTCP:' prefix to comm field in
+                          ps; Default: disabled for CUDA ckpt compatibility
+                          (the CUDA checkpoint API matches processes by name)
                           (Alternative: set DMTCP_DISABLE_PRGNAME_PREFIX env
                           var during dmtcp_launch)
   --enable-fsgsbase-override
@@ -8364,7 +8365,7 @@ if test ${enable_prgname_prefix+y}
 then :
   enableval=$enable_prgname_prefix; use_prgname_prefix=$enableval
 else case e in #(
-  e) use_prgname_prefix=yes ;;
+  e) use_prgname_prefix=no ;;
 esac
 fi
 

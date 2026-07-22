@@ -194,13 +194,14 @@ AC_ARG_ENABLE([experts_only],
 AC_ARG_ENABLE([experts_only_after], [AS_HELP_STRING([ ], [])], [], [])
 
 AC_ARG_ENABLE([prgname-prefix],
-            [AS_HELP_STRING([--disable-prgname-prefix],
-                            [On restart, disables 'DMTCP:' prefix of comm field
-                             in ps for CUDA ckpt compatibility; Default: enabled
+            [AS_HELP_STRING([--enable-prgname-prefix],
+                            [On restart, adds 'DMTCP:' prefix to comm field in
+                             ps; Default: disabled for CUDA ckpt compatibility
+                             (the CUDA checkpoint API matches processes by name)
                              (Alternative:  set DMTCP_DISABLE_PRGNAME_PREFIX
                              env var during dmtcp_launch)])],
             [use_prgname_prefix=$enableval],
-            [use_prgname_prefix=yes])
+            [use_prgname_prefix=no])
 if test "$use_prgname_prefix" = "yes"; then
   AC_DEFINE([ENABLE_PRGNAME_PREFIX],[1],[Enable 'DMTCP:' prefix in comm
                                          field of 'ps' (for CUDA ckpt)])
