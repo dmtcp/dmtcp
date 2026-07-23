@@ -475,6 +475,13 @@ checkpointhread(void *dummy)
   ckptThread = curThread;
   ckptThread->state = ST_CKPNTHREAD;
 
+  // EXPERIMENT (not working): runs only once, on the first launch (this is
+  // before the sigsetjmp restart point below) -- see the "EXPERIMENT (not
+  // working)" comment in restarthread(), below.
+  // if (is_tsan()) {
+  //   ckptThread->tsan_fiber_ctx = __tsan_get_current_fiber();
+  // }
+
   // Important:  we set this in the ckpt thread to avoid a race,
   // since: (i) the ckpt thread must read this; and (ii) if we had
   // set it earlier, it could be invoked and modified earlier
@@ -1048,6 +1055,12 @@ restarthread(void *threadv)
     ASSERT_NOT_NULL(__tsan_create_fiber,
                     "TSAN runtime is missing __tsan_create_fiber");
     void *staleFiber = thread->tsan_fiber_ctx;
+    // EXPERIMENT (not working): switch to staleFiber here first, to give
+    // this raw restarted thread a valid TSAN identity before creating the
+    // fresh fiber -- goal was to drop the suppressions-file requirement.
+    // if (staleFiber != NULL && dmtcp_is_ckpt_thread()) {
+    //   __tsan_switch_to_fiber(staleFiber, 0);
+    // }
     void *freshFiber = __tsan_create_fiber(0);
     ASSERT_NOT_NULL(freshFiber, "__tsan_create_fiber returned NULL");
     __tsan_switch_to_fiber(freshFiber, 0);
