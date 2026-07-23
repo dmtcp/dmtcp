@@ -30,9 +30,25 @@ using namespace dmtcp;
 EXTERNC int
 dmtcp_alloc_enabled()
 {
-  static const int enabled =
-    internalPluginEnabled(INTERNAL_PLUGIN_ALLOC) ? 1 : 0;
-  return enabled;
+  // We used to cache this in a function-local `static const int enabled`, but a
+  // function-local static with a runtime initializer compiles to a C++ guard
+  // (__cxa_guard_acquire/release), which ThreadSanitizer intercepts.  This
+  // wrapper can run during TSAN's own constructor (TSAN may call malloc while
+  // installing its interceptors), when TSAN's shadow is not yet initialized, so
+  // the intercepted guard misbehaves -- the same class of early-init crash that
+  // bit pthread_once in initializeInternalPluginState().
+  //
+  // Use a constant-initialized atomic flag instead: no C++ guard, and the
+  // atomic ops are compiler intrinsics rather than TSAN-intercepted calls.
+  // internalPluginEnabled() is idempotent, so a benign double-init under
+  // contention is harmless.
+  static int enabled = -1;  // -1 = not yet computed
+  int value = __atomic_load_n(&enabled, __ATOMIC_ACQUIRE);
+  if (value < 0) {
+    value = internalPluginEnabled(INTERNAL_PLUGIN_ALLOC) ? 1 : 0;
+    __atomic_store_n(&enabled, value, __ATOMIC_RELEASE);
+  }
+  return value;
 }
 
 extern "C" void *calloc(size_t nmemb, size_t size)

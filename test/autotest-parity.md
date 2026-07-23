@@ -39,6 +39,7 @@ or executable-path checks enable them.
 | Plugins and events | `dlopen1`, `dlopen2`, `syscall-tester`, `checkpoint-open-files-env`, `presuspend`, `plugin-sleep2`, `plugin-example-db`, `plugin-init`, `plugin-init-env`, `modify-env`, `pathvirt`, `poll-disable-event-plugin`, `poll-disable-event-plugin-env`, `popen1`, `restartdir`, `nocheckpoint` |
 | Shells, terminal apps, and language/runtime smoke | `perl`, `python`, `bash`, `dash`, `zsh`, `readline`, `tcsh`, `script`, `vim`, `emacs`, `screen`, `java1`, `cilk1`, `matlab-nodisplay`, `openmp-1`, `openmp-2` |
 | MPI smoke | `hellompich-n1`, `hellompich-n2`, `openmpi` |
+| Sanitizers | `tsan-gcc`, `tsan-clang`, `tsan-clang-static` |
 
 ## Ported With Explicit Limits
 
@@ -97,6 +98,8 @@ or executable-path checks enable them.
 | `java1` | Configure-flag-gated and required-file-gated | Requires both `HAS_JAVA`/`HAS_JAVAC` and the built `test/java1.class` artifact. |
 | `shared-memory3` | Ported, slow | This old-disabled test now passes two checkpoint/restart cycles on the current host. It keeps the old harness's `S=10*DEFAULT_S` checkpoint settle delay. |
 | `mmap-noreserve` | Ported with `cycles=2`, address-space-gated | Regression guard for restoring a huge `MAP_NORESERVE` anonymous region (`src/mtcp/mtcp_restart.c`, `MAP_NORESERVE_SIZE_THRESHOLD`), modeled on how ThreadSanitizer reserves its shadow/meta mappings. The registry's `needs_max_address_space` check skips it when `RLIMIT_AS` is finite and too low to hold the test's reservation. |
+| `tsan-resume` | New test with `cycles=1`, address-space-gated | Regression guard for the TSAN checkpoint/resume path in isolation: repeatedly checkpoints the same live `tsan_target` process (via `resume_cycles=2`) without ever restarting it, before a final restart. Not a port of an old-harness test. |
+| `tsan-race` | New test with `cycles=1`, address-space-gated | Regression guard verifying TSAN's race *detection* survives a checkpoint/restart cycle, using a target (`tsan_target_race`) that only starts racing after restart and a `post_restart_validator` that waits for TSAN's own exit code instead of a still-running worker. Not a port of an old-harness test. |
 
 Logging-specific limits:
 
