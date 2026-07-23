@@ -43,12 +43,15 @@
 
 using namespace dmtcp;
 
+static int dlPluginEnabled = -1;
+
 extern "C" int
 dmtcp_dl_enabled()
 {
-  static const int enabled =
-    internalPluginEnabled(INTERNAL_PLUGIN_DL) ? 1 : 0;
-  return enabled;
+  if (dlPluginEnabled == -1) {
+    dlPluginEnabled = internalPluginEnabled(INTERNAL_PLUGIN_DL) ? 1 : 0;
+  }
+  return dlPluginEnabled;
 }
 
 static void

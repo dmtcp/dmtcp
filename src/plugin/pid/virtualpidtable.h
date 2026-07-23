@@ -51,9 +51,7 @@ class VirtualPidTable : public VirtualIdTable<pid_t>
     static pid_t getPidFromEnvVar();
     static void initializeInstance(pid_t pid);
     static void resetPidPpid();
-    static void resetTid(pid_t tid);
     static pid_t getpid();
-    static pid_t gettid();
     static pid_t getppid();
     virtual void postRestart();
     virtual void resetOnFork();
@@ -62,8 +60,13 @@ class VirtualPidTable : public VirtualIdTable<pid_t>
     pid_t realToVirtual(pid_t realPid);
     pid_t virtualToReal(pid_t virtualId);
     void refresh();
+    void refreshExitedTids();
+    void recordExitTid(pid_t tid);
 
     pid_t getNewVirtualTid();
+
+  private:
+    vector<pid_t> _exitedThreadTids;
 };
 }
 #endif // ifndef VIRTUAL_PID_TABLE_H

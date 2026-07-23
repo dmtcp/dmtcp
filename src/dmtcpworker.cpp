@@ -52,6 +52,8 @@ EXTERNC ProcSelfMaps *procSelfMaps;
 static ATOMIC_SHARED_GLOBAL bool exitInProgress = false;
 static bool exitAfterCkpt = 0;
 static bool dmtcp_initialized = false;
+static bool ckptSignalEnvInitialized = false;
+static const char *ckptSignalEnv = NULL;
 
 /* NOTE:  Please keep this function in sync with its copy at:
  *   dmtcp_nocheckpoint.cpp:restoreUserLDPRELOAD()
@@ -132,11 +134,15 @@ DmtcpWorker::determineCkptSignal()
 {
   int sig = CKPT_SIGNAL;
   char *endp = NULL;
-  static const char *tmp = getenv(ENV_VAR_SIGCKPT);
 
-  if (tmp != NULL) {
-    sig = strtol(tmp, &endp, 0);
-    if ((errno != 0) || (tmp == endp)) {
+  if (!ckptSignalEnvInitialized) {
+    ckptSignalEnv = getenv(ENV_VAR_SIGCKPT);
+    ckptSignalEnvInitialized = true;
+  }
+
+  if (ckptSignalEnv != NULL) {
+    sig = strtol(ckptSignalEnv, &endp, 0);
+    if ((errno != 0) || (ckptSignalEnv == endp)) {
       sig = CKPT_SIGNAL;
     }
     if (sig < 1 || sig >= SIGRTMAX) {

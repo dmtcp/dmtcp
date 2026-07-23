@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <linux/fs.h>  // for PAGEMAP_SCAN ioctl (Linux 6.7+)
@@ -137,31 +138,34 @@ Util::readBooleanEnv(const char *envName, bool defaultValue)
 Util::Version
 Util::glibcVersion()
 {
-  static const Version cachedVersion = [] {
-    const char *versionText = gnu_get_libc_version();
-    const char *dot = strchr(versionText, '.');
-    ASSERT(dot != NULL && dot != versionText && dot[1] != '\0',
-           "unsupported glibc version text: version={}",
-           versionText);
+  static Version cachedVersion = {0, 0};
 
-    Version parsed = {0, 0};
-    ASSERT(parseInteger(std::string_view(versionText, dot - versionText),
-                        &parsed.major),
-           "failed to parse glibc major version: version={}",
-           versionText);
-    const char *minorStart = dot + 1;
-    const char *minorEnd = strchr(minorStart, '.');
-    if (minorEnd == NULL) {
-      minorEnd = minorStart + strlen(minorStart);
-    }
-    ASSERT(parseInteger(std::string_view(minorStart, minorEnd - minorStart),
-                        &parsed.minor),
-           "failed to parse glibc minor version: version={}",
-           versionText);
-    return parsed;
-  }();
+  if (cachedVersion.major != 0) {
+    return cachedVersion;
+  }
 
-  return cachedVersion;
+  const char *versionText = gnu_get_libc_version();
+  const char *dot = strchr(versionText, '.');
+  ASSERT(dot != NULL && dot != versionText && dot[1] != '\0',
+         "unsupported glibc version text: version={}",
+         versionText);
+
+  Version parsed = {0, 0};
+  ASSERT(parseInteger(std::string_view(versionText, dot - versionText),
+                      &parsed.major),
+         "failed to parse glibc major version: version={}",
+         versionText);
+  const char *minorStart = dot + 1;
+  const char *minorEnd = strchr(minorStart, '.');
+  if (minorEnd == NULL) {
+    minorEnd = minorStart + strlen(minorStart);
+  }
+  ASSERT(parseInteger(std::string_view(minorStart, minorEnd - minorStart),
+                      &parsed.minor),
+         "failed to parse glibc minor version: version={}",
+         versionText);
+  cachedVersion = parsed;
+  return parsed;
 }
 
 // Add it back if needed.
@@ -209,7 +213,13 @@ Util::writeAll(int fd, const void *buf, size_t count)
   size_t num_written = 0;
 
   do {
-    ssize_t rc = write(fd, ptr + num_written, count - num_written);
+    // Use the raw write(2) syscall, not the libc wrapper: ThreadSanitizer
+    // intercepts write() and inspects the buffer's shadow.  At checkpoint time
+    // this buffer is an arbitrary memory region -- including TSAN's own shadow/
+    // meta mappings -- and TSAN then reports a spurious use-after-free.  A raw
+    // syscall is not intercepted.
+    ssize_t rc =
+      syscall(SYS_write, fd, ptr + num_written, count - num_written);
     if (rc == -1) {
       if (errno == EINTR || errno == EAGAIN) {
         continue;
@@ -240,7 +250,10 @@ Util::readAll(int fd, void *buf, size_t count)
   size_t num_read = 0;
 
   for (num_read = 0; num_read < count;) {
-    rc = read(fd, ptr + num_read, count - num_read);
+    // Raw read(2) syscall, not the libc wrapper: see writeAll() above -- TSAN
+    // intercepts read() and inspects the destination buffer, which at restart
+    // time may overlap TSAN's own mappings and trip a spurious report.
+    rc = syscall(SYS_read, fd, ptr + num_read, count - num_read);
     if (rc == -1) {
       if (errno == EINTR || errno == EAGAIN) {
         continue;
@@ -563,16 +576,22 @@ Util::isPseudoTty(const char *path)
 size_t
 Util::pageSize()
 {
-  static size_t page_size = sysconf(_SC_PAGESIZE);
+  static size_t page_size = 0;
 
+  if (page_size == 0) {
+    page_size = sysconf(_SC_PAGESIZE);
+  }
   return page_size;
 }
 
 size_t
 Util::pageMask()
 {
-  static size_t page_mask = ~(pageSize() - 1);
+  static size_t page_mask = 0;
 
+  if (page_mask == 0) {
+    page_mask = ~(pageSize() - 1);
+  }
   return page_mask;
 }
 
@@ -585,7 +604,7 @@ Util::pageMask()
 bool
 Util::areZeroPages(void *addr, size_t numPages)
 {
-  static size_t page_size = pageSize();
+  size_t page_size = pageSize();
   long long *buf = (long long *)addr;
   size_t i;
   size_t end = numPages * page_size / sizeof(*buf);
@@ -696,8 +715,12 @@ Util::scanOccupiedRangeBatch(uintptr_t start, uintptr_t end,
     size_t pages_to_read = (pages_remaining < PAGEMAP_BATCH_SIZE)
                            ? pages_remaining : PAGEMAP_BATCH_SIZE;
     off_t offset = (off_t)(current_addr / page_size) * sizeof(uint64_t);
-    ssize_t bytes_read =
-      pread(fd, entries, pages_to_read * sizeof(uint64_t), offset);
+    // Raw pread64(2) syscall, not the libc wrapper: see writeAll()/readAll()
+    // above -- TSAN intercepts pread() and inspects the destination buffer,
+    // which at checkpoint time may overlap TSAN's own mappings and trip a
+    // spurious report.
+    ssize_t bytes_read = syscall(SYS_pread64, fd, entries,
+                                  pages_to_read * sizeof(uint64_t), offset);
     if (bytes_read <= 0) {
       break;
     }

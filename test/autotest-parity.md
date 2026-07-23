@@ -34,11 +34,12 @@ or executable-path checks enable them.
 | Core smoke and process state | `dmtcp1`, `dmtcp1-m32`, `dmtcp1-quiet`, `dmtcp1-trace`, `dmtcp2`, `dmtcp3`, `dmtcp4`, `dmtcp5`, `alarm`, `sched_test`, `coordinator-barrier`, `gettid`, `sigchild`, `rlimit-restore`, `rlimit-nofile`, `environ`, `realpath`, `forkexec`, `vfork1`, `vfork2`, `frisbee`, `checkpoint-header`, `restart-debug-pause`, `restart-debug-pause-env`, `restart-no-strict-checking`, `restart-no-strict-checking-env`, `restart-ckptdir-flag`, `restart-join-coordinator-flag`, `restart-tmpdir-flag`, `ckptdir-flag`, `ckpt-signal-flag`, `ckpt-signal-env`, `checkpoint-dir-env`, `gzip-flag`, `no-gzip-flag`, `no-gzip-env`, `allow-file-overwrite`, `allow-file-overwrite-env`, `tmpdir-flag`, `tmpdir-env`, `checkpoint-interval-env`, `checkpoint-interval-flag`, `unique-ckpt-env`, `unique-ckpt-flag`, `unique-ckpt-disable-flag`, `selinux1`, `cma`, `waitpid`, `waitid-syscall` |
 | Logging | `logging-runtime`, `logging-quiet`, `logging-overrides` |
 | File, fd, and path behavior | `file1`, `file2`, `file3`, `stat`, `mmap1`, `mremap`, `zeropages`, `zeropages-pread`, `poll`, `shared-fd1`, `shared-fd2`, `stale-fd`, `procfd1`, `epoll1`, `epoll2`, `gzip` |
-| Threads and synchronization | `pthread1`, `pthread2`, `pthread3`, `pthread4`, `pthread5`, `pthread6`, `pthread_atfork1`, `pthread_atfork2`, `mutex1`, `mutex2`, `mutex3`, `mutex4`, `timer1`, `clock`, `gettimeofday` |
+| Threads and synchronization | `pthread1`, `pthread2`, `pthread3`, `pthread4`, `pthread5`, `pthread6`, `pthread_atfork1`, `pthread_atfork2`, `mutex1`, `mutex2`, `mutex3`, `mutex4`, `tsan-target`, `timer1`, `clock`, `gettimeofday` |
 | IPC, sockets, and PTY smoke | `client-server`, `seqpacket`, `ssh1`, `shared-memory1`, `shared-memory2`, `shared-memory3`, `sysv-shm1`, `sysv-shm2`, `sysv-sem`, `sysv-msg`, `posix-mq1`, `posix-mq-close-untracked`, `pty1`, `pty2` |
 | Plugins and events | `dlopen1`, `dlopen2`, `syscall-tester`, `checkpoint-open-files-env`, `presuspend`, `plugin-sleep2`, `plugin-example-db`, `plugin-init`, `plugin-init-env`, `modify-env`, `pathvirt`, `poll-disable-event-plugin`, `poll-disable-event-plugin-env`, `popen1`, `restartdir`, `nocheckpoint` |
 | Shells, terminal apps, and language/runtime smoke | `perl`, `python`, `bash`, `dash`, `zsh`, `readline`, `tcsh`, `script`, `vim`, `emacs`, `screen`, `java1`, `cilk1`, `matlab-nodisplay`, `openmp-1`, `openmp-2` |
 | MPI smoke | `hellompich-n1`, `hellompich-n2`, `openmpi` |
+| Sanitizers | `tsan-gcc`, `tsan-clang`, `tsan-clang-static` |
 
 ## Ported With Explicit Limits
 
@@ -85,6 +86,7 @@ or executable-path checks enable them.
 | `dmtcp1-m32` | Built-artifact-gated | Authoritative only when the multilib build produces `test/dmtcp1-m32`. |
 | `readline`, `selinux1`, `cma`, `cilk1`, `pthread_atfork1`, `pthread_atfork2` | Built-artifact-gated | Configure and Makefile rules still decide whether these binaries can be built, but the Python registry now filters them by the resulting `test/<name>` artifact instead of duplicating those configure or architecture checks. |
 | `openmp-1`, `openmp-2` | Built-artifact-gated, slow | These use the default two checkpoint/restart cycles and keep the old harness's `S=3*DEFAULT_S` checkpoint settle delay because checkpointing too early can race active OpenMP startup work. |
+| `tsan-target` | Ported with `cycles=0` | This validates that a ThreadSanitizer-linked process can start under DMTCP without exercising checkpoint/restart, which TSAN does not support here. It is skipped on m32 and when `RLIMIT_AS` has a restrictive hard limit. |
 | `ssh1` | Configure-flag-gated, slow | Authoritative only when localhost SSH is available; the old harness used extra checkpoint settle time for this external-service case. |
 | `nocheckpoint` | Ported with `cycles=1` | The second post-restart checkpoint needs separate debugging; keep the single-cycle behavior explicit. |
 | `matlab-nodisplay` | Configure-flag-gated | The command path is discovered by configure and carried on the `TestSpec`; the registry filters it with `HAS_MATLAB`. |
@@ -97,6 +99,8 @@ or executable-path checks enable them.
 | `java1` | Configure-flag-gated and required-file-gated | Requires both `HAS_JAVA`/`HAS_JAVAC` and the built `test/java1.class` artifact. |
 | `shared-memory3` | Ported, slow | This old-disabled test now passes two checkpoint/restart cycles on the current host. It keeps the old harness's `S=10*DEFAULT_S` checkpoint settle delay. |
 | `mmap-noreserve` | Ported with `cycles=2`, address-space-gated | Regression guard for restoring a huge `MAP_NORESERVE` anonymous region (`src/mtcp/mtcp_restart.c`, `MAP_NORESERVE_SIZE_THRESHOLD`), modeled on how ThreadSanitizer reserves its shadow/meta mappings. The registry's `needs_max_address_space` check skips it when `RLIMIT_AS` is finite and too low to hold the test's reservation. |
+| `tsan-resume` | New test with `cycles=1`, address-space-gated | Regression guard for the TSAN checkpoint/resume path in isolation: repeatedly checkpoints the same live `tsan_target` process (via `resume_cycles=2`) without ever restarting it, before a final restart. Not a port of an old-harness test. |
+| `tsan-race` | New test with `cycles=1`, address-space-gated | Regression guard verifying TSAN's race *detection* survives a checkpoint/restart cycle, using a target (`tsan_target_race`) that only starts racing after restart and a `post_restart_validator` that waits for TSAN's own exit code instead of a still-running worker. Not a port of an old-harness test. |
 
 Logging-specific limits:
 

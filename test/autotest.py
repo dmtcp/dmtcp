@@ -35,6 +35,10 @@ from dataclasses import dataclass, field, replace
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SLOW_FACTOR_BASE = 5
 DEFAULT_SLOW_PRE_CHECKPOINT_DELAY = 0.3
+# TSAN_OPTIONS exitcode used by the tsan-race test: the process is expected
+# to exit with exactly this code once TSAN detects the deliberate post-
+# restart race (see validate_tsan_race_detected() and tsan_target_race.c).
+TSAN_RACE_EXITCODE = 66
 VALID_LAUNCH_MODES = frozenset({"pipe", "pty"})
 COLOR_RED = "\033[0;31m"
 COLOR_RESET = "\033[0m"
@@ -202,6 +206,12 @@ class TestSpec:
     peers: Union[int, List[int]]
     commands: List[str]
     cycles: int = 2
+    # Extra checkpoint/resume round-trips inserted after each cycle's
+    # checkpoint, with NO restart in between (the live process is simply
+    # checkpointed again). Exercises repeated resume without ever touching
+    # the restart path -- see the "tsan-resume" TestSpec for why this
+    # matters.
+    resume_cycles: int = 0
     timeout: float = 30.0
     checkpoint_command: str = "--checkpoint"
     pre_checkpoint_delay: float = 0.0
@@ -231,6 +241,7 @@ class TestSpec:
     restart_pause_level: Optional[int] = None
     expect_restart_pause: bool = False
     run_serial: bool = False
+    disable_aslr: bool = False
     post_restart_validator: Optional[Callable[["TestContext"], None]] = None
     post_run_validator: Optional[Callable[["TestContext"], None]] = None
     # 'make check' runs this suite under a small `ulimit -S -v` (see LIMIT in
@@ -520,6 +531,10 @@ class TestContext:
                 self.harness.progress("ckpt-start")
                 self._checkpoint()
                 self.harness.progress("ckpt-passed")
+                for _ in range(self.spec.resume_cycles):
+                    self.harness.progress("ckpt-start")
+                    self._checkpoint_resume()
+                    self.harness.progress("ckpt-passed")
                 self._kill_workers()
                 self.harness.progress("rstr-start")
                 self._restart()
@@ -666,7 +681,8 @@ class TestContext:
             if not executable.exists():
                 raise HarnessFailure("setup",
                                      f"missing test binary: {command_argv[0]}")
-        argv = [str(self.harness.launch), *command_argv]
+        argv = self._maybe_disable_aslr(
+            [str(self.harness.launch), *command_argv])
         self._record_command(phase, argv)
         proc = self._spawn_worker_process(
             argv,
@@ -770,6 +786,30 @@ class TestContext:
             return DmtcpStatus.from_json(payload)
         except ValueError as error:
             raise HarnessFailure("status", str(error)) from error
+
+    def _checkpoint_resume(self):
+        # Issuing a checkpoint immediately after the worker is confirmed
+        # RUNNING can still transiently race the coordinator's own internal
+        # "workersRunningAndSuspendMsgSent" guard (see the comment on that
+        # variable in dmtcp_coordinator.cpp): the coordinator intentionally
+        # rejects an overlapping checkpoint request with
+        # DMT_COORD_NOT_RUNNING for a brief window after the previous one,
+        # and that internal readiness isn't visible through --status. This
+        # is expected, documented coordinator behavior, not a bug. So retry
+        # briefly instead of treating one rejection as a failure.
+        deadline = time.time() + self.spec.timeout
+        while True:
+            try:
+                self._checkpoint()
+                return
+            except HarnessFailure as failure:
+                # _run_json_command() wraps this message with
+                # _with_diagnostics(), appending "; port=...; ..."; match
+                # the prefix rather than the whole (decorated) message.
+                if not failure.message.startswith("DMT_COORD_NOT_RUNNING") \
+                        or time.time() >= deadline:
+                    raise
+                time.sleep(0.1)
 
     def _checkpoint(self):
         self._write_checkpoint_dir_files()
@@ -876,6 +916,11 @@ class TestContext:
             self._quit_workers_and_coordinator()
         elif self.spec.completion_command == "--kill-exit-on-last":
             self._kill_workers_and_wait_for_coordinator_exit()
+        elif self.spec.completion_command == "--none":
+            # Worker is expected to have already exited on its own (e.g.
+            # tsan-race, where TSAN's own exit() call ends the process);
+            # nothing left to tear down here.
+            pass
         else:
             raise HarnessFailure(
                 "setup",
@@ -900,6 +945,7 @@ class TestContext:
             restart_args.extend(["--restartdir", str(self.work.ckpt_dir)])
         else:
             restart_args.extend([str(path) for path in images])
+        restart_args = self._maybe_disable_aslr(restart_args)
         self._record_command(f"restart-worker-{index}", restart_args)
         proc = self._spawn_worker_process(
             restart_args,
@@ -918,6 +964,11 @@ class TestContext:
         if self.spec.post_restart_validator is not None:
             self.spec.post_restart_validator(self)
         self._clear_checkpoint_dir()
+
+    def _maybe_disable_aslr(self, argv: List[str]) -> List[str]:
+        if self.spec.disable_aslr:
+            return ["/usr/bin/setarch", "-R", *argv]
+        return argv
 
     def _assert_restart_paused(self, proc: subprocess.Popen):
         start = time.time()
@@ -1508,6 +1559,29 @@ def validate_auto_checkpoint_interval(context: TestContext):
         )
 
 
+def validate_tsan_race_detected(context: TestContext):
+    # tsan_target_race.c only starts racing after restart, well after
+    # _restart() has already confirmed the worker came back up and is
+    # RUNNING; so a timeout here means TSAN failed to detect the race
+    # (not that restart itself failed).
+    proc = context.processes[-1]
+    try:
+        returncode = proc.wait(timeout=context.spec.timeout)
+    except subprocess.TimeoutExpired as error:
+        raise HarnessFailure(
+            "validate",
+            "TSAN did not detect the post-restart race within the "
+            "test timeout: worker kept running",
+        ) from error
+    if returncode != TSAN_RACE_EXITCODE:
+        raise HarnessFailure(
+            "validate",
+            f"expected TSAN to detect the post-restart race and exit "
+            f"with code {TSAN_RACE_EXITCODE}; worker exited with "
+            f"{returncode}",
+        )
+
+
 class TestRegistry:
     DISABLED_CATEGORY = "Disabled tests"
 
@@ -1533,6 +1607,7 @@ class TestRegistry:
         "hellompich-n1",
         "hellompich-n2",
         "openmpi",
+        "tsan-target",
     })
 
     CATEGORY_BY_TEST = {
@@ -1584,6 +1659,7 @@ class TestRegistry:
         "pthread4": "Thread and mutex tests",
         "pthread5": "Thread and mutex tests",
         "pthread6": "Thread and mutex tests",
+        "tsan-target": "Thread and mutex tests",
         "mutex1": "Thread and mutex tests",
         "mutex2": "Thread and mutex tests",
         "mutex3": "Thread and mutex tests",
@@ -1798,6 +1874,8 @@ class TestRegistry:
             reason = cls._address_space_reason()
             if reason:
                 reasons.append(reason)
+        if test.name == "tsan-clang" and not test.library_paths:
+            reasons.append("missing clang TSAN runtime dir")
         for command in test.commands:
             reasons.extend(cls._command_executable_reasons(command))
         for path in test.required_files:
@@ -1808,8 +1886,10 @@ class TestRegistry:
 
     @classmethod
     def _address_space_reason(cls) -> Optional[str]:
-        # Trial-run instead of duplicating mmap-noreserve.c's REGION_BYTES:
-        # it prints READY on success, or fails fast via perror("mmap").
+        # Gate for every needs_max_address_space test (mmap-noreserve and the
+        # tsan tests): raise RLIMIT_AS soft to hard, then trial-run
+        # mmap-noreserve, whose huge MAP_NORESERVE region stands in for TSAN's
+        # ~125 TiB reservation.  It prints READY on success.
         binary = ROOT / "test" / "mmap-noreserve"
         if not binary.exists():
             return None  # _command_executable_reasons() will report this
@@ -1859,10 +1939,35 @@ class TestRegistry:
             for test in tests
         ]
 
+    @staticmethod
+    def _clang_runtime_dir() -> str:
+        # clang's -shared-libsan TSAN runtime lives in a non-standard dir
+        # with no RPATH. So the tsan-clang test needs LD_LIBRARY_PATH
+        # pointing at it.
+        try:
+            out = subprocess.run(["clang", "-print-runtime-dir"],
+                                 capture_output=True, text=True, timeout=10)
+            return out.stdout.strip() if out.returncode == 0 else ""
+        # Probe only: any failure here just disables the tsan-clang test
+        # (returns ""); it must never crash the suite.
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            # clang not in PATH, probe timed out, or another OS-level error.
+            return ""
+        except Exception as e:
+            print("DMTCP: autotest: internal error: unexpected exception: "
+                  f"{e!r}", file=sys.stderr)
+            return ""
+
     def _build_tests(self) -> List[TestSpec]:
         frisbee_p1, frisbee_p2, frisbee_p3 = [
             str(port) for port in sample(range(2000, 10000), 3)
         ]
+        tsan_disable_aslr = self._config_yes("AARCH64_HOST")
+        tsan_required_files = ["/usr/bin/setarch"] if tsan_disable_aslr else []
+        tsan_notes = ["ThreadSanitizer", "launch only"]
+        if tsan_disable_aslr:
+            tsan_notes.append("ASLR disabled on aarch64")
+        clang_rtdir = self._clang_runtime_dir()
 
         tests = [
             TestSpec("dmtcp1", 1, ["./test/dmtcp1"]),
@@ -1943,6 +2048,61 @@ class TestRegistry:
             TestSpec("dmtcp2", 1, ["./test/dmtcp2"]),
             TestSpec("dmtcp3", 1, ["./test/dmtcp3"]),
             TestSpec("dmtcp4", 1, ["./test/dmtcp4"]),
+            # Regression guard for ThreadSanitizer (-fsanitize=thread) targets,
+            # exercising full (default cycles=2) checkpoint/restart.
+            # Auto-disabled when the TSAN runtime / ./test/tsan_target is
+            # absent.
+            TestSpec("tsan-gcc", 1, ["./test/tsan_target"],
+                     needs_max_address_space=True,
+                     tags=["tsan"]),
+            # Regression guard for the TSAN checkpoint/RESUME path (as
+            # distinct from restart): repeatedly checkpoints the same live
+            # process without restarting, mirroring an interval-timer
+            # checkpoint (e.g. `dmtcp_launch -i5 ...`). Caught a historical
+            # bug where two of three __tsan_ignore_thread_end() call sites
+            # in stopthisthread() were missing the is_tsan_helper guard,
+            # segfaulting on ordinary resume (restart was unaffected).
+            # resume_cycles=2 forces two consecutive resumes: one already
+            # reproduces the bug, two rules out a timing artifact.
+            TestSpec("tsan-resume", 1, ["./test/tsan_target"],
+                     needs_max_address_space=True,
+                     cycles=1,
+                     resume_cycles=2,
+                     limits=["cycles=1"],
+                     tags=["tsan"]),
+            # Regression guard: verifies TSAN's race *detection* survives
+            # checkpoint/restart, not just process survival. Other TSAN
+            # targets are race-free and can't catch this class of bug (see
+            # the restarthread() RESTART BRIDGE comment in threadlist.cpp
+            # for the one it caught). tsan_target_race.c forces the race
+            # only after restart; completion_command="--none" because the
+            # worker already exits on its own once TSAN halts on it.
+            TestSpec("tsan-race", 1, ["./test/tsan_target_race"],
+                     needs_max_address_space=True,
+                     env={"TSAN_OPTIONS":
+                          f"halt_on_error=1:exitcode={TSAN_RACE_EXITCODE}"},
+                     cycles=1,
+                     post_restart_validator=validate_tsan_race_detected,
+                     completion_command="--none",
+                     limits=["cycles=1"],
+                     tags=["tsan"]),
+            # Same guard built with clang -fsanitize=thread -shared-libsan.
+            # LD_LIBRARY_PATH points at clang's runtime dir because its shared
+            # TSAN runtime has no RPATH (a clang fact, not DMTCP-specific).
+            # Auto-disabled when clang / its shared TSAN runtime is absent
+            # (then ./test/tsan_target_clang is not built).
+            TestSpec("tsan-clang", 1, ["./test/tsan_target_clang"],
+                     library_paths=[clang_rtdir] if clang_rtdir else [],
+                     needs_max_address_space=True,
+                     tags=["tsan", "clang"]),
+            # clang STATIC default: TSAN runtime linked into the exe, detected
+            # by dmtcp_launch via the "__tsan_init" symbol in .dynstr (no
+            # DT_NEEDED, no prepend, no LD_LIBRARY_PATH; dmtcp_launch still
+            # disables ASLR).
+            TestSpec("tsan-clang-static", 1,
+                     ["./test/tsan_target_clang_static"],
+                     needs_max_address_space=True,
+                     tags=["tsan", "clang"]),
             # Regression guard for the pagemap residency zero-page optimization
             # (Util::scanOccupiedRangeBatch in writeckpt.cpp).  Run on both the
             # ioctl(PAGEMAP_SCAN) fast path and the portable pread() fallback.
@@ -1973,7 +2133,8 @@ class TestRegistry:
             # region (src/mtcp/mtcp_restart.c, MAP_NORESERVE_SIZE_THRESHOLD),
             # modeled on how ThreadSanitizer reserves its shadow/meta mappings.
             TestSpec("mmap-noreserve", 1, ["./test/mmap-noreserve"],
-                     needs_max_address_space=True),
+                     needs_max_address_space=True,
+                     run_serial=True),
             TestSpec("gettimeofday", 1, ["./test/gettimeofday"]),
             TestSpec("sigchild", 1, ["./test/sigchild"]),
             TestSpec("rlimit-restore", 1, ["./test/rlimit-restore"]),
@@ -1985,6 +2146,16 @@ class TestRegistry:
             TestSpec("pthread4", 1, ["./test/pthread4"]),
             TestSpec("pthread5", 1, ["./test/pthread5"]),
             TestSpec("pthread6", 1, ["./test/pthread6"]),
+            TestSpec("tsan-target", 1, ["./test/tsan_target"],
+                     cycles=0,
+                     disable_aslr=tsan_disable_aslr,
+                     post_launch_delay=2.0,
+                     needs_max_address_space=True,
+                     required_files=tsan_required_files,
+                     tags=["pthread", "tsan"],
+                     limits=["cycles=0"],
+                     list_notes=tsan_notes,
+                     run_serial=True),
             TestSpec("mutex1", 1, ["./test/mutex1"]),
             TestSpec("mutex2", 1, ["./test/mutex2"]),
             TestSpec("mutex3", 1, ["./test/mutex3"]),
@@ -2032,7 +2203,8 @@ class TestRegistry:
             TestSpec("file2", 1, ["./test/file2"],
                      pre_checkpoint_delay=3.0,
                      tags=["slow"]),
-            TestSpec("presuspend", [1, 2], ["./test/presuspend"]),
+            TestSpec("presuspend", [1, 2], ["./test/presuspend"],
+                     run_serial=True),
             TestSpec("plugin-sleep2", 1,
                      [
                          "--with-plugin "
@@ -2102,7 +2274,8 @@ class TestRegistry:
                      requirements=["real-worker"],
                      limits=["cycles=1"],
                      list_notes=["pathvirt plugin"]),
-            TestSpec("popen1", [1, 2], ["./test/popen1"]),
+            TestSpec("popen1", [1, 2], ["./test/popen1"],
+                     run_serial=True),
             TestSpec("poll-disable-event-plugin", 1,
                      ["--disable-event-plugin ./test/poll"]),
             TestSpec("poll-disable-event-plugin-env", 1, ["./test/poll"],
@@ -2156,10 +2329,12 @@ class TestRegistry:
                      list_notes=["restart --tmpdir"]),
             TestSpec("pty1", 2, ["./test/pty1"]),
             TestSpec("pty2", 2, ["./test/pty2"]),
-            TestSpec("vfork1", [1, 2, 3, 4], ["./test/vfork1 'ls | wc'"]),
+            TestSpec("vfork1", [1, 2, 3, 4], ["./test/vfork1 'ls | wc'"],
+                     run_serial=True),
             TestSpec("vfork2", [2, 3, 4],
                      ["./test/vfork1 "
-                      "'while true; do date; sleep 1; done'"]),
+                      "'while true; do date; sleep 1; done'"],
+                     run_serial=True),
             TestSpec("frisbee", 3,
                      [
                          f"./test/frisbee {frisbee_p1} localhost {frisbee_p2}",
@@ -2170,7 +2345,8 @@ class TestRegistry:
                      env={"DMTCP_GZIP": "1"}, post_launch_delay=2.0),
             TestSpec("nocheckpoint", [1, 2], ["./test/nocheckpoint"],
                      cycles=1,
-                     limits=["cycles=1"]),
+                     limits=["cycles=1"],
+                     run_serial=True),
             TestSpec("checkpoint-header", 1, ["./test/dmtcp1"], cycles=1,
                      env={"DMTCP_GZIP": "0"},
                      validate_checkpoint_headers=True,
@@ -2513,23 +2689,29 @@ class TestRegistry:
     def _has_all(values, required) -> bool:
         return all(value in values for value in required)
 
-    def select(self, names=None, tags=None,
-               requirements=None) -> List[TestSpec]:
+    @staticmethod
+    def _has_any(values, excluded) -> bool:
+        return any(value in values for value in excluded)
+
+    def select(self, names=None, tags=None, requirements=None,
+               exclude_tags=None) -> List[TestSpec]:
         if names:
             tests = [self.get_test(name) for name in names]
         else:
             tests = list(self._tests)
         tags = tags or []
         requirements = requirements or []
+        exclude_tags = exclude_tags or []
         return [
             test for test in tests
             if self._has_all(test.tags, tags) and
-            self._has_all(test.requirements, requirements)
+            self._has_all(test.requirements, requirements) and
+            not self._has_any(test.tags, exclude_tags)
         ]
 
     def select_for_listing(
-            self, names=None, tags=None,
-            requirements=None) -> List[TestSpec]:
+            self, names=None, tags=None, requirements=None,
+            exclude_tags=None) -> List[TestSpec]:
         all_tests = list(self._tests) + list(self._disabled_tests)
         if names:
             by_name = {test.name: test for test in all_tests}
@@ -2538,10 +2720,12 @@ class TestRegistry:
             tests = all_tests
         tags = tags or []
         requirements = requirements or []
+        exclude_tags = exclude_tags or []
         return [
             test for test in tests
             if self._has_all(test.tags, tags) and
-            self._has_all(test.requirements, requirements)
+            self._has_all(test.requirements, requirements) and
+            not self._has_any(test.tags, exclude_tags)
         ]
 
     def disabled_reason_counts(
@@ -2624,6 +2808,9 @@ def parse_args():
                              "successful tests")
     parser.add_argument("--tag", action="append", default=[],
                         help="run or list tests with this metadata tag")
+    parser.add_argument("--exclude-tag", action="append", default=[],
+                        help="do not run or list tests with this metadata "
+                             "tag, even if they otherwise match")
     parser.add_argument("--requires", action="append", default=[],
                         help="run or list tests with this requirement marker")
     parser.add_argument("--suite", action="append",
@@ -3354,7 +3541,7 @@ def main():
     try:
         if args.list:
             selected = REGISTRY.select_for_listing(
-                args.tests, args.tag, args.requires)
+                args.tests, args.tag, args.requires, args.exclude_tag)
             if not selected:
                 print("No tests selected", file=sys.stderr)
                 return 2
@@ -3362,7 +3549,8 @@ def main():
 
         selected = []
         if "integration" in suites:
-            selected = REGISTRY.select(args.tests, args.tag, args.requires)
+            selected = REGISTRY.select(
+                args.tests, args.tag, args.requires, args.exclude_tag)
         elif args.tests:
             print("Test names can only select integration tests",
                   file=sys.stderr)

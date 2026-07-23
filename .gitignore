@@ -73,3 +73,4 @@ am--include-marker
 *.tmp
 .vscode
 .idea/
+DMTCP-TSAN-detailed-plan-instructions.txt

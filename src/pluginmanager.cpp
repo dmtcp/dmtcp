@@ -1,6 +1,5 @@
 #include "pluginmanager.h"
 
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,6 +25,11 @@ extern LIB_PRIVATE DmtcpPluginDescriptor_t sysvipcPlugin;
 extern LIB_PRIVATE DmtcpPluginDescriptor_t timerPlugin;
 extern LIB_PRIVATE DmtcpPluginDescriptor_t pidPlugin;
 extern LIB_PRIVATE DmtcpPluginDescriptor_t UniquePidPlugin;
+
+extern "C" int dmtcp_alloc_enabled(void);
+extern "C" int dmtcp_dl_enabled(void);
+extern "C" int dmtcp_pid_is_enabled(void);
+extern "C" int dmtcp_unique_ckpt_enabled(void);
 
 extern "C" void
 dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)
@@ -103,7 +107,6 @@ static InternalPluginEntry internalPlugins[] = {
   { &dlPlugin, false }
 };
 
-static pthread_once_t internalPluginInitOnce = PTHREAD_ONCE_INIT;
 static bool disableAllInternalPlugins = false;
 
 static size_t
@@ -155,8 +158,28 @@ initializeInternalPluginStateOnce()
 static void
 initializeInternalPluginState()
 {
-  ASSERT_PTHREAD_SUCCESS(pthread_once(&internalPluginInitOnce,
-                                      initializeInternalPluginStateOnce));
+  // Can run during TSAN's own constructor (e.g. malloc() from the alloc
+  // plugin, before TSAN's shadow state exists) -- pthread_once() would
+  // segfault there, since TSAN intercepts it too. Guard instead with a
+  // constant-initialized atomic state machine: compiler intrinsics, not
+  // intercepted, and no C++ guard variable either. Racing threads must not
+  // both run initializeInternalPluginStateOnce() (a data race even though
+  // they'd compute identical results). So a CAS elects exactly one; others
+  // spin on a plain atomic load (not sched_yield()/usleep(), also
+  // intercepted this early).
+  static int state = 0;  // 0 = uninit, 1 = initializing, 2 = done
+  int expected = 0;
+  if (__atomic_compare_exchange_n(&state, &expected, 1, false,
+                                  __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+    initializeInternalPluginStateOnce();
+    __atomic_store_n(&state, 2, __ATOMIC_RELEASE);
+    return;
+  }
+  while (__atomic_load_n(&state, __ATOMIC_ACQUIRE) != 2) {
+    // Busy-wait: the window is only the few env-var reads above, and this
+    // path runs during early process init before TSAN itself is ready. So a
+    // plain spin (no libc call) is deliberate here.
+  }
 }
 
 static InternalPluginEntry *
@@ -217,6 +240,15 @@ extern "C" void
 dmtcp_initialize_plugin()
 {
   initializeInternalPluginState();
+  // These wrapper-level caches are plain file-local values so early sanitizer
+  // startup cannot trip C++ guarded static initialization.  Prime them while
+  // plugin initialization is still single-threaded; later wrapper calls only
+  // read the cached values.
+  dmtcp_alloc_enabled();
+  dmtcp_dl_enabled();
+  dmtcp_pid_is_enabled();
+  dmtcp_unique_ckpt_enabled();
+
   for (size_t i = 0; i < numInternalPlugins(); i++) {
     InternalPluginEntry *entry = &internalPlugins[i];
     if (entry->descriptor->event_hook != NULL &&
