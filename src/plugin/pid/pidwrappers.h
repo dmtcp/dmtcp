@@ -46,7 +46,8 @@
 #endif  // ifdef HAS_CMA
 
 #include <stdarg.h>
-#if defined(__arm__) || defined(__aarch64__) || defined(__riscv)
+#if defined(__arm__) || defined(__aarch64__) || defined(__riscv) || \
+    defined(__powerpc64__) || defined(__ppc64__)
 struct user_desc {
   int dummy;
 };                    /* <asm/ldt.h> is missing in Ubuntu 14.04 */

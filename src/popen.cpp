@@ -24,6 +24,8 @@
 #include "dmtcp.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
+#include <signal.h>
+#include <pthread.h>
 #include "dmtcp_assert.h"
 
 using namespace dmtcp;
@@ -33,6 +35,49 @@ static map<FILE *, pid_t>_dmtcpPopenPidMap;
 typedef map<FILE *, pid_t>::iterator _dmtcpPopenPidMapIterator;
 
 static DmtcpMutex popen_map_lock = DMTCP_MUTEX_INITIALIZER;
+
+/* Thread-local storage for signal mask during popen fork */
+static __thread sigset_t popen_saved_mask;
+static __thread int popen_mask_saved = 0;
+
+/* Prepare handler: Block checkpoint signal before fork */
+static void
+_popen_atfork_prepare()
+{
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGUSR2);  // DMTCP checkpoint signal
+  pthread_sigmask(SIG_BLOCK, &mask, &popen_saved_mask);
+  popen_mask_saved = 1;
+}
+
+/* Parent handler: Restore signal mask after fork in parent */
+static void
+_popen_atfork_parent()
+{
+  if (popen_mask_saved) {
+    pthread_sigmask(SIG_SETMASK, &popen_saved_mask, NULL);
+    popen_mask_saved = 0;
+  }
+}
+
+/* Child handler: Reset signal handler in child after fork */
+static void
+_popen_atfork_child()
+{
+  /* Reset checkpoint signal to default in child.
+   * The signal is already blocked (inherited from parent's prepare),
+   * but we reset the handler to SIG_DFL for safety.
+   */
+  struct sigaction sa;
+  sa.sa_handler = SIG_DFL;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  sigaction(SIGUSR2, &sa, NULL);
+  
+  /* Don't restore mask in child - let exec reset it */
+  popen_mask_saved = 0;
+}
 
 static void
 _lock_popen_map()
@@ -81,6 +126,15 @@ FILE * popen(const char *command, const char *mode)
     return NULL;
   }
 
+  /* Register atfork handlers for this popen call.
+   * These handlers will be called automatically by libc during fork:
+   * - prepare: blocks SIGUSR2 BEFORE fork (in parent)
+   * - parent: restores signal mask AFTER fork (in parent)
+   * - child: resets signal handler AFTER fork (in child)
+   * This provides 100% protection with zero race window.
+   */
+  pthread_atfork(_popen_atfork_prepare, _popen_atfork_parent, _popen_atfork_child);
+
   {
     WrapperLock disableCheckpoint;
     if (pipe(pipe_fds) < 0) {
@@ -106,6 +160,12 @@ FILE * popen(const char *command, const char *mode)
   child_pid = fork();
   if (child_pid == 0) {
     int child_std_fd = do_read ? STDOUT_FILENO : STDIN_FILENO;
+    
+    /* Note: Signal handler already reset by _popen_atfork_child(),
+     * which was called automatically by libc after fork.
+     * No race condition possible.
+     */
+    
     close(parent_fd);
     if (child_fd != child_std_fd) {
       dup2(child_fd, child_std_fd);

@@ -13,8 +13,8 @@
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
 // Default is to use  setcontext/getcontext.
-#if defined(__arm__) || defined(__aarch64__) || defined(__riscv)
-# define SETJMP /* setcontext/getcontext not defined for ARM glibc */
+#if defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__powerpc64__) || defined(__ppc64__)
+# define SETJMP /* setcontext/getcontext not defined for ARM/RISC-V/PPC64 glibc */
 #endif // if defined(__arm__) || defined(__aarch64__)
 
 #ifdef SETJMP
@@ -40,7 +40,7 @@ typedef struct _ThreadTLSInfo {
 } ThreadTLSInfo;
 #endif
 
-#if defined(__arm__) || defined(__aarch64__) || defined(__riscv)
+#if defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__powerpc64__) || defined(__ppc64__)
 typedef struct _ThreadTLSInfo {
   unsigned long int tlsAddr;
 } ThreadTLSInfo;
