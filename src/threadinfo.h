@@ -80,6 +80,12 @@ class ThreadInfo {
 #endif // ifdef JALIB_ALLOCATOR
 
   ThreadInfo() = default;
+  bool updateState(ThreadState newState, ThreadState oldState);
+  void saveSigState();
+  void restoreSigState();
+  int sendSignal(int sig);
+  void markExiting() { exiting = 1; }
+
   void setSigmask()
   {
     sigset_t set;
@@ -92,7 +98,7 @@ class ThreadInfo {
   }
 
   pid_t tid = 0;
-  int state = ST_RUNNING;
+  ThreadState state = ST_RUNNING;
   int exiting = 0;
 
   char procname[17] = {};
@@ -130,8 +136,6 @@ Thread *dmtcp_get_current_thread();
 // This symbol is added as weak to allow linkage from dmtcp_launch, etc., via
 // CoordinatorAPI.
 bool dmtcp_is_ckpt_thread() __attribute((weak));
-
-int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval);
 
 EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
 EXTERNC pid_t dmtcp_get_real_pid() __attribute((weak));
