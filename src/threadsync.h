@@ -25,8 +25,6 @@
 #include "dmtcpworker.h"
 #include "wrapperlock.h"
 
-struct Thread;
-
 namespace dmtcp
 {
 

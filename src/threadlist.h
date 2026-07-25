@@ -36,7 +36,6 @@ void createCkptThread();
 void resetOnFork();
 void threadExit();
 
-Thread *allocNewThread();
 void addToActiveList(Thread *th);
 void threadIsDead(Thread *thread);
 void emptyFreeList();

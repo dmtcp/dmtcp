@@ -19,7 +19,6 @@
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "dmtcpworker.h"
-#include "jalloc.h"
 #include "mtcp/mtcp_header.h"
 #include "plugin/pid/pidhelpers.h"
 #include "pluginmanager.h"
@@ -197,44 +196,21 @@ ThreadList::init()
   if (motherofall == nullptr && _real_getpid() == _real_gettid()) {
     // We need to use static storage for motherofall to avoid calling
     // JALLOC_MALLOC during initialization which could lead to infinite recursion.
+    motherofallStorage = ThreadInfo();
     motherofall = &motherofallStorage;
     th = motherofall;
   } else {
-    th = (Thread *) JALLOC_MALLOC(sizeof(Thread));
+    th = new ThreadInfo();
   }
 
   ASSERT_NOT_NULL(th, "thread descriptor is null");
-  memset(th, 0, sizeof(*th));
-
-  th->next = NULL;
-  th->prev = NULL;
-  th->state = ST_RUNNING;
-  th->exiting = 0;
-  th->wrapperLockCount = 0;
-  th->procname[0] = '\0';
-
   curThread = th;
-
-  th->flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
-              | CLONE_SIGHAND | CLONE_THREAD
-              | CLONE_SETTLS | CLONE_PARENT_SETTID
-              | CLONE_CHILD_CLEARTID
-              | 0);
-
+  // Initialize tid after curThread is set so PID helpers do not recurse back
+  // into ThreadList::init().
   th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
   th->ctid = th->ptid;
-
   th->tid = dmtcp_pid_init_thread_tid();
-  if (th != motherofall) {
-    // Libc helper threads can inherit a mask that blocks the checkpoint signal.
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, SigInfo::ckptSignal());
-    ASSERT_PTHREAD_SUCCESS(
-      _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),
-      "unblocking checkpoint signal in child thread: signal={}",
-      SigInfo::ckptSignal());
-  }
+  th->setSigmask();
 
   TRACE("starting thread: tid={}", th->tid);
 
@@ -1008,6 +984,6 @@ ThreadList::threadIsDead(Thread *thread)
   }
 
   if (thread != &motherofallStorage) {
-    JALLOC_FREE(thread);
+    delete thread;
   }
 }
