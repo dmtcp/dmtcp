@@ -94,7 +94,7 @@ lock_threads(void)
 }
 
 static void
-unlk_threads(void)
+unlock_threads(void)
 {
   ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadlistLock));
 }
@@ -545,7 +545,7 @@ ThreadList::suspendThreads()
       usleep(10);
     }
   } while (needrescan);
-  unlk_threads();
+  unlock_threads();
 
   for (int i = 0; i < numUserThreads; i++) {
     sem_wait(&semNotifyCkptThread);
@@ -1037,7 +1037,7 @@ ThreadList::addToActiveList(Thread *th)
   }
   activeThreads = curThread;
 
-  unlk_threads();
+  unlock_threads();
 }
 
 /*****************************************************************************
