@@ -107,6 +107,7 @@ nobase_noinst_HEADERS =						\
 			dmtcprestartinternal.h			\
 			dmtcpmessagetypes.h			\
 			dmtcpworker.h				\
+			glibc_pthread.h				\
 			json.h					\
 			logger.h				\
 			lookup_service.h			\
@@ -310,8 +311,6 @@ libdmtcp_timer_internal_a_SOURCES =					\
 libdmtcp_timer_internal_a_SHORTNAME = i
 
 libdmtcp_pid_internal_a_SOURCES =					\
-	plugin/pid/glibc_pthread.cpp					\
-	plugin/pid/glibc_pthread.h					\
 	plugin/pid/pid.cpp						\
 	plugin/pid/pid_filewrappers.cpp					\
 	plugin/pid/pid.h						\
@@ -333,6 +332,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  dmtcpworker.cpp 		\
 				  dmtcp_dlsym_wrappers.cpp 	\
 				  execwrappers.cpp 		\
+				  glibc_pthread.cpp		\
 				  glibcsystem.cpp 		\
 				  kvdb.cpp			\
 				  miscwrappers.cpp 		\

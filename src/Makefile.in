@@ -257,7 +257,6 @@ libdmtcp_pid_internal_a_AR = $(AR) $(ARFLAGS)
 libdmtcp_pid_internal_a_RANLIB = $(RANLIB)
 libdmtcp_pid_internal_a_LIBADD =
 am_libdmtcp_pid_internal_a_OBJECTS =  \
-	plugin/pid/glibc_pthread.$(OBJEXT) \
 	plugin/pid/pid.$(OBJEXT) \
 	plugin/pid/pid_filewrappers.$(OBJEXT) \
 	plugin/pid/pidwrappers.$(OBJEXT) \
@@ -317,6 +316,7 @@ am___d_libdir__libdmtcp_so_OBJECTS =  \
 	__d_libdir__libdmtcp_so-dmtcpworker.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-execwrappers.$(OBJEXT) \
+	__d_libdir__libdmtcp_so-glibc_pthread.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-glibcsystem.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-kvdb.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-miscwrappers.$(OBJEXT) \
@@ -367,6 +367,7 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpplugin.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Po \
+	./$(DEPDIR)/__d_libdir__libdmtcp_so-glibc_pthread.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Po \
@@ -422,7 +423,6 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	plugin/file/$(DEPDIR)/ptyconnection.Po \
 	plugin/file/$(DEPDIR)/ptyconnlist.Po \
 	plugin/file/$(DEPDIR)/ptywrappers.Po \
-	plugin/pid/$(DEPDIR)/glibc_pthread.Po \
 	plugin/pid/$(DEPDIR)/pid.Po \
 	plugin/pid/$(DEPDIR)/pid_filewrappers.Po \
 	plugin/pid/$(DEPDIR)/pidwrappers.Po \
@@ -846,7 +846,7 @@ dmtcpversioninclude_HEADERS = $(srcdir)/../include/dmtcp/version.h
 # headers:
 nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 	coordinatorplugin.h dmtcp_coordinator.h dmtcprestartinternal.h \
-	dmtcpmessagetypes.h dmtcpworker.h json.h logger.h \
+	dmtcpmessagetypes.h dmtcpworker.h glibc_pthread.h json.h logger.h \
 	lookup_service.h ldt.h plugininfo.h pluginmanager.h \
 	processinfo.h restartscript.h tls.h siginfo.h syscallwrappers.h \
 	threadinfo.h threadlist.h threadsync.h dmtcp_assert.h uniquepid.h \
@@ -1029,8 +1029,6 @@ libdmtcp_timer_internal_a_SOURCES = \
 
 libdmtcp_timer_internal_a_SHORTNAME = i
 libdmtcp_pid_internal_a_SOURCES = \
-	plugin/pid/glibc_pthread.cpp					\
-	plugin/pid/glibc_pthread.h					\
 	plugin/pid/pid.cpp						\
 	plugin/pid/pid_filewrappers.cpp					\
 	plugin/pid/pid.h						\
@@ -1054,6 +1052,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  dmtcpworker.cpp 		\
 				  dmtcp_dlsym_wrappers.cpp 	\
 				  execwrappers.cpp 		\
+				  glibc_pthread.cpp		\
 				  glibcsystem.cpp 		\
 				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
@@ -1449,6 +1448,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpplugin.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-glibc_pthread.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Po@am__quote@ # am--include-marker
@@ -1517,7 +1517,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/file/$(DEPDIR)/ptyconnection.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/file/$(DEPDIR)/ptyconnlist.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/file/$(DEPDIR)/ptywrappers.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/glibc_pthread.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/pid.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/pid_filewrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/pid/$(DEPDIR)/pidwrappers.Po@am__quote@ # am--include-marker
@@ -1670,6 +1669,20 @@ __d_libdir__libdmtcp_so-execwrappers.obj: execwrappers.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='execwrappers.cpp' object='__d_libdir__libdmtcp_so-execwrappers.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-execwrappers.obj `if test -f 'execwrappers.cpp'; then $(CYGPATH_W) 'execwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/execwrappers.cpp'; fi`
+
+__d_libdir__libdmtcp_so-glibc_pthread.o: glibc_pthread.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-glibc_pthread.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-glibc_pthread.Tpo -c -o __d_libdir__libdmtcp_so-glibc_pthread.o `test -f 'glibc_pthread.cpp' || echo '$(srcdir)/'`glibc_pthread.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-glibc_pthread.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-glibc_pthread.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='glibc_pthread.cpp' object='__d_libdir__libdmtcp_so-glibc_pthread.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-glibc_pthread.o `test -f 'glibc_pthread.cpp' || echo '$(srcdir)/'`glibc_pthread.cpp
+
+__d_libdir__libdmtcp_so-glibc_pthread.obj: glibc_pthread.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-glibc_pthread.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-glibc_pthread.Tpo -c -o __d_libdir__libdmtcp_so-glibc_pthread.obj `if test -f 'glibc_pthread.cpp'; then $(CYGPATH_W) 'glibc_pthread.cpp'; else $(CYGPATH_W) '$(srcdir)/glibc_pthread.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-glibc_pthread.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-glibc_pthread.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='glibc_pthread.cpp' object='__d_libdir__libdmtcp_so-glibc_pthread.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-glibc_pthread.obj `if test -f 'glibc_pthread.cpp'; then $(CYGPATH_W) 'glibc_pthread.cpp'; else $(CYGPATH_W) '$(srcdir)/glibc_pthread.cpp'; fi`
 
 __d_libdir__libdmtcp_so-glibcsystem.o: glibcsystem.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-glibcsystem.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Tpo -c -o __d_libdir__libdmtcp_so-glibcsystem.o `test -f 'glibcsystem.cpp' || echo '$(srcdir)/'`glibcsystem.cpp
@@ -2209,6 +2222,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpplugin.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Po
+	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-glibc_pthread.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Po
@@ -2315,6 +2329,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpplugin.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Po
+	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-glibc_pthread.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Po
