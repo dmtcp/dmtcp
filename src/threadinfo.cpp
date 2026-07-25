@@ -86,8 +86,8 @@ ThreadInfo::restoreTLSState()
 void
 ThreadInfo::verifyTLSPidTid(pid_t pid)
 {
-  libc_pthread_addr addrs = dmtcp_pthread_get_addrs(pthread_self());
-  pid_t tlsTid = *addrs.tid;
+  LibcPthreadShim addrs = LibcPthreadShim::from(pthread_self());
+  pid_t tlsTid = addrs.tid();
 
   ASSERT(tlsTid == tid,
          "TLS tid does not match thread tid: tls_tid={} tid={}", tlsTid, tid);
@@ -96,8 +96,8 @@ ThreadInfo::verifyTLSPidTid(pid_t pid)
   // that distros with glibc 2.24-NNN are covered as well.
   dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
   if (glibc.major == 2 && glibc.minor <= 24) {
-    ASSERT_NOT_NULL(addrs.pid);
-    pid_t tlsPid = *addrs.pid;
+    ASSERT_NOT_NULL(addrs.pidAddr());
+    pid_t tlsPid = *addrs.pidAddr();
     ASSERT(tlsPid == pid,
            "TLS pid does not match process pid: tls_pid={} pid={}", tlsPid,
            pid);
@@ -119,8 +119,8 @@ ThreadInfo::markExiting()
 void
 ThreadInfo::initPthreadFields()
 {
-  pthreadAddrs = dmtcp_pthread_get_addrs(pthread_self());
-  ptid = pthreadAddrs.tid;
+  pthreadShim = LibcPthreadShim::from(pthread_self());
+  ptid = pthreadShim.tidAddr();
 }
 
 void

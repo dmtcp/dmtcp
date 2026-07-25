@@ -38,13 +38,15 @@ using namespace dmtcp;
 extern "C" int
 pthread_getaffinity_np (pthread_t th, size_t cpusetsize, cpu_set_t *cpuset)
 {
-  return sched_getaffinity(dmtcp_pthread_get_tid(th), cpusetsize, cpuset);
+  return sched_getaffinity(LibcPthreadShim::from(th).tid(), cpusetsize,
+                           cpuset);
 }
 
 extern "C" int
 pthread_setaffinity_np(pthread_t th, size_t cpusetsize, const cpu_set_t *cpuset)
 {
-  return sched_setaffinity(dmtcp_pthread_get_tid(th), cpusetsize, cpuset);
+  return sched_setaffinity(LibcPthreadShim::from(th).tid(), cpusetsize,
+                           cpuset);
 }
 
 extern "C" int
@@ -60,11 +62,12 @@ pthread_getschedparam (pthread_t th, int *policy, struct sched_param *param)
   int spolicy;
   int result = 0;
 
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-  glibc_lll_lock(th_addr.lock);
+  LibcPthreadShim thAddr = LibcPthreadShim::from(th);
+  thAddr.lllLock();
 
-  pid_t tid = *th_addr.tid;
-  int flags = *th_addr.flags;
+  pid_t tid = thAddr.tid();
+  int flags = thAddr.flags();
+  thAddr.getSchedParam(&spolicy, &sparam);
 
   /* The library is responsible for maintaining the values at all
      times.  If the user uses an interface other than
@@ -91,16 +94,11 @@ pthread_getschedparam (pthread_t th, int *policy, struct sched_param *param)
   if (result == 0) {
     *policy = spolicy;
     memcpy(param, &sparam, sizeof(struct sched_param));
+    thAddr.setFlags(flags);
+    thAddr.setSchedParam(spolicy, &sparam);
   }
 
-  *th_addr.flags = flags;
-
-  // FIXME:  We are executig this even if 'result==1' (error in prior syscall)
-  //         Further, it can happen that spolicy was not set before this,
-  //            and 'result == 0'. See: '(flags & ATTR_FLAG_SCHED_SET) == 0)'
-  dmtcp_pthread_set_schedparam(th, spolicy, &sparam);
-
-  glibc_lll_unlock(th_addr.lock);
+  thAddr.lllUnlock();
 
   return result;
 }
@@ -117,24 +115,24 @@ pthread_setschedparam (pthread_t th,
 
   int result = 0;
 
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-  glibc_lll_lock(th_addr.lock);
+  LibcPthreadShim thAddr = LibcPthreadShim::from(th);
+  thAddr.lllLock();
 
-  pid_t tid = *th_addr.tid;
+  pid_t tid = thAddr.tid();
 
 
   /* Try to set the scheduler information.  */
   if (sched_setscheduler(tid, policy, param) == 0) {
     /* We succeeded changing the kernel information.  Reflect this
        change in the thread descriptor.  */
-    dmtcp_pthread_set_schedparam(th, policy, param);
+    thAddr.setSchedParam(policy, param);
 
-    *th_addr.flags |= ATTR_FLAG_SCHED_SET | ATTR_FLAG_POLICY_SET;
+    thAddr.addFlags(ATTR_FLAG_SCHED_SET | ATTR_FLAG_POLICY_SET);
   } else {
     result = errno;
   }
 
-  glibc_lll_unlock(th_addr.lock);
+  thAddr.lllUnlock();
 
   return result;
 }
@@ -144,7 +142,7 @@ pthread_sigqueue (pthread_t th, int signo, const union sigval value)
 {
   WrapperLock wrapperLock;
 
-  pid_t tid = dmtcp_pthread_get_tid(th);
+  pid_t tid = LibcPthreadShim::from(th).tid();
   pid_t real_tid = dmtcp_pid_virtual_to_real(tid);
 
 #ifdef __NR_rt_tgsigqueueinfo
@@ -194,10 +192,10 @@ pthread_setschedprio (pthread_t th, int prio)
   struct sched_param param;
   param.sched_priority = prio;
 
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-  glibc_lll_lock(th_addr.lock);
+  LibcPthreadShim thAddr = LibcPthreadShim::from(th);
+  thAddr.lllLock();
 
-  pid_t tid = *th_addr.tid;
+  pid_t tid = thAddr.tid();
 
 #if 0
   /* If the thread should have higher priority because of some
@@ -216,14 +214,14 @@ pthread_setschedprio (pthread_t th, int prio)
 
     struct sched_param old_param;
     int old_policy;
-    dmtcp_pthread_get_schedparam(th, &old_policy, &old_param);
+    thAddr.getSchedParam(&old_policy, &old_param);
 
-    dmtcp_pthread_set_schedparam(th, old_policy, &param);
+    thAddr.setSchedParam(old_policy, &param);
 
-    *th_addr.flags |= ATTR_FLAG_SCHED_SET;
+    thAddr.addFlags(ATTR_FLAG_SCHED_SET);
   }
 
-  glibc_lll_unlock(th_addr.lock);
+  thAddr.lllUnlock();
 
   return result;
 }
@@ -259,12 +257,12 @@ pthread_getattr_np(pthread_t th, pthread_attr_t *attr)
 
   struct libc_pthread_attr *iattr = (struct libc_pthread_attr *)attr;
 
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-  glibc_lll_lock(th_addr.lock);
+  LibcPthreadShim thAddr = LibcPthreadShim::from(th);
+  thAddr.lllLock();
 
   struct sched_param schedparam;
   int schedpolicy;
-  dmtcp_pthread_get_schedparam(th, &schedpolicy, &schedparam);
+  thAddr.getSchedParam(&schedpolicy, &schedparam);
 
   /* The thread library is responsible for keeping the values in the
      thread desriptor up-to-date in case the user changes them.  */
@@ -272,25 +270,25 @@ pthread_getattr_np(pthread_t th, pthread_attr_t *attr)
   iattr->schedpolicy = schedpolicy;
 
   /* Clear the flags work.  */
-  iattr->flags = *th_addr.flags;
+  iattr->flags = thAddr.flags();
 
   /* The thread might be detached by now.  */
-  if (*th_addr.joinid == th) {
+  if (thAddr.joinId() == th) {
     iattr->flags |= ATTR_FLAG_DETACHSTATE;
   }
 
   /* This is the guardsize after adjusting it.  */
-  iattr->guardsize = *th_addr.reported_guardsize;
+  iattr->guardsize = thAddr.reportedGuardSize();
 
   /* The sizes are subject to alignment.  */
-  if (__glibc_likely(*th_addr.stackblock != NULL)) {
+  if (__glibc_likely(thAddr.stackBlock() != NULL)) {
     /* The stack size reported to the user should not include the
        guard size.  */
-    iattr->stacksize = *th_addr.stackblock_size - *th_addr.guardsize;
+    iattr->stacksize = thAddr.stackBlockSize() - thAddr.guardSize();
 #if _STACK_GROWS_DOWN
-    iattr->stackaddr = (char *)*th_addr.stackblock + *th_addr.stackblock_size;
+    iattr->stackaddr = (char *)thAddr.stackBlock() + thAddr.stackBlockSize();
 #else
-    iattr->stackaddr = (char *)*th_addr.stackblock;
+    iattr->stackaddr = (char *)thAddr.stackBlock();
 #endif
   } else {
     /* No stack information available.  This must be for the initial thread. Get
@@ -382,7 +380,7 @@ pthread_getattr_np(pthread_t th, pthread_attr_t *attr)
     free(cpuset);
   }
 
-  glibc_lll_unlock(th_addr.lock);
+  thAddr.lllUnlock();
 
   if (ret != 0) {
     pthread_attr_destroy(attr);

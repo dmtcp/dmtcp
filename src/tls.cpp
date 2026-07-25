@@ -379,10 +379,10 @@ TLSInfo_RestoreTLSTidPid(Thread *thread)
 
   dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
   if (glibc.major == 2 && glibc.minor <= 24) {
-    ASSERT_NOT_NULL(thread->pthreadAddrs.pid);
-    *thread->pthreadAddrs.pid = getpid();
+    ASSERT_NOT_NULL(thread->pthreadShim.pidAddr());
+    *thread->pthreadShim.pidAddr() = getpid();
   }
 
-  ASSERT_NOT_NULL(thread->pthreadAddrs.tid);
-  *thread->pthreadAddrs.tid = thread->tid;
+  ASSERT_NOT_NULL(thread->pthreadShim.tidAddr());
+  thread->pthreadShim.setTid(thread->tid);
 }

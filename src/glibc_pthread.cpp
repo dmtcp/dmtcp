@@ -9,176 +9,127 @@
 
 #define LLL_PRIVATE 0
 
-void
+static void
 glibc_lll_lock(int *futex)
 {
-  static int free = 0;
-  static int waiters = 2;
+  int expected = 0;
+  // Match glibc's low-level lock states: 0 is unlocked, 1 is locked with
+  // no waiters, and values greater than 1 mean locked with possible waiters.
+  // A contending thread must publish the >1 state before sleeping so unlock
+  // knows to futex_wake().
+  const int lockedWithWaiters = 2;
   if (__atomic_compare_exchange_n(
-      futex, &free, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+      futex, &expected, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
     return;
   }
 
-  while (__atomic_exchange_n(futex, waiters, __ATOMIC_ACQ_REL) != 0) {
-    futex_wait((unsigned int *)futex, waiters);
+  while (__atomic_exchange_n(futex, lockedWithWaiters,
+                             __ATOMIC_ACQ_REL) != 0) {
+    futex_wait((unsigned int *)futex, lockedWithWaiters);
   }
 }
 
-void
+static void
 glibc_lll_unlock(int *futex)
 {
-  static int free = 0;
-  int oldval = __atomic_exchange_n(futex, free, __ATOMIC_ACQ_REL);
+  int oldval = __atomic_exchange_n(futex, 0, __ATOMIC_ACQ_REL);
+  // Only the contended state requires a wake; state 1 had no waiters.
   if (oldval > 1) {
     futex_wake((unsigned int *)futex, 1);
   }
 }
 
-struct libc_pthread_addr dmtcp_pthread_get_addrs(pthread_t th)
+LibcPthreadShim
+LibcPthreadShim::from(pthread_t th)
 {
   // This helper only discovers glibc pthread field addresses.  It must not
   // initialize DMTCP: sanitizer/libc startup can call it before DMTCP is
   // ready.  Current-thread TID virtualization is handled during
   // ThreadList::init().
   int libcMinor = dmtcp::Util::glibcVersion().minor;
-  struct libc_pthread_addr ret = {};
+  LibcPthreadShim ret = {};
 
   if (libcMinor >= 33) {
     struct libc2_33_pthread *lth = (struct libc2_33_pthread *)th;
-    ret.tid = &lth->tid;
-    ret.cancelhandling = &lth->cancelhandling;
-    ret.flags = &lth->flags;
-    ret.lock = &lth->lock;
-    ret.joinid = &lth->joinid;
-    ret.schedparam = &lth->schedparam;
-    ret.schedpolicy = &lth->schedpolicy;
-    ret.stackblock = &lth->stackblock;
-    ret.stackblock_size = &lth->stackblock_size;
-    ret.guardsize = &lth->guardsize;
-    ret.reported_guardsize = &lth->reported_guardsize;
+    ret.tid_ = &lth->tid;
+    ret.flags_ = &lth->flags;
+    ret.lock_ = &lth->lock;
+    ret.joinid_ = &lth->joinid;
+    ret.schedparam_ = &lth->schedparam;
+    ret.schedpolicy_ = &lth->schedpolicy;
+    ret.stackblock_ = &lth->stackblock;
+    ret.stackblock_size_ = &lth->stackblock_size;
+    ret.guardsize_ = &lth->guardsize;
+    ret.reported_guardsize_ = &lth->reported_guardsize;
   } else if (libcMinor >= 11) {
     struct libc2_11_pthread *lth = (struct libc2_11_pthread *)th;
-    ret.tid = &lth->tid;
-    ret.pid = &lth->pid;
-    ret.cancelhandling = &lth->cancelhandling;
-    ret.flags = &lth->flags;
-    ret.lock = &lth->lock;
-    ret.joinid = &lth->joinid;
-    ret.schedparam = &lth->schedparam;
-    ret.schedpolicy = &lth->schedpolicy;
-    ret.stackblock = &lth->stackblock;
-    ret.stackblock_size = &lth->stackblock_size;
-    ret.guardsize = &lth->guardsize;
-    ret.reported_guardsize = &lth->reported_guardsize;
+    ret.tid_ = &lth->tid;
+    ret.pid_ = &lth->pid;
+    ret.flags_ = &lth->flags;
+    ret.lock_ = &lth->lock;
+    ret.joinid_ = &lth->joinid;
+    ret.schedparam_ = &lth->schedparam;
+    ret.schedpolicy_ = &lth->schedpolicy;
+    ret.stackblock_ = &lth->stackblock;
+    ret.stackblock_size_ = &lth->stackblock_size;
+    ret.guardsize_ = &lth->guardsize;
+    ret.reported_guardsize_ = &lth->reported_guardsize;
   } else if (libcMinor >= 10) {
     struct libc2_10_pthread *lth = (struct libc2_10_pthread *)th;
-    ret.tid = &lth->tid;
-    ret.pid = &lth->pid;
-    ret.cancelhandling = &lth->cancelhandling;
-    ret.flags = &lth->flags;
-    ret.lock = &lth->lock;
-    ret.joinid = &lth->joinid;
-    ret.schedparam = &lth->schedparam;
-    ret.schedpolicy = &lth->schedpolicy;
-    ret.stackblock = &lth->stackblock;
-    ret.stackblock_size = &lth->stackblock_size;
-    ret.guardsize = &lth->guardsize;
-    ret.reported_guardsize = &lth->reported_guardsize;
+    ret.tid_ = &lth->tid;
+    ret.pid_ = &lth->pid;
+    ret.flags_ = &lth->flags;
+    ret.lock_ = &lth->lock;
+    ret.joinid_ = &lth->joinid;
+    ret.schedparam_ = &lth->schedparam;
+    ret.schedpolicy_ = &lth->schedpolicy;
+    ret.stackblock_ = &lth->stackblock;
+    ret.stackblock_size_ = &lth->stackblock_size;
+    ret.guardsize_ = &lth->guardsize;
+    ret.reported_guardsize_ = &lth->reported_guardsize;
   } else {
     struct libc2_x_pthread *lth = (struct libc2_x_pthread *)th;
-    ret.tid = &lth->tid;
-    ret.pid = &lth->pid;
-    ret.cancelhandling = &lth->cancelhandling;
-    ret.flags = &lth->flags;
-    ret.lock = &lth->lock;
-    ret.joinid = &lth->joinid;
-    ret.schedparam = &lth->schedparam;
-    ret.schedpolicy = &lth->schedpolicy;
-    ret.stackblock = &lth->stackblock;
-    ret.stackblock_size = &lth->stackblock_size;
-    ret.guardsize = &lth->guardsize;
-    ret.reported_guardsize = &lth->reported_guardsize;
+    ret.tid_ = &lth->tid;
+    ret.pid_ = &lth->pid;
+    ret.flags_ = &lth->flags;
+    ret.lock_ = &lth->lock;
+    ret.joinid_ = &lth->joinid;
+    ret.schedparam_ = &lth->schedparam;
+    ret.schedpolicy_ = &lth->schedpolicy;
+    ret.stackblock_ = &lth->stackblock;
+    ret.stackblock_size_ = &lth->stackblock_size;
+    ret.guardsize_ = &lth->guardsize;
+    ret.reported_guardsize_ = &lth->reported_guardsize;
   }
 
   return ret;
 }
 
 void
-dmtcp_pthread_lll_lock(pthread_t th)
+LibcPthreadShim::lllLock() const
 {
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-  glibc_lll_lock(th_addr.lock);
+  glibc_lll_lock(lock_);
 }
 
 void
-dmtcp_pthread_lll_unlock(pthread_t th)
+LibcPthreadShim::lllUnlock() const
 {
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-  glibc_lll_unlock(th_addr.lock);
-}
-
-pid_t *
-dmtcp_pthread_get_tid_addr(pthread_t th)
-{
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-  return th_addr.tid;
-}
-
-pid_t
-dmtcp_pthread_get_tid(pthread_t th)
-{
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-  return *th_addr.tid;
+  glibc_lll_unlock(lock_);
 }
 
 void
-dmtcp_pthread_set_tid(pthread_t th, pid_t tid)
+LibcPthreadShim::setSchedParam(int policy,
+                               const struct sched_param *param) const
 {
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-  *th_addr.tid = tid;
-}
-
-int *
-dmtcp_pthread_get_cancelhandling_addr(pthread_t th)
-{
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-  return th_addr.cancelhandling;
-}
-
-int
-dmtcp_pthread_get_flags(pthread_t th)
-{
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-  return *th_addr.tid;
+  *schedpolicy_ = policy;
+  memcpy(schedparam_, param, sizeof(struct sched_param));
 }
 
 void
-dmtcp_pthread_set_flags(pthread_t th, int flags)
+LibcPthreadShim::getSchedParam(int *policy, struct sched_param *param) const
 {
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-  *th_addr.flags = flags;
-}
-
-void
-dmtcp_pthread_set_schedparam(pthread_t th,
-                             int policy,
-                             const struct sched_param *param)
-{
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-
-  *th_addr.schedpolicy = policy;
-  memcpy(th_addr.schedparam, param, sizeof(struct sched_param));
-}
-
-void
-dmtcp_pthread_get_schedparam(pthread_t th,
-                             int *policy,
-                             struct sched_param *param)
-{
-  libc_pthread_addr th_addr = dmtcp_pthread_get_addrs(th);
-
-  *policy = *th_addr.schedpolicy;
-  memcpy(param, th_addr.schedparam, sizeof(struct sched_param));
+  *policy = *schedpolicy_;
+  memcpy(param, schedparam_, sizeof(struct sched_param));
 }
 
 #endif // #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD

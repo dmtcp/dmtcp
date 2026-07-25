@@ -391,47 +391,47 @@ struct libc2_x_pthread {
   char end_padding[];
 };
 
-struct libc_pthread_addr {
-  pid_t *tid;
-  pid_t *pid;
-  int *cancelhandling;
-  int *flags;
-  int *lock;
-  pthread_t *joinid;
-  struct sched_param *schedparam;
-  int *schedpolicy;
-  void **stackblock;
-  size_t *stackblock_size;
-  size_t *guardsize;
-  size_t *reported_guardsize;
+class LibcPthreadShim {
+ public:
+  static LibcPthreadShim from(pthread_t th);
+
+  void lllLock() const;
+  void lllUnlock() const;
+
+  pid_t *tidAddr() const { return tid_; }
+  pid_t tid() const { return *tid_; }
+  void setTid(pid_t value) const { *tid_ = value; }
+
+  pid_t *pidAddr() const { return pid_; }
+
+  int flags() const { return *flags_; }
+  void setFlags(int value) const { *flags_ = value; }
+  void addFlags(int value) const { *flags_ |= value; }
+
+  pthread_t joinId() const { return *joinid_; }
+  void *stackBlock() const { return *stackblock_; }
+  size_t stackBlockSize() const { return *stackblock_size_; }
+  size_t guardSize() const { return *guardsize_; }
+  size_t reportedGuardSize() const { return *reported_guardsize_; }
+
+  void getSchedParam(int *policy, struct sched_param *param) const;
+  void setSchedParam(int policy, const struct sched_param *param) const;
+
+ private:
+  pid_t *tid_ = nullptr;
+  pid_t *pid_ = nullptr;
+  int *flags_ = nullptr;
+  int *lock_ = nullptr;
+  pthread_t *joinid_ = nullptr;
+  struct sched_param *schedparam_ = nullptr;
+  int *schedpolicy_ = nullptr;
+  void **stackblock_ = nullptr;
+  size_t *stackblock_size_ = nullptr;
+  size_t *guardsize_ = nullptr;
+  size_t *reported_guardsize_ = nullptr;
 };
 
 #define INVALID_TD_P(pd) 0
-
-void glibc_lll_lock(int *futex);
-void glibc_lll_unlock(int *futex);
-
-struct libc_pthread_addr dmtcp_pthread_get_addrs(pthread_t th);
-
-void dmtcp_pthread_lll_lock(pthread_t th);
-void dmtcp_pthread_lll_unlock(pthread_t th);
-
-pid_t *dmtcp_pthread_get_tid_addr(pthread_t th);
-
-pid_t dmtcp_pthread_get_tid(pthread_t th);
-void dmtcp_pthread_set_tid(pthread_t th, pid_t tid);
-
-int *dmtcp_pthread_get_cancelhandling_addr(pthread_t th);
-
-int dmtcp_pthread_get_flags(pthread_t th);
-void dmtcp_pthread_set_flags(pthread_t th, int flags);
-
-void dmtcp_pthread_set_schedparam(pthread_t thread,
-                                  int policy,
-                                  const struct sched_param *param);
-void dmtcp_pthread_get_schedparam(pthread_t thread,
-                                  int *policy,
-                                  struct sched_param *param);
 
 // Copied from kernel-posix-cpu-timer.h in glibc.
 #define CPUCLOCK_PERTHREAD_MASK 4

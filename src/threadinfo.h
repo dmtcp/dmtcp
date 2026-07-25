@@ -109,7 +109,7 @@ class ThreadInfo {
   void *saved_sp = nullptr; // at restart, we use a temporary stack just
                             // beyond original stack (red zone)
 
-  libc_pthread_addr pthreadAddrs = {};
+  LibcPthreadShim pthreadShim = {};
   ThreadTLSInfo tlsInfo = {};
 
   // JA: new code ported from v54b
