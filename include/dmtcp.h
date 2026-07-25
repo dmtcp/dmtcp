@@ -509,6 +509,15 @@ int dmtcp_protected_environ_fd(void);
 pid_t dmtcp_pid_real_to_virtual(pid_t realPid) __attribute((weak));
 pid_t dmtcp_pid_virtual_to_real(pid_t virtualPid) __attribute((weak));
 
+// Returns the virtual tid of TSAN's own background thread, 0 if there is
+// none (including when not running under DMTCP or not a TSAN target), or
+// -1 if that hasn't been determined yet (e.g. briefly after a restart,
+// before TSAN respawns its background thread).
+int dmtcp_tsan_background_thread_virtual_tid() __attribute((weak));
+#define dmtcp_tsan_background_thread_virtual_tid() \
+  (dmtcp_tsan_background_thread_virtual_tid ? \
+   dmtcp_tsan_background_thread_virtual_tid() : 0)
+
 // bq_file -> "batch queue file"; used only by batch-queue plugin
 int dmtcp_is_bq_file(const char *path) __attribute((weak));
 int dmtcp_bq_should_ckpt_file(const char *path, int *type) __attribute((weak));

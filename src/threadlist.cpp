@@ -114,6 +114,30 @@ static int ckptWindowCandidateCount = 0;
 static void lock_threads(void);
 static void unlock_threads(void);
 
+#undef dmtcp_tsan_background_thread_virtual_tid
+EXTERNC int
+dmtcp_tsan_background_thread_virtual_tid()
+{
+  if (!is_tsan()) {
+    return 0;
+  }
+
+  // At most one thread is ever classified as the TSAN helper (lazily);
+  // scan for it. Thread::tid is already the virtual tid (see
+  // dmtcp_pid_init_thread_tid()/dmtcp_update_virtual_to_real_tid() in
+  // plugin/pid/pid.cpp).
+  pid_t tsanHelperTid = -1;
+  lock_threads();
+  for (Thread *th = activeThreads; th != NULL; th = th->next) {
+    if (th->is_tsan_helper) {
+      tsanHelperTid = th->tid;
+      break;
+    }
+  }
+  unlock_threads();
+  return tsanHelperTid;
+}
+
 void
 ThreadList::beginCkptThreadCreationWindow()
 {
