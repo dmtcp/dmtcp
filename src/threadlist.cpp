@@ -199,8 +199,7 @@ ThreadList::init()
   curThread = th;
   // Initialize tid after curThread is set so PID helpers do not recurse back
   // into ThreadList::init().
-  th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
-  th->ctid = th->ptid;
+  th->initPthreadFields();
   th->tid = dmtcp_pid_init_thread_tid();
   th->setSigmask();
 
@@ -325,8 +324,6 @@ checkpointhread(void *dummy)
      * session leaders.
      * Similarly, SIGCANCEL/SIGTIMER is undocumented, but used by glibc.
      */
-#define SIGSETXID (__SIGRTMIN + 1)
-#define SIGCANCEL (__SIGRTMIN) /* aka SIGTIMER */
     sigset_t set;
 
     sigfillset(&set);

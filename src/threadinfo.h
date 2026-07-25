@@ -2,6 +2,7 @@
 #define THREADINFO_H
 
 #include <linux/version.h>
+#include <pthread.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdio.h>
@@ -11,6 +12,7 @@
 #include <unistd.h>
 #include "../jalib/jalloc.h"
 #include "dmtcp_assert.h"
+#include "glibc_pthread.h"
 #include "syscallwrappers.h" /* for _real_syscall */
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
@@ -85,6 +87,11 @@ class ThreadInfo {
   void restoreSigState();
   int sendSignal(int sig);
   void markExiting() { exiting = 1; }
+  void initPthreadFields()
+  {
+    pthreadAddrs = dmtcp_pthread_get_addrs(pthread_self());
+    ptid = pthreadAddrs.tid;
+  }
 
   void setSigmask()
   {
@@ -115,7 +122,7 @@ class ThreadInfo {
   void *saved_sp = nullptr; // at restart, we use a temporary stack just
                             // beyond original stack (red zone)
 
-  void *pthreadSelf = nullptr;
+  libc_pthread_addr pthreadAddrs = {};
   ThreadTLSInfo tlsInfo = {};
 
   // JA: new code ported from v54b

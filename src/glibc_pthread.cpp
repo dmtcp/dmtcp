@@ -41,7 +41,7 @@ struct libc_pthread_addr dmtcp_pthread_get_addrs(pthread_t th)
   // ready.  Current-thread TID virtualization is handled during
   // ThreadList::init().
   int libcMinor = dmtcp::Util::glibcVersion().minor;
-  struct libc_pthread_addr ret;
+  struct libc_pthread_addr ret = {};
 
   if (libcMinor >= 33) {
     struct libc2_33_pthread *lth = (struct libc2_33_pthread *)th;
@@ -59,6 +59,7 @@ struct libc_pthread_addr dmtcp_pthread_get_addrs(pthread_t th)
   } else if (libcMinor >= 11) {
     struct libc2_11_pthread *lth = (struct libc2_11_pthread *)th;
     ret.tid = &lth->tid;
+    ret.pid = &lth->pid;
     ret.cancelhandling = &lth->cancelhandling;
     ret.flags = &lth->flags;
     ret.lock = &lth->lock;
@@ -72,6 +73,7 @@ struct libc_pthread_addr dmtcp_pthread_get_addrs(pthread_t th)
   } else if (libcMinor >= 10) {
     struct libc2_10_pthread *lth = (struct libc2_10_pthread *)th;
     ret.tid = &lth->tid;
+    ret.pid = &lth->pid;
     ret.cancelhandling = &lth->cancelhandling;
     ret.flags = &lth->flags;
     ret.lock = &lth->lock;
@@ -85,6 +87,7 @@ struct libc_pthread_addr dmtcp_pthread_get_addrs(pthread_t th)
   } else {
     struct libc2_x_pthread *lth = (struct libc2_x_pthread *)th;
     ret.tid = &lth->tid;
+    ret.pid = &lth->pid;
     ret.cancelhandling = &lth->cancelhandling;
     ret.flags = &lth->flags;
     ret.lock = &lth->lock;

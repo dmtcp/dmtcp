@@ -393,6 +393,7 @@ struct libc2_x_pthread {
 
 struct libc_pthread_addr {
   pid_t *tid;
+  pid_t *pid;
   int *cancelhandling;
   int *flags;
   int *lock;

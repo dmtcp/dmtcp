@@ -33,6 +33,7 @@
 #include <sys/types.h>
 
 #include "config.h"  // define WSL if present
+#include "glibc_pthread.h"
 #include "mtcp/mtcp_sys.h"
 #include "syscallwrappers.h"
 #include "util.h"
@@ -50,129 +51,9 @@
 
 const char *tlsErrorMsg = "*** DMTCP: Error restoring TLS information\n.";
 
-/*****************************************************************************
- *
- *****************************************************************************/
-/* Offset computed (&x.pid - &x) for
- *   struct pthread x;
- * as found in:  glibc-2.5/nptl/descr.h
- * It was 0x4c and 0x48 for pid and tid for i386.
- * Roughly, the definition is:
- *glibc-2.5/nptl/descr.h:
- * struct pthread
- * {
- *  union {
- *   tcbheader_t tcbheader;
- *   void *__padding[16];
- *  };
- *  list_t list;
- *  pid_t tid;
- *  pid_t pid;
- *  ...
- * } __attribute ((aligned (TCB_ALIGNMENT)));
- *
- *glibc-2.5/nptl/sysdeps/pthread/list.h:
- * typedef struct list_head
- * {
- *  struct list_head *next;
- *  struct list_head *prev;
- * } list_t;
- *
- * NOTE: glibc-2.10 changes the size of __padding from 16 to 24.  --KAPIL
- *
- * NOTE: glibc-2.11 further changes the size tcbhead_t without updating the
- *       size of __padding in struct pthread. We need to add an extra 512 bytes
- *       to accommodate this.                                    -- KAPIL
- */
-
 #if !__GLIBC_PREREQ(2, 1)
 # error "glibc version too old"
 #endif /* if !__GLIBC_PREREQ(2, 1) */
-
-// NOTE: tls_tid_offset, tls_pid_offset determine offset independently of
-// glibc version.  These STATIC_... versions serve as a double check.
-// Calculate offsets of pid/tid in pthread 'struct user_desc'
-// The offsets are needed for two reasons:
-// 1. glibc pthread functions cache the pid; must update this after restart
-// 2. glibc pthread functions cache the tid; pthread functions pass address
-// of cached tid to clone, and MTCP grabs it; But MTCP is still missing
-// the address where pthread cached the tid of motherofall.  So, it can't
-// update.
-/*
- * For those who want to dig deeper into glibc and its thread descriptor,
- *   see below.  Note that pthread_self returns a pthread_t, which is a
- *   pointer to the 'struct pthread' below.
- * FROM: glibc-2.23/sysdeps/x86_64/nptl/tls.h
- * // Return the thread descriptor for the current thread.
- * # define THREAD_SELF \
- *   ({ struct pthread *__self;                                                  \
- *      asm ("mov %%fs:%c1,%0" : "=r" (__self)                                   \
- *           : "i" (offsetof (struct pthread, header.self)));                    \
- *      __self;})
- * // struct pthread is defined in glibc-2.23/nptl/descr.h
- * // type = struct pthread {
- * //     union {
- * //         tcbhead_t header;
- * //         void *__padding[24];
- * //     };
- * //     list_t list; // 2*sizeof(void *)
- * //     pid_t tid;
- * //     pid_t pid;
- * // NOTE: sizeof(tcbhead_t) + 2*sizeof(void *) == 720
- * //       where:  sizeof(tcbhead_t) == 704
- */
-
-/* NOTE:  For future reference, the STATIC_TLS_TID_OFFSET() for a glibc version
- *  can be easily discovered as long as a debug version of glibc is present:
- *  (gdb) p (char *)&(((struct pthread *)pthread_self())->tid) - \
- *                                                      (char *)pthread_self()
- *  $14 = 720  # So, 720 is the correct offset in this example.
- */
-int
-TLSInfo_GetTidOffset(void)
-{
-  static int offset = -1;
-
-  if (offset != -1) {
-    return offset;
-  }
-
-  // tcbhead_t, etc., were introduced in glibc 2.4. We don't support earlier
-  // versions.
-  dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
-  ASSERT(glibc.major == 2,
-         "unsupported glibc major version for TLS offsets: major={}",
-         glibc.major);
-  ASSERT(glibc.minor >= 4,
-         "unsupported glibc minor version for TLS offsets: minor={}",
-         glibc.minor);
-
-#ifdef __x86_64__
-  if (glibc.minor >= 11) {
-    offset = 720;  // sizeof(tcbhead_t) + sizeof(list_t)
-    return offset;
-  }
-#endif
-
-//FIXME:Define offset for __aarch64__
-
-  if (glibc.minor >= 10) {
-    offset = 26 * sizeof(void *);  // sizeof(__padding) + sizeof(list_t)
-  } else {
-    offset = 18 * sizeof(void *);  // sizeof(__padding) + sizeof(list_t)
-  }
-
-  return offset;
-}
-
-/*****************************************************************************
- *
- *****************************************************************************/
-int
-TLSInfo_GetPidOffset(void)
-{
-  return TLSInfo_GetTidOffset() + sizeof(pid_t);
-}
 
 /*****************************************************************************
  *
@@ -497,11 +378,8 @@ TLSInfo_SetThreadSysinfo(void *sysinfo)
 void
 TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
 {
-  pid_t tls_pid, tls_tid;
-  char *addr = (char *) pthread_self();
-
-  tls_pid = *(pid_t *)(addr + TLSInfo_GetPidOffset());
-  tls_tid = *(pid_t *)(addr + TLSInfo_GetTidOffset());
+  libc_pthread_addr pthreadAddrs = dmtcp_pthread_get_addrs(pthread_self());
+  pid_t tls_tid = *pthreadAddrs.tid;
 
   ASSERT(tls_tid == tid,
          "TLS tid does not match thread tid: tls_tid={} tid={}", tls_tid, tid);
@@ -509,9 +387,13 @@ TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
   // For glibc > 2.24, pid field is unused. Here we do the <24 check to ensure
   // that distros with glibc 2.24-NNN are covered as well.
   dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
-  ASSERT((glibc.major == 2 && glibc.minor >= 24) || tls_pid == pid,
-         "TLS pid does not match process pid: tls_pid={} pid={}", tls_pid,
-         pid);
+  if (glibc.major == 2 && glibc.minor < 24) {
+    ASSERT_NOT_NULL(pthreadAddrs.pid);
+    pid_t tls_pid = *pthreadAddrs.pid;
+    ASSERT(tls_pid == pid,
+           "TLS pid does not match process pid: tls_pid={} pid={}", tls_pid,
+           pid);
+  }
 }
 
 /*****************************************************************************
@@ -523,7 +405,7 @@ TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
 void
 TLSInfo_SaveTLSState(Thread *thread)
 {
-  thread->pthreadSelf = (void*) pthread_self();
+  thread->initPthreadFields();
   tls_get_thread_area(thread);
   return;
 }
@@ -554,10 +436,10 @@ TLSInfo_RestoreTLSTidPid(Thread *thread)
 
   dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
   if (glibc.major == 2 && glibc.minor <= 24) {
-    *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetPidOffset()) =
-      getpid();
+    ASSERT_NOT_NULL(thread->pthreadAddrs.pid);
+    *thread->pthreadAddrs.pid = getpid();
   }
 
-  *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetTidOffset()) =
-     thread->tid;
+  ASSERT_NOT_NULL(thread->pthreadAddrs.tid);
+  *thread->pthreadAddrs.tid = thread->tid;
 }
