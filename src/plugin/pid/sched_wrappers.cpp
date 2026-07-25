@@ -27,6 +27,7 @@
 #include "pid.h"
 #include "pidwrappers.h"
 #include "procselfmaps.h"
+#include "threadlist.h"
 #include "util.h"
 #include "virtualpidtable.h"
 #include "wrapperlock.h"
@@ -38,14 +39,14 @@ using namespace dmtcp;
 extern "C" int
 pthread_getaffinity_np (pthread_t th, size_t cpusetsize, cpu_set_t *cpuset)
 {
-  return sched_getaffinity(LibcPthreadShim::from(th).tid(), cpusetsize,
+  return sched_getaffinity(ThreadList::pthreadShim(th).tid(), cpusetsize,
                            cpuset);
 }
 
 extern "C" int
 pthread_setaffinity_np(pthread_t th, size_t cpusetsize, const cpu_set_t *cpuset)
 {
-  return sched_setaffinity(LibcPthreadShim::from(th).tid(), cpusetsize,
+  return sched_setaffinity(ThreadList::pthreadShim(th).tid(), cpusetsize,
                            cpuset);
 }
 
@@ -62,7 +63,7 @@ pthread_getschedparam (pthread_t th, int *policy, struct sched_param *param)
   int spolicy;
   int result = 0;
 
-  LibcPthreadShim thAddr = LibcPthreadShim::from(th);
+  LibcPthreadShim thAddr = ThreadList::pthreadShim(th);
   thAddr.lllLock();
 
   pid_t tid = thAddr.tid();
@@ -115,7 +116,7 @@ pthread_setschedparam (pthread_t th,
 
   int result = 0;
 
-  LibcPthreadShim thAddr = LibcPthreadShim::from(th);
+  LibcPthreadShim thAddr = ThreadList::pthreadShim(th);
   thAddr.lllLock();
 
   pid_t tid = thAddr.tid();
@@ -142,7 +143,7 @@ pthread_sigqueue (pthread_t th, int signo, const union sigval value)
 {
   WrapperLock wrapperLock;
 
-  pid_t tid = LibcPthreadShim::from(th).tid();
+  pid_t tid = ThreadList::pthreadShim(th).tid();
   pid_t real_tid = dmtcp_pid_virtual_to_real(tid);
 
 #ifdef __NR_rt_tgsigqueueinfo
@@ -192,7 +193,7 @@ pthread_setschedprio (pthread_t th, int prio)
   struct sched_param param;
   param.sched_priority = prio;
 
-  LibcPthreadShim thAddr = LibcPthreadShim::from(th);
+  LibcPthreadShim thAddr = ThreadList::pthreadShim(th);
   thAddr.lllLock();
 
   pid_t tid = thAddr.tid();
@@ -257,7 +258,7 @@ pthread_getattr_np(pthread_t th, pthread_attr_t *attr)
 
   struct libc_pthread_attr *iattr = (struct libc_pthread_attr *)attr;
 
-  LibcPthreadShim thAddr = LibcPthreadShim::from(th);
+  LibcPthreadShim thAddr = ThreadList::pthreadShim(th);
   thAddr.lllLock();
 
   struct sched_param schedparam;

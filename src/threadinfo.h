@@ -2,6 +2,7 @@
 #define THREADINFO_H
 
 #include <linux/version.h>
+#include <pthread.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdio.h>
@@ -96,6 +97,7 @@ class ThreadInfo {
   int exiting = 0;
 
   char procname[17] = {};
+  pthread_t pthread = {};
 
   int flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM |
               CLONE_SIGHAND | CLONE_THREAD | CLONE_SETTLS |

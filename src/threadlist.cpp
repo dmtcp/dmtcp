@@ -255,6 +255,31 @@ ThreadList::threadExit()
   curThread->markExiting();
 }
 
+LibcPthreadShim
+ThreadList::pthreadShim(pthread_t pthread)
+{
+  if (curThread == nullptr) {
+    return LibcPthreadShim::from(pthread);
+  }
+
+  if (curThread->pthread == pthread) {
+    return curThread->pthreadShim;
+  }
+
+  lock_threads();
+  for (Thread *thread = activeThreads; thread != nullptr;
+       thread = thread->next) {
+    if (thread->pthread == pthread) {
+      LibcPthreadShim shim = thread->pthreadShim;
+      unlock_threads();
+      return shim;
+    }
+  }
+  unlock_threads();
+
+  return LibcPthreadShim::from(pthread);
+}
+
 /*************************************************************************
  *
  *  Write checkpoint image

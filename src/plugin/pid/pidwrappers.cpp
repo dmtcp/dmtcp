@@ -35,6 +35,7 @@
 #include "dmtcp.h"
 #include "pid.h"
 #include "pidwrappers.h"
+#include "threadlist.h"
 #include "util.h"
 #include "wrapperlock.h"
 #include "virtualpidtable.h"
@@ -97,7 +98,7 @@ pthread_kill(pthread_t th, int sig)
     return _real_tgkill(_real_getpid(), _real_gettid(), sig);
   }
 
-  pid_t virtTid = LibcPthreadShim::from(th).tid();
+  pid_t virtTid = ThreadList::pthreadShim(th).tid();
   pid_t realTid = dmtcp_pid_virtual_to_real(virtTid);
 
   return _real_tgkill(_real_getpid(), realTid, sig);
@@ -124,7 +125,7 @@ pthread_cancel (pthread_t th)
 {
   WrapperLock wrapperLock;
   int result = 0;
-  pid_t *tidAddr = LibcPthreadShim::from(th).tidAddr();
+  pid_t *tidAddr = ThreadList::pthreadShim(th).tidAddr();
   if (tidAddr == NULL) {
     return ESRCH;
   }
