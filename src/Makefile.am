@@ -347,6 +347,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  siginfo.cpp 			\
 				  syslogwrappers.cpp 		\
 				  terminal.cpp 			\
+				  threadinfo.cpp 		\
 				  threadlist.cpp 		\
 				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\

@@ -331,6 +331,7 @@ am___d_libdir__libdmtcp_so_OBJECTS =  \
 	__d_libdir__libdmtcp_so-siginfo.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-syslogwrappers.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-terminal.$(OBJEXT) \
+	__d_libdir__libdmtcp_so-threadinfo.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-threadlist.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-threadsync.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-threadwrappers.$(OBJEXT) \
@@ -381,6 +382,7 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-signalwrappers.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-syslogwrappers.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-terminal.Po \
+	./$(DEPDIR)/__d_libdir__libdmtcp_so-threadinfo.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Po \
@@ -1067,6 +1069,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  siginfo.cpp 			\
 				  syslogwrappers.cpp 		\
 				  terminal.cpp 			\
+				  threadinfo.cpp 		\
 				  threadlist.cpp 		\
 				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\
@@ -1462,6 +1465,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-signalwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-syslogwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-terminal.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-threadinfo.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Po@am__quote@ # am--include-marker
@@ -1880,6 +1884,20 @@ __d_libdir__libdmtcp_so-terminal.obj: terminal.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-terminal.obj `if test -f 'terminal.cpp'; then $(CYGPATH_W) 'terminal.cpp'; else $(CYGPATH_W) '$(srcdir)/terminal.cpp'; fi`
 
+__d_libdir__libdmtcp_so-threadinfo.o: threadinfo.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-threadinfo.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-threadinfo.Tpo -c -o __d_libdir__libdmtcp_so-threadinfo.o `test -f 'threadinfo.cpp' || echo '$(srcdir)/'`threadinfo.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-threadinfo.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-threadinfo.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='threadinfo.cpp' object='__d_libdir__libdmtcp_so-threadinfo.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-threadinfo.o `test -f 'threadinfo.cpp' || echo '$(srcdir)/'`threadinfo.cpp
+
+__d_libdir__libdmtcp_so-threadinfo.obj: threadinfo.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-threadinfo.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-threadinfo.Tpo -c -o __d_libdir__libdmtcp_so-threadinfo.obj `if test -f 'threadinfo.cpp'; then $(CYGPATH_W) 'threadinfo.cpp'; else $(CYGPATH_W) '$(srcdir)/threadinfo.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-threadinfo.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-threadinfo.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='threadinfo.cpp' object='__d_libdir__libdmtcp_so-threadinfo.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-threadinfo.obj `if test -f 'threadinfo.cpp'; then $(CYGPATH_W) 'threadinfo.cpp'; else $(CYGPATH_W) '$(srcdir)/threadinfo.cpp'; fi`
+
 __d_libdir__libdmtcp_so-threadlist.o: threadlist.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-threadlist.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Tpo -c -o __d_libdir__libdmtcp_so-threadlist.o `test -f 'threadlist.cpp' || echo '$(srcdir)/'`threadlist.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Po
@@ -2236,6 +2254,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-signalwrappers.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-syslogwrappers.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-terminal.Po
+	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-threadinfo.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Po
@@ -2343,6 +2362,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-signalwrappers.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-syslogwrappers.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-terminal.Po
+	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-threadinfo.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-threadlist.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-threadsync.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-threadwrappers.Po

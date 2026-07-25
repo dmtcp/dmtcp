@@ -2,7 +2,6 @@
 #define THREADINFO_H
 
 #include <linux/version.h>
-#include <pthread.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdio.h>
@@ -11,9 +10,8 @@
 #include <ucontext.h>
 #include <unistd.h>
 #include "../jalib/jalloc.h"
-#include "dmtcp_assert.h"
+#include "dmtcp.h"
 #include "glibc_pthread.h"
-#include "syscallwrappers.h" /* for _real_syscall */
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
@@ -86,23 +84,9 @@ class ThreadInfo {
   void saveSigState();
   void restoreSigState();
   int sendSignal(int sig);
-  void markExiting() { exiting = 1; }
-  void initPthreadFields()
-  {
-    pthreadAddrs = dmtcp_pthread_get_addrs(pthread_self());
-    ptid = pthreadAddrs.tid;
-  }
-
-  void setSigmask()
-  {
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, dmtcp::SigInfo::ckptSignal());
-    ASSERT_PTHREAD_SUCCESS(
-      _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),
-      "unblocking checkpoint signal in thread: signal={}",
-      dmtcp::SigInfo::ckptSignal());
-  }
+  void markExiting();
+  void initPthreadFields();
+  void setSigmask();
 
   pid_t tid = 0;
   ThreadState state = ST_RUNNING;

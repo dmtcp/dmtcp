@@ -58,7 +58,6 @@ void *saved_sysinfo;
 static const char *DMTCP_PRGNAME_PREFIX = "DMTCP:";
 
 static DmtcpMutex threadlistLock = DMTCP_MUTEX_INITIALIZER;
-static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
 // Thread initialization runs before curThread exists; normal locks call gettid().
 static DmtcpMutex threadInitLock = DMTCP_MUTEX_INITIALIZER_LLL;
 
@@ -827,82 +826,6 @@ restarthread(void *threadv)
   ASSERT(false, "restored thread context unexpectedly returned: tid={}",
          thread->tid);
   return 0;   /* NOTREACHED : stop compiler warning */
-}
-
-/*****************************************************************************
- *
- *****************************************************************************/
-bool
-ThreadInfo::updateState(ThreadState newState, ThreadState oldState)
-{
-  bool changed = false;
-
-  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadStateLock),
-                      "locking thread state");
-  if (oldState == state) {
-    state = newState;
-    changed = true;
-  }
-  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadStateLock),
-                      "unlocking thread state");
-  return changed;
-}
-
-/*****************************************************************************
- *
- *  Save signal mask and list of pending signals delivery
- *
- *****************************************************************************/
-void
-ThreadInfo::saveSigState()
-{
-  // Save signal block mask
-  ASSERT_PTHREAD_SUCCESS(
-    pthread_sigmask(SIG_SETMASK, NULL, &sigblockmask),
-    "saving thread signal mask: tid={}",
-    tid);
-
-  // Save pending signals
-  ::sigpending(&sigpending);
-}
-
-/*****************************************************************************
- *
- *  Restore signal mask and all pending signals
- *
- *****************************************************************************/
-void
-ThreadInfo::restoreSigState()
-{
-  int i;
-
-  TRACE("restoring signal mask for thread: tid={}", tid);
-  ASSERT_PTHREAD_SUCCESS(
-    pthread_sigmask(SIG_SETMASK, &sigblockmask, NULL),
-    "restoring thread signal mask: tid={}",
-    tid);
-
-  // Raise the signals which were pending for only this thread at the time of
-  // checkpoint.
-  for (i = SIGRTMAX; i > 0; --i) {
-    if (sigismember(&sigpending, i) == 1 &&
-        sigismember(&sigblockmask, i) == 1 &&
-        sigismember(&sigpending_global, i) == 0 &&
-        i != dmtcp_get_ckpt_signal()) {
-      if (i == SIGCHLD) {
-        NOTE("\n*** WARNING:  SIGCHLD was delivered prior to ckpt.\n"
-              "*** Will raise it on restart.  If not desired, change\n"
-              "*** this line raising SIGCHLD.");
-      }
-      raise(i);
-    }
-  }
-}
-
-int
-ThreadInfo::sendSignal(int sig)
-{
-  return dmtcp_tgkill(getpid(), tid, sig);
 }
 
 /*****************************************************************************
