@@ -9,6 +9,7 @@
 #include "siginfo.h"
 #include "syscallwrappers.h"
 #include "tls.h"
+#include "util.h"
 
 static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
 extern sigset_t sigpending_global;
@@ -80,6 +81,27 @@ ThreadInfo::restoreTLSState()
 {
   // Restore the per-thread TLS pointer/register state.
   TLSInfo_SetThreadArea(&tlsInfo);
+}
+
+void
+ThreadInfo::verifyTLSPidTid(pid_t pid)
+{
+  libc_pthread_addr addrs = dmtcp_pthread_get_addrs(pthread_self());
+  pid_t tlsTid = *addrs.tid;
+
+  ASSERT(tlsTid == tid,
+         "TLS tid does not match thread tid: tls_tid={} tid={}", tlsTid, tid);
+
+  // For glibc > 2.24, pid field is unused. Here we do the <=24 check to ensure
+  // that distros with glibc 2.24-NNN are covered as well.
+  dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
+  if (glibc.major == 2 && glibc.minor <= 24) {
+    ASSERT_NOT_NULL(addrs.pid);
+    pid_t tlsPid = *addrs.pid;
+    ASSERT(tlsPid == pid,
+           "TLS pid does not match process pid: tls_pid={} pid={}", tlsPid,
+           pid);
+  }
 }
 
 int

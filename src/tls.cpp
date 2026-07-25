@@ -17,7 +17,6 @@
  *****************************************************************************/
 
 #include "tls.h"
-#include <pthread.h>  // for pthread_self(), needed for WSL
 #include <elf.h>
 #include <errno.h>
 #include <linux/version.h>
@@ -33,7 +32,6 @@
 #include <sys/types.h>
 
 #include "config.h"  // define WSL if present
-#include "glibc_pthread.h"
 #include "mtcp/mtcp_sys.h"
 #include "syscallwrappers.h"
 #include "util.h"
@@ -372,31 +370,6 @@ TLSInfo_SetThreadSysinfo(void *sysinfo)
 #else /* if defined(__i386__) || defined(__x86_64__) */
 # error "current architecture not supported"
 #endif /* if defined(__i386__) || defined(__x86_64__) */
-}
-
-/*****************************************************************************
- *
- *
- *****************************************************************************/
-void
-TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
-{
-  libc_pthread_addr pthreadAddrs = dmtcp_pthread_get_addrs(pthread_self());
-  pid_t tls_tid = *pthreadAddrs.tid;
-
-  ASSERT(tls_tid == tid,
-         "TLS tid does not match thread tid: tls_tid={} tid={}", tls_tid, tid);
-
-  // For glibc > 2.24, pid field is unused. Here we do the <24 check to ensure
-  // that distros with glibc 2.24-NNN are covered as well.
-  dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
-  if (glibc.major == 2 && glibc.minor < 24) {
-    ASSERT_NOT_NULL(pthreadAddrs.pid);
-    pid_t tls_pid = *pthreadAddrs.pid;
-    ASSERT(tls_pid == pid,
-           "TLS pid does not match process pid: tls_pid={} pid={}", tls_pid,
-           pid);
-  }
 }
 
 void

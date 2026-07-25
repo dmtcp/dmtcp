@@ -85,6 +85,7 @@ class ThreadInfo {
   void restoreSigState();
   void saveTLSState();
   void restoreTLSState();
+  void verifyTLSPidTid(pid_t pid);
   int sendSignal(int sig);
   void markExiting();
   void initPthreadFields();

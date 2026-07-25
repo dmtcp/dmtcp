@@ -43,7 +43,6 @@
 
 
 void TLSInfo_PostRestart();
-void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid);
 void TLSInfo_UpdatePid();
 void TLSInfo_GetThreadArea(ThreadTLSInfo *tlsInfo, pid_t tid);
 void TLSInfo_SetThreadArea(ThreadTLSInfo *tlsInfo);
