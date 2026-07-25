@@ -8,6 +8,7 @@
 #include "plugin/pid/pidhelpers.h"
 #include "siginfo.h"
 #include "syscallwrappers.h"
+#include "tls.h"
 
 static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
 extern sigset_t sigpending_global;
@@ -64,6 +65,21 @@ ThreadInfo::restoreSigState()
       raise(i);
     }
   }
+}
+
+void
+ThreadInfo::saveTLSState()
+{
+  // Save state necessary for TLS restore.  Linux saves this in per-thread GDT
+  // entries/registers outside user-addressable memory.
+  TLSInfo_GetThreadArea(&tlsInfo, tid);
+}
+
+void
+ThreadInfo::restoreTLSState()
+{
+  // Restore the per-thread TLS pointer/register state.
+  TLSInfo_SetThreadArea(&tlsInfo);
 }
 
 int

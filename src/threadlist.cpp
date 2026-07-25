@@ -381,7 +381,7 @@ checkpointhread(void *dummy)
 
     // Gather ckpt-thread's TLS state as it could have changed as a result of
     // dlopening libraries with TLS objects.
-    TLSInfo_SaveTLSState(ckptThread);
+    ckptThread->saveTLSState();
 
     // Save signal mask and capture any pending signals.
     ckptThread->saveSigState();
@@ -581,7 +581,7 @@ stopthisthread(int signum)
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
     curThread->saveSigState();  // save sig state (and block sig delivery)
-    TLSInfo_SaveTLSState(curThread);  // save thread local storage state
+    curThread->saveTLSState();
 
     /* Set up our restart point, ie, we get jumped to here after a restore */
 #ifdef SETJMP
@@ -727,8 +727,7 @@ ThreadList::waitForAllRestored(Thread *thread)
 void
 ThreadList::postRestart(int restartPause)
 {
-  // This function and related ones are defined in src/tls.cpp
-  TLSInfo_RestoreTLSState(motherofall);
+  motherofall->restoreTLSState();
   TLSInfo_RestoreTLSTidPid(motherofall);
 
   restartPauseLevel = restartPause;
@@ -799,7 +798,7 @@ restarthread(void *threadv)
 {
   Thread *thread = (Thread *)threadv;
 
-  TLSInfo_RestoreTLSState(thread);
+  thread->restoreTLSState();
   TLSInfo_RestoreTLSTidPid(thread);
 
   if (TLSInfo_HaveThreadSysinfoOffset()) {

@@ -61,31 +61,31 @@ const char *tlsErrorMsg = "*** DMTCP: Error restoring TLS information\n.";
 #ifdef __x86_64__
 # include <asm/prctl.h>
 # include <sys/prctl.h>
-static void
-tls_get_thread_area(Thread *thread)
+void
+TLSInfo_GetThreadArea(ThreadTLSInfo *tlsInfo, pid_t tid)
 {
   ASSERT_NE(-1,
     _real_syscall(SYS_arch_prctl, ARCH_GET_FS,
-                  (long)&thread->tlsInfo.fs, 0, 0, 0, 0, 0),
-    "failed to read FS TLS register: tid={}", thread->tid);
+                  (long)&tlsInfo->fs, 0, 0, 0, 0, 0),
+    "failed to read FS TLS register: tid={}", tid);
   ASSERT_NE(-1,
     _real_syscall(SYS_arch_prctl, ARCH_GET_GS,
-                  (long)&thread->tlsInfo.gs, 0, 0, 0, 0, 0),
-    "failed to read GS TLS register: tid={}", thread->tid);
+                  (long)&tlsInfo->gs, 0, 0, 0, 0, 0),
+    "failed to read GS TLS register: tid={}", tid);
 }
 
 void
-tls_set_thread_area(Thread *thread)
+TLSInfo_SetThreadArea(ThreadTLSInfo *tlsInfo)
 {
   int mtcp_sys_errno __attribute__((unused));
 
-  if (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_FS, thread->tlsInfo.fs)
+  if (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_FS, tlsInfo->fs)
       != 0) {
     printf("\n*** DMTCP: Error restoring TLS.\n\n");
     abort();
   };
 
-  if (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_GS, thread->tlsInfo.gs)
+  if (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_GS, tlsInfo->gs)
       != 0) {
     printf("\n*** DMTCP: Error restoring TLS.\n\n");
     abort();
@@ -94,30 +94,30 @@ tls_set_thread_area(Thread *thread)
 #endif
 
 #ifdef __i386__
-static void
-tls_get_thread_area(Thread *thread)
+void
+TLSInfo_GetThreadArea(ThreadTLSInfo *tlsInfo, pid_t tid)
 {
-  asm volatile ("movw %%fs,%0" : "=m" (thread->tlsInfo.fs));
-  asm volatile ("movw %%gs,%0" : "=m" (thread->tlsInfo.gs));
+  asm volatile ("movw %%fs,%0" : "=m" (tlsInfo->fs));
+  asm volatile ("movw %%gs,%0" : "=m" (tlsInfo->gs));
 
-  memset(&thread->tlsInfo.gdtentrytls, 0, sizeof thread->tlsInfo.gdtentrytls);
+  memset(&tlsInfo->gdtentrytls, 0, sizeof tlsInfo->gdtentrytls);
 
-  thread->tlsInfo.gdtentrytls.entry_number = thread->tlsInfo.gs / 8;
+  tlsInfo->gdtentrytls.entry_number = tlsInfo->gs / 8;
 
   ASSERT_NE(-1,
     _real_syscall(SYS_get_thread_area,
-                  (long)&thread->tlsInfo.gdtentrytls,
+                  (long)&tlsInfo->gdtentrytls,
                   0, 0, 0, 0, 0, 0),
     "failed to read i386 TLS GDT entry: tid={} entry={}",
-    thread->tid, thread->tlsInfo.gdtentrytls.entry_number);
+    tid, tlsInfo->gdtentrytls.entry_number);
 }
 
-static void
-tls_set_thread_area(Thread *thread)
+void
+TLSInfo_SetThreadArea(ThreadTLSInfo *tlsInfo)
 {
   int mtcp_sys_errno __attribute__((unused));
 
-  if (mtcp_inline_syscall(set_thread_area, 1, &thread->tlsInfo.gdtentrytls)
+  if (mtcp_inline_syscall(set_thread_area, 1, &tlsInfo->gdtentrytls)
         != 0) {
     printf("\n*** DMTCP: Error restoring TLS.\n\n");
     abort();
@@ -128,8 +128,8 @@ tls_set_thread_area(Thread *thread)
    * For the other architectures (not i386), the kernel call above
    * already did the equivalent work of setting up thread registers.
    */
-  asm volatile ("movw %0,%%fs" : : "m" (thread->tlsInfo.fs));
-  asm volatile ("movw %0,%%gs" : : "m" (thread->tlsInfo.gs));
+  asm volatile ("movw %0,%%fs" : : "m" (tlsInfo->fs));
+  asm volatile ("movw %0,%%gs" : : "m" (tlsInfo->gs));
 }
 #endif  // ifdef __i386__
 
@@ -149,23 +149,24 @@ tls_set_thread_area(Thread *thread)
  *     of 'struct pthread' in tls_tid_offset, tls_pid_offset in mtcp.c.
  */
 
-static void
-tls_get_thread_area(Thread *thread)
+void
+TLSInfo_GetThreadArea(ThreadTLSInfo *tlsInfo, pid_t tid)
 {
   unsigned long int addr;
   asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t"
                 : "=r" (addr));
 
-  thread->tlsInfo.tlsAddr = addr - 1216; /* sizeof(struct pthread) = 1216 */  \
+  (void)tid;
+  tlsInfo->tlsAddr = addr - 1216; /* sizeof(struct pthread) = 1216 */  \
 }
 
-static void
-tls_set_thread_area(Thread *thread)
+void
+TLSInfo_SetThreadArea(ThreadTLSInfo *tlsInfo)
 {
   int mtcp_sys_errno __attribute__((unused));
   if (mtcp_syscall(__ARM_NR_set_thread_area,
                    &mtcp_sys_errno,
-                   thread->tlsInfo.tlsAddr) != 0) {
+                   tlsInfo->tlsAddr) != 0) {
     printf("\n*** DMTCP: Error restoring TLS.\n\n");
     abort();
   };
@@ -188,18 +189,19 @@ tls_set_thread_area(Thread *thread)
  *     of 'struct pthread' in tls_tid_offset, tls_pid_offset in mtcp.c.
  */
 
-static void
-tls_get_thread_area(Thread *thread)
+void
+TLSInfo_GetThreadArea(ThreadTLSInfo *tlsInfo, pid_t tid)
 {
   unsigned long int addr;
   asm volatile ("mrs   %0, tpidr_el0" : "=r" (addr));
-  thread->tlsInfo.tlsAddr = addr - 1776;  // sizeof(struct pthread) = 1776
+  (void)tid;
+  tlsInfo->tlsAddr = addr - 1776;  // sizeof(struct pthread) = 1776
 }
 
-static void
-tls_set_thread_area(Thread *thread)
+void
+TLSInfo_SetThreadArea(ThreadTLSInfo *tlsInfo)
 {
-  unsigned long int addr = thread->tlsInfo.tlsAddr + 1776;
+  unsigned long int addr = tlsInfo->tlsAddr + 1776;
   asm volatile ("msr     tpidr_el0, %[gs]" : :[gs] "r" (addr));
 }
 #endif /* end __aarch64__ */
@@ -224,18 +226,19 @@ tls_set_thread_area(Thread *thread)
  * 	of 'struct pthread' in tls_tid_offset, tls_pid_offset in mtcp.c.
  */
 
-static void
-tls_get_thread_area(Thread *thread)
+void
+TLSInfo_GetThreadArea(ThreadTLSInfo *tlsInfo, pid_t tid)
 {
   unsigned long int addr;
   asm volatile ("addi %0, tp, 0" : "=r" (addr));
-  thread->tlsInfo.tlsAddr = addr;
+  (void)tid;
+  tlsInfo->tlsAddr = addr;
 }
 
-static void
-tls_set_thread_area(Thread *thread)
+void
+TLSInfo_SetThreadArea(ThreadTLSInfo *tlsInfo)
 {
-  unsigned long int addr = thread->tlsInfo.tlsAddr;
+  unsigned long int addr = tlsInfo->tlsAddr;
   asm volatile("addi tp, %[gs], 0" : : [gs] "r" (addr));
 }
 #endif  /* end __riscv */
@@ -394,39 +397,6 @@ TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
            "TLS pid does not match process pid: tls_pid={} pid={}", tls_pid,
            pid);
   }
-}
-
-/*****************************************************************************
- *
- *  Save state necessary for TLS restore
- *  Linux saves stuff in the GDT, switching it on a per-thread basis
- *
- *****************************************************************************/
-void
-TLSInfo_SaveTLSState(Thread *thread)
-{
-  thread->initPthreadFields();
-  tls_get_thread_area(thread);
-  return;
-}
-
-/*****************************************************************************
- *
- *  Restore the GDT entries that are part of a thread's state
- *
- *  The kernel provides set_thread_area system call for a thread to alter a
- *  particular range of GDT entries, and it switches those entries on a
- *  per-thread basis.  So from our perspective, this is per-thread state that is
- *  saved outside user addressable memory that must be manually saved.
- *
- *****************************************************************************/
-void
-TLSInfo_RestoreTLSState(Thread *thread)
-{
-  /* Every architecture needs a register to point to the current
-   * TLS (thread-local storage).  This is where we set it up.
-   */
-  tls_set_thread_area(thread);
 }
 
 void

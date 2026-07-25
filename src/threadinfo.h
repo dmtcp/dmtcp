@@ -83,6 +83,8 @@ class ThreadInfo {
   bool updateState(ThreadState newState, ThreadState oldState);
   void saveSigState();
   void restoreSigState();
+  void saveTLSState();
+  void restoreTLSState();
   int sendSignal(int sig);
   void markExiting();
   void initPthreadFields();
