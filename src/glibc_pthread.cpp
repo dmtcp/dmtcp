@@ -1,7 +1,5 @@
 #include "glibc_pthread.h"
 
-#include <string.h>
-
 #include "futex.h"
 #include "util.h"
 
@@ -47,62 +45,7 @@ LibcPthreadShim::from(pthread_t th)
   // ready.  Current-thread TID virtualization is handled during
   // ThreadList::init().
   int libcMinor = dmtcp::Util::glibcVersion().minor;
-  LibcPthreadShim ret = {};
-
-  if (libcMinor >= 33) {
-    struct libc2_33_pthread *lth = (struct libc2_33_pthread *)th;
-    ret.tid_ = &lth->tid;
-    ret.flags_ = &lth->flags;
-    ret.lock_ = &lth->lock;
-    ret.joinid_ = &lth->joinid;
-    ret.schedparam_ = &lth->schedparam;
-    ret.schedpolicy_ = &lth->schedpolicy;
-    ret.stackblock_ = &lth->stackblock;
-    ret.stackblock_size_ = &lth->stackblock_size;
-    ret.guardsize_ = &lth->guardsize;
-    ret.reported_guardsize_ = &lth->reported_guardsize;
-  } else if (libcMinor >= 11) {
-    struct libc2_11_pthread *lth = (struct libc2_11_pthread *)th;
-    ret.tid_ = &lth->tid;
-    ret.pid_ = &lth->pid;
-    ret.flags_ = &lth->flags;
-    ret.lock_ = &lth->lock;
-    ret.joinid_ = &lth->joinid;
-    ret.schedparam_ = &lth->schedparam;
-    ret.schedpolicy_ = &lth->schedpolicy;
-    ret.stackblock_ = &lth->stackblock;
-    ret.stackblock_size_ = &lth->stackblock_size;
-    ret.guardsize_ = &lth->guardsize;
-    ret.reported_guardsize_ = &lth->reported_guardsize;
-  } else if (libcMinor >= 10) {
-    struct libc2_10_pthread *lth = (struct libc2_10_pthread *)th;
-    ret.tid_ = &lth->tid;
-    ret.pid_ = &lth->pid;
-    ret.flags_ = &lth->flags;
-    ret.lock_ = &lth->lock;
-    ret.joinid_ = &lth->joinid;
-    ret.schedparam_ = &lth->schedparam;
-    ret.schedpolicy_ = &lth->schedpolicy;
-    ret.stackblock_ = &lth->stackblock;
-    ret.stackblock_size_ = &lth->stackblock_size;
-    ret.guardsize_ = &lth->guardsize;
-    ret.reported_guardsize_ = &lth->reported_guardsize;
-  } else {
-    struct libc2_x_pthread *lth = (struct libc2_x_pthread *)th;
-    ret.tid_ = &lth->tid;
-    ret.pid_ = &lth->pid;
-    ret.flags_ = &lth->flags;
-    ret.lock_ = &lth->lock;
-    ret.joinid_ = &lth->joinid;
-    ret.schedparam_ = &lth->schedparam;
-    ret.schedpolicy_ = &lth->schedpolicy;
-    ret.stackblock_ = &lth->stackblock;
-    ret.stackblock_size_ = &lth->stackblock_size;
-    ret.guardsize_ = &lth->guardsize;
-    ret.reported_guardsize_ = &lth->reported_guardsize;
-  }
-
-  return ret;
+  return LibcPthreadShim::from(th, libcMinor);
 }
 
 void
@@ -115,21 +58,6 @@ void
 LibcPthreadShim::lllUnlock() const
 {
   glibc_lll_unlock(lock_);
-}
-
-void
-LibcPthreadShim::setSchedParam(int policy,
-                               const struct sched_param *param) const
-{
-  *schedpolicy_ = policy;
-  memcpy(schedparam_, param, sizeof(struct sched_param));
-}
-
-void
-LibcPthreadShim::getSchedParam(int *policy, struct sched_param *param) const
-{
-  *policy = *schedpolicy_;
-  memcpy(param, schedparam_, sizeof(struct sched_param));
 }
 
 #endif // #ifdef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD

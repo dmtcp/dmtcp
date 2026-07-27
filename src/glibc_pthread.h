@@ -3,6 +3,8 @@
 #include <sched.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <thread_db.h>
 
@@ -123,8 +125,9 @@
 // TODO(kapil): Add dynamic check for this.
 #define _STACK_GROWS_DOWN 1
 
-// These constants can be determined automatically, by running:
-//  check-pthread-tid-offset -v # Source code in util/check-pthread-tid-offset.c
+// These constants can be checked automatically, by running:
+//  check-pthread-field-offsets -v
+// Source code in util/check-pthread-field-offsets.cpp
 struct libc_tcbhead_t {
 #if defined(__x86__) || defined(__x86_64__)
   char pad[704];
@@ -394,6 +397,65 @@ struct libc2_x_pthread {
 class LibcPthreadShim {
  public:
   static LibcPthreadShim from(pthread_t th);
+  static LibcPthreadShim from(pthread_t th, int libcMinor)
+  {
+    LibcPthreadShim ret = {};
+
+    if (libcMinor >= 33) {
+      auto *lth = (struct libc2_33_pthread *)th;
+      ret.tid_ = &lth->tid;
+      ret.flags_ = &lth->flags;
+      ret.lock_ = &lth->lock;
+      ret.joinid_ = &lth->joinid;
+      ret.schedparam_ = &lth->schedparam;
+      ret.schedpolicy_ = &lth->schedpolicy;
+      ret.stackblock_ = &lth->stackblock;
+      ret.stackblock_size_ = &lth->stackblock_size;
+      ret.guardsize_ = &lth->guardsize;
+      ret.reported_guardsize_ = &lth->reported_guardsize;
+    } else if (libcMinor >= 11) {
+      auto *lth = (struct libc2_11_pthread *)th;
+      ret.tid_ = &lth->tid;
+      ret.pid_ = &lth->pid;
+      ret.flags_ = &lth->flags;
+      ret.lock_ = &lth->lock;
+      ret.joinid_ = &lth->joinid;
+      ret.schedparam_ = &lth->schedparam;
+      ret.schedpolicy_ = &lth->schedpolicy;
+      ret.stackblock_ = &lth->stackblock;
+      ret.stackblock_size_ = &lth->stackblock_size;
+      ret.guardsize_ = &lth->guardsize;
+      ret.reported_guardsize_ = &lth->reported_guardsize;
+    } else if (libcMinor >= 10) {
+      auto *lth = (struct libc2_10_pthread *)th;
+      ret.tid_ = &lth->tid;
+      ret.pid_ = &lth->pid;
+      ret.flags_ = &lth->flags;
+      ret.lock_ = &lth->lock;
+      ret.joinid_ = &lth->joinid;
+      ret.schedparam_ = &lth->schedparam;
+      ret.schedpolicy_ = &lth->schedpolicy;
+      ret.stackblock_ = &lth->stackblock;
+      ret.stackblock_size_ = &lth->stackblock_size;
+      ret.guardsize_ = &lth->guardsize;
+      ret.reported_guardsize_ = &lth->reported_guardsize;
+    } else {
+      auto *lth = (struct libc2_x_pthread *)th;
+      ret.tid_ = &lth->tid;
+      ret.pid_ = &lth->pid;
+      ret.flags_ = &lth->flags;
+      ret.lock_ = &lth->lock;
+      ret.joinid_ = &lth->joinid;
+      ret.schedparam_ = &lth->schedparam;
+      ret.schedpolicy_ = &lth->schedpolicy;
+      ret.stackblock_ = &lth->stackblock;
+      ret.stackblock_size_ = &lth->stackblock_size;
+      ret.guardsize_ = &lth->guardsize;
+      ret.reported_guardsize_ = &lth->reported_guardsize;
+    }
+
+    return ret;
+  }
 
   void lllLock() const;
   void lllUnlock() const;
@@ -414,8 +476,17 @@ class LibcPthreadShim {
   size_t guardSize() const { return *guardsize_; }
   size_t reportedGuardSize() const { return *reported_guardsize_; }
 
-  void getSchedParam(int *policy, struct sched_param *param) const;
-  void setSchedParam(int policy, const struct sched_param *param) const;
+  void getSchedParam(int *policy, struct sched_param *param) const
+  {
+    *policy = *schedpolicy_;
+    memcpy(param, schedparam_, sizeof(struct sched_param));
+  }
+
+  void setSchedParam(int policy, const struct sched_param *param) const
+  {
+    *schedpolicy_ = policy;
+    memcpy(schedparam_, param, sizeof(struct sched_param));
+  }
 
  private:
   pid_t *tid_ = nullptr;
