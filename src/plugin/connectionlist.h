@@ -60,6 +60,7 @@ class ConnectionList
     virtual ConnectionList* clone();
 
     void resetOnFork();
+    void clear();
     void deleteStaleConnections();
 
     void add(int fd, Connection *c);

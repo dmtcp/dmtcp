@@ -131,6 +131,8 @@ unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 		$(srcdir)/unit/util_assert_tests.cpp \
 		$(srcdir)/unit/virtualidtable_tests.cpp \
 		$(srcdir)/unit/pagemap_scan_tests.cpp \
+		$(srcdir)/unit/socket_discovery_tests.cpp \
+		$(top_srcdir)/src/plugin/socket/socketdiscovery.cpp \
 		$(srcdir)/unit/unit_test.h \
 		$(DMTCP_INCLUDE)/dmtcp.h \
 		$(DMTCP_INCLUDE)/virtualidtable.h \
@@ -139,13 +141,16 @@ unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 		$(top_builddir)/src/libjalib.a \
 		$(top_builddir)/src/libnohijack.a
 	$(MKDIR_P) unit
-	$(CXX) $(CXXFLAGS) -I$(srcdir)/unit -I$(top_srcdir)/src -o $@ \
+	$(CXX) $(CXXFLAGS) -I$(srcdir)/unit -I$(top_srcdir)/src \
+	  -I$(top_srcdir)/jalib -o $@ \
 	  $(srcdir)/unit/main.cpp \
 	  $(srcdir)/unit/dmtcp_header_tests.cpp \
 	  $(srcdir)/unit/dmtcp_message_tests.cpp \
 	  $(srcdir)/unit/util_assert_tests.cpp \
 	  $(srcdir)/unit/virtualidtable_tests.cpp \
 	  $(srcdir)/unit/pagemap_scan_tests.cpp \
+	  $(srcdir)/unit/socket_discovery_tests.cpp \
+	  $(top_srcdir)/src/plugin/socket/socketdiscovery.cpp \
 	  $(COORDINATOR_SYNTHETIC_LDADD)
 
 unit/dmtcp_header_c_test.o: $(srcdir)/unit/dmtcp_header_c_test.c \
@@ -322,6 +327,12 @@ libdlopen-lib4.so: dlopen2.cpp
 	${CXX} ${CXXFLAGS} -shared -fPIC -DLIB4 -o $@ $<
 dlopen2: dlopen2.cpp libdlopen-lib3.so libdlopen-lib4.so
 	${CXX} ${CXXFLAGS} -o $@ $< -ldl
+
+socket-discovery: socket-discovery.c
+	$(CC) -o $@ $< $(CFLAGS) -ldl
+
+socket-discovery-tcp: socket-discovery-tcp.c
+	$(CC) -o $@ $< $(CFLAGS) -ldl
 
 %.class: %.java
 ifeq ($(HAS_JAVAC),yes)

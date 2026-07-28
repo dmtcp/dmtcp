@@ -1,12 +1,17 @@
+#include <fcntl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <netinet/tcp.h>
+#include <poll.h>
 
-#include "jfilesystem.h"
 #include "connectionrewirer.h"
 #include "kernelbufferdrainer.h"
+#include "kvdb.h"
 #include "protectedfds.h"
 #include "socketconnection.h"
 #include "socketconnlist.h"
+#include "socketdiscovery.h"
+#include "socketwrappers.h"
 #include "util.h"
 #include "dmtcp_assert.h"
 
@@ -17,37 +22,14 @@ static bool _hasIPv6Sock = false;
 static bool _hasUNIXSock = false;
 
 static SocketConnList *socketConnList = NULL;
-static SocketConnList *vfork_socketConnList = NULL;
 
 void
-dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *)
 {
-  SocketConnList::instance().eventHook(event, data);
-
   switch (event) {
-  case DMTCP_EVENT_CLOSE_FD:
-    SocketConnList::instance().processClose(data->closeFd.fd);
-    break;
-
-  case DMTCP_EVENT_DUP_FD:
-    SocketConnList::instance().processDup(data->dupFd.oldFd, data->dupFd.newFd);
-    break;
-
-  case DMTCP_EVENT_VFORK_PREPARE:
-    vfork_socketConnList = (SocketConnList*) SocketConnList::instance().clone();
-    break;
-
-  case DMTCP_EVENT_VFORK_PARENT:
-  case DMTCP_EVENT_VFORK_FAILED:
-    delete socketConnList;
-    socketConnList = vfork_socketConnList;
-    break;
-
   case DMTCP_EVENT_PRECHECKPOINT:
-    SocketConnList::saveOptions();
-    dmtcp_local_barrier("Socket::Pre_Ckpt");
-    SocketConnList::leaderElection();
-    dmtcp_local_barrier("Socket::Leader_Election");
+    SocketConnList::instance().discover();
+    dmtcp_local_barrier("Socket::Discovery");
 
     // We need a global barrier after registering name-service data so that all
     // our peers have registered their info before we start sending queries.
@@ -105,17 +87,171 @@ SocketConnList::instance()
   return *socketConnList;
 }
 
+static ConnectionIdentifier
+socketConnectionId(uint64_t inode)
+{
+  DmtcpUniqueProcessId id = {};
+  id._hostid = dmtcp_get_uniquepid()._hostid;
+  id._computation_generation = dmtcp_get_generation();
+  return ConnectionIdentifier(id, inode);
+}
+
+static string
+socketElectionKey(const ConnectionIdentifier& id)
+{
+  ostringstream key;
+  key << id.hostid() << ':' << id.conId() << ':' << dmtcp_get_generation();
+  return key.str();
+}
+
+static bool
+resolveInProgressConnect(const DiscoveredSocket& socket,
+                         int waitMs,
+                         InspectedSocket *inspected)
+{
+  if (inspected->hasPeer) {
+    return true;
+  }
+
+  bool hasState = inspected->hasDiagnostics;
+  int state = inspected->kernelState;
+  if (!hasState) {
+    tcp_info info = {};
+    socklen_t length = sizeof(info);
+    if (_real_getsockopt(socket.fds.front(), IPPROTO_TCP, TCP_INFO,
+                         &info, &length) == 0) {
+      hasState = true;
+      state = info.tcpi_state;
+    }
+  }
+  if (!hasState) {
+    return false;
+  }
+
+  bool inProgress = state == TCP_SYN_SENT || state == TCP_SYN_RECV;
+  pollfd descriptor = { socket.fds.front(), POLLOUT, 0 };
+  int result = _real_poll(&descriptor, 1, inProgress ? waitMs : 0);
+  if (result < 0 ||
+      (descriptor.revents & (POLLERR | POLLNVAL)) != 0) {
+    return false;
+  }
+  if (state == TCP_ESTABLISHED) {
+    return inspectSocket(socket, inspected) && inspected->hasPeer;
+  }
+  if (!inProgress) {
+    return true;
+  }
+
+  if ((descriptor.revents & POLLHUP) != 0) {
+    return false;
+  }
+  if (result == 0 || (descriptor.revents & POLLOUT) == 0) {
+    return false;
+  }
+  return inspectSocket(socket, inspected) && inspected->hasPeer;
+}
+
+void
+SocketConnList::discover()
+{
+  vector<DiscoveredSocket> sockets = enumerateSockets();
+  int connectWaitMs = socketConnectWaitMs();
+  clear();
+
+  for (const DiscoveredSocket& socket : sockets) {
+    ConnectionIdentifier id = socketConnectionId(socket.inode);
+    string previousOwner;
+    ASSERT(kvdb::getOrSet(PeerDiscoveryDbCkpt,
+                          socketElectionKey(id),
+                          dmtcp_get_uniquepid_str(),
+                          &previousOwner) ==
+             kvdb::KVDBResponse::SUCCESS,
+           "Failed to elect socket checkpoint owner: fd={} inode={}",
+           socket.fds.front(), socket.inode);
+    bool hasLock = previousOwner.empty();
+
+    InspectedSocket inspected = {};
+    const InspectedSocket *details = nullptr;
+    bool inspectionComplete = false;
+    if (hasLock) {
+      inspectionComplete = inspectSocket(socket, &inspected);
+      if (!inspected.hasDescriptorState) {
+        inspected.statusFlags = 0;
+        inspected.realOwner = 0;
+        inspected.signal = 0;
+        inspected.hasDescriptorState = true;
+      }
+      details = &inspected;
+    }
+
+    int baseType = socket.type & 077;
+    bool raw = socket.domain == AF_NETLINK &&
+               (baseType == SOCK_RAW || baseType == SOCK_DGRAM);
+    bool restorable =
+      ((socket.domain == AF_INET || socket.domain == AF_INET6) &&
+       baseType == SOCK_STREAM && socket.protocol == IPPROTO_TCP) ||
+      (socket.domain == AF_UNIX &&
+       (baseType == SOCK_STREAM || baseType == SOCK_SEQPACKET));
+    if (hasLock &&
+        (!inspectionComplete ||
+         (inspected.acceptConn != 0 && !inspected.hasDiagnostics))) {
+      restorable = false;
+    }
+    if (inspectionComplete && restorable &&
+        !resolveInProgressConnect(socket, connectWaitMs, &inspected)) {
+      restorable = false;
+    }
+
+    Connection *connection = nullptr;
+    if (raw) {
+      auto *rawConnection =
+        new RawSocketConnection(socket.domain, socket.type, socket.protocol,
+                                id, hasLock, details);
+      if (details != nullptr) {
+        rawConnection->initializeFromDiscovery(*details,
+                                               inspectionComplete);
+      }
+      connection = rawConnection;
+    } else {
+      auto *tcpConnection =
+        new TcpConnection(socket.domain, socket.type, socket.protocol,
+                          id, hasLock, details);
+      if (hasLock) {
+        tcpConnection->initializeFromDiscovery(inspected,
+                                               restorable &&
+                                               details != nullptr);
+      }
+      connection = tcpConnection;
+    }
+
+    connection->setFdFlags(socket.fdFlags);
+    for (int fd : socket.fds) {
+      add(fd, connection);
+    }
+    if (details != nullptr) {
+      dynamic_cast<SocketConnection *>(connection)->
+        captureSocketOptions(socket.fds.front());
+    }
+
+    if (hasLock &&
+        ((!restorable && !raw) || !inspectionComplete)) {
+      WARN(false,
+           "Socket cannot be restored from checkpoint-time state and will "
+           "become a dead socket after restart: fd={} domain={} type={} "
+           "protocol={} inode={}",
+           socket.fds.front(), socket.domain, socket.type, socket.protocol,
+           socket.inode);
+    }
+  }
+}
+
 void
 SocketConnList::preCkptRegisterNSData()
 {
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
-    /* NOTE: We need to explicitly call checkLocking() here because
-     * _hasLock is set only in this function.
-     */
-    con->checkLocking();
     if (con->hasLock() && con->conType() == Connection::TCP) {
-      ((TcpConnection *)con)->sendPeerInformation();
+      static_cast<TcpConnection *>(con)->publishPeerIdentity();
     }
   }
 }
@@ -126,7 +262,7 @@ SocketConnList::preCkptSendQueries()
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     if (con->hasLock() && con->conType() == Connection::TCP) {
-      ((TcpConnection *)con)->recvPeerInformation();
+      static_cast<TcpConnection *>(con)->lookupPeerIdentity();
     }
   }
 }
@@ -134,8 +270,12 @@ SocketConnList::preCkptSendQueries()
 void
 SocketConnList::drain()
 {
-  // First, let all the Connection prepare for drain
-  ConnectionList::drain();
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection *con = i->second;
+    if (con->hasLock()) {
+      con->drain();
+    }
+  }
 
   // this will block until draining is complete
   KernelBufferDrainer::instance().monitorSockets(
@@ -163,27 +303,6 @@ SocketConnList::drain()
 void
 SocketConnList::preCkpt()
 {
-  // handshake is done after one barrier after drain
-  TRACE("beginning handshakes");
-  DmtcpUniqueProcessId coordId = dmtcp_get_coord_id();
-
-  // must send first to avoid deadlock
-  // we are relying on OS buffers holding our message without blocking
-  for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
-    if (con->hasLock() && con->conType() == Connection::TCP) {
-      ((TcpConnection *)con)->doSendHandshakes(coordId);
-    }
-  }
-
-  // now receive
-  for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
-    if (con->hasLock() && con->conType() == Connection::TCP) {
-      ((TcpConnection *)con)->doRecvHandshakes(coordId);
-    }
-  }
-  TRACE("handshaking done");
   _hasIPv4Sock = _hasIPv6Sock = _hasUNIXSock = false;
 
   // Now check if we have IPv4, IPv6, or UNIX domain sockets to restore.
@@ -229,64 +348,6 @@ SocketConnList::refill(bool isRestart)
 {
   KernelBufferDrainer::instance().refillAllSockets();
   ConnectionList::refill(isRestart);
-}
-
-void
-SocketConnList::scanForPreExisting()
-{
-  // TODO: This is a hack when SLURM + MPI are used:
-  // when we use command
-  // srun/ibrun dmtcp_launch a.out
-  // inside the SLURM submission script, the MPI launching
-  // process will not run under the control of DMTCP. Instead,
-  // only the computing processes are. The launching process
-  // will create some sockets, and then create the computing
-  // processes. Hence the sockets are shared among the created
-  // processes at the time when dmtcp_launch is launched. DMTCP
-  // will treat these sockets as pre-existing sockets instead of
-  // shared sockets.
-  //
-  // In the future, we should generalize the processing of
-  // pre-existing fds. For example, at checkpoint time, determine
-  // which sockets are shared, regardless of whether they are
-  // pre-existing or not. This can be done by adding an extra round
-  // of leader election.
-
-  if ((getenv("SLURM_JOBID")) ||
-      (getenv("SLURM_JOB_ID")) ||
-      (getenv("HYDI_CONTROL_FD"))) {
-    return;
-  }
-
-  // FIXME: Detect stdin/out/err fds to detect duplicates.
-  vector<int>fds = jalib::Filesystem::ListOpenFds();
-  for (size_t i = 0; i < fds.size(); ++i) {
-    int fd = fds[i];
-    if (!Util::isValidFd(fd)) {
-      continue;
-    }
-    if (dmtcp_is_protected_fd(fd)) {
-      continue;
-    }
-
-    string device = jalib::Filesystem::GetDeviceName(fd);
-
-    TRACE("Scanning pre-existing socket descriptor: fd={} device={}",
-          fd, device);
-    if (device ==
-        jalib::Filesystem::GetControllingTerm()) {} else if (dmtcp_is_bq_file &&
-                                                             dmtcp_is_bq_file(
-                                                               device.c_str()))
-    {} else if (fd <=
-                2)
-    {} else if (Util::strStartsWith(device.c_str(), "/")) {} else {
-      NOTE("Pre-existing socket will not be restored: fd={} device={}",
-           fd, device);
-      TcpConnection *con = new TcpConnection(0, 0, 0);
-      con->markPreExisting();
-      add(fd, con);
-    }
-  }
 }
 
 Connection *

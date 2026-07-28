@@ -723,7 +723,17 @@ fcntl(int fd, int cmd, ...)
 
   int res;
   if (fcntlCmdHasNoArg(cmd)) {
+    int savedErrno = errno;
+    if (cmd == F_GETOWN) {
+      errno = 0;
+    }
     res = _real_fcntl(fd, cmd);
+    if (cmd == F_GETOWN && (res != -1 || errno == 0)) {
+      res = realToVirtualFcntlOwner(res);
+      if (res != -1) {
+        errno = savedErrno;
+      }
+    }
 #ifdef F_SETOWN_EX
   } else if (cmd == F_SETOWN_EX) {
     struct f_owner_ex *owner = NULL;
@@ -774,17 +784,7 @@ fcntl(int fd, int cmd, ...)
     if (cmd == F_SETOWN) {
       arg = virtualToRealFcntlOwner(arg);
     }
-    int savedErrno = errno;
-    if (cmd == F_GETOWN) {
-      errno = 0;
-    }
     res = _real_fcntl(fd, cmd, arg);
-    if (cmd == F_GETOWN && (res != -1 || errno == 0)) {
-      res = realToVirtualFcntlOwner(res);
-      if (res != -1) {
-        errno = savedErrno;
-      }
-    }
   }
 
   if (res != -1 && (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC)) {

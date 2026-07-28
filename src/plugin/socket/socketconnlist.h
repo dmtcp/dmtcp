@@ -53,12 +53,12 @@ class SocketConnList : public ConnectionList
 
     void registerNSData();
     void sendQueries();
+    void discover();
     void preCkptRegisterNSData();
     void preCkptSendQueries();
 
     virtual int protectedFd() override { return PROTECTED_SOCKET_FDREWIRER_FD; }
 
-    virtual void scanForPreExisting() override;
     virtual Connection *createDummyConnection(int type) override;
 
     virtual ConnectionList *cloneInstance() override

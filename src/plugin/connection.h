@@ -70,6 +70,7 @@ class Connection
     void addFd(int fd);
     void removeFd(int fd);
     void restoreDupFds(int fd);
+    void setFdFlags(const map<int, int>& fdFlags) { _fdFlags = fdFlags; }
 
     uint32_t numFds() const { return _fds.size(); }
 
@@ -112,6 +113,12 @@ class Connection
   protected:
     // only child classes can construct us...
     Connection(uint32_t t);
+    Connection(uint32_t t,
+               const ConnectionIdentifier& id,
+               bool hasLock,
+               int64_t flags,
+               int64_t owner,
+               int64_t signal);
 
   protected:
     ConnectionIdentifier _id;
@@ -121,6 +128,7 @@ class Connection
     int64_t _fcntlSignal;
     bool _hasLock;
     vector<int32_t> _fds;
+    map<int, int> _fdFlags;
 };
 }
 #endif // ifndef CONNECTION_H

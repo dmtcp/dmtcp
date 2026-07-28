@@ -42,6 +42,12 @@ LookupService::reset()
 }
 
 void
+LookupService::erase(string const& id)
+{
+  _maps.erase(id);
+}
+
+void
 LookupService::set(string const& id, string const& key, string const& val)
 {
   _maps[id][key] = val;
@@ -136,6 +142,16 @@ LookupService::processSet(jalib::JSocket &remote,
   KeyValueMap &kvmap = _maps[msg.kvdbId];
   const char *key = (const char*)extraData;
   const char *val = key + msg.keyLen;
+
+  if (msg.kvdbRequest == KVDBRequest::GET_OR_SET) {
+    auto [valueIt, inserted] = kvmap.emplace(key, val);
+    if (inserted) {
+      sendResponse(remote, KVDBResponse::SUCCESS);
+    } else {
+      sendResponse(remote, valueIt->second);
+    }
+    return;
+  }
 
   string oldVal("0");
   get(msg.kvdbId, key, &oldVal);

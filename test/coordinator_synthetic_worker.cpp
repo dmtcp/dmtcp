@@ -26,6 +26,7 @@ struct Options {
   bool expectRejectNotRunning = false;
   bool expectRestartPeerMismatch = false;
   bool expectKvdb = false;
+  bool expectKvdbReset = false;
   bool expectInvalidProtocolReject = false;
   bool expectInvalidMessageSizeReject = false;
   bool expectOversizedExtraReject = false;
@@ -37,6 +38,7 @@ struct Options {
   int numPeers = 0;
   bool invalidCompGroup = false;
   std::string barrier;
+  std::string kvdbGetOrSetCandidate;
 };
 
 void
@@ -218,16 +220,27 @@ sendKvdbRequest(int fd,
   writeAll(fd, payload.data(), payload.size());
 }
 
-std::string
-readKvdbValue(int fd)
+dmtcp::kvdb::KVDBResponse
+readKvdbResponse(int fd, std::string *value)
 {
   dmtcp::DmtcpMessage msg;
   readAll(fd, &msg, sizeof(msg));
-  if (!msg.isValid() || msg.type != dmtcp::DMT_KVDB_RESPONSE ||
-      msg.kvdbResponse != dmtcp::kvdb::KVDBResponse::SUCCESS) {
+  if (!msg.isValid() || msg.type != dmtcp::DMT_KVDB_RESPONSE) {
+    throw std::runtime_error("expected DMT_KVDB_RESPONSE");
+  }
+  *value = readExtraString(fd, msg.extraBytes);
+  return msg.kvdbResponse;
+}
+
+std::string
+readKvdbValue(int fd)
+{
+  std::string value;
+  if (readKvdbResponse(fd, &value) !=
+      dmtcp::kvdb::KVDBResponse::SUCCESS) {
     throw std::runtime_error("expected successful DMT_KVDB_RESPONSE");
   }
-  return readExtraString(fd, msg.extraBytes);
+  return value;
 }
 
 std::string
@@ -254,6 +267,8 @@ parseOptions(int argc, char **argv)
       "[--expect-reject-not-running] "
       "[--expect-restart-peer-mismatch] "
       "[--expect-kvdb] "
+      "[--expect-kvdb-reset] "
+      "[--kvdb-get-or-set CANDIDATE] "
       "[--expect-invalid-protocol-reject] "
       "[--expect-invalid-message-size-reject] "
       "[--expect-oversized-extra-reject] "
@@ -292,6 +307,13 @@ parseOptions(int argc, char **argv)
       options.expectRestartPeerMismatch = true;
     } else if (strcmp(argv[i], "--expect-kvdb") == 0) {
       options.expectKvdb = true;
+    } else if (strcmp(argv[i], "--expect-kvdb-reset") == 0) {
+      options.expectKvdbReset = true;
+    } else if (strcmp(argv[i], "--kvdb-get-or-set") == 0) {
+      if (++i == argc) {
+        throw std::runtime_error("--kvdb-get-or-set requires a value");
+      }
+      options.kvdbGetOrSetCandidate = argv[i];
     } else if (strcmp(argv[i], "--expect-invalid-protocol-reject") == 0) {
       options.expectInvalidProtocolReject = true;
     } else if (strcmp(argv[i], "--expect-invalid-message-size-reject") == 0) {
@@ -472,6 +494,31 @@ main(int argc, char **argv)
       }
       std::cout << "received DMT_KILL_PEER\n";
       std::cout.flush();
+    } else if (options.expectKvdbReset) {
+      sendKvdbRequest(fd, dmtcp::kvdb::KVDBRequest::SET,
+                      "/plugin/socket/ckpt", "stale-key", "stale-value");
+      readKvdbValue(fd);
+      std::cout << "kvdb checkpoint value set\n";
+      std::cout.flush();
+
+      dmtcp::DmtcpMessage msg;
+      readAll(fd, &msg, sizeof(msg));
+      if (!msg.isValid() || msg.type != dmtcp::DMT_DO_CHECKPOINT) {
+        close(fd);
+        throw std::runtime_error("expected DMT_DO_CHECKPOINT");
+      }
+
+      sendKvdbRequest(fd, dmtcp::kvdb::KVDBRequest::GET,
+                      "/plugin/socket/ckpt", "stale-key", "");
+      std::string value;
+      if (readKvdbResponse(fd, &value) !=
+          dmtcp::kvdb::KVDBResponse::DB_NOT_FOUND) {
+        close(fd);
+        throw std::runtime_error("socket checkpoint KVDB was not reset");
+      }
+      std::cout << "kvdb checkpoint value reset\n";
+      std::cout.flush();
+      std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
     } else if (options.expectCheckpoint) {
       dmtcp::DmtcpMessage msg;
       readAll(fd, &msg, sizeof(msg));
@@ -524,6 +571,17 @@ main(int argc, char **argv)
                       "synthetic-db", "synthetic-key", "");
       std::string val = readKvdbValue(fd);
       std::cout << "kvdb old=" << oldVal << " value=" << val << '\n';
+      std::cout.flush();
+      std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
+    } else if (!options.kvdbGetOrSetCandidate.empty()) {
+      sendKvdbRequest(fd, dmtcp::kvdb::KVDBRequest::GET_OR_SET,
+                      "synthetic-election", "shared-key",
+                      options.kvdbGetOrSetCandidate.c_str());
+      std::string oldVal = readKvdbValue(fd);
+      const std::string& winner =
+        oldVal.empty() ? options.kvdbGetOrSetCandidate : oldVal;
+      std::cout << "kvdb winner=" << winner
+                << " owner=" << (oldVal.empty() ? 1 : 0) << '\n';
       std::cout.flush();
       std::this_thread::sleep_for(std::chrono::seconds(options.holdSeconds));
     } else if (!options.barrier.empty()) {
