@@ -96,6 +96,8 @@ class WorkerProcess:
                  expect_reject_not_running=False,
                  expect_restart_peer_mismatch=False,
                  expect_kvdb=False,
+                 expect_kvdb_reset=False,
+                 kvdb_get_or_set=None,
                  expect_invalid_protocol_reject=False,
                  expect_oversized_extra_reject=False,
                  expect_invalid_message_size_reject=False,
@@ -136,6 +138,10 @@ class WorkerProcess:
             args.append("--expect-restart-peer-mismatch")
         if expect_kvdb:
             args.append("--expect-kvdb")
+        if expect_kvdb_reset:
+            args.append("--expect-kvdb-reset")
+        if kvdb_get_or_set is not None:
+            args.extend(["--kvdb-get-or-set", kvdb_get_or_set])
         if expect_invalid_protocol_reject:
             args.append("--expect-invalid-protocol-reject")
         if expect_oversized_extra_reject:
@@ -337,6 +343,33 @@ class WorkerProcess:
                 stderr = self._read_stderr()
                 raise RuntimeError(f"worker exited early: {stderr}")
         raise RuntimeError("worker did not complete KVDB round trip")
+
+    def wait_until_kvdb_election(self):
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            if self._stdout_ready(0.1):
+                line = self._read_stdout_line()
+                if line.startswith("kvdb winner="):
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self._read_stderr()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError("worker did not complete KVDB election")
+
+    def wait_until_kvdb_checkpoint_value(self, action):
+        deadline = time.time() + 10
+        expected = f"kvdb checkpoint value {action}"
+        while time.time() < deadline:
+            if self._stdout_ready(0.1):
+                line = self._read_stdout_line()
+                if line == expected:
+                    return line
+                raise RuntimeError(f"unexpected worker output: {line}")
+            if self.process.poll() is not None:
+                stderr = self._read_stderr()
+                raise RuntimeError(f"worker exited early: {stderr}")
+        raise RuntimeError(f"worker did not report KVDB value {action}")
 
     def wait_until_invalid_protocol_rejected(self):
         deadline = time.time() + 10
@@ -984,6 +1017,42 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 self.assertCommandSuccess(status)
                 self.assertEqual(status["num_peers"], 1)
                 self.assertTrue(status["running"])
+            finally:
+                worker.stop()
+
+    def test_kvdb_get_or_set_elects_one_owner(self):
+        with CoordinatorFixture() as coordinator:
+            first = WorkerProcess(coordinator.port,
+                                  kvdb_get_or_set="first")
+            second = None
+            try:
+                first.wait_until_accepted()
+                first_result = first.wait_until_kvdb_election()
+
+                second = WorkerProcess(coordinator.port,
+                                       kvdb_get_or_set="second")
+                second.wait_until_accepted()
+                second_result = second.wait_until_kvdb_election()
+
+                self.assertEqual(first_result, "kvdb winner=first owner=1")
+                self.assertEqual(second_result, "kvdb winner=first owner=0")
+            finally:
+                first.stop()
+                if second is not None:
+                    second.stop()
+
+    def test_checkpoint_clears_socket_kvdb_namespace(self):
+        with CoordinatorFixture() as coordinator:
+            worker = WorkerProcess(coordinator.port, expect_kvdb_reset=True)
+            try:
+                worker.wait_until_accepted()
+                worker.wait_until_kvdb_checkpoint_value("set")
+
+                result = self.run_command("--json", "--coord-port",
+                                          str(coordinator.port),
+                                          "--checkpoint")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                worker.wait_until_kvdb_checkpoint_value("reset")
             finally:
                 worker.stop()
 

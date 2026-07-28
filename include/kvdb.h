@@ -30,7 +30,8 @@ enum class KVDBRequest {
   OR,
   XOR,
   MIN,
-  MAX
+  MAX,
+  GET_OR_SET
 };
 
 enum class KVDBResponse {
@@ -65,6 +66,11 @@ KVDBResponse set(string const& id,
                  string const& key,
                  string const& val,
                  string *oldVal = nullptr);
+
+KVDBResponse getOrSet(string const& id,
+                      string const& key,
+                      string const& val,
+                      string *oldVal);
 
 ostream &operator<<(ostream &o, const KVDBRequest &id);
 ostream &operator<<(ostream &o, const KVDBResponse &id);

@@ -1336,6 +1336,7 @@ DmtcpCoordinator::startCheckpoint()
     _restartFilenames.clear();
     _rshCmdFileNames.clear();
     _sshCmdFileNames.clear();
+    lookupService.erase("/plugin/socket/ckpt");
     compId.incrementGeneration();
     NOTE("starting checkpoint; incrementing generation; suspending all nodes: "
          "numPeers={} generation={}",

@@ -40,6 +40,7 @@ class LookupService
     ~LookupService() { reset(); }
 
     void reset();
+    void erase(string const& id);
 
     void set(string const& id, string const& key, string const& val);
     kvdb::KVDBResponse get(string const &id, string const &key, string *val);

@@ -90,6 +90,16 @@ set(string const& id, string const& key, string const& val, string *oldVal)
   return request(KVDBRequest::SET, id, key, val, oldVal);
 }
 
+KVDBResponse
+getOrSet(string const& id,
+         string const& key,
+         string const& val,
+         string *oldVal)
+{
+  oldVal->clear();
+  return request(KVDBRequest::GET_OR_SET, id, key, val, oldVal);
+}
+
 ostream &
 operator<<(ostream &o, const KVDBRequest &id)
 {
@@ -117,6 +127,9 @@ operator<<(ostream &o, const KVDBRequest &id)
       break;
     case KVDBRequest::MAX:
       o << "KVDBRequest::MAX";
+      break;
+    case KVDBRequest::GET_OR_SET:
+      o << "KVDBRequest::GET_OR_SET";
       break;
   }
 
