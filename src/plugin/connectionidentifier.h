@@ -64,6 +64,10 @@ class ConnectionIdentifier
       _upid = id;
       _id = -1;
     }
+    ConnectionIdentifier(DmtcpUniqueProcessId id, int64_t connectionId)
+      : _upid(id)
+      , _id(connectionId)
+    {}
 
     bool isNull() const { return _id < 0; }
 

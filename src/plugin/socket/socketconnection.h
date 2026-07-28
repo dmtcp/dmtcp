@@ -34,9 +34,12 @@
 # include <unistd.h>
 
 # include "connection.h"
+# include "socketdiscovery.h"
 
 namespace dmtcp
 {
+inline constexpr char const *PeerDiscoveryDbCkpt = "/plugin/socket/ckpt";
+
 class SocketConnection
 {
   public:
@@ -56,7 +59,9 @@ class SocketConnection
                      int protocol,
                      ConnectionIdentifier remote);
     void addSetsockopt(int level, int option, const void *value, int len);
+    void captureSocketOptions(int fd);
     void restoreSocketOptions(vector<int32_t> &fds);
+    void restoreNetlinkMemberships(int fd);
     void serialize(jalib::JBinarySerializer &o);
     int sockDomain() const { return _sockDomain; }
     int sockType() const { return _sockType; }
@@ -85,6 +90,7 @@ class SocketConnection
     };
     ConnectionIdentifier _remotePeerId;
     map<int64_t, map<int64_t, vector<char> > >_sockOptions;
+    vector<uint32_t> _netlinkGroups;
 };
 
 class TcpConnection : public Connection, public SocketConnection
@@ -118,6 +124,15 @@ class TcpConnection : public Connection, public SocketConnection
 
     /*onSocket*/
     TcpConnection(int domain, int type, int protocol);
+    TcpConnection(int domain,
+                  int type,
+                  int protocol,
+                  const ConnectionIdentifier& id,
+                  bool hasLock,
+                  const InspectedSocket *inspected);
+    void initializeFromDiscovery(const InspectedSocket& inspected,
+                                 bool restorable);
+    void assignRestoreRole();
     void onBind(const struct sockaddr *addr, socklen_t len) override;
     void onListen(int backlog) override;
     void onConnect(const struct sockaddr *serv_addr = NULL,
@@ -173,6 +188,14 @@ class RawSocketConnection : public Connection, public SocketConnection
 
     // basic commands for updating state from wrappers
     RawSocketConnection(int domain, int type, int protocol);
+    RawSocketConnection(int domain,
+                        int type,
+                        int protocol,
+                        const ConnectionIdentifier& id,
+                        bool hasLock,
+                        const InspectedSocket *inspected);
+    void initializeFromDiscovery(const InspectedSocket& inspected,
+                                 bool restorable);
 
     // basic checkpointing commands
     virtual void drain() override;

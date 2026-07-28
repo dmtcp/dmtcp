@@ -114,9 +114,18 @@ ConnectionList::clone()
 
 ConnectionList::~ConnectionList()
 {
+  clear();
+}
+
+void
+ConnectionList::clear()
+{
   for (iterator it = _connections.begin(); it != _connections.end(); it++) {
     delete it->second;
   }
+  _connections.clear();
+  _fdToCon.clear();
+  numIncomingCons = 0;
 }
 
 void

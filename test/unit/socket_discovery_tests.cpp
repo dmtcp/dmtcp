@@ -241,11 +241,28 @@ queriesSocketDiagnostics()
   close(listener4);
 }
 
+void
+parsesConnectWait()
+{
+  unsetenv("DMTCP_SOCKET_CONNECT_WAIT_MS");
+  ASSERT_EQ(dmtcp::socketConnectWaitMs(), 100);
+
+  setenv("DMTCP_SOCKET_CONNECT_WAIT_MS", "25", 1);
+  ASSERT_EQ(dmtcp::socketConnectWaitMs(), 25);
+
+  for (const char *invalid : { "", "-1", "10ms", "invalid" }) {
+    setenv("DMTCP_SOCKET_CONNECT_WAIT_MS", invalid, 1);
+    ASSERT_EQ(dmtcp::socketConnectWaitMs(), 100);
+  }
+  unsetenv("DMTCP_SOCKET_CONNECT_WAIT_MS");
+}
+
 } // namespace
 
 extern const dmtcp_test::TestCase socketDiscoveryTests[] = {
   {"enumerate and inspect sockets", enumeratesAndInspectsSockets},
   {"query socket diagnostics", queriesSocketDiagnostics},
+  {"parse socket connect wait", parsesConnectWait},
 };
 
 extern const size_t socketDiscoveryTestCount =

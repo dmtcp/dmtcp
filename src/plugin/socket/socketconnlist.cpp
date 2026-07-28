@@ -1,12 +1,18 @@
+#include <fcntl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <netinet/tcp.h>
+#include <poll.h>
 
 #include "jfilesystem.h"
 #include "connectionrewirer.h"
 #include "kernelbufferdrainer.h"
+#include "kvdb.h"
 #include "protectedfds.h"
 #include "socketconnection.h"
 #include "socketconnlist.h"
+#include "socketdiscovery.h"
+#include "socketwrappers.h"
 #include "util.h"
 #include "dmtcp_assert.h"
 
@@ -44,10 +50,8 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
 
   case DMTCP_EVENT_PRECHECKPOINT:
-    SocketConnList::saveOptions();
-    dmtcp_local_barrier("Socket::Pre_Ckpt");
-    SocketConnList::leaderElection();
-    dmtcp_local_barrier("Socket::Leader_Election");
+    SocketConnList::instance().discover();
+    dmtcp_local_barrier("Socket::Discovery");
 
     // We need a global barrier after registering name-service data so that all
     // our peers have registered their info before we start sending queries.
@@ -105,15 +109,169 @@ SocketConnList::instance()
   return *socketConnList;
 }
 
+static ConnectionIdentifier
+socketConnectionId(uint64_t inode)
+{
+  DmtcpUniqueProcessId id = {};
+  id._hostid = dmtcp_get_uniquepid()._hostid;
+  id._computation_generation = dmtcp_get_generation();
+  return ConnectionIdentifier(id, inode);
+}
+
+static string
+socketElectionKey(const ConnectionIdentifier& id)
+{
+  ostringstream key;
+  key << id.hostid() << ':' << id.conId() << ':' << dmtcp_get_generation();
+  return key.str();
+}
+
+static bool
+resolveInProgressConnect(const DiscoveredSocket& socket,
+                         int waitMs,
+                         InspectedSocket *inspected)
+{
+  if (inspected->hasPeer) {
+    return true;
+  }
+
+  bool hasState = inspected->hasDiagnostics;
+  int state = inspected->kernelState;
+  if (!hasState) {
+    tcp_info info = {};
+    socklen_t length = sizeof(info);
+    if (_real_getsockopt(socket.fds.front(), IPPROTO_TCP, TCP_INFO,
+                         &info, &length) == 0) {
+      hasState = true;
+      state = info.tcpi_state;
+    }
+  }
+  if (!hasState) {
+    return false;
+  }
+
+  bool inProgress = state == TCP_SYN_SENT || state == TCP_SYN_RECV;
+  pollfd descriptor = { socket.fds.front(), POLLOUT, 0 };
+  int result = _real_poll(&descriptor, 1, inProgress ? waitMs : 0);
+  if (result < 0 ||
+      (descriptor.revents & (POLLERR | POLLNVAL)) != 0) {
+    return false;
+  }
+  if (state == TCP_ESTABLISHED) {
+    return inspectSocket(socket, inspected) && inspected->hasPeer;
+  }
+  if (!inProgress) {
+    return true;
+  }
+
+  if ((descriptor.revents & POLLHUP) != 0) {
+    return false;
+  }
+  if (result == 0 || (descriptor.revents & POLLOUT) == 0) {
+    return false;
+  }
+  return inspectSocket(socket, inspected) && inspected->hasPeer;
+}
+
+void
+SocketConnList::discover()
+{
+  vector<DiscoveredSocket> sockets = enumerateSockets();
+  int connectWaitMs = socketConnectWaitMs();
+  clear();
+
+  for (const DiscoveredSocket& socket : sockets) {
+    ConnectionIdentifier id = socketConnectionId(socket.inode);
+    string previousOwner;
+    ASSERT(kvdb::getOrSet(PeerDiscoveryDbCkpt,
+                          socketElectionKey(id),
+                          dmtcp_get_uniquepid_str(),
+                          &previousOwner) ==
+             kvdb::KVDBResponse::SUCCESS,
+           "Failed to elect socket checkpoint owner: fd={} inode={}",
+           socket.fds.front(), socket.inode);
+    bool hasLock = previousOwner.empty();
+
+    InspectedSocket inspected = {};
+    const InspectedSocket *details = nullptr;
+    bool inspectionComplete = false;
+    if (hasLock) {
+      inspectionComplete = inspectSocket(socket, &inspected);
+      if (!inspected.hasDescriptorState) {
+        inspected.statusFlags = 0;
+        inspected.realOwner = 0;
+        inspected.signal = 0;
+        inspected.hasDescriptorState = true;
+      }
+      details = &inspected;
+    }
+
+    int baseType = socket.type & 077;
+    bool raw = socket.domain == AF_NETLINK &&
+               (baseType == SOCK_RAW || baseType == SOCK_DGRAM);
+    bool restorable =
+      ((socket.domain == AF_INET || socket.domain == AF_INET6) &&
+       baseType == SOCK_STREAM && socket.protocol == IPPROTO_TCP) ||
+      (socket.domain == AF_UNIX &&
+       (baseType == SOCK_STREAM || baseType == SOCK_SEQPACKET));
+    if (hasLock &&
+        (!inspectionComplete ||
+         (inspected.acceptConn != 0 && !inspected.hasDiagnostics))) {
+      restorable = false;
+    }
+    if (inspectionComplete && restorable &&
+        !resolveInProgressConnect(socket, connectWaitMs, &inspected)) {
+      restorable = false;
+    }
+
+    Connection *connection = nullptr;
+    if (raw) {
+      auto *rawConnection =
+        new RawSocketConnection(socket.domain, socket.type, socket.protocol,
+                                id, hasLock, details);
+      if (details != nullptr) {
+        rawConnection->initializeFromDiscovery(*details,
+                                               inspectionComplete);
+      }
+      connection = rawConnection;
+    } else {
+      auto *tcpConnection =
+        new TcpConnection(socket.domain, socket.type, socket.protocol,
+                          id, hasLock, details);
+      if (hasLock) {
+        tcpConnection->initializeFromDiscovery(inspected,
+                                               restorable &&
+                                               details != nullptr);
+      }
+      connection = tcpConnection;
+    }
+
+    connection->setFdFlags(socket.fdFlags);
+    for (int fd : socket.fds) {
+      add(fd, connection);
+    }
+    if (details != nullptr) {
+      dynamic_cast<SocketConnection *>(connection)->
+        captureSocketOptions(socket.fds.front());
+    }
+
+    if (hasLock &&
+        ((!restorable && !raw) || !inspectionComplete)) {
+      WARN(false,
+           "Socket cannot be restored from checkpoint-time state and will "
+           "become a dead socket after restart: fd={} domain={} type={} "
+           "protocol={} inode={}",
+           socket.fds.front(), socket.domain, socket.type, socket.protocol,
+           socket.inode);
+    }
+  }
+}
+
 void
 SocketConnList::preCkptRegisterNSData()
 {
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
-    /* NOTE: We need to explicitly call checkLocking() here because
-     * _hasLock is set only in this function.
-     */
-    con->checkLocking();
     if (con->hasLock() && con->conType() == Connection::TCP) {
       ((TcpConnection *)con)->sendPeerInformation();
     }
@@ -134,8 +292,12 @@ SocketConnList::preCkptSendQueries()
 void
 SocketConnList::drain()
 {
-  // First, let all the Connection prepare for drain
-  ConnectionList::drain();
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection *con = i->second;
+    if (con->hasLock()) {
+      con->drain();
+    }
+  }
 
   // this will block until draining is complete
   KernelBufferDrainer::instance().monitorSockets(
@@ -180,7 +342,9 @@ SocketConnList::preCkpt()
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     if (con->hasLock() && con->conType() == Connection::TCP) {
-      ((TcpConnection *)con)->doRecvHandshakes(coordId);
+      TcpConnection *tcp = static_cast<TcpConnection *>(con);
+      tcp->doRecvHandshakes(coordId);
+      tcp->assignRestoreRole();
     }
   }
   TRACE("handshaking done");

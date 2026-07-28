@@ -40,6 +40,20 @@ Connection::Connection(uint32_t t)
   , _hasLock(false)
 {}
 
+Connection::Connection(uint32_t t,
+                       const ConnectionIdentifier& id,
+                       bool hasLock,
+                       int64_t flags,
+                       int64_t owner,
+                       int64_t signal)
+  : _id(id)
+  , _type(t)
+  , _fcntlFlags(flags)
+  , _fcntlOwner(owner)
+  , _fcntlSignal(signal)
+  , _hasLock(hasLock)
+{}
+
 void
 Connection::addFd(int fd)
 {
@@ -71,11 +85,26 @@ Connection::restoreDupFds(int fd)
                           "new_fd={}",
                           _fds[0], _fds[i]);
   }
+  for (const auto& [alias, flags] : _fdFlags) {
+    ASSERT_NE(-1, _real_fcntl(alias, F_SETFD, flags),
+              "fcntl(F_SETFD) failed while restoring descriptor flags: "
+              "fd={} flags={}",
+              alias, flags);
+  }
 }
 
 void
 Connection::saveOptions()
 {
+  _fdFlags.clear();
+  for (int fd : _fds) {
+    int flags = _real_fcntl(fd, F_GETFD);
+    ASSERT_NE(-1, flags,
+              "fcntl(F_GETFD) failed while saving descriptor flags: fd={}",
+              fd);
+    _fdFlags[fd] = flags;
+  }
+
   errno = 0;
   _fcntlFlags = fcntl(_fds[0], F_GETFL);
   ASSERT_ERRNO(_fcntlFlags >= 0,
@@ -99,8 +128,6 @@ Connection::restoreOptions()
   // restore F_GETFL flags
   ASSERT(_fcntlFlags >= 0, "invalid saved fcntl flags: flags={}",
          _fcntlFlags);
-  ASSERT(_fcntlOwner != -1, "invalid saved fcntl owner: owner={}",
-         _fcntlOwner);
   ASSERT(_fcntlSignal >= 0, "invalid saved fcntl signal: signal={}",
          _fcntlSignal);
   errno = 0;
@@ -156,6 +183,6 @@ void
 Connection::serialize(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("Connection");
-  o&_id&_type&_fcntlFlags&_fcntlOwner &_fcntlSignal & _fds;
+  o&_id&_type&_fcntlFlags&_fcntlOwner &_fcntlSignal & _fds &_fdFlags;
   serializeSubClass(o);
 }

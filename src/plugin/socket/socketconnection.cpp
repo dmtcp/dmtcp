@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <linux/limits.h>
 #include <linux/netlink.h>
+#include <netinet/tcp.h>
 #include <poll.h>
 #include <signal.h>
 #include <sys/ioctl.h>
@@ -44,6 +45,7 @@
 #include "connectionrewirer.h"
 #include "kernelbufferdrainer.h"
 #include "socketconnection.h"
+#include "syscallwrappers.h"
 #include "socketwrappers.h"
 #include "dmtcp_assert.h"
 
@@ -54,8 +56,6 @@ static bool really_verbose = false;
 #endif // ifdef REALLY_VERBOSE_CONNECTION_CPP
 
 using namespace dmtcp;
-
-constexpr char const *PeerDiscoveryDbCkpt = "/plugin/socket/ckpt";
 
 // this function creates a socket that is in an error state
 static int
@@ -141,6 +141,79 @@ SocketConnection::addSetsockopt(int level,
 }
 
 void
+SocketConnection::captureSocketOptions(int fd)
+{
+  _sockOptions.clear();
+  auto capture = [this, fd](int level, int option, void *value,
+                            socklen_t size) {
+    socklen_t length = size;
+    if (_real_getsockopt(fd, level, option, value, &length) == 0) {
+      addSetsockopt(level, option, value, length);
+    }
+  };
+  auto captureInt = [&capture](int level, int option) {
+    int value = 0;
+    capture(level, option, &value, sizeof(value));
+  };
+
+  captureInt(SOL_SOCKET, SO_REUSEADDR);
+#ifdef SO_REUSEPORT
+  captureInt(SOL_SOCKET, SO_REUSEPORT);
+#endif
+  captureInt(SOL_SOCKET, SO_KEEPALIVE);
+  captureInt(SOL_SOCKET, SO_RCVLOWAT);
+  struct linger lingerValue = {};
+  capture(SOL_SOCKET, SO_LINGER, &lingerValue, sizeof(lingerValue));
+  struct timeval timeout = {};
+  capture(SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+  capture(SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
+  for (int option : { SO_RCVBUF, SO_SNDBUF }) {
+    int value = 0;
+    socklen_t length = sizeof(value);
+    if (_real_getsockopt(fd, SOL_SOCKET, option, &value, &length) == 0) {
+      value /= 2;
+      addSetsockopt(SOL_SOCKET, option, &value, sizeof(value));
+    }
+  }
+
+  if ((_sockDomain == AF_INET || _sockDomain == AF_INET6) &&
+      baseType() == SOCK_STREAM) {
+    captureInt(IPPROTO_TCP, TCP_NODELAY);
+    captureInt(IPPROTO_TCP, TCP_KEEPIDLE);
+    captureInt(IPPROTO_TCP, TCP_KEEPINTVL);
+    captureInt(IPPROTO_TCP, TCP_KEEPCNT);
+#ifdef TCP_USER_TIMEOUT
+    captureInt(IPPROTO_TCP, TCP_USER_TIMEOUT);
+#endif
+  }
+  if (_sockDomain == AF_INET) {
+    captureInt(IPPROTO_IP, IP_TOS);
+    captureInt(IPPROTO_IP, IP_TTL);
+  } else if (_sockDomain == AF_INET6) {
+    captureInt(IPPROTO_IPV6, IPV6_V6ONLY);
+    captureInt(IPPROTO_IPV6, IPV6_UNICAST_HOPS);
+  }
+
+#if defined(SOL_NETLINK) && defined(NETLINK_LIST_MEMBERSHIPS)
+  if (_sockDomain == AF_NETLINK) {
+    socklen_t length = 0;
+    if (_real_getsockopt(fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS,
+                         nullptr, &length) == 0 &&
+        length > 0) {
+      _netlinkGroups.resize(length / sizeof(_netlinkGroups[0]));
+      if (_real_getsockopt(fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS,
+                           _netlinkGroups.data(), &length) != 0) {
+        _netlinkGroups.clear();
+      } else {
+        _netlinkGroups.resize(length / sizeof(_netlinkGroups[0]));
+      }
+    }
+  }
+#endif
+}
+
+void
 SocketConnection::restoreSocketOptions(vector<int> &fds)
 {
   typedef map<int64_t, map<int64_t, vector<char> > >::iterator levelIterator;
@@ -164,10 +237,33 @@ SocketConnection::restoreSocketOptions(vector<int> &fds)
 }
 
 void
+SocketConnection::restoreNetlinkMemberships(int fd)
+{
+#if defined(SOL_NETLINK) && defined(NETLINK_ADD_MEMBERSHIP)
+  for (size_t word = 0; word < _netlinkGroups.size(); ++word) {
+    uint32_t memberships = _netlinkGroups[word];
+    for (unsigned int bit = 0; memberships != 0;
+         ++bit, memberships >>= 1) {
+      if ((memberships & 1) == 0) {
+        continue;
+      }
+      uint32_t group = word * 32 + bit + 1;
+      WARN_ERRNO(_real_setsockopt(fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP,
+                                 &group, sizeof(group)) == 0,
+                 "Restoring Netlink membership failed: fd={} group={}",
+                 fd, group);
+    }
+  }
+#else
+  (void)fd;
+#endif
+}
+
+void
 SocketConnection::serialize(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("SocketConnection");
-  o&_sockDomain&_sockType&_sockProtocol &_peerType;
+  o&_sockDomain&_sockType&_sockProtocol &_peerType &_netlinkGroups;
 
   JSERIALIZE_ASSERT_POINT("SocketOptions:");
   uint64_t numSockOpts = _sockOptions.size();
@@ -269,6 +365,68 @@ TcpConnection::TcpConnection(int domain, int type, int protocol)
           id().toString(), domain, type, protocol);
   }
   memset(&_bindAddr, 0, sizeof _bindAddr);
+}
+
+TcpConnection::TcpConnection(int domain,
+                             int type,
+                             int protocol,
+                             const ConnectionIdentifier& id,
+                             bool hasLock,
+                             const InspectedSocket *inspected)
+  : Connection(TCP_CREATED, id, hasLock,
+               inspected == nullptr ? -1 : inspected->statusFlags,
+               inspected == nullptr ? -1 : inspected->realOwner,
+               inspected == nullptr ? -1 : inspected->signal)
+  , SocketConnection(domain, type, protocol)
+{
+  memset(&_bindAddr, 0, sizeof _bindAddr);
+}
+
+void
+TcpConnection::initializeFromDiscovery(const InspectedSocket& inspected,
+                                       bool restorable)
+{
+  if (!restorable) {
+    _type = TCP_PREEXISTING;
+    return;
+  }
+
+  if (inspected.hasPeer) {
+    _type = TCP_CONNECT;
+    return;
+  }
+
+  ASSERT_LE(inspected.localLen, sizeof(_bindAddr));
+  _bindAddrlen = inspected.localLen;
+  memcpy(&_bindAddr, &inspected.local, inspected.localLen);
+
+  if (inspected.acceptConn != 0) {
+    _type = TCP_LISTEN;
+    _listenBacklog = inspected.listenBacklog;
+  } else {
+    bool bound = false;
+    if (_sockDomain == AF_INET) {
+      const sockaddr_in *address =
+        reinterpret_cast<const sockaddr_in *>(&_bindAddr);
+      bound = address->sin_port != 0;
+    } else if (_sockDomain == AF_INET6) {
+      const sockaddr_in6 *address =
+        reinterpret_cast<const sockaddr_in6 *>(&_bindAddr);
+      bound = address->sin6_port != 0;
+    } else if (_sockDomain == AF_UNIX) {
+      bound = _bindAddrlen > offsetof(sockaddr_un, sun_path);
+    }
+    _type = bound ? TCP_BIND : TCP_CREATED;
+  }
+}
+
+void
+TcpConnection::assignRestoreRole()
+{
+  if (_type != TCP_CONNECT || _remotePeerId.isNull()) {
+    return;
+  }
+  _type = id() < _remotePeerId ? TCP_ACCEPT : TCP_CONNECT;
 }
 
 TcpConnection&
@@ -594,51 +752,6 @@ TcpConnection::drain()
       _fds[0], id().conId());
   }
 
-  // Non blocking connect; need to hang around until it is writable.
-  if (_type == TCP_CONNECT_IN_PROGRESS) {
-    int retval;
-    struct pollfd socketFd = { 0 };
-
-    socketFd.fd = _fds[0];
-    socketFd.events = POLLOUT;
-
-    retval = _real_poll(&socketFd, 1, 60 * 1000);
-
-    if (retval == -1) {
-      TRACE("Poll failed while waiting for connect(): error={}",
-            strerror(errno));
-    } else if (socketFd.revents & POLLOUT) {
-      int val = -1;
-      socklen_t sz = sizeof(val);
-      int ret = getsockopt(_fds[0], SOL_SOCKET, SO_ERROR, &val, &sz);
-      if (ret == 0 && val == 0) {
-        TRACE("Connect-in-progress socket is writable: fd={}",
-              _fds[0]);
-        _type = TCP_CONNECT;
-      } else {
-        if (ret == -1) {
-          WARN_ERRNO(false,
-                     "getsockopt(SO_ERROR) failed after connect() "
-                     "readiness: fd={}",
-                     _fds[0]);
-        } else {
-          WARN(false,
-               "connect() completion failed; marking socket external: "
-               "fd={} so_error={} error={}",
-               _fds[0], val, strerror(val));
-        }
-        _type = TCP_EXTERNAL_CONNECT;
-      }
-    } else {
-      WARN(false,
-              "connect() returned EINPROGRESS and socket is still not "
-              "writable after 60 seconds; marking as external and "
-              "continuing checkpoint: fd={}",
-              _fds[0]);
-      _type = TCP_EXTERNAL_CONNECT;
-    }
-  }
-
   switch (_type) {
   case TCP_ERROR:
 
@@ -704,12 +817,7 @@ TcpConnection::doRecvHandshakes(const ConnectionIdentifier &coordId)
 void
 TcpConnection::refill(bool isRestart)
 {
-  if ((_fcntlFlags & O_ASYNC) != 0) {
-    TRACE("Restoring O_ASYNC after checkpointing TCP socket: fd={} con_id={}",
-          _fds[0], id().toString());
-    restoreSocketOptions(_fds);
-  } else if (isRestart && _sockDomain != AF_INET6 &&
-             _type != TCP_EXTERNAL_CONNECT) {
+  if (isRestart && _type == TCP_ACCEPT) {
     restoreSocketOptions(_fds);
   }
 }
@@ -722,8 +830,15 @@ TcpConnection::postRestart()
   ASSERT(_fds.size() > 0, "TCP connection has no fds during postRestart");
   switch (_type) {
   case TCP_PREEXISTING:
-  case TCP_INVALID:
   case TCP_EXTERNAL_CONNECT:
+    WARN(false,
+         "Socket state was not restorable at checkpoint and is being "
+         "replaced with a dead socket: fd={} con_id={}",
+         _fds[0], id().conId());
+    restoreDupFds(_makeDeadSocket());
+    break;
+
+  case TCP_INVALID:
     TRACE("Restoring TCP connection as dead socket: fd={} fd_count={}",
           _fds[0], _fds.size());
     restoreDupFds(_makeDeadSocket());
@@ -771,6 +886,7 @@ TcpConnection::postRestart()
                         "type={} protocol={}",
                         id().conId(), _sockDomain, _sockType, _sockProtocol);
     restoreDupFds(fd);
+    restoreSocketOptions(_fds);
 
     if (_type == TCP_CREATED) {
       break;
@@ -883,6 +999,7 @@ TcpConnection::postRestart()
                         "domain={} type={} protocol={}",
                         id().conId(), _sockDomain, _sockType, _sockProtocol);
     restoreDupFds(fd);
+    restoreSocketOptions(_fds);
     if (_bindAddrlen != 0) {
       WARN_ERRNO(_real_bind(_fds[0], (sockaddr *)&_bindAddr,
                                _bindAddrlen) != -1,
@@ -956,13 +1073,52 @@ RawSocketConnection::RawSocketConnection(int domain, int type, int protocol)
   : Connection(RAW_CREATED)
   , SocketConnection(domain, type, protocol)
 {
-  ASSERT(type == -1 || baseType() == SOCK_RAW,
+  ASSERT(type == -1 ||
+         baseType() == SOCK_RAW || baseType() == SOCK_DGRAM,
          "raw socket connection created with non-raw type: type={}", type);
   ASSERT(domain == -1 || domain == AF_NETLINK,
          "Only Netlink raw socket supported: domain={}", domain);
   TRACE("Tracking raw socket connection: con_id={} domain={} type={} "
         "protocol={}",
         id().toString(), domain, type, protocol);
+}
+
+RawSocketConnection::RawSocketConnection(
+  int domain,
+  int type,
+  int protocol,
+  const ConnectionIdentifier& id,
+  bool hasLock,
+  const InspectedSocket *inspected)
+  : Connection(RAW_CREATED, id, hasLock,
+               inspected == nullptr ? -1 : inspected->statusFlags,
+               inspected == nullptr ? -1 : inspected->realOwner,
+               inspected == nullptr ? -1 : inspected->signal)
+  , SocketConnection(domain, type, protocol)
+{}
+
+void
+RawSocketConnection::initializeFromDiscovery(
+  const InspectedSocket& inspected,
+  bool restorable)
+{
+  if (!restorable) {
+    _type = RAW_PREEXISTING;
+    return;
+  }
+
+  ASSERT_LE(inspected.localLen, sizeof(_bindAddr));
+  _bindAddrlen = inspected.localLen;
+  memcpy(&_bindAddr, &inspected.local, inspected.localLen);
+
+  sockaddr_nl *address = reinterpret_cast<sockaddr_nl *>(&_bindAddr);
+  if (_bindAddrlen >= sizeof(*address) &&
+      (address->nl_pid != 0 || address->nl_groups != 0)) {
+    _type = RAW_BIND;
+    if (address->nl_pid == static_cast<uint32_t>(_real_getpid())) {
+      address->nl_pid = 0;
+    }
+  }
 }
 
 void
@@ -989,13 +1145,7 @@ RawSocketConnection::drain()
 void
 RawSocketConnection::refill(bool isRestart)
 {
-  if ((_fcntlFlags & O_ASYNC) != 0) {
-    TRACE("Restoring O_ASYNC after checkpointing raw socket: fd={} con_id={}",
-          _fds[0], id().toString());
-    restoreSocketOptions(_fds);
-  } else if (isRestart) {
-    restoreSocketOptions(_fds);
-  }
+  (void)isRestart;
 }
 
 void
@@ -1010,6 +1160,14 @@ RawSocketConnection::postRestart()
   }
 
   switch (_type) {
+  case RAW_PREEXISTING:
+    WARN(false,
+         "Netlink socket state was not restorable at checkpoint and is being "
+         "replaced with a dead socket: fd={} con_id={}",
+         _fds[0], id().conId());
+    restoreDupFds(_makeDeadSocket());
+    break;
+
   case RAW_CREATED:
   case RAW_BIND:
   case RAW_LISTEN:
@@ -1021,7 +1179,9 @@ RawSocketConnection::postRestart()
                         "type={} protocol={}",
                         id().conId(), _sockDomain, _sockType, _sockProtocol);
     restoreDupFds(fd);
+    restoreSocketOptions(_fds);
     if (_type == RAW_CREATED) {
+      restoreNetlinkMemberships(_fds[0]);
       break;
     }
 
@@ -1062,6 +1222,7 @@ RawSocketConnection::postRestart()
                                 "raw socket bind failed: fd={} con_id={} "
                                 "addrlen={}",
                                 _fds[0], id().conId(), _bindAddrlen);
+    restoreNetlinkMemberships(_fds[0]);
     if (_type == RAW_BIND) {
       break;
     }

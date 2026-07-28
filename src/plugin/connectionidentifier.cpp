@@ -81,6 +81,7 @@ const
   TRY_LEQ(_hostid);
   TRY_LEQ(_pid);
   TRY_LEQ(_time);
+  TRY_LEQ(_computation_generation);
   return _id < that._id;
 }
 

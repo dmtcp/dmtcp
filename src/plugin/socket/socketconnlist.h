@@ -53,6 +53,7 @@ class SocketConnList : public ConnectionList
 
     void registerNSData();
     void sendQueries();
+    void discover();
     void preCkptRegisterNSData();
     void preCkptSendQueries();
 

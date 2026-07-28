@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <charconv>
+#include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
 #include <limits>
@@ -239,6 +241,24 @@ queryUnixDiagnostics(const DiscoveredSocket& discovered,
 
 } // namespace
 
+int
+socketConnectWaitMs()
+{
+  constexpr int defaultWaitMs = 100;
+  const char *value = getenv("DMTCP_SOCKET_CONNECT_WAIT_MS");
+  if (value == nullptr) {
+    return defaultWaitMs;
+  }
+
+  std::string_view text(value);
+  int waitMs = 0;
+  auto result =
+    std::from_chars(text.data(), text.data() + text.size(), waitMs);
+  return result.ec == std::errc() &&
+         result.ptr == text.data() + text.size() &&
+         waitMs >= 0 ? waitMs : defaultWaitMs;
+}
+
 vector<DiscoveredSocket>
 enumerateSockets()
 {
@@ -270,11 +290,9 @@ enumerateSockets()
     }
 
     DiscoveredSocket socket;
-    if (!getIntSocketOption(fd, SO_DOMAIN, &socket.domain) ||
-        !getIntSocketOption(fd, SO_TYPE, &socket.type) ||
-        !getIntSocketOption(fd, SO_PROTOCOL, &socket.protocol)) {
-      continue;
-    }
+    getIntSocketOption(fd, SO_DOMAIN, &socket.domain);
+    getIntSocketOption(fd, SO_TYPE, &socket.type);
+    getIntSocketOption(fd, SO_PROTOCOL, &socket.protocol);
 
     socket.inode = inode;
     socket.fds.push_back(fd);
@@ -299,10 +317,6 @@ inspectSocket(const DiscoveredSocket& discovered,
 
   *inspected = {};
   int fd = discovered.fds.front();
-  if (!getIntSocketOption(fd, SO_ACCEPTCONN, &inspected->acceptConn)) {
-    return false;
-  }
-
   inspected->statusFlags = _real_fcntl(fd, F_GETFL);
   if (inspected->statusFlags == -1) {
     return false;
@@ -313,9 +327,23 @@ inspectSocket(const DiscoveredSocket& discovered,
   if (inspected->realOwner == -1 && errno != 0) {
     return false;
   }
+  if (dmtcp_pid_real_to_virtual != nullptr) {
+    if (inspected->realOwner < 0) {
+      inspected->realOwner =
+        -dmtcp_pid_real_to_virtual(-inspected->realOwner);
+    } else {
+      inspected->realOwner =
+        dmtcp_pid_real_to_virtual(inspected->realOwner);
+    }
+  }
 
   inspected->signal = _real_fcntl(fd, F_GETSIG);
   if (inspected->signal == -1) {
+    return false;
+  }
+  inspected->hasDescriptorState = true;
+
+  if (!getIntSocketOption(fd, SO_ACCEPTCONN, &inspected->acceptConn)) {
     return false;
   }
 

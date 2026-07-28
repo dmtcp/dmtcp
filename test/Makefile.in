@@ -328,6 +328,12 @@ libdlopen-lib4.so: dlopen2.cpp
 dlopen2: dlopen2.cpp libdlopen-lib3.so libdlopen-lib4.so
 	${CXX} ${CXXFLAGS} -o $@ $< -ldl
 
+socket-discovery: socket-discovery.c
+	$(CC) -o $@ $< $(CFLAGS) -ldl
+
+socket-discovery-tcp: socket-discovery-tcp.c
+	$(CC) -o $@ $< $(CFLAGS) -ldl
+
 %.class: %.java
 ifeq ($(HAS_JAVAC),yes)
 	javac $< -d .

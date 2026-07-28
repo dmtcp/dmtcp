@@ -31,11 +31,13 @@ struct InspectedSocket {
   uint32_t listenBacklog = 0;
   uint64_t peerInode = 0;
   bool hasDiagnostics = false;
+  bool hasDescriptorState = false;
 };
 
 vector<DiscoveredSocket> enumerateSockets();
 bool inspectSocket(const DiscoveredSocket& discovered,
                    InspectedSocket *inspected);
+int socketConnectWaitMs();
 
 } // namespace dmtcp
 
