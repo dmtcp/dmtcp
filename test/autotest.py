@@ -2048,7 +2048,7 @@ class TestRegistry:
             TestSpec("seqpacket", 2, ["./test/seqpacket"]),
             TestSpec("socket-discovery", 1,
                      ["./test/socket-discovery"]),
-            TestSpec("socket-discovery-tcp", 2,
+            TestSpec("socket-discovery-tcp", 3,
                      ["./test/socket-discovery-tcp"]),
             TestSpec("shared-memory1", 2, ["./test/shared-memory1"],
                      tags=["slow"]),
