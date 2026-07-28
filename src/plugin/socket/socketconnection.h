@@ -116,9 +116,8 @@ class TcpConnection : public Connection, public SocketConnection
 
     bool isBlacklistedTcp(const sockaddr *saddr, socklen_t len);
 
-    void sendPeerInformation();
-
-    void recvPeerInformation();
+    void publishPeerIdentity();
+    void lookupPeerIdentity();
 
     // basic commands for updating state from wrappers
 
@@ -132,7 +131,6 @@ class TcpConnection : public Connection, public SocketConnection
                   const InspectedSocket *inspected);
     void initializeFromDiscovery(const InspectedSocket& inspected,
                                  bool restorable);
-    void assignRestoreRole();
     void onBind(const struct sockaddr *addr, socklen_t len) override;
     void onListen(int backlog) override;
     void onConnect(const struct sockaddr *serv_addr = NULL,
@@ -152,12 +150,6 @@ class TcpConnection : public Connection, public SocketConnection
     virtual void refill(bool isRestart) override;
     virtual void postRestart() override;
 
-    void doSendHandshakes(const ConnectionIdentifier &coordId);
-    void doRecvHandshakes(const ConnectionIdentifier &coordId);
-
-    void sendHandshake(int remotefd, const ConnectionIdentifier &coordId);
-    void recvHandshake(int remotefd, const ConnectionIdentifier &coordId);
-
     virtual string str() override { return "<TCP Socket>"; }
 
     virtual TcpConnection* clone() override {
@@ -167,7 +159,17 @@ class TcpConnection : public Connection, public SocketConnection
     virtual void serializeSubClass(jalib::JBinarySerializer &o) override;
 
   private:
+    bool endpointKey(bool peer, bool wildcard, string *key) const;
+    bool discoveryKey(bool peer, string *key) const;
+    bool hasListener(bool peer) const;
+    bool listenerKey(bool peer, bool wildcard, string *key) const;
+    void assignRestoreRole();
+
     TcpConnection &asTcp();
+    socklen_t _localAddrlen = 0;
+    sockaddr_storage _peerAddr = {};
+    socklen_t _peerAddrlen = 0;
+    uint64_t _peerInode = 0;
 };
 
 class RawSocketConnection : public Connection, public SocketConnection

@@ -34,14 +34,12 @@
 
 #include "jconvert.h"
 #include "jfilesystem.h"
-#include "jsocket.h"
 #include "dmtcp.h"
 #include "shareddata.h"
 #include "util.h"
 #include "base64.h"
 #include "kvdb.h"
 
-#include "connectionmessage.h"
 #include "connectionrewirer.h"
 #include "kernelbufferdrainer.h"
 #include "socketconnection.h"
@@ -391,14 +389,27 @@ TcpConnection::initializeFromDiscovery(const InspectedSocket& inspected,
     return;
   }
 
+  ASSERT_LE(inspected.localLen, sizeof(_bindAddr));
+  _localAddrlen = inspected.localLen;
+  memcpy(&_bindAddr, &inspected.local, inspected.localLen);
+  ASSERT_LE(inspected.peerLen, sizeof(_peerAddr));
+  _peerAddrlen = inspected.peerLen;
+  memcpy(&_peerAddr, &inspected.peer, inspected.peerLen);
+  _peerInode = inspected.peerInode;
+
   if (inspected.hasPeer) {
-    _type = TCP_CONNECT;
+    bool disconnected =
+      (_sockDomain == AF_UNIX && inspected.hasDiagnostics &&
+       inspected.peerInode == 0) ||
+      (inspected.hasDiagnostics &&
+       inspected.kernelState != TCP_ESTABLISHED &&
+       inspected.kernelState != TCP_SYN_SENT);
+    _type = disconnected ? TCP_ERROR : TCP_CONNECT;
+    _bindAddrlen = 0;
     return;
   }
 
-  ASSERT_LE(inspected.localLen, sizeof(_bindAddr));
   _bindAddrlen = inspected.localLen;
-  memcpy(&_bindAddr, &inspected.local, inspected.localLen);
 
   if (inspected.acceptConn != 0) {
     _type = TCP_LISTEN;
@@ -426,7 +437,27 @@ TcpConnection::assignRestoreRole()
   if (_type != TCP_CONNECT || _remotePeerId.isNull()) {
     return;
   }
-  _type = id() < _remotePeerId ? TCP_ACCEPT : TCP_CONNECT;
+  ASSERT(id() != _remotePeerId,
+         "Socket peer lookup returned its own identity: fd={} con_id={}",
+         _fds[0], id().conId());
+
+  bool localListener = hasListener(false);
+  bool peerListener = hasListener(true);
+  WARN(_sockDomain == AF_UNIX || localListener || peerListener,
+       "Could not identify which TCP endpoint accepted the connection; "
+       "one local socket address may change after restart: fd={} con_id={}",
+       _fds[0], id().conId());
+
+  _type = localListener != peerListener ?
+          (localListener ? TCP_ACCEPT : TCP_CONNECT) :
+          (id() < _remotePeerId ? TCP_ACCEPT : TCP_CONNECT);
+  TRACE("Assigned TCP restore role: fd={} role={} local_listener={} "
+        "peer_listener={}",
+        _fds[0], _type, localListener, peerListener);
+  _bindAddrlen =
+    _type == TCP_CONNECT &&
+    (_sockDomain == AF_INET || _sockDomain == AF_INET6) ?
+      _localAddrlen : 0;
 }
 
 TcpConnection&
@@ -608,117 +639,258 @@ TcpConnection::TcpConnection(const TcpConnection &parent,
   memset(&_bindAddr, 0, sizeof _bindAddr);
 }
 
-void
-TcpConnection::sendPeerInformation()
+static string
+socketIdentity(const ConnectionIdentifier& id)
 {
-  struct sockaddr_storage key = {};
-  struct sockaddr_storage value = {};
-  socklen_t keysz = 0, valuesz = 0;
-  bool sendPeerInfo = false;
+  ostringstream value;
+  value << id.hostid() << ':' << id.conId() << ':'
+        << dmtcp_get_generation();
+  return value.str();
+}
 
-  if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6) ||
-      _sockType != SOCK_STREAM) {
+static bool
+parseSocketIdentity(std::string_view value, ConnectionIdentifier *id)
+{
+  size_t first = value.find(':');
+  size_t second =
+    first == std::string_view::npos ?
+      std::string_view::npos : value.find(':', first + 1);
+  if (first == std::string_view::npos ||
+      second == std::string_view::npos) {
+    return false;
+  }
+
+  uint64_t host = 0;
+  int64_t inode = 0;
+  uint32_t generation = 0;
+  if (!Util::parseInteger(value.substr(0, first), &host) ||
+      !Util::parseInteger(value.substr(first + 1, second - first - 1),
+                          &inode) ||
+      !Util::parseInteger(value.substr(second + 1), &generation)) {
+    return false;
+  }
+
+  DmtcpUniqueProcessId process = {};
+  process._hostid = host;
+  process._computation_generation = generation;
+  *id = ConnectionIdentifier(process, inode);
+  return true;
+}
+
+bool
+TcpConnection::endpointKey(bool peer, bool wildcard, string *key) const
+{
+  if (_sockDomain == AF_INET) {
+    const sockaddr_storage& address = peer ? _peerAddr : _bindAddr;
+    socklen_t length = peer ? _peerAddrlen : _localAddrlen;
+    if (length < sizeof(sockaddr_in)) {
+      return false;
+    }
+    const sockaddr_in *source =
+      reinterpret_cast<const sockaddr_in *>(&address);
+    sockaddr_in normalized = {};
+    normalized.sin_family = AF_INET;
+    normalized.sin_port = source->sin_port;
+    normalized.sin_addr.s_addr =
+      wildcard ? htonl(INADDR_ANY) : source->sin_addr.s_addr;
+    *key = "inet:" +
+           base64::encode(reinterpret_cast<const char *>(&normalized),
+                          sizeof(normalized));
+    return true;
+  }
+
+  if (_sockDomain == AF_INET6) {
+    const sockaddr_storage& address = peer ? _peerAddr : _bindAddr;
+    socklen_t length = peer ? _peerAddrlen : _localAddrlen;
+    if (length < sizeof(sockaddr_in6)) {
+      return false;
+    }
+    const sockaddr_in6 *source =
+      reinterpret_cast<const sockaddr_in6 *>(&address);
+    if (!wildcard && IN6_IS_ADDR_V4MAPPED(&source->sin6_addr)) {
+      sockaddr_in normalized = {};
+      normalized.sin_family = AF_INET;
+      normalized.sin_port = source->sin6_port;
+      memcpy(&normalized.sin_addr,
+             &source->sin6_addr.s6_addr[sizeof(source->sin6_addr) -
+                                        sizeof(normalized.sin_addr)],
+             sizeof(normalized.sin_addr));
+      *key = "inet:" +
+             base64::encode(reinterpret_cast<const char *>(&normalized),
+                            sizeof(normalized));
+      return true;
+    }
+    sockaddr_in6 normalized = {};
+    normalized.sin6_family = AF_INET6;
+    normalized.sin6_port = source->sin6_port;
+    normalized.sin6_addr = wildcard ? in6addr_any : source->sin6_addr;
+    normalized.sin6_scope_id = wildcard ? 0 : source->sin6_scope_id;
+    *key = "inet6:" +
+           base64::encode(reinterpret_cast<const char *>(&normalized),
+                          sizeof(normalized));
+    return true;
+  }
+  return false;
+}
+
+bool
+TcpConnection::discoveryKey(bool peer, string *key) const
+{
+  if (_sockDomain == AF_INET || _sockDomain == AF_INET6) {
+    string first;
+    string second;
+    if (!endpointKey(peer, false, &first) ||
+        !endpointKey(!peer, false, &second)) {
+      return false;
+    }
+    bool loopback = false;
+    if (_sockDomain == AF_INET) {
+      const sockaddr_in *local =
+        reinterpret_cast<const sockaddr_in *>(&_bindAddr);
+      const sockaddr_in *remote =
+        reinterpret_cast<const sockaddr_in *>(&_peerAddr);
+      loopback =
+        (ntohl(local->sin_addr.s_addr) >> 24) == IN_LOOPBACKNET &&
+        (ntohl(remote->sin_addr.s_addr) >> 24) == IN_LOOPBACKNET;
+    } else {
+      const sockaddr_in6 *local =
+        reinterpret_cast<const sockaddr_in6 *>(&_bindAddr);
+      const sockaddr_in6 *remote =
+        reinterpret_cast<const sockaddr_in6 *>(&_peerAddr);
+      if (IN6_IS_ADDR_V4MAPPED(&local->sin6_addr) &&
+          IN6_IS_ADDR_V4MAPPED(&remote->sin6_addr)) {
+        uint32_t localAddress;
+        uint32_t remoteAddress;
+        memcpy(&localAddress,
+               &local->sin6_addr.s6_addr[sizeof(local->sin6_addr) -
+                                         sizeof(localAddress)],
+               sizeof(localAddress));
+        memcpy(&remoteAddress,
+               &remote->sin6_addr.s6_addr[sizeof(remote->sin6_addr) -
+                                          sizeof(remoteAddress)],
+               sizeof(remoteAddress));
+        loopback = (ntohl(localAddress) >> 24) == IN_LOOPBACKNET &&
+                   (ntohl(remoteAddress) >> 24) == IN_LOOPBACKNET;
+      } else {
+        loopback = IN6_IS_ADDR_LOOPBACK(&local->sin6_addr) &&
+                   IN6_IS_ADDR_LOOPBACK(&remote->sin6_addr);
+      }
+    }
+    *key = "peer:";
+    if (loopback) {
+      *key += std::to_string(id().hostid()) + ':';
+    }
+    *key += first + ':' + second;
+    return true;
+  }
+
+  if (_sockDomain == AF_UNIX) {
+    uint64_t inode = peer ? _peerInode : id().conId();
+    if (inode == 0) {
+      return false;
+    }
+    ostringstream unixKey;
+    unixKey << "peer:unix:" << id().hostid() << ':' << inode;
+    *key = unixKey.str();
+    return true;
+  }
+  return false;
+}
+
+bool
+TcpConnection::listenerKey(bool peer, bool wildcard, string *key) const
+{
+  string endpoint;
+  if (!endpointKey(peer, wildcard, &endpoint)) {
+    return false;
+  }
+  ostringstream listener;
+  uint64_t host = peer ? _remotePeerId.hostid() : id().hostid();
+  listener << "listener:" << host << ':' << endpoint;
+  *key = listener.str();
+  return true;
+}
+
+bool
+TcpConnection::hasListener(bool peer) const
+{
+  string key;
+  string value;
+  return
+    (listenerKey(peer, false, &key) &&
+     kvdb::get(PeerDiscoveryDbCkpt, key, &value) ==
+       kvdb::KVDBResponse::SUCCESS) ||
+    (listenerKey(peer, true, &key) &&
+     kvdb::get(PeerDiscoveryDbCkpt, key, &value) ==
+       kvdb::KVDBResponse::SUCCESS);
+}
+
+void
+TcpConnection::publishPeerIdentity()
+{
+  string key;
+  if (_type == TCP_LISTEN && listenerKey(false, false, &key)) {
+    ASSERT(kvdb::set(PeerDiscoveryDbCkpt, key, "1") ==
+             kvdb::KVDBResponse::SUCCESS,
+           "Failed to publish socket listener identity: fd={} key={}",
+           _fds[0], key);
+    if (_sockDomain == AF_INET6) {
+      const sockaddr_in6 *address =
+        reinterpret_cast<const sockaddr_in6 *>(&_bindAddr);
+      int v6Only = 1;
+      socklen_t length = sizeof(v6Only);
+      if (IN6_IS_ADDR_UNSPECIFIED(&address->sin6_addr) &&
+          _real_getsockopt(_fds[0], IPPROTO_IPV6, IPV6_V6ONLY,
+                           &v6Only, &length) == 0 &&
+          v6Only == 0) {
+        sockaddr_in wildcard = {};
+        wildcard.sin_family = AF_INET;
+        wildcard.sin_port = address->sin6_port;
+        ostringstream alias;
+        alias << "listener:" << id().hostid() << ":inet:"
+              << base64::encode(reinterpret_cast<const char *>(&wildcard),
+                                sizeof(wildcard));
+        ASSERT(kvdb::set(PeerDiscoveryDbCkpt, alias.str(), "1") ==
+                 kvdb::KVDBResponse::SUCCESS,
+               "Failed to publish dual-stack listener identity: fd={}",
+               _fds[0]);
+      }
+    }
+    return;
+  }
+  if (_type != TCP_CONNECT) {
     return;
   }
 
-  switch (_type) {
-  case TCP_CONNECT:
-  case TCP_CONNECT_IN_PROGRESS:
-  {
-    // Local connect socket information
-    keysz = sizeof(key);
-    ASSERT_NE(-1,
-      getsockname(_fds[0], reinterpret_cast<struct sockaddr *>(&key), &keysz),
-                               "querying local TCP socket: fd={}", _fds[0]);
-    // Information about the accept socket on the server
-    valuesz = sizeof(value);
-    ASSERT_NE(-1,
-      getpeername(_fds[0], reinterpret_cast<struct sockaddr *>(&value),
-                  &valuesz),
-                               "querying peer TCP socket: fd={}", _fds[0]);
-    sendPeerInfo = true;
-    break;
-  }
-  case TCP_ACCEPT:
-  {
-    // Local accept socket information
-    keysz = sizeof(key);
-    ASSERT_NE(-1,
-      getsockname(_fds[0], reinterpret_cast<struct sockaddr *>(&key), &keysz),
-                               "querying accepted TCP socket: fd={}",
-                               _fds[0]);
-    // Information about the client connect socket
-    valuesz = sizeof(value);
-    ASSERT_NE(-1,
-      getpeername(_fds[0], reinterpret_cast<struct sockaddr *>(&value),
-                  &valuesz),
-                               "querying accepted TCP peer: fd={}",
-                               _fds[0]);
-    sendPeerInfo = true;
-    break;
-  }
-  default:
-    break;
-  }
-
-  if (sendPeerInfo) {
-    ASSERT(keysz <= sizeof(key), "TCP peer key size overflow: size={} max={}",
-           keysz, sizeof(key));
-    ASSERT(valuesz <= sizeof(value),
-           "TCP peer value size overflow: size={} max={}", valuesz,
-           sizeof(value));
-    string keyStr = base64::encode(reinterpret_cast<const char *>(&key), keysz);
-    string valStr =
-      base64::encode(reinterpret_cast<const char *>(&value), valuesz);
-    ASSERT(kvdb::set(PeerDiscoveryDbCkpt, keyStr, valStr) ==
+  if (discoveryKey(false, &key)) {
+    ASSERT(kvdb::set(PeerDiscoveryDbCkpt, key, socketIdentity(id())) ==
              kvdb::KVDBResponse::SUCCESS,
-           "failed to store TCP peer discovery data: fd={} key_size={} "
-           "value_size={}",
-           _fds[0], keysz, valuesz);
+           "Failed to publish socket endpoint identity: fd={} key={}",
+           _fds[0], key);
   }
 }
 
 void
-TcpConnection::recvPeerInformation()
+TcpConnection::lookupPeerIdentity()
 {
-  struct sockaddr_storage key = {};
-  struct sockaddr_storage value = {};
-  socklen_t keylen = 0;
-
-  if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6) ||
-      _sockType != SOCK_STREAM) {
+  if (_type != TCP_CONNECT) {
     return;
   }
 
-  if (_type == TCP_CONNECT || _type == TCP_ACCEPT ||
-      _type == TCP_CONNECT_IN_PROGRESS) {
-    keylen = sizeof(key);
-    ASSERT_NE(-1,
-      getpeername(_fds[0], reinterpret_cast<struct sockaddr *>(&key),
-                  &keylen),
-      "querying TCP peer for discovery lookup: fd={}", _fds[0]);
-
-    ASSERT(keylen <= sizeof(key), "TCP peer key size overflow: size={} max={}",
-           keylen, sizeof(key));
-    string keyStr =
-      base64::encode(reinterpret_cast<const char *>(&key), keylen);
-    string valStr;
-    if (kvdb::get(PeerDiscoveryDbCkpt, keyStr, &valStr) ==
-        kvdb::KVDBResponse::SUCCESS) {
-      string valBinary = dmtcp::base64::decode(valStr);
-      ASSERT(valBinary.size() <= sizeof(value),
-             "unexpected TCP peer discovery payload size: fd={} size={} "
-             "max={}",
-             _fds[0], valBinary.size(), sizeof(value));
-      memcpy(&value, valBinary.data(), valBinary.size());
-    } else {
-      WARN(false,
-              "DMTCP detected an external connect socket; it will be "
-              "restored as a dead socket: fd={}",
-              _fds[0]);
-      markExternalConnect();
-    }
+  string key;
+  string value;
+  if (!discoveryKey(true, &key) ||
+      kvdb::get(PeerDiscoveryDbCkpt, key, &value) !=
+        kvdb::KVDBResponse::SUCCESS ||
+      !parseSocketIdentity(value, &_remotePeerId)) {
+    WARN(false,
+         "Socket peer is outside this checkpoint and will become a dead "
+         "socket after restart: fd={} domain={} con_id={} peer_inode={}",
+         _fds[0], _sockDomain, id().conId(), _peerInode);
+    markExternalConnect();
+    return;
   }
+  assignRestoreRole();
 }
 
 void
@@ -775,40 +947,6 @@ TcpConnection::drain()
     break;
   case TCP_EXTERNAL_CONNECT:
     TRACE("Skipping drain for external TCP socket: fd={}",
-          _fds[0]);
-    break;
-  }
-}
-
-void
-TcpConnection::doSendHandshakes(const ConnectionIdentifier &coordId)
-{
-  switch (_type) {
-  case TCP_CONNECT:
-  case TCP_ACCEPT:
-    TRACE("Sending TCP restore handshake: con_id={} fd={}",
-          id().toString(), _fds[0]);
-    sendHandshake(_fds[0], coordId);
-    break;
-  case TCP_EXTERNAL_CONNECT:
-    TRACE("Skipping handshake send for external TCP socket: fd={}",
-          _fds[0]);
-    break;
-  }
-}
-
-void
-TcpConnection::doRecvHandshakes(const ConnectionIdentifier &coordId)
-{
-  switch (_type) {
-  case TCP_CONNECT:
-  case TCP_ACCEPT:
-    recvHandshake(_fds[0], coordId);
-    TRACE("Received TCP restore handshake: con_id={} remote_con_id={} fd={}",
-          id().toString(), _remotePeerId.toString(), _fds[0]);
-    break;
-  case TCP_EXTERNAL_CONNECT:
-    TRACE("Skipping handshake receive for external TCP socket: fd={}",
           _fds[0]);
     break;
   }
@@ -1013,46 +1151,6 @@ TcpConnection::postRestart()
     ConnectionRewirer::instance().registerOutgoing(_remotePeerId, this);
     break;
 
-  }
-}
-
-void
-TcpConnection::sendHandshake(int remotefd, const ConnectionIdentifier &coordId)
-{
-  jalib::JSocket remote(remotefd);
-  ConnMsg msg(ConnMsg::HANDSHAKE);
-
-  msg.from = id();
-  msg.coordId = coordId;
-  remote << msg;
-}
-
-void
-TcpConnection::recvHandshake(int remotefd, const ConnectionIdentifier &coordId)
-{
-  jalib::JSocket remote(remotefd);
-  ConnMsg msg;
-
-  msg.poison();
-  remote >> msg;
-
-  msg.assertValid(ConnMsg::HANDSHAKE);
-  ASSERT(msg.coordId == coordId,
-         "Peer has a different dmtcp_coordinator than us: peer_coord={} "
-         "expected_coord={}",
-         msg.coordId.conId(), coordId.conId());
-
-  if (_remotePeerId.isNull()) {
-    // first time
-    _remotePeerId = msg.from;
-    ASSERT(!_remotePeerId.isNull(),
-           "Read handshake with invalid 'from' field");
-  } else {
-    // next time
-    ASSERT(_remotePeerId == msg.from,
-           "Read handshake with a different 'from' field than a previous "
-           "handshake: previous={} current={}",
-           _remotePeerId.conId(), msg.from.conId());
   }
 }
 

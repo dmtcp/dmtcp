@@ -273,7 +273,7 @@ SocketConnList::preCkptRegisterNSData()
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     if (con->hasLock() && con->conType() == Connection::TCP) {
-      ((TcpConnection *)con)->sendPeerInformation();
+      static_cast<TcpConnection *>(con)->publishPeerIdentity();
     }
   }
 }
@@ -284,7 +284,7 @@ SocketConnList::preCkptSendQueries()
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     if (con->hasLock() && con->conType() == Connection::TCP) {
-      ((TcpConnection *)con)->recvPeerInformation();
+      static_cast<TcpConnection *>(con)->lookupPeerIdentity();
     }
   }
 }
@@ -325,29 +325,6 @@ SocketConnList::drain()
 void
 SocketConnList::preCkpt()
 {
-  // handshake is done after one barrier after drain
-  TRACE("beginning handshakes");
-  DmtcpUniqueProcessId coordId = dmtcp_get_coord_id();
-
-  // must send first to avoid deadlock
-  // we are relying on OS buffers holding our message without blocking
-  for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
-    if (con->hasLock() && con->conType() == Connection::TCP) {
-      ((TcpConnection *)con)->doSendHandshakes(coordId);
-    }
-  }
-
-  // now receive
-  for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
-    if (con->hasLock() && con->conType() == Connection::TCP) {
-      TcpConnection *tcp = static_cast<TcpConnection *>(con);
-      tcp->doRecvHandshakes(coordId);
-      tcp->assignRestoreRole();
-    }
-  }
-  TRACE("handshaking done");
   _hasIPv4Sock = _hasIPv6Sock = _hasUNIXSock = false;
 
   // Now check if we have IPv4, IPv6, or UNIX domain sockets to restore.
