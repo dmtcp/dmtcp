@@ -82,46 +82,10 @@ SocketConnection::SocketConnection(int domain, int type, int protocol)
   : _sockDomain(domain)
   , _sockType(type)
   , _sockProtocol(protocol)
-  , _peerType(PEER_UNKNOWN)
   , _listenBacklog(-1)
   , _bindAddrlen(0)
   , _remotePeerId(ConnectionIdentifier::null())
 {}
-
-SocketConnection::SocketConnection(int domain,
-                                   int type,
-                                   int protocol,
-                                   ConnectionIdentifier remote)
-  : _sockDomain(domain)
-  , _sockType(type)
-  , _sockProtocol(protocol)
-  , _peerType(PEER_UNKNOWN)
-  , _listenBacklog(-1)
-  , _bindAddrlen(0)
-  , _remotePeerId(remote)
-{}
-
-void
-SocketConnection::onBind(const struct sockaddr *addr, socklen_t len)
-{
-  ASSERT(false, "Bind called on unknown socket type");
-}
-
-void
-SocketConnection::onListen(int backlog)
-{
-  ASSERT(false, "Listen called on unknown socket type: backlog={}", backlog);
-}
-
-void
-SocketConnection::onConnect(const struct sockaddr *serv_addr,
-                            socklen_t addrlen,
-                            bool connectInProgress)
-{
-  ASSERT(false,
-         "Connect called on unknown socket type: addr={} len={} in_progress={}",
-         serv_addr, addrlen, connectInProgress);
-}
 
 void
 SocketConnection::addSetsockopt(int level,
@@ -261,7 +225,7 @@ void
 SocketConnection::serialize(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("SocketConnection");
-  o&_sockDomain&_sockType&_sockProtocol &_peerType &_netlinkGroups;
+  o&_sockDomain&_sockType&_sockProtocol &_netlinkGroups;
 
   JSERIALIZE_ASSERT_POINT("SocketOptions:");
   uint64_t numSockOpts = _sockOptions.size();
@@ -330,40 +294,6 @@ SocketConnection::serialize(jalib::JBinarySerializer &o)
 /*****************************************************************************
  * TCP Connection
  *****************************************************************************/
-
-/*onSocket*/
-TcpConnection::TcpConnection(int domain, int type, int protocol)
-  : Connection(TCP_CREATED)
-  , SocketConnection(domain, type, protocol)
-{
-  if (domain != -1) {
-    // Sometimes _sockType contains SOCK_CLOEXEC/SOCK_NONBLOCK flags.
-    if ((type & 077) == SOCK_DGRAM) {
-      WARN(false,
-              "Datagram sockets not supported; hopefully this is a short "
-              "lived connection: type={}",
-              type);
-    } else {
-// In the domain/type check (around lines 239–247):
-      int bt = baseType();
-      if (domain == AF_UNIX) {
-        WARN(bt == SOCK_STREAM || bt == SOCK_SEQPACKET,
-                "unexpected UNIX socket type: domain={} type={} protocol={} "
-                "base_type={}",
-                domain, type, protocol, bt);
-      } else if (domain == AF_INET || domain == AF_INET6) {
-        WARN(bt == SOCK_STREAM,
-                "unexpected TCP socket type: domain={} type={} protocol={} "
-                "base_type={}",
-                domain, type, protocol, bt);
-      }
-    }
-    TRACE("Tracking TCP socket connection: con_id={} domain={} type={} "
-          "protocol={}",
-          id().toString(), domain, type, protocol);
-  }
-  memset(&_bindAddr, 0, sizeof _bindAddr);
-}
 
 TcpConnection::TcpConnection(int domain,
                              int type,
@@ -458,185 +388,6 @@ TcpConnection::assignRestoreRole()
     _type == TCP_CONNECT &&
     (_sockDomain == AF_INET || _sockDomain == AF_INET6) ?
       _localAddrlen : 0;
-}
-
-TcpConnection&
-TcpConnection::asTcp()
-{
-  return *this;
-}
-
-#ifdef STAMPEDE_MPISPAWN_FIX
-static int
-getMPISpawnPortNum(const char *envVar)
-{
-  /* PMI_PORT is of the form: "hostname:port" */
-  char *temp = getenv(envVar);
-
-  if (temp) {
-    while (*temp && *temp != ':') {
-      *temp++;
-    }
-    if (*temp == ':') {
-      int port = 0;
-      if (Util::parsePortInteger(temp + 1, &port)) {
-        return port;
-      }
-    }
-  }
-  return 0;
-}
-#endif // ifdef STAMPEDE_MPISPAWN_FIX
-
-bool
-TcpConnection::isBlacklistedTcp(const sockaddr *saddr, socklen_t len)
-{
-  ASSERT_NOT_NULL(saddr, "null socket address");
-  if (len <= sizeof(saddr->sa_family)) {
-    return false;
-  }
-
-  if (saddr->sa_family == AF_INET) {
-    struct sockaddr_in *addr = (sockaddr_in *)saddr;
-
-    // Ports 389 and 636 are the well-known ports in /etc/services that
-    // are reserved for LDAP.  Bash continues to maintain a connection to
-    // LDAP, leading to problems at restart time.  So, we discover the LDAP
-    // remote addresses, and turn them into dead sockets at restart time.
-    // However, libc.so:getpwuid() can call libnss_ldap.so which calls
-    // libldap-2.4.so to create the LDAP socket while evading our connect
-    // wrapper.
-    int blacklistedRemotePorts[] = { 53,                 // DNS Server
-                                     389, 636,          // LDAP
-                                     -1 };
-#ifdef STAMPEDE_MPISPAWN_FIX
-    int mpispawnPort = getMPISpawnPortNum("PMI_PORT");
-    TRACE("Checking PMI socket blacklist: pmi_port={} remote_port={}",
-          mpispawnPort, ntohs(addr->sin_port));
-    ASSERT(mpispawnPort != 0, "PMI_PORT not found");
-    if (ntohs(addr->sin_port) == mpispawnPort) {
-      TRACE("Blacklisting PMI socket: pmi_port={}", mpispawnPort);
-      return true;
-    }
-#endif // ifdef STAMPEDE_MPISPAWN_FIX
-    for (size_t i = 0; blacklistedRemotePorts[i] != -1; i++) {
-      if (ntohs(addr->sin_port) == blacklistedRemotePorts[i]) {
-        TRACE("Blacklisting external service socket: remote_port={}",
-              ntohs(addr->sin_port));
-        return true;
-      }
-    }
-  } else if (saddr->sa_family == AF_UNIX) {
-    struct sockaddr_un *uaddr = (struct sockaddr_un *)saddr;
-    static const char *blacklist[] = { "" };
-    for (size_t i = 0; blacklist[i][0] != '\0'; i++) {
-      if (Util::strStartsWith(uaddr->sun_path, blacklist[i]) ||
-          Util::strStartsWith(&uaddr->sun_path[1], blacklist[i])) {
-        TRACE("Blacklisting UNIX socket address: path={}",
-              uaddr->sun_path);
-        return true;
-      }
-    }
-  }
-
-  // FIXME:  Consider adding configure or dmtcp_launch option to disable
-  // all remote connections.  Handy as quick test for special cases.
-  return false;
-}
-
-void
-TcpConnection::onBind(const struct sockaddr *addr, socklen_t len)
-{
-  if (really_verbose) {
-    TRACE("Recording socket bind: con_id={} addrlen={}",
-          id().toString(), len);
-  }
-
-  if (_sockDomain == AF_UNIX && addr != NULL) {
-    ASSERT(len <= sizeof _bindAddr,
-           "socket bind address is too large: len={} max={}", len,
-           sizeof _bindAddr);
-    _bindAddrlen = len;
-    memcpy(&_bindAddr, addr, len);
-  } else {
-    _bindAddrlen = sizeof(_bindAddr);
-
-    // Do not rely on the address passed on to bind as it may contain port 0
-    // which allows the OS to give any unused port. Thus we look ourselves up
-    // using getsockname.
-    ASSERT_NE(-1, getsockname(_fds[0],
-                                           (struct sockaddr *)&_bindAddr,
-                                           &_bindAddrlen),
-                               "failed to query bound socket address: fd={}",
-                               _fds[0]);
-  }
-  _type = TCP_BIND;
-}
-
-void
-TcpConnection::onListen(int backlog)
-{
-  /* The application didn't issue a bind() call; the kernel will assign
-   * a random address in this case. Call the regular onBind() post-
-   * processing function which will save the address returned by the kernel
-   * and change the state of the socket connection to TCP_BIND.
-   */
-  if (_type == TCP_CREATED) {
-    onBind(NULL, 0);
-  }
-
-  if (really_verbose) {
-    TRACE("Recording listening socket: con_id={} backlog={}",
-          id().toString(), backlog);
-  }
-  ASSERT(_type == TCP_BIND,
-         "Listening on a non-bind()ed socket: type={} con_id={}", _type,
-         id().conId());
-
-  _type = TCP_LISTEN;
-  _listenBacklog = backlog;
-}
-
-void
-TcpConnection::onConnect(const struct sockaddr *addr,
-                         socklen_t len,
-                         bool connectInProgress)
-{
-  if (really_verbose) {
-    TRACE("Recording socket connect: con_id={}", id().toString());
-  }
-  WARN(_type == TCP_CREATED || _type == TCP_BIND,
-          "Connecting with an in-use socket: type={} con_id={}", _type,
-          id().conId());
-
-  if (addr != NULL && isBlacklistedTcp(addr, len)) {
-    _type = TCP_EXTERNAL_CONNECT;
-    _connectAddrlen = len;
-    memcpy(&_connectAddr, addr, len);
-  } else if (connectInProgress) {
-    // non blocking connect.
-    _type = TCP_CONNECT_IN_PROGRESS;
-  } else {
-    _type = TCP_CONNECT;
-  }
-}
-
-/*onAccept*/
-TcpConnection::TcpConnection(const TcpConnection &parent,
-                             const ConnectionIdentifier &remote)
-  : Connection(TCP_ACCEPT)
-  , SocketConnection(parent._sockDomain,
-                     parent._sockType,
-                     parent._sockProtocol,
-                     remote)
-{
-  if (really_verbose) {
-    TRACE("Recording accepted socket: con_id={} parent_con_id={} "
-          "remote_con_id={}",
-          id().toString(), parent.id().toString(), remote.toString());
-  }
-
-  memset(&_bindAddr, 0, sizeof _bindAddr);
 }
 
 static string
@@ -887,7 +638,7 @@ TcpConnection::lookupPeerIdentity()
          "Socket peer is outside this checkpoint and will become a dead "
          "socket after restart: fd={} domain={} con_id={} peer_inode={}",
          _fds[0], _sockDomain, id().conId(), _peerInode);
-    markExternalConnect();
+    _type = TCP_EXTERNAL_CONNECT;
     return;
   }
   assignRestoreRole();
@@ -1166,21 +917,6 @@ TcpConnection::serializeSubClass(jalib::JBinarySerializer &o)
  * RawSocket Connection
  *****************************************************************************/
 
-/*onSocket*/
-RawSocketConnection::RawSocketConnection(int domain, int type, int protocol)
-  : Connection(RAW_CREATED)
-  , SocketConnection(domain, type, protocol)
-{
-  ASSERT(type == -1 ||
-         baseType() == SOCK_RAW || baseType() == SOCK_DGRAM,
-         "raw socket connection created with non-raw type: type={}", type);
-  ASSERT(domain == -1 || domain == AF_NETLINK,
-         "Only Netlink raw socket supported: domain={}", domain);
-  TRACE("Tracking raw socket connection: con_id={} domain={} type={} "
-        "protocol={}",
-        id().toString(), domain, type, protocol);
-}
-
 RawSocketConnection::RawSocketConnection(
   int domain,
   int type,
@@ -1268,7 +1004,6 @@ RawSocketConnection::postRestart()
 
   case RAW_CREATED:
   case RAW_BIND:
-  case RAW_LISTEN:
   {
     errno = 0;
     int fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
@@ -1321,17 +1056,7 @@ RawSocketConnection::postRestart()
                                 "addrlen={}",
                                 _fds[0], id().conId(), _bindAddrlen);
     restoreNetlinkMemberships(_fds[0]);
-    if (_type == RAW_BIND) {
-      break;
-    }
-
-    errno = 0;
-    WARN_NE(-1, _real_listen(_fds[0], _listenBacklog),
-                  "raw socket listen failed: fd={} con_id={} backlog={}",
-                  _fds[0], id().conId(), _listenBacklog);
-    if (_type == RAW_LISTEN) {
-      break;
-    }
+    break;
   }
   default:
     break;
@@ -1343,61 +1068,4 @@ RawSocketConnection::serializeSubClass(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("RawSocketConnection");
   SocketConnection::serialize(o);
-}
-
-void
-RawSocketConnection::onBind(const struct sockaddr *addr, socklen_t len)
-{
-  TRACE("Recording raw socket bind: fd={} con_type={} con_id={}",
-        _fds[0], this->conType(), this->id().toString());
-  if (addr != NULL) {
-    ASSERT(len <= sizeof _bindAddr,
-           "raw socket bind address is too large: len={} max={}", len,
-           sizeof _bindAddr);
-    _bindAddrlen = len;
-    memcpy(&_bindAddr, addr, len);
-  }
-  _type = RAW_BIND;
-}
-
-void
-RawSocketConnection::onListen(int backlog)
-{
-  TRACE("Recording raw socket listen: fd={} con_type={} con_id={} "
-        "backlog={}",
-        _fds[0], this->conType(), this->id().toString(), backlog);
-  _listenBacklog = backlog;
-  _type = RAW_LISTEN;
-}
-
-RawSocketConnection::RawSocketConnection(const RawSocketConnection &parent,
-                                         const ConnectionIdentifier &remote)
-  : Connection(RAW_ACCEPT)
-  , SocketConnection(parent._sockDomain,
-                     parent._sockType,
-                     parent._sockProtocol,
-                     remote)
-{
-  if (really_verbose) {
-    TRACE("Recording raw accepted socket: con_id={} parent_con_id={} "
-          "remote_con_id={}",
-          id().toString(), parent.id().toString(), remote.toString());
-  }
-
-  WARN(false,
-          "Accept on raw socket type not supported; socket will not be "
-          "restored: parent_con_id={} remote_con_id={}",
-          parent.id().conId(), remote.conId());
-  memset(&_bindAddr, 0, sizeof _bindAddr);
-}
-
-void
-RawSocketConnection::onConnect(const struct sockaddr *serv_addr,
-                               socklen_t addrlen,
-                               bool connectInProgress)
-{
-  WARN(false,
-          "Connect on raw socket type not supported; socket will not be "
-          "restored: addr={} len={} in_progress={}",
-          serv_addr, addrlen, connectInProgress);
 }

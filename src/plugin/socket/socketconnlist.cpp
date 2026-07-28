@@ -4,7 +4,6 @@
 #include <netinet/tcp.h>
 #include <poll.h>
 
-#include "jfilesystem.h"
 #include "connectionrewirer.h"
 #include "kernelbufferdrainer.h"
 #include "kvdb.h"
@@ -23,32 +22,11 @@ static bool _hasIPv6Sock = false;
 static bool _hasUNIXSock = false;
 
 static SocketConnList *socketConnList = NULL;
-static SocketConnList *vfork_socketConnList = NULL;
 
 void
-dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *)
 {
-  SocketConnList::instance().eventHook(event, data);
-
   switch (event) {
-  case DMTCP_EVENT_CLOSE_FD:
-    SocketConnList::instance().processClose(data->closeFd.fd);
-    break;
-
-  case DMTCP_EVENT_DUP_FD:
-    SocketConnList::instance().processDup(data->dupFd.oldFd, data->dupFd.newFd);
-    break;
-
-  case DMTCP_EVENT_VFORK_PREPARE:
-    vfork_socketConnList = (SocketConnList*) SocketConnList::instance().clone();
-    break;
-
-  case DMTCP_EVENT_VFORK_PARENT:
-  case DMTCP_EVENT_VFORK_FAILED:
-    delete socketConnList;
-    socketConnList = vfork_socketConnList;
-    break;
-
   case DMTCP_EVENT_PRECHECKPOINT:
     SocketConnList::instance().discover();
     dmtcp_local_barrier("Socket::Discovery");
@@ -370,64 +348,6 @@ SocketConnList::refill(bool isRestart)
 {
   KernelBufferDrainer::instance().refillAllSockets();
   ConnectionList::refill(isRestart);
-}
-
-void
-SocketConnList::scanForPreExisting()
-{
-  // TODO: This is a hack when SLURM + MPI are used:
-  // when we use command
-  // srun/ibrun dmtcp_launch a.out
-  // inside the SLURM submission script, the MPI launching
-  // process will not run under the control of DMTCP. Instead,
-  // only the computing processes are. The launching process
-  // will create some sockets, and then create the computing
-  // processes. Hence the sockets are shared among the created
-  // processes at the time when dmtcp_launch is launched. DMTCP
-  // will treat these sockets as pre-existing sockets instead of
-  // shared sockets.
-  //
-  // In the future, we should generalize the processing of
-  // pre-existing fds. For example, at checkpoint time, determine
-  // which sockets are shared, regardless of whether they are
-  // pre-existing or not. This can be done by adding an extra round
-  // of leader election.
-
-  if ((getenv("SLURM_JOBID")) ||
-      (getenv("SLURM_JOB_ID")) ||
-      (getenv("HYDI_CONTROL_FD"))) {
-    return;
-  }
-
-  // FIXME: Detect stdin/out/err fds to detect duplicates.
-  vector<int>fds = jalib::Filesystem::ListOpenFds();
-  for (size_t i = 0; i < fds.size(); ++i) {
-    int fd = fds[i];
-    if (!Util::isValidFd(fd)) {
-      continue;
-    }
-    if (dmtcp_is_protected_fd(fd)) {
-      continue;
-    }
-
-    string device = jalib::Filesystem::GetDeviceName(fd);
-
-    TRACE("Scanning pre-existing socket descriptor: fd={} device={}",
-          fd, device);
-    if (device ==
-        jalib::Filesystem::GetControllingTerm()) {} else if (dmtcp_is_bq_file &&
-                                                             dmtcp_is_bq_file(
-                                                               device.c_str()))
-    {} else if (fd <=
-                2)
-    {} else if (Util::strStartsWith(device.c_str(), "/")) {} else {
-      NOTE("Pre-existing socket will not be restored: fd={} device={}",
-           fd, device);
-      TcpConnection *con = new TcpConnection(0, 0, 0);
-      con->markPreExisting();
-      add(fd, con);
-    }
-  }
 }
 
 Connection *

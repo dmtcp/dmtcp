@@ -1,6 +1,7 @@
 #include "socketdiscovery.h"
 
 #include "jfilesystem.h"
+#include "plugin/ssh/ssh.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 
@@ -266,7 +267,8 @@ enumerateSockets()
   map<uint64_t, size_t> socketByInode;
 
   for (int fd : jalib::Filesystem::ListOpenFds()) {
-    if (DMTCP_IS_PROTECTED_FD(fd)) {
+    if (DMTCP_IS_PROTECTED_FD(fd) ||
+        (dmtcp_ssh_owns_fd && dmtcp_ssh_owns_fd(fd))) {
       continue;
     }
 

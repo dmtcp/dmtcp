@@ -230,8 +230,7 @@ am_libdmtcp_socket_internal_a_OBJECTS =  \
 	plugin/socket/kernelbufferdrainer.$(OBJEXT) \
 	plugin/socket/socketconnection.$(OBJEXT) \
 	plugin/socket/socketconnlist.$(OBJEXT) \
-	plugin/socket/socketdiscovery.$(OBJEXT) \
-	plugin/socket/socketwrappers.$(OBJEXT)
+	plugin/socket/socketdiscovery.$(OBJEXT)
 libdmtcp_socket_internal_a_OBJECTS = $(am_libdmtcp_socket_internal_a_OBJECTS)
 libdmtcp_ssh_internal_a_AR = $(AR) $(ARFLAGS)
 libdmtcp_ssh_internal_a_RANLIB = $(RANLIB)
@@ -436,7 +435,6 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	plugin/socket/$(DEPDIR)/socketconnection.Po \
 	plugin/socket/$(DEPDIR)/socketconnlist.Po \
 	plugin/socket/$(DEPDIR)/socketdiscovery.Po \
-	plugin/socket/$(DEPDIR)/socketwrappers.Po \
 	plugin/ssh/$(DEPDIR)/dmtcp_ssh.Po \
 	plugin/ssh/$(DEPDIR)/dmtcp_sshd.Po \
 	plugin/ssh/$(DEPDIR)/ssh.Po \
@@ -1008,7 +1006,6 @@ libdmtcp_socket_internal_a_SOURCES = \
 	plugin/socket/socketconnlist.h				\
 	plugin/socket/socketdiscovery.cpp				\
 	plugin/socket/socketdiscovery.h				\
-	plugin/socket/socketwrappers.cpp				\
 	plugin/socket/socketwrappers.h
 
 libdmtcp_socket_internal_a_SHORTNAME = i
@@ -1535,7 +1532,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/socket/$(DEPDIR)/socketconnection.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/socket/$(DEPDIR)/socketconnlist.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/socket/$(DEPDIR)/socketdiscovery.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@plugin/socket/$(DEPDIR)/socketwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ssh/$(DEPDIR)/dmtcp_ssh.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ssh/$(DEPDIR)/dmtcp_sshd.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@plugin/ssh/$(DEPDIR)/ssh.Po@am__quote@ # am--include-marker

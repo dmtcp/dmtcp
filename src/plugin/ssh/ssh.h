@@ -23,4 +23,5 @@ void client_loop(int ssh_stdin, int ssh_stdout, int ssh_stderr, int remoteSock);
 void dmtcp_ssh_drain();
 void dmtcp_ssh_resume();
 void dmtcp_ssh_restart();
+LIB_PRIVATE bool dmtcp_ssh_owns_fd(int fd) __attribute__((weak));
 #endif // ifndef SSH_H

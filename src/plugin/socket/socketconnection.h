@@ -43,21 +43,9 @@ inline constexpr char const *PeerDiscoveryDbCkpt = "/plugin/socket/ckpt";
 class SocketConnection
 {
   public:
-    enum PeerType {
-      PEER_UNKNOWN,
-      PEER_INTERNAL,
-      PEER_EXTERNAL
-    };
-
-    uint32_t peerType() const { return _peerType; }
-
     SocketConnection() {}
 
     SocketConnection(int domain, int type, int protocol);
-    SocketConnection(int domain,
-                     int type,
-                     int protocol,
-                     ConnectionIdentifier remote);
     void addSetsockopt(int level, int option, const void *value, int len);
     void captureSocketOptions(int fd);
     void restoreSocketOptions(vector<int32_t> &fds);
@@ -67,27 +55,13 @@ class SocketConnection
     int sockType() const { return _sockType; }
     int baseType() const { return _sockType & 077; }
 
-    virtual void onBind(const struct sockaddr *addr, socklen_t len);
-    virtual void onListen(int backlog);
-    virtual void onConnect(const struct sockaddr *serv_addr = NULL,
-                           socklen_t addrlen = 0,
-                           bool connectInProgress = false);
-
   protected:
     int64_t _sockDomain;
     int64_t _sockType;
     int64_t _sockProtocol;
-    uint32_t _peerType;
     int32_t _listenBacklog;
-    union {
-      socklen_t _bindAddrlen;
-      socklen_t _connectAddrlen;
-    };
-    union {
-      /* See 'man socket.h' or POSIX for 'struct sockaddr_storage' */
-      struct sockaddr_storage _bindAddr;
-      struct sockaddr_storage _connectAddr;
-    };
+    socklen_t _bindAddrlen;
+    struct sockaddr_storage _bindAddr;
     ConnectionIdentifier _remotePeerId;
     map<int64_t, map<int64_t, vector<char> > >_sockOptions;
     vector<uint32_t> _netlinkGroups;
@@ -104,25 +78,15 @@ class TcpConnection : public Connection, public SocketConnection
       TCP_LISTEN,
       TCP_ACCEPT,
       TCP_CONNECT,
-      TCP_CONNECT_IN_PROGRESS,
       TCP_PREEXISTING,
       TCP_EXTERNAL_CONNECT
     };
 
     TcpConnection() {}
 
-    // This accessor is needed because _type is protected.
-    void markExternalConnect() { _type = TCP_EXTERNAL_CONNECT; }
-
-    bool isBlacklistedTcp(const sockaddr *saddr, socklen_t len);
-
     void publishPeerIdentity();
     void lookupPeerIdentity();
 
-    // basic commands for updating state from wrappers
-
-    /*onSocket*/
-    TcpConnection(int domain, int type, int protocol);
     TcpConnection(int domain,
                   int type,
                   int protocol,
@@ -131,19 +95,8 @@ class TcpConnection : public Connection, public SocketConnection
                   const InspectedSocket *inspected);
     void initializeFromDiscovery(const InspectedSocket& inspected,
                                  bool restorable);
-    void onBind(const struct sockaddr *addr, socklen_t len) override;
-    void onListen(int backlog) override;
-    void onConnect(const struct sockaddr *serv_addr = NULL,
-                   socklen_t addrlen = 0,
-                   bool connectInProgress = false) override;
-
-    /*onAccept*/
-    TcpConnection(const TcpConnection &parent,
-                  const ConnectionIdentifier &remote);
     void onError();
     void onDisconnect();
-
-    void markPreExisting() { _type = TCP_PREEXISTING; }
 
     // basic checkpointing commands
     virtual void drain() override;
@@ -165,7 +118,6 @@ class TcpConnection : public Connection, public SocketConnection
     bool listenerKey(bool peer, bool wildcard, string *key) const;
     void assignRestoreRole();
 
-    TcpConnection &asTcp();
     socklen_t _localAddrlen = 0;
     sockaddr_storage _peerAddr = {};
     socklen_t _peerAddrlen = 0;
@@ -177,19 +129,12 @@ class RawSocketConnection : public Connection, public SocketConnection
   public:
     enum RawType {
       RAW_INVALID = RAW,
-      RAW_ERROR,
       RAW_CREATED,
       RAW_BIND,
-      RAW_LISTEN,
-      RAW_ACCEPT,
-      RAW_CONNECT,
-      RAW_CONNECT_IN_PROGRESS,
       RAW_PREEXISTING
     };
     RawSocketConnection() {}
 
-    // basic commands for updating state from wrappers
-    RawSocketConnection(int domain, int type, int protocol);
     RawSocketConnection(int domain,
                         int type,
                         int protocol,
@@ -203,17 +148,6 @@ class RawSocketConnection : public Connection, public SocketConnection
     virtual void drain() override;
     virtual void refill(bool isRestart) override;
     virtual void postRestart() override;
-
-    virtual void onBind(const struct sockaddr *addr, socklen_t len) override;
-    virtual void onListen(int backlog) override;
-    virtual void onConnect(const struct sockaddr *serv_addr = NULL,
-                           socklen_t addrlen = 0,
-                           bool connectInProgress = false) override;
-
-    // FIXME: Change to first arg to SocketConnection* when we fix the class
-    // hierarchy
-    RawSocketConnection(const RawSocketConnection &parent,
-                        const ConnectionIdentifier &remote);
 
     virtual void serializeSubClass(jalib::JBinarySerializer &o) override;
     virtual string str() override { return "<Raw Socket>"; }

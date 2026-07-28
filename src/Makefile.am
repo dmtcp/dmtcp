@@ -286,7 +286,6 @@ libdmtcp_socket_internal_a_SOURCES =					\
 	plugin/socket/socketconnlist.h				\
 	plugin/socket/socketdiscovery.cpp				\
 	plugin/socket/socketdiscovery.h				\
-	plugin/socket/socketwrappers.cpp				\
 	plugin/socket/socketwrappers.h
 libdmtcp_socket_internal_a_SHORTNAME = i
 

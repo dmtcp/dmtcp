@@ -59,7 +59,6 @@ class SocketConnList : public ConnectionList
 
     virtual int protectedFd() override { return PROTECTED_SOCKET_FDREWIRER_FD; }
 
-    virtual void scanForPreExisting() override;
     virtual Connection *createDummyConnection(int type) override;
 
     virtual ConnectionList *cloneInstance() override

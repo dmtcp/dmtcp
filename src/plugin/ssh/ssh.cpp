@@ -51,16 +51,19 @@ static void createNewDmtcpSshdProcess();
 static void updateCoordHost();
 static void prepareForExec(DmtcpEventData_t *data);
 
-void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-
-static void
-process_close_fd_event(int fd)
+LIB_PRIVATE bool
+dmtcp_ssh_owns_fd(int fd)
 {
-  DmtcpEventData_t data;
-  data.closeFd.fd = fd;
-  dmtcp_SocketConnList_EventHook(DMTCP_EVENT_CLOSE_FD, &data);
+  if (!sshPluginEnabled) {
+    return false;
+  }
+  if (isSshdProcess) {
+    return fd == STDIN_FILENO ||
+           fd == STDOUT_FILENO ||
+           fd == STDERR_FILENO;
+  }
+  return fd == sshStdin || fd == sshStdout || fd == sshStderr;
 }
-
 
 void
 dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -301,10 +304,6 @@ createNewDmtcpSshdProcess()
     ASSERT(idx < max_args, "too many ssh child arguments: idx={} max={}", idx,
            max_args);
 
-    // TODO: Hack until we improve the plugin design to remove these calls.
-    process_close_fd_event(in[1]);
-    process_close_fd_event(out[0]);
-    process_close_fd_event(err[0]);
     dup2(in[0], STDIN_FILENO);
     dup2(out[1], STDOUT_FILENO);
     dup2(err[1], STDERR_FILENO);
@@ -334,9 +333,6 @@ createNewDmtcpSshdProcess()
   close(500 + sshStdout);
   close(500 + sshStderr);
 
-  process_close_fd_event(sshStdin);
-  process_close_fd_event(sshStdout);
-  process_close_fd_event(sshStderr);
 }
 
 extern "C" void
@@ -348,14 +344,7 @@ dmtcp_ssh_register_fds(int isSshd,
                        int noStrictChecking,
                        int rshProcess)
 {
-  if (isSshd) { // dmtcp_sshd
-    process_close_fd_event(STDIN_FILENO);
-    process_close_fd_event(STDOUT_FILENO);
-    process_close_fd_event(STDERR_FILENO);
-  } else { // dmtcp_ssh
-    process_close_fd_event(in);
-    process_close_fd_event(out);
-    process_close_fd_event(err);
+  if (!isSshd) {
     isRshProcess = rshProcess;
   }
   sshStdin = in;
