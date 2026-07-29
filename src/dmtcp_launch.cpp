@@ -972,7 +972,7 @@ detectTsanRuntime(const char *path, bool *isTsan)
 // libc call during restart. Suppress TSAN for libdmtcp.so calls instead
 // (see setTsanSuppressions() below); __tsan_ignore_thread_* misses sync
 // calls, and no_sanitize has no effect on TSAN's runtime interceptors.
-static void
+[[maybe_unused]] static void
 setTsanSuppressions(const string &tmpDir)
 {
   // TSAN honors only a single suppressions file. So do not clobber one the
@@ -1023,6 +1023,22 @@ setTsanSuppressions(const string &tmpDir)
         "checkpoint/restart issue, try temporarily pointing "
         "TSAN_OPTIONS=suppressions= at an empty file to see what TSAN "
         "reports with suppressions off.");
+}
+
+// Alternative to setTsanSuppressions(): instead of a suppressions file,
+// tell TSAN to ignore all modules it did not itself instrument (i.e.
+// everything but the target and libtsan.so), which includes libdmtcp.so.
+// This is roughly equivalent to wrapping every call into a noninstrumented
+// module with __tsan_ignore_thread_begin/end().
+static void
+setTsanIgnoreNoninstrumentedModules()
+{
+  const char *existing = getenv("TSAN_OPTIONS");
+  string opts = (existing != NULL) ? existing : "";
+  string newOpts = opts.empty() ? string() : opts + " ";
+  newOpts += "ignore_noninstrumented_modules=true";
+  setenv("TSAN_OPTIONS", newOpts.c_str(), 1);
+  TRACE("TSAN ignore_noninstrumented_modules=true: TSAN_OPTIONS={}", getenv("TSAN_OPTIONS"));
 }
 
 static void
@@ -1124,7 +1140,8 @@ setLDPreloadLibs(bool is32bitElf, const char *targetPath)
     // Make TSAN ignore DMTCP's own libc calls so checkpoint/restart does not
     // hang in a TSAN interceptor running on the (post-restart, stale-state)
     // checkpoint thread.  See setTsanSuppressions() for the full rationale.
-    setTsanSuppressions(tmpDir);
+    // Previously used setTsanSuppressions() instead of this.
+    setTsanIgnoreNoninstrumentedModules();
   }
 
   if (enableKernelLoader) {
