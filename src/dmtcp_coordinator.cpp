@@ -1797,9 +1797,11 @@ main(int argc, char **argv)
   initializeJalib();
 
   flags.progName = argv[0];
-
-  set_short_cmdline(argv[0], jalib::XToString(flags.thePort).c_str());
-  set_long_cmdline(argv[0], jalib::XToString(flags.thePort).c_str());
+  // shift below advances argv itself, and flags.thePort isn't authoritative
+  // until listenSock->port() returns further down (covers both an explicit
+  // -p/--coord-port and an OS-assigned --port 0) -- save argv[0] here for
+  // the cmdline rewrite there instead of doing it with the default port now.
+  char *origArgv0 = argv[0];
 
   /* NOTE: The convention is that user-specified explicit runtime arguments
    *       get a higher priority than env. vars. The logFilename variable will
@@ -1930,6 +1932,13 @@ main(int argc, char **argv)
     Util::writeCoordPortToFile(flags.thePort, flags.thePortFile.c_str());
   }
   TRACE("Listening on port: port={}", flags.thePort);
+
+  // Now that flags.thePort is authoritative, rewrite argv[0]/comm to show
+  // the coordinator's real, final port instead of the compiled-in default
+  // (the previous call site, before argument parsing, always showed that
+  // default here regardless of -p/--coord-port or an OS-assigned --port 0).
+  set_short_cmdline(origArgv0, jalib::XToString(flags.thePort).c_str());
+  set_long_cmdline(origArgv0, jalib::XToString(flags.thePort).c_str());
 
   if (!flags.quiet) {
     fprintf(stderr, "dmtcp_coordinator starting..."
