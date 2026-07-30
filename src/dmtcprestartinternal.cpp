@@ -22,10 +22,13 @@
 #include <elf.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <linux/capability.h>
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/xattr.h>
+#include <unistd.h>
 #include "config.h"
 #ifdef HAS_PR_SET_PTRACER
 #include <sys/prctl.h>
@@ -417,11 +420,99 @@ char *get_pause_param()
   return pause_param;
 }
 
+// Checks the "security.capability" xattr (see: man 7 capabilities) rather
+// than linking against libcap, since we only need this one bit.
+static bool
+mtcpRestartHasCapSysResource(const string &path)
+{
+  unsigned char buf[XATTR_CAPS_SZ_3];
+  ssize_t len = getxattr(path.c_str(), "security.capability",
+                          buf, sizeof(buf));
+  if (len < (ssize_t) sizeof(struct vfs_cap_data)) {
+    return false;
+  }
+  struct vfs_cap_data capdata;
+  memcpy(&capdata, buf, sizeof(capdata));
+  // "+ep" needs both the per-capability permitted bit and the file-wide
+  // effective flag (VFS_CAP_FLAGS_EFFECTIVE); without the latter, permitted
+  // capabilities aren't auto-raised to effective at exec.
+  return (capdata.magic_etc & VFS_CAP_FLAGS_EFFECTIVE) &&
+         (capdata.data[CAP_TO_INDEX(CAP_SYS_RESOURCE)].permitted &
+          CAP_TO_MASK(CAP_SYS_RESOURCE)) != 0;
+}
+
+// Writes/refreshes the reminder marker so its mtime reflects "warned about
+// the current mtcp_restart binary."
+static void
+writeSetcapReminderFile(const string &dmtcpDir, const string &reminderFile,
+                         const string &msg)
+{
+  mkdir(dmtcpDir.c_str(), S_IRWXU);
+  FILE *f = fopen(reminderFile.c_str(), "w");
+  if (f != NULL) {
+    fputs(msg.c_str(), f);
+    fclose(f);
+  }
+}
+
+// Reminds the user to grant mtcp_restart CAP_SYS_RESOURCE (see the
+// restoreArgvEnvBoundsBestEffort comment in processinfo.cpp), without
+// repeating the reminder on every restart. Tracked via a timestamp file,
+// ~/.dmtcp/setcap_mtcp_restart.txt: newer than mtcp_restart means already
+// warned about this binary; missing means never warned; and if the
+// capability turns out to already be set, the file is removed as stale.
+static void
+remindToSetcapMtcpRestart(const string &mtcpRestartPath, int quietCount)
+{
+  // Skip when privileged: $HOME (or a symlink under it) could be attacker-
+  // controlled, and this is only a cosmetic ps/pgrep reminder.
+  if (getuid() == 0 || geteuid() == 0) {
+    return;
+  }
+  const char *home = getenv("HOME");
+  if (home == NULL) {
+    return;
+  }
+  string dmtcpDir = string(home) + "/.dmtcp";
+  string reminderFile = dmtcpDir + "/setcap_mtcp_restart.txt";
+
+  if (mtcpRestartHasCapSysResource(mtcpRestartPath)) {
+    unlink(reminderFile.c_str());
+    return;
+  }
+
+  string msg = "Restarted process cmdline not shown in 'ps'.  To fix, do:\n"
+               "  sudo setcap cap_sys_resource+ep " + mtcpRestartPath + "\n";
+
+  struct stat binSt, reminderSt;
+  if (stat(mtcpRestartPath.c_str(), &binSt) == -1) {
+    return;
+  }
+
+  if (stat(reminderFile.c_str(), &reminderSt) == 0) {
+    if (binSt.st_mtime > reminderSt.st_mtime && quietCount == 0) {
+      fputs(msg.c_str(), stderr);
+      writeSetcapReminderFile(dmtcpDir, reminderFile, msg);
+    }
+    return;
+  }
+
+  if (quietCount == 0) {
+    fputs(msg.c_str(), stderr);
+    writeSetcapReminderFile(dmtcpDir, reminderFile, msg);
+  }
+}
+
 vector<char *>
 getMtcpArgs(MemRegion restoreBuf)
 {
   vector<char *> mtcpArgs;
   mtcp_restart = Util::getPath(mtcp_restart.c_str());
+  // SharedData must already be initialized (see RestoreTarget::initialize(),
+  // called before this) for Util::getPath() above to have resolved anything
+  // beyond the bare binary name.
+  int quietCount = *getenv(ENV_VAR_QUIET) - '0';
+  remindToSetcapMtcpRestart(mtcp_restart, quietCount);
   pause_param = get_pause_param();
   stderrFd = jalib::XToString(PROTECTED_STDERR_FD);
 
