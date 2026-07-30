@@ -306,7 +306,14 @@ typedef struct {
   char procname[1024];
   char procSelfExe[1024];
 
-  char padding[1792];
+  // mm_struct's arg_start/arg_end and env_start/env_end at exec() time.
+  // mtcp_restart() never execve()s the target back in, so these go
+  // stale after restart, breaking /proc/PID/cmdline and .../environ.
+  // Read in ProcessInfo::getState(), restored in ::restart().
+  MemRegion argBounds;
+  MemRegion envBounds;
+
+  char padding[1760];
 } DmtcpCkptHeader;
 
 static_assert(sizeof(DmtcpCkptHeader) == 4096, "DmtcpCkptHeader must be 4096 bytes");

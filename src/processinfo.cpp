@@ -22,6 +22,8 @@
 #include "processinfo.h"
 #include <fcntl.h>
 #include <fenv.h>
+#include <string.h>
+#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
@@ -35,6 +37,24 @@
 #include "uniquepid.h"
 #include "util.h"
 #include "dmtcp_assert.h"
+
+// <sys/prctl.h> may lack these; define locally rather than pull in
+// <linux/prctl.h>, which can conflict with <sys/prctl.h>.
+#ifndef PR_SET_MM
+# define PR_SET_MM 35
+#endif
+#ifndef PR_SET_MM_ARG_START
+# define PR_SET_MM_ARG_START 8
+#endif
+#ifndef PR_SET_MM_ARG_END
+# define PR_SET_MM_ARG_END 9
+#endif
+#ifndef PR_SET_MM_ENV_START
+# define PR_SET_MM_ENV_START 10
+#endif
+#ifndef PR_SET_MM_ENV_END
+# define PR_SET_MM_ENV_END 11
+#endif
 
 namespace dmtcp
 {
@@ -153,6 +173,8 @@ ProcessInfo::ProcessInfo()
 
   strcpy(ckptSignature, DMTCP_CKPT_SIGNATURE);
   memset(padding, 0, sizeof(padding));
+  argBounds = {0, 0};
+  envBounds = {0, 0};
 
   upid = UniquePid::ThisProcess();
   uppid = UniquePid::ParentProcess();
@@ -522,12 +544,53 @@ ProcessInfo::restoreHeap()
   }
 }
 
+// Best-effort re-point of the kernel's mm_struct arg_start/arg_end/
+// env_start/env_end (see the DmtcpCkptHeader comment). Active if:
+//   sudo setcap cap_sys_resource+ep PATH_TO/bin/mtcp_restart
+// Otherwise silently ignore any errors.
+static void
+restoreArgvEnvBoundsBestEffort(MemRegion argBounds, MemRegion envBounds)
+{
+  if (argBounds.startAddr == 0 || envBounds.startAddr == 0) {
+    // Old checkpoint image, or a kernel without these /proc/self/stat fields.
+    return;
+  }
+  if (argBounds.startAddr > argBounds.endAddr ||
+      envBounds.startAddr > envBounds.endAddr) {
+    // Corrupted or partially-captured bounds; don't feed prctl() nonsense.
+    return;
+  }
+
+  // *_END before *_START for each pair: the kernel checks a new *_START
+  // against the CURRENT *_END, so setting our much-higher real *_START
+  // first would fail with EINVAL against mtcp_restart's stale low *_END.
+  // MemRegion's fields are already uint64_t; static_cast is only so a
+  // reader doesn't have to go check that.
+  struct { int opt; uint64_t addr; } ops[] = {
+    { PR_SET_MM_ARG_END,   static_cast<uint64_t>(argBounds.endAddr)   },
+    { PR_SET_MM_ARG_START, static_cast<uint64_t>(argBounds.startAddr) },
+    { PR_SET_MM_ENV_END,   static_cast<uint64_t>(envBounds.endAddr)   },
+    { PR_SET_MM_ENV_START, static_cast<uint64_t>(envBounds.startAddr) },
+  };
+  for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
+    // prctl()'s variadic args are register-sized (unsigned long); on a
+    // 32-bit build that's narrower than our uint64_t addr, and passing the
+    // wider type here would misalign the trailing args.
+    if (prctl(PR_SET_MM, ops[i].opt,
+              static_cast<unsigned long>(ops[i].addr), 0UL, 0UL) == -1) {
+      return;
+    }
+  }
+}
+
 void
 ProcessInfo::restart()
 {
   updateRestoreBufAddr();
 
   restoreHeap();
+
+  restoreArgvEnvBoundsBestEffort(argBounds, envBounds);
 
   // Update the ckptDir
   string ckptDir = jalib::Filesystem::GetDeviceName(PROTECTED_CKPT_DIR_FD);
@@ -662,6 +725,58 @@ ProcessInfo::setCkptDir(const char *dir)
 
 }
 
+// Reads arg_start/arg_end/env_start/env_end (fields 48-51, man 5 proc)
+// from /proc/self/stat, unaffected by setenv()/--modify-env unlike
+// glibc's argv/environ. comm may contain ')', so split on the last one.
+static void
+readArgEnvBoundsFromProcSelfStat(MemRegion *argBounds, MemRegion *envBounds)
+{
+  *argBounds = {0, 0};
+  *envBounds = {0, 0};
+
+  char buf[4096];
+  int fd = _real_open("/proc/self/stat", O_RDONLY);
+  if (fd == -1) {
+    return;
+  }
+  ssize_t len = read(fd, buf, sizeof(buf) - 1);
+  _real_close(fd);
+  if (len <= 0) {
+    return;
+  }
+  buf[len] = '\0';
+
+  char *afterComm = strrchr(buf, ')');
+  if (afterComm == NULL) {
+    return;
+  }
+  afterComm++;
+
+  // Token 0 after comm is field 3 (state), so field N is token (N-3).
+  const int argStartTokenIdx = 48 - 3;
+  const int lastTokenIdxNeeded = 51 - 3;
+  char *saveptr = NULL;
+  char *tok = strtok_r(afterComm, " ", &saveptr);
+  int idx = 0;
+  unsigned long vals[4] = {0, 0, 0, 0};
+  while (tok != NULL && idx <= lastTokenIdxNeeded) {
+    if (idx >= argStartTokenIdx) {
+      vals[idx - argStartTokenIdx] = strtoul(tok, NULL, 10);
+    }
+    tok = strtok_r(NULL, " ", &saveptr);
+    idx++;
+  }
+  if (idx <= lastTokenIdxNeeded) {
+    // Older kernel without these fields; leave everything at 0.
+    return;
+  }
+
+  argBounds->startAddr = vals[0];
+  argBounds->endAddr = vals[1];
+  envBounds->startAddr = vals[2];
+  envBounds->endAddr = vals[3];
+}
+
 void
 ProcessInfo::getState()
 {
@@ -708,6 +823,8 @@ ProcessInfo::getState()
   _ckptCWD = buf;
 
   savedBrk = (uint64_t) sbrk(0);
+
+  readArgEnvBoundsFromProcSelfStat(&argBounds, &envBounds);
 
   TRACE("CHECK GROUP PID: gid={} fgid={} ppid={} pid={}",
         gid, fgid, ppid, pid);
