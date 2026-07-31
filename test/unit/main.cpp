@@ -15,6 +15,8 @@ extern const dmtcp_test::TestCase virtualIdTableTests[];
 extern const size_t virtualIdTableTestCount;
 extern const dmtcp_test::TestCase pagemapScanTests[];
 extern const size_t pagemapScanTestCount;
+extern const dmtcp_test::TestCase guardRegionTests[];
+extern const size_t guardRegionTestCount;
 
 int
 main()
@@ -30,6 +32,8 @@ main()
                virtualIdTableTests + virtualIdTableTestCount);
   tests.insert(tests.end(), pagemapScanTests,
                pagemapScanTests + pagemapScanTestCount);
+  tests.insert(tests.end(), guardRegionTests,
+               guardRegionTests + guardRegionTestCount);
 
   return dmtcp_test::runTests(std::span<const dmtcp_test::TestCase>(tests));
 }

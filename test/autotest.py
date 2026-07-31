@@ -1949,6 +1949,20 @@ class TestRegistry:
             TestSpec("zeropages", 1, ["./test/zeropages"]),
             TestSpec("zeropages-pread", 1, ["./test/zeropages"],
                      env={"DMTCP_DISABLE_PAGEMAP_SCAN": "1"}),
+            # Guard pages (madvise(MADV_GUARD_INSTALL)) must not be read at
+            # checkpoint time, must survive a checkpoint with the guard still in
+            # effect, and must be reinstalled after restart.  Covers anonymous,
+            # read-only, [heap], and private file-backed mappings; the last is
+            # written to the image as zeros rather than read.  The -pread
+            # variant forces the pread() fallback for zero-page detection,
+            # which guard detection (always the ioctl) runs alongside.
+            # Self-skips where DMTCP cannot see guard pages: kernels < 6.13, and
+            # 6.13/6.14, which install them but do not report them.
+            TestSpec("guardpage", 1, ["./test/guardpage"],
+                     tags=["guardpage"]),
+            TestSpec("guardpage-pread", 1, ["./test/guardpage"],
+                     env={"DMTCP_DISABLE_PAGEMAP_SCAN": "1"},
+                     tags=["guardpage"]),
             TestSpec("alarm", 1, ["./test/alarm"]),
             TestSpec("sched_test", 2, ["./test/sched_test"]),
             TestSpec("coordinator-barrier", 2, ["./test/sched_test"],

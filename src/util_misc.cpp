@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <linux/fs.h>  // for PAGEMAP_SCAN ioctl (Linux 6.7+)
@@ -38,6 +39,41 @@
 #include "syscallwrappers.h"
 #include "util.h"
 #include "dmtcp_assert.h"
+
+// PAGEMAP_SCAN reached <linux/fs.h> in Linux 6.7 and PAGE_IS_GUARD in 6.15.
+// Declared here when the build headers predate them, so that guard handling
+// follows the running kernel rather than the headers it was compiled against.
+#ifndef PAGEMAP_SCAN
+struct page_region {
+  uint64_t start;
+  uint64_t end;
+  uint64_t categories;
+};
+
+struct pm_scan_arg {
+  uint64_t size;
+  uint64_t flags;
+  uint64_t start;
+  uint64_t end;
+  uint64_t walk_end;
+  uint64_t vec;
+  uint64_t vec_len;
+  uint64_t max_pages;
+  uint64_t category_inverted;
+  uint64_t category_mask;
+  uint64_t category_anyof_mask;
+  uint64_t return_mask;
+};
+
+# define PAGE_IS_PRESENT (1 << 3)
+# define PAGE_IS_SWAPPED (1 << 4)
+# define PAGEMAP_SCAN    _IOWR('f', 16, struct pm_scan_arg)
+#endif // PAGEMAP_SCAN
+
+// Linux 6.15+.
+#ifndef PAGE_IS_GUARD
+# define PAGE_IS_GUARD (1 << 8)
+#endif
 
 using namespace dmtcp;
 
@@ -602,6 +638,66 @@ Util::areZeroPages(void *addr, size_t numPages)
   return res == 0;
 }
 
+// Runs one ioctl(PAGEMAP_SCAN) for guard pages over [start, end) and returns
+// its result: >0 a run was found and *region holds it, 0 the range has none,
+// <0 the kernel does not know PAGE_IS_GUARD or refused the range (*savedErrno).
+// Allocation-free, so it is safe to call while writing a checkpoint image.
+static long
+scanForGuardPages(uintptr_t start, uintptr_t end, struct page_region *region,
+                  int *savedErrno)
+{
+  // Use _real_open/_real_close: this runs mid-checkpoint, where the file
+  // plugin's open()/close() wrappers (fd tracking) must not be invoked.
+  int fd = _real_open("/proc/self/pagemap", O_RDONLY);
+  if (fd < 0) {
+    *savedErrno = errno;
+    return -1; // can't inspect: report no guard page (see the note in util.h)
+  }
+
+  struct pm_scan_arg arg;
+  memset(&arg, 0, sizeof(arg));
+  arg.size = sizeof(arg);
+  arg.start = start;
+  arg.end = end;
+  arg.vec = (uintptr_t)region;
+  arg.vec_len = 1; // the kernel extends this entry to a maximal matching run
+  // category_mask, not category_anyof_mask: "anyof" would match non-guard pages
+  // whose categories merely intersect the mask.
+  arg.category_mask = PAGE_IS_GUARD;
+  arg.return_mask = PAGE_IS_GUARD;
+
+  const long ret = ioctl(fd, PAGEMAP_SCAN, &arg);
+  *savedErrno = errno;
+
+  _real_close(fd);
+  return ret;
+}
+
+// See the declaration in util.h.
+bool
+Util::guardPagesSupported()
+{
+  // Any page that is certainly mapped will do; this one is in libdmtcp's .bss.
+  static int probeAnchor = 0;
+
+  const size_t page_size = pageSize();
+  const uintptr_t probePage =
+    (uintptr_t)&probeAnchor & ~(uintptr_t)(page_size - 1);
+
+  // The kernel validates the category mask before walking any page table.
+  // So failure here is a pure capability answer.  The anchor page is never
+  // guarded. So a supported kernel returns 0; only the sign matters.
+  struct page_region region;
+  int savedErrno = 0;
+  const long ret =
+    scanForGuardPages(probePage, probePage + page_size, &region, &savedErrno);
+  const bool supported = (ret >= 0);
+
+  TRACE("lightweight guard page support: supported={} errno={}",
+        supported, supported ? 0 : savedErrno);
+  return supported;
+}
+
 // BATCH_SIZE: pages inspected per pread() in the fallback path.
 // 1024 pages = 4MB of virtual address space per batch (4KB pages).
 #define PAGEMAP_BATCH_SIZE 1024
@@ -709,7 +805,7 @@ Util::scanOccupiedRangeBatch(uintptr_t start, uintptr_t end,
     for (size_t i = 0; i < actual_pages; i++) {
       // Bit 63: present (in RAM).  Bit 62: swapped (on disk).  Normalize to a
       // 0/1 bool so present and swapped both count as "occupied".
-      int is_occupied = ((entries[i] >> 62) & 0x3) != 0;
+      const int is_occupied = ((entries[i] >> 62) & 0x3) != 0;
 
       if (leading_occupied == -1) {
         leading_occupied = is_occupied;
@@ -737,6 +833,50 @@ Util::scanOccupiedRangeBatch(uintptr_t start, uintptr_t end,
   // we got if pread() broke out early).
   *size_scanned = (current_addr >= endAddr ? endAddr : current_addr) - start;
   return !leading_occupied;
+}
+
+// See the declaration in util.h.  Allocation-free, so it is safe to call while
+// writing a checkpoint image.
+bool
+Util::scanNextGuardRange(uintptr_t start, uintptr_t end,
+                         uintptr_t *guardStart, uintptr_t *guardEnd)
+{
+  const size_t page_size = pageSize();
+  const uintptr_t pgMask = ~(uintptr_t)(page_size - 1);
+  const uintptr_t startAddr = start & pgMask;
+  const uintptr_t endAddr = (end + page_size - 1) & pgMask;
+
+  if (startAddr >= endAddr) { // empty range
+    return false;
+  }
+
+  struct page_region region;
+  int savedErrno = 0;
+  const long ret =
+    scanForGuardPages(startAddr, endAddr, &region, &savedErrno);
+
+  if (ret == 0) {
+    return false; // no guard page in this range
+  }
+  if (ret < 0) {
+    // Callers gate on guardPagesSupported(). So what is left is a range the
+    // walk itself rejects, such as [vsyscall] -- above TASK_SIZE, and unable to
+    // hold a guard page anyway.  Traced, not warned: it recurs every ckpt.
+    TRACE("PAGEMAP_SCAN found no guard page: range=[{},{}) errno={}",
+          (void *)startAddr, (void *)endAddr, savedErrno);
+    return false;
+  }
+
+  ASSERT((uintptr_t)region.start >= startAddr &&
+         (uintptr_t)region.end <= endAddr &&
+         (uintptr_t)region.end > (uintptr_t)region.start,
+         "PAGEMAP_SCAN returned a guard run outside the requested range: "
+         "requested=[{},{}) got=[{},{})",
+         (void *)startAddr, (void *)endAddr,
+         (void *)region.start, (void *)region.end);
+  *guardStart = (uintptr_t)region.start;
+  *guardEnd = (uintptr_t)region.end;
+  return true;
 }
 
 /* Caller must allocate exec_path of size at least MTCP_MAX_PATH */

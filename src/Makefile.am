@@ -107,6 +107,7 @@ nobase_noinst_HEADERS =						\
 			dmtcprestartinternal.h			\
 			dmtcpmessagetypes.h			\
 			dmtcpworker.h				\
+			guardpages.h				\
 			json.h					\
 			logger.h				\
 			lookup_service.h			\
@@ -334,6 +335,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  dmtcp_dlsym_wrappers.cpp 	\
 				  execwrappers.cpp 		\
 				  glibcsystem.cpp 		\
+				  guardpages.cpp		\
 				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
 				  plugin_pathtranslator.cpp     \
