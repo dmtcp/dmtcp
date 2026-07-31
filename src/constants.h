@@ -137,6 +137,9 @@
 // Set to "1" to force Util::scanOccupiedRangeBatch() to use the portable
 // pread() scan of /proc/self/pagemap instead of the ioctl(PAGEMAP_SCAN)
 // fast path (debugging/testing the fallback on kernels that support both).
+// Affects zero-page detection only: guard-page detection has no pread()
+// equivalent (a guard PTE is distinguishable only by a category the ioctl
+// reports) and always uses ioctl(PAGEMAP_SCAN).
 #define ENV_VAR_DISABLE_PAGEMAP_SCAN    "DMTCP_DISABLE_PAGEMAP_SCAN"
 
 // this list should be kept up to date with all "protected" environment vars

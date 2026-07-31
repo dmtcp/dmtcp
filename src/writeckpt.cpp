@@ -32,6 +32,7 @@
 #include "jfilesystem.h"
 #include "constants.h"
 #include "dmtcp.h"
+#include "guardpages.h"
 #include "processinfo.h"
 #include "procmapsarea.h"
 #include "procselfmaps.h"
@@ -82,6 +83,58 @@ writeCkptAll(int fd, const void *buf, size_t count, const char *what)
                         what, fd);
 }
 
+// Writes 'count' zero bytes, for a range of memory that must not be read.
+static void
+writeCkptZeros(int fd, size_t count, const char *what)
+{
+  static const char zeros[4096] = { 0 };
+
+  while (count > 0) {
+    const size_t chunk = MIN(count, sizeof(zeros));
+    writeCkptAll(fd, zeros, chunk, what);
+    count -= chunk;
+  }
+}
+
+// Writes [addr, addr+count) as one contiguous blob, substituting zeros wherever
+// a guard page falls inside it: a guard page cannot be read, and has nothing
+// worth saving since reinstall() makes it inaccessible again on restart.  The
+// zeros keep the blob's length, so the image format is unchanged.
+//
+// For file-backed areas, which are one header plus one blob and so have no
+// per-run header to carve a guard page out of.  Safe for MAP_SHARED too:
+// mtcp_restart remaps those as MAP_PRIVATE|MAP_ANONYMOUS before restoring, so
+// the zeros never reach the file.
+static void
+writeCkptSkippingGuards(int fd, const char *addr, size_t count,
+                        const char *what)
+{
+  uintptr_t cur = (uintptr_t)addr;
+  const uintptr_t end = cur + count;
+
+  while (cur < end) {
+    uintptr_t guardStart = 0;
+    uintptr_t guardEnd = 0;
+
+    if (!GuardPages::nextRangeAfter(cur, &guardStart, &guardEnd) ||
+        guardStart >= end) {
+      break; // no guard page left in this blob
+    }
+
+    // The run may start before 'addr' or end past 'end'; write the overlap.
+    guardStart = MAX(guardStart, cur);
+    guardEnd = MIN(guardEnd, end);
+    TRACE("writing guard page range as zeros: addr={} size={}",
+          (void *)guardStart, guardEnd - guardStart);
+
+    writeCkptAll(fd, (const void *)cur, guardStart - cur, what);
+    writeCkptZeros(fd, guardEnd - guardStart, what);
+    cur = guardEnd;
+  }
+
+  writeCkptAll(fd, (const void *)cur, end - cur, what); // the remaining tail
+}
+
 static void
 writeAreaHeader(int fd, Area *area)
 {
@@ -126,12 +179,22 @@ mtcp_writememoryareas(int fd)
     }
     nscdAreas->clear();
 
+    // Recorded here, not in the write loop below: the list lives in DMTCP's
+    // heap, which is itself one of the areas written, so a later entry would be
+    // missing from the image.  Nothing can add a guard page in between -- every
+    // user thread is parked in stopthisthread().
+    const bool recordGuards = GuardPages::beginRecording();
+
     // This block is to ensure that the object is deleted as soon as we leave
     // this local code block.
     ProcSelfMaps procSelfMapsTmp;
 
     // Preprocess memory regions as needed.
     while (procSelfMapsTmp.getNextArea(&area)) {
+      if (recordGuards) {
+        GuardPages::record(area);
+      }
+
       if (Util::isNscdArea(area)) {
         /* Special Case Handling: nscd is enabled*/
         TRACE("NSCD daemon shared memory area present.\n"
@@ -302,26 +365,66 @@ mtcp_write_anonymous_pages(int fd, Area area, bool residencyScanSafe)
   // passes it in as residencyScanSafe.
   bool useResidencyScan = residencyScanSafe;
 
+  // Addresses advance monotonically and the list is sorted, so re-query only
+  // after passing the current range.
+  uintptr_t guardStart = 0;
+  uintptr_t guardEnd = 0;
+  bool haveGuard =
+    GuardPages::nextRangeAfter((uintptr_t)area.addr, &guardStart, &guardEnd);
+
   while (area.size > 0) {
     size_t size;
     int is_zero;
     Area a = area;
+    const uintptr_t addr = (uintptr_t)area.addr;
+    const uintptr_t areaEnd = addr + area.size;
+
+    if (haveGuard && addr >= guardEnd) {
+      haveGuard = GuardPages::nextRangeAfter(addr, &guardStart, &guardEnd);
+    }
+
+    // Emitted as a zero run and never read: on restart the parent header
+    // re-mmaps it as zero-fill memory that GuardPages::reinstall() re-guards.
+    if (haveGuard && guardStart <= addr) {
+      size = MIN((uintptr_t)area.size, guardEnd - addr);
+      a.properties = DMTCP_ZERO_PAGE | DMTCP_ZERO_PAGE_CHILD_HEADER;
+      a.size = size;
+      a.endAddr = a.addr + a.size;
+      writeAreaHeader(fd, &a);
+      // No data, and no MADV_DONTNEED: there is no page to drop.
+      area.addr += size;
+      area.size -= size;
+      continue;
+    }
+
+    // Every branch below is bounded by 'chunkEnd' so that none reaches into a
+    // guard run.  Bounded here rather than inside the scans, because the
+    // infiniband branch consults no scan at all.
+    const uintptr_t chunkEnd =
+      (haveGuard && guardStart < areaEnd) ? guardStart : areaEnd;
+    ASSERT_GT(chunkEnd, addr,
+              "guard-bounded chunk made no progress: addr={} chunkEnd={} "
+              "guard=[{},{})",
+              (void *)addr, (void *)chunkEnd,
+              (void *)guardStart, (void *)guardEnd);
+    const size_t chunkSize = chunkEnd - addr;
+
     if (dmtcp_infiniband_enabled && dmtcp_infiniband_enabled()) {
-      size = area.size;
+      size = chunkSize;
       is_zero = 0;
     } else if (useResidencyScan) {
       uintptr_t scanned = 0;
-      is_zero = Util::scanOccupiedRangeBatch(
-        (uintptr_t)a.addr, (uintptr_t)a.addr + area.size, &scanned);
+      is_zero = Util::scanOccupiedRangeBatch(addr, chunkEnd, &scanned);
       size = scanned;
       if (size == 0) {
         // Defensive: the scan should never report zero progress, but if it
-        // somehow does, treat the remaining area as occupied so the loop below
+        // somehow does, treat the remaining chunk as occupied so the loop below
         // (area.size -= size) advances instead of spinning forever.
-        size = area.size;
+        size = chunkSize;
         is_zero = 0;
       }
     } else {
+      a.size = chunkSize;
       mtcp_get_next_page_range(&a, &size, &is_zero);
     }
 
@@ -576,13 +679,18 @@ writememoryarea(int fd, Area area)
     }
 
     writeAreaHeader(fd, &area);
+
     // NOTE: We cannot use lseek(SEEK_CUR) to detect how much data was
     // actually written here. This is because fd might be a pipe to gzip.
+    //
+    // writeCkptSkippingGuards(), not writeCkptAll(): the kernel does accept
+    // MADV_GUARD_INSTALL on file-backed mappings, despite madvise(2)
+    // documenting it as anonymous-only.
     if (area.mmapFileSize > 0) {
-      writeCkptAll(fd, area.addr, area.mmapFileSize,
-                   "file-backed mapped data");
+      writeCkptSkippingGuards(fd, area.addr, area.mmapFileSize,
+                              "file-backed mapped data");
     } else {
-      writeCkptAll(fd, area.addr, area.size, "mapped data");
+      writeCkptSkippingGuards(fd, area.addr, area.size, "mapped data");
     }
   }
 

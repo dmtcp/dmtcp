@@ -318,6 +318,7 @@ am___d_libdir__libdmtcp_so_OBJECTS =  \
 	__d_libdir__libdmtcp_so-dmtcp_dlsym_wrappers.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-execwrappers.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-glibcsystem.$(OBJEXT) \
+	__d_libdir__libdmtcp_so-guardpages.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-kvdb.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-miscwrappers.$(OBJEXT) \
 	__d_libdir__libdmtcp_so-plugin_pathtranslator.$(OBJEXT) \
@@ -368,6 +369,7 @@ am__depfiles_remade = $(jalibdir)/$(DEPDIR)/jalib.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Po \
+	./$(DEPDIR)/__d_libdir__libdmtcp_so-guardpages.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Po \
 	./$(DEPDIR)/__d_libdir__libdmtcp_so-plugin_pathtranslator.Po \
@@ -846,7 +848,7 @@ dmtcpversioninclude_HEADERS = $(srcdir)/../include/dmtcp/version.h
 # headers:
 nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 	coordinatorplugin.h dmtcp_coordinator.h dmtcprestartinternal.h \
-	dmtcpmessagetypes.h dmtcpworker.h json.h logger.h \
+	dmtcpmessagetypes.h dmtcpworker.h guardpages.h json.h logger.h \
 	lookup_service.h ldt.h plugininfo.h pluginmanager.h \
 	processinfo.h restartscript.h tls.h siginfo.h syscallwrappers.h \
 	threadinfo.h threadlist.h threadsync.h dmtcp_assert.h uniquepid.h \
@@ -1055,6 +1057,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  dmtcp_dlsym_wrappers.cpp 	\
 				  execwrappers.cpp 		\
 				  glibcsystem.cpp 		\
+				  guardpages.cpp		\
 				  kvdb.cpp			\
 				  miscwrappers.cpp 		\
 				  plugin_pathtranslator.cpp     \
@@ -1450,6 +1453,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-guardpages.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__d_libdir__libdmtcp_so-plugin_pathtranslator.Po@am__quote@ # am--include-marker
@@ -1670,6 +1674,20 @@ __d_libdir__libdmtcp_so-execwrappers.obj: execwrappers.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='execwrappers.cpp' object='__d_libdir__libdmtcp_so-execwrappers.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-execwrappers.obj `if test -f 'execwrappers.cpp'; then $(CYGPATH_W) 'execwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/execwrappers.cpp'; fi`
+
+__d_libdir__libdmtcp_so-guardpages.o: guardpages.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-guardpages.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-guardpages.Tpo -c -o __d_libdir__libdmtcp_so-guardpages.o `test -f 'guardpages.cpp' || echo '$(srcdir)/'`guardpages.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-guardpages.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-guardpages.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='guardpages.cpp' object='__d_libdir__libdmtcp_so-guardpages.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-guardpages.o `test -f 'guardpages.cpp' || echo '$(srcdir)/'`guardpages.cpp
+
+__d_libdir__libdmtcp_so-guardpages.obj: guardpages.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-guardpages.obj -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-guardpages.Tpo -c -o __d_libdir__libdmtcp_so-guardpages.obj `if test -f 'guardpages.cpp'; then $(CYGPATH_W) 'guardpages.cpp'; else $(CYGPATH_W) '$(srcdir)/guardpages.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__d_libdir__libdmtcp_so-guardpages.Tpo $(DEPDIR)/__d_libdir__libdmtcp_so-guardpages.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='guardpages.cpp' object='__d_libdir__libdmtcp_so-guardpages.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o __d_libdir__libdmtcp_so-guardpages.obj `if test -f 'guardpages.cpp'; then $(CYGPATH_W) 'guardpages.cpp'; else $(CYGPATH_W) '$(srcdir)/guardpages.cpp'; fi`
 
 __d_libdir__libdmtcp_so-glibcsystem.o: glibcsystem.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT __d_libdir__libdmtcp_so-glibcsystem.o -MD -MP -MF $(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Tpo -c -o __d_libdir__libdmtcp_so-glibcsystem.o `test -f 'glibcsystem.cpp' || echo '$(srcdir)/'`glibcsystem.cpp
@@ -2210,6 +2228,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Po
+	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-guardpages.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-plugin_pathtranslator.Po
@@ -2316,6 +2335,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-dmtcpworker.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-execwrappers.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-glibcsystem.Po
+	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-guardpages.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-kvdb.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-miscwrappers.Po
 	-rm -f ./$(DEPDIR)/__d_libdir__libdmtcp_so-plugin_pathtranslator.Po

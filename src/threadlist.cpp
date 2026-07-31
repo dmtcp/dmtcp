@@ -18,6 +18,7 @@
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "dmtcpworker.h"
+#include "guardpages.h"
 #include "jalloc.h"
 #include "mtcp/mtcp_header.h"
 #include "plugin/pid/pidhelpers.h"
@@ -759,6 +760,13 @@ ThreadList::waitForAllRestored(Thread *thread)
     DmtcpWorker::postRestart();
 
     TRACE("after DmtcpWorker::postRestart()");
+
+    /* Guard pages came back as ordinary zero-filled memory, so re-establish
+     * them.  Must be after the plugin hooks above, which rebuild some mappings
+     * by copying out of restored memory and re-mmap'ing them, and before the
+     * sem_post loop below releases the other threads.
+     */
+    GuardPages::reinstall();
 
     /* raise the signals which were pending for the entire process at the time
      * of checkpoint. It is assumed that if a signal is pending for all threads

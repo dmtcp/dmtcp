@@ -131,6 +131,7 @@ unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 		$(srcdir)/unit/util_assert_tests.cpp \
 		$(srcdir)/unit/virtualidtable_tests.cpp \
 		$(srcdir)/unit/pagemap_scan_tests.cpp \
+		$(srcdir)/unit/guard_region_tests.cpp \
 		$(srcdir)/unit/unit_test.h \
 		$(DMTCP_INCLUDE)/dmtcp.h \
 		$(DMTCP_INCLUDE)/virtualidtable.h \
@@ -146,6 +147,7 @@ unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 	  $(srcdir)/unit/util_assert_tests.cpp \
 	  $(srcdir)/unit/virtualidtable_tests.cpp \
 	  $(srcdir)/unit/pagemap_scan_tests.cpp \
+	  $(srcdir)/unit/guard_region_tests.cpp \
 	  $(COORDINATOR_SYNTHETIC_LDADD)
 
 unit/dmtcp_header_c_test.o: $(srcdir)/unit/dmtcp_header_c_test.c \

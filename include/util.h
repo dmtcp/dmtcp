@@ -260,6 +260,26 @@ bool areZeroPages(void *addr, size_t numPages);
 bool scanOccupiedRangeBatch(uintptr_t start, uintptr_t end,
                             uintptr_t *size_scanned);
 
+// Linux 6.13+; defined for build environments whose headers predate them.
+#ifndef MADV_GUARD_INSTALL
+# define MADV_GUARD_INSTALL 102
+# define MADV_GUARD_REMOVE  103
+#endif
+
+// True if ioctl(PAGEMAP_SCAN) accepts the PAGE_IS_GUARD category (Linux 6.15+),
+bool guardPagesSupported();
+
+// Finds the first run of guard pages within [start, end), rounded outwards to
+// whole pages, so a run may extend past either bound.  Sets *guardStart /
+// *guardEnd on success and leaves them untouched otherwise; walk an area by
+// re-scanning from *guardEnd.
+//
+// Reports no guard page when the pagemap cannot be inspected, so the caller
+// saves the range instead of skipping it -- the direction
+// scanOccupiedRangeBatch() also takes.
+bool scanNextGuardRange(uintptr_t start, uintptr_t end,
+                        uintptr_t *guardStart, uintptr_t *guardEnd);
+
 char *findExecutable(char *executable, const char *path_env, char *exec_path);
 char *getPath(const char *cmd, bool is32bit = false);
 char **getDmtcpArgs();
