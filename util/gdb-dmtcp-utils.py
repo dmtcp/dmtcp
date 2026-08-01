@@ -114,6 +114,10 @@ def file_base_address(file):
   text_fields = text_lines[0].split()
   return int(text_fields[-2], 16) - int(text_fields[-1], 16)
 def load_symbols(exec_file=None):
+  if exec_file and not os.path.exists(exec_file):
+    print("*** Error: File '" + exec_file + "' does not exist.")
+    return
+
   if not is_recent_gdb():
     print("Older GDB; use add-symbol-files-all (This GDB is version: " +
           gdb.VERSION + ")")
