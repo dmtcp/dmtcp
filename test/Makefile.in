@@ -279,6 +279,16 @@ else
 	@echo "#tsan_target_race: skipping (no gcc libtsan.so)"
 endif
 
+# Multi-producer/multi-consumer condvar companion to tsan_target: same
+# gating as above.
+tsan_target_cv_multi: tsan_target_cv_multi.c
+ifneq ($(filter /%,$(GCC_TSAN_RUNTIME)),)
+	-gcc $(TSAN_CFLAGS) -o $@ $<
+else
+	@rm -f $@
+	@echo "#tsan_target_cv_multi: skipping (no gcc libtsan.so)"
+endif
+
 # clang's -fsanitize=thread defaults to a static runtime; -shared-libsan
 # gives the dynamic libclang_rt.tsan*.so that DMTCP's DT_NEEDED detection
 # keys on. tsan-clang runs it with LD_LIBRARY_PATH set to that runtime dir.

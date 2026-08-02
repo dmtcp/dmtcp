@@ -101,6 +101,7 @@ or executable-path checks enable them.
 | `mmap-noreserve` | Ported with `cycles=2`, address-space-gated | Regression guard for restoring a huge `MAP_NORESERVE` anonymous region (`src/mtcp/mtcp_restart.c`, `MAP_NORESERVE_SIZE_THRESHOLD`), modeled on how ThreadSanitizer reserves its shadow/meta mappings. The registry's `needs_max_address_space` check skips it when `RLIMIT_AS` is finite and too low to hold the test's reservation. |
 | `tsan-resume` | New test with `cycles=1`, address-space-gated | Regression guard for the TSAN checkpoint/resume path in isolation: repeatedly checkpoints the same live `tsan_target` process (via `resume_cycles=2`) without ever restarting it, before a final restart. Not a port of an old-harness test. |
 | `tsan-race` | New test with `cycles=1`, address-space-gated | Regression guard verifying TSAN's race *detection* survives a checkpoint/restart cycle, using a target (`tsan_target_race`) that only starts racing after restart and a `post_restart_validator` that waits for TSAN's own exit code instead of a still-running worker. Not a port of an old-harness test. |
+| `tsan-cv-multi` | New test, address-space-gated | Regression guard for a condition variable and 3-producer/3-consumer traffic across checkpoint/restart, using a new target (`tsan_target_cv_multi`) -- every other TSAN target here uses only a mutex and only 2 threads of the same role. Not a port of an old-harness test. |
 
 Logging-specific limits:
 

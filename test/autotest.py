@@ -2073,6 +2073,13 @@ class TestRegistry:
                      completion_command="--none",
                      limits=["cycles=1"],
                      tags=["tsan"]),
+            # Regression guard for a condition variable and 3-per-role
+            # producer/consumer traffic across checkpoint/restart -- every
+            # other TSAN target here uses only a mutex and only 2 threads
+            # of the same role.
+            TestSpec("tsan-cv-multi", 1, ["./test/tsan_target_cv_multi"],
+                     needs_max_address_space=True,
+                     tags=["tsan"]),
             # Same guard, built with clang -fsanitize=thread -shared-libsan.
             # LD_LIBRARY_PATH points at clang's runtime dir (no RPATH, a
             # clang fact). Auto-disabled when that runtime is absent.
