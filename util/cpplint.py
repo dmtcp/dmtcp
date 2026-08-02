@@ -41,9 +41,9 @@ We do a small hack, which is to ignore //'s with "'s after them on the
 same line, but it is far from perfect (in either direction).
 """
 
-import codecs
 import copy
 import getopt
+import io
 import math  # for log
 import os
 import re
@@ -177,7 +177,7 @@ Syntax: cpplint.py [--verbose=#] [--output=vs7] [--filter=-x,+y,...]
 
       Example file:
         filter=-build/include_order,+build/include_alpha
-        exclude_files=.*\.cc
+        exclude_files=.*\\.cc
 
     The above example disables build/include_order warning and enables
     build/include_alpha as well as excludes all .cc from being
@@ -5389,7 +5389,7 @@ def FilesBelongToSameModule(filename_cc, filename_h):
   return files_belong_to_same_module, common_path
 
 
-def UpdateIncludeState(filename, include_dict, io=codecs):
+def UpdateIncludeState(filename, include_dict, io=io):
   """Fill up the include_dict with new includes found from the file.
 
   Args:
@@ -5402,7 +5402,7 @@ def UpdateIncludeState(filename, include_dict, io=codecs):
   """
   headerfile = None
   try:
-    headerfile = io.open(filename, 'r', 'utf8', 'replace')
+    headerfile = io.open(filename, 'r', encoding='utf8', errors='replace')
   except IOError:
     return False
   linenum = 0
@@ -5417,7 +5417,7 @@ def UpdateIncludeState(filename, include_dict, io=codecs):
 
 
 def CheckForIncludeWhatYouUse(filename, clean_lines, include_state, error,
-                              io=codecs):
+                              io=io):
   """Reports for missing stl includes.
 
   This function will output warnings to make sure you are including the headers
@@ -5970,19 +5970,17 @@ def ProcessFile(filename, vlevel, extra_check_functions=[]):
   crlf_lines = []
   try:
     # Support the UNIX convention of using "-" for stdin.  Note that
-    # we are not opening the file with universal newline support
-    # (which codecs doesn't support anyway), so the resulting lines do
-    # contain trailing '\r' characters if we are reading a file that
-    # has CRLF endings.
+    # we are not opening the file with universal newline support, so
+    # the resulting lines do contain trailing '\r' characters if we
+    # are reading a file that has CRLF endings.
     # If after the split a trailing '\r' is present, it is removed
     # below.
     if filename == '-':
-      lines = codecs.StreamReaderWriter(sys.stdin,
-                                        codecs.getreader('utf8'),
-                                        codecs.getwriter('utf8'),
-                                        'replace').read().split('\n')
+      lines = sys.stdin.buffer.read().decode('utf8', errors='replace') \
+                  .split('\n')
     else:
-      lines = codecs.open(filename, 'r', 'utf8', 'replace').read().split('\n')
+      lines = open(filename, 'r', encoding='utf8',
+                   errors='replace').read().split('\n')
 
     # Remove trailing '\r'.
     # The -1 accounts for the extra trailing blank line we get from split()
@@ -6133,10 +6131,8 @@ def main():
 
   # Change stderr to write with replacement characters so we don't die
   # if we try to print something containing non-ASCII characters.
-  sys.stderr = codecs.StreamReaderWriter(sys.stderr,
-                                         codecs.getreader('utf8'),
-                                         codecs.getwriter('utf8'),
-                                         'replace')
+  sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf8',
+                                errors='replace', write_through=True)
 
   _cpplint_state.ResetErrorCounts()
   for filename in filenames:
