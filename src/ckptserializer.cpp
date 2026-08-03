@@ -163,7 +163,8 @@ double_fork()
     pid = _real_sys_fork();
     ASSERT_NE(-1, pid, "failed second checkpoint fork");
     if (pid > 0) {
-      _exit(EXIT_SUCCESS); // Child process exits, delivers SIGCHLD
+      // Hide the exit from ThreadSanitizer during fork of child.
+      syscall(SYS_exit_group, EXIT_SUCCESS); // Child exits, delivers SIGCHLD
     }
     return FORKED_CKPT_GRANDCHILD;
   }
