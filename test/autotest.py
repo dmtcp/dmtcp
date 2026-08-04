@@ -1963,6 +1963,13 @@ class TestRegistry:
         if tsan_disable_aslr:
             tsan_notes.append("ASLR disabled on aarch64")
         clang_rtdir = self._clang_runtime_dir()
+        # TRACE()'s write() is TSAN-intercepted at restart (see the .c
+        # files' header comments); both targets below are clean with
+        # tracing off, so only disable them when it's on.
+        tsan_trace_write_disabled = (
+            "TRACE()'s write() gets TSAN-intercepted at restart"
+            if os.environ.get("DMTCP_LOG_LEVEL") in ("trace", "3") else None
+        )
 
         tests = [
             TestSpec("dmtcp1", 1, ["./test/dmtcp1"]),
@@ -2089,8 +2096,7 @@ class TestRegistry:
             TestSpec("tsan-bg-thread-stress", 1,
                      ["./test/tsan_target_bg_thread_stress"],
                      needs_max_address_space=True,
-                     disabled_reason="TRACE()'s write() gets "
-                                      "TSAN-intercepted at restart",
+                     disabled_reason=tsan_trace_write_disabled,
                      tags=["tsan"]),
             # Same target as tsan-gcc, but only meaningful when this DMTCP
             # build was configured with --enable-forked-checkpointing (see
@@ -2101,8 +2107,7 @@ class TestRegistry:
             # call already provides the extra fork() this bug needs.
             TestSpec("tsan-forked-checkpoint", 1, ["./test/tsan_target"],
                      needs_max_address_space=True,
-                     disabled_reason="TRACE()'s write() gets "
-                                      "TSAN-intercepted at restart",
+                     disabled_reason=tsan_trace_write_disabled,
                      tags=["tsan"]),
             # Same guard, built with clang -fsanitize=thread -shared-libsan.
             # LD_LIBRARY_PATH points at clang's runtime dir (no RPATH, a
