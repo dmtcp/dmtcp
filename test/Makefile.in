@@ -289,6 +289,16 @@ else
 	@echo "#tsan_target_cv_multi: skipping (no gcc libtsan.so)"
 endif
 
+# Continuous thread-churn companion to tsan_target: same gating as above.
+# See the .c file's header comment for why its TestSpec is disabled.
+tsan_target_bg_thread_stress: tsan_target_bg_thread_stress.c
+ifneq ($(filter /%,$(GCC_TSAN_RUNTIME)),)
+	-gcc $(TSAN_CFLAGS) -o $@ $<
+else
+	@rm -f $@
+	@echo "#tsan_target_bg_thread_stress: skipping (no gcc libtsan.so)"
+endif
+
 # clang's -fsanitize=thread defaults to a static runtime; -shared-libsan
 # gives the dynamic libclang_rt.tsan*.so that DMTCP's DT_NEEDED detection
 # keys on. tsan-clang runs it with LD_LIBRARY_PATH set to that runtime dir.

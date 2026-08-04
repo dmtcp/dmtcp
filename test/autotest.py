@@ -2080,6 +2080,30 @@ class TestRegistry:
             TestSpec("tsan-cv-multi", 1, ["./test/tsan_target_cv_multi"],
                      needs_max_address_space=True,
                      tags=["tsan"]),
+            # Continuous thread-churn regression target for
+            # double_fork()'s raw-syscall _exit() fix (ckptserializer.cpp).
+            # Checkpoint itself now passes; disabled because restart still
+            # crashes under this test's thread churn -- see the .c file's
+            # header comment for the confirmed root cause, shared with
+            # tsan-forked-checkpoint below.
+            TestSpec("tsan-bg-thread-stress", 1,
+                     ["./test/tsan_target_bg_thread_stress"],
+                     needs_max_address_space=True,
+                     disabled_reason="TRACE()'s write() gets "
+                                      "TSAN-intercepted at restart",
+                     tags=["tsan"]),
+            # Same target as tsan-gcc, but only meaningful when this DMTCP
+            # build was configured with --enable-forked-checkpointing (see
+            # include/config.h's FORKED_CHECKPOINTING). Crashes reliably
+            # (3/3) under DMTCP_LOG_LEVEL=trace, clean (3/3) without --
+            # same root cause as tsan-bg-thread-stress above, needing no
+            # thread churn since forked checkpointing's own double_fork()
+            # call already provides the extra fork() this bug needs.
+            TestSpec("tsan-forked-checkpoint", 1, ["./test/tsan_target"],
+                     needs_max_address_space=True,
+                     disabled_reason="TRACE()'s write() gets "
+                                      "TSAN-intercepted at restart",
+                     tags=["tsan"]),
             # Same guard, built with clang -fsanitize=thread -shared-libsan.
             # LD_LIBRARY_PATH points at clang's runtime dir (no RPATH, a
             # clang fact). Auto-disabled when that runtime is absent.
