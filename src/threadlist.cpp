@@ -497,6 +497,18 @@ findSymbolInLibrary(const char *libNameSubstr, const char *symName)
   return result;
 }
 
+// Byte length of the jump patch, per architecture. Left undefined on any
+// architecture TSan itself doesn't support (only x86_64, aarch64, and
+// riscv64); setupTsanBackgroundThreadTrampoline() then falls back to a
+// no-op.
+#if defined(__x86_64__)
+#define TSAN_TRAMPOLINE_PATCH_LEN 14
+#elif defined(__aarch64__)
+#define TSAN_TRAMPOLINE_PATCH_LEN 16
+#elif defined(__riscv) && __riscv_xlen == 64
+#define TSAN_TRAMPOLINE_PATCH_LEN 20
+#endif
+
 /*****************************************************************************
  *
  *  Replacement for TSAN's own SleepForMillis(): the destination of the
@@ -537,14 +549,31 @@ static void
 tsanSigtrapHandler(int sig, siginfo_t *info, void *context)
 {
   ucontext_t *uc = (ucontext_t *) context;
-  greg_t *ripSlot = &uc->uc_mcontext.gregs[REG_RIP];
 
-  if ((uint8_t *) *ripSlot == tsanSleepForMillisAddr + 1) {
-    *ripSlot = (greg_t) (uintptr_t) tsanPauseHookAddr;
+#if defined(__x86_64__)
+  // x86 INT3 auto-advances RIP past the 1-byte opcode it replaced.
+  uint8_t *trapPc = (uint8_t *) uc->uc_mcontext.gregs[REG_RIP] - 1;
+#elif defined(__aarch64__)
+  // ARM64 BRK leaves PC at the trapping instruction itself.
+  uint8_t *trapPc = (uint8_t *) uc->uc_mcontext.pc;
+#elif defined(__riscv) && __riscv_xlen == 64
+  // RISC-V EBREAK leaves PC at the trapping instruction itself; register
+  // slot 0 of __gregs is pc, per <sys/ucontext.h>.
+  uint8_t *trapPc = (uint8_t *) uc->uc_mcontext.__gregs[0];
+#endif
+
+  if (trapPc == tsanSleepForMillisAddr) {
+#if defined(__x86_64__)
+    uc->uc_mcontext.gregs[REG_RIP] = (greg_t) (uintptr_t) tsanPauseHookAddr;
+#elif defined(__aarch64__)
+    uc->uc_mcontext.pc = (unsigned long) (uintptr_t) tsanPauseHookAddr;
+#elif defined(__riscv) && __riscv_xlen == 64
+    uc->uc_mcontext.__gregs[0] = (unsigned long) (uintptr_t) tsanPauseHookAddr;
+#endif
     return;
   }
 
-  // Not our int3 (e.g. a debugger's breakpoint): pass it on.
+  // Not our int3/brk/ebreak (e.g. a debugger's breakpoint): pass it on.
   if ((origSigtrapAction.sa_flags & SA_SIGINFO) &&
       origSigtrapAction.sa_sigaction != NULL) {
     origSigtrapAction.sa_sigaction(sig, info, context);
@@ -568,11 +597,26 @@ setupTsanBackgroundThreadTrampoline()
   if (!is_tsan()) {
     return;
   }
+
+#if !defined(TSAN_TRAMPOLINE_PATCH_LEN)
+  // TSan itself ships no runtime for this architecture; nothing to patch.
+  return;
+#else
   void *addr = findSymbolInLibrary("libtsan.so",
                                    "_ZN11__sanitizer14SleepForMillisEj");
   if (addr == NULL) {
     return;
   }
+
+#if defined(__riscv) && __riscv_xlen == 64
+  // The first (int3-equivalent) write below must be a single atomic store;
+  // that requires the target to be 4-byte aligned, which RVC code isn't
+  // guaranteed to be (it allows 2-byte instruction alignment).
+  if ((uintptr_t) addr % 4 != 0) {
+    return;
+  }
+#endif
+
   tsanSleepForMillisAddr = (uint8_t *) addr;
   tsanPauseHookAddr = (void *) &pauseTsanBackgroundThread;
 
@@ -584,14 +628,14 @@ setupTsanBackgroundThreadTrampoline()
 
   long pageSize = sysconf(_SC_PAGESIZE);
   uintptr_t pageStart = (uintptr_t) addr & ~(pageSize - 1);
-  size_t span = ((uintptr_t) addr - pageStart) + 14;
+  size_t span = ((uintptr_t) addr - pageStart) + TSAN_TRAMPOLINE_PATCH_LEN;
   size_t numPages = (span + pageSize - 1) / pageSize;
   ASSERT_ZERO(mprotect((void *) pageStart, numPages * pageSize,
                        PROT_READ | PROT_WRITE | PROT_EXEC));
 
   //   Use PTRACE_FREEZE or SIGTRAP to create trampoline.  But PTRACE_FREEZE
   // would interfere with any other process tracing us.
-
+#if defined(__x86_64__)
   static const uint8_t jmpOp[6] = { 0xff, 0x25, 0x00, 0x00, 0x00, 0x00 };
   // 1. int3: any thread entering here traps to tsanSigtrapHandler() instead
   // of fetching a half-written instruction.
@@ -604,10 +648,62 @@ setupTsanBackgroundThreadTrampoline()
   // 3. Finalize: the int3 becomes the jmp's real first byte.
   tsanSleepForMillisAddr[0] = jmpOp[0];
 
+#elif defined(__aarch64__)
+  // "ldr x17, #8; br x17; <8-byte address>". X17 is an AAPCS64
+  // intra-procedure-call scratch register, safe to clobber on entry.
+  static const uint8_t ldrX17[4] = { 0x51, 0x00, 0x00, 0x58 }; // ldr x17, #8
+  static const uint8_t brX17[4]  = { 0x20, 0x02, 0x1f, 0xd6 }; // br x17
+  static const uint8_t brk0[4]   = { 0x00, 0x00, 0x20, 0xd4 }; // brk #0
+
+  // 1. brk: traps any thread already inside the function to the handler.
+  // Self-modifying code on ARM64 needs explicit I/D-cache maintenance
+  // after every write, unlike x86's hardware-coherent caches.
+  memcpy(tsanSleepForMillisAddr, brk0, 4);
+  __builtin___clear_cache((char *) tsanSleepForMillisAddr,
+                          (char *) tsanSleepForMillisAddr + 4);
+
+  // 2. "br x17" plus the 8-byte hook address.
+  memcpy(tsanSleepForMillisAddr + 4, brX17, 4);
+  memcpy(tsanSleepForMillisAddr + 8, &tsanPauseHookAddr, 8);
+  __builtin___clear_cache((char *) tsanSleepForMillisAddr + 4,
+                          (char *) tsanSleepForMillisAddr + 16);
+
+  // 3. Finalize: the brk becomes "ldr x17, #8".
+  memcpy(tsanSleepForMillisAddr, ldrX17, 4);
+  __builtin___clear_cache((char *) tsanSleepForMillisAddr,
+                          (char *) tsanSleepForMillisAddr + 16);
+
+#elif defined(__riscv) && __riscv_xlen == 64
+  // "auipc t0, 0; ld t0, 12(t0); jalr x0, 0(t0); <8-byte address>".
+  static const uint8_t auipcT0[4] = { 0x97, 0x02, 0x00, 0x00 }; // auipc t0,0
+  static const uint8_t ldJalr[8]  = { 0x83, 0xb2, 0xc2, 0x00,   // ld t0,12(t0)
+                                       0x67, 0x80, 0x02, 0x00 }; // jalr x0,0(t0)
+  static const uint8_t ebreak[4]  = { 0x73, 0x00, 0x10, 0x00 }; // ebreak
+
+  // 1. ebreak: traps any thread already inside the function to the
+  // handler. As on ARM64, self-modifying code needs explicit cache
+  // maintenance after every write.
+  memcpy(tsanSleepForMillisAddr, ebreak, 4);
+  __builtin___clear_cache((char *) tsanSleepForMillisAddr,
+                          (char *) tsanSleepForMillisAddr + 4);
+
+  // 2. "ld t0,12(t0); jalr x0,0(t0)" plus the 8-byte hook address.
+  memcpy(tsanSleepForMillisAddr + 4, ldJalr, 8);
+  memcpy(tsanSleepForMillisAddr + 12, &tsanPauseHookAddr, 8);
+  __builtin___clear_cache((char *) tsanSleepForMillisAddr + 4,
+                          (char *) tsanSleepForMillisAddr + 20);
+
+  // 3. Finalize: the ebreak becomes "auipc t0, 0".
+  memcpy(tsanSleepForMillisAddr, auipcT0, 4);
+  __builtin___clear_cache((char *) tsanSleepForMillisAddr,
+                          (char *) tsanSleepForMillisAddr + 20);
+#endif
+
   // Patch is permanent; the SIGTRAP safety net was only needed while
   // writing it.
   ASSERT_ZERO(sigaction(SIGTRAP, &origSigtrapAction, NULL));
   tsanBackgroundTrampolineInstalled = true;
+#endif  // if !defined(TSAN_TRAMPOLINE_PATCH_LEN)
 }
 
 /*****************************************************************************
