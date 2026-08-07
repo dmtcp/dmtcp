@@ -1,12 +1,18 @@
+#include <elf.h>
+#include <fcntl.h>
+#include <link.h>
 #include <linux/version.h>
 #include <pthread.h>
 #include <sched.h>
 #include <semaphore.h>
 #include <signal.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/ucontext.h>
 #include <unistd.h>
 #include "config.h"
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11) || \
@@ -227,6 +233,18 @@ extern sem_t sem_launch;  // allocated in coordinatorapi.cpp
 static sem_t semNotifyCkptThread;
 static sem_t semWaitForCkptThreadSignal;
 
+// TSAN's background thread periodically wakes inside its own runtime,
+// possibly holding a TSAN-internal lock; an async SIGCKPT arriving then
+// risks deadlocking a user thread's TSAN interceptor waiting on that same
+// lock. setupTsanBackgroundThreadTrampoline() patches TSAN's own sleep
+// call to jump to pauseTsanBackgroundThread() instead, a point guaranteed
+// lock-free. This addresses only TSAN's own background thread; an
+// ordinary thread caught holding a TSAN lock when SIGCKPT arrives is a
+// separate, still-open problem.
+static bool tsanBackgroundTrampolineInstalled = false;
+static volatile int doPauseTsanBackgroundThread = 0;
+static volatile int tsanBackgroundThreadIsPaused = 0;
+
 static void *checkpointhread(void *dummy);
 static void stopthisthread(int sig);
 static int restarthread(void *threadv);
@@ -407,6 +425,193 @@ ThreadList::init()
 
 /*****************************************************************************
  *
+ *  Resolves a symbol not in a shared library's exported dynamic symbol
+ *  table, which dlsym() cannot find. Locates the library via
+ *  dl_iterate_phdr() and reads the symbol's value directly from the
+ *  library's on-disk ELF symbol table.
+ *
+ *****************************************************************************/
+struct FindLibArgs {
+  const char *libNameSubstr;
+  uintptr_t baseAddr;
+  char path[512];
+};
+
+static int
+findLibCallback(struct dl_phdr_info *info, size_t size, void *data)
+{
+  FindLibArgs *args = (FindLibArgs *) data;
+  if (info->dlpi_name != NULL &&
+      strstr(info->dlpi_name, args->libNameSubstr) != NULL) {
+    args->baseAddr = info->dlpi_addr;
+    strncpy(args->path, info->dlpi_name, sizeof(args->path) - 1);
+    return 1; // stop iterating
+  }
+  return 0;
+}
+
+static void *
+findSymbolInLibrary(const char *libNameSubstr, const char *symName)
+{
+  FindLibArgs args = { libNameSubstr, 0, {0} };
+  if (dl_iterate_phdr(findLibCallback, &args) == 0) {
+    return NULL;
+  }
+
+  int fd = open(args.path, O_RDONLY);
+  if (fd < 0) {
+    return NULL;
+  }
+  struct stat st;
+  if (fstat(fd, &st) < 0) {
+    _real_close(fd);
+    return NULL;
+  }
+  void *map = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+  _real_close(fd);
+  if (map == MAP_FAILED) {
+    return NULL;
+  }
+
+  void *result = NULL;
+  Elf64_Ehdr *ehdr = (Elf64_Ehdr *) map;
+  Elf64_Shdr *shdrs = (Elf64_Shdr *) ((char *) map + ehdr->e_shoff);
+  for (int i = 0; i < ehdr->e_shnum; i++) {
+    if (shdrs[i].sh_type != SHT_SYMTAB) {
+      continue;
+    }
+    Elf64_Shdr *strtabShdr = &shdrs[shdrs[i].sh_link];
+    Elf64_Sym *syms = (Elf64_Sym *) ((char *) map + shdrs[i].sh_offset);
+    char *strings = (char *) map + strtabShdr->sh_offset;
+    size_t numSyms = shdrs[i].sh_size / sizeof(Elf64_Sym);
+    for (size_t j = 0; j < numSyms; j++) {
+      if (strcmp(strings + syms[j].st_name, symName) == 0) {
+        result = (void *) (args.baseAddr + syms[j].st_value);
+        break;
+      }
+    }
+    break;
+  }
+
+  munmap(map, st.st_size);
+  return result;
+}
+
+/*****************************************************************************
+ *
+ *  Replacement for TSAN's own SleepForMillis(): the destination of the
+ *  jump patch setupTsanBackgroundThreadTrampoline() installs, a point
+ *  guaranteed lock-free. Must not call anything TSAN intercepts -- uses
+ *  the raw nanosleep syscall, not the libc wrapper. For the same reason,
+ *  pausing polls doPauseTsanBackgroundThread in a loop rather than
+ *  blocking on a semaphore or condition variable, either of which TSAN
+ *  would intercept.
+ *
+ *****************************************************************************/
+static void
+pauseTsanBackgroundThread(unsigned int millis)
+{
+  struct timespec pauseTs = { 0, 100 * 1000 * 1000 }; // 100ms
+  while (doPauseTsanBackgroundThread) {
+    tsanBackgroundThreadIsPaused = 1;
+    syscall(SYS_nanosleep, &pauseTs, NULL);
+  }
+  tsanBackgroundThreadIsPaused = 0;
+
+  struct timespec reqTs;
+  reqTs.tv_sec = millis / 1000;
+  reqTs.tv_nsec = (long) (millis % 1000) * 1000000L;
+  syscall(SYS_nanosleep, &reqTs, NULL);
+}
+
+// SIGTRAP handler active only while installing the jump patch below: a
+// thread entering SleepForMillis() mid-installation traps on the int3
+// written as the patch's first byte and is redirected here straight to
+// pauseTsanBackgroundThread(), instead of executing a half-written
+// instruction. Removed once installation completes.
+static uint8_t *tsanSleepForMillisAddr = NULL;
+static void *tsanPauseHookAddr = NULL;
+static struct sigaction origSigtrapAction;
+
+static void
+tsanSigtrapHandler(int sig, siginfo_t *info, void *context)
+{
+  ucontext_t *uc = (ucontext_t *) context;
+  greg_t *ripSlot = &uc->uc_mcontext.gregs[REG_RIP];
+
+  if ((uint8_t *) *ripSlot == tsanSleepForMillisAddr + 1) {
+    *ripSlot = (greg_t) (uintptr_t) tsanPauseHookAddr;
+    return;
+  }
+
+  // Not our int3 (e.g. a debugger's breakpoint): pass it on.
+  if ((origSigtrapAction.sa_flags & SA_SIGINFO) &&
+      origSigtrapAction.sa_sigaction != NULL) {
+    origSigtrapAction.sa_sigaction(sig, info, context);
+  } else if (origSigtrapAction.sa_handler != NULL &&
+             origSigtrapAction.sa_handler != SIG_DFL &&
+             origSigtrapAction.sa_handler != SIG_IGN) {
+    origSigtrapAction.sa_handler(sig);
+  }
+}
+
+// Patches TSAN's own SleepForMillis(), found via findSymbolInLibrary()
+// since it isn't in libtsan.so's exported symbol table, to jump to
+// pauseTsanBackgroundThread() instead. The int3/SIGTRAP technique ensures
+// the jump patch is never observed half-written by a concurrent call. If
+// the symbol can't be found, tsanBackgroundTrampolineInstalled stays
+// false, and suspendThreads() falls back to signalling the background
+// thread like any other thread.
+static void
+setupTsanBackgroundThreadTrampoline()
+{
+  if (!is_tsan()) {
+    return;
+  }
+  void *addr = findSymbolInLibrary("libtsan.so",
+                                   "_ZN11__sanitizer14SleepForMillisEj");
+  if (addr == NULL) {
+    return;
+  }
+  tsanSleepForMillisAddr = (uint8_t *) addr;
+  tsanPauseHookAddr = (void *) &pauseTsanBackgroundThread;
+
+  struct sigaction sa;
+  sa.sa_flags = SA_SIGINFO;
+  sa.sa_sigaction = tsanSigtrapHandler;
+  sigemptyset(&sa.sa_mask);
+  ASSERT_ZERO(sigaction(SIGTRAP, &sa, &origSigtrapAction));
+
+  long pageSize = sysconf(_SC_PAGESIZE);
+  uintptr_t pageStart = (uintptr_t) addr & ~(pageSize - 1);
+  size_t span = ((uintptr_t) addr - pageStart) + 14;
+  size_t numPages = (span + pageSize - 1) / pageSize;
+  ASSERT_ZERO(mprotect((void *) pageStart, numPages * pageSize,
+                       PROT_READ | PROT_WRITE | PROT_EXEC));
+
+  //   Use PTRACE_FREEZE or SIGTRAP to create trampoline.  But PTRACE_FREEZE
+  // would interfere with any other process tracing us.
+
+  static const uint8_t jmpOp[6] = { 0xff, 0x25, 0x00, 0x00, 0x00, 0x00 };
+  // 1. int3: any thread entering here traps to tsanSigtrapHandler() instead
+  // of fetching a half-written instruction.
+  tsanSleepForMillisAddr[0] = 0xCC;
+  __asm__ volatile ("" ::: "memory");
+  // 2. Rest of "jmp [rip+0]", then the 8-byte hook address.
+  memcpy(tsanSleepForMillisAddr + 1, jmpOp + 1, 5);
+  memcpy(tsanSleepForMillisAddr + 6, &tsanPauseHookAddr, 8);
+  __asm__ volatile ("" ::: "memory");
+  // 3. Finalize: the int3 becomes the jmp's real first byte.
+  tsanSleepForMillisAddr[0] = jmpOp[0];
+
+  // Patch is permanent; the SIGTRAP safety net was only needed while
+  // writing it.
+  ASSERT_ZERO(sigaction(SIGTRAP, &origSigtrapAction, NULL));
+  tsanBackgroundTrampolineInstalled = true;
+}
+
+/*****************************************************************************
+ *
  *****************************************************************************/
 void
 ThreadList::createCkptThread()
@@ -414,6 +619,8 @@ ThreadList::createCkptThread()
   sem_init(&sem_launch, 0, 0);
   sem_init(&semNotifyCkptThread, 0, 0);
   sem_init(&semWaitForCkptThreadSignal, 0, 0);
+
+  setupTsanBackgroundThreadTrampoline();
 
   SigInfo::setupCkptSigHandler(&stopthisthread);
 
@@ -622,6 +829,10 @@ ThreadList::suspendThreads()
   DmtcpRWLockInit(&threadResumeLock);
   ASSERT_LOCK_SUCCESS(DmtcpRWLockWrLock(&threadResumeLock));
 
+  if (tsanBackgroundTrampolineInstalled) {
+    doPauseTsanBackgroundThread = 1;
+  }
+
   /* Halt all other threads - force them to call stopthisthread
    * If any have blocked checkpointing, wait for them to unblock before
    * signalling
@@ -644,6 +855,12 @@ ThreadList::suspendThreads()
       /* Do various things based on thread's state */
       switch (thread->state) {
       case ST_RUNNING:
+
+        if (tsanBackgroundTrampolineInstalled && thread->is_tsan_helper) {
+          // Caught via pauseTsanBackgroundThread() instead, at its own
+          // next SleepForMillis() call; see the poll loop below.
+          break;
+        }
 
         /* Thread is running. Send it a signal so it will call stopthisthread.
          * We will need to rescan (hopefully it will be suspended by then)
@@ -703,6 +920,15 @@ ThreadList::suspendThreads()
   for (int i = 0; i < numUserThreads; i++) {
     sem_wait(&semNotifyCkptThread);
   }
+  if (tsanBackgroundTrampolineInstalled) {
+    // pauseTsanBackgroundThread() cannot call sem_post(), a TSAN
+    // interceptor itself. Poll instead; it wakes at least every ~100ms.
+    for (int i = 0; i < 1000 && !tsanBackgroundThreadIsPaused; i++) {
+      usleep(1000);
+    }
+    ASSERT(tsanBackgroundThreadIsPaused,
+           "TSAN background thread did not pause within 1 second");
+  }
 
   ASSERT_NOT_NULL(activeThreads);
   TRACE("everything suspended: numUserThreads={}", numUserThreads);
@@ -748,6 +974,9 @@ void
 ThreadList::resumeThreads()
 {
   TRACE("resuming user threads");
+  if (tsanBackgroundTrampolineInstalled) {
+    doPauseTsanBackgroundThread = 0;
+  }
   ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
 }
 
