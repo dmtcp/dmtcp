@@ -299,6 +299,16 @@ else
 	@echo "#tsan_target_bg_thread_stress: skipping (no gcc libtsan.so)"
 endif
 
+# Same gating as above; needs -I$(DMTCP_INCLUDE) for dmtcp.h (see the .c
+# file's header comment for the deadlock it's meant to reproduce).
+tsan_target_deadlock_hook: tsan_target_deadlock_hook.c
+ifneq ($(filter /%,$(GCC_TSAN_RUNTIME)),)
+	-gcc $(TSAN_CFLAGS) -I$(DMTCP_INCLUDE) -o $@ $<
+else
+	@rm -f $@
+	@echo "#tsan_target_deadlock_hook: skipping (no gcc libtsan.so)"
+endif
+
 # clang's -fsanitize=thread defaults to a static runtime; -shared-libsan
 # gives the dynamic libclang_rt.tsan*.so that DMTCP's DT_NEEDED detection
 # keys on. tsan-clang runs it with LD_LIBRARY_PATH set to that runtime dir.

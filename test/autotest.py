@@ -2098,6 +2098,15 @@ class TestRegistry:
                      needs_max_address_space=True,
                      disabled_reason=tsan_trace_write_disabled,
                      tags=["tsan"]),
+            # Deliberately forces a TSAN allocator-lock deadlock at
+            # checkpoint time via a DMTCP_EVENT_PRECHECKPOINT plugin hook
+            # -- see the .c file's header comment. Disabled: hangs by
+            # design until the underlying lock-ordering issue is fixed.
+            TestSpec("tsan-deadlock-hook", 1,
+                     ["./test/tsan_target_deadlock_hook"],
+                     needs_max_address_space=True,
+                     disabled_reason="deliberately deadlocks at checkpoint",
+                     tags=["tsan"]),
             # Same target as tsan-gcc, but only meaningful when this DMTCP
             # build was configured with --enable-forked-checkpointing (see
             # include/config.h's FORKED_CHECKPOINTING). Crashes reliably
