@@ -26,6 +26,7 @@
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "dmtcpworker.h"
+#include "futex.h"
 #include "jalloc.h"
 #include "mtcp/mtcp_header.h"
 #include "plugin/pid/pidhelpers.h"
@@ -230,8 +231,52 @@ volatile int dmtcp::restartPauseLevel = 0;
 
 extern bool sem_launch_first_time;
 extern sem_t sem_launch;  // allocated in coordinatorapi.cpp
-static sem_t semNotifyCkptThread;
-static sem_t semWaitForCkptThreadSignal;
+
+// A counting semaphore built directly on the futex syscall (see rwlock.cpp
+// for the same pattern), used in place of sem_t for the notification
+// stopthisthread() posts to the checkpoint thread. sem_t's sem_post()/
+// sem_wait() are themselves TSAN-intercepted synchronization primitives.
+// While the checkpoint thread holds TSan's locks via the atfork bracket in
+// suspendThreads(), a signalled thread's sem_post() from stopthisthread()
+// would try to acquire one of those same locks and deadlock against the
+// checkpoint thread that's holding it. Raw futex_wait()/futex_wake() aren't
+// named TSAN sync primitives, so they carry no such Acquire/Release
+// bookkeeping and can't recurse into or contend for that lock.
+struct RawSem {
+  uint32_t count;
+};
+
+static void
+rawSemPost(RawSem *sem)
+{
+  __atomic_fetch_add(&sem->count, 1, __ATOMIC_ACQ_REL);
+  ASSERT_NE(-1, futex_wake(&sem->count, 1),
+            "futex_wake failed for raw semaphore");
+}
+
+static void
+rawSemWait(RawSem *sem)
+{
+  uint32_t val;
+  __atomic_load(&sem->count, &val, __ATOMIC_ACQUIRE);
+  while (true) {
+    while (val == 0) {
+      int ret = futex_wait(&sem->count, val);
+      ASSERT_ERRNO(ret == 0 || errno == EAGAIN || errno == EINTR,
+                   "unexpected futex_wait failure for raw semaphore: ret={}",
+                   ret);
+      __atomic_load(&sem->count, &val, __ATOMIC_ACQUIRE);
+    }
+    uint32_t newVal = val - 1;
+    if (__atomic_compare_exchange(&sem->count, &val, &newVal, false,
+                                  __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+      return;
+    }
+  }
+}
+
+static RawSem semNotifyCkptThread;
+static RawSem semWaitForCkptThreadSignal;
 
 // TSAN's background thread periodically wakes inside its own runtime,
 // possibly holding a TSAN-internal lock; an async SIGCKPT arriving then
@@ -244,6 +289,12 @@ static sem_t semWaitForCkptThreadSignal;
 static bool tsanBackgroundTrampolineInstalled = false;
 static volatile int doPauseTsanBackgroundThread = 0;
 static volatile int tsanBackgroundThreadIsPaused = 0;
+
+// Brackets SIGCKPT delivery to worker threads below, so that none of them
+// can be caught mid-TSan-interceptor holding an internal lock. See
+// execwrappers.cpp's __register_atfork() for how these get captured.
+extern "C" void dmtcp_tsan_atfork_prepare_if_captured(void);
+extern "C" void dmtcp_tsan_atfork_parent_if_captured(void);
 
 static void *checkpointhread(void *dummy);
 static void stopthisthread(int sig);
@@ -713,8 +764,8 @@ void
 ThreadList::createCkptThread()
 {
   sem_init(&sem_launch, 0, 0);
-  sem_init(&semNotifyCkptThread, 0, 0);
-  sem_init(&semWaitForCkptThreadSignal, 0, 0);
+  semNotifyCkptThread.count = 0;
+  semWaitForCkptThreadSignal.count = 0;
 
   setupTsanBackgroundThreadTrampoline();
 
@@ -929,6 +980,10 @@ ThreadList::suspendThreads()
     doPauseTsanBackgroundThread = 1;
   }
 
+  // Drains and locks all TSan-internal state before any thread can be
+  // signalled below, so SIGCKPT can never catch one mid-interceptor.
+  dmtcp_tsan_atfork_prepare_if_captured();
+
   /* Halt all other threads - force them to call stopthisthread
    * If any have blocked checkpointing, wait for them to unblock before
    * signalling
@@ -1014,7 +1069,7 @@ ThreadList::suspendThreads()
   unlock_threads();
 
   for (int i = 0; i < numUserThreads; i++) {
-    sem_wait(&semNotifyCkptThread);
+    rawSemWait(&semNotifyCkptThread);
   }
   if (tsanBackgroundTrampolineInstalled) {
     // pauseTsanBackgroundThread() cannot call sem_post(), a TSAN
@@ -1025,6 +1080,9 @@ ThreadList::suspendThreads()
     ASSERT(tsanBackgroundThreadIsPaused,
            "TSAN background thread did not pause within 1 second");
   }
+
+  // Every thread is now safely parked; release TSan's internal state.
+  dmtcp_tsan_atfork_parent_if_captured();
 
   ASSERT_NOT_NULL(activeThreads);
   TRACE("everything suspended: numUserThreads={}", numUserThreads);
@@ -1140,11 +1198,11 @@ stopthisthread(int signum)
       if (__tsan_ignore_thread_begin != NULL) {
         __tsan_ignore_thread_begin();
       }
-      // Ordinary threads don't need __tsan_acquire/release
+      // Ordinary threads don't need __tsan_acquire/release. motherofall's
+      // __tsan_release() call is deferred past rawSemPost() below, since
+      // it needs motherofall's own TSAN slot, which suspendThreads()'s
+      // atfork bracket holds until every thread has posted there.
       curThread->tsan_fiber_ctx = __tsan_get_current_fiber();
-      if (curThread == motherofall) {
-        __tsan_release((void*)curThread);
-      }
       // -------------------------------------------------------
     }
     // --------------------------------------
@@ -1175,7 +1233,13 @@ stopthisthread(int signum)
              "Failed to mark thread (tid:{}) from SUSPEND_IN_PROGRESS to "
              "SUSPENDED",
              curThread->tid);
-      sem_post(&semNotifyCkptThread);
+      rawSemPost(&semNotifyCkptThread);
+
+      // See the PRE-CHECKPOINT block above: deferred to here so this call
+      // can safely block until suspendThreads() releases the atfork lock.
+      if (is_tsan() && curThread == motherofall) {
+        __tsan_release((void*)curThread);
+      }
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
       TRACE("User thread suspended: tid={}", curThread->tid);
@@ -1263,7 +1327,7 @@ ThreadList::waitForAllRestored(Thread *thread)
   if (thread == ckptThread) {
     int i;
     for (i = 0; i < numUserThreads; i++) {
-      sem_wait(&semNotifyCkptThread);
+      rawSemWait(&semNotifyCkptThread);
     }
 
     // Now that all threads have been created, restore the signal handler. We
@@ -1293,11 +1357,11 @@ ThreadList::waitForAllRestored(Thread *thread)
 
     // if this was last of all, wake everyone up
     for (i = 0; i < numUserThreads; i++) {
-      sem_post(&semWaitForCkptThreadSignal);
+      rawSemPost(&semWaitForCkptThreadSignal);
     }
   } else {
-    sem_post(&semNotifyCkptThread);
-    sem_wait(&semWaitForCkptThreadSignal);
+    rawSemPost(&semNotifyCkptThread);
+    rawSemWait(&semWaitForCkptThreadSignal);
   }
 
   PluginManager::eventHook(DMTCP_EVENT_THREAD_RESUME);
