@@ -19,19 +19,28 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+// ============================================================================
+// VARIANT: runtime-configured alternate prefix
+//
+// This variant of the auto path-mapping plugin reads the alternate filesystem
+// prefix from the DMTCP_CHECKPOINT_DIR_ALT_PREFIX environment variable at
+// runtime, so no recompilation is needed to change it.
+//
+// Usage:
+//   export DMTCP_CHECKPOINT_DIR_ALT_PREFIX="/your/alternate/prefix/"
+//
+// If DMTCP_CHECKPOINT_DIR_ALT_PREFIX is not set, only the primary mapping
+// (DMTCP_CHECKPOINT_DIR -> cwd) is registered.
+//
+// See plugin_pathtranslator.cpp for the compile-time-configured variant.
+// ============================================================================
+
 // Enable auto path-mapping mode.
 // When defined, the plugin automatically derives path mappings from
 // DMTCP_CHECKPOINT_DIR at restart time, and saves the current working
 // directory to DMTCP_CHECKPOINT_DIR before each checkpoint, instead of
 // relying on the user-supplied DMTCP_PATH_MAPPING environment variable.
 #define DMTCP_AUTO_PATH_MAPPING
-
-// Compile-time alternate prefix for a secondary filesystem mount that mirrors
-// the same directory tree.  When DMTCP_AUTO_PATH_MAPPING is active, a second
-// mapping  <alt-prefix>/<suffix-after-"usr/"> -> <cwd>  is registered in
-// addition to the primary  <DMTCP_CHECKPOINT_DIR> -> <cwd>  mapping.
-// Set to nullptr (or leave undefined) to disable the alternate mapping.
-#define DMTCP_CHECKPOINT_DIR_ALT_PREFIX "/gpfs-p1/c/.cde2.sf3.pok.usr1/"
 
 #include <limits.h>  // for PATH_MAX
 #include <cstring>
@@ -42,10 +51,9 @@
 
 #include "config.h"
 #include "dmtcp.h"
-#include "dmtcpalloc.h"
+#include "jassert.h"
 #include "jserialize.h"
 #include "util.h"
-#include "dmtcp_assert.h"
 
 #ifdef DMTCP_AUTO_PATH_MAPPING
 # include <unistd.h>
@@ -60,7 +68,11 @@
 // Environment variable holding the working directory captured at checkpoint
 // time.  Set automatically before each checkpoint; read back on restart to
 // reconstruct path mappings.  Format: absolute directory path.
-# define ENV_CHECKPOINT_DIR  "DMTCP_CHECKPOINT_DIR"
+# define ENV_CHECKPOINT_DIR      "DMTCP_CHECKPOINT_DIR"
+// Optional runtime env var: alternate filesystem prefix that mirrors the
+// same directory tree, for sites with multiple mount points.
+// Format: absolute path prefix ending with '/'.
+# define ENV_CHECKPOINT_DIR_ALT_PREFIX  "DMTCP_CHECKPOINT_DIR_ALT_PREFIX"
 #endif
 
 namespace dmtcp {
@@ -86,57 +98,55 @@ static void populatePathMapping(const char *pathMappingStr)
       continue;
     }
     std::string::size_type colonIdx = token.find(':');
-    ASSERT(colonIdx != std::string::npos,
-           "bad path mapping; expected old:new: mapping={}", token);
+    JASSERT(colonIdx != std::string::npos)(token).Text("Bad mapping; expect old:new");
     string oldPath = token.substr(0, colonIdx);
     string newPath = token.substr(colonIdx + 1);
-    ASSERT(!oldPath.empty(), "path mapping has empty source: mapping={}",
-           token);
-    ASSERT(!newPath.empty(), "path mapping has empty target: mapping={}",
-           token);
+    JASSERT(!oldPath.empty());
+    JASSERT(!newPath.empty());
     (*pathMapping)[oldPath] = newPath;
   }
 }
 
 static void pathTranslator_Init()
 {
-  // Construct the map object once.  No mappings are populated here;
-  // that is done in pathTranslator_Restart() after the environment has
-  // been restored.
   if (pathMapping == nullptr) {
     pathMapping = new(pathMappingStorage) unordered_map<string, string>;
+#ifndef DMTCP_AUTO_PATH_MAPPING
+    populatePathMapping(getenv(ENV_PATH_MAPPING));
+#endif
   }
-}
 
-static void pathTranslator_Restart()
-{
-  pathTranslator_Init();
 #ifdef DMTCP_AUTO_PATH_MAPPING
-  // Derive mappings from DMTCP_CHECKPOINT_DIR (set by pathTranslator_PreCheckpoint
-  // before the previous checkpoint):
-  //   <DMTCP_CHECKPOINT_DIR>                      -> <cwd>
-  //   <DMTCP_CHECKPOINT_DIR_ALT_PREFIX>/<suffix> -> <cwd>  (if defined)
-  // <suffix> is the path component after "usr/" in DMTCP_CHECKPOINT_DIR.
+  // Derive mappings from DMTCP_CHECKPOINT_DIR:
+  //   <DMTCP_CHECKPOINT_DIR>                    -> <cwd>
+  //   <alternate-prefix>/<suffix-after-"usr/"> -> <cwd>
+  // where the alternate prefix is a secondary filesystem location that
+  // mirrors the same tree (runtime-configured via DMTCP_CHECKPOINT_DIR_ALT_PREFIX).
   const char *oldpwd = getenv(ENV_CHECKPOINT_DIR);
   if (oldpwd != nullptr) {
     string oldpath(oldpwd);
     char cwd[PATH_MAX];
     if (getcwd(cwd, sizeof(cwd)) != nullptr) {
       string newPathMapping = string(oldpwd) + ":" + string(cwd);
-#ifdef DMTCP_CHECKPOINT_DIR_ALT_PREFIX
-      {
+      // If an alternate prefix is configured, register that mapping too.
+      const char *altPrefix = getenv(ENV_CHECKPOINT_DIR_ALT_PREFIX);
+      if (altPrefix != nullptr) {
         auto usrPos = oldpath.find("usr/");
         string suffix = (usrPos != string::npos)
                         ? oldpath.substr(usrPos + 4)
                         : string();
-        newPathMapping += ";" DMTCP_CHECKPOINT_DIR_ALT_PREFIX + suffix
-                          + ":" + string(cwd);
+        newPathMapping += ";" + string(altPrefix) + suffix + ":" + string(cwd);
       }
-#endif
       populatePathMapping(newPathMapping.c_str());
     }
   }
-#else
+#endif
+}
+
+static void pathTranslator_Restart()
+{
+  pathTranslator_Init();
+#ifndef DMTCP_AUTO_PATH_MAPPING
   char *tmp = (char*) JALLOC_MALLOC(MAX_ENV_VAR_SIZE);
   DmtcpGetRestartEnvErr_t ret = dmtcp_get_restart_env(ENV_PATH_MAPPING, tmp, MAX_ENV_VAR_SIZE);
   if (ret == RESTART_ENV_SUCCESS) {
@@ -152,7 +162,7 @@ pathTranslator_PrepareForExec(DmtcpEventData_t *data)
 {
 #ifndef DMTCP_AUTO_PATH_MAPPING
   pathTranslator_Init();
-  ASSERT_NOT_NULL(data);
+  JASSERT(data != NULL);
   jalib::JBinarySerializeWriterRaw wr("", data->preExec.serializationFd);
   wr.serialize(*pathMapping);
 #endif
@@ -163,7 +173,7 @@ pathTranslator_PostExec(DmtcpEventData_t *data)
 {
 #ifndef DMTCP_AUTO_PATH_MAPPING
   pathTranslator_Init();
-  ASSERT_NOT_NULL(data);
+  JASSERT(data != NULL);
   jalib::JBinarySerializeReaderRaw rd("", data->postExec.serializationFd);
   rd.serialize(*pathMapping);
 #endif
@@ -209,9 +219,7 @@ pathTranslator_VirtualToReal(DmtcpEventData_t *data)
                          "%s%s",
                          newp.c_str(),
                          suffix.c_str());
-        ASSERT(n > 0 && n < PATH_MAX,
-               "translated path exceeds PATH_MAX: length={} limit={}",
-               n, PATH_MAX);
+        JASSERT(n > 0 && n < PATH_MAX).Text("Translated path exceeds PATH_MAX");
       }
     }
   }
@@ -219,7 +227,7 @@ pathTranslator_VirtualToReal(DmtcpEventData_t *data)
 
 #ifdef DMTCP_AUTO_PATH_MAPPING
 // Save the current working directory to DMTCP_CHECKPOINT_DIR so that
-// pathTranslator_Restart() can reconstruct the path mapping on restart.
+// pathTranslator_Init() can reconstruct the path mapping on restart.
 // Also sets DMTCP_SKIP_TRUNCATE_FILE_AT_RESTART to preserve file contents
 // across restart.
 static void
@@ -241,9 +249,6 @@ pathTranslator_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   switch (event) {
   case DMTCP_EVENT_INIT:
     pathTranslator_Init();
-#ifndef DMTCP_AUTO_PATH_MAPPING
-    populatePathMapping(getenv(ENV_PATH_MAPPING));
-#endif
     break;
 
 #ifdef DMTCP_AUTO_PATH_MAPPING
@@ -273,14 +278,20 @@ pathTranslator_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-LIB_PRIVATE DmtcpPluginDescriptor_t pathTranslator_plugin = {
+DmtcpPluginDescriptor_t pathTranslator_plugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "PATHVIRT",
+  "pathTranslator",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "PathTranslator plugin",
   pathTranslator_EventHook
 };
+
+DmtcpPluginDescriptor_t
+dmtcp_PathTranslator_PluginDescr()
+{
+  return pathTranslator_plugin;
+}
 
 };

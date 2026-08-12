@@ -443,6 +443,10 @@ writememoryarea(int fd, Area area)
     return;
   }
 
+  if (area.name && strstr(area.name, "uprobes")) {
+      JTRACE("Skipping uprobes region")(area.addr);
+      return;
+  }
   if (Util::strEquals(area.name, "[vsyscall]") ||
       Util::strEquals(area.name, "[vectors]") ||
       Util::strEquals(area.name, "[vvar]") ||
