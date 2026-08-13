@@ -103,7 +103,6 @@ static InternalPluginEntry internalPlugins[] = {
   { &dlPlugin, false }
 };
 
-static pthread_once_t internalPluginInitOnce = PTHREAD_ONCE_INIT;
 static bool disableAllInternalPlugins = false;
 
 static size_t
@@ -155,8 +154,41 @@ initializeInternalPluginStateOnce()
 static void
 initializeInternalPluginState()
 {
-  ASSERT_PTHREAD_SUCCESS(pthread_once(&internalPluginInitOnce,
-                                      initializeInternalPluginStateOnce));
+  // This runs from the alloc plugin's malloc() wrapper (via dmtcp_alloc_enabled
+  // -> internalPluginEnabled), which can fire DURING ThreadSanitizer's own
+  // constructor: while TSAN installs its interceptors it may call malloc (e.g.
+  // when a dlsym for an intercepted symbol fails and glibc formats the error).
+  //
+  // We used to guard this one-time init with pthread_once(), but pthread_once
+  // is a TSAN-intercepted synchronization primitive.  Called that early, TSAN's
+  // interceptor dereferences its MetaMap/shadow -- which is not yet initialized
+  // while TSAN is still in its own constructor -- and segfaults (observed on
+  // Rocky 9 / libtsan.so.0, in __tsan::MetaMap::GetAndLock).
+  //
+  // So we guard with a plain constant-initialized atomic state machine
+  // instead: compiler intrinsics, not function calls, so TSAN cannot
+  // intercept them (and a constant initializer means no C++ function-local
+  // static guard either).  initializeInternalPluginStateOnce() itself writes
+  // plain (non-atomic) shared state (disableAllInternalPlugins,
+  // internalPlugins[i].enabled), so simply letting two racing threads both
+  // run it -- even though they would compute identical results -- is a data
+  // race (undefined behavior) under the C++ memory model.  A CAS elects
+  // exactly one thread to run it; every other thread spins (a plain intrinsic
+  // load, not sched_yield()/usleep(), which are themselves TSAN-intercepted
+  // this early) until that thread publishes completion.
+  static int state = 0;  // 0 = uninit, 1 = initializing, 2 = done
+  int expected = 0;
+  if (__atomic_compare_exchange_n(&state, &expected, 1, false,
+                                  __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+    initializeInternalPluginStateOnce();
+    __atomic_store_n(&state, 2, __ATOMIC_RELEASE);
+    return;
+  }
+  while (__atomic_load_n(&state, __ATOMIC_ACQUIRE) != 2) {
+    // Busy-wait: the window is only the few env-var reads above, and this
+    // path runs during early process init before TSAN itself is ready, so a
+    // plain spin (no libc call) is deliberate here.
+  }
 }
 
 static InternalPluginEntry *
