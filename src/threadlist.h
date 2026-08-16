@@ -33,13 +33,9 @@ namespace ThreadList
 {
 void init();
 void createCkptThread();
-Thread *getNewThread(void *(*fn)(void *), void *arg);
-void prepareThread(Thread *th, void *(*fn)(void *), void *arg);
-void initThread(Thread *);
 void resetOnFork();
 void threadExit();
 
-Thread *allocNewThread();
 void addToActiveList(Thread *th);
 void threadIsDead(Thread *thread);
 void emptyFreeList();
@@ -57,7 +53,5 @@ void postRestartWork();
 void postRestart(int restartPause);
 }
 }
-
-EXTERNC void dmtcp_init_virtual_tid() __attribute((weak));
 
 #endif // ifndef THREADLIST_H

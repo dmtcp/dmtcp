@@ -25,8 +25,6 @@
 #include "dmtcpworker.h"
 #include "wrapperlock.h"
 
-struct Thread;
-
 namespace dmtcp
 {
 
@@ -40,8 +38,8 @@ void initMotherOfAll();
 void wrapperExecutionLockLock();
 void wrapperExecutionLockUnlock();
 void wrapperExecutionLockLockExcl();
-void wrapperExecutionLockLockForNewThread(Thread *thread);
-void wrapperExecutionLockUnlockForNewThread(Thread *thread);
+bool wrapperExecutionLockLockForNewThread();
+void wrapperExecutionLockUnlockForNewThread();
 
 bool libdlLockLock();
 void libdlLockUnlock();

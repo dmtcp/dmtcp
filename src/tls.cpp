@@ -171,9 +171,7 @@ TLSInfo_GetTidOffset(void)
 int
 TLSInfo_GetPidOffset(void)
 {
-  static int pid_offset = TLSInfo_GetTidOffset() + sizeof(pid_t);
-
-  return pid_offset;
+  return TLSInfo_GetTidOffset() + sizeof(pid_t);
 }
 
 /*****************************************************************************

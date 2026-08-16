@@ -2,12 +2,15 @@
 #define THREADINFO_H
 
 #include <linux/version.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdio.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <ucontext.h>
 #include <unistd.h>
+#include "../jalib/jalloc.h"
+#include "dmtcp_assert.h"
 #include "syscallwrappers.h" /* for _real_syscall */
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
@@ -55,41 +58,71 @@ typedef enum ThreadState {
   ST_THREAD_CREATE
 } ThreadState;
 
-typedef struct Thread Thread;
+class ThreadInfo;
+using Thread = ThreadInfo;
 
-struct Thread {
-  pid_t tid;
-  int state;
-  int exiting;
+namespace dmtcp
+{
+namespace SigInfo
+{
+int ckptSignal();
+}
+}
 
-  char procname[17];
+class ThreadInfo {
+ public:
+#ifdef JALIB_ALLOCATOR
+  static void *operator new(size_t nbytes, void *p) { return p; }
 
-  void *(*fn)(void *);
-  void *arg;
-  int flags;
-  pid_t *ptid;
-  pid_t *ctid;
+  static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
 
-  sigset_t sigblockmask; // blocked signals
-  sigset_t sigpending;   // pending signals
+  static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
 
-  void *saved_sp; // at restart, we use a temporary stack just
-                  // beyond original stack (red zone)
+  ThreadInfo() = default;
+  void setSigmask()
+  {
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, dmtcp::SigInfo::ckptSignal());
+    ASSERT_PTHREAD_SUCCESS(
+      _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),
+      "unblocking checkpoint signal in thread: signal={}",
+      dmtcp::SigInfo::ckptSignal());
+  }
 
-  void *pthreadSelf;
-  ThreadTLSInfo tlsInfo;
+  pid_t tid = 0;
+  int state = ST_RUNNING;
+  int exiting = 0;
+
+  char procname[17] = {};
+
+  int flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM |
+              CLONE_SIGHAND | CLONE_THREAD | CLONE_SETTLS |
+              CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID;
+  pid_t *ptid = nullptr;
+  pid_t *ctid = nullptr;
+
+  sigset_t sigblockmask = {}; // blocked signals
+  sigset_t sigpending = {};   // pending signals
+
+  void *saved_sp = nullptr; // at restart, we use a temporary stack just
+                            // beyond original stack (red zone)
+
+  void *pthreadSelf = nullptr;
+  ThreadTLSInfo tlsInfo = {};
 
   // JA: new code ported from v54b
 #ifdef SETJMP
-  sigjmp_buf jmpbuf;     // sigjmp_buf saved by sigsetjmp on ckpt
+  sigjmp_buf jmpbuf = {}; // sigjmp_buf saved by sigsetjmp on ckpt
 #else // ifdef SETJMP
-  ucontext_t savctx;     // context saved on suspend
+  ucontext_t savctx = {}; // context saved on suspend
 #endif // ifdef SETJMP
 
-  uint32_t wrapperLockCount;
+  uint32_t wrapperLockCount = 0;
 
-  Thread *next;
-  Thread *prev;
+  Thread *next = nullptr;
+  Thread *prev = nullptr;
 };
 
 Thread *dmtcp_get_current_thread();
@@ -105,9 +138,5 @@ EXTERNC pid_t dmtcp_get_real_pid() __attribute((weak));
 EXTERNC int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig)
   __attribute((weak));
 EXTERNC pid_t dmtcp_update_virtual_to_real_tid(pid_t tid) __attribute((weak));
-EXTERNC void dmtcp_init_virtual_tid() __attribute((weak));
-
-#define THREAD_TGKILL(pid, tid, sig) \
-  _real_syscall(SYS_tgkill, pid, tid, sig, 0, 0, 0, 0)
 
 #endif // ifndef THREADINFO_H

@@ -263,6 +263,9 @@ gettid: gettid.c
 pthread%: pthread%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
+tsan_target: tsan_target.c
+	-$(CC) -o $@ $< $(CFLAGS) -fsanitize=thread -O0 -pthread
+
 clone%: clone%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 

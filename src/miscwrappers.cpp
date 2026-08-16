@@ -251,7 +251,7 @@ syscall(long sys_num, ...)
 
   case SYS_gettid:
   {
-    ret = dmtcp_pid_gettid();
+    ret = dmtcp_gettid();
     break;
   }
   case SYS_tkill:

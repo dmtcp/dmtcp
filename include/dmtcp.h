@@ -17,6 +17,7 @@
 
 #include <netinet/ip.h>
 #include <assert.h>
+#include <pthread.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -146,6 +147,11 @@ typedef union _DmtcpEventData_t {
   struct {
     char *path;
   } realToVirtualPath, virtualToRealPath;
+
+  struct {
+    pthread_t pthread;
+    pid_t tid;
+  } pthreadInfo;
 } DmtcpEventData_t;
 
 typedef void (*HookFunctionPtr_t)(DmtcpEvent_t, DmtcpEventData_t *);

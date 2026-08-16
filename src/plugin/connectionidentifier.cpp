@@ -59,9 +59,7 @@ ConnectionIdentifier::create()
 ConnectionIdentifier
 ConnectionIdentifier::null()
 {
-  static ConnectionIdentifier n;
-
-  return n;
+  return ConnectionIdentifier();
 }
 
 // FIXME:  This is never used.
