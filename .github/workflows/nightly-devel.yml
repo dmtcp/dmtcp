@@ -1,0 +1,33 @@
+name: Nightly Ubuntu Devel
+
+on:
+  schedule:
+    - cron: "17 8 * * *"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ubuntu:devel
+
+    steps:
+      - name: install build and test dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            build-essential autoconf automake libtool pkg-config git \
+            python3 emacs-nox gdb screen tcsh zsh
+
+      - uses: actions/checkout@v3
+
+      - name: configure
+        run: ./configure
+
+      - name: make
+        run: make -j8
+
+      - name: make tests
+        run: make tests
+
+      - name: make check
+        run: make check AUTOTEST="--retry-once --jobs 8"

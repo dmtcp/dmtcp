@@ -36,10 +36,10 @@
 #include "pluginmanager.h"
 #include "config.h"
 #include "dmtcp.h"
-#include "glibc_pthread.h"
 #include "pidwrappers.h"
 #include "protectedfds.h"
 #include "shareddata.h"
+#include "threadinfo.h"
 #include "util.h"
 #include "dmtcp_assert.h"
 #include "virtualpidtable.h"
@@ -76,10 +76,6 @@ extern "C" pid_t dmtcp_update_ppid();
 static volatile bool restartInProgress = false;
 
 static string pidMapFile;
-
-#ifndef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
-#define dmtcp_pthread_set_tid(pth, tid) do {} while (0)
-#endif
 
 static int pidPluginEnabled = -1;
 
@@ -135,7 +131,7 @@ dmtcp_pid_init_thread_tid()
                      VirtualPidTable::instance().getNewVirtualTid();
   VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
   if (!isMotherOfAll) {
-    dmtcp_pthread_set_tid(pthread_self(), virtualTid);
+    dmtcp_get_current_thread()->pthreadShim.setTid(virtualTid);
   }
   return virtualTid;
 }
@@ -183,7 +179,7 @@ dmtcp_update_virtual_to_real_tid(pid_t tid)
 
   VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
 
-  dmtcp_pthread_set_tid(pthread_self(), virtualTid);
+  dmtcp_get_current_thread()->pthreadShim.setTid(virtualTid);
   return virtualTid;
 }
 
@@ -372,7 +368,7 @@ pidVirt_ThreadResume()
   }
   pid_t virtualTid = dmtcp_gettid();
   VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
-  dmtcp_pthread_set_tid(pthread_self(), virtualTid);
+  dmtcp_get_current_thread()->pthreadShim.setTid(virtualTid);
 }
 
 static void
@@ -382,7 +378,7 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_INIT:
     SharedData::setPidMap(getpid(), _real_getpid());
     VirtualPidTable::instance().refreshExitedTids();
-    dmtcp_pthread_set_tid(pthread_self(), getpid());
+    dmtcp_get_current_thread()->pthreadShim.setTid(getpid());
     break;
 
   case DMTCP_EVENT_ATFORK_CHILD:

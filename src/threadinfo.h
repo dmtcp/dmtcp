@@ -2,6 +2,7 @@
 #define THREADINFO_H
 
 #include <linux/version.h>
+#include <pthread.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdio.h>
@@ -10,8 +11,8 @@
 #include <ucontext.h>
 #include <unistd.h>
 #include "../jalib/jalloc.h"
-#include "dmtcp_assert.h"
-#include "syscallwrappers.h" /* for _real_syscall */
+#include "dmtcp.h"
+#include "glibc_pthread.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
@@ -80,22 +81,23 @@ class ThreadInfo {
 #endif // ifdef JALIB_ALLOCATOR
 
   ThreadInfo() = default;
-  void setSigmask()
-  {
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, dmtcp::SigInfo::ckptSignal());
-    ASSERT_PTHREAD_SUCCESS(
-      _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),
-      "unblocking checkpoint signal in thread: signal={}",
-      dmtcp::SigInfo::ckptSignal());
-  }
+  bool updateState(ThreadState newState, ThreadState oldState);
+  void saveSigState();
+  void restoreSigState();
+  void saveTLSState();
+  void restoreTLSState();
+  void verifyTLSPidTid(pid_t pid);
+  int sendSignal(int sig);
+  void markExiting();
+  void initPthreadFields();
+  void setSigmask();
 
   pid_t tid = 0;
-  int state = ST_RUNNING;
+  ThreadState state = ST_RUNNING;
   int exiting = 0;
 
   char procname[17] = {};
+  pthread_t pthread = {};
 
   int flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM |
               CLONE_SIGHAND | CLONE_THREAD | CLONE_SETTLS |
@@ -109,7 +111,7 @@ class ThreadInfo {
   void *saved_sp = nullptr; // at restart, we use a temporary stack just
                             // beyond original stack (red zone)
 
-  void *pthreadSelf = nullptr;
+  LibcPthreadShim pthreadShim = {};
   ThreadTLSInfo tlsInfo = {};
 
   // JA: new code ported from v54b
@@ -130,8 +132,6 @@ Thread *dmtcp_get_current_thread();
 // This symbol is added as weak to allow linkage from dmtcp_launch, etc., via
 // CoordinatorAPI.
 bool dmtcp_is_ckpt_thread() __attribute((weak));
-
-int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval);
 
 EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
 EXTERNC pid_t dmtcp_get_real_pid() __attribute((weak));

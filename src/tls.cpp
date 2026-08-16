@@ -17,7 +17,6 @@
  *****************************************************************************/
 
 #include "tls.h"
-#include <pthread.h>  // for pthread_self(), needed for WSL
 #include <elf.h>
 #include <errno.h>
 #include <linux/version.h>
@@ -50,129 +49,9 @@
 
 const char *tlsErrorMsg = "*** DMTCP: Error restoring TLS information\n.";
 
-/*****************************************************************************
- *
- *****************************************************************************/
-/* Offset computed (&x.pid - &x) for
- *   struct pthread x;
- * as found in:  glibc-2.5/nptl/descr.h
- * It was 0x4c and 0x48 for pid and tid for i386.
- * Roughly, the definition is:
- *glibc-2.5/nptl/descr.h:
- * struct pthread
- * {
- *  union {
- *   tcbheader_t tcbheader;
- *   void *__padding[16];
- *  };
- *  list_t list;
- *  pid_t tid;
- *  pid_t pid;
- *  ...
- * } __attribute ((aligned (TCB_ALIGNMENT)));
- *
- *glibc-2.5/nptl/sysdeps/pthread/list.h:
- * typedef struct list_head
- * {
- *  struct list_head *next;
- *  struct list_head *prev;
- * } list_t;
- *
- * NOTE: glibc-2.10 changes the size of __padding from 16 to 24.  --KAPIL
- *
- * NOTE: glibc-2.11 further changes the size tcbhead_t without updating the
- *       size of __padding in struct pthread. We need to add an extra 512 bytes
- *       to accommodate this.                                    -- KAPIL
- */
-
 #if !__GLIBC_PREREQ(2, 1)
 # error "glibc version too old"
 #endif /* if !__GLIBC_PREREQ(2, 1) */
-
-// NOTE: tls_tid_offset, tls_pid_offset determine offset independently of
-// glibc version.  These STATIC_... versions serve as a double check.
-// Calculate offsets of pid/tid in pthread 'struct user_desc'
-// The offsets are needed for two reasons:
-// 1. glibc pthread functions cache the pid; must update this after restart
-// 2. glibc pthread functions cache the tid; pthread functions pass address
-// of cached tid to clone, and MTCP grabs it; But MTCP is still missing
-// the address where pthread cached the tid of motherofall.  So, it can't
-// update.
-/*
- * For those who want to dig deeper into glibc and its thread descriptor,
- *   see below.  Note that pthread_self returns a pthread_t, which is a
- *   pointer to the 'struct pthread' below.
- * FROM: glibc-2.23/sysdeps/x86_64/nptl/tls.h
- * // Return the thread descriptor for the current thread.
- * # define THREAD_SELF \
- *   ({ struct pthread *__self;                                                  \
- *      asm ("mov %%fs:%c1,%0" : "=r" (__self)                                   \
- *           : "i" (offsetof (struct pthread, header.self)));                    \
- *      __self;})
- * // struct pthread is defined in glibc-2.23/nptl/descr.h
- * // type = struct pthread {
- * //     union {
- * //         tcbhead_t header;
- * //         void *__padding[24];
- * //     };
- * //     list_t list; // 2*sizeof(void *)
- * //     pid_t tid;
- * //     pid_t pid;
- * // NOTE: sizeof(tcbhead_t) + 2*sizeof(void *) == 720
- * //       where:  sizeof(tcbhead_t) == 704
- */
-
-/* NOTE:  For future reference, the STATIC_TLS_TID_OFFSET() for a glibc version
- *  can be easily discovered as long as a debug version of glibc is present:
- *  (gdb) p (char *)&(((struct pthread *)pthread_self())->tid) - \
- *                                                      (char *)pthread_self()
- *  $14 = 720  # So, 720 is the correct offset in this example.
- */
-int
-TLSInfo_GetTidOffset(void)
-{
-  static int offset = -1;
-
-  if (offset != -1) {
-    return offset;
-  }
-
-  // tcbhead_t, etc., were introduced in glibc 2.4. We don't support earlier
-  // versions.
-  dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
-  ASSERT(glibc.major == 2,
-         "unsupported glibc major version for TLS offsets: major={}",
-         glibc.major);
-  ASSERT(glibc.minor >= 4,
-         "unsupported glibc minor version for TLS offsets: minor={}",
-         glibc.minor);
-
-#ifdef __x86_64__
-  if (glibc.minor >= 11) {
-    offset = 720;  // sizeof(tcbhead_t) + sizeof(list_t)
-    return offset;
-  }
-#endif
-
-//FIXME:Define offset for __aarch64__
-
-  if (glibc.minor >= 10) {
-    offset = 26 * sizeof(void *);  // sizeof(__padding) + sizeof(list_t)
-  } else {
-    offset = 18 * sizeof(void *);  // sizeof(__padding) + sizeof(list_t)
-  }
-
-  return offset;
-}
-
-/*****************************************************************************
- *
- *****************************************************************************/
-int
-TLSInfo_GetPidOffset(void)
-{
-  return TLSInfo_GetTidOffset() + sizeof(pid_t);
-}
 
 /*****************************************************************************
  *
@@ -180,31 +59,31 @@ TLSInfo_GetPidOffset(void)
 #ifdef __x86_64__
 # include <asm/prctl.h>
 # include <sys/prctl.h>
-static void
-tls_get_thread_area(Thread *thread)
+void
+TLSInfo_GetThreadArea(ThreadTLSInfo *tlsInfo, pid_t tid)
 {
   ASSERT_NE(-1,
     _real_syscall(SYS_arch_prctl, ARCH_GET_FS,
-                  (long)&thread->tlsInfo.fs, 0, 0, 0, 0, 0),
-    "failed to read FS TLS register: tid={}", thread->tid);
+                  (long)&tlsInfo->fs, 0, 0, 0, 0, 0),
+    "failed to read FS TLS register: tid={}", tid);
   ASSERT_NE(-1,
     _real_syscall(SYS_arch_prctl, ARCH_GET_GS,
-                  (long)&thread->tlsInfo.gs, 0, 0, 0, 0, 0),
-    "failed to read GS TLS register: tid={}", thread->tid);
+                  (long)&tlsInfo->gs, 0, 0, 0, 0, 0),
+    "failed to read GS TLS register: tid={}", tid);
 }
 
 void
-tls_set_thread_area(Thread *thread)
+TLSInfo_SetThreadArea(ThreadTLSInfo *tlsInfo)
 {
   int mtcp_sys_errno __attribute__((unused));
 
-  if (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_FS, thread->tlsInfo.fs)
+  if (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_FS, tlsInfo->fs)
       != 0) {
     printf("\n*** DMTCP: Error restoring TLS.\n\n");
     abort();
   };
 
-  if (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_GS, thread->tlsInfo.gs)
+  if (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_GS, tlsInfo->gs)
       != 0) {
     printf("\n*** DMTCP: Error restoring TLS.\n\n");
     abort();
@@ -213,30 +92,30 @@ tls_set_thread_area(Thread *thread)
 #endif
 
 #ifdef __i386__
-static void
-tls_get_thread_area(Thread *thread)
+void
+TLSInfo_GetThreadArea(ThreadTLSInfo *tlsInfo, pid_t tid)
 {
-  asm volatile ("movw %%fs,%0" : "=m" (thread->tlsInfo.fs));
-  asm volatile ("movw %%gs,%0" : "=m" (thread->tlsInfo.gs));
+  asm volatile ("movw %%fs,%0" : "=m" (tlsInfo->fs));
+  asm volatile ("movw %%gs,%0" : "=m" (tlsInfo->gs));
 
-  memset(&thread->tlsInfo.gdtentrytls, 0, sizeof thread->tlsInfo.gdtentrytls);
+  memset(&tlsInfo->gdtentrytls, 0, sizeof tlsInfo->gdtentrytls);
 
-  thread->tlsInfo.gdtentrytls.entry_number = thread->tlsInfo.gs / 8;
+  tlsInfo->gdtentrytls.entry_number = tlsInfo->gs / 8;
 
   ASSERT_NE(-1,
     _real_syscall(SYS_get_thread_area,
-                  (long)&thread->tlsInfo.gdtentrytls,
+                  (long)&tlsInfo->gdtentrytls,
                   0, 0, 0, 0, 0, 0),
     "failed to read i386 TLS GDT entry: tid={} entry={}",
-    thread->tid, thread->tlsInfo.gdtentrytls.entry_number);
+    tid, tlsInfo->gdtentrytls.entry_number);
 }
 
-static void
-tls_set_thread_area(Thread *thread)
+void
+TLSInfo_SetThreadArea(ThreadTLSInfo *tlsInfo)
 {
   int mtcp_sys_errno __attribute__((unused));
 
-  if (mtcp_inline_syscall(set_thread_area, 1, &thread->tlsInfo.gdtentrytls)
+  if (mtcp_inline_syscall(set_thread_area, 1, &tlsInfo->gdtentrytls)
         != 0) {
     printf("\n*** DMTCP: Error restoring TLS.\n\n");
     abort();
@@ -247,8 +126,8 @@ tls_set_thread_area(Thread *thread)
    * For the other architectures (not i386), the kernel call above
    * already did the equivalent work of setting up thread registers.
    */
-  asm volatile ("movw %0,%%fs" : : "m" (thread->tlsInfo.fs));
-  asm volatile ("movw %0,%%gs" : : "m" (thread->tlsInfo.gs));
+  asm volatile ("movw %0,%%fs" : : "m" (tlsInfo->fs));
+  asm volatile ("movw %0,%%gs" : : "m" (tlsInfo->gs));
 }
 #endif  // ifdef __i386__
 
@@ -268,23 +147,24 @@ tls_set_thread_area(Thread *thread)
  *     of 'struct pthread' in tls_tid_offset, tls_pid_offset in mtcp.c.
  */
 
-static void
-tls_get_thread_area(Thread *thread)
+void
+TLSInfo_GetThreadArea(ThreadTLSInfo *tlsInfo, pid_t tid)
 {
   unsigned long int addr;
   asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t"
                 : "=r" (addr));
 
-  thread->tlsInfo.tlsAddr = addr - 1216; /* sizeof(struct pthread) = 1216 */  \
+  (void)tid;
+  tlsInfo->tlsAddr = addr - 1216; /* sizeof(struct pthread) = 1216 */  \
 }
 
-static void
-tls_set_thread_area(Thread *thread)
+void
+TLSInfo_SetThreadArea(ThreadTLSInfo *tlsInfo)
 {
   int mtcp_sys_errno __attribute__((unused));
   if (mtcp_syscall(__ARM_NR_set_thread_area,
                    &mtcp_sys_errno,
-                   thread->tlsInfo.tlsAddr) != 0) {
+                   tlsInfo->tlsAddr) != 0) {
     printf("\n*** DMTCP: Error restoring TLS.\n\n");
     abort();
   };
@@ -307,18 +187,19 @@ tls_set_thread_area(Thread *thread)
  *     of 'struct pthread' in tls_tid_offset, tls_pid_offset in mtcp.c.
  */
 
-static void
-tls_get_thread_area(Thread *thread)
+void
+TLSInfo_GetThreadArea(ThreadTLSInfo *tlsInfo, pid_t tid)
 {
   unsigned long int addr;
   asm volatile ("mrs   %0, tpidr_el0" : "=r" (addr));
-  thread->tlsInfo.tlsAddr = addr - 1776;  // sizeof(struct pthread) = 1776
+  (void)tid;
+  tlsInfo->tlsAddr = addr - 1776;  // sizeof(struct pthread) = 1776
 }
 
-static void
-tls_set_thread_area(Thread *thread)
+void
+TLSInfo_SetThreadArea(ThreadTLSInfo *tlsInfo)
 {
-  unsigned long int addr = thread->tlsInfo.tlsAddr + 1776;
+  unsigned long int addr = tlsInfo->tlsAddr + 1776;
   asm volatile ("msr     tpidr_el0, %[gs]" : :[gs] "r" (addr));
 }
 #endif /* end __aarch64__ */
@@ -343,18 +224,19 @@ tls_set_thread_area(Thread *thread)
  * 	of 'struct pthread' in tls_tid_offset, tls_pid_offset in mtcp.c.
  */
 
-static void
-tls_get_thread_area(Thread *thread)
+void
+TLSInfo_GetThreadArea(ThreadTLSInfo *tlsInfo, pid_t tid)
 {
   unsigned long int addr;
   asm volatile ("addi %0, tp, 0" : "=r" (addr));
-  thread->tlsInfo.tlsAddr = addr;
+  (void)tid;
+  tlsInfo->tlsAddr = addr;
 }
 
-static void
-tls_set_thread_area(Thread *thread)
+void
+TLSInfo_SetThreadArea(ThreadTLSInfo *tlsInfo)
 {
-  unsigned long int addr = thread->tlsInfo.tlsAddr;
+  unsigned long int addr = tlsInfo->tlsAddr;
   asm volatile("addi tp, %[gs], 0" : : [gs] "r" (addr));
 }
 #endif  /* end __riscv */
@@ -490,63 +372,6 @@ TLSInfo_SetThreadSysinfo(void *sysinfo)
 #endif /* if defined(__i386__) || defined(__x86_64__) */
 }
 
-/*****************************************************************************
- *
- *
- *****************************************************************************/
-void
-TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
-{
-  pid_t tls_pid, tls_tid;
-  char *addr = (char *) pthread_self();
-
-  tls_pid = *(pid_t *)(addr + TLSInfo_GetPidOffset());
-  tls_tid = *(pid_t *)(addr + TLSInfo_GetTidOffset());
-
-  ASSERT(tls_tid == tid,
-         "TLS tid does not match thread tid: tls_tid={} tid={}", tls_tid, tid);
-
-  // For glibc > 2.24, pid field is unused. Here we do the <24 check to ensure
-  // that distros with glibc 2.24-NNN are covered as well.
-  dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
-  ASSERT((glibc.major == 2 && glibc.minor >= 24) || tls_pid == pid,
-         "TLS pid does not match process pid: tls_pid={} pid={}", tls_pid,
-         pid);
-}
-
-/*****************************************************************************
- *
- *  Save state necessary for TLS restore
- *  Linux saves stuff in the GDT, switching it on a per-thread basis
- *
- *****************************************************************************/
-void
-TLSInfo_SaveTLSState(Thread *thread)
-{
-  thread->pthreadSelf = (void*) pthread_self();
-  tls_get_thread_area(thread);
-  return;
-}
-
-/*****************************************************************************
- *
- *  Restore the GDT entries that are part of a thread's state
- *
- *  The kernel provides set_thread_area system call for a thread to alter a
- *  particular range of GDT entries, and it switches those entries on a
- *  per-thread basis.  So from our perspective, this is per-thread state that is
- *  saved outside user addressable memory that must be manually saved.
- *
- *****************************************************************************/
-void
-TLSInfo_RestoreTLSState(Thread *thread)
-{
-  /* Every architecture needs a register to point to the current
-   * TLS (thread-local storage).  This is where we set it up.
-   */
-  tls_set_thread_area(thread);
-}
-
 void
 TLSInfo_RestoreTLSTidPid(Thread *thread)
 {
@@ -554,10 +379,10 @@ TLSInfo_RestoreTLSTidPid(Thread *thread)
 
   dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
   if (glibc.major == 2 && glibc.minor <= 24) {
-    *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetPidOffset()) =
-      getpid();
+    ASSERT_NOT_NULL(thread->pthreadShim.pidAddr());
+    *thread->pthreadShim.pidAddr() = getpid();
   }
 
-  *(pid_t *)((char*) thread->pthreadSelf + TLSInfo_GetTidOffset()) =
-     thread->tid;
+  ASSERT_NOT_NULL(thread->pthreadShim.tidAddr());
+  thread->pthreadShim.setTid(thread->tid);
 }

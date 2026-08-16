@@ -8958,10 +8958,18 @@ fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $has_aarch64_gcc" >&5
 printf "%s\n" "$has_aarch64_gcc" >&6; }
 
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether tid offset for glibc is correct" >&5
-printf %s "checking whether tid offset for glibc is correct... " >&6; }
-CFLAGS_orig="$CFLAGS"
-CFLAGS="$CFLAGS -pthread"
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether pthread field offsets for glibc are correct" >&5
+printf %s "checking whether pthread field offsets for glibc are correct... " >&6; }
+  ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+CXXFLAGS_orig="$CXXFLAGS"
+CPPFLAGS_orig="$CPPFLAGS"
+CXXFLAGS="$CXXFLAGS -pthread"
+CPPFLAGS="$CPPFLAGS -I$srcdir/src"
 if test "$cross_compiling" = yes
 then :
   { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in '$ac_pwd':" >&5
@@ -8971,7 +8979,7 @@ See 'config.log' for more details" "$LINENO" 5; }
 else case e in #(
   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-`cat util/check-pthread-tid-offset.c`
+`cat "$srcdir/util/check-pthread-field-offsets.cpp"`
 _ACEOF
 if ac_fn_c_try_run "$LINENO"
 then :
@@ -8980,7 +8988,9 @@ printf "%s\n" "yes" >&6; }
 else case e in #(
   e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-   as_fn_error $? "util/check-pthread-tid-offset.c failed; Read for explanation" "$LINENO" 5
+   as_fn_error $? \
+     "util/check-pthread-field-offsets.cpp failed; Read for explanation" \
+     "$LINENO" 5
  ;;
 esac
 fi
@@ -8989,7 +8999,14 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
 esac
 fi
 
-CFLAGS="$CFLAGS"
+CXXFLAGS="$CXXFLAGS_orig"
+CPPFLAGS="$CPPFLAGS_orig"
+  ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -13817,5 +13834,3 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 printf "%s\n" "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
-
-

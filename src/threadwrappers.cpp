@@ -114,13 +114,13 @@ pthread_create(pthread_t *pth,
   start->unlockWrapperExecutionLock =
     ThreadSync::wrapperExecutionLockLockForNewThread();
 
-  ASSERT(Thread_UpdateState(thread, ST_THREAD_CREATE, ST_RUNNING),
+  ASSERT(thread->updateState(ST_THREAD_CREATE, ST_RUNNING),
          "Failed to mark thread (tid:{}) from RUNNING to THREAD_CREATE",
          thread->tid);
 
   int retval = _real_pthread_create(pth, attr, thread_start, start);
 
-  ASSERT(Thread_UpdateState(thread, ST_RUNNING, ST_THREAD_CREATE),
+  ASSERT(thread->updateState(ST_RUNNING, ST_THREAD_CREATE),
          "Failed to mark thread (tid:{}) from THREAD_CREATE to RUNNING",
          thread->tid);
 

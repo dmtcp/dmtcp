@@ -23,6 +23,7 @@
 #define THREADLIST_H
 
 #include <signal.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <ucontext.h>
 #include "threadinfo.h"
@@ -35,6 +36,7 @@ void init();
 void createCkptThread();
 void resetOnFork();
 void threadExit();
+LibcPthreadShim pthreadShim(pthread_t pthread);
 
 void addToActiveList(Thread *th);
 void threadIsDead(Thread *thread);

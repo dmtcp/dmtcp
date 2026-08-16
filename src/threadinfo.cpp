@@ -1,0 +1,137 @@
+#include "threadinfo.h"
+
+#include <pthread.h>
+#include <unistd.h>
+
+#include "dmtcp.h"
+#include "dmtcp_assert.h"
+#include "plugin/pid/pidhelpers.h"
+#include "siginfo.h"
+#include "syscallwrappers.h"
+#include "tls.h"
+#include "util.h"
+
+static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
+extern sigset_t sigpending_global;
+
+bool
+ThreadInfo::updateState(ThreadState newState, ThreadState oldState)
+{
+  bool changed = false;
+
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadStateLock),
+                      "locking thread state");
+  if (oldState == state) {
+    state = newState;
+    changed = true;
+  }
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadStateLock),
+                      "unlocking thread state");
+  return changed;
+}
+
+void
+ThreadInfo::saveSigState()
+{
+  // Save signal mask and pending signals for this thread.
+  ASSERT_PTHREAD_SUCCESS(
+    pthread_sigmask(SIG_SETMASK, NULL, &sigblockmask),
+    "saving thread signal mask: tid={}",
+    tid);
+
+  ::sigpending(&sigpending);
+}
+
+void
+ThreadInfo::restoreSigState()
+{
+  // Restore signal mask and all pending signals.
+  TRACE("restoring signal mask for thread: tid={}", tid);
+  ASSERT_PTHREAD_SUCCESS(
+    pthread_sigmask(SIG_SETMASK, &sigblockmask, NULL),
+    "restoring thread signal mask: tid={}",
+    tid);
+
+  // Raise signals which were pending only for this thread at checkpoint time.
+  for (int i = SIGRTMAX; i > 0; --i) {
+    if (sigismember(&sigpending, i) == 1 &&
+        sigismember(&sigblockmask, i) == 1 &&
+        sigismember(&sigpending_global, i) == 0 &&
+        i != dmtcp_get_ckpt_signal()) {
+      if (i == SIGCHLD) {
+        NOTE("\n*** WARNING:  SIGCHLD was delivered prior to ckpt.\n"
+              "*** Will raise it on restart.  If not desired, change\n"
+              "*** this line raising SIGCHLD.");
+      }
+      raise(i);
+    }
+  }
+}
+
+void
+ThreadInfo::saveTLSState()
+{
+  // Save state necessary for TLS restore.  Linux saves this in per-thread GDT
+  // entries/registers outside user-addressable memory.
+  TLSInfo_GetThreadArea(&tlsInfo, tid);
+}
+
+void
+ThreadInfo::restoreTLSState()
+{
+  // Restore the per-thread TLS pointer/register state.
+  TLSInfo_SetThreadArea(&tlsInfo);
+}
+
+void
+ThreadInfo::verifyTLSPidTid(pid_t pid)
+{
+  pid_t tlsTid = pthreadShim.tid();
+
+  ASSERT(tlsTid == tid,
+         "TLS tid does not match thread tid: tls_tid={} tid={}", tlsTid, tid);
+
+  // For glibc > 2.24, pid field is unused. Here we do the <=24 check to ensure
+  // that distros with glibc 2.24-NNN are covered as well.
+  dmtcp::Util::Version glibc = dmtcp::Util::glibcVersion();
+  if (glibc.major == 2 && glibc.minor <= 24) {
+    ASSERT_NOT_NULL(pthreadShim.pidAddr());
+    pid_t tlsPid = *pthreadShim.pidAddr();
+    ASSERT(tlsPid == pid,
+           "TLS pid does not match process pid: tls_pid={} pid={}", tlsPid,
+           pid);
+  }
+}
+
+int
+ThreadInfo::sendSignal(int sig)
+{
+  return dmtcp_tgkill(getpid(), tid, sig);
+}
+
+void
+ThreadInfo::markExiting()
+{
+  exiting = 1;
+}
+
+void
+ThreadInfo::initPthreadFields()
+{
+  pthread = pthread_self();
+  pthreadShim = LibcPthreadShim::from(pthread);
+  ptid = pthreadShim.tidAddr();
+  ctid = ptid;
+}
+
+void
+ThreadInfo::setSigmask()
+{
+  sigset_t set;
+  sigemptyset(&set);
+  sigaddset(&set, dmtcp::SigInfo::ckptSignal());
+  ASSERT_PTHREAD_SUCCESS(
+    _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),
+    "unblocking checkpoint signal in thread: signal={}",
+    dmtcp::SigInfo::ckptSignal());
+}

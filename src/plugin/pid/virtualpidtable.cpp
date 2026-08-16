@@ -44,11 +44,6 @@ static pid_t _dmtcp_ppid = -1;
 static pid_t _dmtcp_realPid = -1;
 static pid_t _dmtcp_realPpid = -1;
 
-#ifndef USE_VIRTUAL_TID_LIBC_STRUCT_PTHREAD
-#define dmtcp_pthread_set_tid(pth, tid) do {} while (0)
-#endif
-
-
 VirtualPidTable::VirtualPidTable()
   : VirtualIdTable<pid_t>("Pid", _dmtcp_pid)
 {

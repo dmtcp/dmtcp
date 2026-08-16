@@ -451,16 +451,22 @@ if test "$is_aarch64_host" == "yes" -a "$CC" == "gcc"; then
 fi
 AC_MSG_RESULT([$has_aarch64_gcc])
 
-AC_MSG_CHECKING([whether tid offset for glibc is correct])
-CFLAGS_orig="$CFLAGS"
-CFLAGS="$CFLAGS -pthread"
+AC_MSG_CHECKING([whether pthread field offsets for glibc are correct])
+AC_LANG_PUSH([C++])
+CXXFLAGS_orig="$CXXFLAGS"
+CPPFLAGS_orig="$CPPFLAGS"
+CXXFLAGS="$CXXFLAGS -pthread"
+CPPFLAGS="$CPPFLAGS -I$srcdir/src"
 AC_RUN_IFELSE(
-   [AC_LANG_SOURCE([`cat util/check-pthread-tid-offset.c`])],
+   [AC_LANG_SOURCE([`cat "$srcdir/util/check-pthread-field-offsets.cpp"`])],
    [AC_MSG_RESULT([yes])],
    [AC_MSG_RESULT([no])]
-   [AC_MSG_ERROR([util/check-pthread-tid-offset.c failed; Read for explanation])]
+   [AC_MSG_ERROR([util/check-pthread-field-offsets.cpp failed;
+                  Read for explanation])]
 )
-CFLAGS="$CFLAGS"
+CXXFLAGS="$CXXFLAGS_orig"
+CPPFLAGS="$CPPFLAGS_orig"
+AC_LANG_POP([C++])
 AC_OUTPUT
 
 AC_MSG_CHECKING([if this is WSL (Windows Subystem for Linux)])

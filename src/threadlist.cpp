@@ -58,7 +58,6 @@ void *saved_sysinfo;
 static const char *DMTCP_PRGNAME_PREFIX = "DMTCP:";
 
 static DmtcpMutex threadlistLock = DMTCP_MUTEX_INITIALIZER;
-static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
 // Thread initialization runs before curThread exists; normal locks call gettid().
 static DmtcpMutex threadInitLock = DMTCP_MUTEX_INITIALIZER_LLL;
 
@@ -80,8 +79,6 @@ static sem_t semWaitForCkptThreadSignal;
 static void *checkpointhread(void *dummy);
 static void stopthisthread(int sig);
 static int restarthread(void *threadv);
-static void Thread_SaveSigState(Thread *th);
-static void Thread_RestoreSigState(Thread *th);
 
 /*****************************************************************************
  *
@@ -98,12 +95,6 @@ static void
 unlock_threads(void)
 {
   ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadlistLock));
-}
-
-static int
-signalThread(Thread *thread, int sig)
-{
-  return dmtcp_tgkill(getpid(), thread->tid, sig);
 }
 
 bool dmtcp_is_ckpt_thread()
@@ -207,8 +198,7 @@ ThreadList::init()
   curThread = th;
   // Initialize tid after curThread is set so PID helpers do not recurse back
   // into ThreadList::init().
-  th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
-  th->ctid = th->ptid;
+  th->initPthreadFields();
   th->tid = dmtcp_pid_init_thread_tid();
   th->setSigmask();
 
@@ -262,7 +252,32 @@ ThreadList::createCkptThread()
 void
 ThreadList::threadExit()
 {
-  curThread->exiting = 1;
+  curThread->markExiting();
+}
+
+LibcPthreadShim
+ThreadList::pthreadShim(pthread_t pthread)
+{
+  if (curThread == nullptr) {
+    return LibcPthreadShim::from(pthread);
+  }
+
+  if (curThread->pthread == pthread) {
+    return curThread->pthreadShim;
+  }
+
+  lock_threads();
+  for (Thread *thread = activeThreads; thread != nullptr;
+       thread = thread->next) {
+    if (thread->pthread == pthread) {
+      LibcPthreadShim shim = thread->pthreadShim;
+      unlock_threads();
+      return shim;
+    }
+  }
+  unlock_threads();
+
+  return LibcPthreadShim::from(pthread);
 }
 
 /*************************************************************************
@@ -333,8 +348,6 @@ checkpointhread(void *dummy)
      * session leaders.
      * Similarly, SIGCANCEL/SIGTIMER is undocumented, but used by glibc.
      */
-#define SIGSETXID (__SIGRTMIN + 1)
-#define SIGCANCEL (__SIGRTMIN) /* aka SIGTIMER */
     sigset_t set;
 
     sigfillset(&set);
@@ -393,10 +406,10 @@ checkpointhread(void *dummy)
 
     // Gather ckpt-thread's TLS state as it could have changed as a result of
     // dlopening libraries with TLS objects.
-    TLSInfo_SaveTLSState(ckptThread);
+    ckptThread->saveTLSState();
 
     // Save signal mask and capture any pending signals.
-    Thread_SaveSigState(ckptThread);
+    ckptThread->saveSigState();
 
     /* All other threads halted in 'stopthisthread' routine (they are all
      * in state ST_SUSPENDED).  It's safe to write checkpoint file now.
@@ -447,8 +460,8 @@ ThreadList::suspendThreads()
         /* Thread is running. Send it a signal so it will call stopthisthread.
          * We will need to rescan (hopefully it will be suspended by then)
          */
-        if (Thread_UpdateState(thread, ST_SIGNALED, ST_RUNNING)) {
-          if (signalThread(thread, SigInfo::ckptSignal()) < 0) {
+        if (thread->updateState(ST_SIGNALED, ST_RUNNING)) {
+          if (thread->sendSignal(SigInfo::ckptSignal()) < 0) {
             ASSERT_ERRNO(errno == ESRCH,
                          "error signalling thread for checkpoint: tid={} "
                          "signal={}",
@@ -461,7 +474,7 @@ ThreadList::suspendThreads()
         break;
 
       case ST_SIGNALED:
-        if (signalThread(thread, 0) == -1 && errno == ESRCH) {
+        if (thread->sendSignal(0) == -1 && errno == ESRCH) {
           ThreadList::threadIsDead(thread);
         } else {
           needrescan = 1;
@@ -509,7 +522,7 @@ void ThreadList::waitForExitingThreads()
     for (Thread *thread = activeThreads; thread != NULL; thread = next) {
       next = thread->next;
       if (thread->exiting) {
-        if (signalThread(thread, 0) == -1 && errno == ESRCH) {
+        if (thread->sendSignal(0) == -1 && errno == ESRCH) {
           // Thread exited. Let's remove it from the list.
           ThreadList::threadIsDead(thread);
         } else {
@@ -587,13 +600,13 @@ stopthisthread(int signum)
   }
 
   // make sure we don't get called twice for same thread
-  if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
+  if (curThread->updateState(ST_SUSPINPROG, ST_SIGNALED)) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
     WARN_NE(-1, prctl(PR_GET_NAME, curThread->procname));
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
-    Thread_SaveSigState(curThread);  // save sig state (and block sig delivery)
-    TLSInfo_SaveTLSState(curThread);  // save thread local storage state
+    curThread->saveSigState();  // save sig state (and block sig delivery)
+    curThread->saveTLSState();
 
     /* Set up our restart point, ie, we get jumped to here after a restore */
 #ifdef SETJMP
@@ -614,7 +627,7 @@ stopthisthread(int signum)
        */
 
       /* Tell the checkpoint thread that we're all saved away */
-      ASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG),
+      ASSERT(curThread->updateState(ST_SUSPENDED, ST_SUSPINPROG),
              "Failed to mark thread (tid:{}) from SUSPEND_IN_PROGRESS to "
              "SUSPENDED",
              curThread->tid);
@@ -634,7 +647,7 @@ stopthisthread(int signum)
       // The change in sem_wait behavior was first introduce in glibc 2.21.
       ASSERT_LOCK_SUCCESS(DmtcpRWLockRdLock(&threadResumeLock));
 
-      ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
+      ASSERT(curThread->updateState(ST_RUNNING, ST_SUSPENDED),
              "Failed to mark thread (tid:{}) from SUSPENDED to RUNNING "
              "after checkpoint",
              curThread->tid);
@@ -661,7 +674,7 @@ stopthisthread(int signum)
                    "prctl(PR_SET_NAME) failed");
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 
-      ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED),
+      ASSERT(curThread->updateState(ST_RUNNING, ST_SUSPENDED),
              "Failed to mark restored thread (tid:{}) from SUSPENDED to "
              "RUNNING",
              curThread->tid);
@@ -726,7 +739,7 @@ ThreadList::waitForAllRestored(Thread *thread)
 
   PluginManager::eventHook(DMTCP_EVENT_THREAD_RESUME);
 
-  Thread_RestoreSigState(thread);
+  thread->restoreSigState();
 
   if (thread == motherofall) {
     DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 7);
@@ -739,8 +752,7 @@ ThreadList::waitForAllRestored(Thread *thread)
 void
 ThreadList::postRestart(int restartPause)
 {
-  // This function and related ones are defined in src/tls.cpp
-  TLSInfo_RestoreTLSState(motherofall);
+  motherofall->restoreTLSState();
   TLSInfo_RestoreTLSTidPid(motherofall);
 
   restartPauseLevel = restartPause;
@@ -811,7 +823,7 @@ restarthread(void *threadv)
 {
   Thread *thread = (Thread *)threadv;
 
-  TLSInfo_RestoreTLSState(thread);
+  thread->restoreTLSState();
   TLSInfo_RestoreTLSTidPid(thread);
 
   if (TLSInfo_HaveThreadSysinfoOffset()) {
@@ -838,76 +850,6 @@ restarthread(void *threadv)
   ASSERT(false, "restored thread context unexpectedly returned: tid={}",
          thread->tid);
   return 0;   /* NOTREACHED : stop compiler warning */
-}
-
-/*****************************************************************************
- *
- *****************************************************************************/
-int
-Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval)
-{
-  int res = 0;
-
-  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadStateLock),
-                      "locking thread state");
-  if (oldval == th->state) {
-    th->state = newval;
-    res = 1;
-  }
-  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadStateLock),
-                      "unlocking thread state");
-  return res;
-}
-
-/*****************************************************************************
- *
- *  Save signal mask and list of pending signals delivery
- *
- *****************************************************************************/
-void
-Thread_SaveSigState(Thread *th)
-{
-  // Save signal block mask
-  ASSERT_PTHREAD_SUCCESS(
-    pthread_sigmask(SIG_SETMASK, NULL, &th->sigblockmask),
-    "saving thread signal mask: tid={}",
-    th->tid);
-
-  // Save pending signals
-  sigpending(&th->sigpending);
-}
-
-/*****************************************************************************
- *
- *  Restore signal mask and all pending signals
- *
- *****************************************************************************/
-void
-Thread_RestoreSigState(Thread *th)
-{
-  int i;
-
-  TRACE("restoring signal mask for thread: tid={}", th->tid);
-  ASSERT_PTHREAD_SUCCESS(
-    pthread_sigmask(SIG_SETMASK, &th->sigblockmask, NULL),
-    "restoring thread signal mask: tid={}",
-    th->tid);
-
-  // Raise the signals which were pending for only this thread at the time of
-  // checkpoint.
-  for (i = SIGRTMAX; i > 0; --i) {
-    if (sigismember(&th->sigpending, i) == 1 &&
-        sigismember(&th->sigblockmask, i) == 1 &&
-        sigismember(&sigpending_global, i) == 0 &&
-        i != dmtcp_get_ckpt_signal()) {
-      if (i == SIGCHLD) {
-        NOTE("\n*** WARNING:  SIGCHLD was delivered prior to ckpt.\n"
-              "*** Will raise it on restart.  If not desired, change\n"
-              "*** this line raising SIGCHLD.");
-      }
-      raise(i);
-    }
-  }
 }
 
 /*****************************************************************************
@@ -944,7 +886,7 @@ ThreadList::addToActiveList(Thread *th)
      */
     if (thread->exiting) {
       /* if no thread with this tid, then we can remove zombie descriptor */
-      if (-1 == signalThread(thread, 0)) {
+      if (-1 == thread->sendSignal(0)) {
         TRACE("Killing zombie thread: tid={}", thread->tid);
         threadIsDead(thread);
       }

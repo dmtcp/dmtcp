@@ -42,13 +42,10 @@
 #endif // ifdef __x86_64__
 
 
-int TLSInfo_GetTidOffset();
-int TLSInfo_GetPidOffset();
 void TLSInfo_PostRestart();
-void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid);
 void TLSInfo_UpdatePid();
-void TLSInfo_SaveTLSState(Thread *thread);
-void TLSInfo_RestoreTLSState(Thread *thread);
+void TLSInfo_GetThreadArea(ThreadTLSInfo *tlsInfo, pid_t tid);
+void TLSInfo_SetThreadArea(ThreadTLSInfo *tlsInfo);
 void TLSInfo_RestoreTLSTidPid(Thread *thread);
 void TLSInfo_SetThreadSysinfo(void *sysinfo);
 void *TLSInfo_GetThreadSysinfo();
