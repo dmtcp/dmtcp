@@ -22,7 +22,13 @@
 #include <sys/resource.h>
 #include <linux/version.h>
 #include <errno.h>
+#include <elf.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <string_view>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
 # include <sys/personality.h>
@@ -52,7 +58,7 @@ static bool testSetuid(const char *filename);
 static void testStaticallyLinked(const char *filename);
 static bool testScreen(const char **argv, const char ***newArgv);
 static void testFsGsBase();
-static void setLDPreloadLibs(bool is32bitElf);
+static void setLDPreloadLibs(bool is32bitElf, const char *targetPath);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -587,16 +593,15 @@ main(int argc, const char **argv)
 
   // set up CHECKPOINT_DIR
   if (getenv(ENV_VAR_CHECKPOINT_DIR) == NULL) {
-    const char *ckptDir = get_current_dir_name();
+    char *ckptDir = get_current_dir_name();
     if (ckptDir != NULL) {
-      // copy to private buffer
-      static string _buf = ckptDir;
-      ckptDir = _buf.c_str();
+      setenv(ENV_VAR_CHECKPOINT_DIR, ckptDir, 0);
+      TRACE("setting " ENV_VAR_CHECKPOINT_DIR ": value={}", ckptDir);
+      free(ckptDir);
     } else {
-      ckptDir = ".";
+      setenv(ENV_VAR_CHECKPOINT_DIR, ".", 0);
+      TRACE("setting " ENV_VAR_CHECKPOINT_DIR ": value=.");
     }
-    setenv(ENV_VAR_CHECKPOINT_DIR, ckptDir, 0);
-    TRACE("setting " ENV_VAR_CHECKPOINT_DIR ": value={}", ckptDir);
   }
 
   if (checkpointOpenFiles) {
@@ -650,7 +655,7 @@ main(int argc, const char **argv)
   // from DmtcpWorker constructor, to distinguish the two cases.
   Util::adjustRlimitStack();
 
-  setLDPreloadLibs(is32bitElf);
+  setLDPreloadLibs(is32bitElf, argv[0]);
 
   // run the user program
   const char **newArgv = NULL;
@@ -802,8 +807,242 @@ syncPluginEnvWithLauncherState(const char *envName, bool *enabled)
   }
 }
 
+// Locate an ELF's dynamic array and .dynstr (DT_STRTAB) region; NULL on any
+// problem.  Templated over the 32-/64-bit ELF structs.
+template <typename Ehdr, typename Phdr, typename Dyn>
+static const Dyn *
+elfDynamic(const char *base, size_t size, size_t *ndyn,
+           size_t *strOff, size_t *strSz)
+{
+  *ndyn = 0; *strOff = 0; *strSz = 0;
+  const Ehdr *eh = (const Ehdr *)base;
+  // Use subtraction-based comparisons so a malformed ELF with huge
+  // file-controlled offsets cannot overflow the sum and bypass the bound.
+  if (eh->e_phoff == 0 || eh->e_phoff > size ||
+      eh->e_phnum > (size - eh->e_phoff) / sizeof(Phdr)) {
+    return NULL;
+  }
+  const Phdr *ph = (const Phdr *)(base + eh->e_phoff);
+
+  // Locate PT_DYNAMIC and remember PT_LOAD segments to map vaddr -> file off.
+  const Phdr *dyn = NULL;
+  const Phdr *loads[64];
+  int nloads = 0;
+  for (int i = 0; i < eh->e_phnum; i++) {
+    if (ph[i].p_type == PT_DYNAMIC) {
+      dyn = &ph[i];
+    } else if (ph[i].p_type == PT_LOAD && nloads < 64) {
+      loads[nloads++] = &ph[i];
+    }
+  }
+  if (dyn == NULL || dyn->p_offset > size ||
+      dyn->p_filesz > size - dyn->p_offset) {
+    return NULL;
+  }
+
+  const Dyn *d = (const Dyn *)(base + dyn->p_offset);
+  size_t n = dyn->p_filesz / sizeof(Dyn);
+  uint64_t strVaddr = 0;
+  size_t strSize = 0;
+  for (size_t i = 0; i < n && d[i].d_tag != DT_NULL; i++) {
+    if (d[i].d_tag == DT_STRTAB) {
+      strVaddr = d[i].d_un.d_ptr;
+    } else if (d[i].d_tag == DT_STRSZ) {
+      strSize = d[i].d_un.d_val;
+    }
+  }
+  if (strVaddr == 0) {
+    return NULL;
+  }
+  for (int i = 0; i < nloads; i++) {
+    if (strVaddr >= loads[i]->p_vaddr &&
+        strVaddr < loads[i]->p_vaddr + loads[i]->p_filesz) {
+      size_t off = loads[i]->p_offset + (strVaddr - loads[i]->p_vaddr);
+      if (off > size) {
+        return NULL;
+      }
+      *strOff = off;
+      *strSz = (strSize != 0 && strSize <= size - off) ? strSize : size - off;
+      *ndyn = n;
+      return d;
+    }
+  }
+  return NULL;
+}
+
+// Return the DT_NEEDED soname containing `needle` (e.g. "libtsan.so.2"), or "".
+template <typename Ehdr, typename Phdr, typename Dyn>
+static string
+elfNeededMatching(const char *base, size_t size, const char *needle)
+{
+  size_t ndyn, strOff, strSz;
+  const Dyn *d = elfDynamic<Ehdr, Phdr, Dyn>(base, size, &ndyn, &strOff, &strSz);
+  if (d == NULL) {
+    return "";
+  }
+  for (size_t i = 0; i < ndyn && d[i].d_tag != DT_NULL; i++) {
+    if (d[i].d_tag != DT_NEEDED) {
+      continue;
+    }
+    size_t nameOff = strOff + d[i].d_un.d_val;
+    if (nameOff >= size) {
+      continue;
+    }
+    const char *name = base + nameOff;
+    size_t maxlen = size - nameOff;
+    if (strnlen(name, maxlen) < maxlen && strstr(name, needle) != NULL) {
+      return string(name);
+    }
+  }
+  return "";
+}
+
+// Return true if the ELF's .dynstr contains `needle`.  Detects a
+// statically-linked TSAN runtime (clang default): no DT_NEEDED entry, but
+// exports "__tsan_*" symbols.
+template <typename Ehdr, typename Phdr, typename Dyn>
+static bool
+elfDynstrContains(const char *base, size_t size, const char *needle)
+{
+  size_t ndyn, strOff, strSz;
+  if (elfDynamic<Ehdr, Phdr, Dyn>(base, size, &ndyn, &strOff, &strSz) == NULL) {
+    return false;
+  }
+  return std::string_view(base + strOff, strSz).find(needle) !=
+         std::string_view::npos;
+}
+
+// Inspect the target ELF for ThreadSanitizer.  Returns the DT_NEEDED soname of
+// a shared TSAN runtime (gcc libtsan.so*, or clang libclang_rt.tsan*.so), or ""
+// if none (including for a statically-linked runtime).  Sets *isTsan for any
+// TSAN target, shared or static.
+static string
+detectTsanRuntime(const char *path, bool *isTsan)
+{
+  *isTsan = false;
+  char full[PATH_MAX];
+  Util::expandPathname(path, full, sizeof(full));
+  int fd = open(full, O_RDONLY);
+  if (fd < 0) {
+    return "";
+  }
+  struct stat st;
+  if (fstat(fd, &st) != 0 || (size_t)st.st_size < sizeof(Elf64_Ehdr)) {
+    close(fd);
+    return "";
+  }
+  size_t size = st.st_size;
+  void *map = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+  close(fd);
+  if (map == MAP_FAILED) {
+    return "";
+  }
+
+  const char *base = (const char *)map;
+  string result;
+  if (memcmp(base, ELFMAG, SELFMAG) == 0) {
+    bool is64 = base[EI_CLASS] == ELFCLASS64;
+    bool is32 = base[EI_CLASS] == ELFCLASS32;
+    static const char *const needles[] = { "libtsan.so", "libclang_rt.tsan" };
+    for (size_t n = 0; n < 2 && result.empty(); n++) {
+      if (is64) {
+        result = elfNeededMatching<Elf64_Ehdr, Elf64_Phdr, Elf64_Dyn>(
+          base, size, needles[n]);
+      } else if (is32) {
+        result = elfNeededMatching<Elf32_Ehdr, Elf32_Phdr, Elf32_Dyn>(
+          base, size, needles[n]);
+      }
+    }
+    bool hasTsanSym = false;
+    if (is64) {
+      hasTsanSym = elfDynstrContains<Elf64_Ehdr, Elf64_Phdr, Elf64_Dyn>(
+        base, size, "__tsan_init");
+    } else if (is32) {
+      hasTsanSym = elfDynstrContains<Elf32_Ehdr, Elf32_Phdr, Elf32_Dyn>(
+        base, size, "__tsan_init");
+    }
+    *isTsan = !result.empty() || hasTsanSym;
+  }
+  munmap(map, size);
+  return result;
+}
+
+// On restart, the checkpoint thread's TSAN state is stale (mtcp_restart
+// recreated it outside TSAN's interceptor), so TSAN hangs on DMTCP's first
+// libc call during restart. Suppress TSAN for libdmtcp.so calls instead
+// (see setTsanSuppressions() below); __tsan_ignore_thread_* misses sync
+// calls, and no_sanitize has no effect on TSAN's runtime interceptors.
+[[maybe_unused]] static void
+setTsanSuppressions(const string &tmpDir)
+{
+  // TSAN honors only a single suppressions file. So do not clobber one the
+  // user already provided; tell them how to add our rule instead.
+  const char *existing = getenv("TSAN_OPTIONS");
+  string opts = (existing != NULL) ? existing : "";
+  if (opts.find("suppressions=") != string::npos) {
+    WARN(false,
+         "TSAN_OPTIONS already sets 'suppressions='; DMTCP cannot add its own. "
+         "For checkpoint/restart of a TSAN target to work, add this line to "
+         "your suppressions file: called_from_lib:libdmtcp.so");
+    return;
+  }
+
+  string suppPath = tmpDir + "/tsan-suppressions.txt";
+  // Write to a per-pid temp then rename so a concurrent launcher's TSAN never
+  // reads a half-written file (rename is atomic; the content is identical).
+  string tmpPath = suppPath + "." + jalib::XToString(getpid());
+  static const char contents[] = "called_from_lib:libdmtcp.so\n";
+
+  int fd = open(tmpPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  bool ok = (fd != -1) &&
+            (write(fd, contents, sizeof(contents) - 1) ==
+             (ssize_t)(sizeof(contents) - 1));
+  if (fd != -1) {
+    close(fd);
+  }
+  if (ok) {
+    ok = (rename(tmpPath.c_str(), suppPath.c_str()) == 0);
+  }
+  if (!ok) {
+    WARN_ERRNO(false,
+               "Could not write TSAN suppressions file; checkpoint/restart of "
+               "a TSAN target may hang. path={}",
+               suppPath);
+    unlink(tmpPath.c_str());
+    return;
+  }
+
+  string newOpts = opts.empty() ? string() : opts + " ";
+  newOpts += "suppressions=" + suppPath;
+  setenv("TSAN_OPTIONS", newOpts.c_str(), 1);
+  TRACE("TSAN suppressions installed: TSAN_OPTIONS={}", getenv("TSAN_OPTIONS"));
+  TRACE("TSAN suppressions can hide real bugs in DMTCP itself, not just "
+        "benign internal synchronization. On restart, they are required: "
+        "without them, TSAN inspects the checkpoint thread's fiber/"
+        "ThreadState and finds it corrupted. If debugging a TSAN-related "
+        "checkpoint/restart issue, try temporarily pointing "
+        "TSAN_OPTIONS=suppressions= at an empty file to see what TSAN "
+        "reports with suppressions off.");
+}
+
+// Alternative to setTsanSuppressions(): instead of a suppressions file,
+// tell TSAN to ignore all modules it did not itself instrument (i.e.
+// everything but the target and libtsan.so), which includes libdmtcp.so.
+// This is roughly equivalent to wrapping every call into a noninstrumented
+// module with __tsan_ignore_thread_begin/end().
 static void
-setLDPreloadLibs(bool is32bitElf)
+setTsanIgnoreNoninstrumentedModules()
+{
+  const char *existing = getenv("TSAN_OPTIONS");
+  string opts = (existing != NULL) ? existing : "";
+  string newOpts = opts.empty() ? string() : opts + " ";
+  newOpts += "ignore_noninstrumented_modules=true";
+  setenv("TSAN_OPTIONS", newOpts.c_str(), 1);
+  TRACE("TSAN ignore_noninstrumented_modules=true: TSAN_OPTIONS={}", getenv("TSAN_OPTIONS"));
+}
+
+static void
+setLDPreloadLibs(bool is32bitElf, const char *targetPath)
 {
   // preloadLibs are to set LD_PRELOAD:
   // LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
@@ -867,6 +1106,42 @@ setLDPreloadLibs(bool is32bitElf)
 #if defined(__x86_64__) || defined(__aarch64__)
     preloadLibs32 = preloadLibs32 + ":" + getenv("LD_PRELOAD");
 #endif // if defined(__x86_64__) || defined(__aarch64__)
+  }
+
+  // A shared TSAN runtime must interpose before libdmtcp, so prepend its
+  // soname to LD_PRELOAD (see detectTsanRuntime()).  Not added to
+  // ENV_VAR_HIJACK_LIBS: it's the target's own dependency, not a DMTCP lib
+  // for restoreUserLDPRELOAD() to strip.
+  bool isTsan = false;
+  string tsanLib = detectTsanRuntime(targetPath, &isTsan);
+  if (!tsanLib.empty()) {
+    TRACE("TSAN runtime detected; prepending to LD_PRELOAD: tsanLib={}",
+          tsanLib);
+    preloadLibs = tsanLib + ":" + preloadLibs;
+#if defined(__x86_64__) || defined(__aarch64__)
+    preloadLibs32 = tsanLib + ":" + preloadLibs32;
+#endif // if defined(__x86_64__) || defined(__aarch64__)
+  }
+  if (isTsan) {
+    // TSAN requires ASLR off (else it can abort with "unexpected memory
+    // mapping"); DMTCP restart also wants stable addresses.  Set it here so
+    // it's inherited across the exec of the target.
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
+    // Read-modify-write to preserve inherited personality bits (e.g.
+    // READ_IMPLIES_EXEC), as setarch -R does.  (gcc-14+/clang-18+ do this
+    // themselves and re-exec, but we execvp() anyway.)
+    int persona = personality(0xffffffffUL);
+    WARN_ERRNO(persona != -1 &&
+               personality((unsigned long)persona | ADDR_NO_RANDOMIZE) != -1,
+               "Could not disable ASLR for TSAN target; "
+               "run under `setarch -R` if TSAN aborts on startup.");
+#endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
+
+    // Make TSAN ignore DMTCP's own libc calls so checkpoint/restart does not
+    // hang in a TSAN interceptor running on the (post-restart, stale-state)
+    // checkpoint thread.  See setTsanSuppressions() for the full rationale.
+    // Previously used setTsanSuppressions() instead of this.
+    setTsanIgnoreNoninstrumentedModules();
   }
 
   if (enableKernelLoader) {

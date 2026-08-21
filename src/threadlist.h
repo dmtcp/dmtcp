@@ -22,6 +22,7 @@
 #ifndef THREADLIST_H
 #define THREADLIST_H
 
+#include <pthread.h>
 #include <signal.h>
 #include <sys/types.h>
 #include <ucontext.h>
@@ -31,13 +32,17 @@ namespace dmtcp
 {
 namespace ThreadList
 {
-void init();
+Thread *init();
 void createCkptThread();
-Thread *getNewThread(void *(*fn)(void *), void *arg);
-void prepareThread(Thread *th, void *(*fn)(void *), void *arg);
-void initThread(Thread *);
 void resetOnFork();
 void threadExit();
+
+// TSAN-helper-thread detection: brackets createCkptThread()'s
+// pthread_create() call so the wrapper (threadwrappers.cpp) can report
+// thread-creation requests seen during it. See beginCkptThreadCreationWindow().
+void beginCkptThreadCreationWindow();
+void registerCkptThreadWindowCandidate(pthread_t pth);
+void endCkptThreadCreationWindow();
 
 Thread *allocNewThread();
 void addToActiveList(Thread *th);
@@ -57,7 +62,5 @@ void postRestartWork();
 void postRestart(int restartPause);
 }
 }
-
-EXTERNC void dmtcp_init_virtual_tid() __attribute((weak));
 
 #endif // ifndef THREADLIST_H

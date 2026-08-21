@@ -65,10 +65,12 @@ dmtcp_get_tmpdir()
 const char *
 dmtcp_get_uniquepid_str()
 {
-  static string uniquepid_str;
+  static string *uniquepid_str = NULL;
 
-  uniquepid_str = UniquePid::ThisProcess(true).toString();
-  return uniquepid_str.c_str();
+  if (uniquepid_str == NULL) {
+    uniquepid_str = new string(UniquePid::ThisProcess(true).toString());
+  }
+  return uniquepid_str->c_str();
 }
 
 DmtcpUniqueProcessId

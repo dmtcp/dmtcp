@@ -378,13 +378,18 @@ ProcessInfo::updateRestoreBufAddr()
   // This method could be called by ProcessInfo::init() or ProcessInfo::restart().
   // If it was called by ProcessInfo::restart(), then mtcp_restart() will
   // have mmap'ed this "restoreBuf".
-  // NOTE:  We are now doing 'munmap' on it, only to do ''mmap' on it once again
-  //        at the end of this method.  We need to munmap/mmap because we want
-  //        to free the backing physical pages created by mtcp_restart.
+  // NOTE:  We are now doing 'munmap' on it, only to do 'mmap' on it once
+  //        again at the end of this method.  We need to munmap/mmap because
+  //        we want to free the backing physical pages created by
+  //        mtcp_restart.
+  //
+  // Raw syscalls, not the libc wrappers: TSAN's munmap()/mmap() interceptors
+  // crash on stale metadata for this range (mtcp_restart touched it via its
+  // own raw syscalls, invisible to TSAN). Same fix as Util::writeAll/readAll.
 
   if (restoreBuf.startAddr != 0) {
     ASSERT_NE(-1,
-      munmap((void*) restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE),
+      syscall(SYS_munmap, restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE),
       "failed to unmap restore buffer: start={} size={}",
       restoreBuf.startAddr, RESTORE_BUF_TOTAL_SIZE);
   }
@@ -400,7 +405,15 @@ ProcessInfo::updateRestoreBufAddr()
   //         previously set _restoreBufLen to RESTORE_TOTAL_SIZE.  So, we
   //         have now made the round trip.  This is spaghetti code. :-(
   uint64_t requestedAddr = restoreBuf.startAddr;
-  restoreBuf.startAddr = (uint64_t) mmap((void*)requestedAddr,
+#ifdef __i386__
+  // i386's SYS_mmap uses the legacy single-struct-pointer ABI; use SYS_mmap2
+  // instead, which takes the same 6 args below (offset is in pages, but 0
+  // either way here).
+  const long mmapSyscallNr = SYS_mmap2;
+#else
+  const long mmapSyscallNr = SYS_mmap;
+#endif
+  restoreBuf.startAddr = (uint64_t) syscall(mmapSyscallNr, requestedAddr,
                                          RESTORE_BUF_TOTAL_SIZE,
                                          PROT_NONE, flags, -1, 0);
   ASSERT_ERRNO(restoreBuf.startAddr != (uint64_t) MAP_FAILED,
@@ -840,11 +853,14 @@ ProcessInfo::addKeyValuePairToCkptHeader(const string &key, const string &value)
 const string&
 ProcessInfo::getValue(const string &key)
 {
-  static string *empty = new string();
   if (kvmap.contains(key)) {
     return kvmap[key];
   }
 
+  static string *empty = NULL;
+  if (empty == NULL) {
+    empty = new string();
+  }
   return *empty;
 }
 

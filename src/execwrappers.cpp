@@ -20,7 +20,11 @@
  ****************************************************************************/
 
 #include <errno.h>
+#include <link.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "constants.h"
@@ -149,16 +153,93 @@ dmtcp_prepare_atfork(void)
   }
 }
 
+// Every pthread_atfork() call (including TSan's own, from its constructor)
+// reaches this wrapper, via dso_handle identifying the registering shared
+// object. Captured here so DMTCP can later bracket SIGCKPT delivery with
+// TSan's own AtForkPrepare/AtForkParent as a stop-the-world lock against
+// TSan-internal state, instead of hardcoding a private symbol name.
+static void (*tsanAtForkPrepareFn)(void) = NULL;
+static void (*tsanAtForkParentFn)(void) = NULL;
+
+struct FindLibRangeArgs {
+  const char *libNameSubstr;
+  uintptr_t start;
+  uintptr_t end;
+  bool found;
+};
+
+static int
+findLibRangeCallback(struct dl_phdr_info *info, size_t size, void *data)
+{
+  FindLibRangeArgs *args = (FindLibRangeArgs *) data;
+  if (info->dlpi_name == NULL ||
+      strstr(info->dlpi_name, args->libNameSubstr) == NULL) {
+    return 0;
+  }
+  uintptr_t lo = (uintptr_t) -1;
+  uintptr_t hi = 0;
+  for (int i = 0; i < info->dlpi_phnum; i++) {
+    if (info->dlpi_phdr[i].p_type == PT_LOAD) {
+      uintptr_t segStart = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr;
+      uintptr_t segEnd = segStart + info->dlpi_phdr[i].p_memsz;
+      if (segStart < lo) {
+        lo = segStart;
+      }
+      if (segEnd > hi) {
+        hi = segEnd;
+      }
+    }
+  }
+  args->start = lo;
+  args->end = hi;
+  args->found = true;
+  return 1;
+}
+
+static bool
+addressInLibrary(void *addr, const char *libNameSubstr)
+{
+  FindLibRangeArgs args = { libNameSubstr, 0, 0, false };
+  dl_iterate_phdr(findLibRangeCallback, &args);
+  return args.found &&
+         (uintptr_t) addr >= args.start && (uintptr_t) addr < args.end;
+}
+
 extern "C" int
 __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(
                     void), void *dso_handle)
 {
   dmtcp_prepare_atfork();
 
+  if (tsanAtForkPrepareFn == NULL &&
+      addressInLibrary(dso_handle, "libtsan.so")) {
+    tsanAtForkPrepareFn = prepare;
+    tsanAtForkParentFn = parent;
+  }
+
   /* dmtcp_initialize() must be called before __register_atfork().
    * NEXT_FNC() guarantees that dmtcp_initialize() is called if
    * it was not called earlier. */
   return NEXT_FNC(__register_atfork)(prepare, parent, child, dso_handle);
+}
+
+// Brackets SIGCKPT delivery with TSan's own fork-safety locking: no thread
+// can be caught mid-interceptor, holding a TSan-internal lock, while these
+// are in effect. No-ops if the symbol lookup above never captured them.
+extern "C" void
+dmtcp_tsan_atfork_prepare_if_captured(void)
+{
+  if (tsanAtForkPrepareFn != NULL) {
+    tsanAtForkPrepareFn();
+  }
+}
+
+extern "C" void
+dmtcp_tsan_atfork_parent_if_captured(void)
+{
+  if (tsanAtForkParentFn != NULL) {
+    tsanAtForkParentFn();
+  }
 }
 
 extern "C" pid_t

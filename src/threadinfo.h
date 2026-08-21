@@ -64,8 +64,6 @@ struct Thread {
 
   char procname[17];
 
-  void *(*fn)(void *);
-  void *arg;
   int flags;
   pid_t *ptid;
   pid_t *ctid;
@@ -85,6 +83,8 @@ struct Thread {
 #else // ifdef SETJMP
   ucontext_t savctx;     // context saved on suspend
 #endif // ifdef SETJMP
+  void *tsan_fiber_ctx; // For targets compiled with TSAN (-fsanitize=thread)
+  bool is_tsan_helper;
 
   uint32_t wrapperLockCount;
 
@@ -98,6 +98,11 @@ Thread *dmtcp_get_current_thread();
 // CoordinatorAPI.
 bool dmtcp_is_ckpt_thread() __attribute((weak));
 
+// True iff the target process is instrumented with ThreadSanitizer
+// (-fsanitize=thread), detected via a weak reference to TSAN's public,
+// documented fiber API (NULL when not linked against TSAN).
+bool is_tsan();
+
 int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval);
 
 EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
@@ -105,7 +110,6 @@ EXTERNC pid_t dmtcp_get_real_pid() __attribute((weak));
 EXTERNC int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig)
   __attribute((weak));
 EXTERNC pid_t dmtcp_update_virtual_to_real_tid(pid_t tid) __attribute((weak));
-EXTERNC void dmtcp_init_virtual_tid() __attribute((weak));
 
 #define THREAD_TGKILL(pid, tid, sig) \
   _real_syscall(SYS_tgkill, pid, tid, sig, 0, 0, 0, 0)

@@ -200,9 +200,11 @@
   "under certain conditions; see COPYING file for details.\n"
 
 #define HELP_AND_CONTACT_INFO                                          \
-  "For verbose runtime tracing, set environment variable"              \
-  " DMTCP_LOG_LEVEL=trace or DMTCP_LOG_LEVEL=3\n"                      \
+  "For verbose runtime tracing, set environment variable\n"            \
+  "DMTCP_LOG_LEVEL=trace or DMTCP_LOG_LEVEL=3\n"                       \
   " options are: error/warn/note/trace [0-3]; note/2 is the default\n" \
+  " (DMTCP can fail on restart for DMTCP_LOG_LEVEL=trace if a target\n" \
+  "is compiled with -fsanitize=thread.)\n"                             \
   "Report bugs to: " PACKAGE_BUGREPORT "\n"                            \
   "DMTCP home page: <" PACKAGE_URL ">\n"
 #endif // ifndef CONSTANTS_H

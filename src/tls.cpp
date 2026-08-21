@@ -171,8 +171,11 @@ TLSInfo_GetTidOffset(void)
 int
 TLSInfo_GetPidOffset(void)
 {
-  static int pid_offset = TLSInfo_GetTidOffset() + sizeof(pid_t);
+  static int pid_offset = -1;
 
+  if (pid_offset == -1) {
+    pid_offset = TLSInfo_GetTidOffset() + sizeof(pid_t);
+  }
   return pid_offset;
 }
 
@@ -527,6 +530,15 @@ TLSInfo_SaveTLSState(Thread *thread)
 {
   thread->pthreadSelf = (void*) pthread_self();
   tls_get_thread_area(thread);
+#ifdef __x86_64__
+  // gs is legitimately always 0 in ordinary Linux x86_64 userspace (fs
+  // alone carries TLS); only fs==0 is suspect.
+  if (thread->tlsInfo.fs == 0) {
+    TRACE("DEBUG: TLSInfo_SaveTLSState saved a zero fs: tid={} "
+          "is_tsan_helper={} gs={}",
+          thread->tid, thread->is_tsan_helper, thread->tlsInfo.gs);
+  }
+#endif
   return;
 }
 
@@ -539,13 +551,28 @@ TLSInfo_SaveTLSState(Thread *thread)
  *  per-thread basis.  So from our perspective, this is per-thread state that is
  *  saved outside user addressable memory that must be manually saved.
  *
+ *  mtcp_restart.c briefly zeroes %fs before this function runs (to unmap its
+ *  own original stack safely) and relies on this call to restore the real
+ *  value.  If this function ever gains a stack-protector canary, the
+ *  compiler-inserted %fs:0x28 read at function entry races that zero window
+ *  and can crash before a single line of this function's own body executes,
+ *  independent of where any check appears in the source.  no_stack_protector
+ *  keeps this function immune to that regardless of what gets added inside;
+ *  do not remove it.
+ *
  *****************************************************************************/
 void
+__attribute__((no_stack_protector))
 TLSInfo_RestoreTLSState(Thread *thread)
 {
   /* Every architecture needs a register to point to the current
    * TLS (thread-local storage).  This is where we set it up.
    */
+#ifdef __x86_64__
+  ASSERT(thread->tlsInfo.fs != 0,
+         "about to restore a zero fs: tid={} is_tsan_helper={} gs={}",
+         thread->tid, thread->is_tsan_helper, thread->tlsInfo.gs);
+#endif
   tls_set_thread_area(thread);
 }
 

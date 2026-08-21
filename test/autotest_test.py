@@ -147,6 +147,12 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         self.assertEqual(spec.private_env_dirs, {"SCREENDIR": "screen"})
 
+    def test_spec_can_require_max_address_space(self):
+        spec = TestSpec("tsan-target", 1, ["./test/tsan_target"],
+                        needs_max_address_space=True)
+
+        self.assertTrue(spec.needs_max_address_space)
+
     def test_spec_can_record_configure_flags_and_required_files(self):
         spec = TestSpec("java1", 1, ["java -Xmx5M java1"],
                         configure_flags=["HAS_JAVA", "HAS_JAVAC"],
@@ -2059,7 +2065,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                ["autotest.py", "--retain-success-artifacts",
                                 "retain-success"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements: [spec]), \
+                               lambda names, tags, requirements,
+                               exclude_tags=None: [spec]), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
              mock.patch.object(autotest_module, "run_with_optional_retry",
@@ -2116,7 +2123,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         with mock.patch.object(sys, "argv", ["autotest.py"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements:
+                               lambda names, tags, requirements,
+                               exclude_tags=None:
                                selected_specs), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
@@ -2183,7 +2191,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         with mock.patch.object(sys, "argv",
                                ["autotest.py", "--color", "always"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements: [spec]), \
+                               lambda names, tags, requirements,
+                               exclude_tags=None: [spec]), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
              mock.patch.object(autotest_module, "run_with_optional_retry",
@@ -2260,7 +2269,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                ["autotest.py", "--suite", "all",
                                 "dmtcp1"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements:
+                               lambda names, tags, requirements,
+                               exclude_tags=None:
                                selected_specs), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
@@ -2327,7 +2337,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                ["autotest.py", "--slow", "--slow",
                                 "slow"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements: [spec]), \
+                               lambda names, tags, requirements,
+                               exclude_tags=None: [spec]), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
              mock.patch.object(autotest_module, "run_with_optional_retry",
@@ -2408,7 +2419,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         with mock.patch.object(sys, "argv",
                                ["autotest.py", "--jobs", "4"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements:
+                               lambda names, tags, requirements,
+                               exclude_tags=None:
                                selected_specs), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
@@ -2488,7 +2500,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         with mock.patch.object(sys, "argv",
                                ["autotest.py", "--jobs", "4"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements:
+                               lambda names, tags, requirements,
+                               exclude_tags=None:
                                selected_specs), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
@@ -2552,7 +2565,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                ["autotest.py", "--jobs", "4",
                                 "--color", "always"]), \
              mock.patch.object(REGISTRY, "select",
-                               lambda names, tags, requirements: [spec]), \
+                               lambda names, tags, requirements,
+                               exclude_tags=None: [spec]), \
              mock.patch.object(autotest_module, "DmtcpHarness",
                                FakeHarness), \
              mock.patch.object(autotest_module, "run_with_optional_retry",
@@ -3028,6 +3042,11 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
             self.assertTrue(REGISTRY.get_test("openmp-2").run_serial)
             self.assertEqual(REGISTRY.get_test("openmp-2").blocked_configure_flags,
                              ["AARCH64_HOST"])
+        self.assertTrue(REGISTRY.get_test("nocheckpoint").run_serial)
+        self.assertTrue(REGISTRY.get_test("popen1").run_serial)
+        self.assertTrue(REGISTRY.get_test("presuspend").run_serial)
+        self.assertTrue(REGISTRY.get_test("vfork1").run_serial)
+        self.assertTrue(REGISTRY.get_test("vfork2").run_serial)
         assert_registered_when_repo_file_exists(self, names, "dmtcp1-m32",
                                                 "test/dmtcp1-m32")
         assert_registered_when_repo_file_exists(self, names, "selinux1",

@@ -213,18 +213,18 @@ LIMIT=ulimit -S -v 33554432
 check: tests
 	@cd test && $(MAKE) --no-print-directory check-prereqs
 	@ if test "@HAS_PYTHON3@" = yes; then \
-	 bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py --suite all ${AUTOTEST} $*";\
+	 bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py --suite all ${AUTOTEST} --exclude-tag tsan $*";\
 	elif test "@HAS_PYTHON@" = yes; then \
-	 bash -c "$(LIMIT) && python $(top_srcdir)/test/autotest.py --suite all ${AUTOTEST} $*";\
+	 bash -c "$(LIMIT) && python $(top_srcdir)/test/autotest.py --suite all ${AUTOTEST} --exclude-tag tsan $*";\
 	else echo '*** No python found in your path.'; \
 	 echo '*** Please add python to path'; \
 	fi
 
 check-autotest: tests
 	@ if test "@HAS_PYTHON3@" = yes; then \
-	 bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py --suite integration ${AUTOTEST} $*";\
+	 bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py --suite integration ${AUTOTEST} --exclude-tag tsan $*";\
 	elif test "@HAS_PYTHON@" = yes; then \
-	 bash -c "$(LIMIT) && python $(top_srcdir)/test/autotest.py --suite integration ${AUTOTEST} $*";\
+	 bash -c "$(LIMIT) && python $(top_srcdir)/test/autotest.py --suite integration ${AUTOTEST} --exclude-tag tsan $*";\
 	else echo '*** No python found in your path.'; \
 	 echo '*** Please add python to path'; \
 	fi
@@ -247,6 +247,17 @@ check-harness-unit:
 
 check-coordinator-synthetic: build
 	cd test && $(MAKE) check-coordinator-synthetic
+
+# Explicit override of the check-%: pattern rule below, which would treat
+# '$*' as an exact TESTNAME ("tsan" is a tag, not a test name). Select the
+# 5 TSAN tests by tag instead; `check:` excludes tag "tsan" so they run
+# only here, not redundantly under `make check`'s heavier contention.
+check-tsan: tests
+	@ if test "@HAS_PYTHON3@" = yes; then \
+	bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py --tag tsan ${AUTOTEST}";\
+	elif test "@HAS_PYTHON@" = yes; then \
+	bash -c "$(LIMIT) && python $(top_srcdir)/test/autotest.py --tag tsan ${AUTOTEST}";\
+	fi
 
 check-%: tests
 	@ if test "@HAS_PYTHON3@" = yes; then \

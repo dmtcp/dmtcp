@@ -1,10 +1,18 @@
+#include <elf.h>
+#include <fcntl.h>
+#include <link.h>
 #include <linux/version.h>
 #include <pthread.h>
+#include <sched.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <string.h>
+#include <sys/mman.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/ucontext.h>
 #include <unistd.h>
 #include "config.h"
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11) || \
@@ -18,6 +26,7 @@
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "dmtcpworker.h"
+#include "futex.h"
 #include "jalloc.h"
 #include "mtcp/mtcp_header.h"
 #include "plugin/pid/pidhelpers.h"
@@ -31,6 +40,37 @@
 #include "uniquepid.h"
 #include "util.h"
 #include "dmtcp_assert.h"
+
+/****************************
+ * Start of TSAN utilities
+ ****************************/
+
+// ThreadSanitizer Fiber API (weak: NULL no-op for non-TSAN targets). A
+// "fiber" is a separate TSAN ThreadState bindable to the current OS thread.
+// The TSAN helper thread never gets one; every other thread does. On
+// restart, restarthread() switches each thread's fiber back in via
+// __tsan_switch_to_fiber() -- except the checkpoint thread, which gets a
+// FRESH fiber via __tsan_create_fiber() instead (see restarthread()).
+extern "C" void *__tsan_get_current_fiber() __attribute__((weak));
+extern "C" void __tsan_switch_to_fiber(void *fiber, unsigned flags)
+  __attribute__((weak));
+extern "C" void *__tsan_create_fiber(unsigned flags) __attribute__((weak));
+extern "C" void __tsan_destroy_fiber(void *fiber) __attribute__((weak));
+extern "C" void __tsan_ignore_thread_begin() __attribute__((weak));
+extern "C" void __tsan_ignore_thread_end() __attribute__((weak));
+// Below, address is arbitrary, unique memory address for synchronization
+extern "C" void __tsan_release(void *address) __attribute__((weak));
+extern "C" void __tsan_acquire(void *address) __attribute__((weak));
+
+bool
+is_tsan()
+{
+  return (__tsan_get_current_fiber != NULL);
+}
+
+/****************************
+ * End of TSAN utilities
+ ****************************/
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
@@ -51,7 +91,6 @@ using namespace dmtcp;
 ATOMIC_SHARED_GLOBAL bool restoreInProgress = false;
 static Thread motherofallStorage;
 Thread *motherofall = NULL;
-pid_t motherpid = 0;
 sigset_t sigpending_global;
 Thread *activeThreads = NULL;
 void *saved_sysinfo;
@@ -60,6 +99,8 @@ static const char *DMTCP_PRGNAME_PREFIX = "DMTCP:";
 
 static DmtcpMutex threadlistLock = DMTCP_MUTEX_INITIALIZER;
 static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
+// Thread initialization runs before curThread exists; normal locks call gettid().
+static DmtcpMutex threadInitLock = DMTCP_MUTEX_INITIALIZER_LLL;
 
 static DmtcpRWLock threadResumeLock;
 
@@ -68,13 +109,192 @@ Thread *ckptThread = NULL;
 
 static int numUserThreads = 0;
 static bool originalstartup;
+
+// TSAN's pthread_create() interceptor may spawn a nested helper-thread
+// pthread_create() during createCkptThread()'s own call; the LAST
+// pthread_t registered in that window (see
+// registerCkptThreadWindowCandidate()) is the real checkpoint thread.
+// Classification is deferred to endCkptThreadCreationWindow(), which must
+// run on the parent, since TSAN's interceptor blocks the caller until the
+// new thread(s) progress.
+static bool expectCkptThreadNext = false;
+static pthread_t ckptWindowCandidatePthreads[4];
+static int ckptWindowCandidateCount = 0;
+
+static void lock_threads(void);
+static void unlock_threads(void);
+
+// Enforces the invariant that at most one thread is ever classified as
+// the TSAN helper thread (TSAN spawns exactly one background thread).
+static int numTsanHelperThreadsTagged = 0;
+
+static void
+markTsanHelper(Thread *th)
+{
+  th->is_tsan_helper = true;
+  numTsanHelperThreadsTagged++;
+  ASSERT(numTsanHelperThreadsTagged <= 1,
+         "TSAN: more than one thread classified as the TSAN helper "
+         "thread: tid={}",
+         th->tid);
+  if (is_tsan()) {
+    TRACE("TSAN: classified tid={} as the TSAN helper thread", th->tid);
+  }
+}
+
+#undef dmtcp_tsan_background_thread_virtual_tid
+EXTERNC int
+dmtcp_tsan_background_thread_virtual_tid()
+{
+  if (!is_tsan()) {
+    return 0;
+  }
+
+  // At most one thread is ever classified as the TSAN helper (lazily);
+  // scan for it. Thread::tid is already the virtual tid (see
+  // dmtcp_pid_init_thread_tid()/dmtcp_update_virtual_to_real_tid() in
+  // plugin/pid/pid.cpp).
+  pid_t tsanHelperTid = -1;
+  lock_threads();
+  for (Thread *th = activeThreads; th != NULL; th = th->next) {
+    if (th->is_tsan_helper) {
+      tsanHelperTid = th->tid;
+      break;
+    }
+  }
+  unlock_threads();
+  return tsanHelperTid;
+}
+
+void
+ThreadList::beginCkptThreadCreationWindow()
+{
+  expectCkptThreadNext = true;
+  ckptWindowCandidateCount = 0;
+}
+
+void
+ThreadList::registerCkptThreadWindowCandidate(pthread_t pth)
+{
+  if (!expectCkptThreadNext) {
+    return;
+  }
+  ASSERT(ckptWindowCandidateCount <
+           (int) (sizeof(ckptWindowCandidatePthreads) /
+                  sizeof(ckptWindowCandidatePthreads[0])),
+         "more nested thread creations during ckpt-thread creation than "
+         "expected");
+  ckptWindowCandidatePthreads[ckptWindowCandidateCount++] = pth;
+}
+
+static Thread *
+findThreadByPthreadSelf(void *pthreadSelf)
+{
+  Thread *found = NULL;
+  while (found == NULL) {
+    lock_threads();
+    for (Thread *th = activeThreads; th != NULL; th = th->next) {
+      if (th->pthreadSelf == pthreadSelf) {
+        found = th;
+        break;
+      }
+    }
+    unlock_threads();
+    if (found == NULL) {
+      sched_yield();
+    }
+  }
+  return found;
+}
+
+void
+ThreadList::endCkptThreadCreationWindow()
+{
+  expectCkptThreadNext = false;
+  if (!is_tsan()) {
+    return;
+  }
+  ASSERT(ckptWindowCandidateCount >= 1,
+         "no thread was registered for the checkpoint thread's own creation");
+  // The LAST candidate registered is the real checkpoint thread; any
+  // earlier ones are the (at most one, in every run observed so far)
+  // TSAN-internal helper-thread spawn.
+  for (int i = 0; i < ckptWindowCandidateCount - 1; i++) {
+    Thread *th =
+      findThreadByPthreadSelf((void *) ckptWindowCandidatePthreads[i]);
+    markTsanHelper(th);
+  }
+}
+
 // Let dmtcp.h:DMTCP_RESTART_PAUSE_WHILE(cond) use (dmtcp::restartPauseLevel
 volatile int dmtcp::restartPauseLevel = 0;
 
 extern bool sem_launch_first_time;
 extern sem_t sem_launch;  // allocated in coordinatorapi.cpp
-static sem_t semNotifyCkptThread;
-static sem_t semWaitForCkptThreadSignal;
+
+// A counting semaphore built directly on the futex syscall (see rwlock.cpp
+// for the same pattern), used in place of sem_t for the notification
+// stopthisthread() posts to the checkpoint thread. sem_t's sem_post()/
+// sem_wait() are themselves TSAN-intercepted synchronization primitives.
+// While the checkpoint thread holds TSan's locks via the atfork bracket in
+// suspendThreads(), a signalled thread's sem_post() from stopthisthread()
+// would try to acquire one of those same locks and deadlock against the
+// checkpoint thread that's holding it. Raw futex_wait()/futex_wake() aren't
+// named TSAN sync primitives, so they carry no such Acquire/Release
+// bookkeeping and can't recurse into or contend for that lock.
+struct RawSem {
+  uint32_t count;
+};
+
+static void
+rawSemPost(RawSem *sem)
+{
+  __atomic_fetch_add(&sem->count, 1, __ATOMIC_ACQ_REL);
+  ASSERT_NE(-1, futex_wake(&sem->count, 1),
+            "futex_wake failed for raw semaphore");
+}
+
+static void
+rawSemWait(RawSem *sem)
+{
+  uint32_t val;
+  __atomic_load(&sem->count, &val, __ATOMIC_ACQUIRE);
+  while (true) {
+    while (val == 0) {
+      int ret = futex_wait(&sem->count, val);
+      ASSERT_ERRNO(ret == 0 || errno == EAGAIN || errno == EINTR,
+                   "unexpected futex_wait failure for raw semaphore: ret={}",
+                   ret);
+      __atomic_load(&sem->count, &val, __ATOMIC_ACQUIRE);
+    }
+    uint32_t newVal = val - 1;
+    if (__atomic_compare_exchange(&sem->count, &val, &newVal, false,
+                                  __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+      return;
+    }
+  }
+}
+
+static RawSem semNotifyCkptThread;
+static RawSem semWaitForCkptThreadSignal;
+
+// TSAN's background thread periodically wakes inside its own runtime,
+// possibly holding a TSAN-internal lock; an async SIGCKPT arriving then
+// risks deadlocking a user thread's TSAN interceptor waiting on that same
+// lock. setupTsanBackgroundThreadTrampoline() patches TSAN's own sleep
+// call to jump to pauseTsanBackgroundThread() instead, a point guaranteed
+// lock-free. This addresses only TSAN's own background thread; an
+// ordinary thread caught holding a TSAN lock when SIGCKPT arrives is a
+// separate, still-open problem.
+static bool tsanBackgroundTrampolineInstalled = false;
+static volatile int doPauseTsanBackgroundThread = 0;
+static volatile int tsanBackgroundThreadIsPaused = 0;
+
+// Brackets SIGCKPT delivery to worker threads below, so that none of them
+// can be caught mid-TSan-interceptor holding an internal lock. See
+// execwrappers.cpp's __register_atfork() for how these get captured.
+extern "C" void dmtcp_tsan_atfork_prepare_if_captured(void);
+extern "C" void dmtcp_tsan_atfork_parent_if_captured(void);
 
 static void *checkpointhread(void *dummy);
 static void stopthisthread(int sig);
@@ -102,7 +322,7 @@ unlock_threads(void)
 static int
 signalThread(Thread *thread, int sig)
 {
-  return dmtcp_tgkill(motherpid, thread->tid, sig);
+  return dmtcp_tgkill(getpid(), thread->tid, sig);
 }
 
 bool dmtcp_is_ckpt_thread()
@@ -117,19 +337,13 @@ dmtcp_get_current_thread()
     return curThread;
   }
 
-  if (_real_gettid() == _real_getpid()) {
-    // We are the main thread of the process: create motherofall.
-    ASSERT_NULL(motherofall);
-    ThreadList::init();
-  } else {
-    // Another constructor may have created its own thread, racing to call
-    // ThreadList::init() first. We want the main thread of the process to
-    // win that race. So wait for it here instead.
-    while (__atomic_load_n(&motherofall, __ATOMIC_ACQUIRE) == nullptr) {
-    }
-    ThreadList::initThread(ThreadList::getNewThread(NULL, NULL));
+  Thread *th = ThreadList::init();
+  // Reaching here (not motherofall) means this thread bypassed DMTCP's
+  // pthread_create() wrapper (see thread_start()); for a TSAN target,
+  // that's TSAN's helper/background thread, spawned via raw clone().
+  if (is_tsan() && th != motherofall) {
+    markTsanHelper(th);
   }
-
   ASSERT_NOT_NULL(curThread);
   return curThread;
 }
@@ -182,10 +396,8 @@ ThreadList::resetOnFork()
                                              // "activeThreads" ptr.
   }
 
-  // CONTEXT:  initThread() resets curThread only if it's non-NULL.
-  // ... -> initializeMtcpEngine() -> ThreadList::init() -> initThread()
-  // See addToActiveList() for more information.
-  curThread = motherofall = nullptr;
+  // After fork, only the calling thread remains.
+  curThread = motherofall = NULL;
 
   init();
   createCkptThread();
@@ -196,28 +408,353 @@ ThreadList::resetOnFork()
  *  This routine must be called at startup time to initiate checkpointing
  *
  *****************************************************************************/
-void
+Thread *
 ThreadList::init()
 {
-  if (motherofall == nullptr) {
-    // We need to use static storage for motherofall to avoid calling
-    // JALLOC_MALLOC during initialization which could lead to infinite recursion.
-    Thread *th = &motherofallStorage;
-    prepareThread(th, NULL, NULL);
-    /* Set up caller as one of our threads so we can work on it */
-    initThread(th);
-    // Publish last (release), so a waiting thread sees it fully initialized.
-    __atomic_store_n(&motherofall, th, __ATOMIC_RELEASE);
+  if (curThread != nullptr) {
+    return curThread;
   }
 
-  /* Save this process's pid.  Then verify that the TLS has it where it should
-   * be. When we do a restore, we will have to modify each thread's TLS with the
-   * new motherpid. We also assume that GS uses the first GDT entry for its
-   * descriptor.
-   */
+  Thread *th;
 
-  motherpid = getpid();
+  ASSERT_LOCK_SUCCESS(DmtcpMutexLock(&threadInitLock));
+  if (motherofall == nullptr && _real_getpid() == _real_gettid()) {
+    // We need to use static storage for motherofall to avoid calling
+    // JALLOC_MALLOC during initialization which could lead to infinite recursion.
+    motherofall = &motherofallStorage;
+    th = motherofall;
+  } else {
+    th = (Thread *) JALLOC_MALLOC(sizeof(Thread));
+  }
 
+  ASSERT_NOT_NULL(th, "thread descriptor is null");
+  memset(th, 0, sizeof(*th));
+
+  th->next = NULL;
+  th->prev = NULL;
+  th->state = ST_RUNNING;
+  th->exiting = 0;
+  th->wrapperLockCount = 0;
+  th->procname[0] = '\0';
+
+  curThread = th;
+
+  th->flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
+              | CLONE_SIGHAND | CLONE_THREAD
+              | CLONE_SETTLS | CLONE_PARENT_SETTID
+              | CLONE_CHILD_CLEARTID
+              | 0);
+
+  th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
+  th->ctid = th->ptid;
+  // Set eagerly here (not just later in TLSInfo_SaveTLSState()) so this
+  // thread is findable-by-identity (see findThreadByPthreadSelf()) without
+  // waiting for a checkpoint.
+  th->pthreadSelf = (void *) pthread_self();
+
+  th->tid = dmtcp_pid_init_thread_tid();
+  if (th != motherofall) {
+    // Libc helper threads can inherit a mask that blocks the checkpoint signal.
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SigInfo::ckptSignal());
+    ASSERT_PTHREAD_SUCCESS(
+      _real_pthread_sigmask(SIG_UNBLOCK, &set, NULL),
+      "unblocking checkpoint signal in child thread: signal={}",
+      SigInfo::ckptSignal());
+  }
+
+  TRACE("starting thread: tid={}", th->tid);
+
+  // Check and remove any thread descriptor which has the same tid as ours.
+  // Also, remove any dead threads from the list.
+  ThreadList::addToActiveList(th);
+
+  ASSERT_LOCK_SUCCESS(DmtcpMutexUnlock(&threadInitLock));
+  return th;
+}
+
+/*****************************************************************************
+ *
+ *  Resolves a symbol not in a shared library's exported dynamic symbol
+ *  table, which dlsym() cannot find. Locates the library via
+ *  dl_iterate_phdr() and reads the symbol's value directly from the
+ *  library's on-disk ELF symbol table.
+ *
+ *****************************************************************************/
+struct FindLibArgs {
+  const char *libNameSubstr;
+  uintptr_t baseAddr;
+  char path[512];
+};
+
+static int
+findLibCallback(struct dl_phdr_info *info, size_t size, void *data)
+{
+  FindLibArgs *args = (FindLibArgs *) data;
+  if (info->dlpi_name != NULL &&
+      strstr(info->dlpi_name, args->libNameSubstr) != NULL) {
+    args->baseAddr = info->dlpi_addr;
+    strncpy(args->path, info->dlpi_name, sizeof(args->path) - 1);
+    return 1; // stop iterating
+  }
+  return 0;
+}
+
+static void *
+findSymbolInLibrary(const char *libNameSubstr, const char *symName)
+{
+  FindLibArgs args = { libNameSubstr, 0, {0} };
+  if (dl_iterate_phdr(findLibCallback, &args) == 0) {
+    return NULL;
+  }
+
+  int fd = open(args.path, O_RDONLY);
+  if (fd < 0) {
+    return NULL;
+  }
+  struct stat st;
+  if (fstat(fd, &st) < 0) {
+    _real_close(fd);
+    return NULL;
+  }
+  void *map = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+  _real_close(fd);
+  if (map == MAP_FAILED) {
+    return NULL;
+  }
+
+  void *result = NULL;
+  Elf64_Ehdr *ehdr = (Elf64_Ehdr *) map;
+  Elf64_Shdr *shdrs = (Elf64_Shdr *) ((char *) map + ehdr->e_shoff);
+  for (int i = 0; i < ehdr->e_shnum; i++) {
+    if (shdrs[i].sh_type != SHT_SYMTAB) {
+      continue;
+    }
+    Elf64_Shdr *strtabShdr = &shdrs[shdrs[i].sh_link];
+    Elf64_Sym *syms = (Elf64_Sym *) ((char *) map + shdrs[i].sh_offset);
+    char *strings = (char *) map + strtabShdr->sh_offset;
+    size_t numSyms = shdrs[i].sh_size / sizeof(Elf64_Sym);
+    for (size_t j = 0; j < numSyms; j++) {
+      if (strcmp(strings + syms[j].st_name, symName) == 0) {
+        result = (void *) (args.baseAddr + syms[j].st_value);
+        break;
+      }
+    }
+    break;
+  }
+
+  munmap(map, st.st_size);
+  return result;
+}
+
+// Byte length of the jump patch, per architecture. Left undefined on any
+// architecture TSan itself doesn't support (only x86_64, aarch64, and
+// riscv64); setupTsanBackgroundThreadTrampoline() then falls back to a
+// no-op.
+#if defined(__x86_64__)
+#define TSAN_TRAMPOLINE_PATCH_LEN 14
+#elif defined(__aarch64__)
+#define TSAN_TRAMPOLINE_PATCH_LEN 16
+#elif defined(__riscv) && __riscv_xlen == 64
+#define TSAN_TRAMPOLINE_PATCH_LEN 20
+#endif
+
+/*****************************************************************************
+ *
+ *  Replacement for TSAN's own SleepForMillis(): the destination of the
+ *  jump patch setupTsanBackgroundThreadTrampoline() installs, a point
+ *  guaranteed lock-free. Must not call anything TSAN intercepts -- uses
+ *  the raw nanosleep syscall, not the libc wrapper. For the same reason,
+ *  pausing polls doPauseTsanBackgroundThread in a loop rather than
+ *  blocking on a semaphore or condition variable, either of which TSAN
+ *  would intercept.
+ *
+ *****************************************************************************/
+static void
+pauseTsanBackgroundThread(unsigned int millis)
+{
+  struct timespec pauseTs = { 0, 100 * 1000 * 1000 }; // 100ms
+  while (doPauseTsanBackgroundThread) {
+    tsanBackgroundThreadIsPaused = 1;
+    syscall(SYS_nanosleep, &pauseTs, NULL);
+  }
+  tsanBackgroundThreadIsPaused = 0;
+
+  struct timespec reqTs;
+  reqTs.tv_sec = millis / 1000;
+  reqTs.tv_nsec = (long) (millis % 1000) * 1000000L;
+  syscall(SYS_nanosleep, &reqTs, NULL);
+}
+
+// SIGTRAP handler active only while installing the jump patch below: a
+// thread entering SleepForMillis() mid-installation traps on the int3
+// written as the patch's first byte and is redirected here straight to
+// pauseTsanBackgroundThread(), instead of executing a half-written
+// instruction. Removed once installation completes.
+static uint8_t *tsanSleepForMillisAddr = NULL;
+static void *tsanPauseHookAddr = NULL;
+static struct sigaction origSigtrapAction;
+
+static void
+tsanSigtrapHandler(int sig, siginfo_t *info, void *context)
+{
+  ucontext_t *uc = (ucontext_t *) context;
+
+#if defined(__x86_64__)
+  // x86 INT3 auto-advances RIP past the 1-byte opcode it replaced.
+  uint8_t *trapPc = (uint8_t *) uc->uc_mcontext.gregs[REG_RIP] - 1;
+#elif defined(__aarch64__)
+  // ARM64 BRK leaves PC at the trapping instruction itself.
+  uint8_t *trapPc = (uint8_t *) uc->uc_mcontext.pc;
+#elif defined(__riscv) && __riscv_xlen == 64
+  // RISC-V EBREAK leaves PC at the trapping instruction itself; register
+  // slot 0 of __gregs is pc, per <sys/ucontext.h>.
+  uint8_t *trapPc = (uint8_t *) uc->uc_mcontext.__gregs[0];
+#endif
+
+  if (trapPc == tsanSleepForMillisAddr) {
+#if defined(__x86_64__)
+    uc->uc_mcontext.gregs[REG_RIP] = (greg_t) (uintptr_t) tsanPauseHookAddr;
+#elif defined(__aarch64__)
+    uc->uc_mcontext.pc = (unsigned long) (uintptr_t) tsanPauseHookAddr;
+#elif defined(__riscv) && __riscv_xlen == 64
+    uc->uc_mcontext.__gregs[0] = (unsigned long) (uintptr_t) tsanPauseHookAddr;
+#endif
+    return;
+  }
+
+  // Not our int3/brk/ebreak (e.g. a debugger's breakpoint): pass it on.
+  if ((origSigtrapAction.sa_flags & SA_SIGINFO) &&
+      origSigtrapAction.sa_sigaction != NULL) {
+    origSigtrapAction.sa_sigaction(sig, info, context);
+  } else if (origSigtrapAction.sa_handler != NULL &&
+             origSigtrapAction.sa_handler != SIG_DFL &&
+             origSigtrapAction.sa_handler != SIG_IGN) {
+    origSigtrapAction.sa_handler(sig);
+  }
+}
+
+// Patches TSAN's own SleepForMillis(), found via findSymbolInLibrary()
+// since it isn't in libtsan.so's exported symbol table, to jump to
+// pauseTsanBackgroundThread() instead. The int3/SIGTRAP technique ensures
+// the jump patch is never observed half-written by a concurrent call. If
+// the symbol can't be found, tsanBackgroundTrampolineInstalled stays
+// false, and suspendThreads() falls back to signalling the background
+// thread like any other thread.
+static void
+setupTsanBackgroundThreadTrampoline()
+{
+  if (!is_tsan()) {
+    return;
+  }
+
+#if !defined(TSAN_TRAMPOLINE_PATCH_LEN)
+  // TSan itself ships no runtime for this architecture; nothing to patch.
+  return;
+#else
+  void *addr = findSymbolInLibrary("libtsan.so",
+                                   "_ZN11__sanitizer14SleepForMillisEj");
+  if (addr == NULL) {
+    return;
+  }
+
+#if defined(__riscv) && __riscv_xlen == 64
+  // The first (int3-equivalent) write below must be a single atomic store;
+  // that requires the target to be 4-byte aligned, which RVC code isn't
+  // guaranteed to be (it allows 2-byte instruction alignment).
+  if ((uintptr_t) addr % 4 != 0) {
+    return;
+  }
+#endif
+
+  tsanSleepForMillisAddr = (uint8_t *) addr;
+  tsanPauseHookAddr = (void *) &pauseTsanBackgroundThread;
+
+  struct sigaction sa;
+  sa.sa_flags = SA_SIGINFO;
+  sa.sa_sigaction = tsanSigtrapHandler;
+  sigemptyset(&sa.sa_mask);
+  ASSERT_ZERO(sigaction(SIGTRAP, &sa, &origSigtrapAction));
+
+  long pageSize = sysconf(_SC_PAGESIZE);
+  uintptr_t pageStart = (uintptr_t) addr & ~(pageSize - 1);
+  size_t span = ((uintptr_t) addr - pageStart) + TSAN_TRAMPOLINE_PATCH_LEN;
+  size_t numPages = (span + pageSize - 1) / pageSize;
+  ASSERT_ZERO(mprotect((void *) pageStart, numPages * pageSize,
+                       PROT_READ | PROT_WRITE | PROT_EXEC));
+
+  //   Use PTRACE_FREEZE or SIGTRAP to create trampoline.  But PTRACE_FREEZE
+  // would interfere with any other process tracing us.
+#if defined(__x86_64__)
+  static const uint8_t jmpOp[6] = { 0xff, 0x25, 0x00, 0x00, 0x00, 0x00 };
+  // 1. int3: any thread entering here traps to tsanSigtrapHandler() instead
+  // of fetching a half-written instruction.
+  tsanSleepForMillisAddr[0] = 0xCC;
+  __asm__ volatile ("" ::: "memory");
+  // 2. Rest of "jmp [rip+0]", then the 8-byte hook address.
+  memcpy(tsanSleepForMillisAddr + 1, jmpOp + 1, 5);
+  memcpy(tsanSleepForMillisAddr + 6, &tsanPauseHookAddr, 8);
+  __asm__ volatile ("" ::: "memory");
+  // 3. Finalize: the int3 becomes the jmp's real first byte.
+  tsanSleepForMillisAddr[0] = jmpOp[0];
+
+#elif defined(__aarch64__)
+  // "ldr x17, #8; br x17; <8-byte address>". X17 is an AAPCS64
+  // intra-procedure-call scratch register, safe to clobber on entry.
+  static const uint8_t ldrX17[4] = { 0x51, 0x00, 0x00, 0x58 }; // ldr x17, #8
+  static const uint8_t brX17[4]  = { 0x20, 0x02, 0x1f, 0xd6 }; // br x17
+  static const uint8_t brk0[4]   = { 0x00, 0x00, 0x20, 0xd4 }; // brk #0
+
+  // 1. brk: traps any thread already inside the function to the handler.
+  // Self-modifying code on ARM64 needs explicit I/D-cache maintenance
+  // after every write, unlike x86's hardware-coherent caches.
+  memcpy(tsanSleepForMillisAddr, brk0, 4);
+  __builtin___clear_cache((char *) tsanSleepForMillisAddr,
+                          (char *) tsanSleepForMillisAddr + 4);
+
+  // 2. "br x17" plus the 8-byte hook address.
+  memcpy(tsanSleepForMillisAddr + 4, brX17, 4);
+  memcpy(tsanSleepForMillisAddr + 8, &tsanPauseHookAddr, 8);
+  __builtin___clear_cache((char *) tsanSleepForMillisAddr + 4,
+                          (char *) tsanSleepForMillisAddr + 16);
+
+  // 3. Finalize: the brk becomes "ldr x17, #8".
+  memcpy(tsanSleepForMillisAddr, ldrX17, 4);
+  __builtin___clear_cache((char *) tsanSleepForMillisAddr,
+                          (char *) tsanSleepForMillisAddr + 16);
+
+#elif defined(__riscv) && __riscv_xlen == 64
+  // "auipc t0, 0; ld t0, 12(t0); jalr x0, 0(t0); <8-byte address>".
+  static const uint8_t auipcT0[4] = { 0x97, 0x02, 0x00, 0x00 }; // auipc t0,0
+  static const uint8_t ldJalr[8]  = { 0x83, 0xb2, 0xc2, 0x00,   // ld t0,12(t0)
+                                       0x67, 0x80, 0x02, 0x00 }; // jalr x0,0(t0)
+  static const uint8_t ebreak[4]  = { 0x73, 0x00, 0x10, 0x00 }; // ebreak
+
+  // 1. ebreak: traps any thread already inside the function to the
+  // handler. As on ARM64, self-modifying code needs explicit cache
+  // maintenance after every write.
+  memcpy(tsanSleepForMillisAddr, ebreak, 4);
+  __builtin___clear_cache((char *) tsanSleepForMillisAddr,
+                          (char *) tsanSleepForMillisAddr + 4);
+
+  // 2. "ld t0,12(t0); jalr x0,0(t0)" plus the 8-byte hook address.
+  memcpy(tsanSleepForMillisAddr + 4, ldJalr, 8);
+  memcpy(tsanSleepForMillisAddr + 12, &tsanPauseHookAddr, 8);
+  __builtin___clear_cache((char *) tsanSleepForMillisAddr + 4,
+                          (char *) tsanSleepForMillisAddr + 20);
+
+  // 3. Finalize: the ebreak becomes "auipc t0, 0".
+  memcpy(tsanSleepForMillisAddr, auipcT0, 4);
+  __builtin___clear_cache((char *) tsanSleepForMillisAddr,
+                          (char *) tsanSleepForMillisAddr + 20);
+#endif
+
+  // Patch is permanent; the SIGTRAP safety net was only needed while
+  // writing it.
+  ASSERT_ZERO(sigaction(SIGTRAP, &origSigtrapAction, NULL));
+  tsanBackgroundTrampolineInstalled = true;
+#endif  // if !defined(TSAN_TRAMPOLINE_PATCH_LEN)
 }
 
 /*****************************************************************************
@@ -227,19 +764,28 @@ void
 ThreadList::createCkptThread()
 {
   sem_init(&sem_launch, 0, 0);
-  sem_init(&semNotifyCkptThread, 0, 0);
-  sem_init(&semWaitForCkptThreadSignal, 0, 0);
+  semNotifyCkptThread.count = 0;
+  semWaitForCkptThreadSignal.count = 0;
+
+  setupTsanBackgroundThreadTrampoline();
 
   SigInfo::setupCkptSigHandler(&stopthisthread);
 
   originalstartup = true;
   pthread_t checkpointhreadid;
 
+  // Bracket this call so the pthread_create() wrapper (threadwrappers.cpp)
+  // can report thread-creation requests seen during it as belonging to
+  // this window -- see beginCkptThreadCreationWindow() above.
+  ThreadList::beginCkptThreadCreationWindow();
+
   /* Spawn off a thread that will perform the checkpoints from time to time */
   ASSERT_PTHREAD_SUCCESS(pthread_create(&checkpointhreadid,
                                         NULL,
                                         checkpointhread,
                                         NULL));
+
+  ThreadList::endCkptThreadCreationWindow();
 
   /* Stop until checkpoint thread has finished initializing.
    * Some programs (like gcl) implement their own glibc functions in
@@ -255,36 +801,6 @@ ThreadList::createCkptThread()
 
 /*****************************************************************************
  *
- *****************************************************************************/
-Thread *
-ThreadList::getNewThread(void *(*fn)(void *), void *arg)
-{
-  Thread *th = (Thread*) JALLOC_MALLOC(sizeof(Thread));
-  prepareThread(th, fn, arg);
-  return th;
-}
-
-/*****************************************************************************
- *
- *****************************************************************************/
-void
-ThreadList::prepareThread(Thread *th, void *(*fn)(void *), void *arg)
-{
-  /* Save exactly what the caller is supplying */
-  th->fn = fn;
-  th->arg = arg;
-  th->flags = 0;
-  th->ptid = NULL;
-  th->ctid = NULL;
-  th->next = NULL;
-  th->state = ST_RUNNING;
-  th->exiting = 0;
-  th->wrapperLockCount = 0;
-  th->procname[0] = '\0';
-}
-
-/*****************************************************************************
- *
  * Thread exited/exiting.
  *
  *****************************************************************************/
@@ -292,33 +808,6 @@ void
 ThreadList::threadExit()
 {
   curThread->exiting = 1;
-}
-
-/*****************************************************************************
- *
- *****************************************************************************/
-void
-ThreadList::initThread(Thread *th)
-{
-  if (curThread == NULL) {
-    curThread = th;
-  }
-  th->tid = dmtcp_pid_gettid();
-
-  th->flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
-              | CLONE_SIGHAND | CLONE_THREAD
-              | CLONE_SETTLS | CLONE_PARENT_SETTID
-              | CLONE_CHILD_CLEARTID
-              | 0);
-
-  th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
-  th->ctid = th->ptid;
-
-  TRACE("starting thread: tid={}", th->tid);
-
-  // Check and remove any thread descriptor which has the same tid as ours.
-  // Also, remove any dead threads from the list.
-  ThreadList::addToActiveList(th);
 }
 
 /*************************************************************************
@@ -367,6 +856,12 @@ checkpointhread(void *dummy)
    */
 
   ckptThread = curThread;
+  ASSERT(!(is_tsan() && ckptThread->is_tsan_helper),
+         "TSAN: checkpoint thread was misclassified as the TSAN "
+         "helper thread");
+  ASSERT(ckptThread != motherofall,
+         "TSAN: checkpoint thread and motherofall must never be "
+         "the same thread object");
   ckptThread->state = ST_CKPNTHREAD;
 
   // Important:  we set this in the ckpt thread to avoid a race,
@@ -414,6 +909,10 @@ checkpointhread(void *dummy)
   save_sp(&ckptThread->saved_sp);
   TRACE("Saved checkpoint-thread restart context: tid={} saved_sp={}",
         curThread->tid, curThread->saved_sp);
+
+  // On restart, we reach here via siglongjmp()/setcontext() from
+  // restarthread(), which already switched this thread to a fresh TSAN
+  // fiber before making that jump -- see the comment there for why.
 
   if (originalstartup) {
     originalstartup = false;
@@ -477,6 +976,14 @@ ThreadList::suspendThreads()
   DmtcpRWLockInit(&threadResumeLock);
   ASSERT_LOCK_SUCCESS(DmtcpRWLockWrLock(&threadResumeLock));
 
+  if (tsanBackgroundTrampolineInstalled) {
+    doPauseTsanBackgroundThread = 1;
+  }
+
+  // Drains and locks all TSan-internal state before any thread can be
+  // signalled below, so SIGCKPT can never catch one mid-interceptor.
+  dmtcp_tsan_atfork_prepare_if_captured();
+
   /* Halt all other threads - force them to call stopthisthread
    * If any have blocked checkpointing, wait for them to unblock before
    * signalling
@@ -499,6 +1006,12 @@ ThreadList::suspendThreads()
       /* Do various things based on thread's state */
       switch (thread->state) {
       case ST_RUNNING:
+
+        if (tsanBackgroundTrampolineInstalled && thread->is_tsan_helper) {
+          // Caught via pauseTsanBackgroundThread() instead, at its own
+          // next SleepForMillis() call; see the poll loop below.
+          break;
+        }
 
         /* Thread is running. Send it a signal so it will call stopthisthread.
          * We will need to rescan (hopefully it will be suspended by then)
@@ -525,11 +1038,19 @@ ThreadList::suspendThreads()
         break;
 
       case ST_SUSPINPROG:
-        numUserThreads++;
+        // The TSAN helper thread is suspended like everyone else but never
+        // recreated on restart (see postRestartWork()), so it never posts
+        // the sem waitForAllRestored() waits for. Exclude it or that wait
+        // hangs.
+        if (! (is_tsan() && thread->is_tsan_helper)) {
+          numUserThreads++;
+        }
         break;
 
       case ST_SUSPENDED:
-        numUserThreads++;
+        if (! (is_tsan() && thread->is_tsan_helper)) {
+          numUserThreads++;
+        }
         break;
 
       case ST_CKPNTHREAD:
@@ -548,8 +1069,20 @@ ThreadList::suspendThreads()
   unlock_threads();
 
   for (int i = 0; i < numUserThreads; i++) {
-    sem_wait(&semNotifyCkptThread);
+    rawSemWait(&semNotifyCkptThread);
   }
+  if (tsanBackgroundTrampolineInstalled) {
+    // pauseTsanBackgroundThread() cannot call sem_post(), a TSAN
+    // interceptor itself. Poll instead; it wakes at least every ~100ms.
+    for (int i = 0; i < 1000 && !tsanBackgroundThreadIsPaused; i++) {
+      usleep(1000);
+    }
+    ASSERT(tsanBackgroundThreadIsPaused,
+           "TSAN background thread did not pause within 1 second");
+  }
+
+  // Every thread is now safely parked; release TSan's internal state.
+  dmtcp_tsan_atfork_parent_if_captured();
 
   ASSERT_NOT_NULL(activeThreads);
   TRACE("everything suspended: numUserThreads={}", numUserThreads);
@@ -595,6 +1128,9 @@ void
 ThreadList::resumeThreads()
 {
   TRACE("resuming user threads");
+  if (tsanBackgroundTrampolineInstalled) {
+    doPauseTsanBackgroundThread = 0;
+  }
   ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
 }
 
@@ -644,9 +1180,32 @@ stopthisthread(int signum)
 
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
+    if (is_tsan()) {
+      TRACE("TSAN: stopthisthread: tid={} is_ckpt_thread={} "
+            "is_tsan_helper={}",
+            curThread->tid, dmtcp_is_ckpt_thread(),
+            curThread->is_tsan_helper);
+    }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
     WARN_NE(-1, prctl(PR_GET_NAME, curThread->procname));
 #endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
+
+    // --- TSAN INJECTION: PRE-CHECKPOINT ---
+    if (is_tsan() && ! curThread->is_tsan_helper && ! dmtcp_is_ckpt_thread()) {
+      // clang's statically linked TSAN runtime doesn't export
+      // __tsan_ignore_thread_begin/_end (unlike the fiber API and
+      // acquire/release); the weak symbol resolves to NULL here.
+      if (__tsan_ignore_thread_begin != NULL) {
+        __tsan_ignore_thread_begin();
+      }
+      // Ordinary threads don't need __tsan_acquire/release. motherofall's
+      // __tsan_release() call is deferred past rawSemPost() below, since
+      // it needs motherofall's own TSAN slot, which suspendThreads()'s
+      // atfork bracket holds until every thread has posted there.
+      curThread->tsan_fiber_ctx = __tsan_get_current_fiber();
+      // -------------------------------------------------------
+    }
+    // --------------------------------------
 
     Thread_SaveSigState(curThread);  // save sig state (and block sig delivery)
     TLSInfo_SaveTLSState(curThread);  // save thread local storage state
@@ -674,7 +1233,13 @@ stopthisthread(int signum)
              "Failed to mark thread (tid:{}) from SUSPEND_IN_PROGRESS to "
              "SUSPENDED",
              curThread->tid);
-      sem_post(&semNotifyCkptThread);
+      rawSemPost(&semNotifyCkptThread);
+
+      // See the PRE-CHECKPOINT block above: deferred to here so this call
+      // can safely block until suspendThreads() releases the atfork lock.
+      if (is_tsan() && curThread == motherofall) {
+        __tsan_release((void*)curThread);
+      }
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
       TRACE("User thread suspended: tid={}", curThread->tid);
@@ -696,6 +1261,17 @@ stopthisthread(int signum)
              curThread->tid);
 
       ASSERT_LOCK_SUCCESS(DmtcpRWLockUnlock(&threadResumeLock));
+
+      // --- TSAN INJECTION: RESUME ORIGINAL PROCESS ---
+      if (is_tsan() && ! curThread->is_tsan_helper && !dmtcp_is_ckpt_thread()) {
+        // Ordinary threads don't need __tsan_acquire/release
+        // See the PRE-CHECKPOINT block above for why this is null-checked.
+        if (__tsan_ignore_thread_end != NULL) {
+          __tsan_ignore_thread_end();
+        }
+      }
+      // -----------------------------------------------
+
     } else {
       // If the user defined DMTCP_DISABLE_PRGNAME_PREFIX, skip this prefix.
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
@@ -724,6 +1300,14 @@ stopthisthread(int signum)
 
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
       ThreadList::waitForAllRestored(curThread);
+
+      // --- TSAN INJECTION: POST-RESTART CLEANUP ---
+      // See the PRE-CHECKPOINT block above for why this is null-checked.
+      if (is_tsan() && ! curThread->is_tsan_helper && ! dmtcp_is_ckpt_thread() &&
+          __tsan_ignore_thread_end != NULL) {
+        __tsan_ignore_thread_end();
+      }
+      // --------------------------------------------
     }
 
     TRACE("User thread returning to user code: tid={} return_address={}",
@@ -743,7 +1327,7 @@ ThreadList::waitForAllRestored(Thread *thread)
   if (thread == ckptThread) {
     int i;
     for (i = 0; i < numUserThreads; i++) {
-      sem_wait(&semNotifyCkptThread);
+      rawSemWait(&semNotifyCkptThread);
     }
 
     // Now that all threads have been created, restore the signal handler. We
@@ -773,11 +1357,11 @@ ThreadList::waitForAllRestored(Thread *thread)
 
     // if this was last of all, wake everyone up
     for (i = 0; i < numUserThreads; i++) {
-      sem_post(&semWaitForCkptThreadSignal);
+      rawSemPost(&semWaitForCkptThreadSignal);
     }
   } else {
-    sem_post(&semNotifyCkptThread);
-    sem_wait(&semWaitForCkptThreadSignal);
+    rawSemPost(&semNotifyCkptThread);
+    rawSemWait(&semWaitForCkptThreadSignal);
   }
 
   PluginManager::eventHook(DMTCP_EVENT_THREAD_RESUME);
@@ -799,8 +1383,6 @@ ThreadList::postRestart(int restartPause)
   TLSInfo_RestoreTLSState(motherofall);
   TLSInfo_RestoreTLSTidPid(motherofall);
 
-  motherpid = getpid();
-
   restartPauseLevel = restartPause;
   DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 2);
 
@@ -814,6 +1396,7 @@ void
 ThreadList::postRestartWork()
 {
   Thread *thread;
+  Thread *next;
   sigset_t tmp;
 
   if (TLSInfo_HaveThreadSysinfoOffset()) {
@@ -833,7 +1416,10 @@ ThreadList::postRestartWork()
   Util::allowGdbDebug(DEBUG_POST_RESTART);
 
   sigfillset(&tmp);
-  for (thread = activeThreads; thread != NULL; thread = thread->next) {
+  for (thread = activeThreads; thread != NULL; thread = next) {
+    // Precompute 'next' now, in case 'thread' is declared dead below.
+    next = thread->next;
+
     sigandset(&sigpending_global, &tmp, &(thread->sigpending));
     tmp = sigpending_global;
 
@@ -841,7 +1427,17 @@ ThreadList::postRestartWork()
       continue;
     }
 
-    /* Create the thread so it can finish restoring itself. */
+    /* Create the thread so it can finish restoring itself.
+     * But remove old TSAN helper thread; it's stateless: TSAN creates new one
+     */
+    if (is_tsan() && thread->is_tsan_helper) {
+      ThreadList::threadIsDead(thread); // Del. old TSAN helper from active list
+      continue; // TSAN helper should not be restored; Stateless, TSAN creates
+    }
+
+    ASSERT(!(is_tsan() && thread->is_tsan_helper),
+           "TSAN: helper thread reached _real_clone(); should have "
+           "been skipped above");
     pid_t tid = _real_clone(restarthread,
 
                             // -128 for red zone
@@ -870,6 +1466,35 @@ restarthread(void *threadv)
   Thread *thread = (Thread *)threadv;
 
   TLSInfo_RestoreTLSState(thread);
+
+  // The checkpoint thread skips the suspend/resume path (excluded from
+  // __tsan_ignore_thread_begin/end); its TSAN trace kept recording through
+  // writeCkpt(), possibly torn at checkpoint time. Treat this OS thread as
+  // freshly created: switch to a new TSAN fiber immediately, before
+  // anything else (even the TRACE() call below) touches the old one.
+  if (thread == ckptThread && is_tsan()) {
+    ASSERT_NOT_NULL(__tsan_create_fiber,
+                    "TSAN runtime is missing __tsan_create_fiber");
+    void *staleFiber = thread->tsan_fiber_ctx;
+    void *freshFiber = __tsan_create_fiber(0);
+    ASSERT_NOT_NULL(freshFiber, "__tsan_create_fiber returned NULL");
+    __tsan_switch_to_fiber(freshFiber, 0);
+    if (staleFiber != NULL) {
+      ASSERT_NOT_NULL(__tsan_destroy_fiber,
+                      "TSAN runtime is missing __tsan_destroy_fiber");
+      __tsan_destroy_fiber(staleFiber);  // now inactive; free it
+    }
+    thread->tsan_fiber_ctx = freshFiber;
+    if (is_tsan()) {
+      TRACE("TSAN: gave checkpoint thread a fresh fiber on restart: "
+            "tid={} staleFiber={} freshFiber={}",
+            thread->tid, staleFiber, freshFiber);
+    }
+    ASSERT(freshFiber != staleFiber,
+           "TSAN: __tsan_create_fiber unexpectedly returned the "
+           "stale fiber's address");
+  }
+
   TLSInfo_RestoreTLSTidPid(thread);
 
   if (TLSInfo_HaveThreadSysinfoOffset()) {
@@ -882,6 +1507,38 @@ restarthread(void *threadv)
   if (thread == motherofall) {  // if this is a user thread
     DMTCP_RESTART_PAUSE_WHILE(restartPauseLevel == 4);
   }
+
+  // --- TSAN INJECTION: RESTART BRIDGE ---
+  // Do NOT call __tsan_ignore_thread_begin() here: tsan_fiber_ctx was
+  // captured in stopthisthread()'s PRE-CHECKPOINT block after its own
+  // __tsan_ignore_thread_begin() call, so the restored fiber already
+  // carries "ignore" depth 1 from before checkpoint.
+  if (is_tsan() && ! dmtcp_is_ckpt_thread()) {
+    if (thread->tsan_fiber_ctx == NULL) {
+      // No PRE-CHECKPOINT capture ran for this thread (e.g. the checkpoint
+      // signal caught it before stopthisthread() got a chance to set
+      // tsan_fiber_ctx). Give it a fresh fiber instead of handing
+      // __tsan_switch_to_fiber() a NULL pointer, as for ckptThread above.
+      TRACE("TSAN: restarthread found NULL tsan_fiber_ctx: tid={} "
+            "is_tsan_helper={} state={}",
+            thread->tid, thread->is_tsan_helper, thread->state);
+      ASSERT_NOT_NULL(__tsan_create_fiber,
+                      "TSAN runtime is missing __tsan_create_fiber");
+      thread->tsan_fiber_ctx = __tsan_create_fiber(0);
+      ASSERT_NOT_NULL(thread->tsan_fiber_ctx,
+                      "__tsan_create_fiber returned NULL");
+    }
+    __tsan_switch_to_fiber(thread->tsan_fiber_ctx, 0);
+    if (thread == motherofall) {
+      __tsan_acquire((void*)thread);
+    }
+    // ---------------------------------------------------------
+  }
+  // --------------------------------------
+
+  // The checkpoint thread is deliberately not touched here: it was already
+  // given a fresh TSAN fiber earlier in this function, immediately after
+  // TLSInfo_RestoreTLSState() -- see the comment there for why.
 
   /* Jump to the stopthisthread routine just after sigsetjmp/getcontext call.
    * Note that if this is the restored checkpointhread, it jumps to the
@@ -977,38 +1634,17 @@ Thread_RestoreSigState(Thread *th)
 void
 ThreadList::addToActiveList(Thread *th)
 {
-  int tid;
   Thread *thread;
   Thread *next_thread;
 
   lock_threads();
 
-  // CONTEXT:  After fork(), we called:
-  // ... -> initializeMtcpEngine() -> ThreadList::init() -> initThread()
-  // -> addToActiveList()
-  // NOTE:  After a call to fork(), only the calling thread continues to live.
-  // Before initializeMtcpEngine() called init(), it called:
-  // ... -> initializeMtcpEngine() -> ThreadSync::initMotherOfAll() ->
-  // -> ThreadSync::initThread()
-  // Logically, we would have set 'curThread = NULL;; inside
-  // ThreadSync::initThread(), but it's inconvenient since curThread
-  // is static (file-private).
-  // So, initThread() created the new thread descriptor.  We make sure
-  // to set curThread to th, the new descriptor, now, in case it wasn't
-  // done yet.
-  // We had also set curThread to NULL in ThreadList::init().  This also
-  // makes logical sense, but only because a call to fork() allows
-  // only the calling thread (caller of ThreadList::init()) to live on.
-  // So, that solution seems less general.  So, we'll handle it here, too:
-  curThread = th;
-
-  tid = curThread->tid;
-  ASSERT(tid != 0, "cannot add thread with zero tid");
+  ASSERT(th->tid != 0, "cannot add thread with zero tid");
 
   // First remove duplicate descriptors.
   for (thread = activeThreads; thread != NULL; thread = next_thread) {
     next_thread = thread->next;
-    if (thread != curThread && thread->tid == tid) {
+    if (thread != th && thread->tid == th->tid) {
       TRACE("Removing duplicate thread descriptor: tid={}", thread->tid);
 
       // There will be at most one duplicate descriptor.
@@ -1030,12 +1666,12 @@ ThreadList::addToActiveList(Thread *th)
     }
   }
 
-  curThread->next = activeThreads;
-  curThread->prev = NULL;
+  th->next = activeThreads;
+  th->prev = NULL;
   if (activeThreads != NULL) {
-    activeThreads->prev = curThread;
+    activeThreads->prev = th;
   }
-  activeThreads = curThread;
+  activeThreads = th;
 
   unlock_threads();
 }
