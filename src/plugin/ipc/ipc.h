@@ -32,6 +32,7 @@
 
 # define CONNECTION_ID_START        99000
 
+# define ANON_INODE_STR             "anon_inode:"
 # define DEV_ZERO_DELETED_STR       "/dev/zero (deleted)"
 # define DEV_NULL_DELETED_STR       "/dev/null (deleted)"
 

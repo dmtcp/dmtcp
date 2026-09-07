@@ -448,6 +448,12 @@ FileConnList::prepareShmList()
         } else {
           JTRACE("Will not checkpoint shared memory area") (area.name);
         }
+      } else if (Util::strStartsWith(area.name, ANON_INODE_STR)) {
+        // io_uring, perf_event, etc.  The backing object lives behind an fd and
+        // cannot be recreated from the mapping, so the region is saved as
+        // ordinary memory and comes back with no kernel object behind it.
+        JWARNING(false) (area.name)
+        .Text("Ckpt/Restart of anon_inode shared memory not supported.");
       } else {
         // TODO: Shared memory areas with unlinked backing files.
         JASSERT(Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) (area.name);
