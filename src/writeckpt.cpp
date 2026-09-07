@@ -349,7 +349,19 @@ writememoryarea(int fd, Area area)
   // MAP_PRIVATE | MAP_ANONYMOUS: for shared memory a page that is absent from
   // THIS process can still hold data written via another attachment, so such
   // regions must use the content scan.
-  bool residencyScanSafe = (area.name[0] == '\0') &&
+  // Stat'd once here; the file-backed branch below reuses the result.
+  struct stat areaStat = { 0 };
+  bool areaStatValid = (area.name[0] != '\0') &&
+                       ((area.flags & MAP_ANONYMOUS) == 0) &&
+                       (stat(area.name, &areaStat) == 0);
+
+  // A hole the loader left past the end of the file: no content backs it and
+  // its pages are absent, so it is saved as anonymous memory.  S_ISREG excludes
+  // character devices, which report st_size == 0 at offset 0.
+  bool offsetPastEof = areaStatValid && S_ISREG(areaStat.st_mode) &&
+                       (area.offset >= areaStat.st_size);
+
+  bool residencyScanSafe = ((area.name[0] == '\0') || offsetPastEof) &&
                            (area.flags & MAP_PRIVATE) &&
                            !(area.flags & MAP_SHARED);
 
@@ -535,7 +547,7 @@ writememoryarea(int fd, Area area)
   if ((area.flags & MAP_ANONYMOUS) != 0) {
     // Handle anonymous pages.
     mtcp_write_anonymous_pages(fd, area, residencyScanSafe);
-  } else if (!jalib::Filesystem::FileExists(area.name)) {
+  } else if (offsetPastEof || !jalib::Filesystem::FileExists(area.name)) {
     // Handle non-existing files (deleted file: not residency-safe, so the
     // content scan runs regardless of residencyScanSafe).
     mtcp_write_anonymous_pages(fd, area, residencyScanSafe);
@@ -543,14 +555,20 @@ writememoryarea(int fd, Area area)
     JASSERT(strlen(area.name) > 0);
 
     // FIXME: If the file was opened and deleted, we cannot handle that here.
-    struct stat statbuf = {0};
-    if (stat(area.name, &statbuf) == 0) {
+    if (areaStatValid) {
+      // Signed throughout: an unsigned operand here would wrap when the offset
+      // is past EOF.  offsetPastEof already excludes that, so the clamp is
+      // belt-and-braces.
+      off_t availBytes = areaStat.st_size - area.offset;
+      if (availBytes < 0) {
+        availBytes = 0;
+      }
+
       // RW regions should be save/restored without st_size considerations.
-      if ((area.prot & PROT_WRITE) ||
-          (statbuf.st_size - (size_t)area.offset) > area.size) {
+      if ((area.prot & PROT_WRITE) || (size_t)availBytes > area.size) {
         area.mmapFileSize = area.size;
       } else {
-        area.mmapFileSize = statbuf.st_size - area.offset;
+        area.mmapFileSize = availBytes;
       }
     }
 
