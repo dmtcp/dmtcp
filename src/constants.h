@@ -49,6 +49,7 @@
 #define CKPT_FILES_SUBDIR_PREFIX "ckpt_"
 #define CKPT_FILES_SUBDIR_SUFFIX "_files"
 
+#define ANON_INODE_STR           "anon_inode:"
 #define DEV_ZERO_DELETED_STR     "/dev/zero (deleted)"
 #define DEV_NULL_DELETED_STR     "/dev/null (deleted)"
 
