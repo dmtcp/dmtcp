@@ -468,9 +468,27 @@ writememoryarea(int fd, Area area)
   // MAP_PRIVATE | MAP_ANONYMOUS: for shared memory a page that is absent from
   // THIS process can still hold data written via another attachment, so such
   // regions must use the content scan.
-  bool residencyScanSafe = (area.name[0] == '\0') &&
-                           (area.flags & MAP_PRIVATE) &&
-                           !(area.flags & MAP_SHARED);
+  //
+  // Stat'd once here; the file-backed branch below reuses the result.
+  struct stat areaStat = {0};
+  bool areaStatValid = (area.name[0] != '\0') &&
+                       ((area.flags & MAP_ANONYMOUS) == 0) &&
+                       (stat(area.name, &areaStat) == 0);
+
+  // A hole the loader left past the end of the file (e.g., between LOAD
+  // segments of a library with 2M alignment): no content backs it, and any
+  // access to it raises SIGBUS, so it can be neither read for the image nor
+  // content-scanned.  The kernel never keeps such a page resident (truncate
+  // zaps even private COW pages), so the residency scan is safe for it
+  // whether it is MAP_PRIVATE or MAP_SHARED.  S_ISREG excludes character
+  // devices, which report st_size == 0.
+  bool offsetPastEof = areaStatValid && S_ISREG(areaStat.st_mode) &&
+                       (area.offset >= areaStat.st_size);
+
+  bool residencyScanSafe = offsetPastEof ||
+                           ((area.name[0] == '\0') &&
+                            (area.flags & MAP_PRIVATE) &&
+                            !(area.flags & MAP_SHARED));
 
   if ((uint64_t)area.addr == ProcessInfo::instance().restoreBuf.startAddr) {
     return;
@@ -603,6 +621,15 @@ writememoryarea(int fd, Area area)
     TRACE("Saving SysV SHM area as Anonymous: name={}", area.name);
     area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
     area.name[0] = '\0';
+  } else if (offsetPastEof) {
+    // Drop the file identity too, so that mtcp_restart maps fresh anonymous
+    // memory instead of the file.
+    TRACE("saving past-EOF file area as Anonymous: name={} offset={} size={}",
+          area.name, area.offset, areaStat.st_size);
+    area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+    area.name[0] = '\0';
+    area.offset = 0;
+    area.mmapFileSize = -1;
   } else if (Util::isNscdArea(area)) {
     /* Special Case Handling: nscd is enabled*/
     area.prot = PROT_READ | PROT_WRITE;
@@ -667,14 +694,21 @@ writememoryarea(int fd, Area area)
            area.addr, area.size);
 
     // FIXME: If the file was opened and deleted, we cannot handle that here.
-    struct stat statbuf = {0};
-    if (stat(area.name, &statbuf) == 0) {
+    if (areaStatValid) {
       // RW regions should be save/restored without st_size considerations.
       if ((area.prot & PROT_WRITE) ||
-          (statbuf.st_size - (size_t)area.offset) > area.size) {
+          (area.offset + area.size) < areaStat.st_size /* file size*/) {
         area.mmapFileSize = area.size;
       } else {
-        area.mmapFileSize = statbuf.st_size - area.offset;
+        // Signed, so that it cannot wrap.  Past-EOF regular files were saved
+        // as anonymous above, but a non-regular file (e.g., a device reporting
+        // st_size == 0) can still get here.
+        off_t availBytes = areaStat.st_size - area.offset;
+        if (availBytes > 0) {
+          area.mmapFileSize = availBytes;
+        } else {
+          area.mmapFileSize = 0;
+        }
       }
     }
 
