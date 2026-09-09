@@ -671,10 +671,17 @@ writememoryarea(int fd, Area area)
     if (stat(area.name, &statbuf) == 0) {
       // RW regions should be save/restored without st_size considerations.
       if ((area.prot & PROT_WRITE) ||
-          (statbuf.st_size - (size_t)area.offset) > area.size) {
+          (area.offset + area.size) < statbuf.st_size /* file size*/) {
         area.mmapFileSize = area.size;
       } else {
-        area.mmapFileSize = statbuf.st_size - area.offset;
+        // It's possible that the file size is samller than the offset because
+        // of memory alignment.
+        off_t availBytes = statbuf.st_size - area.offset;
+        if (availBytes > 0) {
+          area.mmapFileSize = availBytes;
+        } else {
+          area.mmapFileSize = 0;
+        }
       }
     }
 
