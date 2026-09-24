@@ -53,6 +53,15 @@
                 "sub x29, x29, %0"                                            \
                 : : "r" (addr) : "memory");
 
+#elif defined(__powerpc64__) || defined(__ppc64__)
+# define RELOCATE_STACK(addr)                                                 \
+  asm volatile ("lwsync" ::: "memory");                                       \
+  asm volatile ("mr 0, 2\n\t"                                                 \
+                "subf 1, %0, 1\n\t"                                           \
+                "subf 31, %0, 31\n\t"                                         \
+                "mr 2, 0"                                                     \
+                : : "r" (addr) : "r0", "memory");
+
 #else /* if defined(__i386__) || defined(__x86_64__) */
 
 # error "assembly instruction not translated"
