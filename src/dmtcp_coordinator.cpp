@@ -959,6 +959,7 @@ DmtcpCoordinator::onConnect()
     remote.close();
     return;
   }
+  remote.enableNoDelay();
 
   // The handshake read below is blocking.  Drop idle half-open connections so
   // one peer cannot pin the coordinator event loop before sending a message.
