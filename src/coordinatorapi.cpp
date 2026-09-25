@@ -227,7 +227,11 @@ createNewSocketToCoordinator(CoordinatorMode mode)
   int port = UNINITIALIZED_PORT;
 
   getCoordHostAndPort(COORD_ANY, &host, &port);
-  return jalib::JClientSocket(host.c_str(), port).sockfd();
+  jalib::JSocket sock = jalib::JClientSocket(host.c_str(), port);
+  if (sock.isValid()) {
+    sock.enableNoDelay();
+  }
+  return sock.sockfd();
 }
 
 void init()
@@ -671,6 +675,7 @@ createNewConnectionBeforeFork(string& progname)
   socklen_t addrlen = len;
   int sock = jalib::JClientSocket((struct sockaddr *)&addr, addrlen);
   JASSERT(sock != -1);
+  jalib::JSocket(sock).enableNoDelay();
 
   DmtcpMessage hello_local(DMT_NEW_WORKER);
   DmtcpMessage hello_remote = sendRecvHandshake(sock, hello_local, progname);

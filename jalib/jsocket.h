@@ -119,6 +119,7 @@ class JSocket
     bool isValid() const;
 
     void enablePortReuse();
+    void enableNoDelay();
 
     template<typename T>
     JSocket&operator<<(const T &t)

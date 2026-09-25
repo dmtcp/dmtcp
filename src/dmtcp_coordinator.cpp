@@ -867,6 +867,7 @@ DmtcpCoordinator::onConnect()
     remote.close();
     return;
   }
+  remote.enableNoDelay();
 
   DmtcpMessage hello_remote;
   hello_remote.poison();
