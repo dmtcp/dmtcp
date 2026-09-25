@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <poll.h>
 #include <set>
 #include <stdio.h>
@@ -281,6 +282,18 @@ jalib::JSocket::enablePortReuse()
    */
 
 #endif // ifdef SO_REUSEPORT
+}
+
+// Disable Nagle's algorithm to avoid delayed-ACK stalls on small messages.
+void
+jalib::JSocket::enableNoDelay()
+{
+  int one = 1;
+
+  if (jalib::setsockopt(_sockfd, IPPROTO_TCP, TCP_NODELAY, &one,
+                        sizeof(one)) < 0) {
+    WARN_ERRNO(false, "setsockopt(TCP_NODELAY) failed");
+  }
 }
 
 bool
