@@ -455,6 +455,13 @@ FileConnList::prepareShmList()
           TRACE("Will not checkpoint read-only shared memory area: path={}",
                 area.name);
         }
+      } else if (Util::strStartsWith(area.name, ANON_INODE_STR)) {
+        // Explicit error message if the user program uses io_uring
+        // FIXME: Add support for io_uring
+        ASSERT(false,
+               "Ckpt/Restart of anon_inode shared memory not supported: "
+               "path={}",
+               area.name);
       } else {
         // TODO: Shared memory areas with unlinked backing files.
         ASSERT(Util::strEndsWith(area.name, DELETED_FILE_SUFFIX),

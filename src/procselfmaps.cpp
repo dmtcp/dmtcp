@@ -235,10 +235,9 @@ ProcSelfMaps::getNextArea(ProcMapsArea *area)
   }
 
   area->name[0] = '\0';
-  if (data[dataIdx] == '/' || data[dataIdx] == '[' || data[dataIdx] == '(') {
-    // absolute pathname, or [stack], [vdso], etc.
-    // On some machines, deleted files have a " (deleted)" prefix to the
-    // filename.
+  if (data[dataIdx] != '\n') {
+    // Any name: an absolute pathname, [stack], [vdso], "... (deleted)",
+    // anon_inode:[io_uring], etc.
     size_t i = 0;
     while (data[dataIdx] != '\n') {
       area->name[i++] = data[dataIdx++];
