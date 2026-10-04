@@ -89,6 +89,10 @@ extern "C" void *valloc(size_t size)
 extern "C" void
 free(void *ptr)
 {
+  // Add for performance.
+  if (ptr == NULL) {
+    return;
+  }
   if (!dmtcp_alloc_enabled()) {
     _real_free(ptr);
     return;
