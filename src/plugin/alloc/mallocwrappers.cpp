@@ -71,6 +71,10 @@ extern "C" void *valloc(size_t size)
 extern "C" void
 free(void *ptr)
 {
+  // Add for performance.
+  if (ptr == NULL) {
+    return;
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   _real_free(ptr);
   DMTCP_PLUGIN_ENABLE_CKPT();
