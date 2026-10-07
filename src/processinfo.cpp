@@ -315,6 +315,22 @@ ProcessInfo::growStack()
     ASSERT_NOT_NULL(tmpbuf, "failed to grow stack: allocSize={}",
                         allocSize);
     memset(tmpbuf, 0, allocSize);
+    // Touching the pages is what makes the kernel extend the stack mapping to
+    // the stack limit; the pages themselves are not needed.  Give them back:
+    // the mapping keeps its size, and the pages become non-resident again, so
+    // they cost no memory and are skipped as zero pages by the checkpoint
+    // writer (residency scan).  Without this the whole RLIMIT_STACK stays
+    // resident and is written in every checkpoint (e.g. 64 MB per process,
+    // or 2 GB per process with 'ulimit -s 2097152').  Only whole pages that
+    // lie entirely inside tmpbuf are released; the frames of this function
+    // and of madvise() are outside it.
+    uintptr_t pgsz = (uintptr_t)sysconf(_SC_PAGESIZE);
+    uintptr_t lo = ((uintptr_t)tmpbuf + pgsz - 1) & ~(pgsz - 1);
+    uintptr_t hi = ((uintptr_t)tmpbuf + allocSize) & ~(pgsz - 1);
+    if (hi > lo) {
+      WARN_ERRNO(madvise((void *)lo, hi - lo, MADV_DONTNEED) == 0,
+                 "cannot release the stack pages touched to grow it");
+    }
   }
 
   if (logEnabled(LogLevel::Trace, DMTCP_LOG_COMPONENT, __FILE__)) {
