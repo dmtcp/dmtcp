@@ -463,8 +463,7 @@ void DmtcpCoordinator::getStatusStr(ostream *o)
   *o << "Status..." << std::endl
      << "Host: " << coordHostname
      << " (" << inet_ntoa(localhostIPAddr) << ")" << std::endl
-     << "Port: " << flags.thePort << std::endl
-     << "Checkpoint Interval: ";
+     << "Port: " << flags.thePort << std::endl;
 
   CoordPluginMgr::writeStatusToStream(o);
 }
@@ -473,14 +472,21 @@ bool
 DmtcpCoordinator::writeStatusToFile()
 {
   // Renamed into place: never read partial.  Append-created: one Lustre stripe.
-  string tmp = flags.theStatusFile + ".tmp." + jalib::XToString(getpid());
+  ostringstream o;
   char buffer[80];
-  unlink(tmp.c_str());
-  ofstream o(tmp.c_str(), std::ios::app);
   o << "Coordinator started: " << get_ftime(buffer, sizeof(buffer)) << "\n";
   getStatusStr(&o);
-  o.close();
-  if (o.fail() || rename(tmp.c_str(), flags.theStatusFile.c_str()) != 0) {
+  string status = o.str();
+  string tmp = flags.theStatusFile + ".tmp." + jalib::XToString(getpid());
+  unlink(tmp.c_str());
+  int fd = open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_APPEND, 0666);
+  if (fd < 0) {
+    return false;
+  }
+  bool ok = Util::writeAll(fd, status.data(), status.size()) ==
+            (ssize_t)status.size();
+  ok = close(fd) == 0 && ok;
+  if (!ok || rename(tmp.c_str(), flags.theStatusFile.c_str()) != 0) {
     unlink(tmp.c_str());
     return false;
   }
@@ -1933,6 +1939,8 @@ main(int argc, char **argv)
   }
   TRACE("Listening on port: port={}", flags.thePort);
 
+  CoordPluginMgr::initialize(flags);
+
   // Before --daemon's fork, so the file is complete when the parent exits.
   if (!flags.theStatusFile.empty() && !theCoordinator.writeStatusToFile()) {
     fprintf(stderr, "Error writing file %s\n", flags.theStatusFile.c_str());
@@ -2038,7 +2046,6 @@ main(int argc, char **argv)
     signal(SIGQUIT, signal_handler); // quit signal
   }
 
-  CoordPluginMgr::initialize(flags);
   theCoordinator.eventLoop();
   return 0;
 }
