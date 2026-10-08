@@ -477,7 +477,9 @@ DmtcpCoordinator::writeStatusToFile()
   o << "Coordinator started: " << get_ftime(buffer, sizeof(buffer)) << "\n";
   getStatusStr(&o);
   string status = o.str();
-  string tmp = flags.theStatusFile + ".tmp." + jalib::XToString(getpid());
+  // One live process per host and PID: a leftover of this name is stale.
+  string tmp = flags.theStatusFile + ".tmp." + coordHostname + "." +
+               jalib::XToString(getpid());
   unlink(tmp.c_str());
   int fd = open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_APPEND, 0666);
   if (fd < 0) {
