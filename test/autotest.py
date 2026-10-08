@@ -1983,6 +1983,12 @@ class TestRegistry:
             TestSpec("stat", 1, ["./test/stat"]),
             TestSpec("mmap1", 1, ["./test/mmap1"]),
             TestSpec("mremap", 1, ["./test/mremap"]),
+            # Regression guard for restoring the program break when the
+            # kernel's break after restart lies above the saved one
+            # (ProcessInfo::restoreHeap). The delay lets the restarted
+            # process grow its heap before the next checkpoint.
+            TestSpec("heap-growth", 1, ["./test/heap-growth"],
+                     pre_checkpoint_delay=1.0),
             # Regression guard for restoring a huge MAP_NORESERVE anonymous
             # region (src/mtcp/mtcp_restart.c, MAP_NORESERVE_SIZE_THRESHOLD),
             # modeled on how ThreadSanitizer reserves its shadow/meta mappings.

@@ -208,6 +208,10 @@ clock: clock.c
 mmap1: mmap1.c
 	$(CC) -o $@ $< $(CFLAGS) -ldl
 
+# Non-PIE, so that its program break sits low (see heap-growth.c).
+heap-growth: heap-growth.c
+	$(CC) -o $@ $< $(CFLAGS) -no-pie
+
 selinux1: selinux1.c
 ifeq ($(HAS_SELINUX),yes)
 	$(CC) -o $@ $< $(CFLAGS) -lselinux
