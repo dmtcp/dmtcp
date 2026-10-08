@@ -239,6 +239,10 @@ class TestSpec:
     # test/mmap-noreserve.c) needs the process's own address-space limit
     # raised first; see DmtcpHarness.run()'s use of this flag.
     needs_max_address_space: bool = False
+    # Unconditional disable, unlike configure_flags/required_files/etc.
+    # (all environment-dependent gates): a known bug this test reproduces,
+    # not a missing prerequisite. See the TestSpec's own comment for why.
+    disabled_reason: Optional[str] = None
 
     def peer_counts(self) -> List[int]:
         if isinstance(self.peers, int):
@@ -1779,6 +1783,8 @@ class TestRegistry:
     @classmethod
     def _disabled_reasons(cls, test: TestSpec) -> List[str]:
         reasons = []
+        if test.disabled_reason:
+            return [test.disabled_reason]
         if cls._use_m32() and test.name in cls.M32_DISABLED_TESTS:
             reasons.append("disabled for m32")
             return reasons
