@@ -160,7 +160,6 @@ static const char *theUsage =
 
 
 CoordFlags flags;
-static int offset_after_first_line = 0;
 static bool blockUntilDone = false;
 static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
@@ -470,22 +469,22 @@ void DmtcpCoordinator::getStatusStr(ostream *o)
   CoordPluginMgr::writeStatusToStream(o);
 }
 
-void
+bool
 DmtcpCoordinator::writeStatusToFile()
 {
-  ASSERT_ERRNO(truncate(flags.theStatusFile.c_str(),
-                        offset_after_first_line) == 0,
-               "failed to truncate coordinator status file: path={}",
-               flags.theStatusFile.c_str());
-  ofstream o;
-  // Don't use std::ios::trunc.  A timestamp was previously written.
-  o.open(flags.theStatusFile.c_str(), std::ios::app);
-  ASSERT(!o.fail(), "failed to open coordinator status file: path={}",
-         flags.theStatusFile);
-
+  // Renamed into place: never read partial.  Append-created: one Lustre stripe.
+  string tmp = flags.theStatusFile + ".tmp." + jalib::XToString(getpid());
+  char buffer[80];
+  unlink(tmp.c_str());
+  ofstream o(tmp.c_str(), std::ios::app);
+  o << "Coordinator started: " << get_ftime(buffer, sizeof(buffer)) << "\n";
   getStatusStr(&o);
-
   o.close();
+  if (o.fail() || rename(tmp.c_str(), flags.theStatusFile.c_str()) != 0) {
+    unlink(tmp.c_str());
+    return false;
+  }
+  return true;
 }
 
 void
@@ -1934,6 +1933,12 @@ main(int argc, char **argv)
   }
   TRACE("Listening on port: port={}", flags.thePort);
 
+  // Before --daemon's fork, so the file is complete when the parent exits.
+  if (!flags.theStatusFile.empty() && !theCoordinator.writeStatusToFile()) {
+    fprintf(stderr, "Error writing file %s\n", flags.theStatusFile.c_str());
+    return 1;
+  }
+
   // Now that flags.thePort is authoritative, rewrite argv[0]/comm to show
   // the coordinator's real, final port instead of the compiled-in default
   // (the previous call site, before argument parsing, always showed that
@@ -2025,20 +2030,6 @@ main(int argc, char **argv)
   }
 
   if (!flags.theStatusFile.empty()) {
-    FILE *file_ptr = std::fopen(flags.theStatusFile.c_str(), "w");
-    if (file_ptr == NULL) {
-      fprintf(stderr, "Error opening file %s\n", flags.theStatusFile.c_str());
-      return 1;
-    }
-    char buffer[80];
-    char output[80];
-    snprintf(output, sizeof(output),
-             "Coordinator started: %s\n", get_ftime(buffer, sizeof(buffer)));
-    offset_after_first_line = strlen(output);
-    fprintf(file_ptr, "%s", output);
-    fclose(file_ptr);
-    theCoordinator.writeStatusToFile();
-
     atexit(atexit_handler);
     signal(SIGINT, signal_handler);  // Ctrl+C
     signal(SIGTERM, signal_handler); // Termination request
