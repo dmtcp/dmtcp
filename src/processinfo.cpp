@@ -514,26 +514,26 @@ ProcessInfo::restoreHeap()
         (void *)_initialSavedBrk,
         EndOfBrkMapSize);
 
-  /* If the original start of heap is lower than the current end of heap, we
-   * want to mmap the area between _savedBrk and current break. This
-   * happens when the size of checkpointed program is smaller then the size of
-   * mtcp_restart program.
+  /* Ask the kernel: sbrk(0) only returns glibc's cached break (__curbrk),
+   * which was restored from the checkpoint with the rest of memory.
    */
-  uint64_t curBrk = (uint64_t)sbrk(0);
+  uint64_t curBrk = (uint64_t)syscall(SYS_brk, 0);
 
   if (curBrk > savedBrk) {
-    NOTE("Area between saved_break and curr_break not mapped, mapping it now: "
-         "savedBrk={} curBrk={}",
+    /* The kernel's break comes from mtcp_restart and, with address-space
+     * randomization, can lie above the saved break. An unprivileged process
+     * cannot move it below mm->start_brk, so the saved break cannot be
+     * restored. Make glibc's cached break match the kernel's instead.
+     * Otherwise glibc's next sbrk(n) asks for savedBrk + n, the kernel refuses
+     * and returns the higher break, glibc's brk() counts that as success, and
+     * malloc uses [savedBrk, savedBrk + n): the EndOfBrkMap reservation.
+     */
+    NOTE("Kernel break is above the saved break; the heap continues at the "
+         "kernel break: savedBrk={} curBrk={}",
          savedBrk, curBrk);
-    size_t oldsize = savedBrk - _savedHeapStart;
-    size_t newsize = curBrk - _savedHeapStart;
-
-    void *remappedHeap = mremap((void *)_savedHeapStart, oldsize, newsize, 0);
-    ASSERT_ERRNO(remappedHeap != MAP_FAILED,
-                 "mremap failed to map area between saved break and current "
-                 "break: heapStart={} oldSize={} newSize={} savedBrk={} "
-                 "curBrk={}",
-                 _savedHeapStart, oldsize, newsize, savedBrk, curBrk);
+    ASSERT_ERRNO(brk((void *)curBrk) == 0,
+                 "failed to sync glibc's break with the kernel's: curBrk={}",
+                 curBrk);
   } else if (curBrk < savedBrk) {
     if (brk((void *)savedBrk) != 0) {
       WARN_ERRNO(false,
