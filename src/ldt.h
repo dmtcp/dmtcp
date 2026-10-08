@@ -20,8 +20,9 @@
 #define LDT_H
 #include <linux/version.h>
 
-// ARM and RISCV are missing asm/ldt.h in Ubuntu 11.10 (Linux 3.0, glibc-2.13)
-#if defined(__arm__) || defined(__aarch64__) || defined(__riscv)
+// ARM, RISCV, and PowerPC64 are missing asm/ldt.h (LDT is x86-specific)
+#if defined(__arm__) || defined(__aarch64__) || defined(__riscv) || \
+    defined(__powerpc64__) || defined(__ppc64__)
 
 /* Structure passed to `modify_ldt', 'set_thread_area', and 'clone' calls.
    This seems to have been stable since the beginning of Linux 2.6  */

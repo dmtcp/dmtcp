@@ -79,10 +79,20 @@ ifeq ($(FAST_RST_VIA_MMAP),yes)
   CFLAGS += -DFAST_RST_VIA_MMAP
 endif
 
+HOST_IS_PPC64=${shell uname -m | grep '^ppc64'}
+ifneq ($(HOST_IS_PPC64),)
+  PPC64_EXTRAS = ppc64_restart.S
+  PPC64_BINARIES = ppc64_restart.o
+  PPC64_CRT1 = crt1_ppc64.o
+  MTCP_PPC64_LDFLAGS = -nostartfiles
+else
+  PPC64_CRT1 =
+endif
+
 HEADERS = mtcp_header.h mtcp_restart.h mtcp_sys.h mtcp_util.h \
 	  $(srcdir)/../membarrier.h $(DMTCP_INCLUDE_PATH)/procmapsarea.h
 
-OBJS = mtcp_restart.o stdlibfnc.o mtcp_util.o mtcp_check_vdso.o ${ARM_BINARIES}
+OBJS = mtcp_restart.o stdlibfnc.o mtcp_util.o mtcp_check_vdso.o ${ARM_BINARIES} ${PPC64_CRT1}
 
 all: default
 default: build
@@ -99,8 +109,8 @@ endif
 libmtcprestart.a: $(OBJS)
 	$(AR) rcs $@ $^
 
-$(targetdir)/bin/$(MTCP_RESTART): main.o libmtcprestart.a
-	${LINK} -fPIC -g -O0 -nodefaultlibs -static ${LINKER_FLAGS} $^
+$(targetdir)/bin/$(MTCP_RESTART): main.o libmtcprestart.a ${PPC64_BINARIES}
+	${LINK} -fPIC -g -O0 -nodefaultlibs -static ${LINKER_FLAGS} ${MTCP_PPC64_LDFLAGS} $^
 
 # We need to compile mtcp_restart.c with "-fno-stack-protector" to avoid
 # runtime stack smashing detection.
@@ -119,6 +129,10 @@ syscall-arm.o: syscall-arm.S
 	${CC} ${CFLAGS} -c $<
 syscall-aarch64.o: syscall-aarch64.S
 	${CC} ${CFLAGS} -c $<
+ppc64_restart.o: ppc64_restart.S
+	${CC} ${CFLAGS} -c $<
+crt1_ppc64.o: crt1_ppc64.S
+	${CC} -c -o $@ $<
 
 # Try 'make gdb' before 'make check' if you want debugging information
 #   available in the case of 'make check' dumping core.
