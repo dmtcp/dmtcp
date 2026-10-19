@@ -106,7 +106,6 @@ static void remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
 static void restore_vdso_vvar_work(MemRegion *currentRegion,
                                    MemRegion *ckptRegion,
                                    const char *regionName);
-static void restore_vdso_vvar(RestoreInfo *rinfo);
 static void compute_regions_to_munmap(RestoreInfo *rinfo);
 static void refreshRegionsToMunmap(RestoreInfo *rinfo);
 static void validateRestoreBufferLocation(RestoreInfo *rinfo);
@@ -496,7 +495,7 @@ mtcp_restart(RestoreInfo *rinfo)
   // In GDB, 'set rinfo.restart_pause=2' to continue to next statement.
   MTCP_RESTART_PAUSE_WHILE(rinfo->restart_pause == 1);
 
-  restore_vdso_vvar(rinfo);
+  mtcp_restore_vdso_vvar(rinfo);
   restore_brk(rinfo);
   restorememoryareas(rinfo);
 }
@@ -789,8 +788,8 @@ restore_vdso_vvar_work(MemRegion *currentRegion, MemRegion *ckptRegion,
 }
 
 NO_OPTIMIZE
-static void
-restore_vdso_vvar(RestoreInfo *rinfo)
+void
+mtcp_restore_vdso_vvar(RestoreInfo *rinfo)
 {
   restore_vdso_vvar_work(&rinfo->currentVdso, &rinfo->ckptHdr.vdso, "[vdso]");
   restore_vdso_vvar_work(&rinfo->currentVvar, &rinfo->ckptHdr.vvar, "[vvar]");
@@ -1242,7 +1241,7 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo,
 
 NO_OPTIMIZE
 static void
-remapVdsoVvarToReservedArea(MemRegion *region, VA *newAddr, const char *regionName)
+remapRegionToReservedArea(MemRegion *region, VA *newAddr, const char *regionName)
 {
   int mtcp_sys_errno;
   // Now move vvar to the end of guard page.
@@ -1257,6 +1256,48 @@ remapVdsoVvarToReservedArea(MemRegion *region, VA *newAddr, const char *regionNa
     region->startAddr = (uint64_t) *newAddr;
     region->endAddr = (uint64_t) *newAddr + size;
     *newAddr = (VA) region->endAddr;
+  }
+}
+
+NO_OPTIMIZE
+void
+mtcp_remap_vdso_vvar(RestoreInfo *rinfo, VA *addr)
+{
+  int mtcp_sys_errno;
+
+  rinfo->currentVdso = (MemRegion){0, 0};
+  rinfo->currentVvar = (MemRegion){0, 0};
+  rinfo->currentVvarVClock = (MemRegion){0, 0};
+
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    MTCP_PRINTF("error opening /proc/self/maps: errno: %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  Area area;
+  while (mtcp_readmapsline(rinfo, mapsfd, &area)) {
+    if (isVdsoArea(&area)) {
+      rinfo->currentVdso.startAddr = (uint64_t)area.addr;
+      rinfo->currentVdso.endAddr = (uint64_t)area.endAddr;
+    } else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
+      rinfo->currentVvar.startAddr = (uint64_t)area.addr;
+      rinfo->currentVvar.endAddr = (uint64_t)area.endAddr;
+    } else if (mtcp_strcmp(area.name, "[vvar_vclock]") == 0) {
+      rinfo->currentVvarVClock.startAddr = (uint64_t)area.addr;
+      rinfo->currentVvarVClock.endAddr = (uint64_t)area.endAddr;
+    }
+  }
+
+  mtcp_sys_close(mapsfd);
+
+  remapRegionToReservedArea(&rinfo->currentVvar, addr, "[vvar]");
+  remapRegionToReservedArea(&rinfo->currentVvarVClock, addr, "[vvar_vclock]");
+  remapRegionToReservedArea(&rinfo->currentVdso, addr, "[vdso]");
+
+  if (rinfo->currentVdso.startAddr != 0) {
+    mtcp_setauxval(rinfo->environ, AT_SYSINFO_EHDR,
+                   (unsigned long int) rinfo->currentVdso.startAddr);
   }
 }
 
@@ -1277,9 +1318,6 @@ remapExistingAreasToReservedArea(RestoreInfo *rinfo,
   char binary_name[PATH_MAX+1] = {0};
   MTCP_ASSERT(mtcp_sys_readlink("/proc/self/exe", binary_name, PATH_MAX) != -1);
 
-  rinfo->currentVdso = (MemRegion){0, 0};
-  rinfo->currentVvar = (MemRegion){0, 0};
-  rinfo->currentVvarVClock = (MemRegion){0, 0};
   rinfo->old_stack_addr = NULL;
   rinfo->old_stack_size = 0;
 
@@ -1292,16 +1330,7 @@ remapExistingAreasToReservedArea(RestoreInfo *rinfo,
 
   Area area;
   while (mtcp_readmapsline(rinfo, mapsfd, &area)) {
-    if (isVdsoArea(&area)) {
-      rinfo->currentVdso.startAddr = (uint64_t)area.addr;
-      rinfo->currentVdso.endAddr = (uint64_t)area.endAddr;
-    } else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
-      rinfo->currentVvar.startAddr = (uint64_t)area.addr;
-      rinfo->currentVvar.endAddr = (uint64_t)area.endAddr;
-    } else if (mtcp_strcmp(area.name, "[vvar_vclock]") == 0) {
-      rinfo->currentVvarVClock.startAddr = (uint64_t)area.addr;
-      rinfo->currentVvarVClock.endAddr = (uint64_t)area.endAddr;
-    } else if (mtcp_strcmp(area.name, binary_name) == 0) {
+    if (mtcp_strcmp(area.name, binary_name) == 0) {
       MTCP_ASSERT(num_regions < MAX_MTCP_RESTART_MEM_REGIONS);
       mem_regions[num_regions++] = area;
     } else if (area.addr < (VA) &area && area.endAddr > (VA) &area) {
@@ -1327,15 +1356,7 @@ remapExistingAreasToReservedArea(RestoreInfo *rinfo,
   endAddr += MTCP_PAGE_SIZE;
 
   // Now move vdso/vvar to the end of guard page.
-  remapVdsoVvarToReservedArea(&rinfo->currentVvar, &endAddr, "[vvar]");
-  remapVdsoVvarToReservedArea(&rinfo->currentVvarVClock, &endAddr, "[vvar_vclock]");
-  remapVdsoVvarToReservedArea(&rinfo->currentVdso, &endAddr, "[vdso]");
-
-  // Now move vdso to the end of vvar page.
-  if (rinfo->currentVdso.startAddr != 0) {
-    mtcp_setauxval(rinfo->environ, AT_SYSINFO_EHDR,
-                   (unsigned long int) rinfo->currentVdso.startAddr);
-  }
+  mtcp_remap_vdso_vvar(rinfo, &endAddr);
 
   uint64_t remaining_restore_area =
     (uint64_t) (rinfo->ckptHdr.restoreBuf.endAddr - (uint64_t) endAddr);

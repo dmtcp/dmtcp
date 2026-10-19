@@ -149,6 +149,17 @@ void mtcp_check_vdso(char **environ);
 // a program linked with libc can call it as well as mtcp_restart.
 void mtcp_readmemoryareas(RestoreInfo *rinfo, int fd, VA endOfStack);
 
+// Moves this process's [vvar], [vvar_vclock] and [vdso], in that order, to
+// *addr and after, advances *addr past them, and points AT_SYSINFO_EHDR at the
+// [vdso].  mtcp_restart moves them into the restore buffer this way, so that
+// they are out of the way of their checkpoint addresses.
+void mtcp_remap_vdso_vvar(RestoreInfo *rinfo, VA *addr);
+
+// Moves [vvar], [vvar_vclock] and [vdso] from where mtcp_remap_vdso_vvar()
+// put them to their addresses in rinfo->ckptHdr, and points AT_SYSINFO_EHDR
+// at the [vdso].
+void mtcp_restore_vdso_vvar(RestoreInfo *rinfo);
+
 // Usage: MTCP_RESTART_PAUSE_WHILE(*&rinfo)->restart_pause == <LEVEL>);
 #define MTCP_RESTART_PAUSE_WHILE(condition)                                   \
   do {                                                                         \
