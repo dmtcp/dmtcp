@@ -92,7 +92,6 @@ static void mmapfile(RestoreInfo *rinfo, int fd, void *buf, size_t size,
 static RestoreInfo rinfo;
 
 /* Internal routines */
-static void readmemoryareas(RestoreInfo *rinfo, int fd, VA endOfStack);
 static int read_one_memory_area(RestoreInfo *rinfo, int fd, VA endOfStack);
 static void restorememoryareas(RestoreInfo *rinfo_ptr);
 static void restore_brk(RestoreInfo *rinfo);
@@ -657,7 +656,7 @@ restorememoryareas(RestoreInfo *rinfo)
   int mtcp_sys_errno;
   /* Restore memory areas */
   DPRINTF(rinfo, "restoring memory areas\n");
-  readmemoryareas(rinfo, rinfo->fd, (VA) rinfo->ckptHdr.endOfStack);
+  mtcp_readmemoryareas(rinfo, rinfo->fd, (VA) rinfo->ckptHdr.endOfStack);
 
   /* Everything restored, close file and finish up */
 
@@ -828,8 +827,8 @@ restore_vdso_vvar(RestoreInfo *rinfo)
  *       file.  MAP_ANONYMOUS is not currently POSIX.)
  *
  **************************************************************************/
-static void
-readmemoryareas(RestoreInfo *rinfo, int fd, VA endOfStack)
+void
+mtcp_readmemoryareas(RestoreInfo *rinfo, int fd, VA endOfStack)
 {
   while (1) {
     if (read_one_memory_area(rinfo, fd, endOfStack) == -1) {
