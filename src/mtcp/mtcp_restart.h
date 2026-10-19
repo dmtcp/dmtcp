@@ -141,6 +141,14 @@ void mtcp_restart_process_args(int argc, char *argv[], char **environ, void (*fu
 void mtcp_restart(RestoreInfo *rinfo);
 void mtcp_check_vdso(char **environ);
 
+// Restores every memory area from the checkpoint image open on fd, which must
+// be positioned just after the DmtcpCkptHeader, at the addresses recorded in
+// the image.  Nothing may be mapped at those addresses.  It does not restore
+// the vDSO or the break, and it returns instead of jumping to postRestart.
+// It uses rinfo only for dprintfEnabled.  It makes raw system calls only, so
+// a program linked with libc can call it as well as mtcp_restart.
+void mtcp_readmemoryareas(RestoreInfo *rinfo, int fd, VA endOfStack);
+
 // Usage: MTCP_RESTART_PAUSE_WHILE(*&rinfo)->restart_pause == <LEVEL>);
 #define MTCP_RESTART_PAUSE_WHILE(condition)                                   \
   do {                                                                         \
