@@ -1111,7 +1111,7 @@ doAreasOverlap(Area *area, MemRegion *memRegion)
   uint64_t size1 = area->size;
   uint64_t size2 = memRegion->endAddr - memRegion->startAddr;
 
-  uint64_t addr1 = (uint64_t)area->endAddr;
+  uint64_t addr1 = (uint64_t)area->addr;
   uint64_t end1 = (uint64_t)area->endAddr;
   uint64_t addr2 = memRegion->startAddr;
   uint64_t end2 = memRegion->endAddr;
