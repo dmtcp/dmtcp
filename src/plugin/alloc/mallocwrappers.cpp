@@ -25,7 +25,6 @@
 #include "dmtcp.h"
 // This plugin is built with only include/ and jalib/ on its path.
 #include "../../threadinfo.h"
-#include "../../workerstate.h"
 
 EXTERNC int
 dmtcp_alloc_enabled() { return 1; }
@@ -40,12 +39,11 @@ dmtcp_alloc_enabled() { return 1; }
 static bool
 isExitingThread()
 {
-  // As in ThreadSync::wrapperExecutionLockLock(): while DMTCP initializes,
-  // dmtcp_get_current_thread() may create the thread list, so don't call it.
-  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN) {
-    return false;
-  }
-  return dmtcp_get_current_thread()->exiting;
+  // Read curThread directly: this check runs on every allocation, and
+  // dmtcp_get_current_thread() may create the thread list.  A thread with no
+  // Thread yet is not exiting.
+  Thread *thread = curThread;
+  return thread != nullptr && thread->exiting;
 }
 
 extern "C" void *calloc(size_t nmemb, size_t size)
