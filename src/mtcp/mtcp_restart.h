@@ -145,14 +145,15 @@ void mtcp_check_vdso(char **environ);
 // call it as well as mtcp_restart.
 void mtcp_readmemoryareas(RestoreInfo *rinfo, int fd, VA endOfStack);
 
-// Moves this process's [vvar], [vvar_vclock] and [vdso] to their addresses
-// in rinfo->ckptHdr, and points AT_SYSINFO_EHDR at the new [vdso] in the
-// auxiliary vector after rinfo->environ, which must be the environ that the
-// kernel passed to this process.  The regions go through the start of
-// rinfo->ckptHdr.restoreBuf, so their old and new places may overlap.  It
-// aborts if any other mapping is in the way.  A restart program that loads
-// ld.so after this call gets a libc that uses the vDSO at the address that
-// the restored program's libc saved at launch.
+// Moves this process's [vvar], [vvar_vclock] and [vdso], in that order, to
+// *addr and after, advances *addr past them, and points AT_SYSINFO_EHDR at the
+// [vdso].  mtcp_restart moves them into the restore buffer this way, so that
+// they are out of the way of their checkpoint addresses.
+void mtcp_remap_vdso_vvar(RestoreInfo *rinfo, VA *addr);
+
+// Moves [vvar], [vvar_vclock] and [vdso] from where mtcp_remap_vdso_vvar()
+// put them to their addresses in rinfo->ckptHdr, and points AT_SYSINFO_EHDR
+// at the [vdso].
 void mtcp_restore_vdso_vvar(RestoreInfo *rinfo);
 
 // Usage: MTCP_RESTART_PAUSE_WHILE(*&rinfo)->restart_pause == <LEVEL>);
