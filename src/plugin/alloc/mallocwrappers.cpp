@@ -23,12 +23,36 @@
 #include <unistd.h>
 #include "alloc.h"
 #include "dmtcp.h"
+// This plugin is built with only include/ and jalib/ on its path.
+#include "../../threadinfo.h"
+#include "../../workerstate.h"
 
 EXTERNC int
 dmtcp_alloc_enabled() { return 1; }
 
+// glibc frees the cached stacks of exited threads in an exiting detached
+// thread while holding its stack cache lock, which pthread_create() also
+// takes inside DMTCP's wrapper.  If a checkpoint request waits for that
+// pthread_create() to leave the wrapper, an exiting thread waiting here for
+// the wrapper lock deadlocks all three.  An exiting thread needs no lock: the
+// checkpoint thread does not suspend it, and waits for it to exit only after
+// releasing the lock.
+static bool
+isExitingThread()
+{
+  // As in ThreadSync::wrapperExecutionLockLock(): while DMTCP initializes,
+  // dmtcp_get_current_thread() may create the thread list, so don't call it.
+  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN) {
+    return false;
+  }
+  return dmtcp_get_current_thread()->exiting;
+}
+
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
+  if (isExitingThread()) {
+    return _real_calloc(nmemb, size);
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_calloc(nmemb, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -37,6 +61,9 @@ extern "C" void *calloc(size_t nmemb, size_t size)
 
 extern "C" void *malloc(size_t size)
 {
+  if (isExitingThread()) {
+    return _real_malloc(size);
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_malloc(size);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -45,6 +72,9 @@ extern "C" void *malloc(size_t size)
 
 extern "C" void *memalign(size_t boundary, size_t size)
 {
+  if (isExitingThread()) {
+    return _real_memalign(boundary, size);
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_memalign(boundary, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -54,6 +84,9 @@ extern "C" void *memalign(size_t boundary, size_t size)
 extern "C" int
 posix_memalign(void **memptr, size_t alignment, size_t size)
 {
+  if (isExitingThread()) {
+    return _real_posix_memalign(memptr, alignment, size);
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = _real_posix_memalign(memptr, alignment, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -62,6 +95,9 @@ posix_memalign(void **memptr, size_t alignment, size_t size)
 
 extern "C" void *valloc(size_t size)
 {
+  if (isExitingThread()) {
+    return _real_valloc(size);
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_valloc(size);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -75,6 +111,10 @@ free(void *ptr)
   if (ptr == NULL) {
     return;
   }
+  if (isExitingThread()) {
+    _real_free(ptr);
+    return;
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   _real_free(ptr);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -82,6 +122,9 @@ free(void *ptr)
 
 extern "C" void *realloc(void *ptr, size_t size)
 {
+  if (isExitingThread()) {
+    return _real_realloc(ptr, size);
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_realloc(ptr, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
