@@ -92,6 +92,9 @@ struct Thread {
   Thread *prev;
 };
 
+// NULL until ThreadList::initThread() runs for this thread.
+extern __thread Thread *curThread ATTR_TLS_INITIAL_EXEC;
+
 Thread *dmtcp_get_current_thread();
 
 // This symbol is added as weak to allow linkage from dmtcp_launch, etc., via
