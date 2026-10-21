@@ -254,7 +254,8 @@ SocketConnList::scanForPreExisting()
 
   if ((getenv("SLURM_JOBID")) ||
       (getenv("SLURM_JOB_ID")) ||
-      (getenv("HYDI_CONTROL_FD"))) {
+      (getenv("HYDI_CONTROL_FD")) ||
+      (getenv("PMI_FD"))) {
     return;
   }
 
