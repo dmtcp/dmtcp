@@ -314,6 +314,14 @@ ThreadList::initThread(Thread *th)
 
   th->ptid = (pid_t*)((char*) pthread_self() + TLSInfo_GetTidOffset());
   th->ctid = th->ptid;
+#ifdef PR_GET_TID_ADDRESS
+  // glibc 2.43+ has the kernel clear pd->joinstate, not pd->tid, at exit.
+  uint64_t ctid = 0;  // The kernel writes 8 bytes, also on x32.
+  if (_real_syscall(SYS_prctl, PR_GET_TID_ADDRESS, (long)&ctid, 0, 0, 0, 0,
+                    0) == 0 && ctid != 0) {
+    th->ctid = (pid_t*)(uintptr_t)ctid;
+  }
+#endif
 
   TRACE("starting thread: tid={}", th->tid);
 
