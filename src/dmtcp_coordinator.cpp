@@ -160,7 +160,6 @@ static const char *theUsage =
 
 
 CoordFlags flags;
-static int offset_after_first_line = 0;
 static bool blockUntilDone = false;
 static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
@@ -464,28 +463,36 @@ void DmtcpCoordinator::getStatusStr(ostream *o)
   *o << "Status..." << std::endl
      << "Host: " << coordHostname
      << " (" << inet_ntoa(localhostIPAddr) << ")" << std::endl
-     << "Port: " << flags.thePort << std::endl
-     << "Checkpoint Interval: ";
+     << "Port: " << flags.thePort << std::endl;
 
   CoordPluginMgr::writeStatusToStream(o);
 }
 
-void
+bool
 DmtcpCoordinator::writeStatusToFile()
 {
-  ASSERT_ERRNO(truncate(flags.theStatusFile.c_str(),
-                        offset_after_first_line) == 0,
-               "failed to truncate coordinator status file: path={}",
-               flags.theStatusFile.c_str());
-  ofstream o;
-  // Don't use std::ios::trunc.  A timestamp was previously written.
-  o.open(flags.theStatusFile.c_str(), std::ios::app);
-  ASSERT(!o.fail(), "failed to open coordinator status file: path={}",
-         flags.theStatusFile);
-
+  // Renamed into place: never read partial.  Append-created: one Lustre stripe.
+  ostringstream o;
+  char buffer[80];
+  o << "Coordinator started: " << get_ftime(buffer, sizeof(buffer)) << "\n";
   getStatusStr(&o);
-
-  o.close();
+  string status = o.str();
+  // One live process per host and PID: a leftover of this name is stale.
+  string tmp = flags.theStatusFile + ".tmp." + coordHostname + "." +
+               jalib::XToString(getpid());
+  unlink(tmp.c_str());
+  int fd = open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_APPEND, 0666);
+  if (fd < 0) {
+    return false;
+  }
+  bool ok = Util::writeAll(fd, status.data(), status.size()) ==
+            (ssize_t)status.size();
+  ok = close(fd) == 0 && ok;
+  if (!ok || rename(tmp.c_str(), flags.theStatusFile.c_str()) != 0) {
+    unlink(tmp.c_str());
+    return false;
+  }
+  return true;
 }
 
 void
@@ -1934,6 +1941,14 @@ main(int argc, char **argv)
   }
   TRACE("Listening on port: port={}", flags.thePort);
 
+  CoordPluginMgr::initialize(flags);
+
+  // Before --daemon's fork, so the file is complete when the parent exits.
+  if (!flags.theStatusFile.empty() && !theCoordinator.writeStatusToFile()) {
+    fprintf(stderr, "Error writing file %s\n", flags.theStatusFile.c_str());
+    return 1;
+  }
+
   // Now that flags.thePort is authoritative, rewrite argv[0]/comm to show
   // the coordinator's real, final port instead of the compiled-in default
   // (the previous call site, before argument parsing, always showed that
@@ -2025,20 +2040,6 @@ main(int argc, char **argv)
   }
 
   if (!flags.theStatusFile.empty()) {
-    FILE *file_ptr = std::fopen(flags.theStatusFile.c_str(), "w");
-    if (file_ptr == NULL) {
-      fprintf(stderr, "Error opening file %s\n", flags.theStatusFile.c_str());
-      return 1;
-    }
-    char buffer[80];
-    char output[80];
-    snprintf(output, sizeof(output),
-             "Coordinator started: %s\n", get_ftime(buffer, sizeof(buffer)));
-    offset_after_first_line = strlen(output);
-    fprintf(file_ptr, "%s", output);
-    fclose(file_ptr);
-    theCoordinator.writeStatusToFile();
-
     atexit(atexit_handler);
     signal(SIGINT, signal_handler);  // Ctrl+C
     signal(SIGTERM, signal_handler); // Termination request
@@ -2047,7 +2048,6 @@ main(int argc, char **argv)
     signal(SIGQUIT, signal_handler); // quit signal
   }
 
-  CoordPluginMgr::initialize(flags);
   theCoordinator.eventLoop();
   return 0;
 }
