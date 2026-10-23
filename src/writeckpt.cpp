@@ -192,7 +192,12 @@ mtcp_writememoryareas(int fd)
     // Preprocess memory regions as needed.
     while (procSelfMapsTmp.getNextArea(&area)) {
       if (recordGuards) {
-        GuardPages::record(area);
+        Area unchecked_area;
+        Area next_area;
+        memcpy(&unchecked_area, &area, sizeof(Area));
+        while (Util::getNextNonSkipArea(&unchecked_area, &next_area)) {
+          GuardPages::record(next_area);
+        }
       }
 
       if (Util::isNscdArea(area)) {
