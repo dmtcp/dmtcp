@@ -188,6 +188,12 @@ bool isNscdArea(const ProcMapsArea &area);
 bool isSysVShmArea(const ProcMapsArea &area);
 bool isIBShmArea(const ProcMapsArea &area);
 
+// Sets 'area' to the first range of 'unchecked_area' that
+// dmtcp_skip_memory_region_ckpting() does not skip, moves the start of
+// 'unchecked_area' to the end of that range, and returns 1.  It returns 0,
+// with 'unchecked_area' empty, if no such range remains.
+int getNextNonSkipRange(ProcMapsArea *unchecked_area, ProcMapsArea *area);
+
 ssize_t writeAll(int fd, const void *buf, size_t count);
 ssize_t readAll(int fd, void *buf, size_t count);
 ssize_t skipBytes(int fd, size_t count);

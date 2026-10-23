@@ -384,6 +384,7 @@ FileConnList::prepareShmList()
 {
   ProcSelfMaps procSelfMaps;
   ProcMapsArea area;
+  ProcMapsArea unchecked_area;
 
   shmAreas.clear();
   unlinkedShmAreas.clear();
@@ -405,82 +406,82 @@ FileConnList::prepareShmList()
         continue;
       }
 
-      if (dmtcp_skip_memory_region_ckpting &&
-          dmtcp_skip_memory_region_ckpting(&area)) {
-        continue;
-      }
+      // A plugin may save some ranges of an area and skip others.
+      memcpy(&unchecked_area, &area, sizeof(area));
+      while (Util::getNextNonSkipRange(&unchecked_area, &area)) {
+        /* Invalidate shared memory pages so that the next read to it (when we
+         * are writing them to ckpt file) will cause them to be reloaded from
+         * the disk.
+         */
+        WARN_NE(-1, msync(area.addr, area.size, MS_INVALIDATE),
+                      "msync(MS_INVALIDATE) failed for shared memory area: "
+                      "addr={} size={} path={} offset={}",
+                      area.addr, area.size, area.name, area.offset);
 
-      /* Invalidate shared memory pages so that the next read to it (when we are
-       * writing them to ckpt file) will cause them to be reloaded from the
-       * disk.
-       */
-      WARN_NE(-1, msync(area.addr, area.size, MS_INVALIDATE),
-                    "msync(MS_INVALIDATE) failed for shared memory area: "
-                    "addr={} size={} path={} offset={}",
-                    area.addr, area.size, area.name, area.offset);
+        if (jalib::Filesystem::FileExists(area.name)) {
+          if (_real_access(area.name, W_OK) == 0) {
+            TRACE("Will checkpoint shared memory backing file: path={}",
+                  area.name);
+            int flags = Util::memProtToOpenFlags(area.prot);
+            int fd = _real_open(area.name, flags, 0);
+            ASSERT_NE(-1, fd,
+                                "failed to open shared memory backing file: "
+                                "path={}",
+                                area.name);
+            FileConnection *fileConn =
+              new FileConnection(area.name, flags, 0, FileConnection::FILE_SHM);
+            add(fd, fileConn);
+            shmAreas.push_back(area);
+            shmAreaConn.push_back(fileConn);
 
-      if (jalib::Filesystem::FileExists(area.name)) {
-        if (_real_access(area.name, W_OK) == 0) {
-          TRACE("Will checkpoint shared memory backing file: path={}",
-                area.name);
-          int flags = Util::memProtToOpenFlags(area.prot);
-          int fd = _real_open(area.name, flags, 0);
-          ASSERT_NE(-1, fd,
-                              "failed to open shared memory backing file: "
-                              "path={}",
-                              area.name);
-          FileConnection *fileConn =
-            new FileConnection(area.name, flags, 0, FileConnection::FILE_SHM);
-          add(fd, fileConn);
-          shmAreas.push_back(area);
-          shmAreaConn.push_back(fileConn);
-
-          /* Instead of unmapping the shared memory area, we make it
-           * non-readable. This way mtcp will skip the region while at the same
-           * time, we prevent JALLOC arena to grow over it.
-           *
-           * By munmapping the area, a bug was observed on CCIS linux with
-           * 'make check-java'. Once the region was unmapped, the JALLOC arena
-           * grew over it. During restart, the JALLOC'd area was reclaimed for
-           * remapping the shm file without informing JALLOC. Finally, during
-           * the second checkpoint cycle, the area was again unmapped and later
-           * JALLOC tried to access it, causing a SIGSEGV.
-           */
-          ASSERT_ERRNO(mmap(area.addr, area.size, PROT_NONE,
-                            MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
-                            -1, 0) != MAP_FAILED,
-                       "failed to protect shared memory area: addr={} size={}",
-                       area.addr, area.size);
-        } else {
-          TRACE("Will not checkpoint read-only shared memory area: path={}",
-                area.name);
-        }
-      } else if (Util::strStartsWith(area.name, ANON_INODE_STR)) {
-        // Explicit error message if the user program uses io_uring
-        // FIXME: Add support for io_uring
-        WARN(false,
-             "Ckpt/Restart of anon_inode shared memory not supported: "
-             "path={}",
-             area.name);
-      } else {
-        // TODO: Shared memory areas with unlinked backing files.
-        ASSERT(Util::strEndsWith(area.name, DELETED_FILE_SUFFIX),
-               "shared memory area missing deleted suffix: path={}",
-               area.name);
-        if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
-            Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
+            /* Instead of unmapping the shared memory area, we make it
+             * non-readable. This way mtcp will skip the region while at the
+             * same time, we prevent JALLOC arena to grow over it.
+             *
+             * By munmapping the area, a bug was observed on CCIS linux with
+             * 'make check-java'. Once the region was unmapped, the JALLOC arena
+             * grew over it. During restart, the JALLOC'd area was reclaimed for
+             * remapping the shm file without informing JALLOC. Finally, during
+             * the second checkpoint cycle, the area was again unmapped and
+             * later JALLOC tried to access it, causing a SIGSEGV.
+             */
+            ASSERT_ERRNO(mmap(area.addr, area.size, PROT_NONE,
+                              MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                              -1, 0) != MAP_FAILED,
+                         "failed to protect shared memory area: "
+                         "addr={} size={}",
+                         area.addr, area.size);
+          } else {
+            TRACE("Will not checkpoint read-only shared memory area: path={}",
+                  area.name);
+          }
+        } else if (Util::strStartsWith(area.name, ANON_INODE_STR)) {
+          // Explicit error message if the user program uses io_uring
+          // FIXME: Add support for io_uring
           WARN(false,
-                  "Ckpt/Restart of anonymous shared memory not supported: "
+               "Ckpt/Restart of anon_inode shared memory not supported: "
+               "path={}",
+               area.name);
+        } else {
+          // TODO: Shared memory areas with unlinked backing files.
+          ASSERT(Util::strEndsWith(area.name, DELETED_FILE_SUFFIX),
+                 "shared memory area missing deleted suffix: path={}",
+                 area.name);
+          if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
+              Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
+            WARN(false,
+                    "Ckpt/Restart of anonymous shared memory not supported: "
+                    "path={}",
+                    area.name);
+          } else {
+            TRACE("Will recreate unlinked shared memory file on restart: "
                   "path={}",
                   area.name);
-        } else {
-          TRACE("Will recreate unlinked shared memory file on restart: "
-                "path={}",
-                area.name);
 
-          // Remove the DELETED suffix.
-          area.name[strlen(area.name) - strlen(DELETED_FILE_SUFFIX)] = '\0';
-          unlinkedShmAreas.push_back(area);
+            // Remove the DELETED suffix.
+            area.name[strlen(area.name) - strlen(DELETED_FILE_SUFFIX)] = '\0';
+            unlinkedShmAreas.push_back(area);
+          }
         }
       }
     }

@@ -252,27 +252,13 @@ mtcp_writememoryareas(int fd)
 
   // We must not cause an mmap() here, or the mem regions will not be correct.
   while (procSelfMaps->getNextArea(&area)) {
+    // A plugin may save some ranges of an area and skip others.
     Area unchecked_area;
     memcpy(&unchecked_area, &area, sizeof(Area));
-    int skip = 0;
-    do {
-      memcpy(&area, &unchecked_area, sizeof(Area));
-      if (dmtcp_skip_memory_region_ckpting) {
-        skip = dmtcp_skip_memory_region_ckpting(&area);
-      }
-      if (skip) {
-        TRACE("skipping over memory section as suggested by plugin: "
-              "name={} addr={} size={}",
-              area.name, (void*)area.addr, area.size);
-        break;
-      }
-
-      unchecked_area.addr = area.endAddr;
-      unchecked_area.size = unchecked_area.endAddr - area.endAddr;
-
+    while (Util::getNextNonSkipRange(&unchecked_area, &area)) {
       // the whole thing comes after the restore image
       writememoryarea(fd, area);
-    } while (unchecked_area.size != 0);
+    }
   }
 
   /* It's now safe to do this, since we're done using writememoryarea() */
