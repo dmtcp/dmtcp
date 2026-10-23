@@ -50,7 +50,7 @@ namespace GuardPages
 // if this kernel cannot report guard pages; record() need not be called then.
 bool beginRecording();
 
-// Records the guard pages in 'area'.  Call for every area, before writing any.
+// Records the guard pages in 'area'.  Call it before writing any area.
 void record(const Area &area);
 
 // Finds the first recorded range ending after 'addr'.
