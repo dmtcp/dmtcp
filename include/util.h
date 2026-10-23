@@ -188,6 +188,8 @@ bool isNscdArea(const ProcMapsArea &area);
 bool isSysVShmArea(const ProcMapsArea &area);
 bool isIBShmArea(const ProcMapsArea &area);
 
+bool getNextNonSkipArea(ProcMapsArea *unchecked_area, ProcMapsArea *next_area);
+
 ssize_t writeAll(int fd, const void *buf, size_t count);
 ssize_t readAll(int fd, void *buf, size_t count);
 ssize_t skipBytes(int fd, size_t count);

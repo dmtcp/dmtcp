@@ -118,13 +118,19 @@ typedef union ProcMapsArea {
 
 typedef ProcMapsArea Area;
 
-// The interface of dmtcp_skip_memory_region needs to allow plugins to save
-// part of the examined memory segment, and check the remaining segment in
-// the next iteration. This is required for split-process plugins in case
-// the kernel combines memory segments in the upper and lower half into a
-// single segment.
+// Decides whether the checkpoint skips the memory at the start of 'area', an
+// entry of /proc/self/maps.  It returns 1 if the checkpoint skips the range
+// [area->addr, *uncheckedAddr), or 0 if the checkpoint saves this range.  It
+// sets *uncheckedAddr to the first address that it has not decided about.
+// This address is page-aligned, and
+// area->addr < *uncheckedAddr <= area->endAddr.
+//
+// A plugin's definition that would save a range must ask the next plugin's
+// definition (NEXT_FNC(dmtcp_skip_memory_region_ckpting)) about that range,
+// and return that definition's decision.
 EXTERNC int
-dmtcp_skip_memory_region_ckpting(Area *area) __attribute((weak));
+dmtcp_skip_memory_region_ckpting(const Area *area, VA *uncheckedAddr)
+  __attribute((weak));
 
 #ifdef __cplusplus
 } // extern "C" {

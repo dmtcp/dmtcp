@@ -960,6 +960,47 @@ Util::isIBShmArea(const ProcMapsArea &area)
   return strStartsWith(area.name, "/dev/infiniband/uverbs");
 }
 
+// Sets 'next_area' to the first area in 'unchecked_area' that
+// dmtcp_skip_memory_region_ckpting() does not skip, and moves the start of
+// 'unchecked_area' to the end of 'next_area'.  It returns false, with
+// 'unchecked_area' empty, if no such area remains.  'unchecked_area' is an
+// IN/OUT parameter, and 'next_area' is an OUT parameter.
+bool
+Util::getNextNonSkipArea(ProcMapsArea *unchecked_area, ProcMapsArea *next_area)
+{
+  while (unchecked_area->size != 0) {
+    memcpy(next_area, unchecked_area, sizeof(*next_area));
+    VA uncheckedAddr = next_area->endAddr;
+    int skip = 0;
+    if (dmtcp_skip_memory_region_ckpting) {
+      skip = dmtcp_skip_memory_region_ckpting(next_area, &uncheckedAddr);
+      ASSERT(uncheckedAddr > next_area->addr &&
+             uncheckedAddr <= next_area->endAddr,
+             "dmtcp_skip_memory_region_ckpting() set uncheckedAddr "
+             "outside the area: addr={} end={} uncheckedAddr={}",
+             (void *)next_area->addr, (void *)next_area->endAddr,
+             (void *)uncheckedAddr);
+    }
+    next_area->endAddr = uncheckedAddr;
+    next_area->size = next_area->endAddr - next_area->addr;
+
+    unchecked_area->addr = next_area->endAddr;
+    unchecked_area->size = unchecked_area->endAddr - next_area->endAddr;
+    if (!(unchecked_area->flags & MAP_ANONYMOUS)) {
+      // A file mapping's offset moves with addr.
+      unchecked_area->offset += next_area->size;
+    }
+
+    if (!skip) {
+      return true;
+    }
+    TRACE("skipping over memory section as suggested by plugin: "
+          "name={} addr={} size={}",
+          next_area->name, (void *)next_area->addr, next_area->size);
+  }
+  return false;
+}
+
 void
 Util::allowGdbDebug(int currentDebugLevel)
 {
