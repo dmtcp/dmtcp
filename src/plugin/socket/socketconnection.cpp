@@ -459,7 +459,7 @@ TcpConnection::sendPeerInformation()
   bool sendPeerInfo = false;
 
   if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6) ||
-      _sockType != SOCK_STREAM) {
+      baseType() != SOCK_STREAM) {
     return;
   }
 
@@ -528,7 +528,7 @@ TcpConnection::recvPeerInformation()
   socklen_t keylen = 0;
 
   if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6) ||
-      _sockType != SOCK_STREAM) {
+      baseType() != SOCK_STREAM) {
     return;
   }
 

@@ -1558,6 +1558,7 @@ class TestRegistry:
         "forkexec": "Multi-process coordination",
         "client-server": "Multi-process coordination",
         "seqpacket": "Multi-process coordination",
+        "tcp-mixed-type": "Multi-process coordination",
         "presuspend": "Multi-process coordination",
         "popen1": "Multi-process coordination",
         "restartdir": "Multi-process coordination",
@@ -2038,6 +2039,11 @@ class TestRegistry:
             TestSpec("forkexec", 2, ["./test/forkexec"]),
             TestSpec("client-server", 2, ["./test/client-server"]),
             TestSpec("seqpacket", 2, ["./test/seqpacket"]),
+            # Regression guard for a TCP connection whose ends were created
+            # with different type flags (SOCK_CLOEXEC on one side, #1298):
+            # peer information must be exchanged on the base type, or the
+            # drain waits forever (TcpConnection::sendPeerInformation).
+            TestSpec("tcp-mixed-type", 2, ["./test/tcp-mixed-type"]),
             TestSpec("shared-memory1", 2, ["./test/shared-memory1"],
                      tags=["slow"]),
             TestSpec("shared-memory2", 2, ["./test/shared-memory2"],
