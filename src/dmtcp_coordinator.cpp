@@ -160,7 +160,6 @@ static const char *theUsage =
 
 
 CoordFlags flags;
-static int offset_after_first_line = 0;
 static bool blockUntilDone = false;
 static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
@@ -464,28 +463,44 @@ void DmtcpCoordinator::getStatusStr(ostream *o)
   *o << "Status..." << std::endl
      << "Host: " << coordHostname
      << " (" << inet_ntoa(localhostIPAddr) << ")" << std::endl
-     << "Port: " << flags.thePort << std::endl
-     << "Checkpoint Interval: ";
+     << "Port: " << flags.thePort << std::endl;
 
   CoordPluginMgr::writeStatusToStream(o);
 }
 
-void
+bool
 DmtcpCoordinator::writeStatusToFile()
 {
-  ASSERT_ERRNO(truncate(flags.theStatusFile.c_str(),
-                        offset_after_first_line) == 0,
-               "failed to truncate coordinator status file: path={}",
-               flags.theStatusFile.c_str());
-  ofstream o;
-  // Don't use std::ios::trunc.  A timestamp was previously written.
-  o.open(flags.theStatusFile.c_str(), std::ios::app);
-  ASSERT(!o.fail(), "failed to open coordinator status file: path={}",
-         flags.theStatusFile);
-
+  // Renamed into place: never read partial.  Append-created: one Lustre stripe.
+  ostringstream o;
+  char buffer[80];
+  o << "Coordinator started: " << get_ftime(buffer, sizeof(buffer)) << "\n";
   getStatusStr(&o);
-
-  o.close();
+  string status = o.str();
+  // In the status file's directory, so rename() stays on one filesystem.
+  // mkostemp() creates with O_EXCL and retries on a collision, so the name
+  // needn't be unique, and we only ever unlink a file we created.
+  string tmp = flags.theStatusFile;
+  size_t slash = tmp.rfind('/');
+  tmp = tmp.substr(0, slash == string::npos ? 0 : slash + 1) +
+        ".dmtcp_status.XXXXXX";
+  int fd = mkostemp(&tmp[0], O_APPEND | O_CLOEXEC);
+  if (fd < 0) {
+    return false;
+  }
+  mode_t mask = umask(0);  // mkostemp() creates 0600; keep 0666 & ~umask.
+  umask(mask);
+  bool ok = fchmod(fd, 0666 & ~mask) == 0 &&
+            Util::writeAll(fd, status.data(), status.size()) ==
+              (ssize_t)status.size();
+  ok = close(fd) == 0 && ok;
+  if (!ok || rename(tmp.c_str(), flags.theStatusFile.c_str()) != 0) {
+    int savedErrno = errno;
+    unlink(tmp.c_str());
+    errno = savedErrno;
+    return false;
+  }
+  return true;
 }
 
 void
@@ -1929,6 +1944,16 @@ main(int argc, char **argv)
   }
 
   flags.thePort = listenSock->port();
+
+  // getStatusStr() needs the plugins.  Their constructors only copy flags.
+  CoordPluginMgr::initialize(flags);
+
+  // Before --daemon's fork, so the file is complete when the parent exits,
+  // and before --port-file, so whoever sees the port file sees this status.
+  ASSERT_ERRNO(flags.theStatusFile.empty() ||
+                 theCoordinator.writeStatusToFile(),
+               "failed to write status file: path={}", flags.theStatusFile);
+
   if (!flags.thePortFile.empty()) {
     Util::writeCoordPortToFile(flags.thePort, flags.thePortFile.c_str());
   }
@@ -2025,20 +2050,6 @@ main(int argc, char **argv)
   }
 
   if (!flags.theStatusFile.empty()) {
-    FILE *file_ptr = std::fopen(flags.theStatusFile.c_str(), "w");
-    if (file_ptr == NULL) {
-      fprintf(stderr, "Error opening file %s\n", flags.theStatusFile.c_str());
-      return 1;
-    }
-    char buffer[80];
-    char output[80];
-    snprintf(output, sizeof(output),
-             "Coordinator started: %s\n", get_ftime(buffer, sizeof(buffer)));
-    offset_after_first_line = strlen(output);
-    fprintf(file_ptr, "%s", output);
-    fclose(file_ptr);
-    theCoordinator.writeStatusToFile();
-
     atexit(atexit_handler);
     signal(SIGINT, signal_handler);  // Ctrl+C
     signal(SIGTERM, signal_handler); // Termination request
@@ -2047,7 +2058,6 @@ main(int argc, char **argv)
     signal(SIGQUIT, signal_handler); // quit signal
   }
 
-  CoordPluginMgr::initialize(flags);
   theCoordinator.eventLoop();
   return 0;
 }

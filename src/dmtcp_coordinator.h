@@ -184,7 +184,7 @@ class DmtcpCoordinator
                            DmtcpMessage *reply = NULL);
     void handleUserCommand(dmtcp::string cmd, DmtcpMessage *reply = NULL);
     void getStatusStr(ostream *o);
-    void writeStatusToFile();
+    bool writeStatusToFile();
     void printStatus(size_t numPeers, bool isRunning);
     string printList();
 
