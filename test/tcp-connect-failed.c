@@ -13,16 +13,25 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+/* Start a non-blocking connect() and require it to be pending. Only a
+ * connect() that returns -1 with EINPROGRESS is recorded as
+ * TCP_CONNECT_IN_PROGRESS; an immediate result would not test the fix.
+ */
 static void
-connect_nonblocking(int sd, struct sockaddr_in *addr)
+connect_pending(int sd, struct sockaddr_in *addr)
 {
-  if (connect(sd, (struct sockaddr *)addr, sizeof(*addr)) == 0 ||
-      (errno != EINPROGRESS && errno != ECONNREFUSED)) {
-    perror("connect");
+  if (connect(sd, (struct sockaddr *)addr, sizeof(*addr)) == 0) {
+    fprintf(stderr, "connect: completed immediately\n");
+    exit(1);
+  }
+  if (errno != EINPROGRESS) {
+    perror("connect: expected EINPROGRESS");
+    exit(1);
   }
 }
 
@@ -31,7 +40,7 @@ main()
 {
   struct sockaddr_in sockaddr;
   socklen_t len = sizeof(sockaddr);
-  int bound_sd, sd1, sd2;
+  int bound_sd, sd1, sd2, flags;
   int i = 0;
 
   /* A bound port without a listener refuses connections. */
@@ -39,6 +48,10 @@ main()
   sockaddr.sin_family = AF_INET;
   inet_aton("127.0.0.1", &sockaddr.sin_addr);
   bound_sd = socket(AF_INET, SOCK_STREAM, 0);
+  if (bound_sd == -1) {
+    perror("socket");
+    return 1;
+  }
   if (bind(bound_sd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) == -1 ||
       getsockname(bound_sd, (struct sockaddr *)&sockaddr, &len) == -1) {
     perror("bind");
@@ -46,11 +59,23 @@ main()
   }
 
   sd1 = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
-  connect_nonblocking(sd1, &sockaddr);
+  if (sd1 == -1) {
+    perror("socket");
+    return 1;
+  }
+  connect_pending(sd1, &sockaddr);
 
   sd2 = socket(AF_INET, SOCK_STREAM, 0);
-  fcntl(sd2, F_SETFL, fcntl(sd2, F_GETFL) | O_NONBLOCK);
-  connect_nonblocking(sd2, &sockaddr);
+  if (sd2 == -1) {
+    perror("socket");
+    return 1;
+  }
+  flags = fcntl(sd2, F_GETFL);
+  if (flags == -1 || fcntl(sd2, F_SETFL, flags | O_NONBLOCK) == -1) {
+    perror("fcntl");
+    return 1;
+  }
+  connect_pending(sd2, &sockaddr);
 
   while (1) {
     if (i++ % 10 == 0) {
