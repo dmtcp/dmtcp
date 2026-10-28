@@ -450,6 +450,61 @@ TcpConnection::TcpConnection(const TcpConnection &parent,
   memset(&_bindAddr, 0, sizeof _bindAddr);
 }
 
+// A non-blocking connect() is recorded as TCP_CONNECT_IN_PROGRESS and keeps
+// that type until the next checkpoint. Wait for it to complete and classify
+// it as TCP_CONNECT or, if it failed or is still pending, as
+// TCP_EXTERNAL_CONNECT. This must happen before the peer-information exchange,
+// which calls getpeername() and fails with ENOTCONN on an unconnected socket.
+void
+TcpConnection::resolveConnectInProgress()
+{
+  if (_type != TCP_CONNECT_IN_PROGRESS) {
+    return;
+  }
+
+  int retval;
+  struct pollfd socketFd = { 0 };
+
+  socketFd.fd = _fds[0];
+  socketFd.events = POLLOUT;
+
+  retval = _real_poll(&socketFd, 1, 60 * 1000);
+
+  if (retval == -1) {
+    TRACE("Poll failed while waiting for connect(): error={}",
+          strerror(errno));
+  } else if (socketFd.revents & POLLOUT) {
+    int val = -1;
+    socklen_t sz = sizeof(val);
+    int ret = getsockopt(_fds[0], SOL_SOCKET, SO_ERROR, &val, &sz);
+    if (ret == 0 && val == 0) {
+      TRACE("Connect-in-progress socket is writable: fd={}",
+            _fds[0]);
+      _type = TCP_CONNECT;
+    } else {
+      if (ret == -1) {
+        WARN_ERRNO(false,
+                   "getsockopt(SO_ERROR) failed after connect() "
+                   "readiness: fd={}",
+                   _fds[0]);
+      } else {
+        WARN(false,
+             "connect() completion failed; marking socket external: "
+             "fd={} so_error={} error={}",
+             _fds[0], val, strerror(val));
+      }
+      _type = TCP_EXTERNAL_CONNECT;
+    }
+  } else {
+    WARN(false,
+            "connect() returned EINPROGRESS and socket is still not "
+            "writable after 60 seconds; marking as external and "
+            "continuing checkpoint: fd={}",
+            _fds[0]);
+    _type = TCP_EXTERNAL_CONNECT;
+  }
+}
+
 void
 TcpConnection::sendPeerInformation()
 {
@@ -463,9 +518,10 @@ TcpConnection::sendPeerInformation()
     return;
   }
 
+  resolveConnectInProgress();
+
   switch (_type) {
   case TCP_CONNECT:
-  case TCP_CONNECT_IN_PROGRESS:
   {
     // Local connect socket information
     keysz = sizeof(key);
@@ -532,8 +588,9 @@ TcpConnection::recvPeerInformation()
     return;
   }
 
-  if (_type == TCP_CONNECT || _type == TCP_ACCEPT ||
-      _type == TCP_CONNECT_IN_PROGRESS) {
+  resolveConnectInProgress();
+
+  if (_type == TCP_CONNECT || _type == TCP_ACCEPT) {
     keylen = sizeof(key);
     ASSERT_NE(-1,
       getpeername(_fds[0], reinterpret_cast<struct sockaddr *>(&key),
@@ -594,50 +651,7 @@ TcpConnection::drain()
       _fds[0], id().conId());
   }
 
-  // Non blocking connect; need to hang around until it is writable.
-  if (_type == TCP_CONNECT_IN_PROGRESS) {
-    int retval;
-    struct pollfd socketFd = { 0 };
-
-    socketFd.fd = _fds[0];
-    socketFd.events = POLLOUT;
-
-    retval = _real_poll(&socketFd, 1, 60 * 1000);
-
-    if (retval == -1) {
-      TRACE("Poll failed while waiting for connect(): error={}",
-            strerror(errno));
-    } else if (socketFd.revents & POLLOUT) {
-      int val = -1;
-      socklen_t sz = sizeof(val);
-      int ret = getsockopt(_fds[0], SOL_SOCKET, SO_ERROR, &val, &sz);
-      if (ret == 0 && val == 0) {
-        TRACE("Connect-in-progress socket is writable: fd={}",
-              _fds[0]);
-        _type = TCP_CONNECT;
-      } else {
-        if (ret == -1) {
-          WARN_ERRNO(false,
-                     "getsockopt(SO_ERROR) failed after connect() "
-                     "readiness: fd={}",
-                     _fds[0]);
-        } else {
-          WARN(false,
-               "connect() completion failed; marking socket external: "
-               "fd={} so_error={} error={}",
-               _fds[0], val, strerror(val));
-        }
-        _type = TCP_EXTERNAL_CONNECT;
-      }
-    } else {
-      WARN(false,
-              "connect() returned EINPROGRESS and socket is still not "
-              "writable after 60 seconds; marking as external and "
-              "continuing checkpoint: fd={}",
-              _fds[0]);
-      _type = TCP_EXTERNAL_CONNECT;
-    }
-  }
+  resolveConnectInProgress();
 
   switch (_type) {
   case TCP_ERROR:
