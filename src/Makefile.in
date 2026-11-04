@@ -2400,7 +2400,8 @@ ps: ps-recursive
 ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
-	uninstall-dmtcpversionincludeHEADERS uninstall-includeHEADERS
+	uninstall-dmtcpversionincludeHEADERS uninstall-includeHEADERS \
+	uninstall-local
 
 .MAKE: $(am__recursive_targets) install-am install-strip
 
@@ -2420,7 +2421,8 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
 	uninstall-am uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
-	uninstall-dmtcpversionincludeHEADERS uninstall-includeHEADERS
+	uninstall-dmtcpversionincludeHEADERS uninstall-includeHEADERS \
+	uninstall-local
 
 .PRECIOUS: Makefile
 
@@ -2428,11 +2430,15 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 install-libs: install-dmtcplibPROGRAMS
 	(cd mtcp && ${MAKE} install-libs)
 
-uninstall-libs: uninstall-dmtcplibPROGRAMS
-	rm -f $(stale_folded_plugin_dsos)
+uninstall-libs: uninstall-dmtcplibPROGRAMS uninstall-stale-folded-plugin-dsos
 	(cd mtcp && ${MAKE} uninstall-libs)
 
-.PHONY: install-libs uninstall-libs
+uninstall-local: uninstall-stale-folded-plugin-dsos
+
+uninstall-stale-folded-plugin-dsos:
+	rm -f $(foreach f,$(notdir $(stale_folded_plugin_dsos)),"$(DESTDIR)$(dmtcplibdir)/$(f)")
+
+.PHONY: install-libs uninstall-libs uninstall-stale-folded-plugin-dsos
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -53,8 +53,9 @@ MANPAGES_AUTOGEN=dmtcp_nocheckpoint.1.gz mtcp_restart.1.gz \
 		 dmtcp_ssh.1.gz dmtcp_sshd.1.gz \
 		 dmtcp_discover_rm.1.gz dmtcp_rm_loclaunch.1.gz
 
-MANPAGES=dmtcp.1.gz dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_launch.1.gz \
-	 dmtcp_restart.1.gz
+MANPAGES=$(notdir $(addsuffix .gz,$(wildcard $(top_srcdir)/manpages/*.1)))
+
+DOCFILES=QUICK-START.md COPYING AUTHORS NEWS
 
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
@@ -401,27 +402,26 @@ else
 endif
 
 install: all create-dirs
-	cd src && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	cd plugin && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	cd contrib && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	cd manpages && make ${INSTALL_FLAGS}
+	cd src && $(MAKE) DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd plugin && $(MAKE) DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd contrib && $(MAKE) DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 ifeq ($(M32),0)
-	${INSTALL_DATA} $(top_srcdir)/QUICK-START.md $(DESTDIR)$(docdir)
-	${INSTALL_DATA} $(top_srcdir)/COPYING $(DESTDIR)$(docdir)
-	${INSTALL_DATA} $(top_srcdir)/AUTHORS $(DESTDIR)$(docdir)
-	${INSTALL_DATA} $(top_srcdir)/NEWS $(DESTDIR)$(docdir)
-	${INSTALL_DATA} $(top_srcdir)/manpages/*.1.gz $(DESTDIR)$(mandir)/man1
+	cd manpages && $(MAKE)
+	${INSTALL_DATA} $(addprefix $(top_srcdir)/,$(DOCFILES)) $(DESTDIR)$(docdir)
+	${INSTALL_DATA} $(addprefix $(top_srcdir)/manpages/,$(MANPAGES)) \
+	  $(DESTDIR)$(mandir)/man1
 	(cd $(DESTDIR)$(mandir)/man1; \
 	  for file in ${MANPAGES_AUTOGEN}; do $(LN_S) dmtcp.1.gz $$file; done)
 endif
 
 uninstall:
-	cd src && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
-	cd plugin && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
-	cd contrib && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd src && $(MAKE) DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd plugin && $(MAKE) DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd contrib && $(MAKE) DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 ifeq ($(M32),0)
-	rm -Rf "$(DESTDIR)$(docdir)"
-	cd $(DESTDIR)$(mandir)/man1 && rm -f ${MANPAGES} ${MANPAGES_AUTOGEN}
+	rm -f $(addprefix $(DESTDIR)$(docdir)/,$(DOCFILES))
+	rmdir $(DESTDIR)$(docdir) 2>/dev/null || true
+	rm -f $(addprefix $(DESTDIR)$(mandir)/man1/,$(MANPAGES) $(MANPAGES_AUTOGEN))
 endif
 
 # src/Makefile tries to make this, to ensure that configure, config.status,
@@ -433,5 +433,6 @@ am--refresh:
 	display-build-env display-release display-config build \
 	build-multilib build-multilib-m32 build-multilib-m64 \
 	mkdirs dmtcp plugin contrib clean distclean am--refresh \
+	create-dirs install uninstall \
 	tests tests-32 check-unit check-harness-unit \
 	check-coordinator-synthetic check check-autotest check-list

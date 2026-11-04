@@ -472,8 +472,12 @@ __d_bindir__dmtcp_restart_DEPENDENCIES += $(RESTART_PLUGIN)
 install-libs: install-dmtcplibPROGRAMS
 	(cd mtcp && ${MAKE} install-libs)
 
-uninstall-libs: uninstall-dmtcplibPROGRAMS
-	rm -f $(stale_folded_plugin_dsos)
+uninstall-libs: uninstall-dmtcplibPROGRAMS uninstall-stale-folded-plugin-dsos
 	(cd mtcp && ${MAKE} uninstall-libs)
 
-.PHONY: install-libs uninstall-libs
+uninstall-local: uninstall-stale-folded-plugin-dsos
+
+uninstall-stale-folded-plugin-dsos:
+	rm -f $(foreach f,$(notdir $(stale_folded_plugin_dsos)),"$(DESTDIR)$(dmtcplibdir)/$(f)")
+
+.PHONY: install-libs uninstall-libs uninstall-stale-folded-plugin-dsos
