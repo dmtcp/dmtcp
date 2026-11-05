@@ -19,8 +19,32 @@ jobs:
         sudo apt-get install emacs emacs-nox gdb screen tcsh zsh
     - name: configure
       run: ./configure
+    - name: check that configure substituted every Makefile variable
+      run: |
+        files=$(./config.status --help | sed -n '/^Configuration files:/{n;p;}' | tr ' ' '\n' | grep 'Makefile$')
+        test -n "$files"
+        status=0
+        grep -nE '@[A-Za-z_][A-Za-z0-9_]*@' $files || status=$?
+        if [ "$status" -eq 0 ]; then
+          echo "configure left the @VAR@ placeholders above unsubstituted."
+          echo "configure and every Makefile.in must come from the same automake;"
+          echo "regenerate them together with ./autogen.sh."
+          exit 1
+        fi
+        [ "$status" -eq 1 ]
     - name: make
       run: make
+    - name: make install and make uninstall
+      run: |
+        destdir="$RUNNER_TEMP/destdir"
+        make install DESTDIR="$destdir"
+        make uninstall DESTDIR="$destdir"
+        left=$(find "$destdir" -type f -o -type l)
+        if [ -n "$left" ]; then
+          echo "make uninstall left these files behind:"
+          echo "$left"
+          exit 1
+        fi
     - name: make tests
       run: make tests
     - name: make check
