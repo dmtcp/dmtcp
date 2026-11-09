@@ -153,6 +153,7 @@ class TcpConnection : public Connection, public SocketConnection
 
   private:
     TcpConnection &asTcp();
+    void resolveConnectInProgress();
 };
 
 class RawSocketConnection : public Connection, public SocketConnection
