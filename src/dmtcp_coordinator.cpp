@@ -298,20 +298,29 @@ pid_t
 DmtcpCoordinator::getNewVirtualPid()
 {
   pid_t pid = -1;
+  const size_t numBlocks =
+    (size_t)(MAX_VIRTUAL_PID - INITIAL_VIRTUAL_PID) / VIRTUAL_PID_STEP + 1;
 
-  ASSERT_LT(_virtualPidToClientMap.size(), (size_t)MAX_VIRTUAL_PID);
+  // Every block may be in use: stop after trying each one once instead of
+  // looping forever (the coordinator then hung at 100% CPU and stopped
+  // accepting connections, and the job never started).
+  ASSERT(_virtualPidToClientMap.size() < numBlocks,
+         "too many processes connected to this coordinator: {} (at most {})",
+         _virtualPidToClientMap.size(), numBlocks);
 
-  while (1) {
-    pid = _nextVirtualPid;
+  for (size_t tries = 0; tries < numBlocks; tries++) {
+    pid_t candidate = _nextVirtualPid;
     _nextVirtualPid += VIRTUAL_PID_STEP;
     if (_nextVirtualPid > MAX_VIRTUAL_PID) {
       _nextVirtualPid = INITIAL_VIRTUAL_PID;
     }
-    if (!_virtualPidToClientMap.contains(pid)) {
+    if (!_virtualPidToClientMap.contains(candidate)) {
+      pid = candidate;
       break;
     }
   }
-  ASSERT(pid != -1, "virtual pid allocation did not select a pid");
+  ASSERT(pid != -1, "no free virtual pid: {} processes connected, {} blocks",
+         _virtualPidToClientMap.size(), numBlocks);
   return pid;
 }
 
