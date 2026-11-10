@@ -56,10 +56,15 @@
 // Not used
 // #define X11_LISTENER_PORT_START 6000
 
-// Virtual pids used by coordinator.
+// Virtual pids used by coordinator.  Every process gets a block of
+// VIRTUAL_PID_STEP pids (its own and those of its threads and children), so
+// one coordinator can serve (MAX_VIRTUAL_PID - INITIAL_VIRTUAL_PID) /
+// VIRTUAL_PID_STEP + 1 processes at a time.  With a MAX_VIRTUAL_PID of 1000000
+// that was only 961: an MPI job with more ranks hung at launch.  Virtual pids
+// are never seen by the kernel, so they do not have to fit in pid_max.
 #define INITIAL_VIRTUAL_PID         ((pid_t)40000)
 #define VIRTUAL_PID_STEP            ((pid_t)1000)
-#define MAX_VIRTUAL_PID             ((pid_t)1000000)
+#define MAX_VIRTUAL_PID             ((pid_t)1000000000)
 
 // NEEDED FOR STRINGIFY(DEFAULT_PORT)
 #define QUOTE(arg) #arg
