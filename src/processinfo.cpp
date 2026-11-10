@@ -22,11 +22,13 @@
 #include "processinfo.h"
 #include <fcntl.h>
 #include <fenv.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
@@ -237,6 +239,25 @@ ProcessInfo::instance()
   return *pInfo;
 }
 
+// Whether touching an address far below the stack pointer extends the stack
+// mapping down to it.  x86 Linux refused such faults (more than 64 KiB below
+// %rsp) until 4.20 (commit 1d8ca3be86eb, "x86/mm/fault: Allow stack access
+// below %rsp"); elsewhere, and on older kernels, keep the page-by-page way.
+static bool
+stackGrowsOnFaultBelowSp()
+{
+#if defined(__x86_64__) || defined(__i386__)
+  struct utsname u;
+  int major = 0, minor = 0;
+  if (uname(&u) != 0 || sscanf(u.release, "%d.%d", &major, &minor) != 2) {
+    return false;
+  }
+  return major > 4 || (major == 4 && minor >= 20);
+#else
+  return false;
+#endif
+}
+
 void
 ProcessInfo::growStack()
 {
@@ -308,13 +329,44 @@ ProcessInfo::growStack()
                       "failed to find current stack mapping in "
                       "/proc/self/maps");
 
-  if (stackSize > stackArea.size + 4095) {
+  if (stackSize > stackArea.size + 4095 && stackGrowsOnFaultBelowSp()) {
+    // Grow the stack by touching only its new lowest page: the kernel extends
+    // the stack mapping down to the faulting address, and only that page
+    // becomes resident.  Touching every page instead (memset below, or the
+    // probes that -fstack-clash-protection adds to alloca) makes the whole
+    // RLIMIT_STACK resident until it is released: with 'ulimit -s 2097152' and
+    // 112 processes per node that is a peak of 224 GB at launch, enough to get
+    // processes killed for lack of memory.
+    uintptr_t pgsz = (uintptr_t)sysconf(_SC_PAGESIZE);
+    allocSize = stackSize - stackArea.size - 4095;
+    uintptr_t low =
+      ((uintptr_t)stackArea.addr - allocSize + pgsz - 1) & ~(pgsz - 1);
+    *(volatile char *)low = 0;
+    WARN_ERRNO(madvise((void *)low, pgsz, MADV_DONTNEED) == 0,
+               "cannot release the page touched to grow the stack");
+  } else if (stackSize > stackArea.size + 4095) {
     // Grow the stack, if possible
     allocSize = stackSize - stackArea.size - 4095;
     tmpbuf = alloca(allocSize);
     ASSERT_NOT_NULL(tmpbuf, "failed to grow stack: allocSize={}",
                         allocSize);
     memset(tmpbuf, 0, allocSize);
+    // Touching the pages is what makes the kernel extend the stack mapping to
+    // the stack limit; the pages themselves are not needed.  Give them back:
+    // the mapping keeps its size, and the pages become non-resident again, so
+    // they cost no memory and are skipped as zero pages by the checkpoint
+    // writer (residency scan).  Without this the whole RLIMIT_STACK stays
+    // resident and is written in every checkpoint (e.g. 64 MB per process,
+    // or 2 GB per process with 'ulimit -s 2097152').  Only whole pages that
+    // lie entirely inside tmpbuf are released; the frames of this function
+    // and of madvise() are outside it.
+    uintptr_t pgsz = (uintptr_t)sysconf(_SC_PAGESIZE);
+    uintptr_t lo = ((uintptr_t)tmpbuf + pgsz - 1) & ~(pgsz - 1);
+    uintptr_t hi = ((uintptr_t)tmpbuf + allocSize) & ~(pgsz - 1);
+    if (hi > lo) {
+      WARN_ERRNO(madvise((void *)lo, hi - lo, MADV_DONTNEED) == 0,
+                 "cannot release the stack pages touched to grow it");
+    }
   }
 
   if (logEnabled(LogLevel::Trace, DMTCP_LOG_COMPONENT, __FILE__)) {
