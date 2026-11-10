@@ -2,6 +2,7 @@
 
 import os
 import pathlib
+import resource
 import select
 import socket
 import subprocess
@@ -1115,6 +1116,42 @@ class SyntheticCoordinatorWorkerTest(unittest.TestCase):
                 coordinator.process.wait(timeout=5)
             finally:
                 worker.stop()
+
+
+    def test_more_than_961_workers_join(self):
+        # Every process takes a block of VIRTUAL_PID_STEP virtual pids.  With
+        # MAX_VIRTUAL_PID 1000000 there were only 961 blocks, and the 962nd
+        # worker made getNewVirtualPid() loop forever: the coordinator stopped
+        # answering and the computation never started.
+        num_workers = 1000
+        needed = num_workers + 256  # one pipe per worker here, one socket each
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if soft != resource.RLIM_INFINITY and soft < needed:
+            if hard != resource.RLIM_INFINITY and hard < needed:
+                self.skipTest(f"needs {needed} open files; hard limit {hard}")
+            resource.setrlimit(resource.RLIMIT_NOFILE, (needed, hard))
+        with CoordinatorFixture(extra_args=["--timeout", "120"]) as coordinator:
+            workers = []
+            try:
+                for _ in range(num_workers):
+                    workers.append(subprocess.Popen(
+                        [str(SYNTHETIC_WORKER), "127.0.0.1",
+                         str(coordinator.port), "--hold-seconds", "120"],
+                        cwd=str(ROOT),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.DEVNULL,
+                    ))
+                status = self.wait_until_num_peers(coordinator.port,
+                                                   num_workers, timeout=60)
+
+                self.assertCommandSuccess(status)
+                self.assertTrue(status["running"])
+            finally:
+                for worker in workers:
+                    worker.kill()
+                for worker in workers:
+                    worker.wait(timeout=5)
+                    worker.stdout.close()
 
 
 if __name__ == "__main__":
