@@ -2278,6 +2278,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertEqual(command_calls, [
             "dmtcp-unit",
+            "jalloc-unit",
             "autotest-unit",
             "dmtcp-cli",
             "coordinator-synthetic",
@@ -2301,7 +2302,7 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertIn("  exit-on-last   run:PASSED (0.0s)", lines)
         self.assertIn("  dmtcp1         ckpt:PASSED; rstr:PASSED -> "
                       "ckpt:PASSED; rstr:PASSED (0.0s)", lines)
-        self.assertIn("test groups: pass=7 fail=0 skipped=0 total=7", lines)
+        self.assertIn("test groups: pass=8 fail=0 skipped=0 total=8", lines)
 
     def test_autotest_passes_slow_count_to_harness(self):
         captured = {}

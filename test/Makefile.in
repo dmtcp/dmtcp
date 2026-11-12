@@ -92,7 +92,7 @@ TESTS=${notdir ${basename ${shell ls $(srcdir)/*.c $(srcdir)/*.cpp $(srcdir)/*.c
 	${addsuffix .class,${notdir ${basename ${shell ls $(srcdir)/java*.java}}}} \
 	hellompich openmpi
 
-UNIT_TESTS = unit/dmtcp_unit_tests unit/dmtcp_header_c_test.o
+UNIT_TESTS = unit/dmtcp_unit_tests unit/jalloc_unit_tests unit/dmtcp_header_c_test.o
 
 COORDINATOR_SYNTHETIC_WORKER = coordinator_synthetic_worker
 COORDINATOR_SYNTHETIC_LDADD = \
@@ -149,6 +149,16 @@ unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 	  $(srcdir)/unit/pagemap_scan_tests.cpp \
 	  $(srcdir)/unit/guard_region_tests.cpp \
 	  $(COORDINATOR_SYNTHETIC_LDADD)
+
+# Links the jalloc.o of the build itself (the unit tests above replace jalloc).
+unit/jalloc_unit_tests: $(srcdir)/unit/jalloc_unit_tests.cpp \
+		$(srcdir)/unit/unit_test.h \
+		$(top_srcdir)/jalib/jalloc.h \
+		$(top_builddir)/jalib/jalloc.o
+	$(MKDIR_P) unit
+	$(CXX) $(CXXFLAGS) -I$(srcdir)/unit -I$(top_srcdir)/src -o $@ \
+	  $(srcdir)/unit/jalloc_unit_tests.cpp \
+	  $(top_builddir)/jalib/jalloc.o -lpthread $(LIBS)
 
 unit/dmtcp_header_c_test.o: $(srcdir)/unit/dmtcp_header_c_test.c \
 		$(DMTCP_INCLUDE)/dmtcp.h

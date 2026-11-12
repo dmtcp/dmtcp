@@ -59,6 +59,7 @@ test/*
 !test/unit/*.cpp
 !test/unit/*.h
 test/unit/dmtcp_unit_tests
+test/unit/jalloc_unit_tests
 test/unit/*.o
 test/testconfig.py
 test/autotest_config.py
