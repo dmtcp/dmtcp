@@ -1346,6 +1346,28 @@ def require_text_count(text: str, needle: str, minimum: int, label: str):
         )
 
 
+def validate_tcp_reconnect_restart(context: TestContext):
+    index = len(context.processes) - 1
+    restarts = index - len(context.spec.commands) + 1
+    output = context.work.path / f"restart-{index}.out"
+
+    def both_peers_completed_io() -> bool:
+        try:
+            lines = output.read_text(encoding="utf-8",
+                                     errors="replace").splitlines()
+        except OSError:
+            return False
+        for server in (0, 1):
+            marker = f"PROBE server={server} restarts={restarts} count="
+            if not any(line.startswith(marker) and
+                       line[len(marker):].isdigit() for line in lines):
+                return False
+        return True
+
+    context._wait_for(both_peers_completed_io, "tcp-reconnect-io",
+                      f"missing peer I/O after restart {restarts}")
+
+
 def validate_trace_logging_restart(context: TestContext):
     log = read_required_artifact(context, "runtime.log")
     require_text(log, "TRACE", "runtime.log")
@@ -2037,6 +2059,16 @@ class TestRegistry:
             TestSpec("epoll1", 2, ["./test/epoll1"]),
             TestSpec("forkexec", 2, ["./test/forkexec"]),
             TestSpec("client-server", 2, ["./test/client-server"]),
+            TestSpec("tcp-nonblocking-reconnect", 2,
+                     ["./test/tcp-nonblocking-reconnect nonblock server {workdir}/port",
+                      "./test/tcp-nonblocking-reconnect nonblock client {workdir}/port"],
+                     post_restart_validator=validate_tcp_reconnect_restart,
+                     category="Multi-process coordination"),
+            TestSpec("tcp-blocking-reconnect", 2,
+                     ["./test/tcp-nonblocking-reconnect blocking server {workdir}/port",
+                      "./test/tcp-nonblocking-reconnect blocking client {workdir}/port"],
+                     post_restart_validator=validate_tcp_reconnect_restart,
+                     category="Multi-process coordination"),
             TestSpec("seqpacket", 2, ["./test/seqpacket"]),
             TestSpec("shared-memory1", 2, ["./test/shared-memory1"],
                      tags=["slow"]),
