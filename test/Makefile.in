@@ -205,6 +205,9 @@ timer%: timer%.c
 clock: clock.c
 	$(CC) -o $@ $< $(CFLAGS) -lrt
 
+fcntl64-dup: fcntl64-dup.c
+	$(CC) $(CFLAGS) -o $@ $< -ldl
+
 mmap1: mmap1.c
 	$(CC) -o $@ $< $(CFLAGS) -ldl
 

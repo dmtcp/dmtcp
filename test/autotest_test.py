@@ -2642,6 +2642,26 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         for suite in ["unit", "harness", "coordinator"]:
             self.assertIn(f"autotest.py --suite {suite}", makefile)
 
+    def test_fcntl64_requires_a_host_libc_symbol(self):
+        spec = TestSpec("fcntl64-dup", 1, ["/bin/true"])
+        with mock.patch.object(TestRegistry, "_use_m32", return_value=False), \
+             mock.patch.object(autotest_module.os, "uname",
+                               return_value=mock.Mock(machine="x86_64")):
+            for available in (False, True):
+                libc = mock.Mock(spec=["fcntl64"] if available else [])
+                with self.subTest(available=available), \
+                     mock.patch.object(autotest_module.ctypes, "CDLL",
+                                       return_value=libc):
+                    reasons = TestRegistry._disabled_reasons(spec)
+                    self.assertEqual(reasons, [] if available else
+                                     ["fcntl64 is unavailable in the host libc"])
+
+    def test_ordinary_fcntl_does_not_require_fcntl64(self):
+        spec = TestSpec("fcntl-dup", 1, ["/bin/true"])
+        with mock.patch.object(autotest_module.ctypes, "CDLL",
+                               side_effect=AssertionError("must not load")):
+            self.assertEqual(TestRegistry._disabled_reasons(spec), [])
+
     def test_registry_contains_default_flow_smoke_tests(self):
         names = [test.name for test in REGISTRY.select()]
 

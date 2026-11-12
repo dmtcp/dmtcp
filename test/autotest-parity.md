@@ -40,6 +40,14 @@ or executable-path checks enable them.
 | Shells, terminal apps, and language/runtime smoke | `perl`, `python`, `bash`, `dash`, `zsh`, `readline`, `tcsh`, `script`, `vim`, `emacs`, `screen`, `java1`, `cilk1`, `matlab-nodisplay`, `openmp-1`, `openmp-2` |
 | MPI smoke | `hellompich-n1`, `hellompich-n2`, `openmpi` |
 
+## Additional Regression Coverage
+
+These new-harness regressions supplement the legacy migration set.
+
+| Group | Tests |
+| --- | --- |
+| FD duplication regression | `fcntl-dup`, `fcntl64-dup` |
+
 ## Ported With Explicit Limits
 
 | Test | Status | Rationale |
