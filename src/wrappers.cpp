@@ -722,7 +722,17 @@ fcntl(int fd, int cmd, ...)
   WrapperLock wrapperLock;
 
   int res;
-  if (fcntlCmdHasNoArg(cmd)) {
+  if (cmd == F_GETOWN) {
+    // F_GETOWN has no argument and may successfully return a negative PGID,
+    // including -1. errno distinguishes that value from an error.
+    int savedErrno = errno;
+    errno = 0;
+    res = _real_fcntl(fd, cmd);
+    if (res != -1 || errno == 0) {
+      res = realToVirtualFcntlOwner(res);
+      errno = savedErrno;
+    }
+  } else if (fcntlCmdHasNoArg(cmd)) {
     res = _real_fcntl(fd, cmd);
 #ifdef F_SETOWN_EX
   } else if (cmd == F_SETOWN_EX) {
@@ -768,23 +778,13 @@ fcntl(int fd, int cmd, ...)
     va_start(ap, cmd);
     arg = va_arg(ap, int);
     va_end(ap);
-    // PID F_SETOWN/F_GETOWN handling is a PID-owned wrapper concern. If fcntl
+    // PID F_SETOWN handling is a PID-owned wrapper concern. If fcntl
     // must remain core-owned for fd bookkeeping, this is a documented
     // composition point.
     if (cmd == F_SETOWN) {
       arg = virtualToRealFcntlOwner(arg);
     }
-    int savedErrno = errno;
-    if (cmd == F_GETOWN) {
-      errno = 0;
-    }
     res = _real_fcntl(fd, cmd, arg);
-    if (cmd == F_GETOWN && (res != -1 || errno == 0)) {
-      res = realToVirtualFcntlOwner(res);
-      if (res != -1) {
-        errno = savedErrno;
-      }
-    }
   }
 
   if (res != -1 && (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC)) {
@@ -1112,3 +1112,11 @@ posix_openpt(int flags)
 }
 
 }
+
+#if defined(__GLIBC__) && defined(__x86_64__) && !defined(__ILP32__)
+// LP64 x86_64 uses the same command/lock ABI for both entry points. Keep
+// fcntl64 duplication and owner commands in the existing bookkeeping path.
+static_assert(sizeof(struct flock) == sizeof(struct flock64),
+              "fcntl/fcntl64 alias requires identical lock layouts");
+extern "C" __typeof(fcntl) fcntl64 __attribute__((alias("fcntl")));
+#endif

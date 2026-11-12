@@ -9,6 +9,7 @@ if sys.version_info < (3, 7):
 import argparse
 import concurrent.futures
 from collections import Counter
+import ctypes
 import errno
 import json
 import os
@@ -1346,6 +1347,24 @@ def require_text_count(text: str, needle: str, minimum: int, label: str):
         )
 
 
+def validate_fcntl_dup_restart(context: TestContext):
+    index = len(context.processes) - 1
+    output = context.work.path / f"restart-{index}.out"
+    large = int(context.spec.name == "fcntl64-dup")
+    marker = f"PROBE fd64={large} restarts={index} count="
+
+    def pipe_io_completed() -> bool:
+        try:
+            text = output.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return False
+        return any(line.startswith(marker) and line[len(marker):].isdigit()
+                   for line in text.splitlines())
+
+    context._wait_for(pipe_io_completed, "fcntl-dup-io",
+                      f"missing successful pipe I/O after restart {index}")
+
+
 def validate_trace_logging_restart(context: TestContext):
     log = read_required_artifact(context, "runtime.log")
     require_text(log, "TRACE", "runtime.log")
@@ -1779,6 +1798,12 @@ class TestRegistry:
     @classmethod
     def _disabled_reasons(cls, test: TestSpec) -> List[str]:
         reasons = []
+        if test.name == "fcntl64-dup" and (
+                os.uname().machine != "x86_64" or cls._use_m32()):
+            return ["fcntl64 alias is scoped to x86_64 LP64"]
+        if test.name == "fcntl64-dup" and not hasattr(
+                ctypes.CDLL(None), "fcntl64"):
+            return ["fcntl64 is unavailable in the host libc"]
         if cls._use_m32() and test.name in cls.M32_DISABLED_TESTS:
             reasons.append("disabled for m32")
             return reasons
@@ -1866,6 +1891,10 @@ class TestRegistry:
 
         tests = [
             TestSpec("dmtcp1", 1, ["./test/dmtcp1"]),
+            TestSpec("fcntl-dup", 1, ["./test/fcntl64-dup ordinary"],
+                     post_restart_validator=validate_fcntl_dup_restart),
+            TestSpec("fcntl64-dup", 1, ["./test/fcntl64-dup large"],
+                     post_restart_validator=validate_fcntl_dup_restart),
             TestSpec("dmtcp1-trace", 1, ["./test/dmtcp1"],
                      env={"DMTCP_LOG_LEVEL": "trace"},
                      list_notes=["runtime trace logging"]),
