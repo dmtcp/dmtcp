@@ -2068,6 +2068,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                lambda tags, requirements: {}), \
              mock.patch.object(autotest_module.time, "monotonic",
                                lambda: 0.0), \
+             mock.patch.object(autotest_module, "run_command_suites",
+                               return_value=(0, 0, [])), \
              contextlib.redirect_stdout(stdout):
             rc = autotest_module.main()
 
@@ -2126,6 +2128,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                lambda tags, requirements: {}), \
              mock.patch.object(autotest_module.time, "monotonic",
                                lambda: 0.0), \
+             mock.patch.object(autotest_module, "run_command_suites",
+                               return_value=(0, 0, [])), \
              contextlib.redirect_stdout(stdout):
             rc = autotest_module.main()
 
@@ -2192,6 +2196,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                lambda tags, requirements: {}), \
              mock.patch.object(autotest_module.time, "monotonic",
                                lambda: 0.0), \
+             mock.patch.object(autotest_module, "run_command_suites",
+                               return_value=(0, 0, [])), \
              contextlib.redirect_stdout(stdout):
             rc = autotest_module.main()
 
@@ -2279,9 +2285,12 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertEqual(command_calls, [
             "dmtcp-unit",
             "autotest-unit",
+            "readonly-unit",
             "dmtcp-cli",
+            "readonly-cli",
             "coordinator-synthetic",
             "command-json",
+            "readonly-ref",
         ])
         self.assertEqual(integration_calls, [
             "coordinator-exit-on-last",
@@ -2301,7 +2310,21 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
         self.assertIn("  exit-on-last   run:PASSED (0.0s)", lines)
         self.assertIn("  dmtcp1         ckpt:PASSED; rstr:PASSED -> "
                       "ckpt:PASSED; rstr:PASSED (0.0s)", lines)
-        self.assertIn("test groups: pass=7 fail=0 skipped=0 total=7", lines)
+        self.assertIn("test groups: pass=10 fail=0 skipped=0 total=10", lines)
+
+    def test_readonly_reference_tests_use_standard_suites(self):
+        commands = {spec.name: spec for spec in autotest_module.COMMAND_TESTS}
+        self.assertEqual(commands["readonly-ref"].suite, "integration")
+        self.assertEqual(commands["readonly-unit"].suite, "harness")
+        self.assertEqual(commands["readonly-cli"].suite, "harness")
+        self.assertIn("readonly-ref", [
+            spec.name for spec in
+            autotest_module.command_tests_for_suites(["integration"])
+        ])
+        self.assertNotIn("readonly-ref", [
+            spec.name for spec in
+            autotest_module.command_tests_for_suites(["unit", "harness"])
+        ])
 
     def test_autotest_passes_slow_count_to_harness(self):
         captured = {}
@@ -2332,6 +2355,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                FakeHarness), \
              mock.patch.object(autotest_module, "run_with_optional_retry",
                                fake_run_with_optional_retry), \
+             mock.patch.object(autotest_module, "run_command_suites",
+                               return_value=(0, 0, [])), \
              contextlib.redirect_stdout(stdout):
             rc = autotest_module.main()
 
@@ -2422,6 +2447,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                lambda tags, requirements: {}), \
              mock.patch.object(autotest_module.time, "monotonic",
                                lambda: 0.0), \
+             mock.patch.object(autotest_module, "run_command_suites",
+                               return_value=(0, 0, [])), \
              contextlib.redirect_stdout(stdout):
             rc = autotest_module.main()
 
@@ -2502,6 +2529,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                lambda tags, requirements: {}), \
              mock.patch.object(autotest_module.time, "monotonic",
                                lambda: 0.0), \
+             mock.patch.object(autotest_module, "run_command_suites",
+                               return_value=(0, 0, [])), \
              contextlib.redirect_stdout(stdout):
             rc = autotest_module.main()
 
@@ -2565,6 +2594,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
                                lambda tags, requirements: {}), \
              mock.patch.object(autotest_module.time, "monotonic",
                                lambda: 0.0), \
+             mock.patch.object(autotest_module, "run_command_suites",
+                               return_value=(0, 0, [])), \
              contextlib.redirect_stdout(stdout):
             rc = autotest_module.main()
 
@@ -2638,7 +2669,8 @@ class DmtcpTestHarnessUnitTest(unittest.TestCase):
 
         self.assertRegex(makefile, r"(?m)^check-prereqs: "
                          r"\$\(UNIT_TESTS\) "
-                         r"\$\(COORDINATOR_SYNTHETIC_WORKER\)$")
+                         r"\$\(COORDINATOR_SYNTHETIC_WORKER\) "
+                         r"\$\(READONLY_REF_TESTS\)$")
         for suite in ["unit", "harness", "coordinator"]:
             self.assertIn(f"autotest.py --suite {suite}", makefile)
 

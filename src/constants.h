@@ -85,6 +85,9 @@
 #define ENV_VAR_HIJACK_LIBS_M32     "DMTCP_HIJACK_LIBS_M32"
 #define ENV_VAR_CHECKPOINT_DIR      "DMTCP_CHECKPOINT_DIR"
 #define ENV_VAR_TMPDIR              "DMTCP_TMPDIR"
+#define ENV_VAR_EXTERNALIZE_RO     "DMTCP_EXTERNALIZE_RO"
+#define ENV_VAR_RO_INCLUDE         "DMTCP_RO_INCLUDE"
+#define ENV_VAR_RO_EXCLUDE         "DMTCP_RO_EXCLUDE"
 #define ENV_VAR_CKPT_OPEN_FILES     "DMTCP_CKPT_OPEN_FILES"
 #define ENV_VAR_SKIP_TRUNCATE_FILE_AT_RESTART \
                                     "DMTCP_SKIP_TRUNCATE_FILE_AT_RESTART"
@@ -156,6 +159,9 @@
   ENV_VAR_CHECKPOINT_DIR,             \
   ENV_VAR_TMPDIR,                     \
   ENV_VAR_CKPT_OPEN_FILES,            \
+  ENV_VAR_EXTERNALIZE_RO,            \
+  ENV_VAR_RO_INCLUDE,                \
+  ENV_VAR_RO_EXCLUDE,                \
   ENV_VAR_QUIET,                      \
   ENV_VAR_LOG_LEVEL,                  \
   ENV_VAR_LOG_OVERRIDES,              \

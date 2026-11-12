@@ -280,6 +280,8 @@ typedef struct {
 
 typedef void (*PostRestartFnPtr_t)(double, int);
 #define DMTCP_CKPT_SIGNATURE "DMTCP_CHECKPOINT_IMAGE_v4.0\n"
+// Separate signature: ordinary readers must reject reference images.
+#define DMTCP_REF_CKPT_SIGNATURE "DMTCP_REF_IMAGE_DRAFT_v1\n"
 typedef struct {
   char ckptSignature[32];
 

@@ -148,7 +148,8 @@ mtcp_simulateread(RestoreInfo *rinfo)
   // Read the second copy of the header (typically read by mtcp_restart).
   MTCP_ASSERT(mtcp_readfile(rinfo->fd, &hdr, sizeof hdr) == sizeof hdr);
 
-  if (mtcp_strcmp(hdr.ckptSignature, DMTCP_CKPT_SIGNATURE) != 0) {
+  if (mtcp_strcmp(hdr.ckptSignature, DMTCP_CKPT_SIGNATURE) != 0 &&
+      mtcp_strcmp(hdr.ckptSignature, DMTCP_REF_CKPT_SIGNATURE) != 0) {
     MTCP_PRINTF("***ERROR: ckpt image doesn't match DMTCP_CKPT_SIGNATURE\n");
     mtcp_sys_close(rinfo->fd);
     mtcp_sys_exit(-1);  /* exit with error code 1 */
@@ -175,7 +176,8 @@ mtcp_simulateread(RestoreInfo *rinfo)
     }
 
     if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
-        (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
+        (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0 &&
+        (area.properties & DMTCP_EXTERNAL_RO_FILE) == 0) {
 
       off_t seekLen = area.size;
       if (!(area.flags & MAP_ANONYMOUS) && area.mmapFileSize > 0) {
@@ -973,6 +975,13 @@ read_one_memory_area(RestoreInfo *rinfo, int fd, VA endOfStack)
                 area.size, area.addr, area.name, area.offset);
       }
 
+      if (area.properties & DMTCP_EXTERNAL_RO_FILE) {
+        MTCP_ASSERT(imagefd >= 0 && area.name[0] == '/' &&
+                    (area.flags & MAP_PRIVATE) &&
+                    !(area.flags & (MAP_ANONYMOUS | MAP_SHARED)));
+        MTCP_ASSERT(area.offset >= 0);
+        MTCP_ASSERT(!(area.prot & PROT_WRITE));
+      }
       /* Create the memory area */
 
       // If the region is marked as private but without a backing file (i.e.,
@@ -1043,7 +1052,10 @@ read_one_memory_area(RestoreInfo *rinfo, int fd, VA endOfStack)
        */
 
       /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
-      if (area.mmapFileSize > 0 && area.name[0] == '/') {
+      if (area.properties & DMTCP_EXTERNAL_RO_FILE) {
+        /* Read-only bytes are already mapped from the referenced library. */
+        MTCP_ASSERT(!(area.prot & PROT_WRITE));
+      } else if (area.mmapFileSize > 0 && area.name[0] == '/') {
         DPRINTF(rinfo, "restoring memory region %p of %p bytes at %p\n",
                     area.mmapFileSize, area.size, area.addr);
         mtcp_readfile(fd, area.addr, area.mmapFileSize);

@@ -33,6 +33,7 @@
 #include "constants.h"
 #include "dmtcp.h"
 #include "guardpages.h"
+#include "readonly_refs.h"
 #include "processinfo.h"
 #include "procmapsarea.h"
 #include "procselfmaps.h"
@@ -142,6 +143,53 @@ writeAreaHeader(int fd, Area *area)
          "invalid checkpoint area bounds: addr={} size={} end={}",
          area->addr, area->size, area->endAddr);
   writeCkptAll(fd, area, sizeof(*area), "area header");
+}
+
+// Compare directly with the original file while application threads are
+// suspended. No heap allocation or file mapping may be introduced here.
+static bool
+referenceReadOnlyArea(const Area &area)
+{
+  if (!ReadOnlyRefs::selected(area.name) || area.properties != 0 ||
+      !(area.flags & MAP_PRIVATE) ||
+      (area.flags & (MAP_ANONYMOUS | MAP_SHARED)) ||
+      (area.prot & PROT_WRITE) || area.size == 0 || area.offset < 0 ||
+      Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
+    return false;
+  }
+  uintptr_t guardStart, guardEnd;
+  if (GuardPages::nextRangeAfter((uintptr_t)area.addr, &guardStart, &guardEnd) &&
+      guardStart < (uintptr_t)area.endAddr) {
+    return false;
+  }
+  int source = _real_open(area.name, O_RDONLY | O_CLOEXEC);
+  if (source < 0) return false;
+  struct stat before, after;
+  bool equal = fstat(source, &before) == 0 && S_ISREG(before.st_mode) &&
+               area.offset <= before.st_size &&
+               area.size <= (uint64_t)(before.st_size - area.offset);
+  char buffer[8192];
+  size_t compared = 0;
+  while (equal && compared < area.size) {
+    size_t bytes = area.size - compared;
+    if (bytes > sizeof(buffer)) bytes = sizeof(buffer);
+    ssize_t count = pread(source, buffer, bytes, area.offset + compared);
+    if (count < 0 && errno == EINTR) continue;
+    if (count <= 0 || memcmp(buffer, area.addr + compared, count) != 0) {
+      equal = false;
+    } else {
+      compared += count;
+    }
+  }
+  equal = equal && fstat(source, &after) == 0 &&
+          before.st_dev == after.st_dev && before.st_ino == after.st_ino &&
+          before.st_size == after.st_size &&
+          before.st_mtim.tv_sec == after.st_mtim.tv_sec &&
+          before.st_mtim.tv_nsec == after.st_mtim.tv_nsec &&
+          before.st_ctim.tv_sec == after.st_ctim.tv_sec &&
+          before.st_ctim.tv_nsec == after.st_ctim.tv_nsec;
+  _real_close(source);
+  return equal;
 }
 
 /*****************************************************************************
@@ -703,6 +751,8 @@ writememoryarea(int fd, Area area)
       }
     }
 
+    bool reference = referenceReadOnlyArea(area);
+    if (reference) area.properties |= DMTCP_EXTERNAL_RO_FILE;
     writeAreaHeader(fd, &area);
 
     // NOTE: We cannot use lseek(SEEK_CUR) to detect how much data was
@@ -711,7 +761,9 @@ writememoryarea(int fd, Area area)
     // writeCkptSkippingGuards(), not writeCkptAll(): the kernel does accept
     // MADV_GUARD_INSTALL on file-backed mappings, despite madvise(2)
     // documenting it as anonymous-only.
-    if (area.mmapFileSize > 0) {
+    if (reference) {
+      // The ordinary Area header retains the absolute path and file offset.
+    } else if (area.mmapFileSize > 0) {
       writeCkptSkippingGuards(fd, area.addr, area.mmapFileSize,
                               "file-backed mapped data");
     } else {

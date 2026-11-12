@@ -45,6 +45,7 @@
 #include <unistd.h>
 #include "ckptserializer.h"
 #include "constants.h"
+#include "readonly_refs.h"
 #include "dmtcp.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
@@ -430,6 +431,12 @@ CkptSerializer::writeCkptImage(DmtcpCkptHeader ckptHdr,
   ASSERT(use_compression || fd == fdCkptFileOnDisk,
          "checkpoint fd mismatch without compression: fd={} disk_fd={}", fd,
          fdCkptFileOnDisk);
+
+  if (dmtcp::ReadOnlyRefs::enabled()) {
+    strcpy(ckptHdr.ckptSignature, DMTCP_REF_CKPT_SIGNATURE);
+  } else {
+    strcpy(ckptHdr.ckptSignature, DMTCP_CKPT_SIGNATURE);
+  }
 
   // Write ckpt header twice. It's read once by dmtcp_restart and again by
   // mtcp_restart.

@@ -17,6 +17,8 @@ extern const dmtcp_test::TestCase pagemapScanTests[];
 extern const size_t pagemapScanTestCount;
 extern const dmtcp_test::TestCase guardRegionTests[];
 extern const size_t guardRegionTestCount;
+extern const dmtcp_test::TestCase readOnlyRefTests[];
+extern const size_t readOnlyRefTestCount;
 
 int
 main()
@@ -34,6 +36,9 @@ main()
                pagemapScanTests + pagemapScanTestCount);
   tests.insert(tests.end(), guardRegionTests,
                guardRegionTests + guardRegionTestCount);
+
+  tests.insert(tests.end(), readOnlyRefTests,
+               readOnlyRefTests + readOnlyRefTestCount);
 
   return dmtcp_test::runTests(std::span<const dmtcp_test::TestCase>(tests));
 }

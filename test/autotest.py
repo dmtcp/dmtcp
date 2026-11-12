@@ -2601,6 +2601,24 @@ COMMAND_TESTS = (
         [sys.executable, "./test_dmtcp_cli.py"],
     ),
     CommandTestSpec(
+        "readonly-unit",
+        "Harness tests",
+        "harness",
+        [sys.executable, "./readonly-ref/test_helpers.py"],
+    ),
+    CommandTestSpec(
+        "readonly-cli",
+        "CLI option tests",
+        "harness",
+        [sys.executable, "./readonly-ref/test_cli.py"],
+    ),
+    CommandTestSpec(
+        "readonly-ref",
+        "Read-only file references",
+        "integration",
+        [sys.executable, "./readonly-ref/validate.py", "--repeats", "1"],
+    ),
+    CommandTestSpec(
         "coordinator-synthetic",
         COORDINATOR_PROTOCOL_CATEGORY,
         "coordinator",
