@@ -81,10 +81,25 @@ _alloc_raw(size_t n)
 
 #  ifdef JALLOC_DEBUG_STATS
   if (p != MAP_FAILED) {
-    int idx = __sync_fetch_and_add(&numAllocArenas, 1);
-    if (idx < MAX_ARENAS) {
-      allocArenas[idx].startAddr = p;
-      allocArenas[idx].endAddr = (char*)p + n;
+    // Reuse a slot freed by _dealloc_raw() before taking a new one: the table
+    // has MAX_ARENAS entries, and a long-running process (e.g. the coordinator,
+    // which allocates a large string for every big kvdb value each checkpoint)
+    // makes far more raw allocations than that over its lifetime.
+    bool stored = false;
+    int used = numAllocArenas < MAX_ARENAS ? numAllocArenas : MAX_ARENAS;
+    for (int i = 0; i < used && !stored; i++) {
+      if (allocArenas[i].startAddr == NULL &&
+          __sync_bool_compare_and_swap(&allocArenas[i].startAddr, (void *)NULL, p)) {
+        allocArenas[i].endAddr = (char*)p + n;
+        stored = true;
+      }
+    }
+    if (!stored) {
+      int idx = __sync_fetch_and_add(&numAllocArenas, 1);
+      if (idx < MAX_ARENAS) {
+        allocArenas[idx].startAddr = p;
+        allocArenas[idx].endAddr = (char*)p + n;
+      }
     }
   }
 #  endif // ifdef JALLOC_DEBUG_STATS
@@ -111,10 +126,16 @@ _dealloc_raw(void *ptr, size_t n)
   }
 
 #  ifdef JALLOC_DEBUG_STATS
-  for (int i = 0; i < numAllocArenas; i++) {
+  // numAllocArenas counts every slot ever taken and can exceed MAX_ARENAS:
+  // never read past the end of allocArenas (that was a SIGSEGV here in the
+  // coordinator once it had made more than MAX_ARENAS raw allocations).
+  int used = numAllocArenas < MAX_ARENAS ? numAllocArenas : MAX_ARENAS;
+  for (int i = 0; i < used; i++) {
     if (allocArenas[i].startAddr == ptr) {
-      allocArenas[i].startAddr = NULL;
+      // endAddr first: once startAddr is NULL, _alloc_raw() may reuse the slot
       allocArenas[i].endAddr = NULL;
+      __sync_synchronize();
+      allocArenas[i].startAddr = NULL;
       break;
     }
   }
