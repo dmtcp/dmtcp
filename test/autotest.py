@@ -1346,6 +1346,24 @@ def require_text_count(text: str, needle: str, minimum: int, label: str):
         )
 
 
+def validate_fast_mmap_restart(context: TestContext):
+    index = len(context.processes) - 1
+    output = context.work.path / f"restart-{index}.out"
+    mode = context.spec.name[len("fast-mmap-"):]
+    marker = f"PROBE mode={mode} restarts={index} count="
+
+    def memory_checks_completed() -> bool:
+        try:
+            text = output.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return False
+        return any(line.startswith(marker) and line[len(marker):].isdigit()
+                   for line in text.splitlines())
+
+    context._wait_for(memory_checks_completed, "fast-mmap-content",
+                      f"missing memory validation after restart {index}")
+
+
 def validate_trace_logging_restart(context: TestContext):
     log = read_required_artifact(context, "runtime.log")
     require_text(log, "TRACE", "runtime.log")
@@ -1982,6 +2000,12 @@ class TestRegistry:
             TestSpec("file3", 1, ["./test/file3"]),
             TestSpec("stat", 1, ["./test/stat"]),
             TestSpec("mmap1", 1, ["./test/mmap1"]),
+            TestSpec("fast-mmap-stack", 1, ["./test/fast-mmap stack"],
+                     post_restart_validator=validate_fast_mmap_restart),
+            TestSpec("fast-mmap-sparse", 1, ["./test/fast-mmap sparse"],
+                     post_restart_validator=validate_fast_mmap_restart),
+            TestSpec("fast-mmap-tail", 1, ["./test/fast-mmap tail {workdir}/fast-tail.bin"],
+                     post_restart_validator=validate_fast_mmap_restart),
             TestSpec("mremap", 1, ["./test/mremap"]),
             # Regression guard for restoring the program break when the
             # kernel's break after restart lies above the saved one
