@@ -914,7 +914,15 @@ read_one_memory_area(RestoreInfo *rinfo, int fd, VA endOfStack)
      *   anonymous (~MAP_ANONYMOUS).  It's okay, since the fd
      *   should have been opened with read permission, only.
      */
-    else if (area.flags & MAP_ANONYMOUS) {
+    else if ((area.flags & MAP_ANONYMOUS) &&
+             !(area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) &&
+             !(area.flags & MAP_GROWSDOWN) &&
+             (mtcp_sys_lseek(fd, 0, SEEK_CUR) % MTCP_PAGE_SIZE) == 0) {
+      // Parent headers have no payload. A nonzero child replaces its part
+      // of the parent's reservation. Unaligned payloads use readfile below.
+      if (area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) {
+        MTCP_ASSERT(mtcp_sys_munmap(area.addr, area.size) == 0);
+      }
       mmapfile (rinfo, fd, area.addr, area.size, area.prot,
                 area.flags & ~MAP_ANONYMOUS);
     }
