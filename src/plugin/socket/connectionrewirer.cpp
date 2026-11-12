@@ -130,6 +130,8 @@ ConnectionRewirer::doReconnect()
     Connection *con = i->second;
     struct RemoteAddr &remoteAddr = _remoteInfo[id];
     int fd = con->getFds()[0];
+    // Internal connect/write must finish before restoring application flags.
+    markSocketBlocking(fd);
     errno = 0;
     ASSERT_NE(-1,
               _real_connect(fd,
