@@ -841,7 +841,7 @@ dmtcpversioninclude_HEADERS = $(srcdir)/../include/dmtcp/version.h
 # headers:
 nobase_noinst_HEADERS = ckptserializer.h constants.h coordinatorapi.h \
 	coordinatorplugin.h dmtcp_coordinator.h dmtcprestartinternal.h \
-	dmtcpmessagetypes.h dmtcpworker.h guardpages.h json.h logger.h \
+	dmtcpmessagetypes.h dmtcpworker.h guardpages.h readonly_refs.h json.h logger.h \
 	lookup_service.h ldt.h plugininfo.h pluginmanager.h \
 	processinfo.h restartscript.h tls.h siginfo.h \
 	syscallwrappers.h threadinfo.h threadlist.h threadsync.h \

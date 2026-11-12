@@ -44,7 +44,9 @@ void main_new_stack(RestoreInfo *rinfo)
 
   int rc = mtcp_readfile(rinfo->fd, &rinfo->ckptHdr, sizeof (rinfo->ckptHdr));
   MTCP_ASSERT(rc == sizeof (rinfo->ckptHdr));
-  MTCP_ASSERT(mtcp_strcmp(rinfo->ckptHdr.ckptSignature, DMTCP_CKPT_SIGNATURE) == 0);
+  MTCP_ASSERT(
+    mtcp_strcmp(rinfo->ckptHdr.ckptSignature, DMTCP_CKPT_SIGNATURE) == 0 ||
+    mtcp_strcmp(rinfo->ckptHdr.ckptSignature, DMTCP_REF_CKPT_SIGNATURE) == 0);
 
   mtcp_restart(rinfo);
 }

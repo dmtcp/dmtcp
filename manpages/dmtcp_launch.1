@@ -98,6 +98,29 @@ is specified
 WARNING: gzip adds seconds. Without gzip, ckpt is often < 1s 
 .PP
 .TP
+\fB\-\-externalize\-readonly\fP
+Omit byte-identical private read-only file contents from checkpoint images.
+This is optional; without it, images retain their embedded contents.
+Default candidates have .so in their basename. Referenced files must remain
+immutable and available at their original absolute paths during restart.
+Contents are compared during checkpoint; restart does not verify file hashes.
+.PP
+.TP
+\fB\-\-readonly\-include\fP \fIPATH_OR_GLOB\fP
+Add an absolute file, directory, or full-path glob to the default candidates.
+Repeat this option for multiple rules. Quote globs to avoid shell expansion.
+The option requires \fB\-\-externalize\-readonly\fP and never bypasses
+mapping permissions, backing-file coverage, or byte-identity checks.
+.PP
+.TP
+\fB\-\-readonly\-exclude\fP \fIPATH_OR_GLOB\fP
+Exclude matching paths, taking precedence over defaults and includes.
+The option is repeatable and requires \fB\-\-externalize\-readonly\fP.
+Literal directory rules include descendants at path boundaries. Glob matching
+supports *, ?, and byte bracket ranges; * may cross directory separators.
+Backslash is literal. Paths are matched as recorded, without symlink resolution.
+.PP
+.TP
 \fB\-\-ckptdir\fP \fIpath\fP (environment variable DMTCP_CHECKPOINT_DIR)
  Directory to store checkpoint images (default: curr dir at launch) 
 .PP

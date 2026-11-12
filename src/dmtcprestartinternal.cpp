@@ -622,7 +622,9 @@ readCkptHeader(const string &path, DmtcpCkptHeader *ckptHdr)
                path.c_str());
 
   ASSERT_EQ(sizeof(*ckptHdr), (size_t)Util::readAll(fd, ckptHdr, sizeof(*ckptHdr)));
-  ASSERT_EQ(DMTCP_CKPT_SIGNATURE, string(ckptHdr->ckptSignature));
+  ASSERT(string(ckptHdr->ckptSignature) == DMTCP_CKPT_SIGNATURE ||
+           string(ckptHdr->ckptSignature) == DMTCP_REF_CKPT_SIGNATURE,
+         "Unsupported image signature");
 
   return fd;
 }
@@ -660,7 +662,8 @@ openCkptFileToRead(const string &filename)
                         Util::readAll(fd, &ckptHdr, sizeof(ckptHdr)),
                         "failed to read checkpoint header: path={}",
                         filename.c_str());
-  if (string(ckptHdr.ckptSignature) == DMTCP_CKPT_SIGNATURE) {
+  if (string(ckptHdr.ckptSignature) == DMTCP_CKPT_SIGNATURE ||
+      string(ckptHdr.ckptSignature) == DMTCP_REF_CKPT_SIGNATURE) {
     // Uncompressed file. Rewind and return.
     ASSERT_ERRNO(lseek(fd, 0, SEEK_SET) != -1,
                  "failed to rewind checkpoint file: path={}", filename);

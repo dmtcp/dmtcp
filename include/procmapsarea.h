@@ -66,7 +66,9 @@ typedef char *VA;  /* VA = virtual address */
 typedef enum ProcMapsAreaProperties {
   DMTCP_ZERO_PAGE                  = 0x0001,
   DMTCP_ZERO_PAGE_PARENT_HEADER    = 0x0002,
-  DMTCP_ZERO_PAGE_CHILD_HEADER     = 0x0004
+  DMTCP_ZERO_PAGE_CHILD_HEADER     = 0x0004,
+  // Experimental reference images omit payload for immutable library pages.
+  DMTCP_EXTERNAL_RO_FILE           = 0x1000
 } ProcMapsAreaProperties;
 
 typedef union ProcMapsArea {

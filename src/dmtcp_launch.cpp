@@ -22,6 +22,7 @@
 #include <sys/resource.h>
 #include <linux/version.h>
 #include <errno.h>
+#include <limits.h>
 #include <string_view>
 #include <unistd.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
@@ -100,6 +101,15 @@ static const char *theUsage =
   "  --ckptdir PATH (environment variable DMTCP_CHECKPOINT_DIR)\n"
   "              Directory to store checkpoint images\n"
   "              (default: curr dir at launch)\n"
+  "  --externalize-readonly\n"
+  "              Omit byte-identical private read-only file contents.\n"
+  "              Default candidates are shared libraries; requires immutable\n"
+  "              backing files at their original paths when restarting.\n"
+  "  --readonly-include PATH_OR_GLOB (repeatable)\n"
+  "              Add absolute file/directory/glob candidates.\n"
+  "  --readonly-exclude PATH_OR_GLOB (repeatable)\n"
+  "              Exclude candidates; overrides defaults and includes.\n"
+  "              Both selectors require --externalize-readonly.\n"
   "  --ckpt-open-files\n"
   "  --checkpoint-open-files\n"
   "              Checkpoint open files and restore old working dir.\n"
@@ -310,6 +320,24 @@ processArgs(int *orig_argc, const char ***orig_argv)
     } else if (argc > 1 && s == "--ckpt-signal") {
       setenv(ENV_VAR_SIGCKPT, argv[1], 1);
       shift; shift;
+    } else if (s == "--externalize-readonly") {
+      setenv(ENV_VAR_EXTERNALIZE_RO, "1", 1);
+      shift;
+    } else if (s == "--readonly-include" || s == "--readonly-exclude") {
+      if (argc < 2 || argv[1][0] != '/' || strchr(argv[1], '\n') != NULL ||
+          strlen(argv[1]) >= PATH_MAX) {
+        fprintf(stderr, "%s requires an absolute path/glob shorter than PATH_MAX\n",
+                argv[0]);
+        exit(DMTCP_FAIL_RC);
+      }
+      const char *variable = s == "--readonly-include" ?
+                             ENV_VAR_RO_INCLUDE : ENV_VAR_RO_EXCLUDE;
+      const char *old = getenv(variable);
+      string rules = old == NULL ? "" : old;
+      if (!rules.empty()) rules += "\n";
+      rules += argv[1];
+      setenv(variable, rules.c_str(), 1);
+      shift; shift;
     } else if (s == "--checkpoint-open-files" || s == "--ckpt-open-files") {
       checkpointOpenFiles = true;
       shift;
@@ -408,6 +436,14 @@ processArgs(int *orig_argc, const char ***orig_argv)
     } else {
       break;
     }
+  }
+
+  if ((getenv(ENV_VAR_RO_INCLUDE) != NULL ||
+       getenv(ENV_VAR_RO_EXCLUDE) != NULL) &&
+      (getenv(ENV_VAR_EXTERNALIZE_RO) == NULL ||
+       strcmp(getenv(ENV_VAR_EXTERNALIZE_RO), "1") != 0)) {
+    fprintf(stderr, "read-only selectors require --externalize-readonly\n");
+    exit(DMTCP_FAIL_RC);
   }
 
 #ifdef FAST_RST_VIA_MMAP

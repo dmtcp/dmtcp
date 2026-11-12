@@ -93,6 +93,7 @@ TESTS=${notdir ${basename ${shell ls $(srcdir)/*.c $(srcdir)/*.cpp $(srcdir)/*.c
 	hellompich openmpi
 
 UNIT_TESTS = unit/dmtcp_unit_tests unit/dmtcp_header_c_test.o
+READONLY_REF_TESTS = readonly-ref/probe readonly-ref/libfixture.so
 
 COORDINATOR_SYNTHETIC_WORKER = coordinator_synthetic_worker
 COORDINATOR_SYNTHETIC_LDADD = \
@@ -103,7 +104,7 @@ COORDINATOR_SYNTHETIC_LDADD = \
 	-Wl,--end-group \
 	-lpthread -lrt -ldl $(LIBS)
 
-check-prereqs: $(UNIT_TESTS) $(COORDINATOR_SYNTHETIC_WORKER)
+check-prereqs: $(UNIT_TESTS) $(COORDINATOR_SYNTHETIC_WORKER) $(READONLY_REF_TESTS)
 	@:
 
 check-unit: $(UNIT_TESTS)
@@ -132,6 +133,8 @@ unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 		$(srcdir)/unit/virtualidtable_tests.cpp \
 		$(srcdir)/unit/pagemap_scan_tests.cpp \
 		$(srcdir)/unit/guard_region_tests.cpp \
+		$(srcdir)/unit/readonly_ref_tests.cpp \
+		$(top_srcdir)/src/readonly_refs.h \
 		$(srcdir)/unit/unit_test.h \
 		$(DMTCP_INCLUDE)/dmtcp.h \
 		$(DMTCP_INCLUDE)/virtualidtable.h \
@@ -148,6 +151,7 @@ unit/dmtcp_unit_tests: $(srcdir)/unit/main.cpp \
 	  $(srcdir)/unit/virtualidtable_tests.cpp \
 	  $(srcdir)/unit/pagemap_scan_tests.cpp \
 	  $(srcdir)/unit/guard_region_tests.cpp \
+	  $(srcdir)/unit/readonly_ref_tests.cpp \
 	  $(COORDINATOR_SYNTHETIC_LDADD)
 
 unit/dmtcp_header_c_test.o: $(srcdir)/unit/dmtcp_header_c_test.c \
@@ -155,8 +159,16 @@ unit/dmtcp_header_c_test.o: $(srcdir)/unit/dmtcp_header_c_test.c \
 	$(MKDIR_P) unit
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+readonly-ref/probe: $(srcdir)/readonly-ref/probe.c $(DMTCP_INCLUDE)/dmtcp.h
+	$(MKDIR_P) readonly-ref
+	$(CC) $(CFLAGS) -o $@ $< -ldl
+
+readonly-ref/libfixture.so: $(srcdir)/readonly-ref/fixture.c
+	$(MKDIR_P) readonly-ref
+	$(CC) $(CFLAGS) -shared -DSNAPSHOT_PAGE_SIZE=$$(getconf PAGESIZE) -o $@ $<
+
 # Compile plugins first; Otherwise, errors in standard tests scroll off screen.
-tests: plugins $(TESTS) $(TESTS_MULTILIB)
+tests: plugins $(TESTS) $(TESTS_MULTILIB) $(READONLY_REF_TESTS)
 	#${MAKE} -C credentials
 
 plugins:
@@ -170,7 +182,7 @@ tidy:
 
 clean: tidy
 	rm -f $(TESTS) $(TESTS_MULTILIB) $(UNIT_TESTS) \
-	  $(COORDINATOR_SYNTHETIC_WORKER) unit/*.o *.pyc *.so
+	  $(COORDINATOR_SYNTHETIC_WORKER) $(READONLY_REF_TESTS) unit/*.o *.pyc *.so
 	#${MAKE} -C credentials clean
 	cd plugin && $(MAKE) clean
 

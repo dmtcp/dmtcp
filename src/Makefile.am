@@ -108,6 +108,7 @@ nobase_noinst_HEADERS =						\
 			dmtcpmessagetypes.h			\
 			dmtcpworker.h				\
 			guardpages.h				\
+			readonly_refs.h				\
 			json.h					\
 			logger.h				\
 			lookup_service.h			\
