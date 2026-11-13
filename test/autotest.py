@@ -2589,6 +2589,12 @@ COMMAND_TESTS = (
         ["./unit/dmtcp_unit_tests"],
     ),
     CommandTestSpec(
+        "jalloc-unit",
+        "Unit tests",
+        "unit",
+        ["./unit/jalloc_unit_tests"],
+    ),
+    CommandTestSpec(
         "autotest-unit",
         "Harness tests",
         "harness",
